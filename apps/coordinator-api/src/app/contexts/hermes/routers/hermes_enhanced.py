@@ -31,7 +31,7 @@ from ....schemas.hermes_enhanced import (
     SkillRoutingRequest,
     SkillRoutingResponse,
 )
-from ....services.hermes_enhanced import hermesEnhancedService
+from ..services.hermes_enhanced import hermesEnhancedService
 from ....storage import get_session
 
 router = APIRouter(prefix="/hermes/enhanced", tags=["hermes Enhanced"])

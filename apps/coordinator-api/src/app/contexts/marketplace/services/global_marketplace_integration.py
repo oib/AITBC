@@ -13,14 +13,14 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ..agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
+from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ..domain.global_marketplace import (
     GlobalMarketplaceOffer,
 )
-from ..reputation.engine import CrossChainReputationEngine
-from ..services.cross_chain.bridge_enhanced import BridgeProtocol, CrossChainBridgeService
+from ....reputation.engine import CrossChainReputationEngine
+from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol, CrossChainBridgeService
 from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
-from ..services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
+from ....services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
 
 
 class IntegrationStatus(StrEnum):

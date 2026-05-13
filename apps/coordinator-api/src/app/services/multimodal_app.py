@@ -9,9 +9,9 @@ Multi-Modal Agent Service - FastAPI Entry Point
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..routers.multimodal_health import router as health_router
+from ..contexts.multimodal.routers.multimodal_health import router as health_router
 from ..storage import get_session
-from .multimodal_agent import MultiModalAgentService
+from ..contexts.multimodal.services.multimodal_agent import MultiModalAgentService
 
 app = FastAPI(
     title="AITBC Multi-Modal Agent Service",

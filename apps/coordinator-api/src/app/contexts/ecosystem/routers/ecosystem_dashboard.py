@@ -8,13 +8,13 @@ REST API for developer ecosystem metrics and analytics
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from ....auth import get_current_user
+from ....routers.users import get_current_user
 from ....domain.bounty import AgentMetrics, BountyStats, EcosystemMetrics
 from ....services.ecosystem_service import EcosystemService
 from ....storage import get_session
@@ -78,7 +78,7 @@ class EcosystemOverviewResponse(BaseModel):
     growth_indicators: Dict[str, float]
 
 class MetricsFilterRequest(BaseModel):
-    period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$")
+    period_type: str = Field(default="daily", pattern="^(hourly|daily|weekly|monthly)$")
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     compare_period: Optional[str] = None
@@ -92,7 +92,7 @@ def get_ecosystem_service(session: Session = Depends(get_session)) -> EcosystemS
 @rate_limit(rate=200, per=60)
 async def get_developer_earnings(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
     current_user: dict = Depends(get_current_user)
@@ -114,7 +114,7 @@ async def get_developer_earnings(
 @rate_limit(rate=200, per=60)
 async def get_agent_utilization(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> AgentUtilizationResponse:
@@ -135,7 +135,7 @@ async def get_agent_utilization(
 @rate_limit(rate=200, per=60)
 async def get_treasury_allocation(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> TreasuryAllocationResponse:
@@ -156,7 +156,7 @@ async def get_treasury_allocation(
 @rate_limit(rate=200, per=60)
 async def get_staking_metrics(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> StakingMetricsResponse:
@@ -177,7 +177,7 @@ async def get_staking_metrics(
 @rate_limit(rate=200, per=60)
 async def get_bounty_analytics(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> BountyAnalyticsResponse:
@@ -198,7 +198,7 @@ async def get_bounty_analytics(
 @rate_limit(rate=100, per=60)
 async def get_ecosystem_overview(
     request: Request,
-    period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
+    period_type: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> EcosystemOverviewResponse:
@@ -226,10 +226,10 @@ async def get_ecosystem_overview(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_metrics(
     request: Request,
-    period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
+    period_type: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    limit: int = Field(default=100, ge=1, le=1000),
+    limit: int = Query(default=100, ge=1, le=1000),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
@@ -276,7 +276,7 @@ async def get_ecosystem_health_score(
 @rate_limit(rate=200, per=60)
 async def get_growth_indicators(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
@@ -299,9 +299,9 @@ async def get_growth_indicators(
 @rate_limit(rate=200, per=60)
 async def get_top_performers(
     request: Request,
-    category: str = Field(default="all", regex="^(developers|agents|stakers|all)$"),
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    limit: int = Field(default=50, ge=1, le=100),
+    category: str = Query(default="all", pattern="^(developers|agents|stakers|all)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
+    limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
@@ -328,8 +328,8 @@ async def get_top_performers(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_predictions(
     request: Request,
-    metric: str = Field(default="all", regex="^(earnings|staking|bounties|agents|all)$"),
-    horizon: int = Field(default=30, ge=1, le=365),  # days
+    metric: str = Query(default="all", pattern="^(earnings|staking|bounties|agents|all)$"),
+    horizon: int = Query(default=30, ge=1, le=365),  # days
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
@@ -356,7 +356,7 @@ async def get_ecosystem_predictions(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_alerts(
     request: Request,
-    severity: str = Field(default="all", regex="^(low|medium|high|critical|all)$"),
+    severity: str = Query(default="all", pattern="^(low|medium|high|critical|all)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
@@ -379,8 +379,8 @@ async def get_ecosystem_alerts(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_comparison(
     request: Request,
-    current_period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    compare_period: str = Field(default="previous", regex="^(previous|same_last_year|custom)$"),
+    current_period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
+    compare_period: str = Query(default="previous", pattern="^(previous|same_last_year|custom)$"),
     custom_start_date: Optional[datetime] = None,
     custom_end_date: Optional[datetime] = None,
     session: Session = Depends(get_session),
@@ -410,8 +410,8 @@ async def get_ecosystem_comparison(
 @rate_limit(rate=50, per=60)
 async def export_ecosystem_data(
     request: Request,
-    format: str = Field(default="json", regex="^(json|csv|xlsx)$"),
-    period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
+    format: str = Query(default="json", pattern="^(json|csv|xlsx)$"),
+    period_type: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     session: Session = Depends(get_session),

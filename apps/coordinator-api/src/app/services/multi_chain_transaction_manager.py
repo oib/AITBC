@@ -24,7 +24,7 @@ from ..agent_identity.wallet_adapter_enhanced import (
     WalletAdapterFactory,
 )
 from ..reputation.engine import CrossChainReputationEngine
-from ..services.cross_chain.bridge_enhanced import CrossChainBridgeService
+from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService
 
 
 class TransactionPriority(StrEnum):

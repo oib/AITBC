@@ -1,7 +1,7 @@
 
 from pydantic import BaseModel, Field
 
-from .wallet import TransactionStatus, WalletType
+from ..domain.wallet import TransactionStatus, WalletType
 
 
 class WalletCreate(BaseModel):

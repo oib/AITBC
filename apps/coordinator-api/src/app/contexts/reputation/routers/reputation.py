@@ -21,10 +21,14 @@ logger = get_logger(__name__)
 from sqlmodel import Field, func, select
 
 from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationLevel, TrustScoreCategory
-from ....services.reputation_service import ReputationService
+from ..services.reputation_service import ReputationService
 from ....storage import get_session
 
 router = APIRouter(prefix="/v1/reputation", tags=["reputation"])
+
+
+def get_reputation_service(session: Session = Depends(get_session)) -> ReputationService:
+    return ReputationService(session)
 
 
 # Pydantic models for API requests/responses
@@ -558,7 +562,7 @@ async def get_cross_chain_reputation(
     request: Request,
     agent_id: str,
     session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends()
+    reputation_service: ReputationService = Depends(get_reputation_service)
 ) -> Dict[str, Any]:
     """Get cross-chain reputation data for an agent"""
     
@@ -609,7 +613,7 @@ async def sync_cross_chain_reputation(
     agent_id: str,
     background_tasks: Any,  # FastAPI BackgroundTasks
     session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends()
+    reputation_service: ReputationService = Depends(get_reputation_service)
 ) -> Dict[str, Any]:
     """Synchronize reputation across chains for an agent"""
     
@@ -645,7 +649,7 @@ async def get_cross_chain_leaderboard(
     limit: int = Query(50, ge=1, le=100),
     min_score: float = Query(0.0, ge=0.0, le=1.0),
     session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends()
+    reputation_service: ReputationService = Depends(get_reputation_service)
 ) -> Dict[str, Any]:
     """Get cross-chain reputation leaderboard"""
     
@@ -694,7 +698,7 @@ async def submit_cross_chain_event(
     event_data: Dict[str, Any],
     background_tasks: Any,  # FastAPI BackgroundTasks
     session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends()
+    reputation_service: ReputationService = Depends(get_reputation_service)
 ) -> Dict[str, Any]:
     """Submit a cross-chain reputation event"""
     
@@ -760,7 +764,7 @@ async def get_cross_chain_analytics(
     request: Request,
     chain_id: Optional[int] = Query(None),
     session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends()
+    reputation_service: ReputationService = Depends(get_reputation_service)
 ) -> Dict[str, Any]:
     """Get cross-chain reputation analytics"""
     

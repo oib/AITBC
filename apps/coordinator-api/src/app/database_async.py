@@ -47,7 +47,7 @@ def init_async_db() -> None:
         
     try:
         # Build async URL from sync settings
-        sync_url = str(settings.database.url)
+        sync_url = str(settings.database.effective_url)
         async_url = _build_async_url(sync_url)
         
         logger.info(f"Initializing async database connection: {async_url.split('://')[0]}://...")

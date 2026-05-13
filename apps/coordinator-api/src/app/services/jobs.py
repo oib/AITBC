@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from ..domain import Job, JobReceipt, Miner
 from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
-from .payments import PaymentService
+from ..contexts.payments.services.payments import PaymentService
 
 
 class JobService:

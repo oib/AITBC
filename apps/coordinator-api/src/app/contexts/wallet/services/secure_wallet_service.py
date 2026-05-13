@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlmodel import Session
 
-from ..blockchain.contract_interactions import ContractInteractionService
-from ..domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
-from ..schemas.wallet import TransactionRequest, WalletCreate
+# from ...blockchain.services.contract_interactions import ContractInteractionService
+from ....domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
+from ....schemas.wallet import TransactionRequest, WalletCreate
 
 # Import our fixed crypto utilities
 from .wallet_crypto import (

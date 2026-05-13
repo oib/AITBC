@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from aitbc.rate_limiting import rate_limit
 
 from aitbc import get_logger
-from ..services.marketplace_enhanced import EnhancedMarketplaceService
+from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
 from ..storage import get_session
 
 logger = get_logger(__name__)

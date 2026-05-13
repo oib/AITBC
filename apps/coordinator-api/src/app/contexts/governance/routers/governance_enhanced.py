@@ -15,7 +15,7 @@ from ....domain.governance import (
     GovernanceProfile,
     VoteType,
 )
-from ....services.governance_service import GovernanceService
+from ..services.governance_service import GovernanceService
 from ....storage.db import get_session
 
 router = APIRouter(prefix="/governance-enhanced", tags=["Enhanced Governance"])

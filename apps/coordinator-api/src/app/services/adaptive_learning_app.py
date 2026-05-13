@@ -9,7 +9,7 @@ Adaptive Learning Service - FastAPI Entry Point
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..routers.adaptive_learning_health import router as health_router
+from ..contexts.advanced_ai.routers.adaptive_learning_health import router as health_router
 from ..storage import get_session
 from .adaptive_learning import AdaptiveLearningService, LearningAlgorithm
 
