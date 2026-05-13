@@ -9,7 +9,7 @@ GPU Multi-Modal Service - FastAPI Entry Point
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..routers.gpu_multimodal_health import router as health_router
+from ..contexts.gpu_multimodal.routers.gpu_multimodal_health import router as health_router
 from ..storage import get_session
 from .gpu_multimodal import GPUAcceleratedMultiModal
 

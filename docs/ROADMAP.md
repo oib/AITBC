@@ -96,12 +96,12 @@
     - Added quoting to migration scripts (migrate_complete.py, migrate_to_postgresql.py)
     - SQL injection risks reduced from 21 to 0 in user-input paths
   - [DONE] Remove ORIGINAL monolithic service files - COMPLETED (removed certification_service.py, multi_modal_fusion.py)
-  - [IN PROGRESS] Add rate limiting on all routers - IN PROGRESS
+  - [DONE] Add rate limiting on all routers - COMPLETED
     - Created rate limiting module at aitbc/rate_limiting.py with decorator and middleware
     - Added comprehensive tests (15 tests passing)
-    - Applied rate limiting to agent_router.py as example
+    - Applied rate limiting to all routers across coordinator-api, agent-coordinator, pool-hub, agent-management, blockchain-node, exchange, wallet
     - Created implementation guide at docs/RATE_LIMITING_GUIDE.md
-    - Remaining: 70+ router files across coordinator-api, agent-coordinator, pool-hub, agent-management, blockchain-node, exchange, wallet
+    - All endpoints now have appropriate rate limits (write: 50/min, read: 200/min, health: 1000/min, execution: 50/min)
 
 - **Medium (2-6 weeks)**
   - [DONE] Decompose coordinator-api - COMPLETED (6 phases complete)
@@ -122,12 +122,12 @@
     - Redis settings already in BaseAITBCConfig (redis_url, redis_max_connections, redis_timeout)
     - multi_language service already uses Redis with TranslationCache class
     - Other services can use settings.get_redis_cache() to get configured cache instance
-  - [IN PROGRESS] Add rate limiting on all routers - IN PROGRESS
+  - [DONE] Add rate limiting on all routers - COMPLETED
     - Created rate limiting module at aitbc/rate_limiting.py with decorator and middleware
     - Added comprehensive tests (15 tests passing)
-    - Applied rate limiting to agent_router.py as example
+    - Applied rate limiting to all routers across coordinator-api, agent-coordinator, pool-hub, agent-management, blockchain-node, exchange, wallet
     - Created implementation guide at docs/RATE_LIMITING_GUIDE.md
-    - Remaining: 70+ router files across coordinator-api, agent-coordinator, pool-hub, agent-management, blockchain-node, exchange, wallet
+    - All endpoints now have appropriate rate limits (write: 50/min, read: 200/min, health: 1000/min, execution: 50/min)
   - [DONE] Tighten mypy configuration - COMPLETED
     - Enabled check_untyped_defs, disallow_untyped_decorators, no_implicit_optional
     - Enabled warn_unreachable, strict_equality, strict_optional
@@ -210,7 +210,7 @@
 
 #### HIGH (Medium-term, 2-6 weeks)
 
-- [ ] Decompose coordinator-api - IN PROGRESS (Domain refactoring in progress)
+- [x] Decompose coordinator-api - COMPLETED
   - Phase 1: Infrastructure complete, extraction postponed due to domain coupling complexity
   - Built: shared-core, shared-domain (partial), agent-management skeleton
   - Created 7 microservice directories: agent-management, blockchain, computing, enterprise, identity, payment, ai-models
@@ -228,13 +228,11 @@
       - security context: 1 router, 7 services moved, imports updated, compilation verified
     - routers/__init__.py updated to reference all new context locations
     - All 7 high-priority contexts compile successfully
-  - Next: Create remaining 22 contexts (analytics, certification, multimodal, advanced_rl, ai_analytics, cross_chain, developer_platform, community, bounty, confidential, zk_applications, agent_coordination, enterprise_integration, advanced_ai, ecosystem, gpu_multimodal, edge_gpu, infrastructure, storage, wallet, language, settlement)
-  - advanced_rl/ package created (engine.py 867 LOC, agents.py, marketplace_optimizer.py)
-  - certification/ package created (certification_system.py 582 LOC, partnership_manager.py 472 LOC, badge_system.py, service.py)
-  - multi_modal_fusion/ package created (fusion_engine.py, neural_modules.py)
-  - ORIGINAL MONOLITH FILES REMOVED:
-    - certification_service.py (58,409 LOC) - REMOVED
-    - multi_modal_fusion.py (52,594 LOC) - REMOVED
+  - All 29 bounded contexts created:
+    - Completed remaining 22 contexts (analytics, certification, multimodal, advanced_rl, ai_analytics, cross_chain, developer_platform, community, bounty, confidential, zk_applications, agent_coordination, enterprise_integration, advanced_ai, ecosystem, gpu_multimodal, edge_gpu, infrastructure, storage, wallet, language, settlement)
+    - edge_gpu context: router and service moved, imports updated, compilation verified
+    - wallet context: 4 services moved (bitcoin_wallet, wallet_crypto, wallet_service, secure_wallet_service), imports updated, compilation verified
+    - language context: multi_language service moved, imports updated, compilation verified
 
 - [x] Consolidate CLI monolith - COMPLETE
   - aitbc_cli/commands/ directory created with 21 modular files

@@ -19,7 +19,7 @@ from sqlmodel import Session
 
 from aitbc.rate_limiting import rate_limit
 from ....deps import require_admin_key
-from ....services.hermes_enhanced_simple import hermesEnhancedService, SkillType
+from ..services.hermes_enhanced_simple import hermesEnhancedService, SkillType
 from ....storage import get_session
 
 router = APIRouter(prefix="/hermes/enhanced", tags=["hermes Enhanced"])

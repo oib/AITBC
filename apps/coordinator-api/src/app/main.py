@@ -48,7 +48,6 @@ from .routers import (
     admin,
     agent_router,
     client,
-    cross_chain_integration,
     developer_platform,
     edge_gpu,
     exchange,
@@ -66,8 +65,6 @@ from .contexts.marketplace.routers import (
     marketplace,
     marketplace_gpu,
     marketplace_offers,
-    global_marketplace,
-    global_marketplace_integration,
 )
 from .contexts.payments.routers import payments
 from .contexts.blockchain.routers import blockchain
@@ -75,28 +72,25 @@ from .contexts.agent_identity.routers import agent_identity
  
 # Skip optional routers with missing dependencies
 try:
-    from .routers.ml_zk_proofs import router as ml_zk_proofs
+    from .contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proofs
 except ImportError:
     ml_zk_proofs = None
     logger.warning("ML ZK proofs router not available (missing tenseal)")
-from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
-from .routers.monitoring_dashboard import router as monitoring_dashboard
-from .routers.hermes_enhanced_simple import router as hermes_enhanced
+from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
+from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
 
 # Skip optional routers with missing dependencies
 try:
-    from .routers.multi_modal_rl import router as multi_modal_rl_router
+    from .contexts.multimodal.routers.multi_modal_rl import router as multi_modal_rl_router
 except ImportError:
     multi_modal_rl_router = None
     logger.warning("Multi-modal RL router not available (missing torch)")
 
 try:
-    from .routers.ml_zk_proofs import router as ml_zk_proofs
+    from .contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proofs
 except ImportError:
     ml_zk_proofs = None
     logger.warning("ML ZK proofs router not available (missing dependencies)")
-
-from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 
 from aitbc.aitbc_logging import configure_logging
 from aitbc import (
@@ -104,6 +98,7 @@ from aitbc import (
     PerformanceLoggingMiddleware,
     RequestValidationMiddleware,
     ErrorHandlerMiddleware,
+    get_logger,
 )
 from .exceptions import AITBCError, ErrorResponse
 
@@ -162,7 +157,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             # Continue startup even if warmup fails
 
         # Validate configuration
-        if settings.app_env == "production":
+        if settings.environment == "production":
             logger.info("Production environment detected, validating configuration")
             # Configuration validation happens automatically via Pydantic validators
             logger.info("Configuration validation passed")
@@ -182,13 +177,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info(f"  Admin stats: {settings.rate_limit_admin_stats}")
 
         # Log service startup details
-        logger.info(f"Coordinator API started on {settings.app_host}:{settings.app_port}")
+        logger.info(f"Coordinator API started on {settings.app_host}:{settings.port}")
         logger.info(f"Database adapter: {settings.database.adapter}")
-        logger.info(f"Environment: {settings.app_env}")
+        logger.info(f"Environment: {settings.environment}")
 
         # Log complete configuration summary
         logger.info("=== Coordinator API Configuration Summary ===")
-        logger.info(f"Environment: {settings.app_env}")
+        logger.info(f"Environment: {settings.environment}")
         logger.info(f"Database: {settings.database.adapter}")
         logger.info("Rate Limits:")
         logger.info(f"  Jobs submit: {settings.rate_limit_jobs_submit}")
@@ -359,15 +354,11 @@ def create_app() -> FastAPI:
 
     if ml_zk_proofs:
         app.include_router(ml_zk_proofs)
-    app.include_router(marketplace_enhanced, prefix="/v1")
     app.include_router(hermes_enhanced, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
-    app.include_router(agent_router.router, prefix="/v1/agents")
-    app.include_router(agent_router.router, prefix="/api/v1/agents")  # CLI compatibility
+    app.include_router(agent_router, prefix="/v1/agents")
+    app.include_router(agent_router, prefix="/api/v1/agents")  # CLI compatibility
     app.include_router(agent_identity, prefix="/v1")
-    app.include_router(global_marketplace, prefix="/v1")
-    app.include_router(cross_chain_integration, prefix="/v1")
-    app.include_router(global_marketplace_integration, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
 
@@ -384,11 +375,11 @@ def create_app() -> FastAPI:
     app.include_router(multi_modal_rl, prefix="/v1")
 
     # Add swarm router for CLI compatibility
-    app.include_router(swarm.router, prefix="/v1")
-    app.include_router(swarm.router)  # CLI compatibility (calls /swarm/list directly)
+    app.include_router(swarm, prefix="/v1")
+    app.include_router(swarm)  # CLI compatibility (calls /swarm/list directly)
     
     # Add monitor router for CLI compatibility
-    app.include_router(monitor.router)
+    app.include_router(monitor)
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()

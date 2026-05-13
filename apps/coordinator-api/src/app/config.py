@@ -56,6 +56,11 @@ class Settings(BaseAITBCConfig):
 
     # Database
     database: DatabaseConfig = Field(default_factory=DatabaseConfig, description="Database configuration")
+    db_echo: bool = Field(default=False, description="Enable SQLAlchemy query echo")
+    db_pool_pre_ping: bool = Field(default=True, description="Enable connection pool pre-ping")
+    db_pool_size: int = Field(default=10, description="Database connection pool size")
+    db_max_overflow: int = Field(default=20, description="Database connection pool max overflow")
+    db_pool_recycle: int = Field(default=3600, description="Database connection pool recycle time in seconds")
 
     # API Keys
     client_api_keys: list[str] = []

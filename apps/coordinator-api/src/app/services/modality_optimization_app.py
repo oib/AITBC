@@ -9,9 +9,9 @@ Modality Optimization Service - FastAPI Entry Point
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..routers.modality_optimization_health import router as health_router
+from ..contexts.multimodal.routers.modality_optimization_health import router as health_router
 from ..storage import get_session
-from .modality_optimization import ModalityOptimizationManager, ModalityType, OptimizationStrategy
+from ..contexts.multimodal.services.modality_optimization import ModalityOptimizationManager, ModalityType, OptimizationStrategy
 
 app = FastAPI(
     title="AITBC Modality Optimization Service",

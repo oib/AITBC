@@ -22,7 +22,7 @@ from ..domain.developer_platform import (
     RegionalHub,
 )
 from ..schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
-from ..services.blockchain import get_balance, mint_tokens
+from ..contexts.blockchain.services.blockchain import get_balance, mint_tokens
 
 logger = get_logger(__name__)
 

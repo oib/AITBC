@@ -19,7 +19,7 @@ from sqlmodel import Session
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 from ..deps import require_admin_key
-from ..services.marketplace_enhanced_simple import EnhancedMarketplaceService, LicenseType, VerificationType
+from ..contexts.marketplace.services.marketplace_enhanced_simple import EnhancedMarketplaceService, LicenseType, VerificationType
 from ..storage import get_session
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Marketplace Enhanced"])

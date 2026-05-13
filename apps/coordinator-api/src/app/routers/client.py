@@ -14,7 +14,7 @@ from ..custom_types import JobState
 from ..deps import require_client_key
 from ..schemas import JobCreate, JobPaymentCreate, JobResult, JobView
 from ..services import JobService
-from ..services.payments import PaymentService
+from ..contexts.payments.services.payments import PaymentService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
 

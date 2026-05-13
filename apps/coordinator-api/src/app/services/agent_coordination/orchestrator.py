@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
-from ..bid_strategy_engine import BidResult
+from app.contexts.trading.services.trading_marketplace.bid_strategy import BidResult
 from ..task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
 
 

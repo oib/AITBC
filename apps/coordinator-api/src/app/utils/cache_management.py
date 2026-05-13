@@ -153,7 +153,7 @@ class CacheWarmer:
     async def _warm_marketplace_stats(self):
         """Warm marketplace statistics cache"""
         try:
-            from ..services.marketplace import MarketplaceService
+            from ..contexts.marketplace.services.marketplace import MarketplaceService
 
             service = MarketplaceService(self.session)
             stats = service.get_stats()

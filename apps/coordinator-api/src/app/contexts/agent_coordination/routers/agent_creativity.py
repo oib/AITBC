@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 from ....domain.agent_performance import CreativeCapability
 from sqlmodel import select
-from ....services.creative_capabilities_service import (
+from ..services.creative_capabilities_service import (
     CreativityEnhancementEngine,
     CrossDomainCreativeIntegrator,
     IdeationAlgorithm,

@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ..domain.agent_identity import AgentIdentity
+from ...agent_identity.domain.agent_identity import AgentIdentity
 from ..domain.global_marketplace import (
     GlobalMarketplaceAnalytics,
     GlobalMarketplaceOffer,
@@ -28,7 +28,7 @@ from ..domain.global_marketplace import (
     MarketplaceStatus,
     RegionStatus,
 )
-from ..reputation.engine import CrossChainReputationEngine
+from ....reputation.engine import CrossChainReputationEngine
 
 
 class GlobalMarketplaceService:

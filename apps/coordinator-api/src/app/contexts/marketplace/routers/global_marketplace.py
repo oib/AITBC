@@ -10,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
 from ....agent_identity.manager import AgentIdentityManager
-from ....domain.global_marketplace import (
+from ..domain.global_marketplace import (
     GlobalMarketplaceConfig,
     GlobalMarketplaceOffer,
     GlobalMarketplaceTransaction,
@@ -18,7 +18,7 @@ from ....domain.global_marketplace import (
     MarketplaceStatus,
     RegionStatus,
 )
-from ....services.global_marketplace import GlobalMarketplaceService, RegionManager
+from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
 from ....storage.db import get_session
 
 router = APIRouter(prefix="/global-marketplace", tags=["Global Marketplace"])

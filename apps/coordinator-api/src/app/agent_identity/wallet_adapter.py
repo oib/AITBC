@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ..domain.agent_identity import AgentWallet, AgentWalletUpdate, ChainType
+from ..contexts.agent_identity.domain.agent_identity import AgentWallet, AgentWalletUpdate, ChainType
 
 
 class WalletAdapter(ABC):

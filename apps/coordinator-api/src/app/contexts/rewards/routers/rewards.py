@@ -19,7 +19,7 @@ from aitbc.rate_limiting import rate_limit
 logger = get_logger(__name__)
 
 from ....domain.rewards import AgentRewardProfile, RewardStatus, RewardTier, RewardType
-from ....services.reward_service import RewardEngine
+from ..services.reward_service import RewardEngine
 from ....storage import get_session
 
 router = APIRouter(prefix="/v1/rewards", tags=["rewards"])

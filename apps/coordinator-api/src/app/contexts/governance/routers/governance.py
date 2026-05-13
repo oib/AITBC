@@ -27,7 +27,7 @@ from ....domain.governance import (
     Vote,
     VoteType,
 )
-from ....services.governance_service import GovernanceService
+from ..services.governance_service import GovernanceService
 from ....storage import get_session
 
 router = APIRouter(prefix="/governance", tags=["governance"])

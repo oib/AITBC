@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from aitbc.rate_limiting import rate_limit
 
 from aitbc import get_logger
-from ....services.ai_analytics.adaptive_learning import AdaptiveLearningService
+from ...ai_analytics.services.ai_analytics.adaptive_learning import AdaptiveLearningService
 from ....storage import get_session
 
 logger = get_logger(__name__)
