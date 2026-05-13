@@ -25,7 +25,7 @@ from ..services.cross_chain.bridge_enhanced import (
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
-from ..services.multi_chain_transaction_manager import (
+from ....services.multi_chain_transaction_manager import (
     MultiChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,

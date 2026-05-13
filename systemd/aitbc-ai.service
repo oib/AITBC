@@ -6,11 +6,11 @@ After=network.target redis.service postgresql.service
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/aitbc/apps/ai-service
+WorkingDirectory=/opt/aitbc/apps/ai-engine
 Environment="PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin"
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.ai_service.main:app --host 0.0.0.0 --port 8005
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.ai_service:app --host 0.0.0.0 --port 8005
 Restart=always
 RestartSec=5
 StandardOutput=journal

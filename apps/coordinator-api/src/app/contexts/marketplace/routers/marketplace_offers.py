@@ -13,7 +13,8 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 from ....deps import require_admin_key
-from ....domain import MarketplaceOffer, Miner
+from ....domain import Miner
+from ..domain.marketplace import MarketplaceOffer
 from ....schemas import MarketplaceOfferView
 from ....storage import get_session
 

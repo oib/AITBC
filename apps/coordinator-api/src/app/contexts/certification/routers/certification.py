@@ -32,7 +32,7 @@ from ....domain.certification import (
     VerificationRecord,
     VerificationType,
 )
-from ....services.certification import (
+from ..services.certification import (
     BadgeSystem,
     CertificationAndPartnershipService,
     CertificationSystem,

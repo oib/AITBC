@@ -102,7 +102,7 @@ async def submit_result(
 
     # Auto-release payment if job has payment
     if job.payment_id and job.payment_status == "escrowed":
-        from ..services.payments import PaymentService
+        from ..contexts.payments.services.payments import PaymentService
 
         payment_service = PaymentService(session)
         success = await payment_service.release_payment(job.id, job.payment_id, reason="Job completed successfully")

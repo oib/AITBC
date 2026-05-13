@@ -12,8 +12,8 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, and_, select
 
-from ...domain.certification import AchievementBadge, AgentBadge, BadgeType
-from ...domain.reputation import AgentReputation
+from app.domain.certification import AchievementBadge, AgentBadge, BadgeType
+from app.domain.reputation import AgentReputation
 
 
 class BadgeSystem:

@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
-from ..schemas import ConfidentialAccessRequest
+from ....schemas import ConfidentialAccessRequest
 
 
 class AccessPurpose(StrEnum):

@@ -50,7 +50,7 @@ class JobPayment(SQLModel, table=True):
 class PaymentEscrow(SQLModel, table=True):
     """Escrow record for holding payments"""
 
-    __tablename__ = PAYMENT_ESCROW_TABLE
+    __tablename__ = "payment_escrows"
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)

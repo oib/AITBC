@@ -16,6 +16,13 @@ BLOCKCHAIN_RPC = "http://127.0.0.1:9080/rpc"
 ADDRESS_PATTERN = re.compile(r'^[a-zA-Z0-9]{20,50}$')
 
 
+class BlockchainService:
+    """Stub blockchain service for staking router compatibility"""
+
+    def __init__(self):
+        pass
+
+
 def validate_address(address: str) -> bool:
     """Validate that address is safe to use in URL construction"""
     if not address:

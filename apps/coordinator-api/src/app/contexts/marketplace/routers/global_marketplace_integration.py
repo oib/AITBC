@@ -10,12 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from ....agent_identity.manager import AgentIdentityManager
-from ....domain.global_marketplace import (
+from ..domain.global_marketplace import (
     GlobalMarketplaceOffer,
 )
 from ....reputation.engine import CrossChainReputationEngine
-from ....services.cross_chain_bridge_enhanced import BridgeProtocol
-from ....services.global_marketplace_integration import (
+from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
+from ..services.global_marketplace_integration import (
     GlobalMarketplaceIntegrationService,
     IntegrationStatus,
 )

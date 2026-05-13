@@ -137,9 +137,9 @@ async def publish_solution(request: SolutionPublishRequest, request_http: Reques
 @rate_limit(rate=100, per=60)
 async def list_solutions(
     request: Request,
+    session: Annotated[Session, Depends(get_session)],
     category: str | None = None,
     limit: int = 50,
-    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> list[AgentSolution]:
     """List available third-party agent solutions"""
     service = ThirdPartySolutionService(session)
@@ -167,9 +167,9 @@ async def purchase_solution(
 @rate_limit(rate=10, per=60)
 async def propose_innovation_lab(
     request_http: Request,
+    session: Annotated[Session, Depends(get_session)],
     researcher_id: str = Query(...),
     request: LabProposalRequest = Body(...),
-    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> InnovationLab:
     """Propose a new agent innovation lab or research program"""
     service = InnovationLabService(session)
@@ -213,9 +213,9 @@ async def fund_innovation_lab(
 @rate_limit(rate=20, per=60)
 async def create_community_post(
     request_http: Request,
+    session: Annotated[Session, Depends(get_session)],
     author_id: str = Query(...),
     request: PostCreateRequest = Body(...),
-    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> CommunityPost:
     """Create a new post in the community forum"""
     service = CommunityPlatformService(session)
@@ -230,9 +230,9 @@ async def create_community_post(
 @rate_limit(rate=100, per=60)
 async def get_community_feed(
     request: Request,
+    session: Annotated[Session, Depends(get_session)],
     category: str | None = None,
     limit: int = 20,
-    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> list[CommunityPost]:
     """Get the latest community posts and discussions"""
     service = CommunityPlatformService(session)
@@ -256,9 +256,9 @@ async def upvote_community_post(post_id: str, request: Request, session: Annotat
 @rate_limit(rate=10, per=60)
 async def create_hackathon(
     request_http: Request,
+    session: Annotated[Session, Depends(get_session)],
     organizer_id: str = Query(...),
     request: HackathonCreateRequest = Body(...),
-    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> Hackathon:
     """Create a new agent innovation hackathon (requires high reputation)"""
     service = CommunityPlatformService(session)

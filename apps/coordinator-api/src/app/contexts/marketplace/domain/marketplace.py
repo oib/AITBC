@@ -6,6 +6,8 @@ from uuid import uuid4
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
+from ..storage.schema import MARKETPLACE_BID_TABLE
+
 
 class MarketplaceOffer(SQLModel, table=True):
     __tablename__ = "marketplaceoffer"

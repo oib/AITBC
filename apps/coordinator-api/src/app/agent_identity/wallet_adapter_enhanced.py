@@ -16,7 +16,7 @@ from aitbc import get_logger, derive_ethereum_address, sign_transaction_hash, ve
 
 logger = get_logger(__name__)
 
-from ..domain.agent_identity import ChainType
+from ..contexts.agent_identity.domain.agent_identity import ChainType
 
 
 class WalletStatus(StrEnum):

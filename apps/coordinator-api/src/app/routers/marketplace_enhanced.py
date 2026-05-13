@@ -25,7 +25,7 @@ from ..schemas.marketplace_enhanced import (
     RoyaltyDistributionRequest,
     RoyaltyDistributionResponse,
 )
-from ..services.marketplace_enhanced import EnhancedMarketplaceService
+from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
 from ..storage import get_session
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Enhanced Marketplace"])
