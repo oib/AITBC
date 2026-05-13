@@ -10,9 +10,10 @@ Provides REST API endpoints for agent workflow management and execution
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -35,7 +36,9 @@ router = APIRouter(tags=["AI Agents"])
 
 
 @router.post("/workflows", response_model=AIAgentWorkflow)
+@rate_limit(rate=50, per=60)
 async def create_workflow(
+    request: Request,
     workflow_data: AgentWorkflowCreate,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -58,7 +61,9 @@ async def create_workflow(
 
 
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
+@rate_limit(rate=200, per=60)
 async def list_workflows(
+    request: Request,
     owner_id: str | None = None,
     is_public: bool | None = None,
     tags: list[str] | None = None,
@@ -94,7 +99,9 @@ async def list_workflows(
 
 
 @router.get("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
+@rate_limit(rate=200, per=60)
 async def get_workflow(
+    request: Request,
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -120,7 +127,9 @@ async def get_workflow(
 
 
 @router.put("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
+@rate_limit(rate=50, per=60)
 async def update_workflow(
+    request: Request,
     workflow_id: str,
     workflow_data: AgentWorkflowUpdate,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -157,7 +166,9 @@ async def update_workflow(
 
 
 @router.delete("/workflows/{workflow_id}")
+@rate_limit(rate=50, per=60)
 async def delete_workflow(
+    request: Request,
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -187,7 +198,9 @@ async def delete_workflow(
 
 
 @router.post("/workflows/{workflow_id}/execute", response_model=AgentExecutionResponse)
+@rate_limit(rate=50, per=60)
 async def execute_workflow(
+    request: Request,
     workflow_id: str,
     execution_request: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
@@ -233,7 +246,9 @@ async def execute_workflow(
 
 
 @router.get("/executions/{execution_id}/status", response_model=AgentExecutionStatus)
+@rate_limit(rate=200, per=60)
 async def get_execution_status(
+    request: Request,
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -264,7 +279,9 @@ async def get_execution_status(
 
 
 @router.get("/executions", response_model=list[AgentExecutionStatus])
+@rate_limit(rate=200, per=60)
 async def list_executions(
+    request: Request,
     workflow_id: str | None = None,
     status: AgentStatus | None = None,
     limit: int = 50,
@@ -325,7 +342,9 @@ async def list_executions(
 
 
 @router.post("/executions/{execution_id}/cancel")
+@rate_limit(rate=50, per=60)
 async def cancel_execution(
+    request: Request,
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -365,7 +384,9 @@ async def cancel_execution(
 
 
 @router.get("/executions/{execution_id}/logs")
+@rate_limit(rate=200, per=60)
 async def get_execution_logs(
+    request: Request,
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -423,13 +444,18 @@ async def get_execution_logs(
 
 
 @router.get("/test")
-async def test_endpoint() -> dict[str, str]:
+@rate_limit(rate=1000, per=60)
+async def test_endpoint(
+    request: Request
+) -> dict[str, str]:
     """Test endpoint to verify router is working"""
     return {"message": "Agent router is working", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @router.post("/networks", response_model=dict, status_code=201)
+@rate_limit(rate=50, per=60)
 async def create_agent_network(
+    request: Request,
     network_data: dict,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -469,7 +495,9 @@ async def create_agent_network(
 
 
 @router.get("/executions/{execution_id}/receipt")
+@rate_limit(rate=200, per=60)
 async def get_execution_receipt(
+    request: Request,
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),

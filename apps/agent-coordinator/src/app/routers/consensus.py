@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -25,7 +26,10 @@ router = APIRouter()
 
 # Distributed consensus endpoints
 @router.post("/consensus/node/register")
-async def register_consensus_node(node_data: Dict[str, Any]):
+@rate_limit(rate=50, per=60)
+async def register_consensus_node(
+    request: Request, node_data: Dict[str, Any]
+):
     """Register a node in the consensus network"""
     try:
         result = await distributed_consensus.register_node(node_data)
@@ -35,7 +39,10 @@ async def register_consensus_node(node_data: Dict[str, Any]):
         raise HTTPException(status_code=500, detail="Failed to register consensus node")
 
 @router.post("/consensus/proposal/create")
-async def create_consensus_proposal(proposal_data: Dict[str, Any]):
+@rate_limit(rate=50, per=60)
+async def create_consensus_proposal(
+    request: Request, proposal_data: Dict[str, Any]
+):
     """Create a new consensus proposal"""
     try:
         result = await distributed_consensus.create_proposal(proposal_data)
@@ -45,7 +52,10 @@ async def create_consensus_proposal(proposal_data: Dict[str, Any]):
         raise HTTPException(status_code=500, detail="Failed to create consensus proposal")
 
 @router.post("/consensus/proposal/{proposal_id}/vote")
-async def cast_consensus_vote(proposal_id: str, node_id: str, vote: bool):
+@rate_limit(rate=50, per=60)
+async def cast_consensus_vote(
+    request: Request, proposal_id: str, node_id: str, vote: bool
+):
     """Cast a vote for a proposal"""
     try:
         result = await distributed_consensus.cast_vote(proposal_id, node_id, vote)
@@ -55,7 +65,10 @@ async def cast_consensus_vote(proposal_id: str, node_id: str, vote: bool):
         raise HTTPException(status_code=500, detail="Failed to cast consensus vote")
 
 @router.get("/consensus/proposal/{proposal_id}")
-async def get_proposal_status(proposal_id: str):
+@rate_limit(rate=200, per=60)
+async def get_proposal_status(
+    request: Request, proposal_id: str
+):
     """Get proposal status"""
     try:
         result = await distributed_consensus.get_proposal_status(proposal_id)
@@ -65,7 +78,10 @@ async def get_proposal_status(proposal_id: str):
         raise HTTPException(status_code=500, detail="Failed to get proposal status")
 
 @router.put("/consensus/algorithm")
-async def set_consensus_algorithm(algorithm: str = Query(..., description="Consensus algorithm")):
+@rate_limit(rate=50, per=60)
+async def set_consensus_algorithm(
+    request: Request, algorithm: str = Query(..., description="Consensus algorithm")
+):
     """Set the consensus algorithm"""
     try:
         result = await distributed_consensus.set_consensus_algorithm(algorithm)
@@ -75,7 +91,10 @@ async def set_consensus_algorithm(algorithm: str = Query(..., description="Conse
         raise HTTPException(status_code=500, detail="Failed to set consensus algorithm")
 
 @router.get("/consensus/statistics")
-async def get_consensus_statistics():
+@rate_limit(rate=200, per=60)
+async def get_consensus_statistics(
+    request: Request
+):
     """Get consensus statistics"""
     try:
         result = await distributed_consensus.get_consensus_statistics()
@@ -85,7 +104,10 @@ async def get_consensus_statistics():
         raise HTTPException(status_code=500, detail="Failed to get consensus statistics")
 
 @router.put("/consensus/node/{node_id}/status")
-async def update_node_status(node_id: str, is_active: bool):
+@rate_limit(rate=50, per=60)
+async def update_node_status(
+    request: Request, node_id: str, is_active: bool
+):
     """Update node status"""
     try:
         result = await distributed_consensus.update_node_status(node_id, is_active)
@@ -96,7 +118,10 @@ async def update_node_status(node_id: str, is_active: bool):
 
 # Advanced features status endpoint
 @router.get("/advanced-features/status")
-async def get_advanced_features_status():
+@rate_limit(rate=200, per=60)
+async def get_advanced_features_status(
+    request: Request
+):
     """Get status of all advanced features"""
     try:
         learning_stats = await learning_system.get_learning_statistics()

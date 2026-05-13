@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -25,7 +26,10 @@ router = APIRouter()
 
 # Agent registration
 @router.post("/agents/register")
-async def register_agent(request: AgentRegistrationRequest):
+@rate_limit(rate=50, per=60)
+async def register_agent(
+    request_http: Request, request: AgentRegistrationRequest
+):
     """Register a new agent"""
     try:
         if not state.agent_registry:
@@ -65,7 +69,10 @@ async def register_agent(request: AgentRegistrationRequest):
 
 # Agent discovery
 @router.post("/agents/discover")
-async def discover_agents(query: Dict[str, Any]):
+@rate_limit(rate=200, per=60)
+async def discover_agents(
+    request: Request, query: Dict[str, Any]
+):
     """Discover agents based on criteria"""
     try:
         if not state.agent_registry:
@@ -87,7 +94,10 @@ async def discover_agents(query: Dict[str, Any]):
 
 # Get agent by ID
 @router.get("/agents/{agent_id}")
-async def get_agent(agent_id: str):
+@rate_limit(rate=200, per=60)
+async def get_agent(
+    request: Request, agent_id: str
+):
     """Get agent information by ID"""
     try:
         if not state.agent_registry:
@@ -112,7 +122,10 @@ async def get_agent(agent_id: str):
 
 # Update agent status
 @router.put("/agents/{agent_id}/status")
-async def update_agent_status(agent_id: str, request: AgentStatusUpdate):
+@rate_limit(rate=50, per=60)
+async def update_agent_status(
+    request: Request, agent_id: str, request_status: AgentStatusUpdate
+):
     """Update agent status"""
     try:
         if not state.agent_registry:
@@ -143,7 +156,10 @@ async def update_agent_status(agent_id: str, request: AgentStatusUpdate):
 
 # Agent heartbeat
 @router.post("/agents/{agent_id}/heartbeat")
-async def agent_heartbeat(agent_id: str):
+@rate_limit(rate=100, per=60)
+async def agent_heartbeat(
+    request: Request, agent_id: str
+):
     """Receive heartbeat from agent"""
     try:
         if not state.agent_registry:
