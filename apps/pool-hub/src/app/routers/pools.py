@@ -1,10 +1,11 @@
 """Pool management routes for Pool Hub"""
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
+from aitbc.rate_limiting import rate_limit
 from ..registry import MinerRegistry
 
 router = APIRouter(prefix="/pools", tags=["pools"])
@@ -55,7 +56,9 @@ def get_registry() -> MinerRegistry:
 
 
 @router.post("/", response_model=PoolInfo)
+@rate_limit(rate=50, per=60)
 async def create_pool(
+    request: Request,
     pool: PoolCreate,
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -76,7 +79,9 @@ async def create_pool(
 
 
 @router.get("/{pool_id}", response_model=PoolInfo)
+@rate_limit(rate=200, per=60)
 async def get_pool(
+    request: Request,
     pool_id: str,
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -88,7 +93,9 @@ async def get_pool(
 
 
 @router.get("/", response_model=List[PoolInfo])
+@rate_limit(rate=200, per=60)
 async def list_pools(
+    request: Request,
     limit: int = Query(50, le=100),
     offset: int = Query(0),
     registry: MinerRegistry = Depends(get_registry)
@@ -98,7 +105,9 @@ async def list_pools(
 
 
 @router.get("/{pool_id}/stats", response_model=PoolStats)
+@rate_limit(rate=200, per=60)
 async def get_pool_stats(
+    request: Request,
     pool_id: str,
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -111,7 +120,9 @@ async def get_pool_stats(
 
 
 @router.get("/{pool_id}/miners")
+@rate_limit(rate=200, per=60)
 async def get_pool_miners(
+    request: Request,
     pool_id: str,
     status: Optional[str] = Query(None),
     limit: int = Query(50, le=100),
@@ -126,7 +137,9 @@ async def get_pool_miners(
 
 
 @router.put("/{pool_id}")
+@rate_limit(rate=50, per=60)
 async def update_pool(
+    request: Request,
     pool_id: str,
     updates: dict,
     registry: MinerRegistry = Depends(get_registry)
@@ -144,7 +157,9 @@ async def update_pool(
 
 
 @router.delete("/{pool_id}")
+@rate_limit(rate=50, per=60)
 async def delete_pool(
+    request: Request,
     pool_id: str,
     registry: MinerRegistry = Depends(get_registry)
 ):

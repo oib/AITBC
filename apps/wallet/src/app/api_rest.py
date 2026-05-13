@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime
+from typing import Optional
 
 from aitbc.logging import get_logger
+from aitbc.rate_limiting import rate_limit
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 
@@ -39,24 +41,9 @@ from .receipts.service import ReceiptValidationResult, ReceiptVerifierService
 from .chain.manager import ChainManager, chain_manager
 from .chain.multichain_ledger import MultiChainLedgerAdapter
 from .chain.chain_aware_wallet_service import ChainAwareWalletService
-from .security import RateLimiter, wipe_buffer
+from .security import wipe_buffer
 
 logger = get_logger(__name__)
-_rate_limiter = RateLimiter(max_requests=30, window_seconds=60)
-
-
-def _rate_key(action: str, request: Request, wallet_id: Optional[str] = None) -> str:
-    host = request.client.host if request.client else "unknown"
-    parts = [action, host]
-    if wallet_id:
-        parts.append(wallet_id)
-    return ":".join(parts)
-
-
-def _enforce_limit(action: str, request: Request, wallet_id: Optional[str] = None) -> None:
-    key = _rate_key(action, request, wallet_id)
-    if not _rate_limiter.allow(key):
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limit exceeded")
 
 
 router = APIRouter(prefix="/v1", tags=["wallets", "receipts"])
@@ -72,7 +59,9 @@ def _result_to_response(result: ReceiptValidationResult) -> ReceiptVerifyRespons
     response_model=ReceiptVerifyResponse,
     summary="Verify latest receipt for a job",
 )
+@rate_limit(rate=200, per=60)
 def verify_latest_receipt(
+    request: Request,
     job_id: str,
     service: ReceiptVerifierService = Depends(get_receipt_service),
 ) -> ReceiptVerifyResponse:
@@ -87,7 +76,9 @@ def verify_latest_receipt(
     response_model=ReceiptVerificationListResponse,
     summary="Verify all historical receipts for a job",
 )
+@rate_limit(rate=200, per=60)
 def verify_receipt_history(
+    request: Request,
     job_id: str,
     service: ReceiptVerifierService = Depends(get_receipt_service),
 ) -> ReceiptVerificationListResponse:
@@ -97,7 +88,9 @@ def verify_receipt_history(
 
 
 @router.get("/wallets", response_model=WalletListResponse, summary="List wallets")
+@rate_limit(rate=200, per=60)
 def list_wallets(
+    request: Request,
     keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletListResponse:
@@ -112,26 +105,26 @@ def list_wallets(
     return WalletListResponse(items=descriptors)
 
 @router.post("/wallets", response_model=WalletCreateResponse, status_code=status.HTTP_201_CREATED, summary="Create wallet")
+@rate_limit(rate=50, per=60)
 def create_wallet(
-    request: WalletCreateRequest,
-    http_request: Request,
+    request: Request,
+    wallet_request: WalletCreateRequest,
     keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletCreateResponse:
-    _enforce_limit("wallet-create", http_request)
 
     try:
-        secret = base64.b64decode(request.secret_key) if request.secret_key else None
+        secret = base64.b64decode(wallet_request.secret_key) if wallet_request.secret_key else None
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 secret") from exc
 
     try:
-        ip_address = http_request.client.host if http_request.client else "unknown"
+        ip_address = request.client.host if request.client else "unknown"
         record = keystore.create_wallet(
-            wallet_id=request.wallet_id,
-            password=request.password,
+            wallet_id=wallet_request.wallet_id,
+            password=wallet_request.password,
             secret=secret,
-            metadata=request.metadata,
+            metadata=wallet_request.metadata,
             ip_address=ip_address
         )
     except ValueError as exc:
@@ -148,21 +141,21 @@ def create_wallet(
 
 
 @router.post("/wallets/{wallet_id}/unlock", response_model=WalletUnlockResponse, summary="Unlock wallet")
+@rate_limit(rate=50, per=60)
 def unlock_wallet(
+    request: Request,
     wallet_id: str,
-    request: WalletUnlockRequest,
-    http_request: Request,
+    unlock_request: WalletUnlockRequest,
     keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletUnlockResponse:
-    _enforce_limit("wallet-unlock", http_request, wallet_id)
     try:
-        ip_address = http_request.client.host if http_request.client else "unknown"
-        secret = bytearray(keystore.unlock_wallet(wallet_id, request.password, ip_address))
+        ip_address = request.client.host if request.client else "unknown"
+        secret = bytearray(keystore.unlock_wallet(wallet_id, unlock_request.password, ip_address))
         ledger.record_event(wallet_id, "unlocked", {"success": True, "ip_address": ip_address})
         logger.info("Unlocked wallet", extra={"wallet_id": wallet_id})
     except (KeyError, ValueError):
-        ip_address = http_request.client.host if http_request.client else "unknown"
+        ip_address = request.client.host if request.client else "unknown"
         ledger.record_event(wallet_id, "unlocked", {"success": False, "ip_address": ip_address})
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
     finally:
@@ -173,26 +166,26 @@ def unlock_wallet(
 
 
 @router.post("/wallets/{wallet_id}/sign", response_model=WalletSignResponse, summary="Sign payload")
+@rate_limit(rate=50, per=60)
 def sign_payload(
+    request: Request,
     wallet_id: str,
-    request: WalletSignRequest,
-    http_request: Request,
+    sign_request: WalletSignRequest,
     keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletSignResponse:
-    _enforce_limit("wallet-sign", http_request, wallet_id)
     try:
-        message = base64.b64decode(request.message_base64)
+        message = base64.b64decode(sign_request.message_base64)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 message") from exc
 
     try:
-        ip_address = http_request.client.host if http_request.client else "unknown"
-        signature = keystore.sign_message(wallet_id, request.password, message, ip_address)
+        ip_address = request.client.host if request.client else "unknown"
+        signature = keystore.sign_message(wallet_id, sign_request.password, message, ip_address)
         ledger.record_event(wallet_id, "sign", {"success": True, "ip_address": ip_address})
         logger.debug("Signed payload", extra={"wallet_id": wallet_id})
     except (KeyError, ValueError):
-        ip_address = http_request.client.host if http_request.client else "unknown"
+        ip_address = request.client.host if request.client else "unknown"
         ledger.record_event(wallet_id, "sign", {"success": False, "ip_address": ip_address})
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
 
@@ -203,7 +196,9 @@ def sign_payload(
 # Multi-Chain Endpoints
 
 @router.get("/chains", response_model=ChainListResponse, summary="List all chains")
+@rate_limit(rate=200, per=60)
 def list_chains(
+    request: Request,
     chain_manager: ChainManager = Depends(get_chain_manager),
     multichain_ledger: MultiChainLedgerAdapter = Depends(get_multichain_ledger)
 ) -> ChainListResponse:
@@ -234,29 +229,28 @@ def list_chains(
 
 
 @router.post("/chains", response_model=ChainCreateResponse, status_code=status.HTTP_201_CREATED, summary="Create a new chain")
+@rate_limit(rate=50, per=60)
 def create_chain(
-    request: ChainCreateRequest,
-    http_request: Request,
+    request: Request,
+    chain_request: ChainCreateRequest,
     chain_manager: ChainManager = Depends(get_chain_manager)
 ) -> ChainCreateResponse:
     """Create a new blockchain chain configuration"""
-    _enforce_limit("chain-create", http_request)
-    
     from .chain.manager import ChainConfig
     
     chain_config = ChainConfig(
-        chain_id=request.chain_id,
-        name=request.name,
-        coordinator_url=request.coordinator_url,
-        coordinator_api_key=request.coordinator_api_key,
-        metadata=request.metadata
+        chain_id=chain_request.chain_id,
+        name=chain_request.name,
+        coordinator_url=chain_request.coordinator_url,
+        coordinator_api_key=chain_request.coordinator_api_key,
+        metadata=chain_request.metadata
     )
     
     success = chain_manager.add_chain(chain_config)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Chain {request.chain_id} already exists"
+            detail=f"Chain {chain_request.chain_id} already exists"
         )
     
     chain_info = ChainInfo(
@@ -274,7 +268,9 @@ def create_chain(
 
 
 @router.get("/chains/{chain_id}/wallets", response_model=WalletListResponse, summary="List wallets in a specific chain")
+@rate_limit(rate=200, per=60)
 def list_chain_wallets(
+    request: Request,
     chain_id: str,
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletListResponse:
@@ -296,10 +292,11 @@ def list_chain_wallets(
 
 
 @router.post("/chains/{chain_id}/wallets", response_model=WalletCreateResponse, status_code=status.HTTP_201_CREATED, summary="Create wallet in a specific chain")
+@rate_limit(rate=50, per=60)
 def create_chain_wallet(
+    request: Request,
     chain_id: str,
-    request: WalletCreateRequest,
-    http_request: Request,
+    wallet_request: WalletCreateRequest,
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletCreateResponse:
     """Create a wallet in a specific blockchain chain"""
@@ -310,19 +307,17 @@ def create_chain_wallet(
     if not CHAIN_ID_PATTERN.match(chain_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
     
-    _enforce_limit("wallet-create", http_request)
-    
     try:
-        secret = base64.b64decode(request.secret_key) if request.secret_key else None
+        secret = base64.b64decode(wallet_request.secret_key) if wallet_request.secret_key else None
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 secret") from exc
     
     wallet_metadata = wallet_service.create_wallet(
         chain_id=chain_id,
-        wallet_id=request.wallet_id,
-        password=request.password,
+        wallet_id=wallet_request.wallet_id,
+        password=wallet_request.password,
         secret_key=secret,
-        metadata=request.metadata
+        metadata=wallet_request.metadata
     )
     
     if not wallet_metadata:
@@ -343,11 +338,12 @@ def create_chain_wallet(
 
 
 @router.post("/chains/{chain_id}/wallets/{wallet_id}/unlock", response_model=WalletUnlockResponse, summary="Unlock wallet in a specific chain")
+@rate_limit(rate=50, per=60)
 def unlock_chain_wallet(
+    request: Request,
     chain_id: str,
     wallet_id: str,
-    request: WalletUnlockRequest,
-    http_request: Request,
+    unlock_request: WalletUnlockRequest,
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletUnlockResponse:
     """Unlock a wallet in a specific blockchain chain"""
@@ -358,9 +354,7 @@ def unlock_chain_wallet(
     if not CHAIN_ID_PATTERN.match(chain_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
     
-    _enforce_limit("wallet-unlock", http_request, wallet_id)
-    
-    success = wallet_service.unlock_wallet(chain_id, wallet_id, request.password)
+    success = wallet_service.unlock_wallet(chain_id, wallet_id, unlock_request.password)
     if not success:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
     
@@ -368,11 +362,12 @@ def unlock_chain_wallet(
 
 
 @router.post("/chains/{chain_id}/wallets/{wallet_id}/sign", response_model=WalletSignResponse, summary="Sign payload with wallet in a specific chain")
+@rate_limit(rate=50, per=60)
 def sign_chain_payload(
+    request: Request,
     chain_id: str,
     wallet_id: str,
-    request: WalletSignRequest,
-    http_request: Request,
+    sign_request: WalletSignRequest,
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletSignResponse:
     """Sign a payload with a wallet in a specific blockchain chain"""
@@ -383,15 +378,13 @@ def sign_chain_payload(
     if not CHAIN_ID_PATTERN.match(chain_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
     
-    _enforce_limit("wallet-sign", http_request, wallet_id)
-    
     try:
-        message = base64.b64decode(request.message_base64)
+        message = base64.b64decode(sign_request.message_base64)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 message") from exc
     
-    ip_address = http_request.client.host if http_request.client else "unknown"
-    signature = wallet_service.sign_message(chain_id, wallet_id, request.password, message, ip_address)
+    ip_address = request.client.host if request.client else "unknown"
+    signature = wallet_service.sign_message(chain_id, wallet_id, sign_request.password, message, ip_address)
     
     if not signature:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
@@ -404,9 +397,10 @@ def sign_chain_payload(
 
 
 @router.post("/wallets/migrate", response_model=WalletMigrationResponse, summary="Migrate wallet between chains")
+@rate_limit(rate=50, per=60)
 def migrate_wallet(
-    request: WalletMigrationRequest,
-    http_request: Request,
+    request: Request,
+    migration_request: WalletMigrationRequest,
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletMigrationResponse:
     """Migrate a wallet from one chain to another"""
@@ -414,17 +408,15 @@ def migrate_wallet(
     import re
     CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
     
-    if not CHAIN_ID_PATTERN.match(request.source_chain_id) or not CHAIN_ID_PATTERN.match(request.target_chain_id):
+    if not CHAIN_ID_PATTERN.match(migration_request.source_chain_id) or not CHAIN_ID_PATTERN.match(migration_request.target_chain_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
     
-    _enforce_limit("wallet-migrate", http_request)
-    
     success = wallet_service.migrate_wallet_between_chains(
-        source_chain_id=request.source_chain_id,
-        target_chain_id=request.target_chain_id,
-        wallet_id=request.wallet_id,
-        password=request.password,
-        new_password=request.new_password
+        source_chain_id=migration_request.source_chain_id,
+        target_chain_id=migration_request.target_chain_id,
+        wallet_id=migration_request.wallet_id,
+        password=migration_request.password,
+        new_password=migration_request.new_password
     )
     
     if not success:
@@ -434,8 +426,8 @@ def migrate_wallet(
         )
     
     # Get both wallet descriptors
-    source_wallet = wallet_service.get_wallet(request.source_chain_id, request.wallet_id)
-    target_wallet = wallet_service.get_wallet(request.target_chain_id, request.wallet_id)
+    source_wallet = wallet_service.get_wallet(migration_request.source_chain_id, migration_request.wallet_id)
+    target_wallet = wallet_service.get_wallet(migration_request.target_chain_id, migration_request.wallet_id)
     
     if not source_wallet or not target_wallet:
         raise HTTPException(

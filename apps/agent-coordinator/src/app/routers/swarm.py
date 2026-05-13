@@ -1,8 +1,10 @@
 """Swarm coordination router for AITBC Agent Coordinator."""
 
 from typing import List, Optional
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
+
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/swarm", tags=["Swarm"])
 
@@ -47,7 +49,9 @@ class ConsensusRequest(BaseModel):
 
 
 @router.get("/list", response_model=List[SwarmInfo])
+@rate_limit(rate=200, per=60)
 async def list_swarms(
+    request: Request,
     swarm_id: Optional[str] = Query(None, description="Filter by swarm ID"),
     status: Optional[str] = Query(None, description="Filter by status"),
     limit: int = Query(20, description="Number of swarms to list")
@@ -58,7 +62,10 @@ async def list_swarms(
 
 
 @router.post("/join", response_model=dict, status_code=201)
-async def join_swarm(request: JoinRequest):
+@rate_limit(rate=50, per=60)
+async def join_swarm(
+    request_http: Request, request: JoinRequest
+):
     """Join agent swarm for collective optimization."""
     import uuid
     return {
@@ -72,7 +79,10 @@ async def join_swarm(request: JoinRequest):
 
 
 @router.post("/coordinate", response_model=dict, status_code=202)
-async def coordinate_swarm(request: CoordinateRequest):
+@rate_limit(rate=50, per=60)
+async def coordinate_swarm(
+    request_http: Request, request: CoordinateRequest
+):
     """Coordinate swarm task execution."""
     import uuid
     return {
@@ -86,7 +96,10 @@ async def coordinate_swarm(request: CoordinateRequest):
 
 
 @router.get("/tasks/{task_id}/status", response_model=TaskStatus)
-async def get_task_status(task_id: str):
+@rate_limit(rate=200, per=60)
+async def get_task_status(
+    request: Request, task_id: str
+):
     """Get swarm task status."""
     return {
         "task_id": task_id,
@@ -98,7 +111,10 @@ async def get_task_status(task_id: str):
 
 
 @router.post("/{swarm_id}/leave", response_model=dict)
-async def leave_swarm(swarm_id: str):
+@rate_limit(rate=50, per=60)
+async def leave_swarm(
+    request: Request, swarm_id: str
+):
     """Leave swarm."""
     return {
         "swarm_id": swarm_id,
@@ -108,7 +124,10 @@ async def leave_swarm(swarm_id: str):
 
 
 @router.post("/tasks/{task_id}/consensus", response_model=dict)
-async def achieve_consensus(task_id: str, request: ConsensusRequest):
+@rate_limit(rate=50, per=60)
+async def achieve_consensus(
+    request: Request, task_id: str, request_consensus: ConsensusRequest
+):
     """Achieve swarm consensus on task result."""
     return {
         "task_id": task_id,
@@ -119,7 +138,10 @@ async def achieve_consensus(task_id: str, request: ConsensusRequest):
 
 
 @router.get("/api/v1/dashboard", response_model=dict)
-async def get_dashboard():
+@rate_limit(rate=1000, per=60)
+async def get_dashboard(
+    request: Request
+):
     """Get monitoring dashboard data."""
     return {
         "overall_status": "operational",
@@ -138,7 +160,10 @@ async def get_dashboard():
 
 
 @router.get("/status", response_model=dict)
-async def get_status():
+@rate_limit(rate=1000, per=60)
+async def get_status(
+    request: Request
+):
     """Get coordinator status."""
     return {
         "status": "online",
@@ -149,12 +174,18 @@ async def get_status():
 
 
 @router.get("/miners", response_model=list)
-async def get_miners():
+@rate_limit(rate=500, per=60)
+async def get_miners(
+    request: Request
+):
     """Get miners list."""
     return []
 
 
 @router.get("/dashboard", response_model=list)
-async def get_history_dashboard():
+@rate_limit(rate=500, per=60)
+async def get_history_dashboard(
+    request: Request
+):
     """Get historical dashboard data."""
     return []

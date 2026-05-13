@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -25,7 +26,8 @@ router = APIRouter()
 
 # Health check endpoint
 @router.get("/health")
-async def health_check():
+@rate_limit(rate=1000, per=60)
+async def health_check(request: Request):
     """Health check endpoint"""
     return {
         "status": "healthy",
@@ -36,7 +38,8 @@ async def health_check():
 
 # Root endpoint
 @router.get("/")
-async def root():
+@rate_limit(rate=1000, per=60)
+async def root(request: Request):
     """Root endpoint with service information"""
     return {
         "service": "AITBC Agent Coordinator",

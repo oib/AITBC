@@ -3,7 +3,8 @@ from typing import Any, Dict, List, Optional
 import json
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -26,7 +27,10 @@ router = APIRouter()
 
 # Send message
 @router.post("/messages/send")
-async def send_message(request: MessageRequest):
+@rate_limit(rate=50, per=60)
+async def send_message(
+    request_http: Request, request: MessageRequest
+):
     """Send message to agent"""
     try:
         if not state.communication_manager:
@@ -100,7 +104,10 @@ async def send_message(request: MessageRequest):
 
 # Broadcast message
 @router.post("/messages/broadcast")
-async def broadcast_message(request: BroadcastRequest):
+@rate_limit(rate=50, per=60)
+async def broadcast_message(
+    request_http: Request, request: BroadcastRequest
+):
     """Broadcast message to multiple agents"""
     try:
         if not state.communication_manager:
@@ -191,7 +198,9 @@ async def broadcast_message(request: BroadcastRequest):
 
 # Get message history
 @router.get("/messages/history")
+@rate_limit(rate=200, per=60)
 async def get_message_history(
+    request: Request,
     sender_id: Optional[str] = Query(None, description="Filter by sender ID"),
     receiver_id: Optional[str] = Query(None, description="Filter by receiver ID"),
     limit: int = Query(100, description="Maximum number of messages"),
@@ -232,7 +241,10 @@ async def get_message_history(
 
 # Get specific message
 @router.get("/messages/{message_id}")
-async def get_message(message_id: str):
+@rate_limit(rate=200, per=60)
+async def get_message(
+    request: Request, message_id: str
+):
     """Get a specific message by ID"""
     try:
         if not state.message_storage:
@@ -257,7 +269,10 @@ async def get_message(message_id: str):
 
 # Load balancer statistics
 @router.get("/load-balancer/stats")
-async def get_load_balancer_stats():
+@rate_limit(rate=200, per=60)
+async def get_load_balancer_stats(
+    request: Request
+):
     """Get load balancer statistics"""
     try:
         if not state.load_balancer:
@@ -277,7 +292,10 @@ async def get_load_balancer_stats():
 
 # Registry statistics
 @router.get("/registry/stats")
-async def get_registry_stats():
+@rate_limit(rate=200, per=60)
+async def get_registry_stats(
+    request: Request
+):
     """Get agent registry statistics"""
     try:
         if not state.agent_registry:
@@ -297,7 +315,10 @@ async def get_registry_stats():
 
 # Get agents by service
 @router.get("/agents/service/{service}")
-async def get_agents_by_service(service: str):
+@rate_limit(rate=200, per=60)
+async def get_agents_by_service(
+    request: Request, service: str
+):
     """Get agents that provide a specific service"""
     try:
         if not state.agent_registry:
@@ -319,7 +340,10 @@ async def get_agents_by_service(service: str):
 
 # Get agents by capability
 @router.get("/agents/capability/{capability}")
-async def get_agents_by_capability(capability: str):
+@rate_limit(rate=200, per=60)
+async def get_agents_by_capability(
+    request: Request, capability: str
+):
     """Get agents that have a specific capability"""
     try:
         if not state.agent_registry:
@@ -341,7 +365,10 @@ async def get_agents_by_capability(capability: str):
 
 # Set load balancing strategy
 @router.put("/load-balancer/strategy")
-async def set_load_balancing_strategy(strategy: str = Query(..., description="Load balancing strategy")):
+@rate_limit(rate=50, per=60)
+async def set_load_balancing_strategy(
+    request: Request, strategy: str = Query(..., description="Load balancing strategy")
+):
     """Set load balancing strategy"""
     try:
         if not state.load_balancer:
@@ -369,7 +396,10 @@ async def set_load_balancing_strategy(strategy: str = Query(..., description="Lo
 
 # Peer management endpoints
 @router.post("/peers/add")
-async def add_peer(agent_id: str = Query(..., description="Agent ID"), peer_id: str = Query(..., description="Peer agent ID")):
+@rate_limit(rate=50, per=60)
+async def add_peer(
+    request: Request, agent_id: str = Query(..., description="Agent ID"), peer_id: str = Query(..., description="Peer agent ID")
+):
     """Add a peer connection for an agent"""
     try:
         from ..storage.message_storage import PeerStorage
@@ -397,7 +427,10 @@ async def add_peer(agent_id: str = Query(..., description="Agent ID"), peer_id: 
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/peers/remove")
-async def remove_peer(agent_id: str = Query(..., description="Agent ID"), peer_id: str = Query(..., description="Peer agent ID")):
+@rate_limit(rate=50, per=60)
+async def remove_peer(
+    request: Request, agent_id: str = Query(..., description="Agent ID"), peer_id: str = Query(..., description="Peer agent ID")
+):
     """Remove a peer connection for an agent"""
     try:
         from ..storage.message_storage import PeerStorage
@@ -425,7 +458,10 @@ async def remove_peer(agent_id: str = Query(..., description="Agent ID"), peer_i
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/peers/{agent_id}")
-async def get_agent_peers(agent_id: str):
+@rate_limit(rate=200, per=60)
+async def get_agent_peers(
+    request: Request, agent_id: str
+):
     """Get all peers for a specific agent"""
     try:
         from ..storage.message_storage import PeerStorage
@@ -450,7 +486,10 @@ async def get_agent_peers(agent_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/peers")
-async def get_all_peers():
+@rate_limit(rate=200, per=60)
+async def get_all_peers(
+    request: Request
+):
     """Get all peer connections in the system"""
     try:
         from ..storage.message_storage import PeerStorage

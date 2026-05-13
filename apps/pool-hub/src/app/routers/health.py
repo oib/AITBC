@@ -1,14 +1,17 @@
 """Health check routes for Pool Hub"""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from datetime import datetime, timezone
 from sqlalchemy import text
+
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-async def health_check():
+@rate_limit(rate=1000, per=60)
+async def health_check(request: Request):
     """Basic health check."""
     return {
         "status": "ok",
@@ -18,7 +21,8 @@ async def health_check():
 
 
 @router.get("/ready")
-async def readiness_check():
+@rate_limit(rate=1000, per=60)
+async def readiness_check(request: Request):
     """Readiness check for Kubernetes."""
     # Check dependencies
     checks = {"database": await check_database(), "redis": await check_redis()}
@@ -33,7 +37,8 @@ async def readiness_check():
 
 
 @router.get("/live")
-async def liveness_check():
+@rate_limit(rate=1000, per=60)
+async def liveness_check(request: Request):
     """Liveness check for Kubernetes."""
     return {"live": True}
 

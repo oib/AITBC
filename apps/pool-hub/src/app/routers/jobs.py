@@ -1,10 +1,11 @@
 """Job distribution routes for Pool Hub"""
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import List, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
+from aitbc.rate_limiting import rate_limit
 from ..registry import MinerRegistry
 from ..scoring import ScoringEngine
 
@@ -50,7 +51,9 @@ def get_scoring() -> ScoringEngine:
 
 
 @router.post("/assign", response_model=JobAssignment)
+@rate_limit(rate=50, per=60)
 async def assign_job(
+    request: Request,
     job: JobRequest,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)
@@ -92,7 +95,9 @@ async def assign_job(
 
 
 @router.post("/result")
+@rate_limit(rate=50, per=60)
 async def submit_result(
+    request: Request,
     result: JobResult,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)
@@ -120,7 +125,9 @@ async def submit_result(
 
 
 @router.get("/pending")
+@rate_limit(rate=200, per=60)
 async def get_pending_jobs(
+    request: Request,
     pool_id: Optional[str] = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
@@ -130,7 +137,9 @@ async def get_pending_jobs(
 
 
 @router.get("/{job_id}")
+@rate_limit(rate=200, per=60)
 async def get_job_status(
+    request: Request,
     job_id: str,
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -142,7 +151,9 @@ async def get_job_status(
 
 
 @router.post("/{job_id}/reassign")
+@rate_limit(rate=50, per=60)
 async def reassign_job(
+    request: Request,
     job_id: str,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)

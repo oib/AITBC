@@ -1,0 +1,1 @@
+"""Agent coordination domain models."""

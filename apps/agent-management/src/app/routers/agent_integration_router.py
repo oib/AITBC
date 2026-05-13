@@ -5,9 +5,10 @@ Agent Integration and Deployment API Router for Verifiable AI Agent Orchestratio
 Provides REST API endpoints for production deployment and integration management
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -31,7 +32,9 @@ router = APIRouter(prefix="/agents/integration", tags=["Agent Integration"])
 
 
 @router.post("/deployments/config", response_model=AgentDeploymentConfig)
+@rate_limit(rate=50, per=60)
 async def create_deployment_config(
+    request: Request,
     workflow_id: str,
     deployment_name: str,
     deployment_config: dict,
@@ -65,7 +68,9 @@ async def create_deployment_config(
 
 
 @router.get("/deployments/configs", response_model=list[AgentDeploymentConfig])
+@rate_limit(rate=200, per=60)
 async def list_deployment_configs(
+    request: Request,
     workflow_id: str | None = None,
     status: DeploymentStatus | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -99,7 +104,9 @@ async def list_deployment_configs(
 
 
 @router.get("/deployments/configs/{config_id}", response_model=AgentDeploymentConfig)
+@rate_limit(rate=200, per=60)
 async def get_deployment_config(
+    request: Request,
     config_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -126,7 +133,9 @@ async def get_deployment_config(
 
 
 @router.post("/deployments/{config_id}/deploy")
+@rate_limit(rate=50, per=60)
 async def deploy_workflow(
+    request: Request,
     config_id: str,
     target_environment: str = "production",
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -160,7 +169,9 @@ async def deploy_workflow(
 
 
 @router.get("/deployments/{config_id}/health")
+@rate_limit(rate=200, per=60)
 async def get_deployment_health(
+    request: Request,
     config_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -190,7 +201,9 @@ async def get_deployment_health(
 
 
 @router.post("/deployments/{config_id}/scale")
+@rate_limit(rate=50, per=60)
 async def scale_deployment(
+    request: Request,
     config_id: str,
     target_instances: int,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -224,7 +237,9 @@ async def scale_deployment(
 
 
 @router.post("/deployments/{config_id}/rollback")
+@rate_limit(rate=50, per=60)
 async def rollback_deployment(
+    request: Request,
     config_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -255,7 +270,9 @@ async def rollback_deployment(
 
 
 @router.get("/deployments/instances", response_model=list[AgentDeploymentInstance])
+@rate_limit(rate=200, per=60)
 async def list_deployment_instances(
+    request: Request,
     deployment_id: str | None = None,
     environment: str | None = None,
     status: DeploymentStatus | None = None,
@@ -295,7 +312,9 @@ async def list_deployment_instances(
 
 
 @router.get("/deployments/instances/{instance_id}", response_model=AgentDeploymentInstance)
+@rate_limit(rate=200, per=60)
 async def get_deployment_instance(
+    request: Request,
     instance_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -326,7 +345,9 @@ async def get_deployment_instance(
 
 
 @router.post("/integrations/zk/{execution_id}")
+@rate_limit(rate=50, per=60)
 async def integrate_with_zk_system(
+    request: Request,
     execution_id: str,
     verification_level: VerificationLevel = VerificationLevel.BASIC,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -360,7 +381,9 @@ async def integrate_with_zk_system(
 
 
 @router.get("/metrics/deployments/{deployment_id}")
+@rate_limit(rate=200, per=60)
 async def get_deployment_metrics(
+    request: Request,
     deployment_id: str,
     time_range: str = "1h",
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -391,7 +414,9 @@ async def get_deployment_metrics(
 
 
 @router.post("/production/deploy")
+@rate_limit(rate=50, per=60)
 async def deploy_to_production(
+    request: Request,
     workflow_id: str,
     deployment_config: dict,
     integration_config: dict | None = None,
@@ -425,7 +450,9 @@ async def deploy_to_production(
 
 
 @router.get("/production/dashboard")
+@rate_limit(rate=200, per=60)
 async def get_production_dashboard(
+    request: Request,
     session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
 ) -> dict[str, Any]:
     """Get comprehensive production dashboard data"""
@@ -479,7 +506,9 @@ async def get_production_dashboard(
 
 
 @router.get("/production/health")
+@rate_limit(rate=200, per=60)
 async def get_production_health(
+    request: Request,
     session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
 ) -> dict[str, Any]:
     """Get overall production health status"""
@@ -549,7 +578,9 @@ async def get_production_health(
 
 
 @router.get("/production/alerts")
+@rate_limit(rate=200, per=60)
 async def get_production_alerts(
+    request: Request,
     severity: str | None = None,
     limit: int = 50,
     current_user: str = Depends(require_admin_key()),

@@ -2,11 +2,10 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 from ..config import settings
 from ..deps import get_miner_id, require_miner_key
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
@@ -16,13 +15,11 @@ from ..storage import get_session
 
 logger = get_logger(__name__)
 
-
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["miner"])
 
 
 @router.post("/miners/register", summary="Register or update miner")
-@limiter.limit(lambda: settings.rate_limit_miner_register)
+@rate_limit(rate=50, per=60)
 async def register(
     req: MinerRegister,
     request: Request,
@@ -36,7 +33,7 @@ async def register(
 
 
 @router.post("/miners/heartbeat", summary="Send miner heartbeat")
-@limiter.limit(lambda: settings.rate_limit_miner_heartbeat)
+@rate_limit(rate=100, per=60)
 async def heartbeat(
     req: MinerHeartbeat,
     request: Request,
@@ -53,7 +50,9 @@ async def heartbeat(
 
 # NOTE: until scheduling is fully implemented the poll endpoint performs a simple FIFO assignment.
 @router.post("/miners/poll", response_model=AssignedJob, summary="Poll for next job")
+@rate_limit(rate=100, per=60)
 async def poll(
+    request: Request,
     req: PollRequest,
     session: Annotated[Session, Depends(get_session)],
     api_key: str = Depends(require_miner_key()),
@@ -66,11 +65,13 @@ async def poll(
 
 
 @router.post("/miners/{job_id}/result", summary="Submit job result")
+@rate_limit(rate=50, per=60)
 async def submit_result(
+    request: Request,
     job_id: str,
     req: JobResultSubmit,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: str = Depends(require_miner_key()),
+    miner_id: str = Depends(get_miner_id()),
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     job_service = JobService(session)
     miner_service = MinerService(session)
@@ -122,11 +123,13 @@ async def submit_result(
 
 
 @router.post("/miners/{job_id}/fail", summary="Submit job failure")
+@rate_limit(rate=50, per=60)
 async def submit_failure(
+    request: Request,
     job_id: str,
     req: JobFailSubmit,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: str = Depends(require_miner_key()),
+    miner_id: str = Depends(get_miner_id()),
 ) -> dict[str, str]:  # type: ignore[arg-type]
     try:
         service = JobService(session)
@@ -137,7 +140,9 @@ async def submit_failure(
 
 
 @router.post("/miners/{miner_id}/jobs", summary="List jobs for a miner")
+@rate_limit(rate=200, per=60)
 async def list_miner_jobs(
+    request: Request,
     miner_id: str,
     limit: int = 20,
     offset: int = 0,
@@ -179,7 +184,9 @@ async def list_miner_jobs(
 
 
 @router.post("/miners/{miner_id}/earnings", summary="Get miner earnings")
+@rate_limit(rate=200, per=60)
 async def get_miner_earnings(
+    request: Request,
     miner_id: str,
     from_time: str | None = None,
     to_time: str | None = None,
@@ -215,7 +222,9 @@ async def get_miner_earnings(
 
 
 @router.put("/miners/{miner_id}/capabilities", summary="Update miner capabilities")
+@rate_limit(rate=50, per=60)
 async def update_miner_capabilities(
+    request: Request,
     miner_id: str,
     req: MinerRegister,
     session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
@@ -239,7 +248,9 @@ async def update_miner_capabilities(
 
 
 @router.delete("/miners/{miner_id}", summary="Deregister miner")
+@rate_limit(rate=50, per=60)
 async def deregister_miner(
+    request: Request,
     miner_id: str,
     session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
     api_key: str = Depends(require_miner_key()),

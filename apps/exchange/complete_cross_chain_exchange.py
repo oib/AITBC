@@ -19,8 +19,16 @@ import hashlib
 from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.rate_limiting import RateLimitMiddleware
 
 app = FastAPI(title="AITBC Complete Cross-Chain Exchange", version="3.0.0")
+
+# Add rate limiting middleware
+app.add_middleware(
+    RateLimitMiddleware,
+    rate=100,
+    per=60
+)
 
 # Initialize logger
 logger = get_logger(__name__)
