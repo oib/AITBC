@@ -11,14 +11,18 @@ from ..custom_types import (
 # Import domain models
 from ..domain import (
     Job,
-    JobPayment,
     JobReceipt,
-    MarketplaceBid,
-    MarketplaceOffer,
     Miner,
-    PaymentEscrow,
     User,
     Wallet,
+)
+from ..contexts.marketplace.domain.marketplace import (
+    MarketplaceBid,
+    MarketplaceOffer,
+)
+from ..contexts.payments.domain.payment import (
+    JobPayment,
+    PaymentEscrow,
 )
 
 # Import schemas from schemas.py

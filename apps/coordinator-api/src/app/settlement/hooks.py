@@ -10,7 +10,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from ..models.job import Job
+from ..domain.job import Job
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
 from .manager import BridgeManager
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from ...domain.certification import (
+from app.domain.certification import (
     AgentBadge,
     AgentCertification,
     AgentPartnership,

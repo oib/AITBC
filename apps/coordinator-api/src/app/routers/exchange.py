@@ -23,7 +23,7 @@ from ..schemas import (
     WalletBalanceResponse,
     WalletInfoResponse,
 )
-from ..services.bitcoin_wallet import get_wallet_balance, get_wallet_info
+from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
 from ..utils.cache import cached, get_cache_config
 
 router = APIRouter(tags=["exchange"])
@@ -127,7 +127,7 @@ async def confirm_payment(
 
     # Mint AITBC tokens to user's wallet
     try:
-        from ..services.blockchain import mint_tokens
+        from ..contexts.blockchain.services.blockchain import mint_tokens
 
         mint_tokens(payment["user_id"], payment["aitbc_amount"])
     except Exception as e:

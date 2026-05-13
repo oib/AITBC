@@ -25,9 +25,9 @@ from ....schemas import (
     KeyRegistrationRequest,
     KeyRegistrationResponse,
 )
-from ....services.access_control import AccessController
-from ....services.encryption import EncryptedData, EncryptionService
-from ....services.key_management import KeyManagementError, KeyManager
+from ...security.services.access_control import AccessController
+from ...security.services.encryption import EncryptedData, EncryptionService
+from ...security.services.key_management import KeyManagementError, KeyManager
 
 # Initialize router and security
 router = APIRouter(prefix="/confidential", tags=["confidential"])
@@ -44,7 +44,7 @@ def get_encryption_service() -> EncryptionService:
     global encryption_service
     if encryption_service is None:
         # Initialize with key manager
-        from ..services.key_management import FileKeyStorage
+        from ....contexts.security.services.key_management import FileKeyStorage
         import tempfile
 
         key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
@@ -57,7 +57,7 @@ def get_key_manager() -> KeyManager:
     """Get key manager instance"""
     global key_manager
     if key_manager is None:
-        from ..services.key_management import FileKeyStorage
+        from ....contexts.security.services.key_management import FileKeyStorage
         import tempfile
 
         key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
@@ -69,7 +69,7 @@ def get_access_controller() -> AccessController:
     """Get access controller instance"""
     global access_controller
     if access_controller is None:
-        from ..services.access_control import PolicyStore
+        from ....contexts.security.services.access_control import PolicyStore
 
         policy_store = PolicyStore()
         access_controller = AccessController(policy_store)

@@ -17,14 +17,14 @@ from sqlmodel import col, func, select
 
 from aitbc import get_logger
 from ....custom_types import Constraints
-from ....domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
+from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
 from ....domain.job import Job
 from ....schemas import JobCreate, JobPaymentCreate
-from ....services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
+from ...trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PricingStrategy, ResourceType
 from ....services.jobs import JobService
 from ....services.market_data_collector import MarketDataCollector
-from ..services.payments import PaymentService
-from ..storage.db import get_session
+from ....contexts.payments.services.payments import PaymentService
+from ....storage.db import get_session
 
 logger = get_logger(__name__)
 
@@ -306,11 +306,11 @@ async def buy_gpu(
     payment_status = None
     try:
         # Lazy import to avoid blocking startup
-        from ..custom_types import Constraints
-        from ..domain.job import Job
-        from ..schemas import JobCreate, JobPaymentCreate
-        from ..services.jobs import JobService
-        from ..services.payments import PaymentService
+        from ....custom_types import Constraints
+        from ....domain.job import Job
+        from ....schemas import JobCreate, JobPaymentCreate
+        from ....services.jobs import JobService
+        from ....contexts.payments.services.payments import PaymentService
         from sqlmodel import Session as SQLModelSession
         
         # Create a new session for job creation to ensure it persists

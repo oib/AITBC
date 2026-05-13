@@ -17,7 +17,7 @@ from aitbc.rate_limiting import rate_limit
 
 from aitbc import get_logger
 
-from ....services.hermes_enhanced import hermesEnhancedService
+from ..services.hermes_enhanced import hermesEnhancedService
 from ....storage import get_session
 
 router = APIRouter()

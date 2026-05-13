@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..models.confidential import ConfidentialTransaction
-from ..services.encryption import EncryptionService
-from ..services.key_management import KeyManager
+from ..contexts.security.services.encryption import EncryptionService
+from ..contexts.security.services.key_management import KeyManager
 
 
 class ConfidentialTransactionService:

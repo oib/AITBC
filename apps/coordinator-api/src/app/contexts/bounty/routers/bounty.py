@@ -8,13 +8,13 @@ REST API for AI agent bounty system with ZK-proof verification
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from ....auth import get_current_user
+from ....routers.users import get_current_user
 from ....domain.bounty import (
     Bounty,
     BountyIntegration,
@@ -24,7 +24,7 @@ from ....domain.bounty import (
     BountyTier,
     SubmissionStatus,
 )
-from ....services.blockchain_service import BlockchainService
+from ...blockchain.services.blockchain import BlockchainService
 from ....services.bounty_service import BountyService
 from ....storage import get_session
 
@@ -148,8 +148,8 @@ class BountyFilterRequest(BaseModel):
     deadline_after: Optional[datetime] = None
     tags: Optional[List[str]] = None
     requires_zk_proof: Optional[bool] = None
-    page: int = Field(default=1, ge=1)
-    limit: int = Field(default=20, ge=1, le=100)
+    page: int = Query(default=1, ge=1)
+    limit: int = Query(default=20, ge=1, le=100)
 
 class BountyStatsResponse(BaseModel):
     total_bounties: int
@@ -433,8 +433,8 @@ async def dispute_bounty_submission(
 async def get_my_created_bounties(
     request: Request,
     status: Optional[BountyStatus] = None,
-    page: int = Field(default=1, ge=1),
-    limit: int = Field(default=20, ge=1, le=100),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
@@ -459,8 +459,8 @@ async def get_my_created_bounties(
 async def get_my_submissions(
     request: Request,
     status: Optional[SubmissionStatus] = None,
-    page: int = Field(default=1, ge=1),
-    limit: int = Field(default=20, ge=1, le=100),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
@@ -484,8 +484,8 @@ async def get_my_submissions(
 @rate_limit(rate=200, per=60)
 async def get_bounty_leaderboard(
     request: Request,
-    period: str = Field(default="weekly", regex="^(daily|weekly|monthly)$"),
-    limit: int = Field(default=50, ge=1, le=100),
+    period: str = Query(default="weekly", pattern="^(daily|weekly|monthly)$"),
+    limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
 ) -> Dict[str, Any]:
@@ -506,7 +506,7 @@ async def get_bounty_leaderboard(
 @rate_limit(rate=200, per=60)
 async def get_bounty_stats(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
 ) -> BountyStatsResponse:
@@ -583,7 +583,7 @@ async def get_bounty_categories(
 @rate_limit(rate=500, per=60)
 async def get_bounty_tags(
     request: Request,
-    limit: int = Field(default=100, ge=1, le=500),
+    limit: int = Query(default=100, ge=1, le=500),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
 ) -> Dict[str, Any]:
@@ -600,9 +600,9 @@ async def get_bounty_tags(
 @rate_limit(rate=200, per=60)
 async def search_bounties(
     request: Request,
-    query: str = Field(..., min_length=1, max_length=100),
-    page: int = Field(default=1, ge=1),
-    limit: int = Field(default=20, ge=1, le=100),
+    query: str = Query(..., min_length=1, max_length=100),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
 ) -> List[BountyResponse]:

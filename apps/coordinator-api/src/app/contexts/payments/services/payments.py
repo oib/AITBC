@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
 logger = get_logger(__name__)
 
-from ....domain.payment import JobPayment, PaymentEscrow
+from ..domain.payment import JobPayment, PaymentEscrow
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 

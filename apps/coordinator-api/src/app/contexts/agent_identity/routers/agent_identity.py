@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from ....agent_identity.manager import AgentIdentityManager
-from ....domain.agent_identity import (
+from ..domain.agent_identity import (
     CrossChainMappingResponse,
     IdentityStatus,
     VerificationType,

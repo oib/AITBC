@@ -9,7 +9,7 @@ from aitbc import get_logger
 from ....config import settings
 from ....metrics import marketplace_errors_total, marketplace_requests_total
 from ....schemas import MarketplaceBidRequest, MarketplaceBidView, MarketplaceOfferView, MarketplaceStatsView
-from ...services import MarketplaceService
+from ..services import MarketplaceService
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
 

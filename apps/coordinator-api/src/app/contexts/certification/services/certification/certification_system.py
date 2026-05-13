@@ -14,13 +14,13 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, and_, select
 
-from ...domain.certification import (
+from app.domain.certification import (
     AgentCertification,
     CertificationLevel,
     CertificationStatus,
     VerificationType,
 )
-from ...domain.reputation import AgentReputation
+from app.domain.reputation import AgentReputation
 
 
 class CertificationSystem:

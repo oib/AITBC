@@ -8,16 +8,16 @@ REST API for AI agent staking system with reputation-based yield farming
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Field
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from ....auth import get_current_user
+from ....routers.users import get_current_user
 from ....domain.bounty import AgentMetrics, AgentStake, EcosystemMetrics, PerformanceTier, StakeStatus, StakingPool
-from ....services.blockchain_service import BlockchainService
-from ....services.staking_service import StakingService
+from ...blockchain.services.blockchain import BlockchainService
+from ..services.staking_service import StakingService
 from ....storage import get_session
 
 router = APIRouter()
@@ -466,7 +466,7 @@ async def get_staking_pool(
 async def get_agent_apy(
     request: Request,
     agent_wallet: str,
-    lock_period: int = Field(default=30, ge=1, le=365),
+    lock_period: int = Query(default=30, ge=1, le=365),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
 ) -> Dict[str, Any]:
@@ -575,8 +575,8 @@ async def distribute_agent_earnings(
 @rate_limit(rate=200, per=60)
 async def get_supported_agents(
     request: Request,
-    page: int = Field(default=1, ge=1),
-    limit: int = Field(default=50, ge=1, le=100),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=100),
     tier: Optional[PerformanceTier] = None,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
@@ -604,7 +604,7 @@ async def get_supported_agents(
 @rate_limit(rate=200, per=60)
 async def get_staking_stats(
     request: Request,
-    period: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
+    period: str = Query(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
 ) -> StakingStatsResponse:
@@ -622,9 +622,9 @@ async def get_staking_stats(
 @rate_limit(rate=200, per=60)
 async def get_staking_leaderboard(
     request: Request,
-    period: str = Field(default="weekly", regex="^(daily|weekly|monthly)$"),
-    metric: str = Field(default="total_staked", regex="^(total_staked|total_rewards|apy)$"),
-    limit: int = Field(default=50, ge=1, le=100),
+    period: str = Query(default="weekly", regex="^(daily|weekly|monthly)$"),
+    metric: str = Query(default="total_staked", regex="^(total_staked|total_rewards|apy)$"),
+    limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
 ) -> Dict[str, Any]:
@@ -648,8 +648,8 @@ async def get_my_staking_positions(
     request: Request,
     status: Optional[StakeStatus] = None,
     agent_wallet: Optional[str] = None,
-    page: int = Field(default=1, ge=1),
-    limit: int = Field(default=20, ge=1, le=100),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)
@@ -674,7 +674,7 @@ async def get_my_staking_positions(
 @rate_limit(rate=200, per=60)
 async def get_my_staking_rewards(
     request: Request,
-    period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)

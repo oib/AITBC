@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ..domain.agent_identity import (
+from ..contexts.agent_identity.domain.agent_identity import (
     AgentIdentity,
     AgentIdentityCreate,
     AgentIdentityUpdate,

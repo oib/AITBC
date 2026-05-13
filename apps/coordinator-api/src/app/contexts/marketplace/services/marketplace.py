@@ -4,7 +4,7 @@ from statistics import mean
 
 from sqlmodel import Session, select
 
-from ....domain import MarketplaceBid, MarketplaceOffer
+from ..domain.marketplace import MarketplaceBid, MarketplaceOffer
 from ....schemas import (
     MarketplaceBidRequest,
     MarketplaceBidView,

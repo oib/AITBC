@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
-from ..cross_chain_reputation import CrossChainReputationService
+from app.contexts.cross_chain.services.cross_chain.reputation import CrossChainReputationService
 
 
 class MessageType(StrEnum):

@@ -13,15 +13,15 @@ from sqlalchemy import select
 from sqlmodel import Session
 
 from aitbc import get_logger
-from ..blockchain.contract_interactions import ContractInteractionService
-from ..domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
-from ..schemas.wallet import TransactionRequest, WalletCreate
+# from ...blockchain.services.contract_interactions import ContractInteractionService
+from ....domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
+from ....schemas.wallet import TransactionRequest, WalletCreate
 
 logger = get_logger(__name__)
 
 
 class WalletService:
-    def __init__(self, session: Session, contract_service: ContractInteractionService):
+    def __init__(self, session: Session, contract_service=None):
         self.session = session
         self.contract_service = contract_service
 

@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from ...storage import get_session
+from app.storage import get_session
 
 
 class LearningAlgorithm(StrEnum):

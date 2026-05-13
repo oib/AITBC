@@ -136,7 +136,7 @@ class CrossChainMapping(SQLModel, table=True):
 class IdentityVerification(SQLModel, table=True):
     """Verification records for cross-chain identities"""
 
-    __tablename__ = IDENTITY_VERIFICATION_TABLE
+    __tablename__ = "identity_verifications"
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"verify_{uuid4().hex[:8]}", primary_key=True)

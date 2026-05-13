@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import get_api_key
-from .settlement.manager import BridgeManager
+from app.settlement.manager import BridgeManager
 
 router = APIRouter(prefix="/settlement", tags=["settlement"])
 

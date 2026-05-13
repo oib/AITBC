@@ -20,7 +20,7 @@ from ....domain.developer_platform import (
 )
 from ....schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
 from ....services.developer_platform_service import DeveloperPlatformService
-from ....services.governance_service import GovernanceService
+from ...governance.services.governance_service import GovernanceService
 from ....storage.db import get_session
 
 router = APIRouter(prefix="/developer-platform", tags=["Developer Platform"])
