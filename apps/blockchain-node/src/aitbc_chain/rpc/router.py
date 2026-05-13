@@ -6,7 +6,7 @@ import time
 from typing import Any, Dict, Optional, List
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import select, delete
 
@@ -19,6 +19,8 @@ from ..logger import get_logger
 from ..sync import ChainSync
 from ..contracts.agent_messaging_contract import messaging_contract
 from .contract_service import contract_service
+
+from aitbc.rate_limiting import rate_limit
 
 _logger = get_logger(__name__)
 
@@ -254,7 +256,10 @@ class EstimateFeeRequest(BaseModel):
 
 
 @router.get("/genesis_allocations", summary="Get genesis allocations from blockchain")
-async def get_genesis_allocations(chain_id: str = None) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_genesis_allocations(
+    request: Request, chain_id: str = None
+) -> Dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
     chain_id = get_chain_id(chain_id)
     
@@ -286,7 +291,10 @@ async def get_genesis_allocations(chain_id: str = None) -> Dict[str, Any]:
 
 
 @router.get("/head", summary="Get current chain head")
-async def get_head(chain_id: str = None) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_head(
+    request: Request, chain_id: str = None
+) -> Dict[str, Any]:
     """Get current chain head"""
     chain_id = get_chain_id(chain_id)
     
@@ -308,7 +316,10 @@ async def get_head(chain_id: str = None) -> Dict[str, Any]:
 
 
 @router.get("/blocks/{height}", summary="Get block by height")
-async def get_block(height: int, chain_id: str = None) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_block(
+    request: Request, height: int, chain_id: str = None
+) -> Dict[str, Any]:
     """Get block by height"""
     chain_id = get_chain_id(chain_id)
     
@@ -349,7 +360,10 @@ async def get_block(height: int, chain_id: str = None) -> Dict[str, Any]:
 
 
 @router.post("/transaction", summary="Submit transaction")
-async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def submit_transaction(
+    request: Request, tx_data: TransactionRequest
+) -> Dict[str, Any]:
     """Submit a new transaction to the mempool"""
     from ..mempool import get_mempool
 
@@ -386,7 +400,10 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
 
 
 @router.get("/mempool", summary="Get pending transactions")
-async def get_mempool(chain_id: str = None, limit: int = 100) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_mempool(
+    request: Request, chain_id: str = None, limit: int = 100
+) -> Dict[str, Any]:
     """Get pending transactions from mempool"""
     from ..mempool import get_mempool
     
@@ -405,7 +422,10 @@ async def get_mempool(chain_id: str = None, limit: int = 100) -> Dict[str, Any]:
 
 
 @router.get("/account/{address}", summary="Get account information")
-async def get_account(address: str, chain_id: str = None) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_account(
+    request: Request, address: str, chain_id: str = None
+) -> Dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
     
@@ -423,13 +443,19 @@ async def get_account(address: str, chain_id: str = None) -> Dict[str, Any]:
 
 
 @router.get("/accounts/{address}", summary="Get account information (alias)")
-async def get_account_alias(address: str, chain_id: str = None) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_account_alias(
+    request: Request, address: str, chain_id: str = None
+) -> Dict[str, Any]:
     """Get account information (alias endpoint)"""
     return await get_account(address, chain_id)
 
 
 @router.post("/transactions/marketplace", summary="Submit marketplace transaction")
-async def submit_marketplace_transaction(tx_data: Dict[str, Any]) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def submit_marketplace_transaction(
+    request: Request, tx_data: Dict[str, Any]
+) -> Dict[str, Any]:
     """Submit a marketplace purchase transaction to the blockchain"""
     from ..config import settings as cfg
     chain_id = get_chain_id(tx_data.get("chain_id"))
@@ -520,7 +546,9 @@ async def submit_marketplace_transaction(tx_data: Dict[str, Any]) -> Dict[str, A
 
 
 @router.get("/transactions", summary="Query transactions")
+@rate_limit(rate=200, per=60)
 async def query_transactions(
+    request: Request,
     transaction_type: Optional[str] = None,
     island_id: Optional[str] = None,
     pair: Optional[str] = None,
@@ -582,7 +610,10 @@ async def query_transactions(
 
 
 @router.get("/blocks-range", summary="Get blocks in height range")
-async def get_blocks_range(start: int = 0, end: int = 10, include_tx: bool = True, chain_id: str = None) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_blocks_range(
+    request: Request, start: int = 0, end: int = 10, include_tx: bool = True, chain_id: str = None
+) -> Dict[str, Any]:
     """Get blocks in a height range
     
     Args:
@@ -632,18 +663,27 @@ async def get_blocks_range(start: int = 0, end: int = 10, include_tx: bool = Tru
         }
 
 @router.post("/contracts/deploy/messaging", summary="Deploy messaging contract")
-async def deploy_messaging_contract(deploy_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def deploy_messaging_contract(
+    request: Request, deploy_data: dict
+) -> Dict[str, Any]:
     """Deploy the agent messaging contract to the blockchain"""
     contract_address = "0xagent_messaging_001"
     return {"success": True, "contract_address": contract_address, "status": "deployed"}
 
 @router.get("/contracts", summary="List deployed contracts")
-async def list_contracts() -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def list_contracts(
+    request: Request
+) -> Dict[str, Any]:
     """List all deployed contracts"""
     return contract_service.list_contracts()
 
 @router.post("/contracts/deploy", summary="Deploy a smart contract")
-async def deploy_contract(deploy_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def deploy_contract(
+    request: Request, deploy_data: dict
+) -> Dict[str, Any]:
     """Deploy a new smart contract to the blockchain"""
     contract_name = deploy_data.get("name")
     contract_type = deploy_data.get("type", "zk-verifier")
@@ -664,7 +704,10 @@ async def deploy_contract(deploy_data: dict) -> Dict[str, Any]:
     }
 
 @router.post("/contracts/call", summary="Call a contract method")
-async def call_contract(call_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def call_contract(
+    request: Request, call_data: dict
+) -> Dict[str, Any]:
     """Call a method on a deployed contract"""
     contract_address = call_data.get("address")
     method = call_data.get("method")
@@ -684,7 +727,10 @@ async def call_contract(call_data: dict) -> Dict[str, Any]:
     }
 
 @router.post("/contracts/verify", summary="Verify a ZK proof")
-async def verify_contract(verify_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def verify_contract(
+    request: Request, verify_data: dict
+) -> Dict[str, Any]:
     """Verify a ZK proof against a contract"""
     contract_address = verify_data.get("address")
     proof = verify_data.get("proof")
@@ -703,7 +749,10 @@ async def verify_contract(verify_data: dict) -> Dict[str, Any]:
     }
 
 @router.get("/contracts/messaging/state", summary="Get messaging contract state")
-async def get_messaging_contract_state() -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_messaging_contract_state(
+    request: Request
+) -> Dict[str, Any]:
     """Get the current state of the messaging contract"""
     state = {
         "total_topics": len(messaging_contract.topics),
@@ -713,12 +762,18 @@ async def get_messaging_contract_state() -> Dict[str, Any]:
     return {"success": True, "contract_state": state}
 
 @router.get("/messaging/topics", summary="Get forum topics")
-async def get_forum_topics(limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_forum_topics(
+    request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"
+) -> Dict[str, Any]:
     """Get list of forum topics"""
     return messaging_contract.get_topics(limit, offset, sort_by)
 
 @router.post("/messaging/topics/create", summary="Create forum topic")
-async def create_forum_topic(topic_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def create_forum_topic(
+    request: Request, topic_data: dict
+) -> Dict[str, Any]:
     """Create a new forum topic"""
     return messaging_contract.create_topic(
         topic_data.get("agent_id"),
@@ -729,12 +784,18 @@ async def create_forum_topic(topic_data: dict) -> Dict[str, Any]:
     )
 
 @router.get("/messaging/topics/{topic_id}/messages", summary="Get topic messages")
-async def get_topic_messages(topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp") -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_topic_messages(
+    request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"
+) -> Dict[str, Any]:
     """Get messages from a forum topic"""
     return messaging_contract.get_messages(topic_id, limit, offset, sort_by)
 
 @router.post("/messaging/messages/post", summary="Post message")
-async def post_message(message_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def post_message(
+    request: Request, message_data: dict
+) -> Dict[str, Any]:
     """Post a message to a forum topic"""
     return messaging_contract.post_message(
         message_data.get("agent_id"),
@@ -746,7 +807,10 @@ async def post_message(message_data: dict) -> Dict[str, Any]:
     )
 
 @router.post("/messaging/messages/{message_id}/vote", summary="Vote on message")
-async def vote_message(message_id: str, vote_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def vote_message(
+    request: Request, message_id: str, vote_data: dict
+) -> Dict[str, Any]:
     """Vote on a message (upvote/downvote)"""
     return messaging_contract.vote_message(
         vote_data.get("agent_id"),
@@ -756,17 +820,26 @@ async def vote_message(message_id: str, vote_data: dict) -> Dict[str, Any]:
     )
 
 @router.get("/messaging/messages/search", summary="Search messages")
-async def search_messages(query: str, limit: int = 50) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def search_messages(
+    request: Request, query: str, limit: int = 50
+) -> Dict[str, Any]:
     """Search messages by content"""
     return messaging_contract.search_messages(query, limit)
 
 @router.get("/messaging/agents/{agent_id}/reputation", summary="Get agent reputation")
-async def get_agent_reputation(agent_id: str) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_agent_reputation(
+    request: Request, agent_id: str
+) -> Dict[str, Any]:
     """Get agent reputation information"""
     return messaging_contract.get_agent_reputation(agent_id)
 
 @router.post("/messaging/messages/{message_id}/moderate", summary="Moderate message")
-async def moderate_message(message_id: str, moderation_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def moderate_message(
+    request: Request, message_id: str, moderation_data: dict
+) -> Dict[str, Any]:
     """Moderate a message (moderator only)"""
     return messaging_contract.moderate_message(
         moderation_data.get("moderator_agent_id"),
@@ -777,7 +850,10 @@ async def moderate_message(message_id: str, moderation_data: dict) -> Dict[str, 
     )
 
 @router.post("/importBlock", summary="Import a block")
-async def import_block(block_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def import_block(
+    request: Request, block_data: dict
+) -> Dict[str, Any]:
     """Import a block into the blockchain"""
     global _last_import_time
 
@@ -931,7 +1007,10 @@ def _dedupe_import_blocks(blocks: List[Dict[str, Any]], chain_id: str) -> List[D
     return [latest_by_height[height] for height in sorted(latest_by_height)]
 
 @router.get("/export-chain", summary="Export full chain state")
-async def export_chain(chain_id: str = None) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def export_chain(
+    request: Request, chain_id: str = None
+) -> Dict[str, Any]:
     """Export full chain state as JSON for manual synchronization"""
     chain_id = get_chain_id(chain_id)
     try:
@@ -1016,7 +1095,10 @@ async def export_chain(chain_id: str = None) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to export chain: {str(e)}")
 
 @router.post("/import-chain", summary="Import chain state")
-async def import_chain(import_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def import_chain(
+    request: Request, import_data: dict
+) -> Dict[str, Any]:
      """Import chain state from JSON for manual synchronization"""
      async with _import_lock:
          try:
@@ -1145,7 +1227,10 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
              raise HTTPException(status_code=500, detail=f"Failed to import chain: {str(e)}")
 
 @router.post("/force-sync", summary="Force reorg to specified peer")
-async def force_sync(peer_data: dict) -> Dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def force_sync(
+    request: Request, peer_data: dict
+) -> Dict[str, Any]:
      """Force blockchain reorganization to sync with specified peer"""
      try:
          peer_url = peer_data.get("peer_url")
@@ -1224,8 +1309,10 @@ class GetLogsResponse(BaseModel):
 
 
 @router.post("/eth_getLogs", summary="Query smart contract event logs")
+@rate_limit(rate=200, per=60)
 async def get_logs(
-    request: GetLogsRequest,
+    request: Request,
+    logs_request: GetLogsRequest,
     chain_id: Optional[str] = None
 ) -> GetLogsResponse:
     """

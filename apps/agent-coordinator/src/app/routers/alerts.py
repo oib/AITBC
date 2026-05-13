@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -25,7 +26,9 @@ router = APIRouter()
 
 # Alerting endpoints
 @router.get("/alerts")
+@rate_limit(rate=200, per=60)
 async def get_alerts(
+    request: Request,
     status: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -52,7 +55,9 @@ async def get_alerts(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/alerts/{alert_id}/resolve")
+@rate_limit(rate=50, per=60)
 async def resolve_alert(
+    request: Request,
     alert_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -72,7 +77,10 @@ async def resolve_alert(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/alerts/stats")
-async def get_alert_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
+@rate_limit(rate=200, per=60)
+async def get_alert_stats(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """Get alert statistics"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -92,7 +100,10 @@ async def get_alert_stats(current_user: Dict[str, Any] = Depends(get_current_use
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/alerts/rules")
-async def get_alert_rules(current_user: Dict[str, Any] = Depends(get_current_user)):
+@rate_limit(rate=200, per=60)
+async def get_alert_rules(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """Get alert rules"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -114,7 +125,9 @@ async def get_alert_rules(current_user: Dict[str, Any] = Depends(get_current_use
 
 # SLA monitoring endpoints
 @router.get("/sla")
+@rate_limit(rate=200, per=60)
 async def get_sla_status(
+    request: Request,
     sla_id: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -140,7 +153,9 @@ async def get_sla_status(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sla/{sla_id}/record")
+@rate_limit(rate=50, per=60)
 async def record_sla_metric(
+    request: Request,
     sla_id: str,
     value: float,
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -167,7 +182,10 @@ async def record_sla_metric(
 
 # System status endpoint with monitoring
 @router.get("/system/status")
-async def get_system_status(current_user: Dict[str, Any] = Depends(get_current_user)):
+@rate_limit(rate=200, per=60)
+async def get_system_status(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """Get comprehensive system status"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SYSTEM_HEALTH):

@@ -1,7 +1,5 @@
 # AITBC Development Roadmap
 
-## Current Focus: v0.1 Release Preparation
-
 ### Codebase Analysis (May 2026)
 
 **Scale Overview**
@@ -208,22 +206,29 @@
   - Checksum verification supported via SHA256SUMS file
 - [ ] Binary distribution via GitHub Releases (deferred until v1 release - policy: no GitHub Releases before v1)
 
-### Quality Assurance
-
-- [ ] Cross-platform compatibility validation
-- [ ] Security penetration testing
-
 ### Codebase Quality & Technical Debt
 
 #### HIGH (Medium-term, 2-6 weeks)
 
-- [ ] Decompose coordinator-api - DEFERRED (Phase 1: Infrastructure complete, extraction postponed due to domain coupling complexity)
+- [ ] Decompose coordinator-api - IN PROGRESS (Domain refactoring in progress)
+  - Phase 1: Infrastructure complete, extraction postponed due to domain coupling complexity
   - Built: shared-core, shared-domain (partial), agent-management skeleton
-  - Blocked: extraction complexity, will resume with domain refactoring
   - Created 7 microservice directories: agent-management, blockchain, computing, enterprise, identity, payment, ai-models
   - Built shared-core library: config.py, database.py, logging.py
   - Created service templates and directory structure
-  - Next: Extract agent-management service (largest bounded context)
+  - Domain refactoring progress (Phase 2: Context Creation):
+    - Created DOMAIN_REFACTORING_PLAN.md with 29 identified bounded contexts
+    - High-priority contexts created (7/7):
+      - governance context: 2 routers, 2 services moved, imports updated, compilation verified
+      - staking context: 1 router, 1 service moved, imports updated, compilation verified
+      - reputation context: 1 router, 1 service moved, imports updated, compilation verified
+      - rewards context: 1 router, 1 service moved, imports updated, compilation verified
+      - trading context: 1 router, trading_marketplace services moved, imports updated, compilation verified
+      - hermes context: 4 routers, 2 services moved, imports updated, compilation verified
+      - security context: 1 router, 7 services moved, imports updated, compilation verified
+    - routers/__init__.py updated to reference all new context locations
+    - All 7 high-priority contexts compile successfully
+  - Next: Create remaining 22 contexts (analytics, certification, multimodal, advanced_rl, ai_analytics, cross_chain, developer_platform, community, bounty, confidential, zk_applications, agent_coordination, enterprise_integration, advanced_ai, ecosystem, gpu_multimodal, edge_gpu, infrastructure, storage, wallet, language, settlement)
   - advanced_rl/ package created (engine.py 867 LOC, agents.py, marketplace_optimizer.py)
   - certification/ package created (certification_system.py 582 LOC, partnership_manager.py 472 LOC, badge_system.py, service.py)
   - multi_modal_fusion/ package created (fusion_engine.py, neural_modules.py)

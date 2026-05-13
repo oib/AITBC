@@ -9,10 +9,11 @@ REST API for agent creativity enhancement, ideation, and cross-domain synthesis
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -83,7 +84,10 @@ class SynthesisRequest(BaseModel):
 
 
 @router.post("/capabilities", response_model=CreativeCapabilityResponse)
-async def create_creative_capability(request: CreativeCapabilityCreate, session: Annotated[Session, Depends(get_session)]) -> CreativeCapabilityResponse:
+@rate_limit(rate=50, per=60)
+async def create_creative_capability(
+    request_http: Request, request: CreativeCapabilityCreate, session: Annotated[Session, Depends(get_session)]
+) -> CreativeCapabilityResponse:
     """Initialize a new creative capability for an agent"""
     engine = CreativityEnhancementEngine()
 
@@ -104,7 +108,9 @@ async def create_creative_capability(request: CreativeCapabilityCreate, session:
 
 
 @router.post("/capabilities/{capability_id}/enhance")
+@rate_limit(rate=50, per=60)
 async def enhance_creativity(
+    request_http: Request,
     capability_id: str, request: EnhanceCreativityRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Enhance a specific creative capability using specified algorithm"""
@@ -123,7 +129,9 @@ async def enhance_creativity(
 
 
 @router.post("/capabilities/{capability_id}/evaluate")
+@rate_limit(rate=50, per=60)
 async def evaluate_creation(
+    request_http: Request,
     capability_id: str, request: EvaluateCreationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Evaluate a creative output and update agent capability metrics"""
@@ -145,7 +153,10 @@ async def evaluate_creation(
 
 
 @router.post("/ideation/generate")
-async def generate_ideas(request: IdeationRequest) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def generate_ideas(
+    request_http: Request, request: IdeationRequest
+) -> dict[str, Any]:
     """Generate innovative ideas using specialized ideation algorithms"""
     ideation_engine = IdeationAlgorithm()
 
@@ -164,7 +175,10 @@ async def generate_ideas(request: IdeationRequest) -> dict[str, Any]:
 
 
 @router.post("/synthesis/cross-domain")
-async def synthesize_cross_domain(request: SynthesisRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def synthesize_cross_domain(
+    request_http: Request, request: SynthesisRequest, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
     """Synthesize concepts from multiple domains to create novel outputs"""
     integrator = CrossDomainCreativeIntegrator()
 
@@ -185,7 +199,10 @@ async def synthesize_cross_domain(request: SynthesisRequest, session: Annotated[
 
 
 @router.get("/capabilities/{agent_id}")
-async def list_agent_creative_capabilities(agent_id: str, session: Annotated[Session, Depends(get_session)]) -> list[CreativeCapability]:
+@rate_limit(rate=200, per=60)
+async def list_agent_creative_capabilities(
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+) -> list[CreativeCapability]:
     """List all creative capabilities for a specific agent"""
     try:
         capabilities = session.execute(select(CreativeCapability).where(CreativeCapability.agent_id == agent_id)).all()

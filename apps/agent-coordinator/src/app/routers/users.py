@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -25,7 +26,9 @@ router = APIRouter()
 
 # User management endpoints
 @router.post("/users/{user_id}/role")
+@rate_limit(rate=50, per=60)
 async def assign_user_role(
+    request: Request,
     user_id: str,
     role: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -52,7 +55,9 @@ async def assign_user_role(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users/{user_id}/role")
+@rate_limit(rate=200, per=60)
 async def get_user_role(
+    request: Request,
     user_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -73,7 +78,9 @@ async def get_user_role(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users/{user_id}/permissions")
+@rate_limit(rate=200, per=60)
 async def get_user_permissions(
+    request: Request,
     user_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -94,7 +101,9 @@ async def get_user_permissions(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/users/{user_id}/permissions/grant")
+@rate_limit(rate=50, per=60)
 async def grant_user_permission(
+    request: Request,
     user_id: str,
     permission: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -121,7 +130,9 @@ async def grant_user_permission(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/users/{user_id}/permissions/{permission}")
+@rate_limit(rate=50, per=60)
 async def revoke_user_permission(
+    request: Request,
     user_id: str,
     permission: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -149,7 +160,10 @@ async def revoke_user_permission(
 
 # Role and permission management endpoints
 @router.get("/roles")
-async def list_all_roles(current_user: Dict[str, Any] = Depends(get_current_user)):
+@rate_limit(rate=200, per=60)
+async def list_all_roles(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """List all available roles and their permissions"""
     try:
         # Check if user has permission to view roles
@@ -167,7 +181,9 @@ async def list_all_roles(current_user: Dict[str, Any] = Depends(get_current_user
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/roles/{role}")
+@rate_limit(rate=200, per=60)
 async def get_role_permissions(
+    request: Request,
     role: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -193,7 +209,10 @@ async def get_role_permissions(
         raise HTTPException(status_code=500, detail="Failed to get role permissions")
 
 @router.get("/auth/stats")
-async def get_permission_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
+@rate_limit(rate=200, per=60)
+async def get_permission_stats(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """Get statistics about permissions and users"""
     try:
         # Check if user has permission to view security stats
@@ -212,8 +231,11 @@ async def get_permission_stats(current_user: Dict[str, Any] = Depends(get_curren
 
 # Protected endpoint example
 @router.get("/protected/admin")
+@rate_limit(rate=100, per=60)
 @require_role([Role.ADMIN])
-async def admin_only_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def admin_only_endpoint(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """Admin-only endpoint example"""
     return {
         "status": "success",
@@ -228,8 +250,11 @@ async def admin_only_endpoint(current_user: Dict[str, Any] = Depends(get_current
     }
 
 @router.get("/protected/operator")
+@rate_limit(rate=100, per=60)
 @require_role([Role.ADMIN, Role.OPERATOR])
-async def operator_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def operator_endpoint(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """Operator and admin endpoint example"""
     return {
         "status": "success",

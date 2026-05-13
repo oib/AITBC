@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -25,7 +26,8 @@ router = APIRouter()
 
 # Monitoring and metrics endpoints
 @router.get("/metrics")
-async def get_prometheus_metrics():
+@rate_limit(rate=1000, per=60)
+async def get_prometheus_metrics(request: Request):
     """Get metrics in Prometheus format"""
     try:
         metrics = metrics_registry.get_all_metrics()
@@ -67,7 +69,8 @@ async def get_prometheus_metrics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/metrics/summary")
-async def get_metrics_summary():
+@rate_limit(rate=500, per=60)
+async def get_metrics_summary(request: Request):
     """Get metrics summary for dashboard"""
     try:
         summary = performance_monitor.get_performance_summary()
@@ -92,7 +95,8 @@ async def get_metrics_summary():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/metrics/health")
-async def get_health_metrics():
+@rate_limit(rate=500, per=60)
+async def get_health_metrics(request: Request):
     """Get health metrics for monitoring"""
     try:
         # Get system health metrics
