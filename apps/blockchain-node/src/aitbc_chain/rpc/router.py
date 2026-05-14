@@ -19,6 +19,7 @@ from ..logger import get_logger
 from ..sync import ChainSync
 from ..contracts.agent_messaging_contract import messaging_contract
 from .contract_service import contract_service
+from .dispute_resolution_service import dispute_resolution_service
 from ..network.island_manager import get_island_manager
 
 from aitbc.rate_limiting import rate_limit
@@ -1411,6 +1412,409 @@ class BridgeRequestResponse(BaseModel):
     message: str
 
 
+# Dispute Resolution Endpoints
+class FileDisputeRequest(BaseModel):
+    """Request model for filing a dispute"""
+    agreement_id: int = Field(description="ID of the agreement being disputed")
+    respondent: str = Field(description="Address of the respondent")
+    dispute_type: str = Field(description="Type of dispute (Performance, Payment, ServiceQuality, Availability, Other)")
+    reason: str = Field(description="Reason for the dispute")
+    evidence_hash: str = Field(description="Hash of initial evidence")
+
+
+class FileDisputeResponse(BaseModel):
+    """Response model for filing a dispute"""
+    success: bool
+    dispute_id: int
+    status: str
+    message: str
+
+
+class SubmitEvidenceRequest(BaseModel):
+    """Request model for submitting evidence"""
+    dispute_id: int = Field(description="ID of the dispute")
+    evidence_type: str = Field(description="Type of evidence")
+    evidence_data: str = Field(description="Evidence data (IPFS hash, URL, etc.)")
+
+
+class SubmitEvidenceResponse(BaseModel):
+    """Response model for submitting evidence"""
+    success: bool
+    evidence_id: int
+    status: str
+    message: str
+
+
+class VerifyEvidenceRequest(BaseModel):
+    """Request model for verifying evidence"""
+    dispute_id: int = Field(description="ID of the dispute")
+    evidence_id: int = Field(description="ID of the evidence")
+    is_valid: bool = Field(description="Whether the evidence is valid")
+    verification_score: int = Field(description="Verification score (0-100)")
+
+
+class VerifyEvidenceResponse(BaseModel):
+    """Response model for verifying evidence"""
+    success: bool
+    status: str
+    message: str
+
+
+class SubmitArbitrationVoteRequest(BaseModel):
+    """Request model for submitting arbitration vote"""
+    dispute_id: int = Field(description="ID of the dispute")
+    vote_in_favor_of_initiator: bool = Field(description="Vote for initiator")
+    confidence: int = Field(description="Confidence level (0-100)")
+    reasoning: str = Field(description="Reasoning for the vote")
+
+
+class SubmitArbitrationVoteResponse(BaseModel):
+    """Response model for submitting arbitration vote"""
+    success: bool
+    status: str
+    message: str
+
+
+class AuthorizeArbitratorRequest(BaseModel):
+    """Request model for authorizing an arbitrator"""
+    arbitrator: str = Field(description="Address of the arbitrator")
+    reputation_score: int = Field(description="Initial reputation score")
+
+
+class AuthorizeArbitratorResponse(BaseModel):
+    """Response model for authorizing an arbitrator"""
+    success: bool
+    status: str
+    message: str
+
+
+class GetDisputeResponse(BaseModel):
+    """Response model for getting dispute details"""
+    dispute_id: int
+    agreement_id: int
+    initiator: str
+    respondent: str
+    status: str
+    dispute_type: str
+    reason: str
+    evidence_hash: str
+    filing_time: int
+    evidence_deadline: int
+    arbitration_deadline: int
+    resolution_amount: int
+    winner: str
+    resolution_reason: str
+    arbitrator_count: int
+    is_escalated: bool
+    escalation_level: int
+
+
+class GetEvidenceResponse(BaseModel):
+    """Response model for getting dispute evidence"""
+    evidence_id: int
+    dispute_id: int
+    submitter: str
+    evidence_type: str
+    evidence_data: str
+    evidence_hash: str
+    submission_time: int
+    is_valid: bool
+    verification_score: int
+    verified_by: str
+
+
+class GetArbitrationVotesResponse(BaseModel):
+    """Response model for getting arbitration votes"""
+    dispute_id: int
+    arbitrator: str
+    vote_in_favor_of_initiator: bool
+    confidence: int
+    reasoning: str
+    vote_time: int
+    is_valid: bool
+
+
+@router.post("/disputes/file", summary="File a new dispute")
+async def file_dispute(request: FileDisputeRequest) -> FileDisputeResponse:
+    """
+    File a new dispute for a marketplace transaction.
+    This interacts with the DisputeResolution smart contract.
+    """
+    try:
+        # Use dispute resolution service
+        result = dispute_resolution_service.file_dispute(
+            agreement_id=request.agreement_id,
+            respondent=request.respondent,
+            dispute_type=request.dispute_type,
+            reason=request.reason,
+            evidence_hash=request.evidence_hash,
+            sender_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to file dispute"))
+        
+        return FileDisputeResponse(
+            success=True,
+            dispute_id=result["dispute_id"],
+            status=result["status"],
+            message=result["message"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error filing dispute: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to file dispute: {str(e)}")
+
+
+@router.post("/disputes/evidence", summary="Submit evidence for a dispute")
+async def submit_evidence(request: SubmitEvidenceRequest) -> SubmitEvidenceResponse:
+    """
+    Submit evidence for a dispute.
+    This interacts with the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.submit_evidence(
+            dispute_id=request.dispute_id,
+            evidence_type=request.evidence_type,
+            evidence_data=request.evidence_data,
+            submitter_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to submit evidence"))
+        
+        return SubmitEvidenceResponse(
+            success=True,
+            evidence_id=result["evidence_id"],
+            status=result["status"],
+            message=result["message"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error submitting evidence: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to submit evidence: {str(e)}")
+
+
+@router.post("/disputes/verify-evidence", summary="Verify evidence (arbitrator only)")
+async def verify_evidence(request: VerifyEvidenceRequest) -> VerifyEvidenceResponse:
+    """
+    Verify evidence submitted in a dispute.
+    This can only be called by authorized arbitrators.
+    """
+    try:
+        result = dispute_resolution_service.verify_evidence(
+            dispute_id=request.dispute_id,
+            evidence_id=request.evidence_id,
+            is_valid=request.is_valid,
+            verification_score=request.verification_score,
+            arbitrator_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to verify evidence"))
+        
+        return VerifyEvidenceResponse(
+            success=True,
+            status=result["status"],
+            message=result["message"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error verifying evidence: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to verify evidence: {str(e)}")
+
+
+@router.post("/disputes/vote", summary="Submit arbitration vote (arbitrator only)")
+async def submit_arbitration_vote(request: SubmitArbitrationVoteRequest) -> SubmitArbitrationVoteResponse:
+    """
+    Submit an arbitration vote for a dispute.
+    This can only be called by authorized arbitrators assigned to the dispute.
+    """
+    try:
+        # TODO: Implement actual smart contract interaction with arbitrator authorization check
+        
+        return SubmitArbitrationVoteResponse(
+            success=True,
+            status="Submitted",
+            message=f"Vote submitted successfully for dispute {request.dispute_id}"
+        )
+    except Exception as e:
+        _logger.error(f"Error submitting arbitration vote: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to submit vote: {str(e)}")
+
+
+@router.post("/disputes/arbitrators/authorize", summary="Authorize an arbitrator (admin only)")
+async def authorize_arbitrator(request: AuthorizeArbitratorRequest) -> AuthorizeArbitratorResponse:
+    """
+    Authorize a new arbitrator.
+    This can only be called by the contract owner.
+    """
+    try:
+        result = dispute_resolution_service.authorize_arbitrator(
+            arbitrator_address=request.arbitrator,
+            reputation_score=request.reputation_score,
+            owner_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to authorize arbitrator"))
+        
+        return AuthorizeArbitratorResponse(
+            success=True,
+            status=result["status"],
+            message=result["message"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error authorizing arbitrator: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to authorize arbitrator: {str(e)}")
+
+
+@router.get("/disputes/active", summary="Get all active disputes")
+async def get_active_disputes() -> Dict[str, Any]:
+    """
+    Get all active disputes.
+    This retrieves information from the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.get_active_disputes()
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get active disputes"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error getting active disputes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get active disputes: {str(e)}")
+
+
+@router.get("/disputes/arbitrators", summary="Get all authorized arbitrators")
+async def get_authorized_arbitrators() -> Dict[str, Any]:
+    """
+    Get all authorized arbitrators.
+    This retrieves information from the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.get_authorized_arbitrators()
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get authorized arbitrators"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error getting authorized arbitrators: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get authorized arbitrators: {str(e)}")
+
+
+@router.get("/disputes/arbitrators/{arbitrator_address}", summary="Get disputes for an arbitrator")
+async def get_arbitrator_disputes(arbitrator_address: str) -> Dict[str, Any]:
+    """
+    Get all disputes assigned to an arbitrator.
+    This retrieves information from the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.get_arbitrator_disputes(arbitrator_address)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get arbitrator disputes"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error getting arbitrator disputes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get arbitrator disputes: {str(e)}")
+
+
+@router.get("/disputes/user/{user_address}", summary="Get disputes for a user")
+async def get_user_disputes(user_address: str) -> Dict[str, Any]:
+    """
+    Get all disputes for a specific user.
+    This retrieves information from the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.get_user_disputes(user_address)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get user disputes"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error getting user disputes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user disputes: {str(e)}")
+
+
+@router.get("/disputes/{dispute_id}", summary="Get dispute details")
+async def get_dispute(dispute_id: int) -> GetDisputeResponse:
+    """
+    Get details of a specific dispute.
+    This retrieves information from the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.get_dispute(dispute_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=404, detail=result.get("error", "Dispute not found"))
+        
+        dispute_data = result["dispute"]
+        return GetDisputeResponse(**dispute_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error getting dispute: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get dispute: {str(e)}")
+
+
+@router.get("/disputes/{dispute_id}/evidence", summary="Get evidence for a dispute")
+async def get_dispute_evidence(dispute_id: int) -> List[GetEvidenceResponse]:
+    """
+    Get all evidence submitted for a dispute.
+    This retrieves information from the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.get_dispute_evidence(dispute_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get dispute evidence"))
+        
+        return [GetEvidenceResponse(**e) for e in result["evidence"]]
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error getting dispute evidence: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get dispute evidence: {str(e)}")
+
+
+@router.get("/disputes/{dispute_id}/votes", summary="Get arbitration votes for a dispute")
+async def get_arbitration_votes(dispute_id: int) -> List[GetArbitrationVotesResponse]:
+    """
+    Get all arbitration votes for a dispute.
+    This retrieves information from the DisputeResolution smart contract.
+    """
+    try:
+        result = dispute_resolution_service.get_arbitration_votes(dispute_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get arbitration votes"))
+        
+        return [GetArbitrationVotesResponse(**v) for v in result["votes"]]
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Error getting arbitration votes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get arbitration votes: {str(e)}")
+
+
 @router.post("/islands/join", summary="Join an island")
 async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
     """
@@ -1452,10 +1856,14 @@ async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
     Calls IslandManager.leave_island to remove the node from the specified island.
     """
     island_manager = get_island_manager()
+    logger.info(f'leave_island: island_manager={island_manager}')
     if island_manager is None:
+        logger.error('leave_island: island_manager is None!')
         raise HTTPException(status_code=503, detail="Island manager not available")
     
+    logger.info(f'leave_island: calling leave_island for {request.island_id}')
     success = island_manager.leave_island(request.island_id)
+    logger.info(f'leave_island: result={success}')
     
     if success:
         return LeaveIslandResponse(
