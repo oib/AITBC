@@ -1411,7 +1411,7 @@ class BridgeRequestResponse(BaseModel):
     message: str
 
 
-@router.post("/rpc/islands/join", summary="Join an island")
+@router.post("/islands/join", summary="Join an island")
 @rate_limit(rate=100, per=60)
 async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
     """
@@ -1445,7 +1445,7 @@ async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
         )
 
 
-@router.post("/rpc/islands/leave", summary="Leave an island")
+@router.post("/islands/leave", summary="Leave an island")
 @rate_limit(rate=100, per=60)
 async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
     """
@@ -1474,7 +1474,7 @@ async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
         )
 
 
-@router.get("/rpc/islands", summary="List all islands")
+@router.get("/islands", summary="List all islands")
 @rate_limit(rate=100, per=60)
 async def list_islands() -> Dict[str, Any]:
     """
@@ -1505,7 +1505,7 @@ async def list_islands() -> Dict[str, Any]:
     }
 
 
-@router.get("/rpc/islands/{island_id}", summary="Get island details")
+@router.get("/islands/{island_id}", summary="Get island details")
 @rate_limit(rate=100, per=60)
 async def get_island(island_id: str) -> Dict[str, Any]:
     """
