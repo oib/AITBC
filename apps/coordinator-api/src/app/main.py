@@ -508,7 +508,7 @@ def create_app() -> FastAPI:
 
         return {
             "status": "ok",
-            "env": settings.app_env,
+            "env": settings.environment,
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         }
 
@@ -518,7 +518,7 @@ def create_app() -> FastAPI:
 
         return {
             "status": "ok",
-            "env": settings.app_env,
+            "env": settings.environment,
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         }
 
@@ -559,3 +559,13 @@ app = create_app()
 # Register jobs router (disabled - legacy)
 # from .routers import jobs as jobs_router
 # app.include_router(jobs_router.router)
+
+# Debug: dump all registered routes
+@app.get("/_debug/routes", include_in_schema=False)
+async def debug_routes():
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "path"):
+            methods = getattr(route, "methods", set())
+            routes.append({"path": route.path, "methods": sorted(methods)})
+    return {"routes": sorted(routes, key=lambda r: r["path"])}
