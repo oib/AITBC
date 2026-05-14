@@ -98,7 +98,10 @@ async def create_enhanced_wallet(
 @rate_limit(rate=200, per=60)
 async def get_wallet_balance(
     request: Request,
-    wallet_address: str, chain_id: int, token_address: str | None = Query(None), session: Session = Depends(get_session)
+    wallet_address: str,
+    chain_id: int = Query(..., description="Chain ID"),
+    token_address: str | None = Query(None),
+    session: Session = Depends(get_session)
 ) -> dict[str, Any]:
     """Get wallet balance with multi-token support"""
 
