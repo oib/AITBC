@@ -11,7 +11,7 @@ import psutil
 from aitbc import get_logger, DATA_DIR
 
 def main():
-    logger = get_logger('aitbc-monitor')
+    logger = get_logger('aitbc-monitoring')
     
     while True:
         try:
