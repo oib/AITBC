@@ -66,17 +66,21 @@ class IPFSStorageService:
 
     async def initialize(self):
         """Initialize IPFS client and Web3 connection"""
+        if ipfshttpclient is None:
+            logger.warning("IPFS client not available - ipfshttpclient not installed")
+            return
+
         try:
             # Initialize IPFS client
             ipfs_url = self.config.get("ipfs_url", "/ip4/127.0.0.1/tcp/5001")
-            self.ipfs_client = ipfshttpclient.connect(ipfs_url)
+            self.ipfs_client = ipfshttpclient.connect(ipfs_url, session=True)
 
             # Test connection
             version = self.ipfs_client.version()
             logger.info(f"Connected to IPFS node: {version['Version']}")
 
             # Initialize Web3 if blockchain features enabled
-            if self.config.get("blockchain_enabled", False):
+            if self.config.get("blockchain_enabled", False) and web3:
                 web3_url = self.config.get("web3_url")
                 self.web3 = Web3(Web3.HTTPProvider(web3_url))
                 if self.web3.is_connected():
@@ -85,8 +89,14 @@ class IPFSStorageService:
                     logger.warning("Failed to connect to blockchain node")
 
         except Exception as e:
-            logger.error(f"Failed to initialize IPFS service: {e}")
-            raise
+            error_msg = str(e)
+            if "Unsupported daemon version" in error_msg:
+                logger.warning(f"IPFS daemon version not supported by ipfshttpclient: {e}")
+                logger.info("IPFS features will be disabled due to version incompatibility")
+            else:
+                logger.warning(f"IPFS service not available: {e}")
+                logger.info("IPFS features will be disabled")
+            self.ipfs_client = None
 
     async def upload_memory(
         self,
@@ -98,6 +108,9 @@ class IPFSStorageService:
         pin: bool = False,
     ) -> IPFSUploadResult:
         """Upload agent memory data to IPFS"""
+
+        if self.ipfs_client is None:
+            raise ValueError("IPFS service not available")
 
         start_time = datetime.now(timezone.utc)
         tags = tags or []
