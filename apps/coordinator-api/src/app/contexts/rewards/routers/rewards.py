@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from sqlalchemy.orm import Session
+from sqlmodel import select
 
 """
 Reward System API Endpoints
