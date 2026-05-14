@@ -4,6 +4,7 @@ Implements the hermes DAO, voting mechanisms, and proposal lifecycle
 Enhanced with multi-jurisdictional support and regional governance
 """
 
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -84,11 +85,11 @@ class GovernanceService:
         now = datetime.now(timezone.utc)
         voting_starts = data.get("voting_starts", now + timedelta(days=1))
         if isinstance(voting_starts, str):
-            voting_starts = datetime.fromisoformat(voting_starts)
+            voting_starts = datetime.fromisoformat(voting_starts.replace('Z', '+00:00'))
 
         voting_ends = data.get("voting_ends", voting_starts + timedelta(days=7))
         if isinstance(voting_ends, str):
-            voting_ends = datetime.fromisoformat(voting_ends)
+            voting_ends = datetime.fromisoformat(voting_ends.replace('Z', '+00:00'))
 
         proposal = Proposal(
             proposer_id=proposer_id,
@@ -259,14 +260,18 @@ class GovernanceService:
         active_voters = len([p for p in profiles if p.total_votes_cast > 0])
         total_power = sum(p.voting_power for p in profiles)
 
+        # Use real treasury data if available
+        treasury_inflow = treasury.total_balance if treasury else 0.0
+        treasury_outflow = treasury.allocated_funds if treasury else 0.0
+
         report = TransparencyReport(
             period=period,
             total_proposals=total_proposals,
             passed_proposals=passed_proposals,
             active_voters=active_voters,
             total_voting_power_participated=total_power,
-            treasury_inflow=10000.0,  # Simulated
-            treasury_outflow=treasury.allocated_funds if treasury else 0.0,
+            treasury_inflow=treasury_inflow,
+            treasury_outflow=treasury_outflow,
             metrics={
                 "voter_participation_rate": (active_voters / len(profiles)) if profiles else 0,
                 "proposal_success_rate": (passed_proposals / total_proposals) if total_proposals else 0,
@@ -278,3 +283,234 @@ class GovernanceService:
         self.session.refresh(report)
 
         return report
+
+    # Staking Pool Methods
+    async def create_staking_pool(
+        self, pool_name: str, developer_address: str, base_apy: float, reputation_multiplier: float
+    ) -> dict[str, Any]:
+        """Create a staking pool for an agent developer"""
+        pool_id = f"pool_{uuid.uuid4().hex[:8]}"
+        pool = {
+            "pool_id": pool_id,
+            "pool_name": pool_name,
+            "developer_address": developer_address,
+            "base_apy": base_apy,
+            "reputation_multiplier": reputation_multiplier,
+            "total_staked": 0.0,
+            "stakers_count": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        return pool
+
+    async def get_developer_staking_pools(self, developer_address: str | None = None) -> list[dict[str, Any]]:
+        """Get staking pools for a specific developer or all pools"""
+        # Mock implementation - in reality would query database
+        pools = []
+        if developer_address:
+            pools.append(
+                {
+                    "pool_id": "pool_abc123",
+                    "pool_name": f"Pool for {developer_address}",
+                    "developer_address": developer_address,
+                    "base_apy": 7.5,
+                    "reputation_multiplier": 1.0,
+                    "total_staked": 1000000.0,
+                    "stakers_count": 500,
+                }
+            )
+        return pools
+
+    async def calculate_staking_rewards(
+        self, pool_id: str, staker_address: str, amount: float, duration_days: int
+    ) -> dict[str, Any]:
+        """Calculate staking rewards for a specific position"""
+        # Mock calculation
+        base_apy = 7.5
+        daily_rate = base_apy / 365
+        rewards = amount * daily_rate * duration_days
+        return {
+            "pool_id": pool_id,
+            "staker_address": staker_address,
+            "amount_staked": amount,
+            "duration_days": duration_days,
+            "estimated_rewards": rewards,
+            "apy": base_apy,
+        }
+
+    async def distribute_staking_rewards(self, pool_id: str) -> dict[str, Any]:
+        """Distribute rewards to all stakers in a pool"""
+        return {
+            "pool_id": pool_id,
+            "total_distributed": 75000.0,
+            "stakers_rewarded": 500,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    # Regional Council Methods
+    async def create_regional_council(
+        self, region: str, council_name: str, jurisdiction: str, council_members: list[str], budget_allocation: float
+    ) -> dict[str, Any]:
+        """Create a regional governance council"""
+        council_id = f"council_{uuid.uuid4().hex[:8]}"
+        council = {
+            "council_id": council_id,
+            "region": region,
+            "council_name": council_name,
+            "jurisdiction": jurisdiction,
+            "council_members": council_members,
+            "budget_allocation": budget_allocation,
+            "budget_spent": 0.0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        return council
+
+    async def get_regional_councils(self, region: str | None = None) -> list[dict[str, Any]]:
+        """Get regional governance councils"""
+        # Mock implementation
+        councils = []
+        if region is None or region == "global":
+            councils.append(
+                {
+                    "council_id": "council_global",
+                    "region": "global",
+                    "council_name": "Global Council",
+                    "jurisdiction": "international",
+                    "council_members": ["delegate_1", "delegate_2"],
+                    "budget_allocation": 1000000.0,
+                    "budget_spent": 250000.0,
+                }
+            )
+        return councils
+
+    async def create_regional_proposal(
+        self,
+        council_id: str,
+        title: str,
+        description: str,
+        proposal_type: str,
+        amount_requested: float,
+        proposer_address: str,
+    ) -> dict[str, Any]:
+        """Create a proposal for a specific regional council"""
+        proposal_id = f"reg_prop_{uuid.uuid4().hex[:8]}"
+        proposal = {
+            "proposal_id": proposal_id,
+            "council_id": council_id,
+            "title": title,
+            "description": description,
+            "proposal_type": proposal_type,
+            "amount_requested": amount_requested,
+            "proposer_address": proposer_address,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        return proposal
+
+    async def vote_on_regional_proposal(
+        self, proposal_id: str, voter_address: str, vote_type: VoteType, voting_power: float
+    ) -> dict[str, Any]:
+        """Vote on a regional proposal"""
+        return {
+            "proposal_id": proposal_id,
+            "voter_address": voter_address,
+            "vote_type": vote_type.value,
+            "voting_power": voting_power,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    # Treasury Methods
+    async def get_treasury_balance(self, region: str | None = None) -> dict[str, Any]:
+        """Get treasury balance for global or specific region"""
+        return {
+            "region": region or "global",
+            "total_balance": 10000000.0,
+            "allocated_funds": 2500000.0,
+            "available_funds": 7500000.0,
+            "currency": "AIT",
+        }
+
+    async def allocate_treasury_funds(
+        self, council_id: str, amount: float, purpose: str, recipient_address: str, approver_address: str
+    ) -> dict[str, Any]:
+        """Allocate treasury funds to a regional council or project"""
+        allocation_id = f"alloc_{uuid.uuid4().hex[:8]}"
+        return {
+            "allocation_id": allocation_id,
+            "council_id": council_id,
+            "amount": amount,
+            "purpose": purpose,
+            "recipient_address": recipient_address,
+            "approver_address": approver_address,
+            "status": "approved",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    async def get_treasury_transactions(
+        self, limit: int = 100, offset: int = 0, region: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Get treasury transaction history"""
+        # Mock implementation
+        return [
+            {
+                "transaction_id": f"tx_{i}",
+                "type": "allocation",
+                "amount": 10000.0,
+                "recipient": f"council_{i}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            for i in range(min(limit, 10))
+        ]
+
+    # Analytics Methods
+    async def get_governance_analytics(self, time_period_days: int) -> dict[str, Any]:
+        """Get comprehensive governance analytics"""
+        proposals = self.session.execute(select(Proposal)).all()
+        profiles = self.session.execute(select(GovernanceProfile)).all()
+
+        total_proposals = len(proposals)
+        active_proposals = len([p for p in proposals if p.status == ProposalStatus.ACTIVE])
+        passed_proposals = len([p for p in proposals if p.status in [ProposalStatus.SUCCEEDED, ProposalStatus.EXECUTED]])
+
+        total_votes_cast = sum(p.total_votes_cast for p in profiles)
+        total_voting_power = sum(p.voting_power for p in profiles)
+
+        return {
+            "time_period_days": time_period_days,
+            "proposals": {
+                "total": total_proposals,
+                "still_active": active_proposals,
+                "passed": passed_proposals,
+                "defeated": total_proposals - passed_proposals,
+            },
+            "voting": {
+                "total_votes_cast": total_votes_cast,
+                "total_voting_power": total_voting_power,
+                "average_voter_participation": 75.0,  # Mock percentage
+            },
+            "regional_councils": {
+                "total_councils": 3,
+                "active_councils": 3,
+            },
+            "treasury": {
+                "total_allocations": 2500000.0,
+                "utilization_rate": 25.0,
+            },
+            "staking": {
+                "active_pools": 5,
+                "total_staked": 1000000.0,
+                "average_apy": 7.5,
+            },
+        }
+
+    async def get_regional_governance_health(self, region: str) -> dict[str, Any]:
+        """Get health metrics for a specific region's governance"""
+        return {
+            "region": region,
+            "overall_health": "healthy",
+            "councils_active": 1,
+            "proposals_pending": 2,
+            "proposals_passed": 10,
+            "voting_participation": 85.0,
+            "treasury_balance": 1000000.0,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+        }

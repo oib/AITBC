@@ -1,7 +1,7 @@
 """Blockchain RPC client for Edge API Service"""
 
 import httpx
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 from ..config import settings
 
@@ -17,22 +17,49 @@ class BlockchainRPCClient:
         """Close the HTTP client"""
         await self.client.aclose()
     
-    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str) -> Dict:
-        """Join island via blockchain RPC - TODO: Implement in Phase 2"""
-        # TODO: Call blockchain node RPC endpoint for island join
-        return {"message": "join_island via RPC - to be implemented in Phase 2"}
+    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> Dict[str, Any]:
+        """Join island via blockchain RPC"""
+        response = await self.client.post(
+            f"{self.base_url}/rpc/islands/join",
+            json={
+                "island_id": island_id,
+                "island_name": island_name,
+                "chain_id": chain_id,
+                "role": role,
+                "is_hub": is_hub
+            }
+        )
+        response.raise_for_status()
+        return response.json()
     
-    async def leave_island(self, island_id: str) -> Dict:
-        """Leave island via blockchain RPC - TODO: Implement in Phase 2"""
-        # TODO: Call blockchain node RPC endpoint for island leave
-        return {"message": "leave_island via RPC - to be implemented in Phase 2"}
+    async def leave_island(self, island_id: str) -> Dict[str, Any]:
+        """Leave island via blockchain RPC"""
+        response = await self.client.post(
+            f"{self.base_url}/rpc/islands/leave",
+            json={"island_id": island_id}
+        )
+        response.raise_for_status()
+        return response.json()
     
-    async def get_island_info(self, island_id: str) -> Optional[Dict]:
-        """Get island info via blockchain RPC - TODO: Implement in Phase 2"""
-        # TODO: Call blockchain node RPC endpoint for island info
-        return {"message": "get_island_info via RPC - to be implemented in Phase 2"}
+    async def get_island_info(self, island_id: str) -> Optional[Dict[str, Any]]:
+        """Get island info via blockchain RPC"""
+        response = await self.client.get(f"{self.base_url}/rpc/islands/{island_id}")
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json()
     
-    async def request_bridge(self, target_island_id: str) -> Dict:
-        """Request bridge via blockchain RPC - TODO: Implement in Phase 2"""
-        # TODO: Call blockchain node RPC endpoint for bridge request
-        return {"message": "request_bridge via RPC - to be implemented in Phase 2"}
+    async def list_islands(self) -> Dict[str, Any]:
+        """List all islands via blockchain RPC"""
+        response = await self.client.get(f"{self.base_url}/rpc/islands")
+        response.raise_for_status()
+        return response.json()
+    
+    async def request_bridge(self, target_island_id: str) -> Dict[str, Any]:
+        """Request bridge via blockchain RPC"""
+        response = await self.client.post(
+            f"{self.base_url}/rpc/islands/bridge",
+            json={"target_island_id": target_island_id}
+        )
+        response.raise_for_status()
+        return response.json()
