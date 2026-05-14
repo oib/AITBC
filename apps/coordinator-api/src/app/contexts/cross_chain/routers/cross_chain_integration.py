@@ -10,7 +10,10 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 
+from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
+logger = get_logger(__name__)
 
 from app.agent_identity.manager import AgentIdentityManager
 from app.agent_identity.wallet_adapter_enhanced import (
@@ -66,7 +69,7 @@ async def create_enhanced_wallet(
             raise HTTPException(status_code=404, detail="Identity not found for address")
 
         # Create wallet adapter
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "http://localhost:8006", security_level)
+        adapter = WalletAdapterFactory.create_adapter(chain_id, "http://aitbc:8006", security_level)
 
         # Create wallet
         wallet_data = await adapter.create_wallet(owner_address, security_config)
@@ -261,10 +264,10 @@ async def create_bridge_request(
         bridge_service = CrossChainBridgeService(session)
 
         # Initialize bridge if not already done
-        # Use actual RPC URLs for AITBC blockchain nodes
+        # Use AITBC chain IDs (1000 for mainnet, 1001 for testnet)
         chain_configs = {
-            source_chain_id: {"rpc_url": "http://localhost:8006"},
-            target_chain_id: {"rpc_url": "http://localhost:8006"}
+            source_chain_id: {"rpc_url": "http://aitbc:8006"},
+            target_chain_id: {"rpc_url": "http://aitbc1:8006"}
         }
         await bridge_service.initialize_bridge(chain_configs)
 
@@ -394,7 +397,7 @@ async def submit_transaction(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {chain_id: {"rpc_url": "http://localhost:8006"}}
+        chain_configs = {chain_id: {"rpc_url": "http://aitbc:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Submit transaction
@@ -432,7 +435,7 @@ async def get_transaction_status(request: Request, transaction_id: str, session:
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Get transaction status
@@ -454,7 +457,7 @@ async def cancel_transaction(request: Request, transaction_id: str, reason: str,
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Cancel transaction
@@ -488,7 +491,7 @@ async def get_transaction_history(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Get transaction history
@@ -525,7 +528,7 @@ async def get_transaction_statistics(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Get statistics
@@ -555,7 +558,7 @@ async def optimize_transaction_routing(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Optimize routing
@@ -627,14 +630,14 @@ async def get_cross_chain_health(request: Request, session: Session = Depends(ge
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {chain_id: {"rpc_url": "http://localhost:8006"} for chain_id in supported_chains}
+        chain_configs = {chain_id: {"rpc_url": "http://aitbc:8006"} for chain_id in [1000, 1001]}
 
         await bridge_service.initialize_bridge(chain_configs)
         await tx_manager.initialize(chain_configs)
 
         # Get statistics
-        bridge_stats = await bridge_service.get_bridge_statistics(1)
-        tx_stats = await tx_manager.get_transaction_statistics(1)
+        bridge_stats = await bridge_service.get_bridge_statistics(24)
+        tx_stats = await tx_manager.get_transaction_statistics(24)
 
         return {
             "status": "healthy",
@@ -643,12 +646,13 @@ async def get_cross_chain_health(request: Request, session: Session = Depends(ge
             "bridge_success_rate": bridge_stats["success_rate"],
             "transactions_submitted": tx_stats["total_transactions"],
             "transaction_success_rate": tx_stats["success_rate"],
-            "average_processing_time": tx_stats["average_processing_time_minutes"],
+            "average_processing_time": tx_stats["average_processing_time_seconds"],
             "active_liquidity_pools": len(await bridge_service.get_liquidity_pools()),
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
+        logger.error(f"Error getting health status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error getting health status")
 
 

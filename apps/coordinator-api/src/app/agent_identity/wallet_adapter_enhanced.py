@@ -12,7 +12,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from aitbc import get_logger, derive_ethereum_address, sign_transaction_hash, verify_signature, encrypt_private_key, Web3Client
+from aitbc import get_logger, derive_ethereum_address, sign_transaction_hash, verify_signature, encrypt_private_key, Web3Client, AITBCHTTPClient
 
 logger = get_logger(__name__)
 
@@ -658,6 +658,286 @@ class AvalancheWalletAdapter(EthereumWalletAdapter):
         self.chain_id = 43114
 
 
+class AITBCWalletAdapter(EnhancedWalletAdapter):
+    """AITBC wallet adapter using native RPC protocol (not Ethereum-compatible)"""
+
+    # Chain ID mapping: integer -> AITBC string chain ID
+    CHAIN_ID_MAP = {
+        1000: "ait-mainnet",
+        1001: "ait-testnet"
+    }
+
+    def __init__(self, chain_id: int, rpc_url: str, security_level: SecurityLevel = SecurityLevel.MEDIUM):
+        super().__init__(chain_id, ChainType.AITBC, rpc_url, security_level)
+        self.chain_id = chain_id
+        # Get AITBC string chain ID
+        self.aitbc_chain_id = self.CHAIN_ID_MAP.get(chain_id, "ait-mainnet")
+        # Initialize AITBC HTTP client for RPC communication
+        self._http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+
+    async def create_wallet(self, owner_address: str, security_config: dict[str, Any]) -> dict[str, Any]:
+        """Create a new AITBC wallet with enhanced security"""
+        try:
+            # Generate secure private key
+            private_key = secrets.token_hex(32)
+
+            # Derive address from private key using AITBC crypto
+            from aitbc import generate_ethereum_private_key, validate_ethereum_address
+            private_key_bytes = bytes.fromhex(private_key)
+            address = generate_ethereum_private_key()
+
+            # Create wallet record
+            wallet_data = {
+                "address": address,
+                "private_key": private_key,
+                "chain_id": self.chain_id,
+                "chain_type": self.chain_type.value,
+                "aitbc_chain_id": self.aitbc_chain_id,
+                "owner_address": owner_address,
+                "security_level": self.security_level.value,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": WalletStatus.ACTIVE.value,
+                "security_config": security_config,
+                "nonce": 0,
+                "transaction_count": 0,
+            }
+
+            # Store encrypted private key
+            encrypted_private_key = await self._encrypt_private_key(private_key, security_config)
+            wallet_data["encrypted_private_key"] = encrypted_private_key
+
+            logger.info(f"Created AITBC wallet {address} for owner {owner_address}")
+            return wallet_data
+
+        except Exception as e:
+            logger.error(f"Error creating AITBC wallet: {e}")
+            raise
+
+    async def get_balance(self, wallet_address: str, token_address: str | None = None) -> dict[str, Any]:
+        """Get wallet balance using AITBC RPC"""
+        try:
+            if not await self.validate_address(wallet_address):
+                raise ValueError(f"Invalid AITBC address: {wallet_address}")
+
+            # Query AITBC account balance via RPC
+            response = self._http_client.get(f"account/{wallet_address}")
+            
+            balance = response.get("balance", 0)
+            nonce = response.get("nonce", 0)
+
+            result = {
+                "address": wallet_address,
+                "chain_id": self.chain_id,
+                "aitbc_chain_id": self.aitbc_chain_id,
+                "balance": balance,
+                "nonce": nonce,
+                "token_balances": {},
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting balance for {wallet_address}: {e}")
+            raise
+
+    async def execute_transaction(
+        self,
+        from_address: str,
+        to_address: str,
+        amount: Decimal | float | str,
+        token_address: str | None = None,
+        data: dict[str, Any] | None = None,
+        gas_limit: int | None = None,
+        gas_price: int | None = None,
+    ) -> dict[str, Any]:
+        """Execute an AITBC transaction using native RPC"""
+        try:
+            # Validate addresses
+            if not await self.validate_address(from_address) or not await self.validate_address(to_address):
+                raise ValueError("Invalid addresses provided")
+
+            # Convert amount to integer (AITBC uses integer amounts)
+            amount_int = int(float(amount))
+
+            # Build AITBC transaction format
+            # AITBC transaction: from, to, amount, fee, nonce, payload, type, signature
+            transaction_data = {
+                "from": from_address,
+                "to": to_address,
+                "amount": amount_int,
+                "fee": gas_price or 10,  # Default fee if not provided
+                "nonce": await self._get_nonce(from_address),
+                "payload": data.get("payload", "") if data else "",
+                "type": data.get("type", "transfer") if data else "transfer",
+                "signature": data.get("signature", "") if data else "",
+            }
+
+            # Submit transaction via AITBC RPC
+            response = self._http_client.post("transaction", json=transaction_data)
+
+            result = {
+                "transaction_hash": response.get("transaction_hash", ""),
+                "from": from_address,
+                "to": to_address,
+                "amount": str(amount),
+                "fee": transaction_data["fee"],
+                "nonce": transaction_data["nonce"],
+                "status": TransactionStatus.PENDING.value,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            logger.info(f"Executed AITBC transaction {result['transaction_hash']} from {from_address} to {to_address}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error executing AITBC transaction: {e}")
+            raise
+
+    async def get_transaction_status(self, transaction_hash: str) -> dict[str, Any]:
+        """Get transaction status using AITBC RPC"""
+        try:
+            # Query transaction status via AITBC RPC
+            response = self._http_client.get("transactions", params={"tx_hash": transaction_hash})
+            
+            transactions = response.get("transactions", [])
+            if not transactions:
+                return {
+                    "transaction_hash": transaction_hash,
+                    "status": TransactionStatus.UNKNOWN.value,
+                    "found": False,
+                }
+
+            tx = transactions[0]
+            return {
+                "transaction_hash": transaction_hash,
+                "status": tx.get("status", TransactionStatus.UNKNOWN.value),
+                "from": tx.get("from", ""),
+                "to": tx.get("to", ""),
+                "amount": str(tx.get("amount", 0)),
+                "fee": tx.get("fee", 0),
+                "block_height": tx.get("block_height"),
+                "found": True,
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting transaction status for {transaction_hash}: {e}")
+            raise
+
+    async def estimate_gas(
+        self,
+        from_address: str,
+        to_address: str,
+        amount: Decimal | float | str,
+        token_address: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Estimate transaction fee (AITBC uses fixed fees, not gas)"""
+        try:
+            # AITBC uses fixed fees, not gas-based fees
+            # Return fixed fee estimate
+            return {
+                "gas_limit": 0,  # AITBC doesn't use gas
+                "gas_price": 0,  # AITBC uses fixed fees
+                "estimated_fee": 10,  # Default fixed fee
+                "currency": "AIT",
+            }
+        except Exception as e:
+            logger.error(f"Error estimating fee: {e}")
+            raise
+
+    async def validate_address(self, address: str) -> bool:
+        """Validate AITBC address format"""
+        try:
+            from aitbc import validate_ethereum_address
+            return validate_ethereum_address(address)
+        except Exception:
+            return False
+
+    async def _get_nonce(self, address: str) -> int:
+        """Get current nonce for address"""
+        try:
+            response = self._http_client.get(f"account/{address}")
+            return response.get("nonce", 0)
+        except Exception as e:
+            logger.error(f"Error getting nonce for {address}: {e}")
+            return 0
+
+    async def _encrypt_private_key(self, private_key: str, security_config: dict[str, Any]) -> str:
+        """Encrypt private key for storage"""
+        try:
+            return encrypt_private_key(private_key, security_config.get("password", ""))
+        except Exception as e:
+            logger.error(f"Error encrypting private key: {e}")
+            raise
+
+    async def _get_gas_price(self) -> int:
+        """Get current gas price (AITBC uses fixed fees, not gas)"""
+        # AITBC doesn't use gas-based pricing
+        return 0
+
+    async def _derive_address_from_private_key(self, private_key: str) -> str:
+        """Derive address from private key"""
+        try:
+            from aitbc import generate_ethereum_private_key
+            return generate_ethereum_private_key()
+        except Exception as e:
+            logger.error(f"Error deriving address from private key: {e}")
+            raise
+
+    async def _sign_hash(self, message_hash: str, private_key: str) -> str:
+        """Sign a hash with private key"""
+        try:
+            return sign_transaction_hash(message_hash, private_key)
+        except Exception as e:
+            logger.error(f"Failed to sign hash: {e}")
+            raise
+
+    async def _verify_signature(self, message_hash: str, signature: str, address: str) -> bool:
+        """Verify a signature"""
+        try:
+            return verify_signature(message_hash, signature, address)
+        except Exception as e:
+            logger.error(f"Failed to verify signature: {e}")
+            return False
+
+    async def get_transaction_history(
+        self,
+        wallet_address: str,
+        limit: int = 100,
+        offset: int = 0,
+        from_block: int | None = None,
+        to_block: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get transaction history for wallet using AITBC RPC"""
+        try:
+            # Query transactions via AITBC RPC
+            response = self._http_client.get("transactions", params={"address": wallet_address, "limit": limit})
+            
+            transactions = response.get("transactions", [])
+            
+            # Format transactions
+            formatted_transactions = []
+            for tx in transactions:
+                formatted_tx = {
+                    "hash": tx.get("hash", ""),
+                    "from": tx.get("from", ""),
+                    "to": tx.get("to", ""),
+                    "value": str(tx.get("amount", 0)),
+                    "block_number": tx.get("block_height"),
+                    "timestamp": tx.get("timestamp"),
+                    "fee": tx.get("fee", 0),
+                    "status": tx.get("status", TransactionStatus.UNKNOWN.value),
+                }
+                formatted_transactions.append(formatted_tx)
+
+            return formatted_transactions
+
+        except Exception as e:
+            logger.error(f"Error getting transaction history for {wallet_address}: {e}")
+            raise
+
+
 # Wallet adapter factory
 class WalletAdapterFactory:
     """Factory for creating wallet adapters for different chains"""
@@ -675,6 +955,8 @@ class WalletAdapterFactory:
             42161: ArbitrumWalletAdapter,
             10: OptimismWalletAdapter,
             43114: AvalancheWalletAdapter,
+            1000: AITBCWalletAdapter,  # ait-mainnet
+            1001: AITBCWalletAdapter,  # ait-testnet
         }
 
         adapter_class = chain_adapters.get(chain_id)
@@ -686,7 +968,7 @@ class WalletAdapterFactory:
     @staticmethod
     def get_supported_chains() -> list[int]:
         """Get list of supported chain IDs"""
-        return [1, 137, 56, 42161, 10, 43114]
+        return [1, 137, 56, 42161, 10, 43114, 1000, 1001]
 
     @staticmethod
     def get_chain_info(chain_id: int) -> dict[str, Any]:
@@ -698,6 +980,7 @@ class WalletAdapterFactory:
             42161: {"name": "Arbitrum", "symbol": "ETH", "decimals": 18},
             10: {"name": "Optimism", "symbol": "ETH", "decimals": 18},
             43114: {"name": "Avalanche", "symbol": "AVAX", "decimals": 18},
+            1000: {"name": "AITBC Mainnet", "symbol": "AIT", "decimals": 0},
+            1001: {"name": "AITBC Testnet", "symbol": "AIT", "decimals": 0},
         }
-
-        return chain_info.get(chain_id, {"name": "Unknown", "symbol": "UNKNOWN", "decimals": 18})
+        return chain_info.get(chain_id, {"name": "Unknown", "symbol": "???", "decimals": 18})
