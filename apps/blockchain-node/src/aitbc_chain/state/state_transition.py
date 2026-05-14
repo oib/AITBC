@@ -42,18 +42,28 @@ class StateTransition:
     ) -> Tuple[bool, str]:
         """
         Validate a transaction before applying state changes.
-        
+
         Args:
             session: Database session
             chain_id: Chain identifier
             tx_data: Transaction data
             tx_hash: Transaction hash
-            
+
         Returns:
             Tuple of (is_valid, error_message)
         """
+        # Explicit chain_id validation - reject transactions with mismatched chain_id
+        tx_chain_id = tx_data.get("chain_id")
+        if tx_chain_id and tx_chain_id != chain_id:
+            logger.warning(
+                f"Chain isolation violation: Transaction {tx_hash} has chain_id={tx_chain_id} "
+                f"but node is configured for chain_id={chain_id}. Rejecting cross-chain transaction."
+            )
+            return False, f"Chain isolation violation: transaction chain_id={tx_chain_id} does not match node chain_id={chain_id}"
+
         # Check for replay attacks
         if tx_hash in self._processed_tx_hashes:
+            logger.warning(f"Replay attack detected: Transaction {tx_hash} already processed")
             return False, f"Transaction {tx_hash} already processed (replay attack)"
         
         # Get sender account
