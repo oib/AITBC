@@ -19,7 +19,7 @@ class WalletResponse(BaseModel):
     is_active: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class TransactionRequest(BaseModel):
@@ -38,4 +38,4 @@ class TransactionResponse(BaseModel):
     status: TransactionStatus
 
     class Config:
-        orm_mode = True
+        from_attributes = True
