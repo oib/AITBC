@@ -21,7 +21,7 @@ try:
     import ipfshttpclient
     from web3 import Web3
 except ImportError as e:
-    logging.error(f"IPFS/Web3 dependencies not installed: {e}")
+    logger.error(f"IPFS/Web3 dependencies not installed: {e}")
     raise
 
 
