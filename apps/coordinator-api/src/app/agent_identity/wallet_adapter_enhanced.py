@@ -858,7 +858,6 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
             # Also accept 0x addresses for backward compatibility
             if address.startswith("0x") and len(address) == 42:
                 return True
-            logger.debug(f"Address validation failed for {address}: starts with 'ait1': {address.startswith('ait1')}, len: {len(address)}")
             return False
         except Exception as e:
             logger.error(f"Address validation exception for {address}: {e}")
@@ -978,7 +977,6 @@ class WalletAdapterFactory:
         if not adapter_class:
             raise ValueError(f"Unsupported chain ID: {chain_id}")
 
-        logger.info(f"Creating {adapter_class.__name__} adapter for chain {chain_id}")
         return adapter_class(rpc_url, security_level)
 
     @staticmethod
