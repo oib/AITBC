@@ -61,6 +61,7 @@ class IPFSStorageService:
         self.ipfs_client = None
         self.web3 = None
         self.cache = {}  # Simple in-memory cache
+        self._metadata_cache: dict[str, MemoryMetadata] = {}
         self.compression_threshold = config.get("compression_threshold", 1024)
         self.pin_threshold = config.get("pin_threshold", 100)  # Pin important memories
 
@@ -135,7 +136,7 @@ class IPFSStorageService:
 
             # Upload to IPFS
             result = self.ipfs_client.add_bytes(upload_data)
-            cid = result["Hash"]
+            cid = result["Hash"] if isinstance(result, dict) else str(result)
 
             # Pin if requested or meets threshold
             should_pin = pin or len(tags) >= self.pin_threshold
@@ -326,28 +327,15 @@ class IPFSStorageService:
 
     async def _store_metadata(self, cid: str, metadata: MemoryMetadata):
         """Store metadata for a CID"""
-        # In real implementation, this would store in a database
-        # For now, store in memory
-        pass
+        self._metadata_cache[cid] = metadata
 
     async def _get_metadata(self, cid: str) -> MemoryMetadata | None:
         """Get metadata for a CID"""
-        # In real implementation, this would query a database
-        # For now, return mock metadata
-        return MemoryMetadata(
-            agent_id="mock_agent",
-            memory_type="experience",
-            timestamp=datetime.now(timezone.utc),
-            version=1,
-            tags=["mock"],
-            compression_ratio=1.0,
-            integrity_hash="mock_hash",
-        )
+        return self._metadata_cache.get(cid)
 
     async def _delete_metadata(self, cid: str):
         """Delete metadata for a CID"""
-        # In real implementation, this would delete from database
-        pass
+        self._metadata_cache.pop(cid, None)
 
 
 class MemoryCompressionService:

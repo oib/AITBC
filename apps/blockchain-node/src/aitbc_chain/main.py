@@ -17,6 +17,15 @@ from .mempool import init_mempool
 
 logger = get_logger(__name__)
 
+# Try to import island manager - may fail if module has issues
+try:
+    from .network.island_manager import create_island_manager
+    _island_manager_available = True
+except ImportError as e:
+    logger.warning(f"Island manager module not available - island operations will be disabled: {e}")
+    _island_manager_available = False
+    create_island_manager = None
+
 def _load_keystore_password() -> str:
     """Load keystore password from file or environment."""
     pwd_file = settings.keystore_password_file
@@ -262,6 +271,22 @@ class BlockchainNode:
             max_size=settings.mempool_max_size,
             min_fee=settings.min_fee,
         )
+
+        # Initialize island manager for edge API support
+        if _island_manager_available and create_island_manager:
+            try:
+                node_id = os.getenv("NODE_ID", "unknown-node")
+                default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{self._supported_chains()[0]}-island")
+                default_chain_id = self._supported_chains()[0]
+                logger.info(f"Creating island manager with node_id={node_id}, default_island={default_island_id}, default_chain={default_chain_id}")
+                island_manager = create_island_manager(node_id, default_island_id, default_chain_id)
+                logger.info("Island manager created successfully")
+                logger.info("Island manager initialized (background tasks disabled)", extra={"node_id": node_id, "default_island": default_island_id})
+            except Exception as e:
+                logger.error(f"Failed to initialize island manager: {e}", exc_info=True)
+        else:
+            logger.warning("Island manager not available - island operations will be disabled")
+
         await self._ensure_genesis_for_chains()
         # Start proposers only if enabled (followers set enable_block_production=False)
         if self._block_production_enabled():
