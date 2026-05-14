@@ -24,7 +24,7 @@ class MemoryNodeResponse(BaseModel):
     tags: list[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class MemoryQueryRequest(BaseModel):
