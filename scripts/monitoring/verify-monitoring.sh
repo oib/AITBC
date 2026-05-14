@@ -23,7 +23,7 @@ fi
 echo "✅ Alert rules exist"
 
 # Check monitoring service status
-if systemctl is-active --quiet aitbc-monitor.service; then
+if systemctl is-active --quiet aitbc-monitoring.service; then
   echo "✅ Monitoring service is running"
 else
   echo "⚠️  Monitoring service is not running"

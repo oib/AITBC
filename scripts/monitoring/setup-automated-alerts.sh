@@ -178,9 +178,9 @@ EOF
 echo "✅ Alertmanager configuration created"
 
 # Enable monitoring service
-if [[ -f "/etc/systemd/system/aitbc-monitor.service" ]]; then
-  systemctl enable aitbc-monitor.service
-  systemctl start aitbc-monitor.service
+if [[ -f "/etc/systemd/system/aitbc-monitoring.service" ]]; then
+  systemctl enable aitbc-monitoring.service
+  systemctl start aitbc-monitoring.service
   echo "✅ Monitoring service started"
 else
   echo "⚠️  Monitoring service not found, skipping service start"
