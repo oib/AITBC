@@ -70,6 +70,7 @@ from .contexts.payments.routers import payments
 from .contexts.blockchain.routers import blockchain
 from .contexts.agent_identity.routers import agent_identity
 from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
+from .contexts.ipfs.routers import router as ipfs
  
 # Skip optional routers with missing dependencies
 try:
@@ -369,7 +370,10 @@ def create_app() -> FastAPI:
 
     # Add blockchain router for CLI compatibility
     app.include_router(blockchain, prefix="/v1")
-    
+
+    # Add IPFS storage router
+    app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
+
     # Add edge GPU router
     app.include_router(edge_gpu, prefix="/v1")
     
