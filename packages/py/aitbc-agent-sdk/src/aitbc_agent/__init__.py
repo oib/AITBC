@@ -21,6 +21,8 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "ContractClient": ("contract_integration", "ContractClient"),
     "ContractConfig": ("contract_integration", "ContractConfig"),
     "AgentContractIntegration": ("contract_integration", "AgentContractIntegration"),
+    "EdgeAPIClient": ("edge_api_client", "EdgeAPIClient"),
+    "EdgeAPIConfig": ("edge_api_client", "EdgeAPIConfig"),
 }
 
 
