@@ -57,6 +57,9 @@ class CrossChainBridgeService:
         self.bridge_protocols: dict[str, Any] = {}
         self.liquidity_pools: dict[tuple[int, int], Any] = {}
         self.reputation_engine = CrossChainReputationEngine(session)
+        # Whitelist for allowed cross-chain transfers (source_chain_id -> target_chain_id)
+        # By default, all transfers are disallowed unless explicitly enabled
+        self.allowed_transfers: set[tuple[int, int]] = set()
 
     async def initialize_bridge(self, chain_configs: dict[int, dict[str, Any]]) -> None:
         """Initialize bridge service with chain configurations"""
@@ -112,6 +115,19 @@ class CrossChainBridgeService:
 
             if source_chain_id == target_chain_id:
                 raise ValueError("Source and target chains must be different")
+
+            # Validate chain transfer whitelist (chain isolation enforcement)
+            transfer_key = (source_chain_id, target_chain_id)
+            if transfer_key not in self.allowed_transfers:
+                logger.warning(
+                    f"Chain isolation violation: Bridge request from chain {source_chain_id} "
+                    f"to chain {target_chain_id} not in allowed_transfers whitelist. "
+                    f"Rejecting cross-chain transfer for address {user_address}"
+                )
+                raise ValueError(
+                    f"Cross-chain transfer from chain {source_chain_id} to {target_chain_id} "
+                    "is not permitted (chain isolation policy)"
+                )
 
             # Validate amount
             amount_float = float(amount)
