@@ -1,25 +1,79 @@
 """Edge metrics service for Edge API Service"""
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional, List
+from datetime import datetime
+from uuid import uuid4
 
+from ..storage import get_session
 from ..schemas.metrics import EdgeMetrics
+from sqlmodel import select, delete
 
 
 class MetricsService:
     """Service for edge metrics operations"""
     
-    def __init__(self):
-        # TODO: Initialize metrics collection in Phase 6
-        pass
+    async def record_metrics(self, gpu_id: str, metrics: dict) -> Dict:
+        """Record edge metrics"""
+        async with get_session() as session:
+            metric_id = f"metric_{uuid4().hex[:8]}"
+            
+            metric = EdgeMetrics(
+                metric_id=metric_id,
+                gpu_id=gpu_id,
+                metrics_data=metrics
+            )
+            session.add(metric)
+            await session.commit()
+            
+            return {
+                "success": True,
+                "metric_id": metric_id,
+                "message": f"Metrics {metric_id} recorded"
+            }
     
-    async def get_edge_metrics(self, island_id: str) -> Dict:
-        """Get edge metrics for island - TODO: Implement in Phase 6"""
-        return {"message": "get_edge_metrics - to be implemented in Phase 6"}
+    async def get_metrics(self, metric_id: str) -> Optional[Dict]:
+        """Get metric details"""
+        async with get_session() as session:
+            result = await session.execute(select(EdgeMetrics).where(EdgeMetrics.metric_id == metric_id))
+            metric = result.scalar_one_or_none()
+            
+            if metric:
+                return {
+                    "metric_id": metric.metric_id,
+                    "gpu_id": metric.gpu_id,
+                    "metrics_data": metric.metrics_data,
+                    "created_at": metric.created_at.isoformat() if metric.created_at else None,
+                    "extra_data": metric.extra_data
+                }
+            return None
     
-    async def get_gpu_metrics(self, island_id: str) -> List[Dict]:
-        """Get GPU metrics - TODO: Implement in Phase 6"""
-        return [{"message": "get_gpu_metrics - to be implemented in Phase 6"}]
+    async def list_metrics(self, gpu_id: str = None, limit: int = 100) -> List[Dict]:
+        """List metrics, optionally filtered by gpu_id"""
+        async with get_session() as session:
+            query = select(EdgeMetrics)
+            
+            if gpu_id:
+                query = query.where(EdgeMetrics.gpu_id == gpu_id)
+            
+            query = query.order_by(EdgeMetrics.created_at.desc()).limit(limit)
+            
+            result = await session.execute(query)
+            metrics = result.scalars().all()
+            
+            return [
+                {
+                    "metric_id": metric.metric_id,
+                    "gpu_id": metric.gpu_id,
+                    "metrics_data": metric.metrics_data,
+                    "created_at": metric.created_at.isoformat() if metric.created_at else None
+                }
+                for metric in metrics
+            ]
     
-    async def get_database_metrics(self, island_id: str) -> Dict:
-        """Get database metrics - TODO: Implement in Phase 6"""
-        return {"message": "get_database_metrics - to be implemented in Phase 6"}
+    async def delete_metrics(self, metric_id: str) -> bool:
+        """Delete metric"""
+        async with get_session() as session:
+            stmt = delete(EdgeMetrics).where(EdgeMetrics.metric_id == metric_id)
+            result = await session.execute(stmt)
+            await session.commit()
+            return result.rowcount > 0
