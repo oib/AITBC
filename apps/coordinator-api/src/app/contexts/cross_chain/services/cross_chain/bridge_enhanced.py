@@ -51,6 +51,9 @@ class BridgeSecurityLevel(StrEnum):
 class CrossChainBridgeService:
     """Production-ready cross-chain bridge service"""
 
+    # Class-level whitelist persists across instances (for testing/demo)
+    _global_whitelist: set[tuple[int, int]] = set()
+
     def __init__(self, session: Session):
         self.session = session
         self.wallet_adapters: dict[int, EnhancedWalletAdapter] = {}
@@ -58,12 +61,33 @@ class CrossChainBridgeService:
         self.liquidity_pools: dict[tuple[int, int], Any] = {}
         self.reputation_engine = CrossChainReputationEngine(session)
         # Whitelist for allowed cross-chain transfers (source_chain_id -> target_chain_id)
-        # By default, all transfers are disallowed unless explicitly enabled
-        self.allowed_transfers: set[tuple[int, int]] = set()
+        # Uses class-level global whitelist that persists across instances
+        self.allowed_transfers: set[tuple[int, int]] = CrossChainBridgeService._global_whitelist
+
+    @classmethod
+    def clear_global_whitelist(cls) -> None:
+        """Clear the global whitelist (for testing)"""
+        cls._global_whitelist.clear()
+
+    def configure_allowed_transfers(self, transfers: list[tuple[int, int]]) -> None:
+        """Configure allowed cross-chain transfer pairs.
+        
+        Args:
+            transfers: List of (source_chain_id, target_chain_id) tuples
+        """
+        self.allowed_transfers = set(transfers)
+        logger.info(f"Configured {len(transfers)} allowed cross-chain transfer pairs")
+
+    async def add_allowed_transfer(self, source_chain_id: int, target_chain_id: int) -> None:
+        """Add a single allowed cross-chain transfer pair."""
+        CrossChainBridgeService._global_whitelist.add((source_chain_id, target_chain_id))
+        self.allowed_transfers = CrossChainBridgeService._global_whitelist
+        logger.info(f"Added allowed transfer: {source_chain_id} -> {target_chain_id}")
 
     async def initialize_bridge(self, chain_configs: dict[int, dict[str, Any]]) -> None:
         """Initialize bridge service with chain configurations"""
         try:
+            logger.info(f"Initializing bridge service for chain configs: {list(chain_configs.keys())}")
             for chain_id, config in chain_configs.items():
                 # Create wallet adapter for each chain
                 adapter = WalletAdapterFactory.create_adapter(
@@ -72,6 +96,7 @@ class CrossChainBridgeService:
                     security_level=SecurityLevel(config.get("security_level", "medium")),
                 )
                 self.wallet_adapters[chain_id] = adapter
+                logger.info(f"Initialized adapter for chain {chain_id}: {type(adapter).__name__}")
 
                 # Initialize bridge protocol
                 protocol = config.get("protocol", BridgeProtocol.ATOMIC_SWAP)
@@ -157,19 +182,16 @@ class CrossChainBridgeService:
 
             # Create bridge request
             bridge_request = BridgeRequest(
-                id=f"bridge_{uuid4().hex[:8]}",
-                user_address=user_address,
+                contract_request_id=f"bridge_{uuid4().hex[:8]}",
+                sender_address=user_address,
+                recipient_address=target_address,
+                source_token=token_address,
+                target_token=token_address,
                 source_chain_id=source_chain_id,
                 target_chain_id=target_chain_id,
                 amount=amount_float,
-                token_address=token_address,
-                target_address=target_address,
-                protocol=protocol.value,
-                security_level=security_level.value,
                 bridge_fee=bridge_fee,
-                network_fee=network_fee,
-                total_fee=total_fee,
-                deadline=datetime.now(timezone.utc) + timedelta(minutes=deadline_minutes),
+                total_amount=amount_float + total_fee,
                 status=BridgeRequestStatus.PENDING,
                 created_at=datetime.now(timezone.utc),
             )
@@ -185,16 +207,16 @@ class CrossChainBridgeService:
 
             return {
                 "bridge_request_id": bridge_request.id,
-                "source_chain_id": source_chain_id,
-                "target_chain_id": target_chain_id,
-                "amount": str(amount_float),
-                "token_address": token_address,
-                "target_address": target_address,
-                "protocol": protocol.value,
-                "bridge_fee": bridge_fee,
-                "network_fee": network_fee,
-                "total_fee": total_fee,
-                "estimated_completion": bridge_request.deadline.isoformat(),
+                "contract_request_id": bridge_request.contract_request_id,
+                "sender_address": bridge_request.sender_address,
+                "recipient_address": bridge_request.recipient_address,
+                "source_chain_id": bridge_request.source_chain_id,
+                "target_chain_id": bridge_request.target_chain_id,
+                "source_token": bridge_request.source_token,
+                "target_token": bridge_request.target_token,
+                "amount": str(bridge_request.amount),
+                "bridge_fee": str(bridge_request.bridge_fee),
+                "total_amount": str(bridge_request.total_amount),
                 "status": bridge_request.status.value,
                 "created_at": bridge_request.created_at.isoformat(),
             }
@@ -662,7 +684,11 @@ class CrossChainBridgeService:
             gas_price = await adapter._get_gas_price()
 
             # Convert to ETH value
-            fee_eth = (int(gas_estimate["gas_limit"], 16) * gas_price) / 10**18
+            gas_limit = gas_estimate["gas_limit"]
+            if isinstance(gas_limit, str):
+                fee_eth = (int(gas_limit, 16) * gas_price) / 10**18
+            else:
+                fee_eth = (int(gas_limit) * gas_price) / 10**18
 
             return fee_eth
 
