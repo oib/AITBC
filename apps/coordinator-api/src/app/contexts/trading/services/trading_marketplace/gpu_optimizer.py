@@ -19,13 +19,15 @@ from aitbc import get_logger
 # Try to import pycuda, fallback if not available
 try:
     import pycuda.driver as cuda
+    # Try to initialize CUDA - will fail if no GPU available
+    cuda.init()
     import pycuda.autoinit
     from pycuda.compiler import SourceModule
     CUDA_AVAILABLE = True
-except ImportError:
+except (ImportError, Exception) as e:
     CUDA_AVAILABLE = False
     logger = get_logger(__name__)
-    logger.warning("PyCUDA not available. GPU optimization will run in simulation mode.")
+    logger.warning(f"PyCUDA not available or no CUDA-capable device detected: {e}. GPU optimization will run in simulation mode.")
 
 logger = get_logger(__name__)
 
