@@ -127,7 +127,7 @@ async def get_account(address: str) -> dict[str, Any]:
 async def get_validators() -> dict[str, Any]:
     """List validators."""
     try:
-        from ..config import settings
+        from ....config import settings
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)
@@ -141,6 +141,9 @@ async def get_validators() -> dict[str, Any]:
     except NetworkError as e:
         logger.error(f"RPC connection failed: {e}")
         return {"status": "error", "error": "RPC connection failed"}
+    except Exception as e:
+        logger.error(f"Failed to get validators: {e}")
+        return {"status": "error", "error": str(e)}
 
 
 @router.get("/supply")
