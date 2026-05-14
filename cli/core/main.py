@@ -25,6 +25,7 @@ from aitbc_cli.commands.workflow import workflow
 from aitbc_cli.commands.resource import resource
 from aitbc_cli.commands.operations import operations
 from aitbc_cli.commands.simulate import simulate
+from aitbc_cli.commands.edge import edge
 
 # Force CLI version for user-facing output
 __version__ = "2.1.0"
@@ -128,6 +129,7 @@ cli.add_command(workflow)
 cli.add_command(resource)
 cli.add_command(operations)
 cli.add_command(simulate)
+cli.add_command(edge)
 
 def main(argv=None):
     """Entry point for console scripts and compatibility wrappers."""

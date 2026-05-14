@@ -34,6 +34,8 @@ class CLIConfig(BaseAITBCConfig):
     monitoring_service_url: str = Field(default="http://localhost:8107", description="Monitoring Service URL")
     hermes_service_url: str = Field(default="http://localhost:8108", description="hermes Service URL")
     plugin_service_url: str = Field(default="http://localhost:8109", description="Plugin Service URL")
+    edge_api_host: str = Field(default="localhost", description="Edge API host")
+    edge_api_port: int = Field(default=8103, description="Edge API port")
     wallet_daemon_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default=f"http://localhost:{BLOCKCHAIN_RPC_PORT}", description="Blockchain RPC URL")
