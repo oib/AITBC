@@ -171,6 +171,14 @@ async def create_offer(
     """Create a new marketplace offer"""
     try:
         logger.info(f"POST /v1/marketplace/offers called with data keys: {offer_data.keys()}")
+        # Set provider from wallet or use a default
+        if 'provider' not in offer_data:
+            if 'wallet' in offer_data:
+                offer_data['provider'] = offer_data['wallet']
+            elif 'metadata' in offer_data and 'provider' in offer_data.get('metadata', {}):
+                offer_data['provider'] = offer_data['metadata']['provider']
+            else:
+                offer_data['provider'] = 'default-provider'
         result = await svc.create_offer(offer_data)
         logger.info(f"POST /v1/marketplace/offers created offer with id: {result.id}")
         return result
