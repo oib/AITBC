@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ...services.ipfs_storage_service import IPFSStorageService, IPFSUploadResult
-from ...config import settings
+from ....services.ipfs_storage_service import IPFSStorageService, IPFSUploadResult
+from ....config import settings
 
 router = APIRouter()
 
