@@ -1,6 +1,9 @@
 from typing import Annotated
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlalchemy import and_
 
 """
 Marketplace Analytics API Endpoints
@@ -418,15 +421,15 @@ async def generate_report(
         
         # Generate report content based on type
         if report_request.report_type == ReportType.MARKET_OVERVIEW:
-            content = await self.generate_market_overview_report(
+            content = await generate_market_overview_report(
                 session, report_request.period_type, start_date, end_date, report_request.filters
             )
         elif report_request.report_type == ReportType.AGENT_PERFORMANCE:
-            content = await self.generate_agent_performance_report(
+            content = await generate_agent_performance_report(
                 session, report_request.period_type, start_date, end_date, report_request.filters
             )
         elif report_request.report_type == ReportType.ECONOMIC_ANALYSIS:
-            content = await self.generate_economic_analysis_report(
+            content = await generate_economic_analysis_report(
                 session, report_request.period_type, start_date, end_date, report_request.filters
             )
         else:
@@ -605,7 +608,7 @@ async def get_key_performance_indicators(
                     "unit": metric.unit,
                     "change_percentage": metric.change_percentage,
                     "trend": "up" if metric.change_percentage and metric.change_percentage > 0 else "down",
-                    "status": self.get_kpi_status(metric.metric_name, metric.value, metric.change_percentage)
+                    "status": get_kpi_status(metric.metric_name, metric.value, metric.change_percentage)
                 }
         
         return {
@@ -613,7 +616,7 @@ async def get_key_performance_indicators(
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "kpis": kpis,
-            "overall_health": self.calculate_overall_health(kpis)
+            "overall_health": calculate_overall_health(kpis)
         }
         
     except Exception as e:
