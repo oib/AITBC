@@ -27,7 +27,7 @@ class FederatedSessionResponse(BaseModel):
     global_model_cid: str | None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class JoinSessionRequest(BaseModel):

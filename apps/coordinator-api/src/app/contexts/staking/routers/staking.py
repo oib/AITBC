@@ -604,7 +604,7 @@ async def get_supported_agents(
 @rate_limit(rate=200, per=60)
 async def get_staking_stats(
     request: Request,
-    period: str = Query(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
+    period: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
 ) -> StakingStatsResponse:
@@ -622,8 +622,8 @@ async def get_staking_stats(
 @rate_limit(rate=200, per=60)
 async def get_staking_leaderboard(
     request: Request,
-    period: str = Query(default="weekly", regex="^(daily|weekly|monthly)$"),
-    metric: str = Query(default="total_staked", regex="^(total_staked|total_rewards|apy)$"),
+    period: str = Query(default="weekly", pattern="^(daily|weekly|monthly)$"),
+    metric: str = Query(default="total_staked", pattern="^(total_staked|total_rewards|apy)$"),
     limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
@@ -674,7 +674,7 @@ async def get_my_staking_positions(
 @rate_limit(rate=200, per=60)
 async def get_my_staking_rewards(
     request: Request,
-    period: str = Query(default="monthly", regex="^(daily|weekly|monthly)$"),
+    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)
