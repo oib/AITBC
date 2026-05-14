@@ -46,19 +46,21 @@ class IPFSDeleteRequest(BaseModel):
     cid: str
 
 
-# Dependency injection for IPFS service
+# Singleton IPFS service instance
+_ipfs_service_instance: IPFSStorageService | None = None
+
 def get_ipfs_service():
-    """Get IPFS storage service instance"""
-    # In production, this would be a singleton or dependency injection
-    # For now, create a new instance with config
-    config = {
-        "ipfs_url": settings.ipfs_url if hasattr(settings, 'ipfs_url') else "/ip4/127.0.0.1/tcp/5001",
-        "blockchain_enabled": False,
-        "compression_threshold": 1024,
-        "pin_threshold": 100,
-    }
-    service = IPFSStorageService(config)
-    return service
+    """Get IPFS storage service instance (singleton)"""
+    global _ipfs_service_instance
+    if _ipfs_service_instance is None:
+        config = {
+            "ipfs_url": settings.ipfs_url if hasattr(settings, 'ipfs_url') else "/ip4/127.0.0.1/tcp/5001",
+            "blockchain_enabled": False,
+            "compression_threshold": 1024,
+            "pin_threshold": 100,
+        }
+        _ipfs_service_instance = IPFSStorageService(config)
+    return _ipfs_service_instance
 
 
 @router.post("/upload")
