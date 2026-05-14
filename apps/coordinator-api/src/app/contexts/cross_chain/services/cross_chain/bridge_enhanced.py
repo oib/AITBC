@@ -349,7 +349,7 @@ class CrossChainBridgeService:
             # Get total fees
             total_fees = (
                 self.session.execute(
-                    select(func.sum(BridgeRequest.total_fee)).where(
+                    select(func.sum(BridgeRequest.bridge_fee)).where(
                         BridgeRequest.created_at >= cutoff_time, BridgeRequest.status == BridgeRequestStatus.COMPLETED
                     )
                 ).scalar()
