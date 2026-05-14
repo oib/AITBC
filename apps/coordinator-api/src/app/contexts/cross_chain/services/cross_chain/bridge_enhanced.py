@@ -87,7 +87,6 @@ class CrossChainBridgeService:
     async def initialize_bridge(self, chain_configs: dict[int, dict[str, Any]]) -> None:
         """Initialize bridge service with chain configurations"""
         try:
-            logger.info(f"Initializing bridge service for chain configs: {list(chain_configs.keys())}")
             for chain_id, config in chain_configs.items():
                 # Create wallet adapter for each chain
                 adapter = WalletAdapterFactory.create_adapter(
@@ -96,7 +95,6 @@ class CrossChainBridgeService:
                     security_level=SecurityLevel(config.get("security_level", "medium")),
                 )
                 self.wallet_adapters[chain_id] = adapter
-                logger.info(f"Initialized adapter for chain {chain_id}: {type(adapter).__name__}")
 
                 # Initialize bridge protocol
                 protocol = config.get("protocol", BridgeProtocol.ATOMIC_SWAP)
@@ -132,8 +130,14 @@ class CrossChainBridgeService:
         deadline_minutes: int = 30,
     ) -> dict[str, Any]:
         """Create a new cross-chain bridge request"""
-
         try:
+            # Check whitelist first
+            if (source_chain_id, target_chain_id) not in self.allowed_transfers:
+                logger.warning(f"Chain pair {source_chain_id}->{target_chain_id} not in whitelist")
+                raise ValueError(
+                    f"Cross-chain transfer from chain {source_chain_id} to {target_chain_id} "
+                    "is not permitted (chain isolation policy)"
+                )
             # Validate chains
             if source_chain_id not in self.wallet_adapters or target_chain_id not in self.wallet_adapters:
                 raise ValueError("Unsupported chain ID")
