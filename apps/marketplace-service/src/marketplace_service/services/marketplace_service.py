@@ -176,11 +176,34 @@ class MarketplaceService:
 
     async def get_analytics(self, period_type: str = "daily") -> dict[str, Any]:
         """Get marketplace analytics"""
-        # Placeholder for analytics logic
+        from sqlalchemy import func, select
+
+        # Count offers
+        offer_count_stmt = select(func.count()).select_from(MarketplaceOffer)
+        offer_count_result = await self.session.execute(offer_count_stmt)
+        total_offers = offer_count_result.scalar() or 0
+
+        # Count bids
+        bid_count_stmt = select(func.count()).select_from(MarketplaceBid)
+        bid_count_result = await self.session.execute(bid_count_stmt)
+        total_bids = bid_count_result.scalar() or 0
+
+        # Average price of offers
+        avg_price_stmt = select(func.avg(MarketplaceOffer.price_per_hour)).where(
+            MarketplaceOffer.price_per_hour.isnot(None)
+        )
+        avg_price_result = await self.session.execute(avg_price_stmt)
+        avg_price = avg_price_result.scalar() or 0.0
+
+        # Total capacity
+        capacity_stmt = select(func.sum(MarketplaceOffer.capacity))
+        capacity_result = await self.session.execute(capacity_stmt)
+        total_capacity = capacity_result.scalar() or 0
+
         return {
             "period_type": period_type,
-            "total_offers": 0,
-            "total_transactions": 0,
-            "total_volume": 0.0,
-            "average_price": 0.0,
+            "total_offers": total_offers,
+            "total_bids": total_bids,
+            "total_capacity": total_capacity,
+            "average_price": round(float(avg_price), 2),
         }

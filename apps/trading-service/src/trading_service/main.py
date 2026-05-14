@@ -115,7 +115,7 @@ async def get_requests(
     svc: TradingService = Depends(get_trading_service),
 ):
     """Get trade requests"""
-    return svc.list_requests(status=status, buyer_agent_id=buyer_agent_id, trade_type=trade_type)
+    return await svc.list_requests(status=status, buyer_agent_id=buyer_agent_id, trade_type=trade_type)
 
 
 @app.get("/v1/trading/requests/{request_id}")
@@ -124,7 +124,7 @@ async def get_request(
     svc: TradingService = Depends(get_trading_service),
 ):
     """Get a specific trade request"""
-    return svc.get_request(request_id)
+    return await svc.get_request(request_id)
 
 
 @app.post("/v1/trading/requests")
@@ -133,7 +133,7 @@ async def create_request(
     svc: TradingService = Depends(get_trading_service),
 ):
     """Create a new trade request"""
-    return svc.create_request(request_data)
+    return await svc.create_request(request_data)
 
 
 @app.get("/v1/trading/matches")
@@ -144,7 +144,7 @@ async def get_matches(
     svc: TradingService = Depends(get_trading_service),
 ):
     """Get trade matches"""
-    return svc.list_matches(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
+    return await svc.list_matches(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
 
 
 @app.post("/v1/trading/matches")
@@ -153,7 +153,7 @@ async def create_match(
     svc: TradingService = Depends(get_trading_service),
 ):
     """Create a new trade match"""
-    return svc.create_match(match_data)
+    return await svc.create_match(match_data)
 
 
 @app.get("/v1/trading/agreements")
@@ -164,7 +164,7 @@ async def get_agreements(
     svc: TradingService = Depends(get_trading_service),
 ):
     """Get trade agreements"""
-    return svc.list_agreements(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
+    return await svc.list_agreements(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
 
 
 @app.post("/v1/trading/agreements")
@@ -173,7 +173,7 @@ async def create_agreement(
     svc: TradingService = Depends(get_trading_service),
 ):
     """Create a new trade agreement"""
-    return svc.create_agreement(agreement_data)
+    return await svc.create_agreement(agreement_data)
 
 
 @app.get("/v1/trading/analytics")
