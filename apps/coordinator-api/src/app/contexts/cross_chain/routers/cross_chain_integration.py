@@ -12,26 +12,26 @@ from sqlmodel import Session
 
 from aitbc.rate_limiting import rate_limit
 
-from ...agent_identity.manager import AgentIdentityManager
-from ...agent_identity.wallet_adapter_enhanced import (
+from app.agent_identity.manager import AgentIdentityManager
+from app.agent_identity.wallet_adapter_enhanced import (
     SecurityLevel,
     TransactionStatus,
     WalletAdapterFactory,
     WalletStatus,
 )
-from ..reputation.engine import CrossChainReputationEngine
-from ..services.cross_chain.bridge_enhanced import (
+from app.reputation.engine import CrossChainReputationEngine
+from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (
     BridgeProtocol,
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
-from ...services.multi_chain_transaction_manager import (
+from app.services.multi_chain_transaction_manager import (
     MultiChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,
     TransactionType,
 )
-from ..storage.db import get_session
+from app.storage.db import get_session
 
 router = APIRouter(prefix="/cross-chain", tags=["Cross-Chain Integration"])
 

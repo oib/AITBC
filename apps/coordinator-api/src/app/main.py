@@ -69,6 +69,7 @@ from .contexts.marketplace.routers import (
 from .contexts.payments.routers import payments
 from .contexts.blockchain.routers import blockchain
 from .contexts.agent_identity.routers import agent_identity
+from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
  
 # Skip optional routers with missing dependencies
 try:
@@ -361,6 +362,7 @@ def create_app() -> FastAPI:
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
+    app.include_router(cross_chain, prefix="/v1")
 
     # Include marketplace_offers AFTER global_marketplace to override the /offers endpoint
     app.include_router(marketplace_offers, prefix="/v1")
