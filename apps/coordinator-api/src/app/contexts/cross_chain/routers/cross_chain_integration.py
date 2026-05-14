@@ -66,7 +66,7 @@ async def create_enhanced_wallet(
             raise HTTPException(status_code=404, detail="Identity not found for address")
 
         # Create wallet adapter
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "mock_rpc_url", security_level)
+        adapter = WalletAdapterFactory.create_adapter(chain_id, "http://localhost:8006", security_level)
 
         # Create wallet
         wallet_data = await adapter.create_wallet(owner_address, security_config)
@@ -261,7 +261,11 @@ async def create_bridge_request(
         bridge_service = CrossChainBridgeService(session)
 
         # Initialize bridge if not already done
-        chain_configs = {source_chain_id: {"rpc_url": "mock_rpc_url"}, target_chain_id: {"rpc_url": "mock_rpc_url"}}
+        # Use actual RPC URLs for AITBC blockchain nodes
+        chain_configs = {
+            source_chain_id: {"rpc_url": "http://localhost:8006"},
+            target_chain_id: {"rpc_url": "http://localhost:8006"}
+        }
         await bridge_service.initialize_bridge(chain_configs)
 
         # Create bridge request
@@ -390,7 +394,7 @@ async def submit_transaction(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {chain_id: {"rpc_url": "mock_rpc_url"}}
+        chain_configs = {chain_id: {"rpc_url": "http://localhost:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Submit transaction
@@ -428,7 +432,7 @@ async def get_transaction_status(request: Request, transaction_id: str, session:
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "mock_rpc_url"}, 137: {"rpc_url": "mock_rpc_url"}}
+        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Get transaction status
@@ -450,7 +454,7 @@ async def cancel_transaction(request: Request, transaction_id: str, reason: str,
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "mock_rpc_url"}, 137: {"rpc_url": "mock_rpc_url"}}
+        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Cancel transaction
@@ -484,7 +488,7 @@ async def get_transaction_history(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "mock_rpc_url"}, 137: {"rpc_url": "mock_rpc_url"}}
+        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Get transaction history
@@ -521,7 +525,7 @@ async def get_transaction_statistics(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "mock_rpc_url"}, 137: {"rpc_url": "mock_rpc_url"}}
+        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Get statistics
@@ -551,7 +555,7 @@ async def optimize_transaction_routing(
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {1: {"rpc_url": "mock_rpc_url"}, 137: {"rpc_url": "mock_rpc_url"}}
+        chain_configs = {1: {"rpc_url": "http://localhost:8006"}, 137: {"rpc_url": "http://localhost:8006"}}
         await tx_manager.initialize(chain_configs)
 
         # Optimize routing
@@ -623,7 +627,7 @@ async def get_cross_chain_health(request: Request, session: Session = Depends(ge
         tx_manager = MultiChainTransactionManager(session)
 
         # Initialize with mock configs
-        chain_configs = {chain_id: {"rpc_url": "mock_rpc_url"} for chain_id in supported_chains}
+        chain_configs = {chain_id: {"rpc_url": "http://localhost:8006"} for chain_id in supported_chains}
 
         await bridge_service.initialize_bridge(chain_configs)
         await tx_manager.initialize(chain_configs)
