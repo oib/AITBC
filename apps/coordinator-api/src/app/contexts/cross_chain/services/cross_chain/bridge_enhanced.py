@@ -184,13 +184,18 @@ class CrossChainBridgeService:
             # Select protocol
             protocol = protocol or BridgeProtocol(source_config["protocol"])
 
+            # Default token address for native chain token
+            default_token = "0x0000000000000000000000000000000000000000"
+            source_token = token_address or default_token
+            target_token = token_address or default_token
+
             # Create bridge request
             bridge_request = BridgeRequest(
                 contract_request_id=f"bridge_{uuid4().hex[:8]}",
                 sender_address=user_address,
                 recipient_address=target_address,
-                source_token=token_address,
-                target_token=token_address,
+                source_token=source_token,
+                target_token=target_token,
                 source_chain_id=source_chain_id,
                 target_chain_id=target_chain_id,
                 amount=amount_float,
