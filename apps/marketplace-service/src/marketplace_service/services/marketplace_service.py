@@ -114,6 +114,10 @@ class MarketplaceService:
             if 'wallet' in offer_data and 'provider' not in offer_data:
                 offer_data['provider'] = offer_data['wallet']
                 logger.info(f"Mapped wallet '{offer_data['wallet']}' to provider")
+            # Set default provider if neither wallet nor provider provided
+            if 'provider' not in offer_data or not offer_data['provider']:
+                offer_data['provider'] = 'default-provider'
+                logger.info("Set default provider: 'default-provider'")
             offer = MarketplaceOffer(**offer_data)
             self.session.add(offer)
             await self.session.commit()
