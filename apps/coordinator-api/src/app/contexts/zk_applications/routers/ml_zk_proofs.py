@@ -10,7 +10,16 @@ from ....services.zk_proofs import ZKProofService
 router = APIRouter(prefix="/v1/ml-zk", tags=["ml-zk"])
 
 zk_service = ZKProofService()
-fhe_service = FHEService()
+
+# Lazy instantiation of FHEService to avoid import-time errors
+_fhe_service: FHEService | None = None
+
+def get_fhe_service() -> FHEService:
+    """Get or create FHEService instance"""
+    global _fhe_service
+    if _fhe_service is None:
+        _fhe_service = FHEService()
+    return _fhe_service
 
 
 @router.post("/prove/training")
@@ -105,6 +114,8 @@ async def verify_ml_inference(request: Request, verification_request: dict) -> d
 async def fhe_ml_inference(request: Request, fhe_request: dict) -> dict[str, Any]:
     """Perform ML inference on encrypted data"""
     try:
+        fhe_service = get_fhe_service()
+        
         # Setup FHE context
         context = fhe_service.generate_fhe_context(
             scheme=fhe_request.get("scheme", "ckks"), provider=fhe_request.get("provider", "tenseal")
