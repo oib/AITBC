@@ -278,6 +278,73 @@ async def register_plugin(
         raise
 
 
+@app.post("/v1/knowledge-graph")
+async def create_graph(
+    graph_data: dict,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Create a new knowledge graph"""
+    try:
+        logger.info(f"POST /v1/knowledge-graph called with data keys: {graph_data.keys()}")
+        result = await svc.create_graph(graph_data)
+        logger.info(f"POST /v1/knowledge-graph created graph with id: {result['id']}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/knowledge-graph: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.post("/v1/knowledge-graph/{graph_id}/nodes")
+async def add_node(
+    graph_id: str,
+    node_data: dict,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Add a node to a knowledge graph"""
+    try:
+        node_data["graph_id"] = graph_id
+        logger.info(f"POST /v1/knowledge-graph/{graph_id}/nodes called")
+        result = await svc.add_node(node_data)
+        logger.info(f"Added node with id: {result['id']}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/knowledge-graph/{graph_id}/nodes: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.post("/v1/knowledge-graph/{graph_id}/edges")
+async def add_edge(
+    graph_id: str,
+    edge_data: dict,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Add an edge to a knowledge graph"""
+    try:
+        edge_data["graph_id"] = graph_id
+        logger.info(f"POST /v1/knowledge-graph/{graph_id}/edges called")
+        result = await svc.add_edge(edge_data)
+        logger.info(f"Added edge with id: {result['id']}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/knowledge-graph/{graph_id}/edges: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.get("/v1/knowledge-graph/{graph_id}")
+async def query_graph(
+    graph_id: str,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Query a knowledge graph"""
+    try:
+        logger.info(f"GET /v1/knowledge-graph/{graph_id} called")
+        result = await svc.query_graph(graph_id)
+        return result
+    except Exception as e:
+        logger.error(f"Error in GET /v1/knowledge-graph/{graph_id}: {type(e).__name__}: {str(e)}")
+        raise
+
+
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit marketplace transaction"""

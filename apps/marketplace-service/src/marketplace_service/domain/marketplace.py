@@ -58,3 +58,44 @@ class Plugin(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     download_count: int = Field(default=0)
     rating: float = Field(default=0.0)
+
+
+class KnowledgeGraph(SQLModel, table=True):
+    __tablename__ = "knowledgegraph"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    name: str = Field(index=True)
+    description: str = Field(default="")
+    owner: str = Field(index=True)
+    status: str = Field(default="active", index=True)  # active, archived, deleted
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class GraphNode(SQLModel, table=True):
+    __tablename__ = "graphnode"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    graph_id: str = Field(index=True)
+    node_type: str = Field(index=True)  # entity, concept, relation, etc.
+    label: str = Field(index=True)
+    properties: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class GraphEdge(SQLModel, table=True):
+    __tablename__ = "graphedge"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    graph_id: str = Field(index=True)
+    source_node_id: str = Field(index=True)
+    target_node_id: str = Field(index=True)
+    edge_type: str = Field(index=True)  # relates_to, depends_on, etc.
+    properties: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    weight: float = Field(default=1.0)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
