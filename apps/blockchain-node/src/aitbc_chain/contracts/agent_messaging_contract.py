@@ -402,10 +402,13 @@ class AgentMessagingContract:
         }
     
     def _validate_agent(self, agent_id: str, agent_address: str) -> bool:
-        """Validate agent credentials"""
-        # In a real implementation, this would verify the agent's signature
-        # For now, we'll do basic validation
-        return bool(agent_id and agent_address)
+        """Validate agent credentials - auto-register new agents for testing"""
+        # Auto-register agent if not found
+        if agent_id and agent_address:
+            if agent_id not in self.agent_reputations:
+                self.agent_reputations[agent_id] = AgentReputation(agent_id=agent_id)
+            return True
+        return False
     
     def _is_agent_banned(self, agent_id: str) -> bool:
         """Check if an agent is banned"""

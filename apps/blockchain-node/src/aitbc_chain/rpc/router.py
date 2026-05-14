@@ -1412,7 +1412,6 @@ class BridgeRequestResponse(BaseModel):
 
 
 @router.post("/islands/join", summary="Join an island")
-@rate_limit(rate=100, per=60)
 async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
     """
     Join an island for edge compute operations.
@@ -1533,8 +1532,7 @@ async def get_island(island_id: str) -> Dict[str, Any]:
     }
 
 
-@router.post("/islands/bridge", summary="Request bridge to another island")
-@rate_limit(rate=100, per=60)
+@router.post("/islands/bridge", summary="Request a bridge to another island")
 async def request_bridge(request: BridgeRequestRequest) -> BridgeRequestResponse:
     """
     Request a bridge to another island for cross-island communication.
