@@ -17,12 +17,15 @@ from typing import Any
 
 from .secure_pickle import safe_loads
 
+# Optional IPFS/Web3 dependencies
+ipfshttpclient = None
+web3 = None
 try:
     import ipfshttpclient
     from web3 import Web3
+    web3 = Web3
 except ImportError as e:
-    logger.error(f"IPFS/Web3 dependencies not installed: {e}")
-    raise
+    logger.warning(f"IPFS/Web3 dependencies not installed: {e}. IPFS features will be disabled.")
 
 
 @dataclass
