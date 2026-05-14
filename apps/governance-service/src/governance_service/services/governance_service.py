@@ -4,16 +4,17 @@ Governance service for managing governance operations
 
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from ..domain.governance import GovernanceProfile, Proposal, Vote, DaoTreasury
 
 
 class GovernanceService:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def list_profiles(
+    async def list_profiles(
         self,
         role: str | None = None,
         user_id: str | None = None,
@@ -24,23 +25,24 @@ class GovernanceService:
             stmt = stmt.where(GovernanceProfile.role == role)
         if user_id:
             stmt = stmt.where(GovernanceProfile.user_id == user_id)
-        return list(self.session.execute(stmt).all())
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
-    def get_profile(self, profile_id: str) -> GovernanceProfile | None:
+    async def get_profile(self, profile_id: str) -> GovernanceProfile | None:
         """Get a specific governance profile"""
         stmt = select(GovernanceProfile).where(GovernanceProfile.profile_id == profile_id)
-        result = self.session.execute(stmt).first()
-        return result[0] if result else None
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
 
-    def create_profile(self, profile_data: dict) -> GovernanceProfile:
+    async def create_profile(self, profile_data: dict) -> GovernanceProfile:
         """Create a new governance profile"""
         profile = GovernanceProfile(**profile_data)
         self.session.add(profile)
-        self.session.commit()
-        self.session.refresh(profile)
+        await self.session.commit()
+        await self.session.refresh(profile)
         return profile
 
-    def list_proposals(
+    async def list_proposals(
         self,
         status: str | None = None,
         category: str | None = None,
@@ -54,23 +56,24 @@ class GovernanceService:
             stmt = stmt.where(Proposal.category == category)
         if proposer_id:
             stmt = stmt.where(Proposal.proposer_id == proposer_id)
-        return list(self.session.execute(stmt).all())
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
-    def get_proposal(self, proposal_id: str) -> Proposal | None:
+    async def get_proposal(self, proposal_id: str) -> Proposal | None:
         """Get a specific proposal"""
         stmt = select(Proposal).where(Proposal.proposal_id == proposal_id)
-        result = self.session.execute(stmt).first()
-        return result[0] if result else None
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
 
-    def create_proposal(self, proposal_data: dict) -> Proposal:
+    async def create_proposal(self, proposal_data: dict) -> Proposal:
         """Create a new proposal"""
         proposal = Proposal(**proposal_data)
         self.session.add(proposal)
-        self.session.commit()
-        self.session.refresh(proposal)
+        await self.session.commit()
+        await self.session.refresh(proposal)
         return proposal
 
-    def list_votes(
+    async def list_votes(
         self,
         proposal_id: str | None = None,
         voter_id: str | None = None,
@@ -81,25 +84,25 @@ class GovernanceService:
             stmt = stmt.where(Vote.proposal_id == proposal_id)
         if voter_id:
             stmt = stmt.where(Vote.voter_id == voter_id)
-        return list(self.session.execute(stmt).all())
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
-    def create_vote(self, vote_data: dict) -> Vote:
+    async def create_vote(self, vote_data: dict) -> Vote:
         """Create a new vote"""
         vote = Vote(**vote_data)
         self.session.add(vote)
-        self.session.commit()
-        self.session.refresh(vote)
+        await self.session.commit()
+        await self.session.refresh(vote)
         return vote
 
-    def get_treasury(self) -> DaoTreasury | None:
+    async def get_treasury(self) -> DaoTreasury | None:
         """Get DAO treasury"""
         stmt = select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")
-        result = self.session.execute(stmt).first()
-        return result[0] if result else None
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
 
     async def get_analytics(self, period: str = "monthly") -> dict[str, Any]:
         """Get governance analytics"""
-        # Placeholder for analytics logic
         return {
             "period": period,
             "total_proposals": 0,
