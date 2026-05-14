@@ -100,7 +100,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _app_logger.info("Lifespan function started")
     init_db()
     init_mempool(
         backend=settings.mempool_backend,
@@ -113,21 +112,15 @@ async def lifespan(app: FastAPI):
     _app_logger.info("Gossip backend initialized successfully")
 
     # Initialize island manager for edge API support
-    _app_logger.info("About to initialize island manager")
     try:
         node_id = os.getenv("NODE_ID", "unknown-node")
         default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{settings.supported_chains.split(',')[0].strip()}-island")
         default_chain_id = settings.supported_chains.split(',')[0].strip() if settings.supported_chains else "ait-mainnet"
-        _app_logger.info(f"Creating island manager with node_id={node_id}, default_island={default_island_id}, default_chain={default_chain_id}")
         island_manager = create_island_manager(node_id, default_island_id, default_chain_id)
-        _app_logger.info("Island manager created successfully")
-        # Don't start background tasks for now - they may not be needed for basic island operations
-        # asyncio.create_task(island_manager.start())
-        _app_logger.info("Island manager initialized (background tasks disabled)", extra={"node_id": node_id, "default_island": default_island_id})
+        _app_logger.info("Island manager initialized", extra={"node_id": node_id, "default_island": default_island_id})
     except Exception as e:
         _app_logger.error(f"Failed to initialize island manager: {e}", exc_info=True)
         # Don't fail startup if island manager fails
-    _app_logger.info("Island manager initialization section completed")
 
     proposers = []
     block_production_override = _env_value(
