@@ -207,3 +207,58 @@ class MarketplaceService:
             "total_capacity": total_capacity,
             "average_price": round(float(avg_price), 2),
         }
+
+    async def list_plugins(self, type: str | None = None, status: str = "approved") -> list[dict]:
+        """List plugins from database"""
+        from sqlalchemy import select
+        from .domain.marketplace import Plugin
+
+        try:
+            stmt = select(Plugin)
+            if type:
+                stmt = stmt.where(Plugin.type == type)
+            if status:
+                stmt = stmt.where(Plugin.status == status)
+            stmt = stmt.order_by(Plugin.created_at.desc())
+
+            result = await self.session.execute(stmt)
+            plugins = result.scalars().all()
+
+            return [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "author": p.author,
+                    "type": p.type,
+                    "version": p.version,
+                    "ipfs_cid": p.ipfs_cid,
+                    "status": p.status,
+                    "download_count": p.download_count,
+                    "rating": p.rating,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                }
+                for p in plugins
+            ]
+        except Exception as e:
+            logger.error(f"Error in list_plugins: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def register_plugin(self, plugin_data: dict) -> dict:
+        """Register a new plugin"""
+        from .domain.marketplace import Plugin
+
+        try:
+            plugin = Plugin(**plugin_data)
+            self.session.add(plugin)
+            await self.session.commit()
+            await self.session.refresh(plugin)
+            logger.info(f"Registered plugin with id: {plugin.id}")
+            return {
+                "id": plugin.id,
+                "name": plugin.name,
+                "status": plugin.status,
+            }
+        except Exception as e:
+            logger.error(f"Error in register_plugin: {type(e).__name__}: {str(e)}")
+            raise
