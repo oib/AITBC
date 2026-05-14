@@ -724,3 +724,44 @@ async def get_cross_chain_config(request: Request, session: Session = Depends(ge
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting configuration")
+
+
+# Bridge Whitelist Management Endpoints
+@router.get("/bridge/whitelist", response_model=dict[str, Any])
+@rate_limit(rate=500, per=60)
+async def get_bridge_whitelist(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Get current bridge whitelist configuration"""
+    try:
+        bridge_service = CrossChainBridgeService(session)
+        whitelist = [{"source_chain_id": src, "target_chain_id": tgt} for src, tgt in bridge_service.allowed_transfers]
+        return {
+            "allowed_transfers": whitelist,
+            "count": len(whitelist),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Error getting bridge whitelist: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error getting bridge whitelist")
+
+
+@router.post("/bridge/whitelist/add", response_model=dict[str, Any])
+@rate_limit(rate=50, per=60)
+async def add_bridge_whitelist_entry(
+    request: Request,
+    source_chain_id: int,
+    target_chain_id: int,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Add a cross-chain transfer pair to the bridge whitelist"""
+    try:
+        bridge_service = CrossChainBridgeService(session)
+        await bridge_service.add_allowed_transfer(source_chain_id, target_chain_id)
+        return {
+            "status": "added",
+            "source_chain_id": source_chain_id,
+            "target_chain_id": target_chain_id,
+            "message": f"Transfer {source_chain_id} -> {target_chain_id} added to whitelist",
+        }
+    except Exception as e:
+        logger.error(f"Error adding whitelist entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error adding whitelist entry")
