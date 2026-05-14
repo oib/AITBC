@@ -117,7 +117,7 @@ async def get_consumer_gpu_profiles(
     from .domain.gpu_marketplace import GPUArchitecture
     
     arch = GPUArchitecture(architecture) if architecture else None
-    return svc.list_profiles(architecture=arch, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
+    return await svc.list_profiles(architecture=arch, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
 
 
 @app.get("/v1/marketplace/edge-gpu/metrics/{gpu_id}")
@@ -127,7 +127,7 @@ async def get_edge_gpu_metrics(
     svc: EdgeGPUService = Depends(get_edge_service),
 ):
     """Get edge GPU metrics"""
-    return svc.list_metrics(gpu_id=gpu_id, limit=limit)
+    return await svc.list_metrics(gpu_id=gpu_id, limit=limit)
 
 
 @app.post("/v1/marketplace/edge-gpu/scan/{miner_id}")
