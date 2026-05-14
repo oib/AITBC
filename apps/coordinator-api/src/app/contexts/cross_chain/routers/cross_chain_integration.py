@@ -63,10 +63,11 @@ async def create_enhanced_wallet(
     """Create an enhanced multi-chain wallet"""
 
     try:
-        # Validate owner identity
-        identity = await identity_manager.get_identity_by_address(owner_address)
-        if not identity:
-            raise HTTPException(status_code=404, detail="Identity not found for address")
+        # Validate owner identity (skip for AITBC addresses)
+        if not owner_address.startswith("ait1"):
+            identity = await identity_manager.get_identity_by_address(owner_address)
+            if not identity:
+                raise HTTPException(status_code=404, detail="Identity not found for address")
 
         # Create wallet adapter
         adapter = WalletAdapterFactory.create_adapter(chain_id, "http://aitbc:8006", security_level)
