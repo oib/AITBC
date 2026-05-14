@@ -6,16 +6,23 @@ Provides Ethereum blockchain interaction utilities using web3.py
 from typing import Any, Optional
 from decimal import Decimal
 
+try:
+    from web3 import Web3
+    from web3.middleware import geth_poa_middleware
+    WEB3_AVAILABLE = True
+except ImportError:
+    WEB3_AVAILABLE = False
+
 
 class Web3Client:
     """Web3 client wrapper for blockchain operations"""
     
     def __init__(self, rpc_url: str, timeout: int = 30):
         """Initialize Web3 client with RPC URL"""
+        if not WEB3_AVAILABLE:
+            raise ImportError("web3 is required for blockchain operations. Install with: pip install web3")
+        
         try:
-            from web3 import Web3
-            from web3.middleware import geth_poa_middleware
-            
             self.w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': timeout}))
             
             # Add POA middleware for chains like Polygon, BSC, etc.
@@ -23,8 +30,6 @@ class Web3Client:
             
             if not self.w3.is_connected():
                 raise ConnectionError(f"Failed to connect to RPC URL: {rpc_url}")
-        except ImportError:
-            raise ImportError("web3 is required for blockchain operations. Install with: pip install web3")
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Web3 client: {e}")
     
