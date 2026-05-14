@@ -381,3 +381,37 @@ def handle_market_orders(args, default_coordinator_url, output_format, render_ma
     except Exception as e:
         print(f"Error getting orders: {e}")
         return
+
+
+def handle_market_list_plugins(args, default_coordinator_url, output_format, render_mapping):
+    """Handle marketplace plugin listing command."""
+    marketplace_url = _marketplace_url(args, default_coordinator_url)
+    
+    print(f"Getting marketplace plugins from {marketplace_url}...")
+    try:
+        response = requests.get(f"{marketplace_url}/v1/marketplace/plugins", timeout=10)
+        if response.status_code == 200:
+            plugins = response.json()
+            if output_format(args) == "json":
+                print(json.dumps(plugins, indent=2))
+                return
+            if isinstance(plugins, dict):
+                plugins = plugins.get("plugins", [])
+            print("Available marketplace plugins:")
+            if not plugins:
+                print("  No plugins found")
+                return
+            for plugin in plugins:
+                print(f"  - ID: {plugin.get('id', 'N/A')}")
+                print(f"    Name: {plugin.get('name', 'N/A')}")
+                print(f"    Type: {plugin.get('type', 'N/A')}")
+                print(f"    Author: {plugin.get('author', 'N/A')}")
+                print(f"    Description: {plugin.get('description', 'N/A')}")
+                print(f"    Version: {plugin.get('version', 'N/A')}")
+        else:
+            print(f"Query failed: {response.status_code}")
+            print(f"Error: {response.text}")
+            return
+    except Exception as e:
+        print(f"Error getting plugins: {e}")
+        return
