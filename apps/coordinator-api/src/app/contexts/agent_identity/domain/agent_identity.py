@@ -40,6 +40,7 @@ class ChainType(StrEnum):
     OPTIMISM = "optimism"
     AVALANCHE = "avalanche"
     SOLANA = "solana"
+    AITBC = "aitbc"
     CUSTOM = "custom"
 
 
