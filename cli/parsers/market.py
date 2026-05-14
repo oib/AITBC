@@ -104,3 +104,8 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         market_orders_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
         market_orders_parser.add_argument("--marketplace-url")
         market_orders_parser.set_defaults(handler=ctx.handle_market_orders)
+
+        market_plugins_parser = market_subparsers.add_parser("list-plugin", help="List marketplace plugins")
+        market_plugins_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
+        market_plugins_parser.add_argument("--marketplace-url")
+        market_plugins_parser.set_defaults(handler=ctx.handle_market_list_plugins)

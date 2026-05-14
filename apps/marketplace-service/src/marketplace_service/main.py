@@ -246,6 +246,49 @@ async def get_analytics(
     return await svc.get_analytics(period_type=period_type)
 
 
+@app.get("/v1/marketplace/plugins")
+async def get_plugins(
+    type: str | None = None,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get marketplace plugins"""
+    try:
+        logger.info(f"GET /v1/marketplace/plugins called with type={type}")
+        # Return mock plugin data for now
+        plugins = [
+            {
+                "id": "plugin_001",
+                "name": "cli_enhancer",
+                "type": "cli",
+                "author": "AITBC Team",
+                "description": "Enhances CLI with additional commands",
+                "version": "1.0.0"
+            },
+            {
+                "id": "plugin_002",
+                "name": "web_dashboard",
+                "type": "web",
+                "author": "AITBC Team",
+                "description": "Web dashboard plugin for monitoring",
+                "version": "1.2.0"
+            },
+            {
+                "id": "plugin_003",
+                "name": "security_scanner",
+                "type": "blockchain",
+                "author": "Security Team",
+                "description": "Security scanning plugin for blockchain",
+                "version": "0.9.0"
+            }
+        ]
+        if type:
+            plugins = [p for p in plugins if p.get("type") == type]
+        return {"plugins": plugins}
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/plugins: {type(e).__name__}: {str(e)}")
+        raise
+
+
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit marketplace transaction"""

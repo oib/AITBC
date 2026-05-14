@@ -156,6 +156,122 @@ def uninstall(ctx, name: str):
 
 @plugin.command()
 @click.argument("name")
+@click.option("--type", default="cli", help="Plugin type (cli, web, blockchain, ai)")
+@click.option("--description", default="", help="Plugin description")
+@click.option("--author", default="", help="Plugin author")
+@click.pass_context
+def create(ctx, name: str, type: str, description: str, author: str):
+    """Create a new plugin skeleton"""
+    from .utils import output, success
+
+    plugin_dir = get_plugin_dir()
+    plugin_file = plugin_dir / f"{name}.py"
+
+    if plugin_file.exists():
+        from .utils import error
+        error(f"Plugin '{name}' already exists")
+        return
+
+    # Create plugin skeleton
+    template = f'''"""{name} - {description}"""
+
+import click
+
+@click.group()
+def plugin_command():
+    """{name} plugin commands"""
+    pass
+
+@plugin_command.command()
+def hello():
+    """Hello from {name} plugin"""
+    click.echo("Hello from {name} plugin!")
+'''
+
+    with open(plugin_file, "w") as f:
+        f.write(template)
+
+    # Update manifest
+    manifest_file = plugin_dir / "plugins.json"
+    manifest = {"plugins": []}
+    if manifest_file.exists():
+        with open(manifest_file) as f:
+            manifest = json.load(f)
+
+    manifest["plugins"].append({
+        "name": name,
+        "file": f"{name}.py",
+        "description": description,
+        "author": author,
+        "type": type,
+        "enabled": True
+    })
+
+    with open(manifest_file, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    success(f"Plugin '{name}' created")
+    output({"name": name, "file": str(plugin_file), "type": type}, ctx.obj.get('output_format', 'table'))
+
+
+@plugin.command()
+@click.argument("name")
+@click.option("--output", default=".", help="Output directory")
+@click.pass_context
+def package(ctx, name: str, output: str):
+    """Package a plugin for distribution"""
+    from .utils import output, success, error
+    import shutil
+    from pathlib import Path
+    import tarfile
+
+    plugin_dir = get_plugin_dir()
+    manifest_file = plugin_dir / "plugins.json"
+
+    if not manifest_file.exists():
+        error(f"Plugin '{name}' not found")
+        return
+
+    with open(manifest_file) as f:
+        manifest = json.load(f)
+
+    plugin_entry = next((p for p in manifest["plugins"] if p["name"] == name), None)
+    if not plugin_entry:
+        error(f"Plugin '{name}' not found")
+        return
+
+    plugin_file = plugin_dir / plugin_entry["file"]
+    if not plugin_file.exists():
+        error(f"Plugin file '{plugin_entry['file']}' not found")
+        return
+
+    # Create package
+    output_dir = Path(output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    package_file = output_dir / f"{name}.tar.gz"
+
+    with tarfile.open(package_file, "w:gz") as tar:
+        tar.add(plugin_file, arcname=plugin_file.name)
+        # Add metadata
+        metadata = json.dumps({
+            "name": name,
+            "description": plugin_entry.get("description", ""),
+            "author": plugin_entry.get("author", ""),
+            "type": plugin_entry.get("type", "cli"),
+            "version": "1.0.0"
+        })
+        metadata_file = output_dir / "metadata.json"
+        with open(metadata_file, "w") as f:
+            f.write(metadata)
+        tar.add(metadata_file, arcname="metadata.json")
+        metadata_file.unlink()
+
+    success(f"Plugin '{name}' packaged to {package_file}")
+    output({"name": name, "package": str(package_file)}, ctx.obj.get('output_format', 'table'))
+
+
+@plugin.command()
+@click.argument("name")
 @click.argument("state", type=click.Choice(["enable", "disable"]))
 @click.pass_context
 def toggle(ctx, name: str, state: str):
