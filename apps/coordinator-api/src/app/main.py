@@ -71,6 +71,7 @@ from .contexts.blockchain.routers import blockchain
 from .contexts.agent_identity.routers import agent_identity
 from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
 from .contexts.ipfs.routers import router as ipfs
+from .contexts.portfolio.routers import portfolio_router
  
 # Skip optional routers with missing dependencies
 try:
@@ -373,6 +374,9 @@ def create_app() -> FastAPI:
 
     # Add IPFS storage router
     app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
+
+    # Add portfolio management router
+    app.include_router(portfolio_router)
 
     # Add edge GPU router
     app.include_router(edge_gpu, prefix="/v1")

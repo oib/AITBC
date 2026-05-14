@@ -115,8 +115,10 @@ async def lifespan(app: FastAPI):
     node_id = os.getenv("NODE_ID", "unknown-node")
     default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{settings.supported_chains.split(',')[0].strip()}-island")
     default_chain_id = settings.supported_chains.split(',')[0].strip() if settings.supported_chains else "ait-mainnet"
-    create_island_manager(node_id, default_island_id, default_chain_id)
-    _app_logger.info("Island manager initialized", extra={"node_id": node_id, "default_island": default_island_id})
+    island_manager = create_island_manager(node_id, default_island_id, default_chain_id)
+    # Start island manager background tasks
+    asyncio.create_task(island_manager.start())
+    _app_logger.info("Island manager initialized and started", extra={"node_id": node_id, "default_island": default_island_id})
 
     proposers = []
     block_production_override = _env_value(
