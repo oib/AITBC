@@ -52,7 +52,7 @@ class Plugin(SQLModel, table=True):
     type: str = Field(default="cli", index=True)  # cli, web, blockchain, ai
     version: str = Field(default="1.0.0")
     ipfs_cid: str | None = Field(default=None, index=True)  # IPFS CID for plugin code
-    metadata: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    plugin_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     status: str = Field(default="pending", index=True)  # pending, approved, rejected
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
