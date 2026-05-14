@@ -133,7 +133,7 @@ class MultiChainTransactionManager:
                 }
 
             # Initialize bridge service
-            self.bridge_service = CrossChainBridgeService(session)
+            self.bridge_service = CrossChainBridgeService(self.session)
             await self.bridge_service.initialize_bridge(chain_configs)
 
             # Start background processing
