@@ -1533,7 +1533,7 @@ async def get_island(island_id: str) -> Dict[str, Any]:
     }
 
 
-@router.post("/rpc/islands/bridge", summary="Request bridge to another island")
+@router.post("/islands/bridge", summary="Request bridge to another island")
 @rate_limit(rate=100, per=60)
 async def request_bridge(request: BridgeRequestRequest) -> BridgeRequestResponse:
     """
