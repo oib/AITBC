@@ -262,3 +262,104 @@ class MarketplaceService:
         except Exception as e:
             logger.error(f"Error in register_plugin: {type(e).__name__}: {str(e)}")
             raise
+
+    async def create_graph(self, graph_data: dict) -> dict:
+        """Create a new knowledge graph"""
+        from .domain.marketplace import KnowledgeGraph
+
+        try:
+            graph = KnowledgeGraph(**graph_data)
+            self.session.add(graph)
+            await self.session.commit()
+            await self.session.refresh(graph)
+            logger.info(f"Created graph with id: {graph.id}")
+            return {
+                "id": graph.id,
+                "name": graph.name,
+                "status": graph.status,
+            }
+        except Exception as e:
+            logger.error(f"Error in create_graph: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def add_node(self, node_data: dict) -> dict:
+        """Add a node to a knowledge graph"""
+        from .domain.marketplace import GraphNode
+
+        try:
+            node = GraphNode(**node_data)
+            self.session.add(node)
+            await self.session.commit()
+            await self.session.refresh(node)
+            logger.info(f"Added node with id: {node.id} to graph: {node.graph_id}")
+            return {
+                "id": node.id,
+                "graph_id": node.graph_id,
+                "label": node.label,
+            }
+        except Exception as e:
+            logger.error(f"Error in add_node: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def add_edge(self, edge_data: dict) -> dict:
+        """Add an edge to a knowledge graph"""
+        from .domain.marketplace import GraphEdge
+
+        try:
+            edge = GraphEdge(**edge_data)
+            self.session.add(edge)
+            await self.session.commit()
+            await self.session.refresh(edge)
+            logger.info(f"Added edge with id: {edge.id} to graph: {edge.graph_id}")
+            return {
+                "id": edge.id,
+                "graph_id": edge.graph_id,
+                "source_node_id": edge.source_node_id,
+                "target_node_id": edge.target_node_id,
+            }
+        except Exception as e:
+            logger.error(f"Error in add_edge: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def query_graph(self, graph_id: str) -> dict:
+        """Query a knowledge graph (get all nodes and edges)"""
+        from sqlalchemy import select
+        from .domain.marketplace import GraphNode, GraphEdge
+
+        try:
+            # Get nodes
+            node_stmt = select(GraphNode).where(GraphNode.graph_id == graph_id)
+            node_result = await self.session.execute(node_stmt)
+            nodes = node_result.scalars().all()
+
+            # Get edges
+            edge_stmt = select(GraphEdge).where(GraphEdge.graph_id == graph_id)
+            edge_result = await self.session.execute(edge_stmt)
+            edges = edge_result.scalars().all()
+
+            return {
+                "graph_id": graph_id,
+                "nodes": [
+                    {
+                        "id": n.id,
+                        "node_type": n.node_type,
+                        "label": n.label,
+                        "properties": n.properties,
+                    }
+                    for n in nodes
+                ],
+                "edges": [
+                    {
+                        "id": e.id,
+                        "source_node_id": e.source_node_id,
+                        "target_node_id": e.target_node_id,
+                        "edge_type": e.edge_type,
+                        "weight": e.weight,
+                        "properties": e.properties,
+                    }
+                    for e in edges
+                ],
+            }
+        except Exception as e:
+            logger.error(f"Error in query_graph: {type(e).__name__}: {str(e)}")
+            raise
