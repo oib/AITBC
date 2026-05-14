@@ -12,7 +12,7 @@ class MarketplaceOffer(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
-    provider: str = Field(index=True)
+    provider: str | None = Field(default=None, index=True)
     capacity: int = Field(default=0, nullable=False)
     price: float = Field(default=0.0, nullable=False)
     sla: str = Field(default="")
