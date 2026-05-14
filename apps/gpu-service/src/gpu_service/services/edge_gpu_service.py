@@ -62,10 +62,11 @@ class EdgeGPUService:
         self.session.refresh(metric)
         return metric
 
-    def seed_profiles(self) -> None:
+    async def seed_profiles(self) -> None:
         """Seed consumer GPU profiles into database"""
         try:
-            existing_models = {row[0] for row in self.session.execute(select(ConsumerGPUProfile.gpu_model)).all()}
+            result = await self.session.execute(select(ConsumerGPUProfile.gpu_model))
+            existing_models = {row[0] for row in result.all()}
             created = 0
             for profile in CONSUMER_GPU_PROFILES.values():
                 if profile["gpu_model"] in existing_models:
@@ -73,9 +74,9 @@ class EdgeGPUService:
                 self.session.add(ConsumerGPUProfile(**profile))
                 created += 1
             if created:
-                self.session.commit()
+                await self.session.commit()
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             logger.warning(f"Failed to seed GPU profiles: {e}")
 
     async def discover_and_register_edge_gpus(self, miner_id: str) -> dict[str, Any]:
