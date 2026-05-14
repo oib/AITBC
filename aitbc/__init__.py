@@ -65,6 +65,11 @@ from .utils.paths import (
     get_repo_path,
     resolve_path,
 )
+try:
+    from .network.web3_utils import Web3Client, create_web3_client
+    _WEB3_AVAILABLE = True
+except ImportError:
+    _WEB3_AVAILABLE = False
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "load_json": ("utils.json_utils", "load_json"),
