@@ -12,8 +12,8 @@ from sqlmodel import Session
 
 from aitbc.rate_limiting import rate_limit
 
-from ..agent_identity.manager import AgentIdentityManager
-from ..agent_identity.wallet_adapter_enhanced import (
+from ...agent_identity.manager import AgentIdentityManager
+from ...agent_identity.wallet_adapter_enhanced import (
     SecurityLevel,
     TransactionStatus,
     WalletAdapterFactory,
@@ -25,7 +25,7 @@ from ..services.cross_chain.bridge_enhanced import (
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
-from ....services.multi_chain_transaction_manager import (
+from ...services.multi_chain_transaction_manager import (
     MultiChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,
