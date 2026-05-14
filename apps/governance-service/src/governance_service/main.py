@@ -113,7 +113,7 @@ async def get_profiles(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Get governance profiles"""
-    return svc.list_profiles(role=role, user_id=user_id)
+    return await svc.list_profiles(role=role, user_id=user_id)
 
 
 @app.get("/v1/governance/profiles/{profile_id}")
@@ -122,7 +122,7 @@ async def get_profile(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Get a specific governance profile"""
-    return svc.get_profile(profile_id)
+    return await svc.get_profile(profile_id)
 
 
 @app.post("/v1/governance/profiles")
@@ -131,7 +131,7 @@ async def create_profile(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Create a new governance profile"""
-    return svc.create_profile(profile_data)
+    return await svc.create_profile(profile_data)
 
 
 @app.get("/v1/governance/proposals")
@@ -142,7 +142,7 @@ async def get_proposals(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Get governance proposals"""
-    return svc.list_proposals(status=status, category=category, proposer_id=proposer_id)
+    return await svc.list_proposals(status=status, category=category, proposer_id=proposer_id)
 
 
 @app.get("/v1/governance/proposals/{proposal_id}")
@@ -151,7 +151,7 @@ async def get_proposal(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Get a specific proposal"""
-    return svc.get_proposal(proposal_id)
+    return await svc.get_proposal(proposal_id)
 
 
 @app.post("/v1/governance/proposals")
@@ -160,7 +160,7 @@ async def create_proposal(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Create a new proposal"""
-    return svc.create_proposal(proposal_data)
+    return await svc.create_proposal(proposal_data)
 
 
 @app.get("/v1/governance/votes")
@@ -170,7 +170,7 @@ async def get_votes(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Get votes"""
-    return svc.list_votes(proposal_id=proposal_id, voter_id=voter_id)
+    return await svc.list_votes(proposal_id=proposal_id, voter_id=voter_id)
 
 
 @app.post("/v1/governance/votes")
@@ -179,7 +179,7 @@ async def create_vote(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Create a new vote"""
-    return svc.create_vote(vote_data)
+    return await svc.create_vote(vote_data)
 
 
 @app.get("/v1/governance/treasury")
@@ -187,7 +187,7 @@ async def get_treasury(
     svc: GovernanceService = Depends(get_governance_service),
 ):
     """Get DAO treasury"""
-    return svc.get_treasury()
+    return await svc.get_treasury()
 
 
 @app.get("/v1/governance/analytics")
