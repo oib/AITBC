@@ -1,7 +1,7 @@
 """Database service for Edge API Service"""
 
 from typing import Dict, Optional, List
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 
 from ..storage import get_session
@@ -89,16 +89,16 @@ class DatabaseService:
                     "message": f"Database {database_id} not found"
                 }
             
-            # Update sync status
+            # Update sync status in single transaction
             db.sync_status = "syncing"
-            db.updated_at = datetime.now(timezone.utc)
-            await session.commit()
+            db.updated_at = datetime.utcnow()
             
             # Simulate sync process (in production, this would actually sync data)
             db.sync_status = "idle"
-            db.last_sync_at = datetime.now(timezone.utc)
+            db.last_sync_at = datetime.utcnow()
             db.records_synced = db.records_synced + 100  # Simulated
-            db.updated_at = datetime.now(timezone.utc)
+            db.updated_at = datetime.utcnow()
+            
             await session.commit()
             
             return {
