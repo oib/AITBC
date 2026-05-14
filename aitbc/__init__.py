@@ -8,7 +8,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-from .aitbc_logging import get_logger, setup_logger
+from .aitbc_logging import get_logger, setup_logger, configure_logging
 from .constants import (
     AGENT_COORDINATOR_PORT,
     BLOCKCHAIN_DATA_DIR,
@@ -203,6 +203,7 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     "get_logger",
     "setup_logger",
+    "configure_logging",
     "DATA_DIR",
     "CONFIG_DIR",
     "LOG_DIR",
