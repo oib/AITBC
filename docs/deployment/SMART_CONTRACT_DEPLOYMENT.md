@@ -301,7 +301,7 @@ npx hardhat verify --network <network> <ADDRESS> <CONSTRUCTOR_ARGS>
 **Solution:**
 ```bash
 # Check service status
-systemctl status aitbc-monitor.service
+systemctl status aitbc-monitoring.service
 
 # Check Prometheus
 curl http://localhost:9090/-/healthy
