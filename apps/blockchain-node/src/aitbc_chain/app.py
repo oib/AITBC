@@ -19,6 +19,7 @@ from .metrics import metrics_registry, block_processing_duration, block_height, 
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from .rpc.router import router as rpc_router, set_poa_proposer
 from .rpc.websocket import router as websocket_router
+from .network.island_manager import create_island_manager
 # from .escrow_routes import router as escrow_router  # Not yet implemented
 
 _app_logger = get_logger("aitbc_chain.app")
@@ -107,12 +108,16 @@ async def lifespan(app: FastAPI):
         min_fee=settings.min_fee,
     )
     _app_logger.info(f"Initializing gossip backend: {settings.gossip_backend}, url: {settings.gossip_broadcast_url}")
-    backend = create_backend(
-        settings.gossip_backend,
-        broadcast_url=settings.gossip_broadcast_url,
-    )
-    await gossip_broker.set_backend(backend)
+    create_backend("broadcast", broadcast_url=settings.gossip_broadcast_url)
     _app_logger.info("Gossip backend initialized successfully")
+
+    # Initialize island manager for edge API support
+    node_id = os.getenv("NODE_ID", "unknown-node")
+    default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{settings.supported_chains.split(',')[0].strip()}-island")
+    default_chain_id = settings.supported_chains.split(',')[0].strip() if settings.supported_chains else "ait-mainnet"
+    create_island_manager(node_id, default_island_id, default_chain_id)
+    _app_logger.info("Island manager initialized", extra={"node_id": node_id, "default_island": default_island_id})
+
     proposers = []
     block_production_override = _env_value(
         "AITBC_FORCE_ENABLE_BLOCK_PRODUCTION",
