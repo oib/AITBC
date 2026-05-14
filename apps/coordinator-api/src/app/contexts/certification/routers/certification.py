@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from sqlalchemy.orm import Session
+from sqlmodel import select
 
 """
 Certification and Partnership API Endpoints
