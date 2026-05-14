@@ -1,6 +1,6 @@
-"""Edge database operations router for Edge API Service"""
+"""Database operations router for Edge API Service"""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..services.database_service import DatabaseService
@@ -10,14 +10,9 @@ router = APIRouter()
 
 class InitDatabaseRequest(BaseModel):
     """Request model for initializing a database"""
-    db_name: str
-    db_type: str = Field(default="postgresql")
-    config: dict = Field(default_factory=dict)
-
-
-class SyncDatabaseRequest(BaseModel):
-    """Request model for syncing a database"""
-    source_url: str = Field(default=None)
+    database_id: str
+    island_id: str
+    capacity_gb: int
 
 
 def get_database_service() -> DatabaseService:
@@ -28,31 +23,38 @@ def get_database_service() -> DatabaseService:
 @router.post("/init")
 async def init_database(request: InitDatabaseRequest, svc: DatabaseService = Depends(get_database_service)):
     """Initialize edge database"""
-    result = await svc.init_database(request.db_name, request.db_type, request.config)
+    result = await svc.init_database(request.database_id, request.island_id, request.capacity_gb)
     return result
 
 
-@router.get("/{db_id}")
-async def get_database(db_id: str, svc: DatabaseService = Depends(get_database_service)):
+@router.get("/")
+async def list_databases(island_id: str = Query(None), svc: DatabaseService = Depends(get_database_service)):
+    """List databases, optionally filtered by island_id"""
+    databases = await svc.list_databases(island_id)
+    return {"databases": databases, "total": len(databases)}
+
+
+@router.get("/{database_id}")
+async def get_database(database_id: str, svc: DatabaseService = Depends(get_database_service)):
     """Get database details"""
-    db = await svc.get_database(db_id)
+    db = await svc.get_database(database_id)
     if db is None:
-        raise HTTPException(status_code=404, detail=f"Database {db_id} not found")
+        raise HTTPException(status_code=404, detail=f"Database {database_id} not found")
     return db
 
 
-@router.delete("/{db_id}")
-async def delete_database(db_id: str, svc: DatabaseService = Depends(get_database_service)):
+@router.delete("/{database_id}")
+async def delete_database(database_id: str, svc: DatabaseService = Depends(get_database_service)):
     """Delete database"""
-    success = await svc.delete_database(db_id)
+    success = await svc.delete_database(database_id)
     if success:
-        return {"message": f"Database {db_id} deleted"}
+        return {"message": f"Database {database_id} deleted"}
     else:
-        raise HTTPException(status_code=404, detail=f"Database {db_id} not found")
+        raise HTTPException(status_code=404, detail=f"Database {database_id} not found")
 
 
-@router.post("/{db_id}/sync")
-async def sync_database(db_id: str, request: SyncDatabaseRequest, svc: DatabaseService = Depends(get_database_service)):
+@router.post("/{database_id}/sync")
+async def sync_database(database_id: str, svc: DatabaseService = Depends(get_database_service)):
     """Sync database from source"""
-    result = await svc.sync_database(db_id, request.source_url)
+    result = await svc.sync_database(database_id)
     return result
