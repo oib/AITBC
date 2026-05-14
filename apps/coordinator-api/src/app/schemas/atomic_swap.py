@@ -37,7 +37,7 @@ class SwapResponse(BaseModel):
     target_timelock: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class SwapActionRequest(BaseModel):
