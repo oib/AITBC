@@ -52,7 +52,7 @@ class AgentIdentityCore:
             avatar_url=request.avatar_url,
             supported_chains=request.supported_chains,
             primary_chain=request.primary_chain,
-            identity_data=request.metadata,
+            identity_data=request.meta_data,
             tags=request.tags,
         )
 
@@ -70,12 +70,14 @@ class AgentIdentityCore:
     async def get_identity_by_agent_id(self, agent_id: str) -> AgentIdentity | None:
         """Get identity by agent ID"""
         stmt = select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)
-        return self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        return result.scalars().first()
 
     async def get_identity_by_owner(self, owner_address: str) -> list[AgentIdentity]:
         """Get all identities for an owner"""
         stmt = select(AgentIdentity).where(AgentIdentity.owner_address == owner_address.lower())
-        return self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def update_identity(self, identity_id: str, request: AgentIdentityUpdate) -> AgentIdentity:
         """Update an existing agent identity"""
@@ -148,7 +150,8 @@ class AgentIdentityCore:
         stmt = select(CrossChainMapping).where(
             CrossChainMapping.agent_id == identity.agent_id, CrossChainMapping.chain_id == chain_id
         )
-        return self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        return result.scalars().first()
 
     async def get_all_cross_chain_mappings(self, identity_id: str) -> list[CrossChainMapping]:
         """Get all cross-chain mappings for an identity"""
@@ -157,7 +160,8 @@ class AgentIdentityCore:
             return []
 
         stmt = select(CrossChainMapping).where(CrossChainMapping.agent_id == identity.agent_id)
-        return self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def verify_cross_chain_identity(
         self,
@@ -222,7 +226,8 @@ class AgentIdentityCore:
         stmt = select(CrossChainMapping).where(
             CrossChainMapping.chain_address == chain_address.lower(), CrossChainMapping.chain_id == chain_id
         )
-        return self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        return result.scalars().first()
 
     async def update_cross_chain_mapping(
         self, identity_id: str, chain_id: int, request: CrossChainMappingUpdate
@@ -357,11 +362,13 @@ class AgentIdentityCore:
 
         # Get verification records
         stmt = select(IdentityVerification).where(IdentityVerification.agent_id == identity.agent_id)
-        verifications = self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        verifications = list(result.scalars().all())
 
         # Get wallet information
         stmt = select(AgentWallet).where(AgentWallet.agent_id == identity.agent_id)
-        wallets = self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        wallets = list(result.scalars().all())
 
         return {
             "identity": {
@@ -432,7 +439,8 @@ class AgentIdentityCore:
         # Apply pagination
         stmt = stmt.offset(offset).limit(limit)
 
-        return self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def generate_identity_proof(self, identity_id: str, chain_id: int) -> dict[str, Any]:
         """Generate a cryptographic proof for identity verification"""
