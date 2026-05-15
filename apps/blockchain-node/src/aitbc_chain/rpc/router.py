@@ -1849,21 +1849,16 @@ async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
 
 
 @router.post("/islands/leave", summary="Leave an island")
-@rate_limit(rate=100, per=60)
 async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
     """
     Leave an island.
     Calls IslandManager.leave_island to remove the node from the specified island.
     """
     island_manager = get_island_manager()
-    logger.info(f'leave_island: island_manager={island_manager}')
     if island_manager is None:
-        logger.error('leave_island: island_manager is None!')
         raise HTTPException(status_code=503, detail="Island manager not available")
     
-    logger.info(f'leave_island: calling leave_island for {request.island_id}')
     success = island_manager.leave_island(request.island_id)
-    logger.info(f'leave_island: result={success}')
     
     if success:
         return LeaveIslandResponse(
