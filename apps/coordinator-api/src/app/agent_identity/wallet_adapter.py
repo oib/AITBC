@@ -311,7 +311,8 @@ class MultiChainWalletAdapter:
         stmt = select(AgentWallet).where(
             AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
         )
-        wallet = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
 
         if not wallet:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
@@ -335,7 +336,8 @@ class MultiChainWalletAdapter:
         stmt = select(AgentWallet).where(
             AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
         )
-        wallet = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
 
         if not wallet:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
@@ -366,7 +368,8 @@ class MultiChainWalletAdapter:
         stmt = select(AgentWallet).where(
             AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
         )
-        wallet = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
 
         if not wallet:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
@@ -382,7 +385,8 @@ class MultiChainWalletAdapter:
 
         # Get wallet from database
         stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id)
-        wallet = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
 
         if not wallet:
             raise ValueError(f"Wallet not found for agent {agent_id} on chain {chain_id}")
@@ -405,14 +409,16 @@ class MultiChainWalletAdapter:
         """Get all wallets for an agent across all chains"""
 
         stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id)
-        return self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def deactivate_wallet(self, agent_id: str, chain_id: int) -> bool:
         """Deactivate an agent wallet"""
 
         # Get wallet from database
         stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id)
-        wallet = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
 
         if not wallet:
             raise ValueError(f"Wallet not found for agent {agent_id} on chain {chain_id}")

@@ -84,14 +84,6 @@ class AgentIdentity(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Indexes for performance
-    __table_args__ = {
-#        # Index(        Index("idx_agent_identity_owner", "owner_address"),)
-#        # Index(        Index("idx_agent_identity_status", "status"),)
-#        # Index(        Index("idx_agent_identity_verified", "is_verified"),)
-#        # Index(        Index("idx_agent_identity_reputation", "reputation_score"),)
-    }
-
 
 class CrossChainMapping(SQLModel, table=True):
     """Mapping of agent identity across different blockchains"""
