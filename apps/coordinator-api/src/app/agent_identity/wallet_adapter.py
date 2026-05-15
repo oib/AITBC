@@ -3,6 +3,7 @@ Multi-Chain Wallet Adapter Implementation
 Provides blockchain-agnostic wallet interface for agents
 """
 
+import secrets
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -121,6 +122,79 @@ class EthereumWalletAdapter(WalletAdapter):
             return False
 
 
+class AITBCWalletAdapter(WalletAdapter):
+    """AITBC wallet adapter"""
+
+    def __init__(self, chain_id: int, rpc_url: str):
+        super().__init__(chain_id, ChainType.AITBC, rpc_url)
+
+    async def create_wallet(self, owner_address: str) -> dict[str, Any]:
+        """Create a new AITBC wallet for the agent"""
+        # Generate AITBC Bech32 address
+        from aitbc import derive_ethereum_address
+
+        # Generate a mock private key (in production, use proper key generation)
+        private_key = secrets.token_hex(32)
+        public_key = derive_ethereum_address(private_key)
+
+        # Convert to AITBC Bech32 address
+        aitbc_address = f"ait1{public_key[2:]}"
+
+        return {
+            "chain_id": self.chain_id,
+            "chain_type": self.chain_type,
+            "wallet_address": aitbc_address,
+            "contract_address": None,  # AITBC doesn't use smart contract wallets
+            "transaction_hash": f"0x{'2' * 64}",  # Mock tx hash
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    async def get_balance(self, wallet_address: str) -> Decimal:
+        """Get AITBC balance for wallet"""
+        # Mock implementation - would call AITBC RPC
+        return Decimal("100.0")  # Mock balance
+
+    async def execute_transaction(
+        self, from_address: str, to_address: str, amount: Decimal, data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Execute AITBC transaction"""
+        # Mock implementation - would call AITBC RPC
+        return {
+            "transaction_hash": f"0x{'3' * 64}",
+            "from_address": from_address,
+            "to_address": to_address,
+            "amount": str(amount),
+            "gas_used": "21000",
+            "gas_price": "1000000000",
+            "status": "success",
+            "block_number": 12345,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    async def get_transaction_history(self, wallet_address: str, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+        """Get transaction history for wallet"""
+        # Mock implementation - would query blockchain
+        return [
+            {
+                "hash": f"0x{'4' * 64}",
+                "from_address": wallet_address,
+                "to_address": f"ait1{'5' * 38}",
+                "amount": "10.0",
+                "gas_used": "21000",
+                "block_number": 12344,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+
+    async def verify_address(self, address: str) -> bool:
+        """Verify AITBC address format"""
+        try:
+            # AITBC addresses are Bech32 format starting with "ait1"
+            return address.startswith("ait1") and len(address) == 43
+        except ValueError:
+            return False
+
+
 class PolygonWalletAdapter(EthereumWalletAdapter):
     """Polygon wallet adapter (Ethereum-compatible)"""
 
@@ -177,6 +251,11 @@ class MultiChainWalletAdapter:
                 "rpc_url": "https://api.avax.network/ext/bc/C/rpc",
                 "name": "Avalanche C-Chain",
             },
+            1000: {  # AITBC Mainnet
+                "chain_type": ChainType.AITBC,
+                "rpc_url": "http://localhost:8545",
+                "name": "AITBC Mainnet",
+            },
         }
 
     def get_adapter(self, chain_id: int) -> WalletAdapter:
@@ -193,6 +272,8 @@ class MultiChainWalletAdapter:
                 self.adapters[chain_id] = PolygonWalletAdapter(chain_id, config["rpc_url"])
             elif config["chain_type"] == ChainType.BSC:
                 self.adapters[chain_id] = BSCWalletAdapter(chain_id, config["rpc_url"])
+            elif config["chain_type"] == ChainType.AITBC:
+                self.adapters[chain_id] = AITBCWalletAdapter(chain_id, config["rpc_url"])
             else:
                 raise ValueError(f"Unsupported chain type: {config['chain_type']}")
 
