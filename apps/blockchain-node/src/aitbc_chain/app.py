@@ -5,7 +5,7 @@ import os
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -85,6 +85,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             elif response.status_code >= 400:
                 metrics_registry.increment("rpc_client_errors_total")
             return response
+        except HTTPException:
+            raise
         except Exception as exc:
             duration = time.perf_counter() - start
             metrics_registry.increment("rpc_unhandled_errors_total")
