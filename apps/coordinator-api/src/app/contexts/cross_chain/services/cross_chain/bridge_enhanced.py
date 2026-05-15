@@ -240,7 +240,7 @@ class CrossChainBridgeService:
 
         try:
             stmt = select(BridgeRequest).where(BridgeRequest.id == bridge_request_id)
-            bridge_request = self.session.execute(stmt).first()
+            bridge_request = self.session.execute(stmt).scalars().first()
 
             if not bridge_request:
                 raise ValueError(f"Bridge request {bridge_request_id} not found")
@@ -310,7 +310,7 @@ class CrossChainBridgeService:
 
         try:
             stmt = select(BridgeRequest).where(BridgeRequest.id == bridge_request_id)
-            bridge_request = self.session.execute(stmt).first()
+            bridge_request = self.session.execute(stmt).scalars().first()
 
             if not bridge_request:
                 raise ValueError(f"Bridge request {bridge_request_id} not found")
@@ -465,7 +465,7 @@ class CrossChainBridgeService:
 
         try:
             stmt = select(BridgeRequest).where(BridgeRequest.id == bridge_request_id)
-            bridge_request = self.session.execute(stmt).first()
+            bridge_request = self.session.execute(stmt).scalars().first()
 
             if not bridge_request:
                 logger.error(f"Bridge request {bridge_request_id} not found")
