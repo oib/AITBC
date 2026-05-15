@@ -64,16 +64,16 @@ async def list_swarms(
 @router.post("/join", response_model=dict, status_code=201)
 @rate_limit(rate=50, per=60)
 async def join_swarm(
-    request_http: Request, request: JoinRequest
+    http_request: Request, body: JoinRequest
 ):
     """Join agent swarm for collective optimization."""
     import uuid
     return {
         "swarm_id": f"swarm_{uuid.uuid4().hex[:16]}",
-        "role": request.role,
-        "capability": request.capability,
-        "priority": request.priority,
-        "region": request.region,
+        "role": body.role,
+        "capability": body.capability,
+        "priority": body.priority,
+        "region": body.region,
         "status": "joined"
     }
 
@@ -81,16 +81,16 @@ async def join_swarm(
 @router.post("/coordinate", response_model=dict, status_code=202)
 @rate_limit(rate=50, per=60)
 async def coordinate_swarm(
-    request_http: Request, request: CoordinateRequest
+    http_request: Request, body: CoordinateRequest
 ):
     """Coordinate swarm task execution."""
     import uuid
     return {
         "task_id": f"task_{uuid.uuid4().hex[:16]}",
-        "task": request.task,
-        "collaborators": request.collaborators,
-        "strategy": request.strategy,
-        "timeout_seconds": request.timeout_seconds,
+        "task": body.task,
+        "collaborators": body.collaborators,
+        "strategy": body.strategy,
+        "timeout_seconds": body.timeout_seconds,
         "status": "coordinating"
     }
 
@@ -126,12 +126,12 @@ async def leave_swarm(
 @router.post("/tasks/{task_id}/consensus", response_model=dict)
 @rate_limit(rate=50, per=60)
 async def achieve_consensus(
-    request: Request, task_id: str, request_consensus: ConsensusRequest
+    request: Request, task_id: str, body: ConsensusRequest
 ):
     """Achieve swarm consensus on task result."""
     return {
         "task_id": task_id,
-        "consensus_threshold": request.consensus_threshold,
+        "consensus_threshold": body.consensus_threshold,
         "consensus_reached": True,
         "status": "consensus_achieved"
     }
