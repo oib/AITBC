@@ -32,7 +32,10 @@ from app.services.multi_chain_transaction_manager import (
     MultiChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,
+)
+from app.domain.multi_chain_transaction import (
     TransactionType,
+    TransactionStatus,
 )
 from app.storage.db import get_session
 
