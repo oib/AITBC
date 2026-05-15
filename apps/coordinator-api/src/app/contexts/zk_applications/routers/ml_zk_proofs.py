@@ -57,9 +57,9 @@ async def verify_ml_training(request: Request, verification_request: dict) -> di
         )
 
         return {
-            "verified": verification_result["verified"],
-            "training_correct": verification_result["training_correct"],
-            "gradient_descent_valid": verification_result["gradient_descent_valid"],
+            "verified": verification_result.get("verified", False),
+            "computation_correct": verification_result.get("computation_correct", False),
+            "privacy_preserved": verification_result.get("privacy_preserved", False),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

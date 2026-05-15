@@ -164,7 +164,7 @@ main();
 
                 if result.returncode != 0:
                     logger.error(f"Proof verification failed: {result.stderr}")
-                    return {"verified": False, "error": result.stderr}
+                    return {"verified": False, "computation_correct": False, "privacy_preserved": False, "error": result.stderr}
 
                 is_verified = result.stdout.strip() == "true"
                 return {
