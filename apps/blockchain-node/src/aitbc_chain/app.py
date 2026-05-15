@@ -34,9 +34,9 @@ def _env_value(*names: str) -> str | None:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple in-memory rate limiter per client IP."""
+    """Rate limit requests by client IP."""
 
-    def __init__(self, app, max_requests: int = 100, window_seconds: int = 60):
+    def __init__(self, app, max_requests: int = 1000, window_seconds: int = 60):
         super().__init__(app)
         self._max_requests = max_requests
         self._window = window_seconds
@@ -44,10 +44,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         client_ip = request.client.host if request.client else "unknown"
-        # Bypass rate limiting for localhost and internal network (sync/health internal traffic)
-        trusted_ips = os.getenv("AITBC_TRUSTED_IPS", "127.0.0.1,::1").split(",")
-        if client_ip in trusted_ips:
-            return await call_next(request)
         now = time.time()
         # Clean old entries
         self._requests[client_ip] = [
