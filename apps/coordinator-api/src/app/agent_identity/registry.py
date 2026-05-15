@@ -41,7 +41,8 @@ class CrossChainRegistry:
 
         # Get or create agent identity
         stmt = select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)
-        identity = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        identity = result.scalars().first()
 
         if not identity:
             raise ValueError(f"Agent identity not found for agent_id: {agent_id}")
@@ -112,7 +113,8 @@ class CrossChainRegistry:
         """Resolve agent identity to chain-specific address"""
 
         stmt = select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id, CrossChainMapping.chain_id == chain_id)
-        mapping = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        mapping = result.scalars().first()
 
         if not mapping:
             return None
@@ -125,7 +127,8 @@ class CrossChainRegistry:
         stmt = select(CrossChainMapping).where(
             CrossChainMapping.chain_address == chain_address.lower(), CrossChainMapping.chain_id == chain_id
         )
-        mapping = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        mapping = result.scalars().first()
 
         if not mapping:
             return None
@@ -248,14 +251,16 @@ class CrossChainRegistry:
 
         # Get identity
         stmt = select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)
-        identity = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        identity = result.scalars().first()
 
         if not identity:
             raise ValueError(f"Agent identity not found: {agent_id}")
 
         # Get all cross-chain mappings
         stmt = select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id)
-        mappings = self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        mappings = list(result.scalars().all())
 
         reputation_scores = {}
 
@@ -270,7 +275,8 @@ class CrossChainRegistry:
         """Get cross-chain mapping by agent ID and chain ID"""
 
         stmt = select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id, CrossChainMapping.chain_id == chain_id)
-        return self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        return result.scalars().first()
 
     async def get_cross_chain_mapping_by_identity_chain(self, identity_id: str, chain_id: int) -> CrossChainMapping | None:
         """Get cross-chain mapping by identity ID and chain ID"""
@@ -287,19 +293,22 @@ class CrossChainRegistry:
         stmt = select(CrossChainMapping).where(
             CrossChainMapping.chain_address == chain_address.lower(), CrossChainMapping.chain_id == chain_id
         )
-        return self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        return result.scalars().first()
 
     async def get_all_cross_chain_mappings(self, agent_id: str) -> list[CrossChainMapping]:
         """Get all cross-chain mappings for an agent"""
 
         stmt = select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id)
-        return self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_verified_mappings(self, agent_id: str) -> list[CrossChainMapping]:
         """Get all verified cross-chain mappings for an agent"""
 
         stmt = select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id, CrossChainMapping.is_verified)
-        return self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_identity_verifications(self, agent_id: str, chain_id: int | None = None) -> list[IdentityVerification]:
         """Get verification records for an agent"""
@@ -309,7 +318,8 @@ class CrossChainRegistry:
         if chain_id:
             stmt = stmt.where(IdentityVerification.chain_id == chain_id)
 
-        return self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def migrate_agent_identity(
         self, agent_id: str, from_chain: int, to_chain: int, new_address: str, verifier_address: str | None = None
@@ -409,22 +419,17 @@ class CrossChainRegistry:
         """Get comprehensive registry statistics"""
 
         # Total identities
-        identity_count = self.session.exec(select(AgentIdentity)).count()
-
-        # Total mappings
-        mapping_count = self.session.exec(select(CrossChainMapping)).count()
-
-        # Verified mappings
-        verified_mapping_count = self.session.exec(
+        identity_count = self.session.execute(select(AgentIdentity)).scalar()
+        mapping_count = self.session.execute(select(CrossChainMapping)).scalar()
+        verified_mapping_count = self.session.execute(
             select(CrossChainMapping).where(CrossChainMapping.is_verified)
-        ).count()
-
-        # Total verifications
-        verification_count = self.session.exec(select(IdentityVerification)).count()
+        ).scalar()
+        verification_count = self.session.execute(select(IdentityVerification)).scalar()
 
         # Chain breakdown
         chain_breakdown = {}
-        mappings = self.session.exec(select(CrossChainMapping)).all()
+        result = self.session.execute(select(CrossChainMapping))
+        mappings = list(result.scalars().all())
 
         for mapping in mappings:
             chain_name = self._get_chain_name(mapping.chain_id)
@@ -457,7 +462,8 @@ class CrossChainRegistry:
 
         # Find expired verifications
         stmt = select(IdentityVerification).where(IdentityVerification.expires_at < current_time)
-        expired_verifications = self.session.exec(stmt).all()
+        result = self.session.execute(stmt)
+        expired_verifications = list(result.scalars().all())
 
         cleaned_count = 0
 
@@ -555,7 +561,8 @@ class CrossChainRegistry:
         """Get identity ID by agent ID"""
 
         stmt = select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)
-        identity = self.session.exec(stmt).first()
+        result = self.session.execute(stmt)
+        identity = result.scalars().first()
 
         if not identity:
             raise ValueError(f"Identity not found for agent: {agent_id}")

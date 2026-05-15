@@ -44,7 +44,9 @@ async def create_agent_identity(request: dict[str, Any], manager: AgentIdentityM
         )
         return JSONResponse(content=result, status_code=201)
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Failed to create agent identity")
+        import traceback
+        error_detail = f"Failed to create agent identity: {str(e)}\n{traceback.format_exc()}"
+        raise HTTPException(status_code=400, detail=error_detail)
 
 
 @router.get("/identities/{agent_id}", response_model=dict[str, Any])

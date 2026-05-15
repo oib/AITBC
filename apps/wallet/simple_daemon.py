@@ -161,6 +161,75 @@ async def list_chain_wallets(chain_id: str):
         "total": len(wallet_list)
     })
 
+@app.post("/v1/chains/{chain_id}/wallets")
+async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
+    """Create a wallet in a specific chain"""
+    if request is None:
+        request = {}
+    
+    wallet_name = request.get("wallet_name", f"{chain_id}-wallet-{datetime.now().timestamp()}")
+    password = request.get("password", "")
+    
+    # Import wallet creation from CLI
+    try:
+        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
+        import io
+        import sys
+        
+        # Capture stdout to avoid printing to console
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        
+        # Create wallet using CLI function
+        result = cli_create_wallet(wallet_name, password)
+        
+        # Restore stdout
+        sys.stdout = old_stdout
+        
+        return JSONResponse({
+            "wallet_name": wallet_name,
+            "chain_id": chain_id,
+            "address": result.get("address", ""),
+            "public_key": result.get("public_key", ""),
+            "encrypted": result.get("encrypted", False),
+            "created_at": datetime.now().isoformat(),
+            "mode": "daemon"
+        })
+    except ImportError:
+        # Fallback: create a simple wallet if CLI not available
+        from aitbc import derive_ethereum_address
+        import secrets
+        
+        private_key = secrets.token_hex(32)
+        public_key = derive_ethereum_address(private_key)
+        address = f"ait1{public_key[2:]}"
+        
+        # Save to keystore
+        wallet_data = {
+            "address": address,
+            "public_key": public_key,
+            "private_key": private_key,
+            "encrypted": False,
+            "chain_id": chain_id
+        }
+        
+        KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
+        wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
+        with open(wallet_file, 'w') as f:
+            json.dump(wallet_data, f)
+        
+        return JSONResponse({
+            "wallet_name": wallet_name,
+            "chain_id": chain_id,
+            "address": address,
+            "public_key": public_key,
+            "encrypted": False,
+            "created_at": datetime.now().isoformat(),
+            "mode": "daemon"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create wallet: {str(e)}")
+
 @app.get("/v1/chains/{chain_id}/wallets/{wallet_id}")
 async def get_chain_wallet_info(chain_id: str, wallet_id: str):
     """Get wallet information from a specific chain"""
@@ -249,9 +318,70 @@ async def list_wallets():
     return JSONResponse({"items": wallets, "total": len(wallets)})
 
 @app.post("/v1/wallets")
-async def create_wallet():
+async def create_wallet(request: dict[str, Any] = None):
     """Create a wallet"""
-    raise HTTPException(status_code=501, detail="Wallet creation not implemented - use CLI instead")
+    if request is None:
+        request = {}
+    
+    wallet_name = request.get("wallet_name", f"wallet-{datetime.now().timestamp()}")
+    password = request.get("password", "")
+    
+    # Import wallet creation from CLI
+    try:
+        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
+        import io
+        import sys
+        
+        # Capture stdout to avoid printing to console
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        
+        # Create wallet using CLI function
+        result = cli_create_wallet(wallet_name, password)
+        
+        # Restore stdout
+        sys.stdout = old_stdout
+        
+        return JSONResponse({
+            "wallet_name": wallet_name,
+            "address": result.get("address", ""),
+            "public_key": result.get("public_key", ""),
+            "encrypted": result.get("encrypted", False),
+            "created_at": datetime.now().isoformat(),
+            "mode": "daemon"
+        })
+    except ImportError:
+        # Fallback: create a simple wallet if CLI not available
+        from aitbc import derive_ethereum_address
+        import secrets
+        
+        private_key = secrets.token_hex(32)
+        public_key = derive_ethereum_address(private_key)
+        address = f"ait1{public_key[2:]}"
+        
+        # Save to keystore
+        wallet_data = {
+            "address": address,
+            "public_key": public_key,
+            "private_key": private_key,
+            "encrypted": False
+        }
+        
+        KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
+        wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
+        with open(wallet_file, 'w') as f:
+            json.dump(wallet_data, f)
+        
+        return JSONResponse({
+            "wallet_name": wallet_name,
+            "address": address,
+            "public_key": public_key,
+            "encrypted": False,
+            "created_at": datetime.now().isoformat(),
+            "mode": "daemon"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create wallet: {str(e)}")
 
 @app.post("/v1/wallets/{wallet_id}/unlock")
 async def unlock_wallet(wallet_id: str):

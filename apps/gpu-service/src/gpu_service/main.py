@@ -139,15 +139,22 @@ async def scan_edge_gpus(
     return await svc.discover_and_register_edge_gpus(miner_id)
 
 
+from pydantic import BaseModel
+
+
+class OptimizeInferenceRequest(BaseModel):
+    model_name: str
+    request_data: dict
+
+
 @app.post("/v1/marketplace/edge-gpu/optimize/inference/{gpu_id}")
 async def optimize_inference(
     gpu_id: str,
-    model_name: str,
-    request_data: dict,
+    request: OptimizeInferenceRequest,
     svc: EdgeGPUService = Depends(get_edge_service),
 ):
     """Optimize ML inference request for edge GPU"""
-    return await svc.optimize_inference_for_edge(gpu_id, model_name, request_data)
+    return await svc.optimize_inference_for_edge(gpu_id, request.model_name, request.request_data)
 
 
 @app.post("/v1/transactions")
