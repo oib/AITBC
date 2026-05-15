@@ -121,7 +121,7 @@ async def achieve_consensus(request: Request, task_id: str, request_data: Consen
     """Achieve swarm consensus on task result."""
     return {
         "task_id": task_id,
-        "consensus_threshold": request.consensus_threshold,
+        "consensus_threshold": request_data.consensus_threshold,
         "consensus_reached": True,
         "status": "consensus_achieved"
     }
