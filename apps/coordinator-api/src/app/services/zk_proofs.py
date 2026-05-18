@@ -130,9 +130,23 @@ class ZKProofService:
             if not self.enabled:
                 return {"verified": False, "error": "ZK proof service not enabled"}
 
-            # Load verification key from file (verification_key parameter ignored, loaded from self.vkey_path)
-            with open(self.vkey_path) as f:
-                vkey = json.load(f)
+            # Use provided verification key or load from default circuit
+            if verification_key:
+                vkey = verification_key
+            else:
+                # Try to load from the first available circuit's verification key
+                if not self.available_circuits:
+                    return {"verified": False, "error": "No circuits available for verification"}
+                
+                # Use the first available circuit's verification key
+                first_circuit = list(self.available_circuits.values())[0]
+                vkey_path = first_circuit["vkey_path"]
+                
+                try:
+                    with open(vkey_path) as f:
+                        vkey = json.load(f)
+                except FileNotFoundError:
+                    return {"verified": False, "error": f"Verification key not found at {vkey_path}"}
 
             # Create verification script
             script = f"""
@@ -147,7 +161,7 @@ async function main() {{
         const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);
         console.log(verified);
     }} catch (error) {{
-        console.error('Error:', error);
+        console.error('Error:', error.message);
         process.exit(1);
     }}
 }}
