@@ -3,8 +3,8 @@
 **Level**: Advanced  
 **Prerequisites**: AI Job Submission (Scenario 07), Security Setup (Scenario 19), IPFS Storage (Scenario 11)  
 **Estimated Time**: 50 minutes  
-**Last Updated**: 2026-05-02  
-**Version**: 1.0
+**Last Updated**: 2026-05-18  
+**Version**: 1.1
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **🎭 [Agent Scenarios](./README.md)** → *You are here*
@@ -306,6 +306,6 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 
 ---
 
-*Last updated: 2026-05-02*  
+*Last updated: 2026-05-18*  
 *Version: 1.0*  
 *Status: Active scenario document*

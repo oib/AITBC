@@ -53,6 +53,7 @@ from .routers import (
     exchange,
     explorer,
     governance_enhanced,
+    islands_proxy,
     miner,
     monitor,
     multi_modal_rl,
@@ -380,6 +381,9 @@ def create_app() -> FastAPI:
 
     # Add edge GPU router
     app.include_router(edge_gpu, prefix="/v1")
+    
+    # Add islands proxy router (forwards to edge-api)
+    app.include_router(islands_proxy.router, prefix="/v1")
     
     # Add multi-modal RL router
     app.include_router(multi_modal_rl, prefix="/v1")
