@@ -9,7 +9,7 @@ from aitbc import get_logger
 
 from .config import settings
 from .storage import init_db
-from .routers import islands, gpu, database, serve, metrics
+from .routers import islands_router as islands, gpu_router as gpu, database_router as database, serve_router as serve, metrics_router as metrics
 
 logger = get_logger(__name__)
 
@@ -72,11 +72,11 @@ async def readiness_check():
 
 
 # Include routers
-app.include_router(islands.router, prefix=f"{settings.api_prefix}/islands", tags=["islands"])
-app.include_router(gpu.router, prefix=f"{settings.api_prefix}/gpu", tags=["gpu"])
-app.include_router(database.router, prefix=f"{settings.api_prefix}/database", tags=["database"])
-app.include_router(serve.router, prefix=f"{settings.api_prefix}/serve", tags=["serve"])
-app.include_router(metrics.router, prefix=f"{settings.api_prefix}/metrics", tags=["metrics"])
+app.include_router(islands, prefix=f"{settings.api_prefix}/islands", tags=["islands"])
+app.include_router(gpu, prefix=f"{settings.api_prefix}/gpu", tags=["gpu"])
+app.include_router(database, prefix=f"{settings.api_prefix}/database", tags=["database"])
+app.include_router(serve, prefix=f"{settings.api_prefix}/serve", tags=["serve"])
+app.include_router(metrics, prefix=f"{settings.api_prefix}/metrics", tags=["metrics"])
 
 
 # Global exception handler

@@ -147,7 +147,7 @@ async def list_chain_wallets(chain_id: str):
     for wallet in wallets:
         balance = await get_blockchain_balance(wallet["address"])
         wallet_list.append({
-            "wallet_name": wallet["wallet_name"],
+            "wallet_id": wallet["wallet_id"],
             "address": wallet["address"],
             "public_key": wallet["public_key"],
             "encrypted": wallet["encrypted"],
@@ -338,65 +338,42 @@ async def create_wallet(request: dict[str, Any] = None):
     if request is None:
         request = {}
     
-    wallet_name = request.get("wallet_name", f"wallet-{datetime.now().timestamp()}")
+    wallet_name = request.get("wallet_name", request.get("name", f"wallet-{datetime.now().timestamp()}"))
     password = request.get("password", "")
+    chain_id = request.get("chain_id", "ait-mainnet")
     
-    # Import wallet creation from CLI
     try:
         from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
-        import io
-        import sys
-        
-        # Capture stdout to avoid printing to console
+        import io, sys
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
-        
-        # Create wallet using CLI function
         result = cli_create_wallet(wallet_name, password)
-        
-        # Restore stdout
         sys.stdout = old_stdout
-        
         return JSONResponse({
             "wallet_name": wallet_name,
             "address": result.get("address", ""),
             "public_key": result.get("public_key", ""),
+            "chain_id": chain_id,
             "encrypted": result.get("encrypted", False),
             "created_at": datetime.now().isoformat(),
             "mode": "daemon"
         })
-    except ImportError:
-        # Fallback: create a simple wallet if CLI not available
+    except Exception:
+        # Fallback: create a simple wallet
         from aitbc import derive_ethereum_address
         import secrets
-        
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)
         address = f"ait1{public_key[2:]}"
-        
-        # Save to keystore
-        wallet_data = {
-            "address": address,
-            "public_key": public_key,
-            "private_key": private_key,
-            "encrypted": False
-        }
-        
+        wallet_data = {"address": address, "public_key": public_key, "private_key": private_key, "encrypted": False}
+        KEYSTORE_PATH = Path("/etc/aitbc/keystore")
         KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
-        wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
-        with open(wallet_file, 'w') as f:
-            json.dump(wallet_data, f)
-        
+        (KEYSTORE_PATH / f"{wallet_name}.json").write_text(json.dumps(wallet_data))
         return JSONResponse({
-            "wallet_name": wallet_name,
-            "address": address,
-            "public_key": public_key,
-            "encrypted": False,
-            "created_at": datetime.now().isoformat(),
-            "mode": "daemon"
+            "wallet_name": wallet_name, "address": address, "public_key": public_key,
+            "chain_id": chain_id, "encrypted": False,
+            "created_at": datetime.now().isoformat(), "mode": "daemon"
         })
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create wallet: {str(e)}")
 
 @app.post("/v1/wallets/{wallet_id}/unlock")
 async def unlock_wallet(wallet_id: str):
@@ -413,7 +390,7 @@ async def unlock_wallet(wallet_id: str):
 async def sign_wallet(wallet_id: str):
     """Sign a message"""
     wallets = get_wallet_list()
-    wallet = next((w for w in wallets if w["wallet_name"] == wallet_id), None)
+    wallet = next((w for w in wallets if w["wallet_id"] == wallet_id), None)
     
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")

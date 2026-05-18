@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from ..clients.blockchain_rpc import BlockchainRPCClient
 from ..storage import get_session
-from ..schemas.island import IslandMembership, BridgeRequest
+from ..schemas.island import IslandMembership, BridgeRequest, IslandStatus
 
 
 class IslandService:
@@ -21,12 +21,22 @@ class IslandService:
         # Store membership in edge-api database
         if result.get("success"):
             async with get_session() as session:
+                # Map blockchain status string to IslandStatus enum
+                # PostgreSQL enum only has: active, inactive, bridging
+                # Map "joined" to "active"
+                raw_status = result.get("status", "active").lower()
+                if raw_status == "joined":
+                    raw_status = "active"
+                try:
+                    status = IslandStatus(raw_status)
+                except ValueError:
+                    status = IslandStatus.ACTIVE
                 membership = IslandMembership(
                     island_id=island_id,
                     island_name=island_name,
                     chain_id=chain_id,
                     role=role,
-                    status=result.get("status", "active")
+                    status=status
                 )
                 session.add(membership)
                 await session.commit()
