@@ -186,6 +186,21 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
         # Restore stdout
         sys.stdout = old_stdout
         
+        # Save wallet data to keystore for persistence
+        wallet_data = {
+            "address": result.get("address", ""),
+            "public_key": result.get("public_key", ""),
+            "private_key": result.get("private_key", ""),
+            "encrypted": result.get("encrypted", False),
+            "chain_id": chain_id,
+            "wallet_name": wallet_name
+        }
+        
+        KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
+        wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
+        with open(wallet_file, 'w') as f:
+            json.dump(wallet_data, f)
+        
         return JSONResponse({
             "wallet_name": wallet_name,
             "chain_id": chain_id,
