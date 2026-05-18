@@ -26,7 +26,6 @@ def get_receipt_service(config: Settings = Depends(get_settings)) -> ReceiptVeri
     )
 
 
-@lru_cache
 def get_keystore(config: Settings = Depends(get_settings)) -> PersistentKeystoreService:
     return PersistentKeystoreService(db_path=config.ledger_db_path.parent / "keystore.db")
 

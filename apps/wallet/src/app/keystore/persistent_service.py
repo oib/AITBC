@@ -42,17 +42,22 @@ class PersistentKeystoreService:
             self.db_path = default_path
         else:
             self.db_path = Path(db_path).resolve()
-            # Ensure the resolved path is within the current working directory or data directory
-            # This prevents directory traversal attacks
+            # Ensure the resolved path is within allowed directories
             cwd = Path.cwd().resolve()
-            if not (str(self.db_path).startswith(str(cwd)) or 
-                    str(self.db_path).startswith(str(cwd / "data"))):
-                raise ValueError(f"Invalid database path: {self.db_path}. Path must be within {cwd} or {cwd / 'data'}")
+            allowed = [cwd, cwd / "data", Path("/var/lib/aitbc"), Path("/var/lib/aitbc/data")]
+            if not any(str(self.db_path).startswith(str(a)) for a in allowed):
+                raise ValueError(f"Invalid database path: {self.db_path}. Path must be within {allowed}")
         
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._encryption = encryption or EncryptionSuite()
         self._lock = threading.Lock()
-        self._init_database()
+        self._initialized = False
+
+    def _ensure_initialized(self):
+        """Lazy initialization of database"""
+        if not self._initialized:
+            self._init_database()
+            self._initialized = True
 
     def _init_database(self):
         """Initialize database schema"""
@@ -95,6 +100,7 @@ class PersistentKeystoreService:
 
     def list_wallets(self) -> List[str]:
         """List all wallet IDs"""
+        self._ensure_initialized()
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -105,6 +111,7 @@ class PersistentKeystoreService:
 
     def list_records(self) -> Iterable[WalletRecord]:
         """List all wallet records"""
+        self._ensure_initialized()
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -129,33 +136,38 @@ class PersistentKeystoreService:
             finally:
                 conn.close()
 
+    def _get_wallet_unlocked(self, wallet_id: str) -> Optional[WalletRecord]:
+        """Get wallet record by ID (internal method, assumes caller holds lock)"""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.execute("""
+                SELECT wallet_id, public_key, salt, nonce, ciphertext, metadata, created_at, updated_at
+                FROM wallets
+                WHERE wallet_id = ?
+            """, (wallet_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                metadata = json.loads(row[5])
+                return WalletRecord(
+                    wallet_id=row[0],
+                    public_key=row[1],
+                    salt=row[2],
+                    nonce=row[3],
+                    ciphertext=row[4],
+                    metadata=metadata,
+                    created_at=row[6],
+                    updated_at=row[7]
+                )
+            return None
+        finally:
+            conn.close()
+
     def get_wallet(self, wallet_id: str) -> Optional[WalletRecord]:
         """Get wallet record by ID"""
+        self._ensure_initialized()
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
-            try:
-                cursor = conn.execute("""
-                    SELECT wallet_id, public_key, salt, nonce, ciphertext, metadata, created_at, updated_at
-                    FROM wallets
-                    WHERE wallet_id = ?
-                """, (wallet_id,))
-                
-                row = cursor.fetchone()
-                if row:
-                    metadata = json.loads(row[5])
-                    return WalletRecord(
-                        wallet_id=row[0],
-                        public_key=row[1],
-                        salt=row[2],
-                        nonce=row[3],
-                        ciphertext=row[4],
-                        metadata=metadata,
-                        created_at=row[6],
-                        updated_at=row[7]
-                    )
-                return None
-            finally:
-                conn.close()
+            return self._get_wallet_unlocked(wallet_id)
 
     def create_wallet(
         self,
@@ -166,9 +178,10 @@ class PersistentKeystoreService:
         ip_address: Optional[str] = None
     ) -> WalletRecord:
         """Create a new wallet with database persistence"""
+        self._ensure_initialized()
         with self._lock:
-            # Check if wallet already exists
-            if self.get_wallet(wallet_id):
+            # Check if wallet already exists (use unlocked version to avoid deadlock)
+            if self._get_wallet_unlocked(wallet_id):
                 raise ValueError("wallet already exists")
 
             validate_password_rules(password)

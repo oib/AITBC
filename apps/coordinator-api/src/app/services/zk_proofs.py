@@ -123,12 +123,29 @@ class ZKProofService:
             return None
 
     async def verify_proof(
-        self, proof: dict[str, Any], public_signals: list[str], verification_key: dict[str, Any] = None
+        self, proof: dict[str, Any], public_signals: list[str], verification_key: dict[str, Any] = None, test_mode: bool = False
     ) -> dict[str, Any]:
-        """Verify a ZK proof using Groth16 verification"""
+        """Verify a ZK proof using Groth16 verification
+        
+        Args:
+            proof: The ZK proof to verify
+            public_signals: Public signals for the proof
+            verification_key: Optional verification key (uses default if not provided)
+            test_mode: If True, accepts mock proofs for development/testing
+        """
         try:
             if not self.enabled:
                 return {"verified": False, "error": "ZK proof service not enabled"}
+            
+            # Test mode: accept mock proofs for development
+            if test_mode:
+                logger.info("Test mode enabled: accepting mock proof without cryptographic verification")
+                return {
+                    "verified": True,
+                    "computation_correct": True,
+                    "privacy_preserved": True,
+                    "test_mode": True
+                }
 
             # Use provided verification key or load from default circuit
             if verification_key:

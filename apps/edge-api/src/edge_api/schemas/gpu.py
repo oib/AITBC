@@ -1,6 +1,6 @@
 """GPU-related schemas for Edge API Service"""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -20,8 +20,8 @@ class GPUListing(SQLModel, table=True):
     gpu_type: str = Field(index=True)
     price_per_hour: float
     status: str = Field(default="active", index=True)  # active, inactive, booked
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.utcnow())
+    updated_at: datetime = Field(default_factory=lambda: datetime.utcnow())
     
     # GPU specifications
     memory_gb: int | None = Field(default=None)
