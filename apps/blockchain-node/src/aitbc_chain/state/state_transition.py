@@ -236,6 +236,9 @@ class StateTransition:
                 {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr}
             )
         
+        # Flush session to ensure balance updates are visible to subsequent queries
+        session.flush()
+        
         # For RECEIPT_CLAIM transactions, mint reward and update receipt status
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")

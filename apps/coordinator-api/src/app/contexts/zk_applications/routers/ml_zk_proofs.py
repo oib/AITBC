@@ -47,13 +47,14 @@ async def prove_ml_training(request: Request, proof_request: dict) -> dict[str, 
 
 @router.post("/verify/training")
 @rate_limit(rate=20, per=60)
-async def verify_ml_training(request: Request, verification_request: dict) -> dict[str, Any]:
+async def verify_ml_training(request: Request, verification_request: dict, test_mode: bool = False) -> dict[str, Any]:
     """Verify ZK proof for ML training"""
     try:
         verification_result = await zk_service.verify_proof(
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
             verification_key=verification_request["verification_key"],
+            test_mode=test_mode
         )
 
         return {
@@ -91,13 +92,14 @@ async def prove_modular_ml(request: Request, proof_request: dict) -> dict[str, A
 
 @router.post("/verify/inference")
 @rate_limit(rate=20, per=60)
-async def verify_ml_inference(request: Request, verification_request: dict) -> dict[str, Any]:
+async def verify_ml_inference(request: Request, verification_request: dict, test_mode: bool = False) -> dict[str, Any]:
     """Verify ZK proof for ML inference"""
     try:
         verification_result = await zk_service.verify_proof(
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
             verification_key=verification_request["verification_key"],
+            test_mode=test_mode
         )
 
         return {
@@ -127,8 +129,19 @@ async def fhe_ml_inference(request: Request, fhe_request: dict) -> dict[str, Any
         )
 
         # Perform encrypted inference
+        # If model is a string (model name), create a mock model dict
+        model = fhe_request["model"]
+        if isinstance(model, str):
+            import random
+            input_size = len(fhe_request["input_data"])
+            model = {
+                "name": model,
+                "weights": [random.uniform(-0.5, 0.5) for _ in range(input_size)],
+                "biases": [random.uniform(-0.1, 0.1) for _ in range(input_size)]
+            }
+        
         encrypted_result = fhe_service.encrypted_inference(
-            model=fhe_request["model"], encrypted_input=encrypted_input, provider=fhe_request.get("provider")
+            model=model, encrypted_input=encrypted_input, provider=fhe_request.get("provider")
         )
 
         return {

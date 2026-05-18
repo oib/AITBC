@@ -3,6 +3,7 @@ Rate limiting utilities for FastAPI applications
 Provides decorators and middleware for API rate limiting
 """
 
+import asyncio
 from functools import wraps
 from typing import Callable, Optional, Dict, Any
 from fastapi import Request, HTTPException, Response
@@ -56,7 +57,8 @@ def rate_limit(
     """
     def decorator(func: Callable) -> Callable:
         limiter = RateLimiter(rate=rate, per=per)
-        
+        is_async = asyncio.iscoroutinefunction(func)
+
         @wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
             # Extract request from args (FastAPI passes request as first arg for dependency injection)
@@ -72,7 +74,10 @@ def rate_limit(
             
             if request is None:
                 # No request available, skip rate limiting
-                return await func(*args, **kwargs)
+                if is_async:
+                    return await func(*args, **kwargs)
+                else:
+                    return func(*args, **kwargs)
             
             # Get rate limit key
             if key_func:
@@ -89,7 +94,10 @@ def rate_limit(
                     headers={"Retry-After": str(per)}
                 )
             
-            return await func(*args, **kwargs)
+            if is_async:
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
         
         return wrapper
     return decorator
