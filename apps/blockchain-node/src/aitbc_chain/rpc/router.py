@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import time
 import uuid
 from typing import Any, Dict, Optional, List
@@ -873,6 +874,10 @@ async def import_block(
             
             chain_id = block_data.get("chain_id") or block_data.get("chainId") or get_chain_id(None)
             block_hash = block_data["hash"]
+
+            # Validate block hash format: must be 0x followed by exactly 64 hex characters
+            if not isinstance(block_hash, str) or not re.fullmatch(r"0x[0-9a-fA-F]{64}", block_hash):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block hash format")
 
             try:
                 block_height = int(block_data["height"])
