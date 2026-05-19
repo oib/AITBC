@@ -21,6 +21,11 @@ from ..services.hermes_service import get_hermes_service, MessageType
 
 router = APIRouter(prefix="/hermes", tags=["hermes"])
 
+# In-memory state for mock data
+_mock_agents: Dict[str, Dict[str, Any]] = {}
+_mock_messages: Dict[str, List[Dict[str, Any]]] = {}
+_message_counter = 0
+
 
 class RegisterAgentRequest(BaseModel):
     """Request to register agent"""
@@ -59,13 +64,17 @@ async def register_agent(
     req: RegisterAgentRequest
 ) -> Dict[str, Any]:
     """Register an agent for messaging"""
+    _mock_agents[req.agent_id] = {
+        "id": req.agent_id,
+        "public_key": req.public_key,
+        "capabilities": req.capabilities
+    }
+    # Initialize message list for this agent
+    if req.agent_id not in _mock_messages:
+        _mock_messages[req.agent_id] = []
     return {
         "success": True,
-        "agent": {
-            "id": req.agent_id,
-            "public_key": req.public_key,
-            "capabilities": req.capabilities
-        }
+        "agent": _mock_agents[req.agent_id]
     }
 
 
@@ -77,15 +86,28 @@ async def send_message(
     """Send a direct message to another agent"""
     if req.sender == "unregistered-agent":
         raise HTTPException(status_code=400, detail="Sender not registered")
+    
+    global _message_counter
+    _message_counter += 1
+    message_id = f"msg-{_message_counter:03d}"
+    
+    message = {
+        "id": message_id,
+        "sender": req.sender,
+        "recipient": req.recipient,
+        "content": req.content,
+        "message_type": req.message_type,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Add message to recipient's inbox
+    if req.recipient not in _mock_messages:
+        _mock_messages[req.recipient] = []
+    _mock_messages[req.recipient].append(message)
+    
     return {
         "success": True,
-        "message": {
-            "id": "msg-001",
-            "sender": req.sender,
-            "recipient": req.recipient,
-            "content": req.content,
-            "message_type": req.message_type
-        }
+        "message": message
     }
 
 
@@ -104,22 +126,14 @@ async def broadcast(
 @router.get("/messages/{agent_id}", summary="Get messages")
 async def get_messages(
     request: Request,
-    agent_id: str,
-    message_type: Optional[str] = None,
-    unread_only: bool = False
+    agent_id: str
 ) -> Dict[str, Any]:
     """Get messages for an agent"""
+    messages = _mock_messages.get(agent_id, [])
     return {
         "agent_id": agent_id,
-        "messages": [
-            {
-                "id": "msg-001",
-                "sender": "msg-sender",
-                "recipient": agent_id,
-                "content": "Test message content"
-            }
-        ],
-        "count": 1
+        "count": len(messages),
+        "messages": messages
     }
 
 
