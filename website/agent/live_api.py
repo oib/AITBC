@@ -188,6 +188,82 @@ def get_live_chain_data() -> Dict[str, Any]:
     }
 
 
+def get_join_instructions(chain_id: str) -> Dict[str, Any]:
+    """Get dynamic join instructions for a specific chain"""
+    # Validate chain_id matches this node's chain
+    if chain_id != CHAIN_ID:
+        return {"error": "Chain not supported by this node", "supported_chain": CHAIN_ID}
+    
+    # Get current network info
+    head = rpc_query("head")
+    info = rpc_query("info")
+    islands_rpc = rpc_query("islands")
+    
+    block_height = head.get("height", 0) if head else 0
+    network_id = info.get("network_id", 1337) if info else 1337
+    block_time = info.get("block_time", 5) if info else 5
+    
+    # Get peer addresses from islands RPC
+    p2p_peers = [f"{NODE_ID}:7070"]
+    if islands_rpc and isinstance(islands_rpc, dict) and "islands" in islands_rpc:
+        for island in islands_rpc["islands"]:
+            if island.get("island_id") == ISLAND_ID:
+                endpoints = island.get("endpoints", {})
+                p2p_list = endpoints.get("p2p", [])
+                p2p_peers = [peer.get("address", peer) for peer in p2p_list]
+                break
+    
+    return {
+        "chain_id": CHAIN_ID,
+        "island_id": ISLAND_ID,
+        "chain_name": "AIT Mainnet" if CHAIN_ID == "ait-mainnet" else "AIT Testnet",
+        "chain_type": "production" if CHAIN_ID == "ait-mainnet" else "test",
+        "current_height": block_height,
+        "environment_variables": {
+            "NODE_ID": "your-node-id",
+            "ISLAND_ID": ISLAND_ID,
+            "CHAIN_ID": CHAIN_ID,
+            "NODE_ROLE": "follower",
+            "AITBC_RPC_URL": f"http://{NODE_ID}:8006/rpc",
+            "P2P_BIND_PORT": "7070",
+            "ENABLE_BLOCK_PRODUCTION": "false"
+        },
+        "config_files": {
+            "/etc/aitbc/.env": f"AITBC_RPC_URL=http://{NODE_ID}:8006/rpc\nENABLE_BLOCK_PRODUCTION=false\n",
+            "/etc/aitbc/node.env": f"NODE_ID=your-node-id\nISLAND_ID={ISLAND_ID}\nCHAIN_ID={CHAIN_ID}\nNODE_ROLE=follower\nP2P_BIND_PORT=7070\n"
+        },
+        "p2p_configuration": {
+            "peers": p2p_peers,
+            "bootstrap_nodes": [f"{NODE_ID}:7070"],
+            "bind_port": 7070,
+            "external_address": "your-node-ip:7070"
+        },
+        "rpc_configuration": {
+            "endpoints": [
+                f"http://{NODE_ID}:8006/rpc",
+                f"http://{'aitbc1' if NODE_ID == 'aitbc' else 'aitbc'}:8006/rpc"
+            ],
+            "network_id": network_id,
+            "block_time": block_time,
+            "consensus": "proof_of_authority"
+        },
+        "setup_steps": [
+            "1. Clone the AITBC repository: git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc",
+            "2. Run the setup script: sudo /opt/aitbc/scripts/setup.sh",
+            "3. Configure environment variables in /etc/aitbc/.env and /etc/aitbc/node.env",
+            "4. Start the blockchain node: sudo systemctl start aitbc-blockchain-node",
+            "5. Verify connection: curl http://localhost:8006/rpc/head"
+        ],
+        "documentation": "/docs/deployment/SETUP.md",
+        "_meta": {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_by": NODE_ID,
+            "data_source": "live_rpc",
+            "note": "Replace 'your-node-id' and 'your-node-ip' with your actual node configuration"
+        }
+    }
+
+
 def get_live_discovery() -> Dict[str, Any]:
     """Get live discovery data"""
     head = rpc_query("head")
@@ -215,7 +291,8 @@ def get_live_discovery() -> Dict[str, Any]:
                     "discovery": "/agent/discovery.json",
                     "islands": "/agent/islands.json",
                     "chains": "/agent/chains.json",
-                    "health": "/agent/health"
+                    "health": "/agent/health",
+                    "join": f"/agent/join/{CHAIN_ID}.json"
                 }
             },
             "islands": [
@@ -273,6 +350,13 @@ if HAS_FASTAPI:
             "current_height": head.get("height", 0) if head else 0,
             "timestamp": datetime.now(timezone.utc).isoformat()
         })
+    
+    @app.get("/agent/join/{chain_id}.json")
+    async def join_instructions(chain_id: str):
+        instructions = get_join_instructions(chain_id)
+        if "error" in instructions:
+            raise HTTPException(status_code=404, detail=instructions["error"])
+        return JSONResponse(content=instructions)
 
 elif HAS_FLASK:
     app = Flask(__name__)
@@ -299,6 +383,13 @@ elif HAS_FLASK:
             "current_height": head.get("height", 0) if head else 0,
             "timestamp": datetime.now(timezone.utc).isoformat()
         })
+    
+    @app.route("/agent/join/<chain_id>.json")
+    def join_instructions(chain_id):
+        instructions = get_join_instructions(chain_id)
+        if "error" in instructions:
+            abort(404, description=instructions["error"])
+        return jsonify(instructions)
 
 
 if __name__ == "__main__":
