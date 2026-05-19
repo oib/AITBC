@@ -123,7 +123,7 @@ def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -
 def create_genesis_block(chain_id: str, proposer: str, timestamp: datetime = None) -> Dict[str, Any]:
     """Create genesis block"""
     if not timestamp:
-        timestamp = datetime.fromisoformat("2025-01-01 00:00:00")
+        timestamp = datetime.now(timezone.utc)
     
     parent_hash = "0x00"
     genesis_hash = compute_block_hash(0, parent_hash, timestamp, chain_id)

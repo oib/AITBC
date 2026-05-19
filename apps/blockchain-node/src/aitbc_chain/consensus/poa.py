@@ -111,8 +111,7 @@ class PoAProposer:
 
     def _fetch_chain_head(self) -> Optional[Block]:
         """Fetch the current chain head block from the database."""
-        from ..database import session_scope
-        with session_scope(self._config.chain_id) as session:
+        with self._session_factory() as session:
             return session.exec(
                 select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)
             ).first()
@@ -442,7 +441,7 @@ class PoAProposer:
                 
                 if genesis_hash and genesis_state_root:
                     # Create genesis block with RPC-provided data
-                    timestamp = datetime(2025, 1, 1, 0, 0, 0)
+                    timestamp = datetime.now(timezone.utc)
                     genesis = Block(
                         chain_id=self._config.chain_id,
                         height=0,
@@ -473,8 +472,8 @@ class PoAProposer:
             # Fall back to local genesis block creation
             self._logger.info(f"Creating genesis block locally for chain {self._config.chain_id}")
             
-            # Use a deterministic genesis timestamp so all nodes agree on the genesis block hash
-            timestamp = datetime(2025, 1, 1, 0, 0, 0)
+            # Use current timestamp for genesis block
+            timestamp = datetime.now(timezone.utc)
             block_hash = self._compute_block_hash(0, "0x00", timestamp)
             
             # Check if block with this hash already exists (duplicate check)
@@ -607,7 +606,7 @@ class PoAProposer:
                 peer_url = peer_url.replace("http://", "")
             peer_url = f"http://{peer_url}"
             trusted_peers.append(peer_url)
-        trusted_peers.append("http://localhost:8006")
+        # Don't add localhost as default bootstrap peer - hub nodes should create their own genesis
         
         self._logger.info(f"Attempting RPC bootstrap for genesis block from peers: {trusted_peers}")
         
@@ -647,7 +646,7 @@ class PoAProposer:
                 peer_url = peer_url.replace("http://", "")
             peer_url = f"http://{peer_url}"
             trusted_peers.append(peer_url)
-        trusted_peers.append("http://localhost:8006")
+        # Don't add localhost as default bootstrap peer - hub nodes should create their own genesis
         
         self._logger.info(f"Attempting RPC bootstrap from peers: {trusted_peers}")
         
