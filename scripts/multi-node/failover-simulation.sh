@@ -12,20 +12,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Node Configuration
-# Uses hostnames for consistency with current infrastructure
+# Uses hostnames for direct HTTP access (no SSH needed)
 NODES=(
-    "aitbc:localhost"
+    "aitbc:aitbc"
     "aitbc1:aitbc1"
     "gitea-runner:gitea-runner"
 )
 
 RPC_PORT=8006
-
-# Determine if running locally or via SSH
-RUNNING_ON_GITEA_RUNNER=false
-if [ "$(hostname)" = "gitea-runner" ] || [ "$(hostname)" = "aitbc2" ]; then
-    RUNNING_ON_GITEA_RUNNER=true
-fi
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/failover-simulation.log"
 
@@ -64,14 +58,17 @@ check_rpc_health() {
     local node_name="$1"
     local node_host="$2"
     
-    local health_check_cmd="curl -f -s --max-time 5 http://localhost:${RPC_PORT}/health"
-    
-    # Use SSH for remote nodes
-    if [ "$node_host" != "localhost" ]; then
-        health_check_cmd="ssh ${node_host} \"${health_check_cmd}\""
+    # Determine the target host for direct HTTP check
+    # Use localhost only when actually running on that node
+    local target_host
+    if [ "$node_host" = "localhost" ]; then
+        target_host="localhost"
+    else
+        # Check directly by hostname - avoids SSH permission issues from CI runner
+        target_host="${node_host}"
     fi
     
-    if eval "$health_check_cmd" > /dev/null 2>&1; then
+    if curl -f -s --max-time 5 "http://${target_host}:${RPC_PORT}/health" > /dev/null 2>&1; then
         log_success "RPC healthy on ${node_name}"
         return 0
     else
@@ -163,11 +160,9 @@ verify_consensus() {
             continue
         fi
         
-        local height_cmd="curl -s --max-time 5 http://localhost:${RPC_PORT}/rpc/head"
-        if [ "$node_host" != "localhost" ]; then
-            height_cmd="ssh ${node_host} \"${height_cmd}\""
-        fi
-        local height=$(eval "$height_cmd" 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+        local target_host="$node_host"
+        [ "$node_host" = "localhost" ] && target_host="localhost"
+        local height=$(curl -s --max-time 5 "http://${target_host}:${RPC_PORT}/rpc/head" 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
         
         if [ "$height" != "0" ]; then
             heights+=("${node_name}:${height}")
