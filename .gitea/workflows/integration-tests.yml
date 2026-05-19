@@ -36,52 +36,53 @@ jobs:
           cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
-      - name: Sync systemd files
-        if: github.event_name != 'pull_request'
+      - name: Setup Python environment
         run: |
           cd "${{ env.WORKSPACE }}/repo"
-          if [[ -d "systemd" ]]; then
-            echo "Linking systemd service files..."
-            if [[ -x scripts/utils/link-systemd.sh ]]; then
-              if [[ $EUID -eq 0 ]]; then
-                ./scripts/utils/link-systemd.sh
-              else
-                sudo ./scripts/utils/link-systemd.sh
-              fi
-              echo "✅ Systemd files linked"
-            else
-              echo "❌ scripts/utils/link-systemd.sh not found"
-              exit 1
-            fi
-          fi
 
-      - name: Start services
-        if: github.event_name != 'pull_request'
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "uvicorn fastapi sqlmodel httpx requests"
+
+      - name: Start services from workspace
         run: |
           cd "${{ env.WORKSPACE }}/repo"
-          echo "Starting AITBC services..."
-          mapfile -t services < <(
-            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
-            sed 's/\.service$//' |
-            sort
-          )
+          REPO="$PWD"
+          VENV="$REPO/venv"
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-          if [[ ${#services[@]} -eq 0 ]]; then
-            echo "⚠️ No aitbc service files found to start"
+          # Start coordinator-api on port 8011
+          echo "Starting coordinator-api..."
+          PYTHONPATH="$REPO:$REPO/apps/coordinator-api/src" \
+          AITBC_REPO_DIR="$REPO" \
+          DATA_DIR=/var/lib/aitbc/data \
+          LOG_DIR=/var/log/aitbc \
+            "$VENV/bin/python" -m uvicorn app.main:app \
+              --host 127.0.0.1 --port 8011 \
+              --app-dir "$REPO/apps/coordinator-api/src" \
+              --log-level warning &
+          echo "coordinator-api PID: $!"
+
+          # Start blockchain-rpc on port 8006 (if not already running on host)
+          if ! curl -sf http://localhost:8006/health > /dev/null 2>&1; then
+            echo "Starting blockchain-rpc..."
+            PYTHONPATH="$REPO/apps/blockchain-node/src:$REPO" \
+            AITBC_REPO_DIR="$REPO" \
+            AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false \
+            enable_block_production=false \
+            DATA_DIR=/var/lib/aitbc/data \
+              "$VENV/bin/python" -m uvicorn aitbc_chain.app:app \
+                --host 127.0.0.1 --port 8006 \
+                --log-level warning &
+            echo "blockchain-rpc PID: $!"
+          else
+            echo "✅ blockchain-rpc already running on host"
           fi
-
-          for svc in "${services[@]}"; do
-            if systemctl list-unit-files | grep -q "^$svc.service"; then
-              if systemctl is-active --quiet "$svc" 2>/dev/null; then
-                echo "✅ $svc already running"
-              else
-                systemctl start "$svc" 2>/dev/null && echo "✅ $svc started" || echo "⚠️ $svc failed to start"
-              fi
-            else
-              echo "⚠️ $svc service file not found"
-            fi
-            sleep 1
-          done
 
       - name: Wait for services ready
         id: wait-services
@@ -89,29 +90,19 @@ jobs:
         run: |
           echo "Waiting for services..."
           services_available=true
-          for port in 8011 8001 8003 8006; do
+          # Only check services that are started in this workflow
+          for port in 8011 8006; do
             port_ready=0
-            for i in $(seq 1 15); do
-              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
-              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
-                echo "✅ Port $port ready (HTTP $code)"
-                port_ready=1
-                break
-              fi
-              # Try alternate paths
-              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/api/health" 2>/dev/null) || code=0
-              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
-                echo "✅ Port $port ready (HTTP $code)"
-                port_ready=1
-                break
-              fi
-              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/" 2>/dev/null) || code=0
-              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
-                echo "✅ Port $port ready (HTTP $code)"
-                port_ready=1
-                break
-              fi
-              [ "$i" -eq 15 ] && echo "⚠️  Port $port not ready"
+            for i in $(seq 1 20); do
+              for path in /health /v1/health /health/live /; do
+                code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port$path" 2>/dev/null) || code=0
+                if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                  echo "✅ Port $port ready (HTTP $code on $path)"
+                  port_ready=1
+                  break 2
+                fi
+              done
+              [ "$i" -eq 20 ] && echo "⚠️  Port $port not ready"
               sleep 2
             done
 
@@ -129,13 +120,6 @@ jobs:
       - name: Setup test environment
         run: |
           cd "${{ env.WORKSPACE }}/repo"
-
-          # Remove any existing venv to avoid cache corruption issues
-          rm -rf venv
-
-          bash scripts/ci/setup-python-venv.sh \
-            --repo-dir "$PWD" \
-            --venv-dir "$PWD/venv"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
