@@ -540,6 +540,14 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.warning(f"Failed to include rewards router: {e}")
 
+    # Include Knowledge Graph router
+    try:
+        from .contexts.knowledge.routers.knowledge import router as knowledge_router
+        app.include_router(knowledge_router, prefix="/v1")
+        logger.info("Knowledge Graph router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Knowledge Graph router: {e}")
+
     # Include marketplace_offers AFTER global_marketplace to override the /offers endpoint
     app.include_router(marketplace_offers, prefix="/v1")
 
