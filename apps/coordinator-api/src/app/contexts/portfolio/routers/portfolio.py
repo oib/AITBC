@@ -15,7 +15,7 @@ from ....services.portfolio_aggregation_service import PortfolioAggregationServi
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/portfolio", tags=["portfolio"])
+router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 # Initialize portfolio aggregation service
 portfolio_service = PortfolioAggregationService()

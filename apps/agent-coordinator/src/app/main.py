@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
     )
 
     for router in ROUTERS:
-        app.include_router(router)
+        app.include_router(router, prefix="/v1")
 
     register_middleware(app)
     register_exception_handlers(app)

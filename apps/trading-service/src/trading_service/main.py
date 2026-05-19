@@ -92,7 +92,7 @@ async def live() -> dict[str, str]:
     return {"status": "alive", "service": "trading-service"}
 
 
-@app.get("/trading/status")
+@app.get("/v1/trading/status")
 async def trading_status() -> dict[str, str]:
     """Get trading status"""
     return {
@@ -289,7 +289,7 @@ async def get_transactions(
         return {"error": str(e)}, 500
 
 
-@app.get("/blocks")
+@app.get("/v1/blocks")
 async def get_blocks(
     limit: int = 10,
     session: AsyncSession = Depends(get_session_dep),
@@ -335,7 +335,7 @@ async def get_blocks_api(
     }
 
 
-@app.get("/blocks/{block_id}")
+@app.get("/v1/blocks/{block_id}")
 async def get_block(
     block_id: str,
     session: AsyncSession = Depends(get_session_dep),
@@ -348,7 +348,7 @@ async def get_block(
     }
 
 
-@app.get("/receipts")
+@app.get("/v1/receipts")
 async def get_receipts(
     limit: int = 10,
     session: AsyncSession = Depends(get_session_dep),
@@ -378,7 +378,7 @@ async def get_receipts_v1(
     }
 
 
-@app.get("/transactions/{tx_hash}")
+@app.get("/v1/transactions/{tx_hash}")
 async def get_transaction(
     tx_hash: str,
     session: AsyncSession = Depends(get_session_dep),
@@ -391,7 +391,7 @@ async def get_transaction(
     }
 
 
-@app.get("/explorer/transactions/{tx_hash}")
+@app.get("/v1/explorer/transactions/{tx_hash}")
 async def get_transaction_explorer(
     tx_hash: str,
     chain_id: str | None = None,

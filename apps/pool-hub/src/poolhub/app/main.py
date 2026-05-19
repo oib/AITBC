@@ -29,7 +29,7 @@ app.include_router(metrics_router)
 app.include_router(services, prefix="/v1")
 app.include_router(ui)
 app.include_router(validation, prefix="/v1")
-app.include_router(sla_router)
+app.include_router(sla_router, prefix="/v1")
 
 
 def create_app() -> FastAPI:

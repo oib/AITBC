@@ -24,7 +24,7 @@ from ....domain.reputation import AgentReputation, CommunityFeedback, Reputation
 from ..services.reputation_service import ReputationService
 from ....storage import get_session
 
-router = APIRouter(prefix="/v1/reputation", tags=["reputation"])
+router = APIRouter(prefix="/reputation", tags=["reputation"])
 
 
 def get_reputation_service(session: Session = Depends(get_session)) -> ReputationService:

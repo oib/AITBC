@@ -86,7 +86,7 @@ async def live() -> dict[str, str]:
     return {"status": "alive", "service": "gpu-service"}
 
 
-@app.get("/gpu/status")
+@app.get("/v1/gpu/status")
 async def gpu_status() -> dict[str, str]:
     """Get GPU status"""
     return {
