@@ -89,7 +89,7 @@ jobs:
         run: |
           echo "Waiting for services..."
           services_available=true
-          for port in 9001 8001 8003 8006; do
+          for port in 8011 8001 8003 8006; do
             port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
@@ -144,7 +144,7 @@ jobs:
         run: |
           cd "${{ env.WORKSPACE }}/repo"
           source venv/bin/activate
-          export PYTHONPATH="$PWD/cli:$PWD/apps/agent-coordinator/src:$PWD/apps/wallet/src:$PWD/apps/exchange/src:$PYTHONPATH"
+          export PYTHONPATH="$PWD/cli:$PWD/apps/coordinator-api/src:$PWD/apps/wallet/src:$PWD/apps/exchange/src:$PYTHONPATH"
 
           # Skip if services not available
           if [ "${{ steps.wait-services.outputs.services_available }}" != "true" ]; then
