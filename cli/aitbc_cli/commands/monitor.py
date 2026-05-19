@@ -128,7 +128,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
             # Job metrics
             try:
                 resp = http_client.get(
-                    f"{config.coordinator_url}/jobs",
+                    f"{config.coordinator_url}/v1/jobs",
                     headers={"X-Api-Key": config.api_key or ""},
                     params={"limit": 100}
                 )
@@ -147,7 +147,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
             # Miner metrics
             try:
                 resp = http_client.get(
-                    f"{config.coordinator_url}/miners",
+                    f"{config.coordinator_url}/v1/miners",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 if resp.status_code == 200:
@@ -273,7 +273,7 @@ def history(ctx, period: str):
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
             try:
                 resp = http_client.get(
-                    f"{config.coordinator_url}/jobs",
+                    f"{config.coordinator_url}/v1/jobs",
                     headers={"X-Api-Key": config.api_key or ""},
                     params={"limit": 500}
                 )
