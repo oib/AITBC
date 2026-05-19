@@ -14,8 +14,7 @@ if "aitbc_cli.core" not in sys.modules:
     sys.modules["aitbc_cli.core"] = import_module("core")
 if "aitbc_cli.models" not in sys.modules:
     sys.modules["aitbc_cli.models"] = import_module("models")
-if "aitbc_cli.config" not in sys.modules:
-    sys.modules["aitbc_cli.config"] = import_module("config")
+# Note: aitbc_cli.config is imported normally to avoid circular import issues
 
 __all__ = ["cli", "main"]
 
