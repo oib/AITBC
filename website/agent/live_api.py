@@ -191,9 +191,10 @@ def get_live_chain_data() -> Dict[str, Any]:
 def get_live_discovery() -> Dict[str, Any]:
     """Get live discovery data"""
     head = rpc_query("head")
-    health = rpc_query("health") or {}
     
     block_height = head.get("height", 0) if head else 0
+    # Determine health based on RPC responsiveness
+    node_health = "healthy" if head else "unhealthy"
     
     return {
         "network": {
@@ -202,7 +203,7 @@ def get_live_discovery() -> Dict[str, Any]:
             "description": "AI-powered blockchain platform",
             "live_status": {
                 "current_height": block_height,
-                "node_health": health.get("status", "unknown"),
+                "node_health": node_health,
                 "last_update": datetime.now(timezone.utc).isoformat()
             },
             "apis": {
