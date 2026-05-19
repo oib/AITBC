@@ -165,6 +165,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             _app_logger.warning(f"Failed to initialize PoA proposer for mining: {e}")
     
+    # Initialize balance tracker
+    try:
+        from .services.balance_tracker import init_balance_tracker
+        init_balance_tracker(session_scope)
+        _app_logger.info("Balance tracker initialized")
+    except Exception as e:
+        _app_logger.warning(f"Failed to initialize balance tracker: {e}")
+    
     _app_logger.info("Blockchain node started", extra={"supported_chains": settings.supported_chains})
     try:
         yield

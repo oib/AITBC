@@ -183,3 +183,37 @@ class Escrow(SQLModel, table=True):
     amount: int
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     released_at: Optional[datetime] = None
+
+
+class CrossChainTransfer(SQLModel, table=True):
+    """Cross-chain bridge transfer record"""
+    __tablename__ = "cross_chain_transfer"
+    __table_args__ = {"extend_existing": True}
+    
+    transfer_id: str = Field(primary_key=True)
+    source_chain: str = Field(index=True)
+    target_chain: str = Field(index=True)
+    sender: str = Field(index=True)
+    recipient: str = Field(index=True)
+    amount: int
+    asset: str = Field(default="native")
+    status: str = Field(default="pending")  # pending, locked, confirmed, completed, failed, refunded
+    source_tx_hash: Optional[str] = None
+    target_tx_hash: Optional[str] = None
+    lock_time: Optional[datetime] = None
+    confirm_time: Optional[datetime] = None
+
+
+class Stake(SQLModel, table=True):
+    """On-chain staking record"""
+    __tablename__ = "stake"
+    __table_args__ = {"extend_existing": True}
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    address: str = Field(index=True)
+    amount: int
+    locked_until: datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: str = Field(default="active")  # active, withdrawn, slashed
