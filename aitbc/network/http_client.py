@@ -163,6 +163,19 @@ class AITBCHTTPClient:
                     time.sleep(backoff_time)
                 
                 return request_func(*args, **kwargs)
+            except requests.HTTPError as e:
+                # Never retry client errors (4xx) - they are deterministic
+                if e.response is not None and 400 <= e.response.status_code < 500:
+                    raise
+                last_error = e
+                if attempt < self.max_retries:
+                    if self.enable_logging:
+                        self.logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}")
+                    continue
+                else:
+                    if self.enable_logging:
+                        self.logger.error(f"All retry attempts exhausted: {e}")
+                    raise RetryError(f"Retry attempts exhausted: {e}")
             except requests.RequestException as e:
                 last_error = e
                 if attempt < self.max_retries:
