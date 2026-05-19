@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'apps/agent-coordinator/**'
+      - 'apps/coordinator-api/**'
       - 'apps/exchange/**'
       - 'apps/wallet/**'
       - 'scripts/ci/test_api_endpoints.py'
@@ -95,13 +95,13 @@ jobs:
 
           service_host=""
           for candidate in "${host_candidates[@]}"; do
-            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:9001/health" 2>/dev/null) || code=0
+            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:8011/health" 2>/dev/null) || code=0
             if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
               service_host="$candidate"
               break
             fi
 
-            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:9001/v1/health" 2>/dev/null) || code=0
+            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:8011/v1/health" 2>/dev/null) || code=0
             if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
               service_host="$candidate"
               break
@@ -119,7 +119,7 @@ jobs:
           echo "services_available=true" > "${{ env.WORKSPACE }}/status"
 
           # Check only the services needed for API endpoint tests (exclude blockchain RPC)
-          for port in 9001 8001 8003; do
+          for port in 8011 8001 8003; do
             port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/health" 2>/dev/null) || code=0

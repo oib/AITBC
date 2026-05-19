@@ -5,7 +5,7 @@ on:
     branches: [main, develop]
     paths:
       - 'tests/production/**'
-      - 'apps/agent-coordinator/**'
+      - 'apps/coordinator-api/**'
       - '.gitea/workflows/production-tests.yml'
   pull_request:
     branches: [main, develop]
@@ -73,20 +73,20 @@ jobs:
       - name: Start agent coordinator
         run: |
           cd "${{ env.WORKSPACE }}/repo"
-          export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
+          export PYTHONPATH="apps/coordinator-api/src:$PYTHONPATH"
 
-          echo "Ensuring default port 9001 is available..."
+          echo "Ensuring default port 8011 is available..."
           pkill -f "uvicorn app.main:app" 2>/dev/null || true
           if command -v lsof >/dev/null 2>&1; then
-            pids=$(lsof -tiTCP:9001 -sTCP:LISTEN || true)
+            pids=$(lsof -tiTCP:8011 -sTCP:LISTEN || true)
             if [ -n "$pids" ]; then
-              echo "⚠️ Port 9001 already in use by PID(s): $pids; terminating"
+              echo "⚠️ Port 8011 already in use by PID(s): $pids; terminating"
               kill $pids 2>/dev/null || true
               sleep 2
             fi
-            if lsof -tiTCP:9001 -sTCP:LISTEN >/dev/null 2>&1; then
-              echo "❌ Port 9001 is still in use; aborting startup"
-              lsof -iTCP:9001 -sTCP:LISTEN || true
+            if lsof -tiTCP:8011 -sTCP:LISTEN >/dev/null 2>&1; then
+              echo "❌ Port 8011 is still in use; aborting startup"
+              lsof -iTCP:8011 -sTCP:LISTEN || true
               exit 1
             fi
           fi
@@ -94,38 +94,38 @@ jobs:
           # Start agent coordinator in background
           nohup env PYTHONUNBUFFERED=1 venv/bin/uvicorn app.main:app \
             --host 0.0.0.0 \
-            --port 9001 \
+            --port 8011 \
             --log-level info \
-            > /tmp/agent-coordinator.log 2>&1 &
+            > /tmp/coordinator-api.log 2>&1 &
 
-          echo $! > /tmp/agent-coordinator.pid
+          echo $! > /tmp/coordinator-api.pid
           sleep 2
-          if ! kill -0 "$(cat /tmp/agent-coordinator.pid)" 2>/dev/null; then
-            echo "❌ Agent coordinator exited during startup"
-            cat /tmp/agent-coordinator.log
+          if ! kill -0 "$(cat /tmp/coordinator-api.pid)" 2>/dev/null; then
+            echo "❌ Coordinator API exited during startup"
+            cat /tmp/coordinator-api.log
             exit 1
           fi
-          echo "✅ Agent coordinator started (PID: $(cat /tmp/agent-coordinator.pid))"
+          echo "✅ Coordinator API started (PID: $(cat /tmp/coordinator-api.pid))"
 
-      - name: Wait for agent coordinator ready
+      - name: Wait for coordinator API ready
         run: |
-          echo "Waiting for agent coordinator on port 9001..."
+          echo "Waiting for coordinator API on port 8011..."
           for i in $(seq 1 30); do
-            code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:9001/health" 2>/dev/null) || code=0
+            code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:8011/health" 2>/dev/null) || code=0
             if [ "$code" -ge 200 ] && [ "$code" -lt 600 ]; then
-              echo "✅ Agent coordinator ready (HTTP $code)"
+              echo "✅ Coordinator API ready (HTTP $code)"
               exit 0
             fi
             sleep 2
           done
-          echo "❌ Agent coordinator not ready"
-          cat /tmp/agent-coordinator.log
+          echo "❌ Coordinator API not ready"
+          cat /tmp/coordinator-api.log
           exit 1
 
       - name: Run production tests
         run: |
           cd "${{ env.WORKSPACE }}/repo"
-          export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
+          export PYTHONPATH="apps/coordinator-api/src:$PYTHONPATH"
 
           # Test both chains
           export CHAINS="ait-mainnet,ait-testnet"
@@ -138,20 +138,20 @@ jobs:
 
           echo "✅ Production tests completed"
 
-      - name: Agent coordinator logs
+      - name: Print coordinator API logs
         if: always()
         run: |
-          if [ -f /tmp/agent-coordinator.log ]; then
-            echo "=== Agent Coordinator Logs ==="
-            cat /tmp/agent-coordinator.log
+          if [ -f /tmp/coordinator-api.log ]; then
+            echo "=== Coordinator API Logs ==="
+            cat /tmp/coordinator-api.log
           fi
 
-      - name: Cleanup
+      - name: Cleanup coordinator API
         if: always()
         run: |
-          if [ -f /tmp/agent-coordinator.pid ]; then
-            kill $(cat /tmp/agent-coordinator.pid) 2>/dev/null || true
-            rm -f /tmp/agent-coordinator.pid
+          if [ -f /tmp/coordinator-api.pid ]; then
+            kill $(cat /tmp/coordinator-api.pid) 2>/dev/null || true
+            rm -f /tmp/coordinator-api.pid
           fi
           pkill -f "uvicorn app.main:app" 2>/dev/null || true
           redis-cli shutdown 2>/dev/null || true

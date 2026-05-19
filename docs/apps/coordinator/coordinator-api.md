@@ -4,6 +4,18 @@
 
 FastAPI service that accepts client compute jobs, matches miners, and tracks job lifecycle for the AITBC network.
 
+## API Versioning
+
+All business logic endpoints use the `/v1` prefix for consistent versioning. The API structure follows `/v1/{router}/{endpoint}` pattern.
+
+### Endpoint Structure
+
+- **Business logic endpoints**: `/v1/{router}/{endpoint}` (e.g., `/v1/marketplace/offers`, `/v1/governance/proposals`)
+- **CLI compatibility routes**: `/api/v1/{router}/{endpoint}` (e.g., `/api/v1/agents/executions`) - for CLI tools
+- **Infrastructure endpoints**: No prefix (e.g., `/health`, `/docs`, `/metrics`) - for system operations
+
+This structure enables future versioning (`/v2`, etc.) while maintaining CLI compatibility and keeping infrastructure endpoints unversioned.
+
 ## Marketplace Extensions
 
 Stage 2 introduces public marketplace endpoints exposed under `/v1/marketplace`:
