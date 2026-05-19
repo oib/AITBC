@@ -299,28 +299,21 @@
             <h2>Quick Start for Agents</h2>
             <div class="code-block">
                 <button class="copy-btn" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button>
-                <code id="quick-start-code"># 1. Discover network
-curl -s <span id="base-url"></span>/agent/discovery.json | jq .
+                <code># 1. Discover network
+curl -s http://YOUR_DOMAIN/agent/discovery.json | jq .
 
 # 2. Get island information
-curl -s <span id="base-url-2"></span>/agent/islands.json | jq '.islands[]'
+curl -s http://YOUR_DOMAIN/agent/islands.json | jq '.islands[]'
 
 # 3. Get chain information
-curl -s <span id="base-url-3"></span>/agent/chains.json | jq '.chains[]'
+curl -s http://YOUR_DOMAIN/agent/chains.json | jq '.chains[]'
 
 # 4. Check node health
-curl -s <span id="base-url-4"></span>/agent/health | jq .</code>
+curl -s http://YOUR_DOMAIN/agent/health | jq .
+
+Replace YOUR_DOMAIN with your node's domain or IP address.</code>
             </div>
         </section>
-
-        <script>
-            // Dynamically insert current domain
-            const baseUrl = window.location.protocol + '//' + window.location.host;
-            document.getElementById('base-url').textContent = baseUrl;
-            document.getElementById('base-url-2').textContent = baseUrl;
-            document.getElementById('base-url-3').textContent = baseUrl;
-            document.getElementById('base-url-4').textContent = baseUrl;
-        </script>
 
         <section class="section">
             <h2>Key Configuration Values</h2>
