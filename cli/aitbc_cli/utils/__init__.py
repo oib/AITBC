@@ -16,11 +16,18 @@ from .wallet import decrypt_private_key
 from .blockchain import get_chain_info, get_network_status, get_blockchain_analytics
 
 
-def output(message, **kwargs):
+def output(message, format=None, title=None, **kwargs):
     """Print a regular output message (handles strings and structured data)"""
     if not isinstance(message, str):
         import json
-        message = json.dumps(message, indent=2)
+        if format == 'json' or format == 'yaml':
+            message = json.dumps(message, indent=2)
+        else:
+            # Table format — just JSON for now
+            message = json.dumps(message, indent=2)
+    if title:
+        echo(f"\n{title}")
+        echo("=" * len(title))
     echo(message, **kwargs)
 
 
