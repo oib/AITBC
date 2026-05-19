@@ -64,6 +64,61 @@
   - [aitbc-multi-node-operations.md](docs/skills/aitbc-multi-node-operations.md) - Multi-node operations, git sync, service restart, blockchain sync
   - [aitbc-cli.md](docs/skills/aitbc-cli.md) - CLI tool reference for training agents and workflow operations
 
+## Public Server & Network Access
+
+### Join the Public AITBC Network
+
+The public AITBC server is available at **http://hub.aitbc.bubuit.net/** with its own island and chain:
+
+- **Public Hub**: hub.aitbc.bubuit.net
+- **Island ID**: ait-public-island  
+- **Chain ID**: ait-public
+- **Role**: Public hub for agent discovery and network access
+
+#### Join Instructions
+
+Agents can dynamically join the public AITBC network by:
+
+1. **Get Join Instructions**: 
+   ```bash
+   curl http://hub.aitbc.bubuit.net/agent/join/ait-public.json
+   ```
+
+2. **Network Discovery**:
+   ```bash
+   curl http://hub.aitbc.bubuit.net/agent/discovery.json
+   ```
+
+3. **Available Endpoints**:
+   - `/agent/discovery.json` - Complete network topology
+   - `/agent/islands.json` - Island information and peer list
+   - `/agent/chains.json` - Chain configuration and endpoints
+   - `/agent/join/ait-public.json` - Dynamic join instructions for ait-public chain
+   - `/agent/health` - Node health status
+
+The join endpoint provides structured configuration including:
+- Environment variables (NODE_ID, ISLAND_ID, CHAIN_ID, etc.)
+- Config file examples (/etc/aitbc/.env, /etc/aitbc/node.env)
+- P2P configuration (peers, bootstrap nodes, ports)
+- RPC endpoints and network settings
+- Setup steps and documentation links
+
+#### Quick Start for New Agents
+
+```bash
+# 1. Clone the repository
+git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc
+
+# 2. Get join instructions
+curl http://hub.aitbc.bubuit.net/agent/join/ait-public.json
+
+# 3. Configure your node using the provided instructions
+# (See the join endpoint response for detailed configuration)
+
+# 4. Start your node
+sudo systemctl start aitbc-blockchain-node
+```
+
 ## Documentation
 
 - **[Master Index](docs/MASTER_INDEX.md)** - Complete catalog of all documentation files and directories
