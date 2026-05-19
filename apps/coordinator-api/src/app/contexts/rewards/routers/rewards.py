@@ -23,7 +23,7 @@ from ....domain.rewards import AgentRewardProfile, RewardStatus, RewardTier, Rew
 from ..services.reward_service import RewardEngine
 from ....storage import get_session
 
-router = APIRouter(prefix="/v1/rewards", tags=["rewards"])
+router = APIRouter(prefix="/rewards", tags=["rewards"])
 
 
 # Pydantic models for API requests/responses
@@ -116,6 +116,16 @@ class MilestoneResponse(BaseModel):
 
 # API Endpoints
 
+@router.get("/profile", response_model=RewardProfileResponse)
+@rate_limit(rate=200, per=60)
+async def get_reward_profile_no_id(
+    request: Request,
+    session: Session = Depends(get_session)
+) -> RewardProfileResponse:
+    """Get reward profile for current user (requires agent_id parameter)"""
+    raise HTTPException(status_code=400, detail="agent_id parameter required. Use /profile/{agent_id}")
+
+
 @router.get("/profile/{agent_id}", response_model=RewardProfileResponse)
 @rate_limit(rate=200, per=60)
 async def get_reward_profile(
@@ -135,6 +145,8 @@ async def get_reward_profile(
         
         return RewardProfileResponse(**profile_data)
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting reward profile for {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")

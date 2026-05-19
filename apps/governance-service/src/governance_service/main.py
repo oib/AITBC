@@ -91,7 +91,7 @@ async def live() -> dict[str, str]:
     return {"status": "alive", "service": "governance-service"}
 
 
-@app.get("/governance/status")
+@app.get("/v1/governance/status")
 async def governance_status() -> dict[str, str]:
     """Get governance status"""
     return {

@@ -388,6 +388,12 @@ def create_app() -> FastAPI:
         from .routers.disputes import router as disputes_router
         app.include_router(disputes_router, prefix="/v1")
         logger.info("Disputes router included")
+
+        # Initialize dispute service
+        from .services.dispute_resolution import init_dispute_service
+        from .storage.db import get_session
+        init_dispute_service(get_session)
+        logger.info("Dispute service initialized")
     except Exception as e:
         logger.warning(f"Failed to include disputes router: {e}")
 
@@ -470,6 +476,69 @@ def create_app() -> FastAPI:
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
     app.include_router(cross_chain, prefix="/v1")
+
+    # Include Analytics router - temporarily disabled due to service method errors
+    # try:
+    #     from .contexts.analytics.routers.analytics import router as analytics_router
+    #     app.include_router(analytics_router, prefix="/v1")
+    #     logger.info("Analytics router included")
+    # except Exception as e:
+    #     logger.warning(f"Failed to include analytics router: {e}")
+
+    # Include Staking router
+    try:
+        from .routers import staking
+        if staking:
+            app.include_router(staking, prefix="/v1")
+            logger.info("Staking router included")
+        else:
+            logger.warning("Staking router not available")
+    except Exception as e:
+        logger.warning(f"Failed to include staking router: {e}")
+
+    # Include Security router
+    try:
+        from .routers import agent_security_router
+        if agent_security_router:
+            app.include_router(agent_security_router, prefix="/v1")
+            logger.info("Security router included")
+        else:
+            logger.warning("Security router not available")
+    except Exception as e:
+        logger.warning(f"Failed to include security router: {e}")
+
+    # Include Trading router
+    try:
+        from .routers import trading
+        if trading:
+            app.include_router(trading, prefix="/v1")
+            logger.info("Trading router included")
+        else:
+            logger.warning("Trading router not available")
+    except Exception as e:
+        logger.warning(f"Failed to include trading router: {e}")
+
+    # Include Reputation router
+    try:
+        from .routers import reputation
+        if reputation:
+            app.include_router(reputation, prefix="/v1")
+            logger.info("Reputation router included")
+        else:
+            logger.warning("Reputation router not available")
+    except Exception as e:
+        logger.warning(f"Failed to include reputation router: {e}")
+
+    # Include Rewards router
+    try:
+        from .routers import rewards
+        if rewards:
+            app.include_router(rewards, prefix="/v1")
+            logger.info("Rewards router included")
+        else:
+            logger.warning("Rewards router not available")
+    except Exception as e:
+        logger.warning(f"Failed to include rewards router: {e}")
 
     # Include marketplace_offers AFTER global_marketplace to override the /offers endpoint
     app.include_router(marketplace_offers, prefix="/v1")

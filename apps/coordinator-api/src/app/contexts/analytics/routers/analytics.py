@@ -31,10 +31,10 @@ from ....domain.analytics import (
     MetricType,
     ReportType,
 )
-from ....services.agent_coordination.marketplace import MarketplaceAnalytics
+from ....services.agent_coordination.marketplace import AgentServiceMarketplace
 from ....storage import get_session
 
-router = APIRouter(prefix="/v1/analytics", tags=["analytics"])
+router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 # Pydantic models for API requests/responses
@@ -131,7 +131,7 @@ async def collect_market_data(
 ) -> AnalyticsSummaryResponse:
     """Collect market data for analytics"""
     
-    analytics_service = MarketplaceAnalytics(session)
+    analytics_service = AgentServiceMarketplace(session)
     
     try:
         result = await analytics_service.collect_market_data(period_type)
@@ -155,7 +155,7 @@ async def get_market_insights(
 ) -> Dict[str, Any]:
     """Get market insights and analysis"""
     
-    analytics_service = MarketplaceAnalytics(session)
+    analytics_service = AgentServiceMarketplace(session)
     
     try:
         result = await analytics_service.generate_insights(time_period)
@@ -240,7 +240,7 @@ async def get_market_overview(
 ) -> MarketOverviewResponse:
     """Get comprehensive market overview"""
     
-    analytics_service = MarketplaceAnalytics(session)
+    analytics_service = AgentServiceMarketplace(session)
     
     try:
         overview = await analytics_service.get_market_overview()
@@ -263,7 +263,7 @@ async def create_dashboard(
 ) -> DashboardResponse:
     """Create analytics dashboard"""
     
-    analytics_service = MarketplaceAnalytics(session)
+    analytics_service = AgentServiceMarketplace(session)
     
     try:
         result = await analytics_service.create_dashboard(owner_id, dashboard_type)

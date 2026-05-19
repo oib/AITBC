@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from sqlmodel import select
+
 logger = get_logger(__name__)
 
 from ....domain.trading import (
@@ -32,7 +34,7 @@ from ....domain.trading import (
 from ..services.trading_marketplace.trading import P2PTradingProtocol
 from ....storage import get_session
 
-router = APIRouter(prefix="/v1/trading", tags=["trading"])
+router = APIRouter(prefix="/trading", tags=["trading"])
 
 
 # Pydantic models for API requests/responses

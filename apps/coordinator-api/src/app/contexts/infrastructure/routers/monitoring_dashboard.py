@@ -15,7 +15,7 @@ from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
 # Service endpoints configuration
 SERVICES = {

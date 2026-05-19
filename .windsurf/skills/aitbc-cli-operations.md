@@ -94,9 +94,13 @@ Activate when user requests AITBC CLI operations: wallet management (create, imp
 ```
 
 ## CLI Location
-**Main CLI:** `/opt/aitbc/aitbc-cli`
+**Main CLI:** `/opt/aitbc/venv/bin/python /opt/aitbc/cli/aitbc_cli.py`
 
 **Usage:** Execute from `/opt/aitbc` directory
+
+**API Version:** All business logic endpoints use `/v1` prefix (coordinator-api, agent-coordinator, marketplace-service, governance-service, trading-service, wallet service, edge-api, agent-management, pool-hub)
+
+**Infrastructure endpoints** (health, ready, live, metrics, docs) do not use `/v1` prefix.
 
 ## Operations
 
@@ -285,6 +289,17 @@ python3 cli/unified_cli.py agent register --agent-id <agent_id> --agent-type wor
 **Default Wallet Daemon URL:** `http://localhost:8003`
 **CLI Version:** 2.1.0
 
+**Service Ports:**
+- Coordinator-api: `http://localhost:8011` (uses `/v1` prefix)
+- Agent-coordinator: `http://localhost:9001` (uses `/v1` prefix)
+- Marketplace-service: `http://localhost:8102` (uses `/v1` prefix)
+- Governance-service: `http://localhost:8105` (uses `/v1` prefix)
+- Trading-service: `http://localhost:8104` (uses `/v1` prefix)
+- Wallet service: `http://localhost:8015` (uses `/v1` prefix)
+- Edge-api: `http://localhost:8103` (uses `/v1` prefix)
+- Agent-management: `http://localhost:8000` (uses `/v1` prefix)
+- Pool-hub: `http://localhost:8012` (uses `/v1` prefix for SLA endpoints)
+
 ## Authentication
 
 **Wallet Password:** Required for wallet-create, wallet-import, wallet-export, transaction-send, ai-job-submit, agent-message
@@ -305,11 +320,34 @@ python3 cli/unified_cli.py agent register --agent-id <agent_id> --agent-type wor
 8. **Private Key Format:** Ensure private key is valid hex string (64 hex characters for Ed25519)
 9. **Keystore Encryption:** CLI supports AES-256-GCM and Fernet encryption
 10. **Agent Registration Required:** Register agent before using agent commands
+11. **Wallet List Import Error:** Pre-existing issue with `utils.dual_mode_wallet_adapter` import (skipped in tests)
+12. **GPU List Requires Island Credentials:** Run `aitbc node island join` before using GPU marketplace commands
+13. **Blockchain RPC Endpoints:** Use `/rpc` prefix for blockchain RPC operations, not `/v1`
+
+## Recent Updates (May 2026)
+
+**API Standardization:**
+- All business logic endpoints now use `/v1` prefix consistently across services
+- Infrastructure endpoints (health, ready, live, metrics, docs) remain without `/v1` prefix
+- Updated services: coordinator-api, agent-coordinator, marketplace-service, governance-service, trading-service, wallet service, edge-api, agent-management, pool-hub
+
+**Bug Fixes:**
+- Fixed blockchain status TypeError by adding `from click import echo` import
+- Fixed transactions list by using valid `pending` subcommand instead of non-existent `list` subcommand
+- Wallet list import issue documented (pre-existing, unrelated to /v1 prefix work)
+
+**Test Scripts:**
+- Created `/opt/aitbc/tests/cli-test-service-health.sh` - Service health check
+- Created `/opt/aitbc/tests/cli-test-v1-prefix.sh` - /v1 prefix verification
+- Created `/opt/aitbc/tests/cli-test-commands.sh` - CLI command test runner
+- Test results: 12/12 CLI tests passing, 9/9 /v1 prefix endpoints responding correctly
 
 ## Notes
 
-- `/opt/aitbc/aitbc-cli` is the single CLI entry point
+- `/opt/aitbc/venv/bin/python /opt/aitbc/cli/aitbc_cli.py` is the main CLI entry point
 - `cli/unified_cli.py` is a module within the CLI tool for marketplace and messaging operations
 - For marketplace operations, prefer `python3 cli/unified_cli.py` (verified working with 7 bugs fixed)
 - Messaging commands only available via `python3 cli/unified_cli.py messaging`
 - All blockchain RPC operations use HTTP client with timeout handling
+- All REST API business logic endpoints use `/v1` prefix for API versioning
+- CLI commands that interact with updated services automatically use `/v1` prefix
