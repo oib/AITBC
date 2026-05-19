@@ -138,7 +138,7 @@ class BlockchainNode:
 
     async def _ensure_genesis_for_chains(self) -> None:
         for chain_id in self._supported_chains():
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda: session_scope(chain_id))
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda cid=chain_id: session_scope(cid))
             await proposer._ensure_genesis_block()
 
     async def _setup_gossip_subscribers(self) -> None:
@@ -192,7 +192,7 @@ class BlockchainNode:
                                 import json
                                 block_data = json.loads(block_data)
                             logger.info(f"Importing block for chain {chain_id_param}: {block_data.get('height')}")
-                            sync = ChainSync(session_factory=lambda: session_scope(chain_id_param), chain_id=chain_id_param)
+                            sync = ChainSync(session_factory=lambda cid=chain_id_param: session_scope(cid), chain_id=chain_id_param)
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                             logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
                             
@@ -322,7 +322,7 @@ class BlockchainNode:
             if chain_id in self._proposers:
                 continue
 
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda: session_scope(chain_id))
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda cid=chain_id: session_scope(cid))
             self._proposers[chain_id] = proposer
             asyncio.create_task(proposer.start())
 
