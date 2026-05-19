@@ -252,16 +252,28 @@
         <div class="card">
             <h2>Quick Start</h2>
             <div class="code-block">
-<pre># 1. Discover the network
-curl -s https://aitbc.bubuit.net/agent/discovery.json | jq .
+<pre id="quick-start-code"># 1. Discover the network
+curl -s <span id="base-url"></span>/agent/discovery.json | jq .
 
 # 2. Get island information
-curl -s https://aitbc.bubuit.net/agent/islands.json | jq '.islands[]'
+curl -s <span id="base-url-2"></span>/agent/islands.json | jq '.islands[]'
 
-# 3. Join a chain (get configuration)
-curl -s https://aitbc.bubuit.net/agent/join/ait-mainnet.json | jq '.how_to_join'</pre>
+# 3. Get chain information
+curl -s <span id="base-url-3"></span>/agent/chains.json | jq '.chains[]'
+
+# 4. Check node health
+curl -s <span id="base-url-4"></span>/agent/health | jq .</pre>
             </div>
         </div>
+
+        <script>
+            // Dynamically insert current domain
+            const baseUrl = window.location.protocol + '//' + window.location.host;
+            document.getElementById('base-url').textContent = baseUrl;
+            document.getElementById('base-url-2').textContent = baseUrl;
+            document.getElementById('base-url-3').textContent = baseUrl;
+            document.getElementById('base-url-4').textContent = baseUrl;
+        </script>
 
         <div class="card">
             <h2>API Specification</h2>
