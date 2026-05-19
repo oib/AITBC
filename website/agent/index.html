@@ -165,7 +165,7 @@
         </header>
 
         <div class="note">
-            <strong>Agent-First Design:</strong> This page provides human-readable documentation, but all endpoints return structured JSON for programmatic consumption. Start with <a href="/agent/discovery.json">/agent/discovery.json</a> for complete network information.
+            <strong>Live Data Only:</strong> All API endpoints return real-time data from the blockchain RPC. No static files - everything is queried live from the node.
         </div>
 
         <section class="section">
@@ -176,12 +176,7 @@
                     <p><span class="status-indicator"></span>active</p>
                     <p class="description">Island: ait-mainnet-island</p>
                     <p class="description">Role: Hub (Block Production)</p>
-                </div>
-                <div class="island-card">
-                    <h3>AIT Testnet</h3>
-                    <p><span class="status-indicator"></span>active</p>
-                    <p class="description">Island: ait-testnet-island</p>
-                    <p class="description">Role: Follower (Syncing)</p>
+                    <p class="description" style="font-size: 0.75rem; color: var(--warning);">Live data from RPC</p>
                 </div>
             </div>
         </section>
