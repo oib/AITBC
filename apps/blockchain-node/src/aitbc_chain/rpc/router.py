@@ -912,6 +912,18 @@ async def import_block(
                         detail=f"Block height {block_height} already exists with different hash",
                     )
 
+                # Validate parent block exists (skip for genesis block height 1)
+                parent_hash = block_data["parent_hash"]
+                if block_height > 1:
+                    parent_block = session.exec(
+                        select(Block).where(Block.hash == parent_hash)
+                    ).first()
+                    if parent_block is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Parent block not found",
+                        )
+
                 # Check for hash conflicts across chains
                 existing_block = session.execute(
                     select(Block).where(Block.hash == block_hash)
