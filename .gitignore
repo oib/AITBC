@@ -1,6 +1,5 @@
 # AITBC Monorepo ignore rules
-# Updated: 2026-04-02 - Project reorganization and security fixes
-# Development files organized into subdirectories
+# Updated: 2026-05-19 - Deduplication, added venv_staging, fixed legacy CLI
 
 # ===================
 # Python
@@ -15,6 +14,7 @@ __pycache__/
 .venv/
 */.venv/
 venv/
+venv_staging/
 env/
 *.egg-info/
 *.egg
@@ -239,7 +239,6 @@ contracts/artifacts/
 cli/build/
 cli/dist/
 cli/commands.legacy/
-cli/aitbc_cli.legacy.py
 dev/test-nodes/*.log
 
 # Local test fixtures and E2E testing
@@ -309,8 +308,6 @@ infra/helm/values/prod.yaml
 # ===================
 # Coverage reports
 # ===================
-htmlcov/
-.coverage
 .coverage.*
 coverage.xml
 *.cover
@@ -334,14 +331,9 @@ guardian_contracts/
 .agent_data/*
 results/
 tools/
-production/data/
-production/logs/
-config/
 api_keys.txt
 *.yaml
 !*.example
-dev/cache/logs/
-dev/test-nodes/*/data/
 backups/*/config/
 backups/*/logs/
 
@@ -350,28 +342,6 @@ backups/*/logs/
 # ===================
 monitoring/*.pid
 systemd/*.backup
-data/
-config/
-logs/
-production/data/
-production/logs/
-*.log
-*.log.*
-*.db
-*.db-wal
-*.db-shm
-!*.example
-data/
-config/
-logs/
-production/data/
-production/logs/
-*.log
-*.log.*
-*.db
-*.db-wal
-*.db-shm
-!*.example
 codeql-db/
 
 # Poetry lock files (coordinator-api uses local poetry)
