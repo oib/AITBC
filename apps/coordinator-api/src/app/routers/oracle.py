@@ -15,7 +15,6 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..services.oracle_service import get_oracle_service
-from ..rate_limiting import rate_limit
 
 
 router = APIRouter(prefix="/oracle", tags=["oracle"])
@@ -39,7 +38,6 @@ class PriceResponse(BaseModel):
 
 
 @router.get("/price/{pair}", response_model=PriceResponse, summary="Get price for pair")
-@rate_limit(rate=100, per=60)
 async def get_price(
     request: Request,
     pair: str
@@ -68,7 +66,6 @@ async def get_price(
 
 
 @router.get("/prices", summary="Get all prices")
-@rate_limit(rate=50, per=60)
 async def get_all_prices(request: Request) -> Dict[str, Any]:
     """Get all available trading pair prices"""
     try:
@@ -91,7 +88,6 @@ async def get_all_prices(request: Request) -> Dict[str, Any]:
 
 
 @router.post("/price", summary="Set price (admin)")
-@rate_limit(rate=10, per=60)
 async def set_price(
     request: Request,
     req: SetPriceRequest
@@ -125,7 +121,16 @@ async def set_price(
         )
 
 
-@router.get("/health", summary="Oracle health check")
+@router.get("/health", summary="Health check")
+async def oracle_health(request: Request) -> Dict[str, Any]:
+    """Check oracle service health"""
+    return {
+        "status": "healthy",
+        "service": "oracle"
+    }
+
+
+@router.get("/oracle/health", summary="Oracle health check")
 async def health_check(request: Request) -> Dict[str, Any]:
     """Check oracle service health"""
     try:

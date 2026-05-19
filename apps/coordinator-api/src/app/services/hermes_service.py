@@ -372,6 +372,9 @@ class HermesService:
             "queued_messages": sum(len(q) for q in self._message_queues.values())
         }
 
+    def __init__(self, session: Session = None):
+        self.session = session
+        # ... (rest of the code remains the same)
 
 # Global instance
 _hermes_service: Optional[HermesService] = None

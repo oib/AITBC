@@ -156,12 +156,13 @@ class SwarmService:
     HEARTBEAT_TIMEOUT_SECONDS = 60
     MAX_RETRIES = 3
     
-    def __init__(self):
+    def __init__(self, session = None):
         self._nodes: Dict[str, SwarmNode] = {}
         self._tasks: Dict[str, SwarmTask] = {}
         self._clusters: Dict[str, SwarmCluster] = {}
         self._task_counter = 0
         self._cluster_counter = 0
+        self.session = session
     
     def register_node(
         self,

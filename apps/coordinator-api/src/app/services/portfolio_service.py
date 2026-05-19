@@ -60,11 +60,13 @@ class PortfolioService:
         self,
         wallet_service_url: str = "http://localhost:8012",
         blockchain_rpc_url: str = "http://localhost:8006",
-        oracle_url: str = "http://localhost:8011"
+        oracle_url: str = "http://localhost:8011",
+        session = None
     ):
-        self.wallet_url = wallet_service_url
-        self.blockchain_url = blockchain_rpc_url
+        self.wallet_service_url = wallet_service_url
+        self.blockchain_rpc_url = blockchain_rpc_url
         self.oracle_url = oracle_url
+        self.session = session
         self._http_client = httpx.AsyncClient(timeout=30.0)
     
     async def get_portfolio(

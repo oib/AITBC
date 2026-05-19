@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..services.zk_proofs_enhanced import get_enhanced_zk_service
-from ..rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit
 
 
 router = APIRouter(prefix="/zk", tags=["zk-proofs"])

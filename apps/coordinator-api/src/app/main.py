@@ -59,6 +59,10 @@ from .routers import (
     multi_modal_rl,
     services,
     swarm,
+    training,
+    inference,
+    fhe,
+    oracle,
     users,
     web_vitals,
 )
@@ -346,68 +350,58 @@ def create_app() -> FastAPI:
     if admin:
         app.include_router(admin, prefix="/v1")
     # Include routers
-    app.include_router(router)
-    app.include_router(marketplace_router)
-    app.include_router(health_router)
-    app.include_router(miner_router)
-    app.include_router(agents_router)
-    app.include_router(islands_proxy_router)
-    app.include_router(cross_chain_router)
+    app.include_router(marketplace)
+    app.include_router(marketplace_gpu)
+    app.include_router(marketplace_offers)
+    app.include_router(monitor)
+    app.include_router(miner)
+    app.include_router(agent_router)
+    app.include_router(islands_proxy)
+    app.include_router(cross_chain)
     
     # Include ZK proofs router
     try:
         from .routers.zk_proofs import router as zk_proofs_router
-        app.include_router(zk_proofs_router)
+        app.include_router(zk_proofs_router, prefix="/v1")
         logger.info("ZK proofs router included")
     except Exception as e:
         logger.warning(f"Failed to include ZK proofs router: {e}")
-    
+
     # Include FHE router
     try:
         from .routers.fhe import router as fhe_router
-        app.include_router(fhe_router)
+        app.include_router(fhe_router, prefix="/v1")
         logger.info("FHE router included")
     except Exception as e:
         logger.warning(f"Failed to include FHE router: {e}")
-    
+
     # Include Oracle router
     try:
         from .routers.oracle import router as oracle_router
-        app.include_router(oracle_router)
+        app.include_router(oracle_router, prefix="/v1")
         logger.info("Oracle router included")
     except Exception as e:
         logger.warning(f"Failed to include Oracle router: {e}")
-    
+
     # Include Disputes router
     try:
         from .routers.disputes import router as disputes_router
-        app.include_router(disputes_router)
+        app.include_router(disputes_router, prefix="/v1")
         logger.info("Disputes router included")
-        
-        # Initialize dispute service
-        from .services.dispute_resolution import init_dispute_service
-        from .database import get_session
-        init_dispute_service(get_session)
-        logger.info("Dispute resolution service initialized")
     except Exception as e:
         logger.warning(f"Failed to include disputes router: {e}")
 
-    # Include Portfolio router
-    try:
-        from .routers.portfolio import router as portfolio_router
-        app.include_router(portfolio_router)
-        logger.info("Portfolio router included")
-    except Exception as e:
-        logger.warning(f"Failed to include Portfolio router: {e}")
+    # Add portfolio management router
+    app.include_router(portfolio_router, prefix="/v1")
     
     # Include Bounty router
     try:
         from .routers.bounty import router as bounty_router
-        app.include_router(bounty_router)
+        app.include_router(bounty_router, prefix="/v1")
         logger.info("Bounty router included")
     except Exception as e:
         logger.warning(f"Failed to include Bounty router: {e}")
-    
+
     # Include Hermes router
     try:
         from .routers.hermes import router as hermes_router
@@ -415,45 +409,41 @@ def create_app() -> FastAPI:
         logger.info("Hermes router included")
     except Exception as e:
         logger.warning(f"Failed to include Hermes router: {e}")
-    
-    # Include Swarm router
-    try:
-        from .routers.swarm import router as swarm_router
-        app.include_router(swarm_router)
-        logger.info("Swarm router included")
-    except Exception as e:
-        logger.warning(f"Failed to include Swarm router: {e}")
-    
-    # Include IPFS router
-    try:
-        from .routers.ipfs import router as ipfs_router
-        app.include_router(ipfs_router)
-        logger.info("IPFS router included")
-    except Exception as e:
-        logger.warning(f"Failed to include IPFS router: {e}")
-    
-    # Include Payments router
-    try:
-        from .routers.payments import router as payments_router
-        app.include_router(payments_router)
-        logger.info("Payments router included")
-    except Exception as e:
-        logger.warning(f"Failed to include Payments router: {e}")
-    
+
+    # Include Swarm router (use top-level import, not inline)
+    app.include_router(swarm)
+    logger.info("Swarm router included")
+
+    # Include IPFS router (use top-level import, not inline)
+    app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
+    logger.info("IPFS router included")
+
+    # Include Payments router (use top-level import, not inline)
+    app.include_router(payments, prefix="/v1")
+    logger.info("Payments router included")
+
+    # Include Training router (use top-level import, not inline)
+    app.include_router(training)
+    logger.info("Training router included")
+
+    # Include Inference router (use top-level import, not inline)
+    app.include_router(inference)
+    logger.info("Inference router included")
+
     # Include Governance router
     try:
         from .routers.governance import router as governance_router
-        app.include_router(governance_router)
+        app.include_router(governance_router, prefix="/v1")
         logger.info("Governance router included")
-        
+
         # Initialize governance service
         from .services.governance_service import init_governance_service
-        from .database import get_session
+        from .storage.db import get_session
         init_governance_service(get_session)
         logger.info("Governance service initialized")
     except Exception as e:
         logger.warning(f"Failed to include governance router: {e}")
-    
+
     # Include Training router
     try:
         from .routers.training import router as training_router
@@ -461,28 +451,17 @@ def create_app() -> FastAPI:
         logger.info("Training router included")
     except Exception as e:
         logger.warning(f"Failed to include Training router: {e}")
-    
-    # Include Inference router
-    try:
-        from .routers.inference import router as inference_router
-        app.include_router(inference_router)
-        logger.info("Inference router included")
-    except Exception as e:
-        logger.warning(f"Failed to include Inference router: {e}")
 
-    app.include_router(marketplace, prefix="/v1")
-    app.include_router(marketplace_gpu, prefix="/v1")
+    # Include remaining top-level routers with /v1 prefix
     app.include_router(explorer, prefix="/v1")
     app.include_router(services, prefix="/v1")
     app.include_router(users, prefix="/v1")
     app.include_router(exchange, prefix="/v1")
-    app.include_router(payments, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
 
-    # Add standalone routers for tasks and payments
-
+    # Include context routers
     if ml_zk_proofs:
-        app.include_router(ml_zk_proofs)
+        app.include_router(ml_zk_proofs, prefix="/v1")
     app.include_router(hermes_enhanced, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router, prefix="/v1/agents")
@@ -498,26 +477,22 @@ def create_app() -> FastAPI:
     # Add blockchain router for CLI compatibility
     app.include_router(blockchain, prefix="/v1")
 
-    # Add IPFS storage router
-    app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
-
     # Add portfolio management router
-    app.include_router(portfolio_router)
+    app.include_router(portfolio_router, prefix="/v1")
 
     # Add edge GPU router
     app.include_router(edge_gpu, prefix="/v1")
-    
+
     # Add islands proxy router (forwards to edge-api)
-    app.include_router(islands_proxy.router, prefix="/v1")
-    
+    app.include_router(islands_proxy, prefix="/v1")
+
     # Add multi-modal RL router
     app.include_router(multi_modal_rl, prefix="/v1")
 
-    # Add swarm router for CLI compatibility
-    app.include_router(swarm, prefix="/v1")
+    # Add swarm router for CLI compatibility (already included above, this is for CLI)
     app.include_router(swarm)  # CLI compatibility (calls /swarm/list directly)
-    
-    # Add monitor router for CLI compatibility
+
+    # Add monitor router for CLI compatibility (already included above, this is for CLI)
     app.include_router(monitor)
 
     # Add Prometheus metrics endpoint
