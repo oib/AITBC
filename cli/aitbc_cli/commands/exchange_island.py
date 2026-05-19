@@ -24,6 +24,16 @@ from aitbc import get_logger, AITBCHTTPClient, NetworkError
 logger = get_logger(__name__)
 
 
+def safe_load_credentials():
+    """Load island credentials with graceful error handling"""
+    try:
+        return load_island_credentials()
+    except FileNotFoundError as e:
+        error(f"Island credentials not found: {e}")
+        error("Run 'aitbc node island join' to join an island first")
+        return None
+
+
 # Supported trading pairs
 SUPPORTED_PAIRS = ['AIT/BTC', 'AIT/ETH']
 
@@ -47,7 +57,9 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: Optional[float])
             raise click.Abort()
 
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         rpc_endpoint = get_rpc_endpoint()
         chain_id = get_chain_id()
         island_id = get_island_id()
@@ -144,7 +156,9 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: Optional[float]
             raise click.Abort()
 
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         rpc_endpoint = get_rpc_endpoint()
         chain_id = get_chain_id()
         island_id = get_island_id()
@@ -232,7 +246,9 @@ def orderbook(ctx, pair: str, limit: int):
     """View the order book for a trading pair"""
     try:
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
@@ -320,7 +336,9 @@ def rates(ctx):
     """View current exchange rates for AIT/BTC and AIT/ETH"""
     try:
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
@@ -380,7 +398,9 @@ def orders(ctx, user: Optional[str], status: Optional[str], pair: Optional[str])
     """List exchange orders"""
     try:
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
@@ -435,7 +455,9 @@ def cancel(ctx, order_id: str):
     """Cancel an exchange order"""
     try:
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         rpc_endpoint = get_rpc_endpoint()
         chain_id = get_chain_id()
         island_id = get_island_id()

@@ -80,7 +80,7 @@ def leave(island_id: str):
         error(f"Error leaving island: {str(e)}")
 
 
-@island.command()
+@island.command(name='list')
 def list_islands():
     """List all islands"""
     try:
