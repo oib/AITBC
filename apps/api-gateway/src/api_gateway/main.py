@@ -58,43 +58,43 @@ REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "false").lower() == "true"
 SERVICES = {
     "gpu": {
         "base_url": os.getenv("GPU_SERVICE_URL", "http://localhost:8101"),
-        "prefix": "/gpu",
+        "prefix": "/v1/gpu",
     },
     "marketplace": {
         "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
-        "prefix": "/marketplace",
+        "prefix": "/v1/marketplace",
     },
     "agent": {
         "base_url": os.getenv("AGENT_SERVICE_URL", "http://localhost:8103"),
-        "prefix": "/agent",
+        "prefix": "/v1/agent",
     },
     "trading": {
         "base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8104"),
-        "prefix": "/trading",
+        "prefix": "/v1/trading",
     },
     "governance": {
         "base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8105"),
-        "prefix": "/governance",
+        "prefix": "/v1/governance",
     },
     "ai": {
         "base_url": os.getenv("AI_SERVICE_URL", "http://localhost:8106"),
-        "prefix": "/ai",
+        "prefix": "/v1/ai",
     },
     "monitoring": {
         "base_url": os.getenv("MONITORING_SERVICE_URL", "http://localhost:8107"),
-        "prefix": "/monitoring",
+        "prefix": "/v1/monitoring",
     },
     "hermes": {
         "base_url": os.getenv("HERMES_SERVICE_URL", "http://localhost:8108"),
-        "prefix": "/hermes",
+        "prefix": "/v1/hermes",
     },
     "plugin": {
         "base_url": os.getenv("PLUGIN_SERVICE_URL", "http://localhost:8109"),
-        "prefix": "/plugin",
+        "prefix": "/v1/plugin",
     },
     "coordinator": {
         "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8011"),
-        "prefix": "/coordinator",
+        "prefix": "/v1/coordinator",
     },
 }
 

@@ -1,6 +1,7 @@
 """Chain management commands for AITBC CLI"""
 
 import click
+from click import echo
 from typing import Optional
 from ..core.chain_manager import ChainManager, ChainNotFoundError, NodeNotAvailableError
 from ..core.config import MultiChainConfig, load_multichain_config
@@ -115,7 +116,8 @@ def status(ctx, chain_id, detailed):
                 }
                 status_list.append(status_info)
             
-            output(status_list, ctx.obj.get('output_format', 'table'), title="Chain Status Overview")
+            # Simple output without formatting
+            echo(status_list)
         
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")

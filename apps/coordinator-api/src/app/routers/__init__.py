@@ -52,16 +52,32 @@ from ..contexts.governance.routers.governance import router as governance
 from ..contexts.governance.routers.governance_enhanced import router as governance_enhanced
 
 # Staking router moved to contexts/staking
-from ..contexts.staking.routers.staking import router as staking
+try:
+    from ..contexts.staking.routers.staking import router as staking
+except ImportError:
+    staking = None
+    logger.warning("Staking router not available")
 
 # Reputation router moved to contexts/reputation
-from ..contexts.reputation.routers.reputation import router as reputation
+try:
+    from ..contexts.reputation.routers.reputation import router as reputation
+except ImportError:
+    reputation = None
+    logger.warning("Reputation router not available")
 
 # Rewards router moved to contexts/rewards
-from ..contexts.rewards.routers.rewards import router as rewards
+try:
+    from ..contexts.rewards.routers.rewards import router as rewards
+except ImportError:
+    rewards = None
+    logger.warning("Rewards router not available")
 
 # Trading router moved to contexts/trading
-from ..contexts.trading.routers.trading import router as trading
+try:
+    from ..contexts.trading.routers.trading import router as trading
+except ImportError:
+    trading = None
+    logger.warning("Trading router not available")
 
 # Hermes routers moved to contexts/hermes
 from ..contexts.hermes.routers.hermes_enhanced import router as hermes_enhanced
@@ -70,7 +86,11 @@ from ..contexts.hermes.routers.hermes_enhanced_health import router as hermes_en
 from .hermes import router as hermes
 
 # Security router moved to contexts/security
-from ..contexts.security.routers.agent_security_router import router as agent_security_router
+try:
+    from ..contexts.security.routers.agent_security_router import router as agent_security_router
+except ImportError:
+    agent_security_router = None
+    logger.warning("Security router not available")
 
 # Analytics router moved to contexts/analytics
 from ..contexts.analytics.routers.analytics import router as analytics

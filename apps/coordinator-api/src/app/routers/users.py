@@ -149,7 +149,7 @@ async def login_user(login_data: UserLogin, request: Request, session: Annotated
 
 @router.get("/users/me", response_model=UserProfile)
 @rate_limit(rate=100, per=60)
-async def get_current_user(token: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def get_current_user(session: Annotated[Session, Depends(get_session)], token: str, request: Request) -> dict[str, Any]:
     """Get current user profile"""
 
     user_id = verify_session_token(token)

@@ -71,9 +71,6 @@ def rate_limit(
             if request is None:
                 # Try to get request from kwargs
                 request = kwargs.get('request')
-            
-            if request is None:
-                # No request available, skip rate limiting
                 if is_async:
                     return await func(*args, **kwargs)
                 else:
