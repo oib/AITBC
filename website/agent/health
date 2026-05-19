@@ -1,0 +1,23 @@
+{
+  "status": "healthy",
+  "timestamp": "2026-05-19T15:50:00Z",
+  "node_id": "aitbc",
+  "services": {
+    "blockchain_node": "running",
+    "blockchain_rpc": "running",
+    "p2p": "running"
+  },
+  "chains": [
+    {
+      "chain_id": "ait-mainnet",
+      "status": "active",
+      "sync_status": "hub"
+    },
+    {
+      "chain_id": "ait-testnet",
+      "status": "active",
+      "sync_status": "syncing"
+    }
+  ],
+  "discovery": "http://aitbc:8006/agent/discovery.json"
+}
