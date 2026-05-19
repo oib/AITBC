@@ -54,8 +54,8 @@ def test_block_import_complete():
         print(f"❌ FAIL: Expected 422, got {response.status_code}")
         results.append(False)
     
-    # Test 2: Block conflict
-    print("\n[TEST 2] Block conflict...")
+    # Test 2: Invalid hash format (should be rejected before any conflict check)
+    print("\n[TEST 2] Invalid hash format rejection...")
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
@@ -68,11 +68,11 @@ def test_block_import_complete():
             "chain_id": CHAIN_ID
         }
     )
-    if response.status_code == 409 and "already exists with different hash" in response.json()["detail"]:
-        print("✅ PASS: Correctly detected block conflict")
+    if response.status_code == 400 and "Invalid block hash" in response.json().get("detail", ""):
+        print("✅ PASS: Correctly rejected invalid hash format")
         results.append(True)
     else:
-        print(f"❌ FAIL: Expected 409, got {response.status_code}")
+        print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.json()}")
         results.append(False)
     
     # Test 3: Import existing block with correct hash

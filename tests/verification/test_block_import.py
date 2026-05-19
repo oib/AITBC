@@ -117,7 +117,7 @@ def test_block_import():
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
     assert response.status_code == 400, "Should reject invalid hash"
-    assert "Invalid block hash" in response.json()["detail"], "Should mention invalid hash"
+    assert "Invalid block hash" in response.json()["detail"], f"Should mention invalid hash, got: {response.json()}"
     print("✓ Correctly rejected invalid hash")
     
     # Test 5: Parent not found
