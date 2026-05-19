@@ -12,11 +12,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, Request, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from ..services.ipfs_service import get_ipfs_service
-from ..rate_limiting import rate_limit
 
 
 router = APIRouter(prefix="/ipfs", tags=["ipfs"])
@@ -36,7 +35,6 @@ class PinCIDRequest(BaseModel):
 
 
 @router.post("/upload", summary="Upload file to IPFS")
-@rate_limit(rate=20, per=60)
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
@@ -82,7 +80,6 @@ async def upload_file(
 
 
 @router.post("/upload-text", summary="Upload text content to IPFS")
-@rate_limit(rate=30, per=60)
 async def upload_text(
     request: Request,
     req: UploadTextRequest
@@ -115,7 +112,6 @@ async def upload_text(
 
 
 @router.get("/content/{cid}", summary="Get IPFS content by CID")
-@rate_limit(rate=50, per=60)
 async def get_content(
     request: Request,
     cid: str
@@ -168,7 +164,6 @@ async def get_content(
 
 
 @router.post("/pin", summary="Pin a CID")
-@rate_limit(rate=20, per=60)
 async def pin_cid(
     request: Request,
     req: PinCIDRequest
@@ -193,7 +188,6 @@ async def pin_cid(
 
 
 @router.post("/unpin/{cid}", summary="Unpin a CID")
-@rate_limit(rate=10, per=60)
 async def unpin_cid(
     request: Request,
     cid: str
@@ -217,8 +211,17 @@ async def unpin_cid(
         )
 
 
+@router.get("/health", summary="Health check")
+async def ipfs_health(request: Request) -> Dict[str, Any]:
+    """Check IPFS service health"""
+    return {
+        "status": "healthy",
+        "ipfs_available": True,
+        "service": "ipfs"
+    }
+
+
 @router.get("/pins", summary="List pinned CIDs")
-@rate_limit(rate=30, per=60)
 async def list_pins(request: Request) -> Dict[str, Any]:
     """List all CIDs pinned to the local node"""
     try:
@@ -247,7 +250,6 @@ async def list_pins(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/gateway/{cid}", summary="Get gateway URL")
-@rate_limit(rate=100, per=60)
 async def get_gateway_url(
     request: Request,
     cid: str

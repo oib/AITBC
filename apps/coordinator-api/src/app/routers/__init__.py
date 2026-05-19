@@ -38,6 +38,12 @@ from ..contexts.payments.routers.payments import router as payments
 from .services import router as services
 from .users import router as users
 from .web_vitals import router as web_vitals
+from .training import router as training
+from .inference import router as inference
+from .fhe import router as fhe
+from .oracle import router as oracle
+from .disputes import router as disputes
+from .portfolio import router as portfolio_router
 
 # from .registry import router as registry
 
@@ -61,6 +67,7 @@ from ..contexts.trading.routers.trading import router as trading
 from ..contexts.hermes.routers.hermes_enhanced import router as hermes_enhanced
 from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced_simple
 from ..contexts.hermes.routers.hermes_enhanced_health import router as hermes_enhanced_health
+from .hermes import router as hermes
 
 # Security router moved to contexts/security
 from ..contexts.security.routers.agent_security_router import router as agent_security_router
@@ -118,6 +125,9 @@ from ..contexts.settlement.routers.settlement import router as settlement
 from ..contexts.infrastructure.routers.monitor import router as monitor
 from ..contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 
+# Islands proxy router
+from .islands_proxy import router as islands_proxy
+
 __all__ = [
     "client",
     "miner",
@@ -142,6 +152,7 @@ __all__ = [
     "reputation",
     "rewards",
     "trading",
+    "hermes",
     "hermes_enhanced",
     "hermes_enhanced_simple",
     "hermes_enhanced_health",
@@ -169,4 +180,11 @@ __all__ = [
     "monitor",
     "monitoring_dashboard",
     "registry",
+    "islands_proxy",
+    "training",
+    "inference",
+    "fhe",
+    "oracle",
+    "disputes",
+    "portfolio",
 ]

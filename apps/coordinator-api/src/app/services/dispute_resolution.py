@@ -138,10 +138,11 @@ class DisputeResolutionService:
     MIN_ARBITRATORS = 3
     MIN_STAKE_AMOUNT = 1000
     
-    def __init__(self, session_factory):
+    def __init__(self, session_factory = None):
         self._session_factory = session_factory
         self._disputes: Dict[str, DisputeCase] = {}
         self._arbitrators: set = set()
+        self.session = session_factory() if session_factory else None
     
     def file_dispute(
         self,
