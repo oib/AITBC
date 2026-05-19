@@ -1,0 +1,70 @@
+{
+  "network": {
+    "name": "AITBC",
+    "version": "1.0.0",
+    "description": "AI-powered blockchain platform with multi-island architecture",
+    "apis": {
+      "rpc": {
+        "url": "http://localhost:8006/rpc",
+        "documentation": "/agent/openapi.json",
+        "version": "1.0"
+      },
+      "agent": {
+        "discovery": "/agent/discovery.json",
+        "islands": "/agent/islands.json",
+        "chains": "/agent/chains.json",
+        "health": "/agent/health",
+        "join": "/agent/join/"
+      }
+    },
+    "islands": [
+      {
+        "island_id": "ait-mainnet-island",
+        "name": "AIT Mainnet",
+        "chain_id": "ait-mainnet",
+        "status": "active",
+        "description": "Primary production chain for AITBC",
+        "endpoints": {
+          "rpc": ["http://aitbc:8006", "http://aitbc1:8006"],
+          "p2p": ["aitbc:7070", "aitbc1:7070"]
+        },
+        "chain_info": {
+          "block_time": 5,
+          "consensus": "proof_of_authority",
+          "network_id": 1337
+        },
+        "join_guide": "/agent/join/ait-mainnet.json"
+      },
+      {
+        "island_id": "ait-testnet-island",
+        "name": "AIT Testnet",
+        "chain_id": "ait-testnet",
+        "status": "active",
+        "description": "Test network for development and experimentation",
+        "endpoints": {
+          "rpc": ["http://aitbc:8006", "http://aitbc1:8006"],
+          "p2p": ["aitbc:7070", "aitbc1:7070"]
+        },
+        "chain_info": {
+          "block_time": 5,
+          "consensus": "proof_of_authority",
+          "network_id": 1337
+        },
+        "join_guide": "/agent/join/ait-testnet.json"
+      }
+    ]
+  },
+  "this_node": {
+    "node_id": "aitbc",
+    "role": "hub",
+    "is_hub": true,
+    "block_production": true,
+    "chains": ["ait-mainnet"],
+    "island_memberships": ["ait-mainnet-island"],
+    "discovery_url": "http://aitbc:8006/agent/discovery.json"
+  },
+  "_meta": {
+    "generated_at": "2026-05-19T15:50:00Z",
+    "format_version": "1.0"
+  }
+}

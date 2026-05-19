@@ -1,0 +1,121 @@
+{
+  "chain_id": "ait-mainnet",
+  "island_id": "ait-mainnet-island",
+  "name": "AIT Mainnet",
+  "description": "Primary production chain for AITBC platform",
+  "type": "production",
+  "status": "active",
+  "requirements": {
+    "minimum_version": "1.0.0",
+    "required_services": ["aitbc-blockchain-node", "aitbc-blockchain-rpc"],
+    "ports": {
+      "p2p": 7070,
+      "rpc": 8006
+    }
+  },
+  "how_to_join": {
+    "step_1_environment": {
+      "description": "Configure node.env for this node",
+      "file": "/etc/aitbc/node.env",
+      "variables": {
+        "NODE_ID": "your-node-id",
+        "p2p_node_id": "node-$(uuidgen | tr -d '-')",
+        "p2p_bind_host": "0.0.0.0",
+        "p2p_bind_port": "7070",
+        "proposer_id": "your-proposer-id",
+        "p2p_peers": "aitbc:7070,aitbc1:7070",
+        "enable_block_production": "false",
+        "block_production_chains": ""
+      },
+      "note": "Set enable_block_production=false for follower nodes"
+    },
+    "step_2_blockchain_env": {
+      "description": "Configure blockchain.env",
+      "file": "/etc/aitbc/blockchain.env",
+      "variables": {
+        "island_id": "ait-mainnet-island",
+        "supported_chains": "ait-mainnet",
+        "CHAIN_ID": "ait-mainnet",
+        "auto_sync_enabled": "true",
+        "default_peer_rpc_url": "http://aitbc1:8006",
+        "SYNC_SOURCE_HOST": "aitbc1",
+        "SYNC_SOURCE_PORT": "8006",
+        "SYNC_CHAIN_ID": "ait-mainnet"
+      }
+    },
+    "step_3_networking": {
+      "description": "Ensure network connectivity",
+      "requirements": [
+        "Port 7070 open for P2P communication",
+        "Port 8006 open for RPC access",
+        "Connectivity to aitbc (10.1.223.93) and aitbc1 (10.1.223.40)"
+      ]
+    },
+    "step_4_start_services": {
+      "description": "Start blockchain services",
+      "commands": [
+        "systemctl start aitbc-blockchain-node.service",
+        "systemctl start aitbc-blockchain-rpc.service"
+      ]
+    },
+    "step_5_verify": {
+      "description": "Verify successful join",
+      "commands": [
+        "curl -s http://localhost:8006/rpc/head",
+        "sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db 'SELECT MAX(height) FROM block'"
+      ],
+      "expected_result": "Block height should be increasing as blocks are synced"
+    }
+  },
+  "endpoints": {
+    "rpc": {
+      "hub": "http://aitbc:8006",
+      "backup": "http://aitbc1:8006"
+    },
+    "p2p": {
+      "peers": ["aitbc:7070", "aitbc1:7070"]
+    }
+  },
+  "configuration_templates": {
+    "follower_node": {
+      "node.env": {
+        "NODE_ID": "your-node-id",
+        "p2p_node_id": "node-unique-uuid",
+        "p2p_bind_host": "0.0.0.0",
+        "p2p_bind_port": "7070",
+        "proposer_id": "ait1your-proposer-id",
+        "p2p_peers": "aitbc:7070,aitbc1:7070",
+        "trusted_proposers": "",
+        "block_production_chains": "",
+        "enable_block_production": "false"
+      },
+      "blockchain.env": {
+        "auto_sync_enabled": "true",
+        "island_id": "ait-mainnet-island",
+        "supported_chains": "ait-mainnet",
+        "default_peer_rpc_url": "http://aitbc1:8006",
+        "SYNC_SOURCE_HOST": "aitbc1",
+        "SYNC_SOURCE_PORT": "8006",
+        "SYNC_CHAIN_ID": "ait-mainnet"
+      }
+    }
+  },
+  "troubleshooting": {
+    "gap_detected_errors": {
+      "cause": "Node is receiving blocks but missing intermediate blocks",
+      "solution": "Ensure auto_sync_enabled=true and default_peer_rpc_url points to active hub"
+    },
+    "fork_detection": {
+      "cause": "Multiple nodes with same proposer_id producing blocks",
+      "solution": "Ensure enable_block_production=false on follower nodes"
+    },
+    "p2p_connection_failed": {
+      "cause": "Cannot connect to P2P peers",
+      "solution": "Verify p2p_bind_host and p2p_bind_port are set correctly, check firewall rules"
+    }
+  },
+  "_meta": {
+    "format_version": "1.0",
+    "updated_at": "2026-05-19T15:50:00Z"
+  }
+}
