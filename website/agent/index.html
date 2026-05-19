@@ -83,6 +83,17 @@
             font-size: 0.85rem;
             margin-top: 0.5rem;
         }
+        .curl-command {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #a5b4fc;
+            overflow-x: auto;
+        }
         .code-block {
             background: #000;
             border: 1px solid var(--border);
@@ -190,7 +201,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Complete network discovery - returns all islands, endpoints, and this node's role. <strong>Start here.</strong></p>
-                    <a href="/agent/discovery.json" class="json-link">View JSON →</a>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/agent/discovery.json</p>
                 </div>
             </div>
         </section>
@@ -204,7 +215,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">List all islands with current status, endpoints, and this node's role in each island.</p>
-                    <a href="/agent/islands.json" class="json-link">View JSON →</a>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/agent/islands.json</p>
                 </div>
                 <div class="endpoint">
                     <div class="endpoint-header">
@@ -212,6 +223,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Live island memberships from IslandManager (includes peer counts, roles, status).</p>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/rpc/islands</p>
                 </div>
                 <div class="endpoint">
                     <div class="endpoint-header">
@@ -219,6 +231,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Detailed information about a specific island.</p>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/rpc/islands/{island_id}</p>
                 </div>
             </div>
         </section>
@@ -232,7 +245,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">All chains with configuration, endpoints, and join information.</p>
-                    <a href="/agent/chains.json" class="json-link">View JSON →</a>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/agent/chains.json</p>
                 </div>
                 <div class="endpoint">
                     <div class="endpoint-header">
@@ -240,6 +253,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Current head block (height, hash, timestamp).</p>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/rpc/head</p>
                 </div>
                 <div class="endpoint">
                     <div class="endpoint-header">
@@ -247,6 +261,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Chain information (chain_id, network_id, consensus).</p>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/rpc/info</p>
                 </div>
             </div>
         </section>
@@ -260,7 +275,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Complete join instructions for ait-mainnet: configuration templates, P2P peers, RPC endpoints.</p>
-                    <a href="/agent/join/ait-mainnet.json" class="json-link">View JSON →</a>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/agent/join/ait-mainnet.json</p>
                 </div>
                 <div class="endpoint">
                     <div class="endpoint-header">
@@ -268,7 +283,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Complete join instructions for ait-testnet.</p>
-                    <a href="/agent/join/ait-testnet.json" class="json-link">View JSON →</a>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/agent/join/ait-testnet.json</p>
                 </div>
             </div>
         </section>
@@ -282,7 +297,7 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">OpenAPI 3.0 specification for all RPC and agent endpoints.</p>
-                    <a href="/agent/openapi.json" class="json-link">View JSON →</a>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/agent/openapi.json</p>
                 </div>
                 <div class="endpoint">
                     <div class="endpoint-header">
@@ -290,57 +305,8 @@
                         <span class="method">GET</span>
                     </div>
                     <p class="description">Health check endpoint for monitoring.</p>
-                    <a href="/agent/health" class="json-link">View JSON →</a>
+                    <p class="curl-command">curl -s http://YOUR_DOMAIN/agent/health</p>
                 </div>
-            </div>
-        </section>
-
-        <section class="section">
-            <h2>Quick Start for Agents</h2>
-            <div class="code-block">
-                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button>
-                <code># 1. Discover network
-curl -s http://YOUR_DOMAIN/agent/discovery.json | jq .
-
-# 2. Get island information
-curl -s http://YOUR_DOMAIN/agent/islands.json | jq '.islands[]'
-
-# 3. Get chain information
-curl -s http://YOUR_DOMAIN/agent/chains.json | jq '.chains[]'
-
-# 4. Check node health
-curl -s http://YOUR_DOMAIN/agent/health | jq .
-
-Replace YOUR_DOMAIN with your node's domain or IP address.</code>
-            </div>
-        </section>
-
-        <section class="section">
-            <h2>Key Configuration Values</h2>
-            <div class="code-block">
-                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button>
-                <code>{
-  "p2p": {
-    "port": 7070,
-    "peers": ["aitbc:7070", "aitbc1:7070"]
-  },
-  "rpc": {
-    "aitbc": "http://aitbc:8006",
-    "aitbc1": "http://aitbc1:8006"
-  },
-  "islands": [
-    {
-      "id": "ait-mainnet-island",
-      "chain": "ait-mainnet",
-      "hub": "aitbc"
-    },
-    {
-      "id": "ait-testnet-island", 
-      "chain": "ait-testnet",
-      "hub": "aitbc1"
-    }
-  ]
-}</code>
             </div>
         </section>
 
