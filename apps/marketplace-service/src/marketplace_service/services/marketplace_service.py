@@ -87,7 +87,7 @@ class MarketplaceService:
             
             # Create a bid for the offer
             bid_data = {
-                'provider': booking_data.get('wallet', 'unknown'),
+                'provider': booking_data.get('wallet') or 'unknown',
                 'capacity': booking_data.get('duration_hours', 1.0),
                 'price': booking_data.get('price', offer.price),
                 'status': 'pending',
