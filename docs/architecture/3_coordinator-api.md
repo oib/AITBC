@@ -35,7 +35,15 @@ SQLite database with Alembic migrations
 
 ## API Reference
 
-The Coordinator API provides RESTful endpoints for all major operations.
+The Coordinator API provides RESTful endpoints for all major operations. All business logic endpoints use the `/v1` prefix for consistent versioning.
+
+### API Versioning Structure
+
+- **Business logic endpoints**: `/v1/{router}/{endpoint}` (e.g., `/v1/client/jobs`, `/v1/miner/register`)
+- **CLI compatibility routes**: `/api/v1/{router}/{endpoint}` (e.g., `/api/v1/agents/executions`) - for CLI tools
+- **Infrastructure endpoints**: No prefix (e.g., `/health`, `/docs`, `/metrics`) - for system operations
+
+This structure enables future versioning (`/v2`, etc.) while maintaining CLI compatibility.
 
 ### Client Endpoints
 
