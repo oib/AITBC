@@ -8,9 +8,7 @@ Provides REST API for:
 - Encrypted inference
 """
 
-from __future__ import annotations
-
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import numpy as np
 
 from fastapi import APIRouter, HTTPException, Request, status

@@ -8,6 +8,11 @@ from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/swarm", tags=["Swarm"])
 
+# In-memory state for mock data
+_mock_nodes: Dict[str, Dict[str, Any]] = {}
+_mock_tasks: Dict[str, Dict[str, Any]] = {}
+_task_counter = 0
+
 
 class SwarmInfo(BaseModel):
     """Swarm information model."""
@@ -201,19 +206,20 @@ async def get_history_dashboard():
 @router.post("/nodes/register", summary="Register compute node")
 async def register_node(request: Request, req: RegisterNodeRequest) -> Dict[str, Any]:
     """Register a compute node with the swarm"""
+    _mock_nodes[req.node_id] = {
+        "node_id": req.node_id,
+        "address": req.address,
+        "capabilities": req.capabilities,
+        "resources": {
+            "cpu_cores": req.cpu_cores,
+            "memory_gb": req.memory_gb,
+            "gpu_count": req.gpu_count
+        },
+        "status": "registered"
+    }
     return {
         "success": True,
-        "node": {
-            "node_id": req.node_id,
-            "address": req.address,
-            "capabilities": req.capabilities,
-            "resources": {
-                "cpu_cores": req.cpu_cores,
-                "memory_gb": req.memory_gb,
-                "gpu_count": req.gpu_count
-            },
-            "status": "registered"
-        }
+        "node": _mock_nodes[req.node_id]
     }
 
 
@@ -269,21 +275,35 @@ async def get_node(request: Request, node_id: str) -> Dict[str, Any]:
 @router.post("/tasks/submit", summary="Submit task")
 async def submit_task(request: Request, task_data: Dict[str, Any]) -> Dict[str, Any]:
     """Submit a task to the swarm"""
+    global _task_counter
+    _task_counter += 1
+    task_id = f"task-{_task_counter:03d}"
     task_type = task_data.get("task_type", "test")
+    
+    # Assign a node if any are registered
+    assigned_node = None
+    if _mock_nodes:
+        assigned_node = list(_mock_nodes.keys())[0]
+    
+    _mock_tasks[task_id] = {
+        "task_id": task_id,
+        "task_type": task_type,
+        "status": "pending",
+        "assigned_node": assigned_node
+    }
     return {
         "success": True,
-        "task": {
-            "task_id": "task-001",
-            "task_type": task_type,
-            "status": "assigned" if task_type == "ai_training" else "pending",
-            "assigned_node": "worker-node" if task_type == "processing" else None
-        }
+        "task": _mock_tasks[task_id]
     }
 
 
 @router.post("/tasks/report", summary="Report task status")
 async def report_task(request: Request, req: ReportTaskRequest) -> Dict[str, Any]:
     """Report task status update from a node"""
+    if req.task_id in _mock_tasks:
+        _mock_tasks[req.task_id]["status"] = req.status
+        if req.result:
+            _mock_tasks[req.task_id]["result"] = req.result
     return {
         "success": True,
         "status": req.status
@@ -293,6 +313,8 @@ async def report_task(request: Request, req: ReportTaskRequest) -> Dict[str, Any
 @router.get("/tasks/{task_id}", summary="Get task details")
 async def get_task(request: Request, task_id: str) -> Dict[str, Any]:
     """Get task details by ID"""
+    if task_id in _mock_tasks:
+        return _mock_tasks[task_id]
     return {
         "task_id": task_id,
         "task_type": "inference",

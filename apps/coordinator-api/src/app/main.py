@@ -350,14 +350,14 @@ def create_app() -> FastAPI:
     if admin:
         app.include_router(admin, prefix="/v1")
     # Include routers
-    app.include_router(marketplace)
-    app.include_router(marketplace_gpu)
-    app.include_router(marketplace_offers)
-    app.include_router(monitor)
-    app.include_router(miner)
-    app.include_router(agent_router)
-    app.include_router(islands_proxy)
-    app.include_router(cross_chain)
+    app.include_router(marketplace, prefix="/v1")
+    app.include_router(marketplace_gpu, prefix="/v1")
+    app.include_router(marketplace_offers, prefix="/v1")
+    app.include_router(monitor, prefix="/v1")
+    app.include_router(miner, prefix="/v1")
+    app.include_router(agent_router, prefix="/v1")
+    app.include_router(islands_proxy, prefix="/v1")
+    app.include_router(cross_chain, prefix="/v1")
     
     # Include ZK proofs router
     try:
@@ -405,13 +405,13 @@ def create_app() -> FastAPI:
     # Include Hermes router
     try:
         from .routers.hermes import router as hermes_router
-        app.include_router(hermes_router)
+        app.include_router(hermes_router, prefix="/v1")
         logger.info("Hermes router included")
     except Exception as e:
         logger.warning(f"Failed to include Hermes router: {e}")
 
     # Include Swarm router (use top-level import, not inline)
-    app.include_router(swarm)
+    app.include_router(swarm, prefix="/v1")
     logger.info("Swarm router included")
 
     # Include IPFS router (use top-level import, not inline)
@@ -423,11 +423,11 @@ def create_app() -> FastAPI:
     logger.info("Payments router included")
 
     # Include Training router (use top-level import, not inline)
-    app.include_router(training)
+    app.include_router(training, prefix="/v1")
     logger.info("Training router included")
 
     # Include Inference router (use top-level import, not inline)
-    app.include_router(inference)
+    app.include_router(inference, prefix="/v1")
     logger.info("Inference router included")
 
     # Include Governance router
@@ -447,7 +447,7 @@ def create_app() -> FastAPI:
     # Include Training router
     try:
         from .routers.training import router as training_router
-        app.include_router(training_router)
+        app.include_router(training_router, prefix="/v1")
         logger.info("Training router included")
     except Exception as e:
         logger.warning(f"Failed to include Training router: {e}")
