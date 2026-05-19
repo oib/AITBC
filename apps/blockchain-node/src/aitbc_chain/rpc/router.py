@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
+import uuid
 from typing import Any, Dict, Optional, List
 from datetime import datetime, timezone, timedelta
 
@@ -1963,3 +1965,649 @@ async def request_bridge(request: BridgeRequestRequest) -> BridgeRequestResponse
             status="failed",
             message=f"Failed to request bridge to {request.target_island_id} (may already be a member)"
         )
+
+
+@router.get("/accounts/{address}", summary="Get account details")
+@rate_limit(rate=200, per=60)
+async def get_account(
+    request: Request,
+    address: str,
+    chain_id: str = None
+) -> Dict[str, Any]:
+    """
+    Get account details including balance and nonce.
+    
+    Args:
+        address: The account address
+        chain_id: Optional chain ID (defaults to node's chain)
+    
+    Returns:
+        Account details or 404 if not found
+    """
+    chain_id = get_chain_id(chain_id)
+    address = address.lower().strip()
+    
+    with session_scope() as session:
+        account = session.get(Account, (chain_id, address))
+        if not account:
+            raise HTTPException(status_code=404, detail=f"Account {address} not found on chain {chain_id}")
+        
+        return {
+            "success": True,
+            "address": account.address,
+            "chain_id": account.chain_id,
+            "balance": account.balance,
+            "nonce": account.nonce,
+            "updated_at": account.updated_at.isoformat() if account.updated_at else None
+        }
+
+
+@router.post("/register-account", summary="Create/register a new account on the blockchain")
+@rate_limit(rate=100, per=60)
+async def create_account(
+    request: Request,
+    account_data: dict
+) -> Dict[str, Any]:
+    """
+    Create or register a new account on the blockchain.
+    
+    This endpoint allows wallets to register their public keys as accounts
+    on the blockchain, enabling them to send and receive transactions.
+    
+    Args:
+        account_data: Dictionary containing:
+            - address: The account address/public key (hex string)
+            - chain_id: Optional chain ID (defaults to node's chain)
+    
+    Returns:
+        Dictionary with success status and account details
+    """
+    chain_id = get_chain_id(account_data.get("chain_id"))
+    address = account_data.get("address")
+    
+    if not address:
+        raise HTTPException(status_code=400, detail="address is required")
+    
+    # Normalize address (ensure lowercase hex)
+    address = address.lower().strip()
+    if not address.startswith("0x"):
+        address = "0x" + address
+    
+    # Validate address format (should be hex)
+    if not all(c in "0123456789abcdef" for c in address[2:]):
+        raise HTTPException(status_code=400, detail="address must be a valid hex string")
+    
+    with session_scope() as session:
+        # Check if account already exists
+        existing_account = session.get(Account, (chain_id, address))
+        if existing_account:
+            return {
+                "success": True,
+                "address": address,
+                "chain_id": chain_id,
+                "balance": existing_account.balance,
+                "nonce": existing_account.nonce,
+                "created": False,
+                "message": "Account already exists"
+            }
+        
+        # Create new account with zero balance
+        new_account = Account(
+            chain_id=chain_id,
+            address=address,
+            balance=0,
+            nonce=0
+        )
+        session.add(new_account)
+        session.commit()
+        
+        _logger.info(f"Created new account: address={address}, chain_id={chain_id}")
+        
+        return {
+            "success": True,
+            "address": address,
+            "chain_id": chain_id,
+            "balance": 0,
+            "nonce": 0,
+            "created": True,
+            "message": "Account created successfully"
+        }
+
+
+@router.post("/faucet", summary="Request test tokens from faucet")
+@rate_limit(rate=10, per=3600)  # 10 requests per hour per IP
+async def faucet_request(
+    request: Request,
+    faucet_data: dict
+) -> Dict[str, Any]:
+    """
+    Request test tokens from the blockchain faucet.
+    
+    This endpoint allows newly created wallets to receive initial funds
+    for testing and development purposes.
+    
+    Args:
+        faucet_data: Dictionary containing:
+            - address: The account address to fund
+            - amount: Optional amount to request (default: 1000000)
+            - chain_id: Optional chain ID (defaults to node's chain)
+    
+    Returns:
+        Dictionary with success status and transaction details
+    """
+    chain_id = get_chain_id(faucet_data.get("chain_id"))
+    address = faucet_data.get("address")
+    amount = faucet_data.get("amount", 1000000)  # Default 1M units
+    
+    if not address:
+        raise HTTPException(status_code=400, detail="address is required")
+    
+    # Normalize address
+    address = address.lower().strip()
+    if not address.startswith("0x"):
+        address = "0x" + address
+    
+    # Validate address format
+    if not all(c in "0123456789abcdef" for c in address[2:]):
+        raise HTTPException(status_code=400, detail="address must be a valid hex string")
+    
+    # Cap max faucet amount
+    if amount > 10000000:  # Max 10M per request
+        amount = 10000000
+    
+    with session_scope() as session:
+        # Check if account exists
+        account = session.get(Account, (chain_id, address))
+        if not account:
+            # Auto-create account if it doesn't exist
+            account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
+            session.add(account)
+            session.flush()
+            _logger.info(f"Faucet auto-created account: {address}")
+        
+        # Generate faucet transaction (special minting transaction)
+        timestamp = datetime.now(timezone.utc)
+        tx_hash = hashlib.sha256(
+            f"faucet:{address}:{amount}:{timestamp.isoformat()}:{uuid.uuid4()}".encode()
+        ).hexdigest()
+        
+        # Apply balance update directly (faucet is special system tx)
+        account.balance += amount
+        session.add(account)
+        
+        # Create faucet transaction record
+        faucet_tx = Transaction(
+            chain_id=chain_id,
+            tx_hash=tx_hash,
+            sender="faucet",
+            recipient=address,
+            payload={"type": "FAUCET", "amount": amount, "reason": "test_funding"},
+            value=amount,
+            fee=0,
+            nonce=0,
+            timestamp=timestamp,
+            block_height=None,  # Not in a block - direct system tx
+            status="confirmed",
+            type="FAUCET"
+        )
+        session.add(faucet_tx)
+        session.commit()
+        
+        _logger.info(f"Faucet funded {address} with {amount} units on {chain_id}")
+        
+        return {
+            "success": True,
+            "tx_hash": tx_hash,
+            "address": address,
+            "amount": amount,
+            "chain_id": chain_id,
+            "new_balance": account.balance,
+            "message": f"Successfully funded {address} with {amount} units"
+        }
+
+
+@router.post("/bridge/lock", summary="Lock funds for cross-chain transfer")
+@rate_limit(rate=20, per=60)
+async def bridge_lock(
+    request: Request,
+    lock_data: dict
+) -> Dict[str, Any]:
+    """
+    Initiate a cross-chain bridge transfer by locking funds.
+    
+    This is step 1 of the atomic bridge:
+    1. Lock funds on source chain (this endpoint)
+    2. Generate proof
+    3. Confirm on target chain
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+        bridge = get_cross_chain_bridge()
+        
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        
+        source_chain = lock_data.get("source_chain", get_chain_id(None))
+        target_chain = lock_data.get("target_chain")
+        sender = lock_data.get("sender")
+        recipient = lock_data.get("recipient")
+        amount = lock_data.get("amount", 0)
+        asset = lock_data.get("asset", "native")
+        
+        if not all([target_chain, sender, recipient]):
+            raise HTTPException(status_code=400, detail="Missing required fields: target_chain, sender, recipient")
+        
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be positive")
+        
+        # Execute lock
+        transfer = bridge.initiate_transfer(
+            source_chain=source_chain,
+            target_chain=target_chain,
+            sender=sender.lower(),
+            recipient=recipient.lower(),
+            amount=amount,
+            asset=asset
+        )
+        
+        return {
+            "success": True,
+            "transfer_id": transfer.transfer_id,
+            "status": transfer.status.value,
+            "source_chain": source_chain,
+            "target_chain": target_chain,
+            "sender": sender,
+            "recipient": recipient,
+            "amount": amount,
+            "fee": (amount * 10) // 10000,  # 0.1% fee
+            "lock_time": transfer.lock_time.isoformat() if transfer.lock_time else None,
+            "message": "Funds locked successfully. Use /bridge/confirm to complete."
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        _logger.error(f"Bridge lock failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Bridge lock failed: {str(e)}")
+
+
+@router.post("/bridge/confirm", summary="Confirm and release cross-chain transfer")
+@rate_limit(rate=20, per=60)
+async def bridge_confirm(
+    request: Request,
+    confirm_data: dict
+) -> Dict[str, Any]:
+    """
+    Confirm a cross-chain bridge transfer and release funds.
+    
+    This is step 2 of the atomic bridge:
+    1. Validate proof of lock
+    2. Release funds on target chain
+    3. Mark transfer as complete
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+        bridge = get_cross_chain_bridge()
+        
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        
+        transfer_id = confirm_data.get("transfer_id")
+        proof = confirm_data.get("proof")
+        
+        if not transfer_id or not proof:
+            raise HTTPException(status_code=400, detail="Missing required fields: transfer_id, proof")
+        
+        # Execute confirmation
+        transfer = bridge.confirm_transfer(transfer_id, proof)
+        
+        return {
+            "success": True,
+            "transfer_id": transfer.transfer_id,
+            "status": transfer.status.value,
+            "source_chain": transfer.source_chain,
+            "target_chain": transfer.target_chain,
+            "sender": transfer.sender,
+            "recipient": transfer.recipient,
+            "amount": transfer.amount,
+            "target_tx_hash": transfer.target_tx_hash,
+            "confirm_time": transfer.confirm_time.isoformat() if transfer.confirm_time else None,
+            "message": "Cross-chain transfer completed successfully"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        _logger.error(f"Bridge confirm failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Bridge confirm failed: {str(e)}")
+
+
+@router.get("/bridge/transfer/{transfer_id}", summary="Get transfer status")
+@rate_limit(rate=100, per=60)
+async def get_bridge_transfer(
+    request: Request,
+    transfer_id: str
+) -> Dict[str, Any]:
+    """Get the status of a cross-chain transfer"""
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+        bridge = get_cross_chain_bridge()
+        
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        
+        transfer = bridge.get_transfer(transfer_id)
+        if not transfer:
+            raise HTTPException(status_code=404, detail=f"Transfer {transfer_id} not found")
+        
+        return {
+            "success": True,
+            "transfer_id": transfer.transfer_id,
+            "status": transfer.status.value,
+            "source_chain": transfer.source_chain,
+            "target_chain": transfer.target_chain,
+            "sender": transfer.sender,
+            "recipient": transfer.recipient,
+            "amount": transfer.amount,
+            "asset": transfer.asset,
+            "source_tx_hash": transfer.source_tx_hash,
+            "target_tx_hash": transfer.target_tx_hash,
+            "lock_time": transfer.lock_time.isoformat() if transfer.lock_time else None,
+            "confirm_time": transfer.confirm_time.isoformat() if transfer.confirm_time else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Get bridge transfer failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get transfer: {str(e)}")
+
+
+@router.get("/bridge/pending", summary="List pending bridge transfers")
+@rate_limit(rate=50, per=60)
+async def list_pending_transfers(
+    request: Request,
+    chain_id: str = None
+) -> List[Dict[str, Any]]:
+    """List all pending cross-chain transfers"""
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+        bridge = get_cross_chain_bridge()
+        
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        
+        chain_id = get_chain_id(chain_id)
+        transfers = bridge.list_pending_transfers(chain_id)
+        
+        return [
+            {
+                "transfer_id": t.transfer_id,
+                "source_chain": t.source_chain,
+                "target_chain": t.target_chain,
+                "sender": t.sender,
+                "recipient": t.recipient,
+                "amount": t.amount,
+                "status": t.status.value,
+                "lock_time": t.lock_time.isoformat() if t.lock_time else None
+            }
+            for t in transfers
+        ]
+        
+    except Exception as e:
+        _logger.error(f"List pending transfers failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list transfers: {str(e)}")
+
+
+@router.post("/staking/stake", summary="Stake tokens")
+@rate_limit(rate=20, per=60)
+async def stake_tokens(
+    request: Request,
+    stake_data: dict
+) -> Dict[str, Any]:
+    """
+    Stake tokens for consensus participation.
+    
+    Locks tokens for a specified period. Staked tokens earn rewards
+    and provide voting power in consensus.
+    """
+    chain_id = get_chain_id(stake_data.get("chain_id"))
+    address = stake_data.get("address")
+    amount = stake_data.get("amount", 0)
+    lock_days = stake_data.get("lock_days", 30)
+    
+    if not address:
+        raise HTTPException(status_code=400, detail="address is required")
+    
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be positive")
+    
+    # Normalize address
+    address = address.lower().strip()
+    if not address.startswith("0x"):
+        address = "0x" + address
+    
+    with session_scope() as session:
+        # Get account
+        account = session.get(Account, (chain_id, address))
+        if not account:
+            raise HTTPException(status_code=404, detail=f"Account {address} not found")
+        
+        if account.balance < amount:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient balance: {account.balance} < {amount}"
+            )
+        
+        # Lock tokens (deduct from balance)
+        account.balance -= amount
+        session.add(account)
+        
+        # Calculate lock period
+        locked_until = datetime.now(timezone.utc)
+        locked_until = locked_until.replace(day=locked_until.day + lock_days)
+        
+        # Create stake record
+        stake = Stake(
+            chain_id=chain_id,
+            address=address,
+            amount=amount,
+            locked_until=locked_until,
+            status="active"
+        )
+        session.add(stake)
+        session.commit()
+        
+        _logger.info(f"Tokens staked: {address} staked {amount} on {chain_id}")
+        
+        return {
+            "success": True,
+            "stake_id": stake.id,
+            "address": address,
+            "amount": amount,
+            "chain_id": chain_id,
+            "locked_until": locked_until.isoformat(),
+            "status": "active",
+            "remaining_balance": account.balance
+        }
+
+
+@router.post("/staking/unstake", summary="Unstake tokens")
+@rate_limit(rate=10, per=60)
+async def unstake_tokens(
+    request: Request,
+    unstake_data: dict
+) -> Dict[str, Any]:
+    """
+    Unstake tokens after lock period expires.
+    
+    Returns staked tokens to account balance.
+    """
+    chain_id = get_chain_id(unstake_data.get("chain_id"))
+    address = unstake_data.get("address")
+    stake_id = unstake_data.get("stake_id")
+    
+    if not address or not stake_id:
+        raise HTTPException(status_code=400, detail="address and stake_id are required")
+    
+    # Normalize address
+    address = address.lower().strip()
+    if not address.startswith("0x"):
+        address = "0x" + address
+    
+    with session_scope() as session:
+        # Get stake record
+        stake = session.get(Stake, stake_id)
+        if not stake:
+            raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
+        
+        if stake.address != address:
+            raise HTTPException(status_code=403, detail="Not authorized to unstake")
+        
+        if stake.status != "active":
+            raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
+        
+        # Check if lock period expired
+        now = datetime.now(timezone.utc)
+        if stake.locked_until and now < stake.locked_until:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Lock period not expired. Locked until: {stake.locked_until.isoformat()}"
+            )
+        
+        # Return tokens to account
+        account = session.get(Account, (chain_id, address))
+        if not account:
+            # Account was deleted, recreate
+            account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
+            session.add(account)
+        
+        account.balance += stake.amount
+        session.add(account)
+        
+        # Update stake status
+        stake.status = "withdrawn"
+        session.add(stake)
+        session.commit()
+        
+        _logger.info(f"Tokens unstaked: {address} recovered {stake.amount} from stake {stake_id}")
+        
+        return {
+            "success": True,
+            "stake_id": stake_id,
+            "address": address,
+            "amount": stake.amount,
+            "chain_id": chain_id,
+            "new_balance": account.balance,
+            "status": "withdrawn"
+        }
+
+
+@router.get("/staking/{address}", summary="Get staking info")
+@rate_limit(rate=100, per=60)
+async def get_staking_info(
+    request: Request,
+    address: str,
+    chain_id: str = None
+) -> Dict[str, Any]:
+    """Get staking information for an address"""
+    chain_id = get_chain_id(chain_id)
+    address = address.lower().strip()
+    
+    with session_scope() as session:
+        from sqlalchemy import select, func
+        
+        # Get all stakes for address
+        statement = select(Stake).where(
+            Stake.chain_id == chain_id,
+            Stake.address == address
+        )
+        stakes = session.exec(statement).all()
+        
+        total_staked = sum(s.amount for s in stakes if s.status == "active")
+        active_stakes = [
+            {
+                "stake_id": s.id,
+                "amount": s.amount,
+                "locked_until": s.locked_until.isoformat() if s.locked_until else None,
+                "status": s.status,
+                "created_at": s.created_at.isoformat() if s.created_at else None
+            }
+            for s in stakes if s.status == "active"
+        ]
+        
+        return {
+            "success": True,
+            "address": address,
+            "chain_id": chain_id,
+            "total_staked": total_staked,
+            "active_stake_count": len(active_stakes),
+            "active_stakes": active_stakes
+        }
+
+
+@router.get("/balance/{address}", summary="Get detailed balance breakdown")
+@rate_limit(rate=100, per=60)
+async def get_balance_breakdown(
+    request: Request,
+    address: str,
+    chain_id: str = None
+) -> Dict[str, Any]:
+    """
+    Get detailed balance breakdown including:
+    - Available balance
+    - Staked amount
+    - Bridge-locked amount
+    - Total balance
+    """
+    try:
+        from ..services.balance_tracker import get_balance_tracker
+        tracker = get_balance_tracker()
+        
+        if not tracker:
+            raise HTTPException(status_code=503, detail="Balance tracker not initialized")
+        
+        chain_id = get_chain_id(chain_id)
+        address = address.lower().strip()
+        
+        breakdown = tracker.get_balance_breakdown(address, chain_id)
+        return breakdown
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Failed to get balance breakdown: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get balance: {str(e)}")
+
+
+@router.get("/balance/{address}/reconcile", summary="Reconcile balance")
+@rate_limit(rate=20, per=60)
+async def reconcile_balance(
+    request: Request,
+    address: str,
+    chain_id: str = None
+) -> Dict[str, Any]:
+    """
+    Reconcile account balance against all recorded operations.
+    
+    Verifies that current balance matches expected balance
+    based on all transactions, stakes, and bridge operations.
+    """
+    try:
+        from ..services.balance_tracker import get_balance_tracker
+        tracker = get_balance_tracker()
+        
+        if not tracker:
+            raise HTTPException(status_code=503, detail="Balance tracker not initialized")
+        
+        chain_id = get_chain_id(chain_id)
+        address = address.lower().strip()
+        
+        result = tracker.reconcile_balance(address, chain_id)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Balance reconciliation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Reconciliation failed: {str(e)}")
