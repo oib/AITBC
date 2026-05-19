@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from typing import Annotated, Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
@@ -265,3 +266,84 @@ async def deregister_miner(
     except Exception as e:
         logger.error(f"Error deregistering miner: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.post("/miners/{miner_id}/jobs/{job_id}/fail", summary="Report job failure")
+@rate_limit(rate=50, per=60)
+async def fail_job(
+    request: Request,
+    miner_id: str,
+    job_id: str,
+    fail_req: FailJobRequest,
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    api_key: str = Depends(require_miner_key()),
+) -> dict[str, str]:
+    """Report job failure"""
+    try:
+        job_service = JobService(session)
+        job_service.fail_job(job_id, fail_req.error_message)
+        return {"job_id": job_id, "status": "failed"}
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+    except Exception as e:
+        logger.error(f"Error failing job {job_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+class CompleteJobRequest(BaseModel):
+    output: Dict[str, Any]
+    receipt: Optional[Dict[str, Any]] = None
+
+
+@router.post("/miners/{miner_id}/jobs/{job_id}/complete", summary="Complete job execution")
+@rate_limit(rate=50, per=60)
+async def complete_job(
+    request: Request,
+    miner_id: str,
+    job_id: str,
+    complete_req: CompleteJobRequest,
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    api_key: str = Depends(require_miner_key()),
+) -> dict[str, Any]:
+    """
+    Complete a job by submitting execution results.
+    
+    This endpoint allows miners to submit the results of AI job execution,
+    including the output and a verification receipt.
+    """
+    try:
+        job_service = JobService(session)
+        
+        # Build result dictionary
+        result = {
+            "output": complete_req.output,
+            "receipt": complete_req.receipt or {}
+        }
+        
+        # Execute job completion (updates state to completed)
+        job = job_service.execute_job(job_id, result)
+        
+        logger.info(f"Job {job_id} completed by miner {miner_id}", extra={
+            "job_id": job_id,
+            "miner_id": miner_id,
+            "output_size": len(str(complete_req.output))
+        })
+        
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "state": job.state.value,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "receipt_hash": complete_req.receipt.get("hash", "")[:16] if complete_req.receipt else None
+        }
+        
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error completing job {job_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.put("/miners/{miner_id}/capabilities", summary="Update miner capabilities")

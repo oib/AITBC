@@ -202,3 +202,54 @@ class JobService:
                 return False
 
         return True
+
+    def execute_job(self, job_id: str, result: Dict[str, Any]) -> Job:
+        """
+        Execute a job and store results.
+        
+        This method processes the actual AI work and updates the job state.
+        """
+        try:
+            statement = select(Job).where(Job.id == job_id)
+            job = self.session.scalars(statement).first()
+            
+            if not job:
+                raise ValueError(f"Job {job_id} not found")
+            
+            if job.state != JobState.running:
+                raise ValueError(f"Job {job_id} is not in running state")
+            
+            # Update job with results
+            job.state = JobState.completed
+            job.result = result.get("output")
+            job.receipt = result.get("receipt")
+            job.completed_at = datetime.now()
+            
+            self.session.add(job)
+            self.session.commit()
+            self.session.refresh(job)
+            
+            logger.info(f"Job {job_id} executed successfully", extra={
+                "job_id": job_id,
+                "result_size": len(str(result)) if result else 0
+            })
+            
+            return job
+            
+        except Exception as e:
+            logger.error(f"Failed to execute job {job_id}: {e}")
+            self.session.rollback()
+            
+            # Mark job as failed
+            try:
+                statement = select(Job).where(Job.id == job_id)
+                job = self.session.scalars(statement).first()
+                if job:
+                    job.state = JobState.failed
+                    job.error = str(e)
+                    self.session.add(job)
+                    self.session.commit()
+            except Exception:
+                pass
+                
+            raise

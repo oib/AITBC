@@ -132,3 +132,26 @@ class WalletMigrationResponse(BaseModel):
     source_wallet: WalletDescriptor
     target_wallet: WalletDescriptor
     migration_timestamp: str
+
+
+class WalletTransactionRequest(BaseModel):
+    """Request to send a transaction from a wallet"""
+    password: str
+    recipient: str
+    amount: int
+    fee: int = 1000
+    nonce: Optional[int] = None
+    chain_id: Optional[str] = None
+    payload: Optional[Dict[str, Any]] = None
+
+
+class WalletTransactionResponse(BaseModel):
+    """Response after submitting a transaction"""
+    success: bool
+    tx_hash: str
+    status: str
+    sender: str
+    recipient: str
+    amount: int
+    fee: int
+    nonce: int

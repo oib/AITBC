@@ -345,6 +345,131 @@ def create_app() -> FastAPI:
     app.include_router(client, prefix="/v1")
     if admin:
         app.include_router(admin, prefix="/v1")
+    # Include routers
+    app.include_router(router)
+    app.include_router(marketplace_router)
+    app.include_router(health_router)
+    app.include_router(miner_router)
+    app.include_router(agents_router)
+    app.include_router(islands_proxy_router)
+    app.include_router(cross_chain_router)
+    
+    # Include ZK proofs router
+    try:
+        from .routers.zk_proofs import router as zk_proofs_router
+        app.include_router(zk_proofs_router)
+        logger.info("ZK proofs router included")
+    except Exception as e:
+        logger.warning(f"Failed to include ZK proofs router: {e}")
+    
+    # Include FHE router
+    try:
+        from .routers.fhe import router as fhe_router
+        app.include_router(fhe_router)
+        logger.info("FHE router included")
+    except Exception as e:
+        logger.warning(f"Failed to include FHE router: {e}")
+    
+    # Include Oracle router
+    try:
+        from .routers.oracle import router as oracle_router
+        app.include_router(oracle_router)
+        logger.info("Oracle router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Oracle router: {e}")
+    
+    # Include Disputes router
+    try:
+        from .routers.disputes import router as disputes_router
+        app.include_router(disputes_router)
+        logger.info("Disputes router included")
+        
+        # Initialize dispute service
+        from .services.dispute_resolution import init_dispute_service
+        from .database import get_session
+        init_dispute_service(get_session)
+        logger.info("Dispute resolution service initialized")
+    except Exception as e:
+        logger.warning(f"Failed to include disputes router: {e}")
+
+    # Include Portfolio router
+    try:
+        from .routers.portfolio import router as portfolio_router
+        app.include_router(portfolio_router)
+        logger.info("Portfolio router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Portfolio router: {e}")
+    
+    # Include Bounty router
+    try:
+        from .routers.bounty import router as bounty_router
+        app.include_router(bounty_router)
+        logger.info("Bounty router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Bounty router: {e}")
+    
+    # Include Hermes router
+    try:
+        from .routers.hermes import router as hermes_router
+        app.include_router(hermes_router)
+        logger.info("Hermes router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Hermes router: {e}")
+    
+    # Include Swarm router
+    try:
+        from .routers.swarm import router as swarm_router
+        app.include_router(swarm_router)
+        logger.info("Swarm router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Swarm router: {e}")
+    
+    # Include IPFS router
+    try:
+        from .routers.ipfs import router as ipfs_router
+        app.include_router(ipfs_router)
+        logger.info("IPFS router included")
+    except Exception as e:
+        logger.warning(f"Failed to include IPFS router: {e}")
+    
+    # Include Payments router
+    try:
+        from .routers.payments import router as payments_router
+        app.include_router(payments_router)
+        logger.info("Payments router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Payments router: {e}")
+    
+    # Include Governance router
+    try:
+        from .routers.governance import router as governance_router
+        app.include_router(governance_router)
+        logger.info("Governance router included")
+        
+        # Initialize governance service
+        from .services.governance_service import init_governance_service
+        from .database import get_session
+        init_governance_service(get_session)
+        logger.info("Governance service initialized")
+    except Exception as e:
+        logger.warning(f"Failed to include governance router: {e}")
+    
+    # Include Training router
+    try:
+        from .routers.training import router as training_router
+        app.include_router(training_router)
+        logger.info("Training router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Training router: {e}")
+    
+    # Include Inference router
+    try:
+        from .routers.inference import router as inference_router
+        app.include_router(inference_router)
+        logger.info("Inference router included")
+    except Exception as e:
+        logger.warning(f"Failed to include Inference router: {e}")
+
     app.include_router(marketplace, prefix="/v1")
     app.include_router(marketplace_gpu, prefix="/v1")
     app.include_router(explorer, prefix="/v1")

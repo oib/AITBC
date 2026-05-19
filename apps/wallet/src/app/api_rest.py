@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -34,6 +34,8 @@ from .models import (
     ChainCreateResponse,
     WalletMigrationRequest,
     WalletMigrationResponse,
+    WalletTransactionRequest,
+    WalletTransactionResponse,
     from_validation_result,
 )
 from .keystore.persistent_service import PersistentKeystoreService
@@ -214,6 +216,141 @@ def sign_payload(
     if ledger_record := ledger.get_wallet(wallet_id):
         chain_id = ledger_record.metadata.get("chain_id", "ait-mainnet") if isinstance(ledger_record.metadata, dict) else "ait-mainnet"
     return WalletSignResponse(wallet_id=wallet_id, chain_id=chain_id, signature_base64=signature_b64)
+
+
+@router.post("/wallets/{wallet_id}/send", response_model=WalletTransactionResponse, summary="Send transaction")
+@rate_limit(rate=20, per=60)
+def send_transaction(
+    request: Request,
+    wallet_id: str,
+    tx_request: WalletTransactionRequest,
+    keystore: PersistentKeystoreService = Depends(get_keystore),
+    ledger: SQLiteLedgerAdapter = Depends(get_ledger),
+) -> WalletTransactionResponse:
+    """
+    Sign and submit a transaction to the blockchain.
+    
+    This endpoint creates, signs, and broadcasts a real transaction
+    using the wallet's private key.
+    """
+    try:
+        ip_address = request.client.host if request.client else "unknown"
+        
+        # Call the keystore to sign and submit
+        result = keystore.sign_and_submit_transaction(
+            wallet_id=wallet_id,
+            password=tx_request.password,
+            recipient=tx_request.recipient,
+            amount=tx_request.amount,
+            fee=tx_request.fee,
+            nonce=tx_request.nonce,
+            chain_id=tx_request.chain_id,
+            payload=tx_request.payload,
+            ip_address=ip_address
+        )
+        
+        if not result.get("success"):
+            error_msg = result.get("error", "Transaction failed")
+            logger.warning("Transaction submission failed", extra={
+                "wallet_id": wallet_id,
+                "error": error_msg
+            })
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+        
+        logger.info("Transaction submitted successfully", extra={
+            "wallet_id": wallet_id,
+            "tx_hash": result.get("tx_hash"),
+            "recipient": result.get("recipient")
+        })
+        
+        return WalletTransactionResponse(
+            success=True,
+            tx_hash=result.get("tx_hash", ""),
+            status=result.get("status", "pending"),
+            sender=result.get("sender", ""),
+            recipient=result.get("recipient", ""),
+            amount=result.get("amount", 0),
+            fee=result.get("fee", 0),
+            nonce=result.get("nonce", 0)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error in transaction submission", extra={
+            "wallet_id": wallet_id,
+            "error": str(exc)
+        })
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+
+@router.post("/wallets/{wallet_id}/faucet", response_model=WalletTransactionResponse, summary="Request faucet funds")
+@rate_limit(rate=5, per=3600)  # 5 requests per hour
+async def faucet_request(
+    request: Request,
+    wallet_id: str,
+    keystore: PersistentKeystoreService = Depends(get_keystore),
+) -> WalletTransactionResponse:
+    """
+    Request test tokens from the blockchain faucet.
+    
+    This endpoint funds a newly created wallet with test tokens
+    for development and testing purposes.
+    """
+    try:
+        ip_address = request.client.host if request.client else "unknown"
+        
+        # Get wallet public key
+        record = keystore.get_wallet(wallet_id)
+        if not record:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wallet not found")
+        
+        address = record.public_key
+        
+        # Call blockchain faucet
+        import httpx
+        from .settings import settings
+        
+        rpc_url = settings.blockchain_rpc_url
+        response = httpx.post(
+            f"{rpc_url}/rpc/faucet",
+            json={"address": address, "amount": 1000000},
+            timeout=30.0
+        )
+        response.raise_for_status()
+        result = response.json()
+        
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get("message", "Faucet request failed")
+            )
+        
+        logger.info("Faucet funding successful", extra={
+            "wallet_id": wallet_id,
+            "address": address,
+            "amount": result.get("amount", 0)
+        })
+        
+        return WalletTransactionResponse(
+            success=True,
+            tx_hash=result.get("tx_hash", ""),
+            status="confirmed",
+            sender="faucet",
+            recipient=address,
+            amount=result.get("amount", 0),
+            fee=0,
+            nonce=0
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Faucet request failed", extra={
+            "wallet_id": wallet_id,
+            "error": str(exc)
+        })
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 
 
 # Multi-Chain Endpoints - Temporarily disabled due to missing chain manager dependencies
