@@ -1,0 +1,44 @@
+# Apache configuration for agent endpoints
+# Enable CORS for agent access
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Accept"
+
+# Set JSON content type for .json files
+<FilesMatch "\.json$">
+    ForceType application/json
+    Header always set Content-Type "application/json"
+</FilesMatch>
+
+# Cache control - short cache for dynamic content
+<FilesMatch "discovery\.json$">
+    Header always set Cache-Control "max-age=60, must-revalidate"
+</FilesMatch>
+
+<FilesMatch "islands\.json$">
+    Header always set Cache-Control "max-age=30, must-revalidate"
+</FilesMatch>
+
+<FilesMatch "chains\.json$">
+    Header always set Cache-Control "max-age=60, must-revalidate"
+</FilesMatch>
+
+# Longer cache for static content
+<FilesMatch "openapi\.json$">
+    Header always set Cache-Control "max-age=3600"
+</FilesMatch>
+
+<FilesMatch "join/.*\.json$">
+    Header always set Cache-Control "max-age=3600"
+</FilesMatch>
+
+# Disable caching for health endpoint
+<FilesMatch "health$">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+</FilesMatch>
+
+# Enable rewrite engine for clean URLs
+RewriteEngine On
+
+# Redirect /agent to /agent/ (add trailing slash)
+RewriteRule ^/agent$ /agent/ [R=301,L]

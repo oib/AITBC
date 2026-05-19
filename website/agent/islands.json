@@ -1,0 +1,103 @@
+{
+  "islands": [
+    {
+      "island_id": "ait-mainnet-island",
+      "island_name": "AIT Mainnet",
+      "chain_id": "ait-mainnet",
+      "status": "active",
+      "role": "hub",
+      "chain_info": {
+        "block_time": 5,
+        "consensus": "proof_of_authority",
+        "network_id": 1337,
+        "genesis_timestamp": "2026-05-19T14:44:44.174290"
+      },
+      "endpoints": {
+        "rpc": [
+          {
+            "url": "http://aitbc:8006",
+            "node_id": "aitbc",
+            "role": "hub"
+          },
+          {
+            "url": "http://aitbc1:8006",
+            "node_id": "aitbc1",
+            "role": "follower"
+          }
+        ],
+        "p2p": [
+          {
+            "address": "aitbc:7070",
+            "node_id": "aitbc"
+          },
+          {
+            "address": "aitbc1:7070",
+            "node_id": "aitbc1"
+          }
+        ]
+      },
+      "this_node": {
+        "node_id": "aitbc",
+        "role": "hub",
+        "is_hub": true,
+        "block_production_chains": ["ait-mainnet"],
+        "enable_block_production": true
+      }
+    },
+    {
+      "island_id": "ait-testnet-island",
+      "island_name": "AIT Testnet",
+      "chain_id": "ait-testnet",
+      "status": "active",
+      "role": "follower",
+      "chain_info": {
+        "block_time": 5,
+        "consensus": "proof_of_authority",
+        "network_id": 1337,
+        "genesis_timestamp": "2025-01-01T00:00:00"
+      },
+      "endpoints": {
+        "rpc": [
+          {
+            "url": "http://aitbc:8006",
+            "node_id": "aitbc",
+            "role": "follower"
+          },
+          {
+            "url": "http://aitbc1:8006",
+            "node_id": "aitbc1",
+            "role": "hub"
+          }
+        ],
+        "p2p": [
+          {
+            "address": "aitbc:7070",
+            "node_id": "aitbc"
+          },
+          {
+            "address": "aitbc1:7070",
+            "node_id": "aitbc1"
+          }
+        ]
+      },
+      "sync_source": {
+        "host": "aitbc1",
+        "port": 8006,
+        "rpc_url": "http://aitbc1:8006"
+      },
+      "this_node": {
+        "node_id": "aitbc",
+        "role": "follower",
+        "is_hub": false,
+        "block_production_chains": [],
+        "enable_block_production": false
+      }
+    }
+  ],
+  "_meta": {
+    "generated_at": "2026-05-19T15:50:00Z",
+    "format_version": "1.0",
+    "total_islands": 2,
+    "active_islands": 2
+  }
+}

@@ -16,6 +16,39 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://aitbc.bubuit.net">
     <meta name="twitter:card" content="summary_large_image">
+    <!-- Agent Discovery -->
+    <link rel="alternate" type="application/json" href="/agent/discovery.json" title="AITBC Network Discovery for Agents">
+    <!-- Structured Data for Agent Discovery -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "AITBC Network",
+      "url": "https://aitbc.bubuit.net",
+      "description": "AI-powered blockchain platform with multi-island architecture",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://aitbc.bubuit.net/agent/discovery.json",
+        "query-input": "required"
+      },
+      "subjectOf": {
+        "@type": "SoftwareApplication",
+        "name": "AITBC Blockchain Node",
+        "applicationCategory": "BlockchainApplication",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "Multi-island architecture",
+          "PoA consensus",
+          "Agent-first API",
+          "Auto-discovery"
+        ]
+      }
+    }
+    </script>
     <!-- Performance optimization: resource hints -->
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="dns-prefetch" href="//aitbc.bubuit.net">
@@ -50,6 +83,7 @@
                 <a href="/marketplace/" class="global-nav__link">Marketplace</a>
                 <a href="/Exchange/" class="global-nav__link">Exchange</a>
                 <a href="/docs/index.html" class="global-nav__link">Docs</a>
+                <a href="/agent/" class="global-nav__link">Agent API</a>
             </nav>
             <div class="global-header__actions">
                 <button onclick="toggleDarkMode()" class="global-dark-toggle" title="Toggle dark mode">
