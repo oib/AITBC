@@ -6,7 +6,7 @@ This module provides a client for interacting with the AITBC wallet daemon.
 import sys
 import json
 import base64
-from typing import Dict, Any, Optional, List
+from typing import TYPE_CHECKING, Dict, Any, Optional, List
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -14,6 +14,9 @@ from aitbc import AITBCHTTPClient, NetworkError
 
 sys.path.insert(0, "/opt/aitbc/cli")
 from utils import error, success
+
+if TYPE_CHECKING:
+    from core.config import Config
 
 
 @dataclass
@@ -62,7 +65,7 @@ class WalletMigrationResult:
 class WalletDaemonClient:
     """Client for interacting with AITBC wallet daemon"""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: "Config"):
         self.config = config
         self.base_url = config.wallet_url.rstrip('/')
         self.timeout = getattr(config, 'timeout', 30)
