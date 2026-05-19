@@ -5,6 +5,7 @@ on:
     branches: [main, develop]
     paths:
       - 'cli/**'
+      - 'tests/cli-test-*.sh'
       - 'pyproject.toml'
       - '.gitea/workflows/cli-level1-tests.yml'
   pull_request:
@@ -79,6 +80,28 @@ jobs:
           fi
 
           echo "✅ CLI tests completed"
+
+      - name: Run /v1 prefix verification
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          if [[ -f "tests/cli-test-v1-prefix.sh" ]]; then
+            bash tests/cli-test-v1-prefix.sh
+            echo "✅ /v1 prefix verification completed"
+          else
+            echo "⚠️ /v1 prefix verification script not found"
+          fi
+
+      - name: Run CLI command tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          if [[ -f "tests/cli-test-commands.sh" ]]; then
+            bash tests/cli-test-commands.sh
+            echo "✅ CLI command tests completed"
+          else
+            echo "⚠️ CLI command tests script not found"
+          fi
 
       - name: Cleanup
         if: always()

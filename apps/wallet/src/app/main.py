@@ -23,8 +23,8 @@ def create_app() -> FastAPI:
         per=60
     )
     
-    app.include_router(receipts_router)
-    app.include_router(jsonrpc_router)
+    app.include_router(receipts_router, prefix="/v1")
+    app.include_router(jsonrpc_router, prefix="/v1")
     
     # Add health check endpoint
     @app.get("/health")

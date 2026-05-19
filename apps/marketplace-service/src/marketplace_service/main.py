@@ -91,7 +91,7 @@ async def live() -> dict[str, str]:
     return {"status": "alive", "service": "marketplace-service"}
 
 
-@app.get("/marketplace/status")
+@app.get("/v1/marketplace/status")
 async def marketplace_status() -> dict[str, str]:
     """Get marketplace status"""
     return {

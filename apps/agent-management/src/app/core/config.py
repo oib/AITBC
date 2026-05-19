@@ -54,7 +54,7 @@ class ServiceSettings(BaseSettings):
     database: DatabaseConfig = DatabaseConfig()
 
     # API
-    api_prefix: str = "/api/v1"
+    api_prefix: str = "/v1"
 
     # Feature flags
     enable_metrics: bool = True

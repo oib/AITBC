@@ -21,9 +21,9 @@ def handle_pool_hub_sla_metrics(args):
         
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
         if miner_id:
-            metrics = http_client.get(f"/sla/metrics/{miner_id}")
+            metrics = http_client.get(f"/v1/sla/metrics/{miner_id}")
         else:
-            metrics = http_client.get("/sla/metrics")
+            metrics = http_client.get("/v1/sla/metrics")
         
         print(" SLA Metrics:")
         for key, value in metrics.items():
@@ -47,7 +47,7 @@ def handle_pool_hub_sla_violations(args):
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
-        violations = http_client.get("/sla/violations")
+        violations = http_client.get("/v1/sla/violations")
         
         print("⚠️  SLA Violations:")
         for v in violations:
@@ -72,7 +72,7 @@ def handle_pool_hub_capacity_snapshots(args):
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
-        snapshots = http_client.get("/sla/capacity/snapshots")
+        snapshots = http_client.get("/v1/sla/capacity/snapshots")
         
         print("📊 Capacity Snapshots:")
         for s in snapshots:
@@ -97,7 +97,7 @@ def handle_pool_hub_capacity_forecast(args):
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
-        forecast = http_client.get("/sla/capacity/forecast")
+        forecast = http_client.get("/v1/sla/capacity/forecast")
         
         print("🔮 Capacity Forecast:")
         for key, value in forecast.items():
@@ -122,7 +122,7 @@ def handle_pool_hub_capacity_recommendations(args):
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
-        recommendations = http_client.get("/sla/capacity/recommendations")
+        recommendations = http_client.get("/v1/sla/capacity/recommendations")
         
         print("💡 Capacity Recommendations:")
         for r in recommendations:
@@ -147,7 +147,7 @@ def handle_pool_hub_billing_usage(args):
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
-        usage = http_client.get("/sla/billing/usage")
+        usage = http_client.get("/v1/sla/billing/usage")
         
         print("💰 Billing Usage:")
         for key, value in usage.items():
@@ -171,7 +171,7 @@ def handle_pool_hub_billing_sync(args):
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=60)
-        result = http_client.post("/sla/billing/sync")
+        result = http_client.post("/v1/sla/billing/sync")
         
         print("🔄 Billing sync triggered")
         print(f"✅ {result.get('message', 'Success')}")
@@ -194,7 +194,7 @@ def handle_pool_hub_collect_metrics(args):
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=60)
-        result = http_client.post("/sla/metrics/collect")
+        result = http_client.post("/v1/sla/metrics/collect")
         
         print("📊 SLA metrics collection triggered")
         print(f"✅ {result.get('message', 'Success')}")

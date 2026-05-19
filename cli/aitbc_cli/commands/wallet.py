@@ -121,7 +121,8 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daem
     
     # Initialize dual-mode adapter
     import sys
-    sys.path.insert(0, '/opt/aitbc/cli')
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
     
     config = get_config()
