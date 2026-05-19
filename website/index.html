@@ -1,373 +1,293 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AITBC - Production-Ready AI Blockchain Platform</title>
-    <meta name="description" content="AITBC - Production-ready AI blockchain platform with 7 live components, 30+ GPU services, and Stage 7 complete">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <link rel="preconnect" href="https://aitbc.bubuit.net">
-    <link rel="dns-prefetch" href="//aitbc.bubuit.net">
-    <meta name="theme-color" content="#2563eb">
-    <meta property="og:title" content="AITBC - Production-Ready AI Blockchain Platform">
-    <meta property="og:description" content="Production-ready AI blockchain platform with 7 live components, 30+ GPU services">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://aitbc.bubuit.net">
-    <meta name="twitter:card" content="summary_large_image">
-    <!-- Agent Discovery -->
-    <link rel="alternate" type="application/json" href="/agent/discovery.json" title="AITBC Network Discovery for Agents">
-    <!-- Structured Data for Agent Discovery -->
+    <title>AITBC Network - Agent Discovery Interface</title>
+    <meta name="description" content="AITBC blockchain network - Agent-first API for autonomous systems. Multi-island architecture with PoA consensus.">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Agent Discovery Links -->
+    <link rel="alternate" type="application/json" href="/agent/discovery.json" title="AITBC Network Discovery">
+    <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
+    
+    <!-- Structured Data for AI/Agent Crawlers -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "AITBC Network",
-      "url": "https://aitbc.bubuit.net",
-      "description": "AI-powered blockchain platform with multi-island architecture",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "https://aitbc.bubuit.net/agent/discovery.json",
-        "query-input": "required"
+      "@type": "SoftwareApplication",
+      "name": "AITBC Blockchain Network",
+      "applicationCategory": "BlockchainApplication",
+      "operatingSystem": "Linux",
+      "programmingLanguage": "Python",
+      "license": "https://github.com/oib/AITBC/blob/main/LICENSE",
+      "codeRepository": "https://github.com/oib/AITBC",
+      "featureList": [
+        "Multi-island blockchain architecture",
+        "Proof-of-Authority consensus",
+        "Agent-first REST API",
+        "Auto-discovery endpoints",
+        "Cross-island communication",
+        "GPU marketplace integration"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
       },
-      "subjectOf": {
-        "@type": "SoftwareApplication",
-        "name": "AITBC Blockchain Node",
-        "applicationCategory": "BlockchainApplication",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        },
-        "featureList": [
-          "Multi-island architecture",
-          "PoA consensus",
-          "Agent-first API",
-          "Auto-discovery"
-        ]
-      }
+      "hasPart": [
+        {
+          "@type": "WebAPI",
+          "name": "AITBC Agent API",
+          "description": "Machine-readable API for autonomous agents",
+          "documentation": "https://aitbc.bubuit.net/agent/openapi.json",
+          "endpointUrl": "https://aitbc.bubuit.net/agent/discovery.json"
+        }
+      ]
     }
     </script>
-    <!-- Performance optimization: resource hints -->
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="dns-prefetch" href="//aitbc.bubuit.net">
-    <link rel="dns-prefetch" href="//github.com">
-        <style>
-        /* Critical CSS for above-the-fold content */
-        :root{--primary-color:#2563eb;--secondary-color:#7c3aed;--accent-color:#0ea5e9;--text-dark:#1f2937;--bg-white:#ffffff;--gradient:linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)}[data-theme="dark"]{--primary-color:#60a5fa;--secondary-color:#a855f7;--accent-color:#38bdf8;--text-dark:#f9fafb;--bg-white:#1f2937;--gradient:linear-gradient(135deg,#1d4ed8 0%,#7c3aed 100%)}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;line-height:1.6;color:var(--text-dark);background-color:var(--bg-light);transition:background-color .3s ease,color .3s ease}.container{max-width:1200px;margin:0 auto;padding:0 20px}.hero{background:var(--gradient);color:#fff;padding:100px 0 80px;text-align:center}.hero h1{font-size:3.5rem;margin-bottom:1rem;animation:fadeInUp .8s ease}.hero p{font-size:1.25rem;margin-bottom:2rem;opacity:.9;animation:fadeInUp .8s ease .2s both}.cta-button{display:inline-block;padding:12px 30px;background:var(--bg-white);color:var(--primary-color);text-decoration:none;border-radius:5px;font-weight:600;transition:transform .3s,box-shadow .3s;animation:fadeInUp .8s ease .4s both}.cta-button:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,.1)}@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}@media (max-width:768px){.hero h1{font-size:2.5rem}}
+    
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --text: #e4e4e7;
+            --text-muted: #71717a;
+            --primary: #3b82f6;
+            --secondary: #8b5cf6;
+            --border: #27272a;
+            --success: #10b981;
+            --code: #18181b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Courier New', monospace;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            font-size: 1.8rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .badge {
+            display: inline-block;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--success);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-left: 1rem;
+            vertical-align: middle;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            font-size: 1.1rem;
+            color: var(--secondary);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        h3 {
+            font-size: 0.95rem;
+            color: var(--primary);
+            margin: 1rem 0 0.5rem;
+        }
+        p {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+        .endpoint {
+            background: var(--code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 0.75rem 0;
+            font-family: 'Courier New', monospace;
+        }
+        .method {
+            color: var(--success);
+            font-weight: bold;
+        }
+        .path {
+            color: var(--text);
+        }
+        a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            transition: background 0.2s;
+        }
+        .github-link:hover {
+            background: var(--border);
+            text-decoration: none;
+        }
+        .code-block {
+            background: var(--code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        .meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
     </style>
-    <link rel="preload" href="/assets/css/font-awesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="/assets/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/assets/css/font-awesome.min.css"><link rel="stylesheet" href="/assets/css/main.css"></noscript>
-    <link rel="stylesheet" href="/assets/css/site-header.css">
-    <!-- Font Awesome CDN fallback -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" media="print" onload="this.media='all'; this.onload=null;">
 </head>
 <body>
-    <!-- Header -->
-    <header class="global-header">
-        <div class="global-header__inner">
-            <a class="global-brand" href="/">
-                <div class="global-brand__icon">
-                    <i class="fas fa-cube"></i>
-                </div>
-                <div class="global-brand__text">
-                    <span>AITBC Platform</span>
-                    <small>AI Blockchain Network</small>
-                </div>
-            </a>
-            <nav class="global-nav">
-                <a href="/" class="global-nav__link active">Home</a>
-                <a href="/explorer/" class="global-nav__link">Explorer</a>
-                <a href="/marketplace/" class="global-nav__link">Marketplace</a>
-                <a href="/Exchange/" class="global-nav__link">Exchange</a>
-                <a href="/docs/index.html" class="global-nav__link">Docs</a>
-                <a href="/agent/" class="global-nav__link">Agent API</a>
-            </nav>
-            <div class="global-header__actions">
-                <button onclick="toggleDarkMode()" class="global-dark-toggle" title="Toggle dark mode">
-                    <span id="darkModeEmoji">🌙</span>
-                    <span id="darkModeText">Dark</span>
-                </button>
-                <a href="/marketplace/" class="global-nav__cta">Launch Marketplace</a>
-            </div>
-        </div>
-    </header>
+    <div class="container">
+        <header>
+            <h1>AITBC Network <span class="badge">Agent API</span></h1>
+            <p class="subtitle">Autonomous agent discovery interface for the AI-powered blockchain network</p>
+        </header>
 
-    <!-- Hero Section -->
-    <section class="hero" id="hero">
-        <div class="container">
-            <h1>Production-Ready AI Blockchain Platform</h1>
-            <p>7 Live Components • 30+ GPU Services • Stage 11 Complete</p>
-            <a href="#features" class="cta-button">Explore Features</a>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="features" id="features">
-        <div class="container">
-            <h2 class="section-title">Platform Components</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-cube"></i>
-                    </div>
-                    <h3>Blockchain Node</h3>
-                    <p>PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.</p>
-                    <a href="docs/blockchain-node.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-server"></i>
-                    </div>
-                    <h3>Coordinator API</h3>
-                    <p>FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.</p>
-                    <a href="docs/coordinator-api.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-store"></i>
-                    </div>
-                    <h3>Marketplace Web</h3>
-                    <p>Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.</p>
-                    <a href="docs/marketplace-web.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <h3>Explorer Web</h3>
-                    <p>Full-featured blockchain explorer with blocks, transactions, addresses, and receipts tracking. Responsive design with live data.</p>
-                    <a href="docs/explorer-web.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-wallet"></i>
-                    </div>
-                    <h3>Wallet Daemon</h3>
-                    <p>Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.</p>
-                    <a href="docs/wallet-daemon.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-exchange-alt"></i>
-                    </div>
-                    <h3>Trade Exchange</h3>
-                    <p>Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.</p>
-                    <a href="docs/trade-exchange.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-swimming-pool"></i>
-                    </div>
-                    <h3>Pool Hub</h3>
-                    <p>Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.</p>
-                    <a href="docs/pool-hub.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Architecture Section -->
-    <section class="architecture" id="architecture">
-        <div class="container">
-            <h2 class="section-title">Architecture</h2>
-            <div class="architecture-grid">
-                <div class="arch-component">
-                    <i class="fas fa-server"></i>
-                    <h3>Coordinator API</h3>
-                    <p>Central coordination layer for marketplace operations</p>
-                </div>
-                <div class="arch-component">
-                    <i class="fas fa-link"></i>
-                    <h3>Blockchain Node</h3>
-                    <p>Hybrid PoA/PoS consensus with fast finality</p>
-                </div>
-                <div class="arch-component">
-                    <i class="fas fa-cube"></i>
-                    <h3>GPU Providers</h3>
-                    <p>Decentralized compute network for AI workloads</p>
-                </div>
-                <div class="arch-component">
-                    <i class="fas fa-wallet"></i>
-                    <h3>Wallet Daemon</h3>
-                    <p>Secure wallet management and transaction signing</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Stats Section -->
-    <section class="stats">
-        <div class="container">
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <h3>100,000+</h3>
-                    <p>Transactions Per Second</p>
-                </div>
-                <div class="stat-item">
-                    <h3>&lt;1s</h3>
-                    <p>Finality Time</p>
-                </div>
-                <div class="stat-item">
-                    <h3>64</h3>
-                    <p>Shard Chains</p>
-                </div>
-                <div class="stat-item">
-                    <h3>95%</h3>
-                    <p>Energy Reduction vs PoW</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Documentation Section -->
-    <section class="documentation" id="documentation">
-        <div class="container">
-            <h2 class="section-title">Documentation</h2>
-            <p class="section-subtitle">Choose your reader level for tailored documentation</p>
+        <div class="card">
+            <h2>What is AITBC?</h2>
+            <p>AITBC is an AI-powered blockchain platform with a multi-island architecture. It provides a <strong>Proof-of-Authority consensus mechanism</strong> designed for autonomous agents and distributed systems.</p>
             
-            <div class="docs-grid">
-                <div class="doc-card">
-                    <div class="doc-icon">
-                        <i class="fas fa-hammer"></i>
-                    </div>
-                    <h3>Miners</h3>
-                    <p>Learn mining, staking, and earning rewards</p>
-                    <a href="docs/miners.html" class="doc-link">Miner Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                
-                <div class="doc-card">
-                    <div class="doc-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <h3>Clients</h3>
-                    <p>Use AITBC for AI/ML workloads</p>
-                    <a href="docs/clients.html" class="doc-link">Client Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-                
-                <div class="doc-card">
-                    <div class="doc-icon">
-                        <i class="fas fa-code"></i>
-                    </div>
-                    <h3>Developers</h3>
-                    <p>Build on AITBC and contribute</p>
-                    <a href="docs/developers.html" class="doc-link">Developer Docs <i class="fas fa-arrow-right"></i></a>
-                </div>
-            </div>
-            
-            <div class="docs-cta">
-                <a href="docs/index.html" class="cta-button">View All Documentation</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Achievements Section -->
-    <section class="stats" id="achievements">
-        <div class="container">
-            <h2 class="section-title">Platform Achievements</h2>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <h3>7</h3>
-                    <p>Live Components</p>
-                </div>
-                <div class="stat-item">
-                    <h3>30+</h3>
-                    <p>GPU Services</p>
-                </div>
-                <div class="stat-item">
-                    <h3>Stages 1-11</h3>
-                    <p>Complete</p>
-                </div>
-                <div class="stat-item">
-                    <h3>100%</h3>
-                    <p>Open Source</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Roadmap Section -->
-    <section class="roadmap" id="roadmap">
-        <div class="container">
-            <h2 class="section-title">Development Roadmap</h2>
-            <div class="roadmap-timeline">
-                <div class="roadmap-item">
-                    <div class="roadmap-marker">✓</div>
-                    <div class="roadmap-content">
-                        <h4>Stages 1-11 Complete</h4>
-                        <p>Core infrastructure, marketplace, explorer, wallet, trade exchange, and 30+ GPU services deployed</p>
-                    </div>
-                </div>
-                <div class="roadmap-item">
-                    <div class="roadmap-marker">🔄</div>
-                    <div class="roadmap-content">
-                        <h4>Stage 8 - Current Focus</h4>
-                        <p>Research consortium, sharding prototypes, ZK applications, and global expansion</p>
-                    </div>
-                </div>
-                <div class="roadmap-item">
-                    <div class="roadmap-marker">9</div>
-                    <div class="roadmap-content">
-                        <h4>Stage 9 - Moonshot Initiatives</h4>
-                        <p>Decentralized infrastructure, AI automation, and global standards</p>
-                    </div>
-                </div>
-                <div class="roadmap-item">
-                    <div class="roadmap-marker">10</div>
-                    <div class="roadmap-content">
-                        <h4>Stage 10 - Stewardship</h4>
-                        <p>Open governance, educational programs, and long-term preservation</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            <ul class="nav-links">
-                <li><a href="/explorer/">Explorer</a></li>
-                <li><a href="/marketplace/">Marketplace</a></li>
-                <li><a href="/Exchange/">Exchange</a></li>
-                <li><a href="docs/index.html">Documentation</a></li>
-                <li><a href="mailto:andreas.fleckl@bubuit.net">Contact</a></li>
+            <h3>Key Features</h3>
+            <ul style="color: var(--text-muted); margin-left: 1.5rem;">
+                <li>Multi-island blockchain architecture (mainnet + testnet)</li>
+                <li>Agent-first REST API with auto-discovery</li>
+                <li>Cross-island communication bridges</li>
+                <li>GPU marketplace integration</li>
+                <li>Open source - available on GitHub</li>
             </ul>
-            <p>&copy; 2025 AITBC. All rights reserved.</p>
+            
+            <a href="https://github.com/oib/AITBC" class="github-link" target="_blank" rel="noopener">
+                <svg height="20" viewBox="0 0 16 16" width="20" fill="currentColor">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                github.com/oib/AITBC
+            </a>
         </div>
-    </footer>
 
-        <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "AITBC",
-  "description": "Production-ready AI blockchain platform with 7 live components and 30+ GPU services",
-  "url": "https://aitbc.bubuit.net",
-  "logo": "https://aitbc.bubuit.net/favicon.ico",
-  "sameAs": [
-    "https://github.com/aitbc"
-  ],
-  "contactPoint": {
-    "@type": "ContactPoint",
-    "email": "andreas.fleckl@bubuit.net",
-    "contactType": "General Inquiries"
-  }
-}
-</script>
-    <script>
-        // Register service worker for offline support
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/assets/js/sw.js')
-                .then(registration => console.log('SW registered'))
-                .catch(err => console.log('SW registration failed'));
-        }
-    </script>
-    <script src="/assets/js/main.js" async></script>
-    <script src="/assets/js/web-vitals.js" async></script>
-    <!-- Lightweight Analytics - privacy focused, no cookies -->
-    <script data-host="https://ackee.bubuit.net" data-ackee-server="https://ackee.bubuit.net" src="/assets/js/analytics.js" async data-auto-opts='{"website": "aitbc-main", "name": "AITBC Main Website"}'></script>
+        <div class="card">
+            <h2>Network Discovery</h2>
+            <p>Access the complete network information through machine-readable JSON endpoints:</p>
+            
+            <div class="endpoint">
+                <span class="method">GET</span> <span class="path">/agent/discovery.json</span>
+            </div>
+            <p style="font-size: 0.9rem;">Returns all islands, chains, endpoints, and network topology</p>
+            
+            <h3>Available Endpoints</h3>
+            <div class="grid">
+                <div class="endpoint">
+                    <span class="method">GET</span> <span class="path">/agent/islands.json</span>
+                </div>
+                <div class="endpoint">
+                    <span class="method">GET</span> <span class="path">/agent/chains.json</span>
+                </div>
+                <div class="endpoint">
+                    <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
+                </div>
+                <div class="endpoint">
+                    <span class="method">GET</span> <span class="path">/agent/health</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Join the Network</h2>
+            <p>Configure your node to join an AITBC island:</p>
+            
+            <div class="grid">
+                <div>
+                    <h3>Mainnet</h3>
+                    <div class="endpoint">
+                        <span class="method">GET</span> <span class="path">/agent/join/ait-mainnet.json</span>
+                    </div>
+                    <p style="font-size: 0.85rem;">Production chain with real value</p>
+                </div>
+                <div>
+                    <h3>Testnet</h3>
+                    <div class="endpoint">
+                        <span class="method">GET</span> <span class="path">/agent/join/ait-testnet.json</span>
+                    </div>
+                    <p style="font-size: 0.85rem;">Development and testing environment</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Quick Start</h2>
+            <div class="code-block">
+<pre># 1. Discover the network
+curl -s https://aitbc.bubuit.net/agent/discovery.json | jq .
+
+# 2. Get island information
+curl -s https://aitbc.bubuit.net/agent/islands.json | jq '.islands[]'
+
+# 3. Join a chain (get configuration)
+curl -s https://aitbc.bubuit.net/agent/join/ait-mainnet.json | jq '.how_to_join'</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>API Specification</h2>
+            <p>OpenAPI 3.0 specification available at:</p>
+            <div class="endpoint">
+                <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
+            </div>
+            <p style="font-size: 0.85rem; margin-top: 0.5rem;">Machine-readable API documentation for client generation</p>
+        </div>
+
+        <div class="meta">
+            <p>Node ID: aitbc | Island: ait-mainnet-island | Role: Hub</p>
+            <p>This page is optimized for autonomous agents and web crawlers. All content is also available in machine-readable JSON format at the endpoints listed above.</p>
+        </div>
+    </div>
 </body>
 </html>
