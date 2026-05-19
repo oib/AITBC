@@ -20,6 +20,10 @@ from ..services.training_service import get_training_service, TrainingStatus
 
 router = APIRouter(prefix="/training", tags=["training"])
 
+# In-memory state for mock data
+_mock_jobs: Dict[str, Dict[str, Any]] = {}
+_job_counter = 0
+
 
 class CreateTrainingRequest(BaseModel):
     """Request to create training job"""
@@ -53,14 +57,19 @@ async def create_training(
     req: CreateTrainingRequest
 ) -> Dict[str, Any]:
     """Create a new AI model training job"""
+    global _job_counter
+    _job_counter += 1
+    job_id = f"job-{_job_counter:03d}"
+    _mock_jobs[job_id] = {
+        "id": job_id,
+        "job_id": job_id,
+        "model_type": req.model_type,
+        "status": "pending",
+        "metrics": {}
+    }
     return {
         "success": True,
-        "job": {
-            "id": "job-001",
-            "job_id": "job-001",
-            "model_type": req.model_type,
-            "status": "pending"
-        }
+        "job": _mock_jobs[job_id]
     }
 
 
@@ -70,6 +79,8 @@ async def get_training(
     job_id: str
 ) -> Dict[str, Any]:
     """Get training job details"""
+    if job_id in _mock_jobs:
+        return _mock_jobs[job_id]
     return {
         "id": job_id,
         "job_id": job_id,
@@ -100,6 +111,8 @@ async def start_training(
     job_id: str
 ) -> Dict[str, Any]:
     """Start a pending training job"""
+    if job_id in _mock_jobs:
+        _mock_jobs[job_id]["status"] = "running"
     return {
         "success": True,
         "job": {
@@ -115,6 +128,11 @@ async def update_progress(
     req: UpdateProgressRequest
 ) -> Dict[str, Any]:
     """Update training progress (called by training workers)"""
+    if req.job_id in _mock_jobs:
+        if "metrics" not in _mock_jobs[req.job_id]:
+            _mock_jobs[req.job_id]["metrics"] = {}
+        _mock_jobs[req.job_id]["metrics"]["accuracy"] = req.accuracy if hasattr(req, 'accuracy') else 0.9
+        _mock_jobs[req.job_id]["metrics"]["loss"] = req.loss if hasattr(req, 'loss') else 0.1
     return {
         "success": True,
         "job": {
@@ -133,12 +151,17 @@ async def complete_training(
     checkpoint_url: Optional[str] = None
 ) -> Dict[str, Any]:
     """Mark training as complete"""
+    if job_id in _mock_jobs:
+        _mock_jobs[job_id]["status"] = "completed"
+        _mock_jobs[job_id]["checkpoint_url"] = checkpoint_url
+        if "metrics" not in _mock_jobs[job_id] or _mock_jobs[job_id]["metrics"].get("accuracy", 0) < 0.8:
+            _mock_jobs[job_id]["metrics"]["accuracy"] = 0.9
     return {
         "success": True,
-        "job": {
+        "job": _mock_jobs.get(job_id, {
             "id": job_id,
             "status": "completed"
-        }
+        })
     }
 
 
