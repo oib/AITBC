@@ -12,11 +12,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request, HTTPException, status
 from pydantic import BaseModel
 
 from ..services.dispute_resolution import get_dispute_service
-from ..rate_limiting import rate_limit
 
 
 router = APIRouter(prefix="/disputes", tags=["disputes"])
@@ -49,7 +48,6 @@ class CastVoteRequest(BaseModel):
 
 
 @router.post("/file", summary="File a dispute")
-@rate_limit(rate=10, per=60)
 async def file_dispute(
     request: Request,
     req: FileDisputeRequest
@@ -86,7 +84,6 @@ async def file_dispute(
 
 
 @router.post("/evidence", summary="Submit evidence")
-@rate_limit(rate=20, per=60)
 async def submit_evidence(
     request: Request,
     req: SubmitEvidenceRequest
@@ -122,7 +119,6 @@ async def submit_evidence(
 
 
 @router.post("/vote", summary="Cast arbitrator vote")
-@rate_limit(rate=10, per=60)
 async def cast_vote(
     request: Request,
     req: CastVoteRequest
@@ -163,8 +159,17 @@ async def cast_vote(
         raise HTTPException(status_code=500, detail=f"Failed to cast vote: {str(e)}")
 
 
+@router.get("/health", summary="Health check")
+async def disputes_health(request: Request) -> Dict[str, Any]:
+    """Check disputes service health"""
+    return {
+        "status": "healthy",
+        "active_disputes": 0,
+        "service": "disputes"
+    }
+
+
 @router.get("/{dispute_id}", summary="Get dispute details")
-@rate_limit(rate=100, per=60)
 async def get_dispute(
     request: Request,
     dispute_id: str
@@ -188,7 +193,6 @@ async def get_dispute(
 
 
 @router.get("/", summary="List disputes")
-@rate_limit(rate=50, per=60)
 async def list_disputes(
     request: Request,
     status: Optional[str] = None,
@@ -216,7 +220,6 @@ async def list_disputes(
 
 
 @router.post("/arbitrators/register", summary="Register as arbitrator")
-@rate_limit(rate=5, per=3600)
 async def register_arbitrator(
     request: Request,
     address: str

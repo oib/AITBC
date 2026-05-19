@@ -26,7 +26,7 @@ from ..domain.bounty import (
 class BountyService:
     """Service for managing AI agent bounties"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session = None):
         self.session = session
 
     async def create_bounty(

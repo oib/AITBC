@@ -111,11 +111,12 @@ class TrainingService:
     - Model checkpointing
     """
     
-    def __init__(self):
+    def __init__(self, session = None):
         self._jobs: Dict[str, TrainingJob] = {}
         self._job_counter = 0
         self._active_jobs: set = set()
         self._max_concurrent = 3
+        self.session = session
     
     def create_training_job(
         self,

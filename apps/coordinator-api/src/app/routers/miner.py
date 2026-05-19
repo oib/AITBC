@@ -274,7 +274,7 @@ async def fail_job(
     request: Request,
     miner_id: str,
     job_id: str,
-    fail_req: FailJobRequest,
+    fail_req: JobFailSubmit,
     session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
     api_key: str = Depends(require_miner_key()),
 ) -> dict[str, str]:
@@ -288,6 +288,10 @@ async def fail_job(
     except Exception as e:
         logger.error(f"Error failing job {job_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+class FailJobRequest(BaseModel):
+    error_message: str
 
 
 class CompleteJobRequest(BaseModel):
@@ -344,6 +348,3 @@ async def complete_job(
     except Exception as e:
         logger.error(f"Error completing job {job_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-
-@router.put("/miners/{miner_id}/capabilities", summary="Update miner capabilities")

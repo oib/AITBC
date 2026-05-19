@@ -19,11 +19,6 @@ if _app_mod and hasattr(_app_mod, "__file__") and _app_mod.__file__ and _src not
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-# Import after sys.path is set up
-from sqlmodel import SQLModel, create_engine, Session
-from app.models import MarketplaceOffer, MarketplaceBid
-from app.domain.gpu_marketplace import ConsumerGPUProfile
-
 # Set up test environment
 os.environ["TEST_MODE"] = "true"
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -33,7 +28,16 @@ os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database session for each test."""
+    from sqlmodel import SQLModel, create_engine, Session
     engine = create_engine("sqlite:///:memory:", echo=False)
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
+
+
+@pytest.fixture(scope="function")
+def client():
+    """Create a TestClient for API testing."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    return TestClient(app)
