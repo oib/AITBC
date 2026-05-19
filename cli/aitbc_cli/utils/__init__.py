@@ -16,8 +16,11 @@ from .wallet import decrypt_private_key
 from .blockchain import get_chain_info, get_network_status, get_blockchain_analytics
 
 
-def output(message: str, **kwargs):
-    """Print a regular output message"""
+def output(message, **kwargs):
+    """Print a regular output message (handles strings and structured data)"""
+    if not isinstance(message, str):
+        import json
+        message = json.dumps(message, indent=2)
     echo(message, **kwargs)
 
 

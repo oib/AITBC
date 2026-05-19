@@ -15,7 +15,7 @@ from typing import Optional, List
 from ..utils import output, error, success, info, warning
 from ..utils.island_credentials import (
     load_island_credentials, get_rpc_endpoint, get_chain_id,
-    get_island_id, get_island_name
+    get_island_id, get_island_name, validate_credentials
 )
 from ..config import get_config
 
@@ -24,6 +24,16 @@ from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 # Initialize logger
 logger = get_logger(__name__)
+
+
+def safe_load_credentials():
+    """Load island credentials with graceful error handling"""
+    try:
+        return load_island_credentials()
+    except FileNotFoundError as e:
+        error(f"Island credentials not found: {e}")
+        error("Run 'aitbc node island join' to join an island first")
+        return None
 
 
 @click.group()
@@ -46,7 +56,9 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
         config = get_config()
         
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -149,7 +161,9 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
         config = get_config()
         
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -250,7 +264,9 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
         config = get_config()
         
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         island_id = get_island_id()
 
         # Query GPU service for GPU marketplace transactions
@@ -322,7 +338,9 @@ def cancel(ctx, order_id: str):
         config = get_config()
         
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -388,7 +406,9 @@ def accept(ctx, bid_id: str):
         config = get_config()
         
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -451,7 +471,9 @@ def status(ctx, order_id: str):
         config = get_config()
         
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         island_id = get_island_id()
 
         # Query GPU service for the order
@@ -520,7 +542,9 @@ def match(ctx):
         config = get_config()
         
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         island_id = get_island_id()
 
         # Query GPU service for open offers and bids
@@ -612,7 +636,9 @@ def providers(ctx):
     """Query island members for GPU providers"""
     try:
         # Load island credentials
-        credentials = load_island_credentials()
+        credentials = safe_load_credentials()
+        if not credentials:
+            return
         island_id = get_island_id()
 
         # Load island members from credentials
