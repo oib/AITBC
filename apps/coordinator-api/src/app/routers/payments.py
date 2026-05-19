@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from ..services.payments_service import get_payments_service, PaymentStatus
-from ..rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit
 
 
 router = APIRouter(prefix="/payments", tags=["payments"])

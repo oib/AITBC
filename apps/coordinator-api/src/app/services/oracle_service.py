@@ -152,12 +152,13 @@ class AggregatedPriceFeed:
     - Local database
     """
     
-    def __init__(self):
+    def __init__(self, session = None):
         self.chainlink = ChainlinkAdapter(enabled=False)  # Disabled by default
         self._prices: Dict[str, PriceData] = {}
         self._last_update: Dict[str, datetime] = {}
         self._update_interval = 300  # 5 minutes
         self._lock = asyncio.Lock()
+        self.session = session
     
     async def get_price(
         self,

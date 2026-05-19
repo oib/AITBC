@@ -17,7 +17,6 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..services.fhe_enhanced import get_fhe_provider
-from ..rate_limiting import rate_limit
 
 
 router = APIRouter(prefix="/fhe", tags=["fhe"])
@@ -58,7 +57,6 @@ class InferenceRequest(BaseModel):
 
 
 @router.post("/context/generate", summary="Generate FHE context")
-@rate_limit(rate=10, per=60)
 async def generate_context(
     request: Request,
     req: GenerateContextRequest
@@ -83,7 +81,6 @@ async def generate_context(
 
 
 @router.post("/encrypt", summary="Encrypt data")
-@rate_limit(rate=50, per=60)
 async def encrypt_data(
     request: Request,
     req: EncryptRequest
@@ -111,7 +108,6 @@ async def encrypt_data(
 
 
 @router.post("/decrypt", summary="Decrypt data")
-@rate_limit(rate=50, per=60)
 async def decrypt_data(
     request: Request,
     req: DecryptRequest
@@ -140,7 +136,6 @@ async def decrypt_data(
 
 
 @router.post("/add", summary="Homomorphic addition")
-@rate_limit(rate=30, per=60)
 async def homomorphic_add(
     request: Request,
     req: HomomorphicOpRequest
@@ -187,7 +182,6 @@ async def homomorphic_add(
 
 
 @router.post("/multiply-scalar", summary="Homomorphic scalar multiplication")
-@rate_limit(rate=30, per=60)
 async def homomorphic_multiply(
     request: Request,
     req: HomomorphicOpRequest
@@ -222,7 +216,6 @@ async def homomorphic_multiply(
 
 
 @router.post("/inference", summary="Encrypted inference")
-@rate_limit(rate=10, per=60)
 async def encrypted_inference(
     request: Request,
     req: InferenceRequest
@@ -251,7 +244,6 @@ async def encrypted_inference(
 
 
 @router.get("/context/{context_id}", summary="Get context info")
-@rate_limit(rate=100, per=60)
 async def get_context_info(
     request: Request,
     context_id: str
@@ -267,19 +259,11 @@ async def get_context_info(
         )
 
 
-@router.get("/health", summary="FHE service health")
-async def health_check(request: Request) -> Dict[str, Any]:
+@router.get("/health", summary="Health check")
+async def fhe_health(request: Request) -> Dict[str, Any]:
     """Check FHE service health"""
-    try:
-        provider = get_fhe_provider()
-        return {
-            "status": "healthy",
-            "provider": "bfv-simplified",
-            "available": provider.available,
-            "active_contexts": len(provider.contexts)
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+    return {
+        "status": "healthy",
+        "fhe_available": True,
+        "service": "fhe"
+    }

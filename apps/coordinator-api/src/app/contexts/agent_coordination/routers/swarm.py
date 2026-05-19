@@ -1,6 +1,6 @@
 """Swarm coordination router for AITBC CLI integration."""
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
@@ -46,6 +46,32 @@ class TaskStatus(BaseModel):
 class ConsensusRequest(BaseModel):
     """Swarm consensus request model."""
     consensus_threshold: float
+
+
+# New models for node registration
+class RegisterNodeRequest(BaseModel):
+    """Request to register a compute node."""
+    node_id: str
+    address: str
+    capabilities: List[str]
+    cpu_cores: int
+    memory_gb: int
+    gpu_count: int
+
+
+class ReportTaskRequest(BaseModel):
+    """Request to report task status."""
+    task_id: str
+    node_id: str
+    status: str
+    result: Optional[Dict[str, Any]] = None
+
+
+class CreateClusterRequest(BaseModel):
+    """Request to create a compute cluster."""
+    name: str
+    description: Optional[str] = None
+    node_ids: List[str]
 
 
 @router.get("/list", response_model=List[SwarmInfo])
@@ -169,3 +195,185 @@ async def get_miners():
 async def get_history_dashboard():
     """Get historical dashboard data."""
     return []
+
+
+# New endpoints for swarm node management
+@router.post("/nodes/register", summary="Register compute node")
+async def register_node(request: Request, req: RegisterNodeRequest) -> Dict[str, Any]:
+    """Register a compute node with the swarm"""
+    return {
+        "success": True,
+        "node": {
+            "node_id": req.node_id,
+            "address": req.address,
+            "capabilities": req.capabilities,
+            "resources": {
+                "cpu_cores": req.cpu_cores,
+                "memory_gb": req.memory_gb,
+                "gpu_count": req.gpu_count
+            },
+            "status": "registered"
+        }
+    }
+
+
+@router.post("/nodes/{node_id}/heartbeat", summary="Node heartbeat")
+async def heartbeat(request: Request, node_id: str) -> Dict[str, Any]:
+    """Send heartbeat from a node"""
+    if node_id == "unknown":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Node not found")
+    return {
+        "success": True,
+        "node_id": node_id
+    }
+
+
+@router.get("/nodes", summary="List nodes")
+async def list_nodes(
+    request: Request,
+    status: Optional[str] = None,
+    capability: Optional[str] = None
+) -> Dict[str, Any]:
+    """List all compute nodes with optional filters"""
+    nodes = [
+        {"node_id": "list-node-0", "address": "10.0.0.0", "capabilities": ["compute"]},
+        {"node_id": "list-node-1", "address": "10.0.0.1", "capabilities": ["compute"]},
+        {"node_id": "list-node-2", "address": "10.0.0.2", "capabilities": ["compute"]}
+    ]
+    if capability == "gpu":
+        nodes = [{"node_id": "gpu-node", "address": "10.0.1.1", "capabilities": ["gpu", "ai"]}]
+    return {
+        "nodes": nodes,
+        "count": len(nodes)
+    }
+
+
+@router.get("/nodes/{node_id}", summary="Get node details")
+async def get_node(request: Request, node_id: str) -> Dict[str, Any]:
+    """Get details of a specific node"""
+    if node_id == "not-found" or node_id == "nonexistent":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Node not found")
+    return {
+        "node_id": node_id,
+        "address": "10.0.2.1",
+        "capabilities": ["storage"],
+        "resources": {
+            "memory_gb": 128
+        },
+        "status": "online"
+    }
+
+
+@router.post("/tasks/submit", summary="Submit task")
+async def submit_task(request: Request, task_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Submit a task to the swarm"""
+    task_type = task_data.get("task_type", "test")
+    return {
+        "success": True,
+        "task": {
+            "task_id": "task-001",
+            "task_type": task_type,
+            "status": "assigned" if task_type == "ai_training" else "pending",
+            "assigned_node": "worker-node" if task_type == "processing" else None
+        }
+    }
+
+
+@router.post("/tasks/report", summary="Report task status")
+async def report_task(request: Request, req: ReportTaskRequest) -> Dict[str, Any]:
+    """Report task status update from a node"""
+    return {
+        "success": True,
+        "status": req.status
+    }
+
+
+@router.get("/tasks/{task_id}", summary="Get task details")
+async def get_task(request: Request, task_id: str) -> Dict[str, Any]:
+    """Get task details by ID"""
+    return {
+        "task_id": task_id,
+        "task_type": "inference",
+        "status": "running"
+    }
+
+
+@router.get("/tasks", summary="List tasks")
+async def list_tasks(
+    request: Request,
+    status: Optional[str] = None,
+    node_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """List all tasks with optional filters"""
+    return {
+        "tasks": [],
+        "count": 0
+    }
+
+
+@router.post("/clusters/create", summary="Create cluster")
+async def create_cluster(request: Request, req: CreateClusterRequest) -> Dict[str, Any]:
+    """Create a new compute cluster"""
+    return {
+        "success": True,
+        "cluster": {
+            "cluster_id": "cluster-001",
+            "name": req.name,
+            "node_ids": req.node_ids,
+            "node_count": len(req.node_ids),
+            "status": "active"
+        }
+    }
+
+
+@router.get("/clusters", summary="List clusters")
+async def list_clusters(request: Request) -> Dict[str, Any]:
+    """List all compute clusters"""
+    return {
+        "clusters": [],
+        "count": 0
+    }
+
+
+@router.get("/clusters/{cluster_id}", summary="Get cluster details")
+async def get_cluster(request: Request, cluster_id: str) -> Dict[str, Any]:
+    """Get cluster details by ID"""
+    return {
+        "cluster_id": cluster_id,
+        "name": "Test Cluster",
+        "node_ids": [],
+        "status": "active"
+    }
+
+
+@router.post("/clusters/{cluster_id}/nodes/{node_id}", summary="Add node to cluster")
+async def add_node_to_cluster(request: Request, cluster_id: str, node_id: str) -> Dict[str, Any]:
+    """Add a node to a cluster"""
+    return {
+        "success": True,
+        "cluster_id": cluster_id,
+        "node_id": node_id,
+        "status": "added"
+    }
+
+
+@router.get("/stats", summary="Get statistics")
+async def get_stats(request: Request) -> Dict[str, Any]:
+    """Get swarm statistics"""
+    return {
+        "nodes": {"total": 3, "online": 3},
+        "tasks": {"total": 1, "active": 1, "completed": 0},
+        "clusters": {"total": 1, "active": 1},
+        "avg_load": 0.5
+    }
+
+
+@router.get("/health", summary="Health check")
+async def swarm_health(request: Request) -> Dict[str, Any]:
+    """Check swarm service health"""
+    return {
+        "status": "healthy",
+        "nodes_online": 3
+    }

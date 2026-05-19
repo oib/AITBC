@@ -100,10 +100,11 @@ class BFVProvider:
     - Plaintext-ciphertext operations
     """
     
-    def __init__(self):
+    def __init__(self, session = None):
         self.available = True
         self.contexts: Dict[str, BFVContext] = {}
         self._next_context_id = 0
+        self.session = session
         logger.info("BFV FHE provider initialized")
     
     def generate_context(

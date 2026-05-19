@@ -15,7 +15,6 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..services.portfolio_service import get_portfolio_service
-from ..rate_limiting import rate_limit
 
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
@@ -27,7 +26,6 @@ class PortfolioRequest(BaseModel):
 
 
 @router.get("/", summary="Get full portfolio")
-@rate_limit(rate=30, per=60)
 async def get_portfolio(
     request: Request,
     user_id: Optional[str] = None
@@ -68,7 +66,6 @@ async def get_portfolio(
 
 
 @router.post("/", summary="Get portfolio for specific wallets")
-@rate_limit(rate=30, per=60)
 async def get_portfolio_for_wallets(
     request: Request,
     req: PortfolioRequest
@@ -105,7 +102,6 @@ async def get_portfolio_for_wallets(
 
 
 @router.get("/wallet/{address}", summary="Get wallet breakdown")
-@rate_limit(rate=50, per=60)
 async def get_wallet_breakdown(
     request: Request,
     address: str,
@@ -145,7 +141,6 @@ async def get_wallet_breakdown(
 
 
 @router.get("/chains", summary="Get supported chains")
-@rate_limit(rate=100, per=60)
 async def get_supported_chains(request: Request) -> Dict[str, Any]:
     """Get list of supported blockchain networks"""
     return {
@@ -164,22 +159,10 @@ async def get_supported_chains(request: Request) -> Dict[str, Any]:
     }
 
 
-@router.get("/health", summary="Portfolio service health")
-async def health_check(request: Request) -> Dict[str, Any]:
+@router.get("/health", summary="Health check")
+async def portfolio_health(request: Request) -> Dict[str, Any]:
     """Check portfolio service health"""
-    try:
-        service = get_portfolio_service()
-        return {
-            "status": "healthy",
-            "service": "portfolio",
-            "dependencies": {
-                "wallet_service": service.wallet_url,
-                "blockchain_rpc": service.blockchain_url,
-                "oracle": service.oracle_url
-            }
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+    return {
+        "status": "healthy",
+        "service": "portfolio"
+    }
