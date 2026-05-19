@@ -1,7 +1,10 @@
+aitbc_cli
 auth
-commands
 config
 core
+handlers
 models
+parsers
 security
+tests
 utils
