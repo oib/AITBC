@@ -247,7 +247,7 @@ def list(status: Optional[str], format: str):
         if status:
             query["status"] = status
         
-        response = requests.post(f"{coordinator_url}/agents/discover", json=query, timeout=10)
+        response = requests.post(f"{coordinator_url}/v1/agents/discover", json=query, timeout=10)
         
         if response.status_code == 200:
             data = response.json()

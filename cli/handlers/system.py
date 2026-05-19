@@ -148,7 +148,7 @@ def handle_agent_sdk_action(args, render_mapping):
         try:
             import requests
             response = requests.put(
-                f"{coordinator_url}/agents/{agent_id}/status",
+                f"{coordinator_url}/v1/agents/{agent_id}/status",
                 json=status_update_request,
                 timeout=30
             )
@@ -189,7 +189,7 @@ def handle_agent_sdk_action(args, render_mapping):
         try:
             import requests
             response = requests.post(
-                f"{coordinator_url}/agents/register",
+                f"{coordinator_url}/v1/agents/register",
                 json=registration_request,
                 timeout=30
             )
@@ -223,7 +223,7 @@ def handle_agent_sdk_action(args, render_mapping):
         try:
             import requests
             response = requests.post(
-                f"{coordinator_url}/agents/discover",
+                f"{coordinator_url}/v1/agents/discover",
                 json=query,
                 timeout=30
             )
@@ -249,7 +249,7 @@ def handle_agent_sdk_action(args, render_mapping):
         try:
             import requests
             response = requests.get(
-                f"{coordinator_url}/agents/{agent_id}",
+                f"{coordinator_url}/v1/agents/{agent_id}",
                 timeout=30
             )
             
