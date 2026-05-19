@@ -1,0 +1,418 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AITBC Agent API",
+    "description": "Machine-readable API for AITBC blockchain agents. Provides endpoints for discovery, island management, and chain operations.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "AITBC Network",
+      "url": "https://aitbc.bubuit.net"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8006",
+      "description": "Local node RPC"
+    },
+    {
+      "url": "http://aitbc:8006",
+      "description": "AITBC hub node"
+    },
+    {
+      "url": "http://aitbc1:8006",
+      "description": "AITBC1 node"
+    }
+  ],
+  "paths": {
+    "/agent/discovery.json": {
+      "get": {
+        "summary": "Network Discovery",
+        "description": "Returns complete network information for agent auto-discovery",
+        "operationId": "getDiscovery",
+        "responses": {
+          "200": {
+            "description": "Network discovery information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/islands.json": {
+      "get": {
+        "summary": "List Islands",
+        "description": "Returns all islands in the network with current status",
+        "operationId": "getIslands",
+        "responses": {
+          "200": {
+            "description": "List of islands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IslandsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/chains.json": {
+      "get": {
+        "summary": "List Chains",
+        "description": "Returns all chains in the network with configuration",
+        "operationId": "getChains",
+        "responses": {
+          "200": {
+            "description": "List of chains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/join/{chain_id}.json": {
+      "get": {
+        "summary": "Join Information",
+        "description": "Returns detailed instructions for joining a specific chain",
+        "operationId": "getJoinInfo",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["ait-mainnet", "ait-testnet"]
+            },
+            "description": "Chain ID to get join information for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Join instructions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/head": {
+      "get": {
+        "summary": "Get Chain Head",
+        "description": "Returns the current head block of the chain",
+        "operationId": "getHead",
+        "responses": {
+          "200": {
+            "description": "Current head block",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/info": {
+      "get": {
+        "summary": "Get Chain Info",
+        "description": "Returns general information about the blockchain",
+        "operationId": "getInfo",
+        "responses": {
+          "200": {
+            "description": "Chain information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/islands": {
+      "get": {
+        "summary": "List Island Memberships",
+        "description": "Returns island memberships for this node",
+        "operationId": "listIslands",
+        "responses": {
+          "200": {
+            "description": "Island memberships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IslandMembershipsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/islands/{island_id}": {
+      "get": {
+        "summary": "Get Island Details",
+        "description": "Returns detailed information about a specific island",
+        "operationId": "getIsland",
+        "parameters": [
+          {
+            "name": "island_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Island ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Island details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IslandDetailResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DiscoveryResponse": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" },
+              "apis": {
+                "type": "object",
+                "properties": {
+                  "rpc": {
+                    "type": "object",
+                    "properties": {
+                      "url": { "type": "string" },
+                      "documentation": { "type": "string" },
+                      "version": { "type": "string" }
+                    }
+                  },
+                  "agent": {
+                    "type": "object",
+                    "properties": {
+                      "discovery": { "type": "string" },
+                      "islands": { "type": "string" },
+                      "chains": { "type": "string" },
+                      "health": { "type": "string" },
+                      "join": { "type": "string" }
+                    }
+                  }
+                }
+              },
+              "islands": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/IslandSummary"
+                }
+              }
+            }
+          },
+          "this_node": {
+            "type": "object",
+            "properties": {
+              "node_id": { "type": "string" },
+              "role": { "type": "string" },
+              "is_hub": { "type": "boolean" },
+              "block_production": { "type": "boolean" },
+              "chains": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "IslandSummary": {
+        "type": "object",
+        "properties": {
+          "island_id": { "type": "string" },
+          "name": { "type": "string" },
+          "chain_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "endpoints": {
+            "type": "object",
+            "properties": {
+              "rpc": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "p2p": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "IslandsResponse": {
+        "type": "object",
+        "properties": {
+          "islands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IslandDetail"
+            }
+          },
+          "_meta": {
+            "type": "object"
+          }
+        }
+      },
+      "IslandDetail": {
+        "type": "object",
+        "properties": {
+          "island_id": { "type": "string" },
+          "island_name": { "type": "string" },
+          "chain_id": { "type": "string" },
+          "status": { "type": "string" },
+          "role": { "type": "string" },
+          "chain_info": {
+            "type": "object",
+            "properties": {
+              "block_time": { "type": "integer" },
+              "consensus": { "type": "string" },
+              "network_id": { "type": "integer" }
+            }
+          },
+          "endpoints": {
+            "type": "object"
+          },
+          "this_node": {
+            "type": "object"
+          }
+        }
+      },
+      "ChainsResponse": {
+        "type": "object",
+        "properties": {
+          "chains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChainInfo"
+            }
+          }
+        }
+      },
+      "ChainInfo": {
+        "type": "object",
+        "properties": {
+          "chain_id": { "type": "string" },
+          "name": { "type": "string" },
+          "island_id": { "type": "string" },
+          "type": { "type": "string" },
+          "config": {
+            "type": "object",
+            "properties": {
+              "block_time": { "type": "integer" },
+              "consensus": { "type": "string" }
+            }
+          },
+          "join": {
+            "type": "object"
+          }
+        }
+      },
+      "JoinInfoResponse": {
+        "type": "object",
+        "properties": {
+          "chain_id": { "type": "string" },
+          "island_id": { "type": "string" },
+          "how_to_join": {
+            "type": "object"
+          },
+          "endpoints": {
+            "type": "object"
+          },
+          "configuration_templates": {
+            "type": "object"
+          }
+        }
+      },
+      "HeadResponse": {
+        "type": "object",
+        "properties": {
+          "height": { "type": "integer" },
+          "hash": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "tx_count": { "type": "integer" }
+        }
+      },
+      "InfoResponse": {
+        "type": "object",
+        "properties": {
+          "chain_id": { "type": "string" },
+          "network_id": { "type": "integer" },
+          "block_time": { "type": "integer" },
+          "version": { "type": "string" }
+        }
+      },
+      "IslandMembershipsResponse": {
+        "type": "object",
+        "properties": {
+          "islands": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "island_id": { "type": "string" },
+                "island_name": { "type": "string" },
+                "chain_id": { "type": "string" },
+                "status": { "type": "string" },
+                "role": { "type": "string" },
+                "peer_count": { "type": "integer" },
+                "is_hub": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      },
+      "IslandDetailResponse": {
+        "type": "object",
+        "properties": {
+          "island_id": { "type": "string" },
+          "island_name": { "type": "string" },
+          "chain_id": { "type": "string" },
+          "status": { "type": "string" },
+          "role": { "type": "string" },
+          "peer_count": { "type": "integer" },
+          "is_hub": { "type": "boolean" },
+          "joined_at": { "type": "number" }
+        }
+      }
+    }
+  }
+}

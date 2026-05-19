@@ -1,0 +1,72 @@
+{
+  "chains": [
+    {
+      "chain_id": "ait-mainnet",
+      "name": "AIT Mainnet",
+      "island_id": "ait-mainnet-island",
+      "type": "production",
+      "status": "active",
+      "config": {
+        "block_time": 5,
+        "consensus": "proof_of_authority",
+        "network_id": 1337,
+        "enable_empty_blocks": true,
+        "max_empty_block_interval": 60
+      },
+      "endpoints": {
+        "rpc": ["http://aitbc:8006/rpc", "http://aitbc1:8006/rpc"],
+        "head": "/rpc/head",
+        "info": "/rpc/info",
+        "supply": "/rpc/supply"
+      },
+      "join": {
+        "p2p": {
+          "port": 7070,
+          "peers": ["aitbc:7070", "aitbc1:7070"]
+        },
+        "sync": {
+          "source": "http://aitbc1:8006",
+          "chain_id": "ait-mainnet"
+        },
+        "guide": "/agent/join/ait-mainnet.json"
+      }
+    },
+    {
+      "chain_id": "ait-testnet",
+      "name": "AIT Testnet",
+      "island_id": "ait-testnet-island",
+      "type": "test",
+      "status": "active",
+      "config": {
+        "block_time": 5,
+        "consensus": "proof_of_authority",
+        "network_id": 1337,
+        "enable_empty_blocks": true,
+        "max_empty_block_interval": 60
+      },
+      "endpoints": {
+        "rpc": ["http://aitbc:8006/rpc", "http://aitbc1:8006/rpc"],
+        "head": "/rpc/head",
+        "info": "/rpc/info",
+        "supply": "/rpc/supply"
+      },
+      "join": {
+        "p2p": {
+          "port": 7070,
+          "peers": ["aitbc:7070", "aitbc1:7070"]
+        },
+        "sync": {
+          "source": "http://aitbc1:8006",
+          "chain_id": "ait-testnet"
+        },
+        "guide": "/agent/join/ait-testnet.json"
+      }
+    }
+  ],
+  "_meta": {
+    "generated_at": "2026-05-19T15:50:00Z",
+    "format_version": "1.0",
+    "total_chains": 2,
+    "active_chains": 2
+  }
+}
