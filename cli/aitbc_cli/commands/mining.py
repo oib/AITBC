@@ -94,7 +94,7 @@ def status(rpc_url: Optional[str]):
     """Get mining status"""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.get("/rpc/mining/status")
@@ -102,5 +102,23 @@ def status(rpc_url: Optional[str]):
         click.echo(json.dumps(result, indent=2))
     except NetworkError as e:
         error(f"Error getting mining status: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
+
+
+@mining.command(name='list')
+@click.option('--rpc-url', help='Blockchain RPC URL')
+def list_miners(rpc_url: Optional[str]):
+    """List active miners"""
+    if not rpc_url:
+        rpc_url = DEFAULT_RPC_URL
+
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.get("/rpc/mining/miners")
+        success("Active miners:")
+        click.echo(json.dumps(result, indent=2))
+    except NetworkError as e:
+        error(f"Error listing miners: {e}")
     except Exception as e:
         error(f"Error: {e}")
