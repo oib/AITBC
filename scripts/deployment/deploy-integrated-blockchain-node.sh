@@ -136,12 +136,12 @@ setup_directories() {
 setup_postgresql() {
     log_info "Setting up PostgreSQL for mempool..."
     
-    # Install PostgreSQL
+    # Install PostgreSQL and development headers
     if command -v apt-get &> /dev/null; then
         apt-get update
-        apt-get install -y postgresql postgresql-contrib python3-psycopg2
+        apt-get install -y postgresql postgresql-contrib libpq-dev
     elif command -v yum &> /dev/null; then
-        yum install -y postgresql-server postgresql-contrib python3-psycopg2
+        yum install -y postgresql-server postgresql-contrib postgresql-devel
     else
         log_error "Unsupported package manager"
         exit 1
@@ -189,7 +189,7 @@ ENABLE_BLOCK_PRODUCTION=false
 GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 CROSS_SITE_REMOTE_ENDPOINTS=
 MEMPOOL_BACKEND=database
-MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:aitbc_mempool_password@localhost:5432/aitbc_mempool
+MEMPOOL_DB_URL=postgresql+psycopg2://aitbc_mempool:aitbc_mempool_password@localhost:5432/aitbc_mempool
 EOF
         chmod 600 "$ENV_FILE"
         log_info "Created $ENV_FILE with chain ID: $CHAIN_ID"
