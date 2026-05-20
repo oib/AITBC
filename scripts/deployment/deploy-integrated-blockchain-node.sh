@@ -96,7 +96,7 @@ setup_python_environment() {
     
     # Install essential blockchain-node dependencies
     log_info "Installing essential dependencies"
-    pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary aiosqlite httpx redis
+    pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary aiosqlite httpx redis prometheus-client alembic
     
     # Install blockchain-node package in editable mode
     if [ -f "apps/blockchain-node/pyproject.toml" ]; then
