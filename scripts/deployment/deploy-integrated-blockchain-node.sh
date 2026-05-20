@@ -96,7 +96,7 @@ setup_python_environment() {
     
     # Install essential blockchain-node dependencies
     log_info "Installing essential dependencies"
-    pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary psycopg2 aiosqlite httpx redis prometheus-client alembic
+    pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary aiosqlite httpx redis prometheus-client alembic
     
     # Install blockchain-node package in editable mode
     if [ -f "apps/blockchain-node/pyproject.toml" ]; then
@@ -148,6 +148,7 @@ P2P_BIND_PORT=8001
 ENABLE_BLOCK_PRODUCTION=false
 GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 CROSS_SITE_REMOTE_ENDPOINTS=
+MEMPOOL_BACKEND=memory
 EOF
         chmod 600 "$ENV_FILE"
         log_info "Created $ENV_FILE"
