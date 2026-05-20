@@ -44,6 +44,7 @@ httpx>=0.28.1
 requests>=2.32.4
 aiohttp>=3.12.14
 aiostun>=0.1.0
+urllib3>=2.7.0
 
 # Cryptocurrency & Blockchain
 cryptography>=46.0.0
@@ -89,6 +90,7 @@ keyring>=25.7.0
 orjson>=3.11.0
 msgpack>=1.1.2
 python-multipart>=0.0.27
+ujson>=5.12.1
 
 # Logging & Monitoring
 structlog>=25.1.0
@@ -113,3 +115,4 @@ opencv-python>=4.11.0
 redis>=5.2.1
 psutil>=6.1.0
 tenseal>=0.3.0
+idna>=3.15
