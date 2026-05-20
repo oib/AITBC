@@ -27,7 +27,7 @@ AITBC v0.3.5 is a **major compatibility and database release** that introduces P
 
 ### 🔧 Systemd Service Symlinking
 - **27 Services Symlinked**: All systemd files now use symlinks to /opt/aitbc/systemd/
-- **New Services**: ai-service, api-gateway, governance, gpu, monitoring, plugin, trading
+- **New Services**: aitbc-ai-service, api-gateway, governance, gpu, monitoring, plugin, trading
 - **Daemon Reload**: Systemd daemon reloaded successfully
 - **Consistency**: Active systemd files always match repository
 

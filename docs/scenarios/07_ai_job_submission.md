@@ -352,7 +352,7 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 
 ### **AITBC Documentation**
 - [AI Engine](../apps/ai-engine/README.md)
-- [AI Service](../apps/ai-service/README.md)
+- [AI Service](../apps/aitbc-edge-api/README.md)
 - [Global AI Agents](../apps/global-ai-agents/README.md)
 
 ### **External Resources**
