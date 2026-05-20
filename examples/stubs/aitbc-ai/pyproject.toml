@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "aitbc-ai-service"
+name = "aitbc-ai"
 version = "0.1.0"
 description = "AITBC AI Service for job operations"
 authors = ["AITBC Team"]
