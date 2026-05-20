@@ -39,6 +39,24 @@ ssh gitea-runner "/opt/aitbc/aitbc-cli blockchain info"
 ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
 ```
 
+### redacted-host (public hub server)
+Direct SSH access. Public hub server hosting AITBC services.
+```bash
+ssh redacted-host
+# Or execute single command
+ssh redacted-host "command"
+# Public hub server at hub.aitbc.bubuit.net
+# IP: 95.216.198.140
+# Bridge: incusbr0 at 192.0.2.1/24
+
+# Check environment configuration
+ssh redacted-host "cat /etc/aitbc/.env"
+ssh redacted-host "cat /etc/aitbc/node.env"
+
+# Check service status
+ssh redacted-host "systemctl status aitbc-blockchain-node --no-pager"
+```
+
 ## Important Notes
 - **Never SSH to localhost**: Commands should run directly on the local machine
 - **Use proper quoting**: When passing commands to SSH, use single quotes to prevent shell expansion
@@ -70,7 +88,7 @@ ssh gitea-runner "bash /path/to/script.sh"
 
 ### Run command on all remote nodes
 ```bash
-for node in aitbc1 gitea-runner; do
+for node in aitbc1 gitea-runner redacted-host; do
   ssh "$node" "systemctl status aitbc-blockchain-node --no-pager"
 done
 ```
@@ -81,4 +99,8 @@ for node in aitbc1 gitea-runner; do
   echo "=== $node ==="
   ssh "$node" "curl -s http://localhost:8006/rpc/bestBlock | jq '.height'"
 done
+
+# Check redacted-host (public hub) separately as it may have different RPC port
+echo "=== redacted-host ==="
+ssh redacted-host "curl -s http://localhost:8006/rpc/bestBlock | jq '.height'"
 ```
