@@ -136,11 +136,15 @@ setup_directories() {
 setup_environment_files() {
     log_info "Setting up environment files..."
     
+    # Generate unique chain ID for this node
+    NODE_ID=$(hostname)
+    CHAIN_ID="ait-${NODE_ID}"
+    
     # Create blockchain.env if it doesn't exist
     if [ ! -f "$ENV_FILE" ]; then
-        cat > "$ENV_FILE" << 'EOF'
+        cat > "$ENV_FILE" << EOF
 # Blockchain Node Configuration
-CHAIN_ID=ait-mainnet
+CHAIN_ID=$CHAIN_ID
 RPC_BIND_HOST=0.0.0.0
 RPC_BIND_PORT=8006
 P2P_BIND_HOST=0.0.0.0
@@ -151,26 +155,47 @@ CROSS_SITE_REMOTE_ENDPOINTS=
 MEMPOOL_BACKEND=memory
 EOF
         chmod 600 "$ENV_FILE"
-        log_info "Created $ENV_FILE"
+        log_info "Created $ENV_FILE with chain ID: $CHAIN_ID"
     else
         log_info "$ENV_FILE already exists, skipping"
     fi
     
     # Create node.env if it doesn't exist
     if [ ! -f "$NODE_ENV_FILE" ]; then
-        cat > "$NODE_ENV_FILE" << 'EOF'
+        cat > "$NODE_ENV_FILE" << EOF
 # Node Configuration
-NODE_ID=$(hostname)
-ISLAND_ID=default-island
-CHAIN_ID=ait-mainnet
+NODE_ID=$NODE_ID
+ISLAND_ID=$CHAIN_ID-island
+CHAIN_ID=$CHAIN_ID
 NODE_ROLE=follower
 P2P_BIND_PORT=8001
 EOF
         chmod 600 "$NODE_ENV_FILE"
-        log_info "Created $NODE_ENV_FILE"
+        log_info "Created $NODE_ENV_FILE with node ID: $NODE_ID"
     else
         log_info "$NODE_ENV_FILE already exists, skipping"
     fi
+}
+
+generate_genesis_block() {
+    log_info "Generating genesis block for chain..."
+    
+    cd "$INSTALL_DIR"
+    source venv/bin/activate
+    
+    # Get chain ID from environment file
+    CHAIN_ID=$(grep "^CHAIN_ID=" "$ENV_FILE" | cut -d'=' -f2)
+    NODE_ID=$(grep "^NODE_ID=" "$NODE_ENV_FILE" | cut -d'=' -f2)
+    
+    log_info "Generating genesis for chain: $CHAIN_ID, node: $NODE_ID"
+    
+    # Run genesis initialization script
+    cd apps/blockchain-node
+    python3 init_genesis.py
+    
+    deactivate
+    
+    log_info "Genesis block generation complete"
 }
 
 setup_systemd_service() {
@@ -289,9 +314,10 @@ main() {
     check_root
     check_prerequisites
     clone_repository
-    setup_python_environment
     setup_directories
     setup_environment_files
+    setup_python_environment
+    generate_genesis_block
     setup_systemd_service
     start_service
     verify_deployment
