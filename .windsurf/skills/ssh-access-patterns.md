@@ -39,22 +39,28 @@ ssh gitea-runner "/opt/aitbc/aitbc-cli blockchain info"
 ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
 ```
 
-### redacted-host (public hub server)
-Direct SSH access. Public hub server hosting AITBC services.
+### redacted-host (hosts hub.aitbc.bubuit.net incus container)
+Direct SSH access. The hub.aitbc.bubuit.net service runs as an incus container on redacted-host.
 ```bash
 ssh redacted-host
 # Or execute single command
 ssh redacted-host "command"
-# Public hub server at hub.aitbc.bubuit.net
-# IP: 95.216.198.140
-# Bridge: incusbr0 at 192.0.2.1/24
 
-# Check environment configuration
-ssh redacted-host "cat /etc/aitbc/.env"
-ssh redacted-host "cat /etc/aitbc/node.env"
+# Access the aitbc container (hub.aitbc.bubuit.net)
+ssh redacted-host "incus exec aitbc -- bash"
+# Or execute single command in container
+ssh redacted-host "incus exec aitbc -- command"
 
-# Check service status
-ssh redacted-host "systemctl status aitbc-blockchain-node --no-pager"
+# Container IP: 192.0.2.10
+# Access via container IP from redacted-host
+ssh redacted-host "curl http://192.0.2.10:8006/rpc/head"
+
+# Check environment configuration in container
+ssh redacted-host "incus exec aitbc -- cat /etc/aitbc/.env"
+ssh redacted-host "incus exec aitbc -- cat /etc/aitbc/node.env"
+
+# Check service status in container
+ssh redacted-host "incus exec aitbc -- systemctl status aitbc-blockchain-node --no-pager"
 ```
 
 ## Important Notes
