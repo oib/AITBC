@@ -215,7 +215,7 @@ EOF
 }
 
 generate_wallet_and_genesis() {
-    log_info "Generating wallet and genesis allocation..."
+    log_info "Generating wallet for node..."
     
     cd "$INSTALL_DIR"
     source venv/bin/activate
@@ -250,30 +250,14 @@ wallet_path.parent.mkdir(parents=True, exist_ok=True)
 with open(wallet_path, "w") as f:
     json.dump(wallet_data, f, indent=2)
 
-# Generate genesis allocation
-genesis_allocation = {
-    "allocations": [
-        {
-            "address": address,
-            "balance": "1000000",  # 1 million tokens
-            "nonce": 0
-        }
-    ]
-}
-
-genesis_path = Path(f"/var/lib/aitbc/data/{CHAIN_ID}/genesis.json")
-genesis_path.parent.mkdir(parents=True, exist_ok=True)
-with open(genesis_path, "w") as f:
-    json.dump(genesis_allocation, f, indent=2)
-
 print(f"Generated wallet: {address}")
 print(f"Saved wallet to: {wallet_path}")
-print(f"Saved genesis allocation to: {genesis_path}")
+print(f"Note: Wallet needs to be funded via blockchain API after node startup")
 EOF
     
     deactivate
     
-    log_info "Wallet and genesis allocation generated successfully"
+    log_info "Wallet generated successfully"
 }
 
 generate_genesis_block() {
