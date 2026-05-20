@@ -214,6 +214,68 @@ EOF
     fi
 }
 
+generate_wallet_and_genesis() {
+    log_info "Generating wallet and genesis allocation..."
+    
+    cd "$INSTALL_DIR"
+    source venv/bin/activate
+    
+    # Get chain ID from environment file
+    CHAIN_ID=$(grep "^CHAIN_ID=" "$ENV_FILE" | cut -d'=' -f2)
+    NODE_ID=$(grep "^NODE_ID=" "$NODE_ENV_FILE" | cut -d'=' -f2)
+    
+    # Generate wallet using Python
+    python3 << EOF
+import secrets
+import json
+from pathlib import Path
+
+# Generate wallet keys
+private_key = f"0x{secrets.token_hex(32)}"
+public_key = f"0x{secrets.token_hex(32)}"
+address = f"aitbc1{secrets.token_hex(20)}"
+
+# Save wallet
+wallet_data = {
+    "wallet_id": "genesis-wallet",
+    "address": address,
+    "private_key": private_key,
+    "public_key": public_key,
+    "chain_id": "$CHAIN_ID",
+    "created_at": "2026-05-20T00:00:00Z"
+}
+
+wallet_path = Path("/var/lib/aitbc/keystore/genesis-wallet.json")
+wallet_path.parent.mkdir(parents=True, exist_ok=True)
+with open(wallet_path, "w") as f:
+    json.dump(wallet_data, f, indent=2)
+
+# Generate genesis allocation
+genesis_allocation = {
+    "allocations": [
+        {
+            "address": address,
+            "balance": "1000000000000000000000000",  # 1 billion tokens
+            "nonce": 0
+        }
+    ]
+}
+
+genesis_path = Path(f"/var/lib/aitbc/data/{CHAIN_ID}/genesis.json")
+genesis_path.parent.mkdir(parents=True, exist_ok=True)
+with open(genesis_path, "w") as f:
+    json.dump(genesis_allocation, f, indent=2)
+
+print(f"Generated wallet: {address}")
+print(f"Saved wallet to: {wallet_path}")
+print(f"Saved genesis allocation to: {genesis_path}")
+EOF
+    
+    deactivate
+    
+    log_info "Wallet and genesis allocation generated successfully"
+}
+
 generate_genesis_block() {
     log_info "Generating genesis block for chain..."
     
@@ -355,7 +417,7 @@ main() {
     setup_postgresql
     setup_environment_files
     setup_python_environment
-    generate_genesis_block
+    generate_wallet_and_genesis
     setup_systemd_service
     start_service
     verify_deployment
