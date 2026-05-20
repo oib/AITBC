@@ -59,8 +59,11 @@ ssh ns3 "curl http://192.168.100.10:8006/rpc/head"
 ssh ns3 "incus exec aitbc -- cat /etc/aitbc/.env"
 ssh ns3 "incus exec aitbc -- cat /etc/aitbc/node.env"
 
+# Check blockchain node configuration
+ssh ns3 "incus exec aitbc -- cat /opt/blockchain-node/src/aitbc_chain/config.py"
+
 # Check service status in container
-ssh ns3 "incus exec aitbc -- systemctl status aitbc-blockchain-node --no-pager"
+ssh ns3 "incus exec aitbc -- systemctl status aitbc-blockchain-node-3 --no-pager"
 ```
 
 ## Important Notes
