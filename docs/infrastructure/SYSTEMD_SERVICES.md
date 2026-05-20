@@ -28,7 +28,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 #### Agent Services
 - `aitbc-agent-registry.service` - Agent discovery
 - `aitbc-agent-coordinator.service` - Task coordination
-- `aitbc-ai-service.service` - AI services
+- `aitbc-edge-api.service` - Edge API services
 
 #### Blockchain Services
 - `aitbc-blockchain-node.service` - Blockchain Node with P2P (Port 8005)
@@ -91,7 +91,7 @@ systemctl disable aitbc-coordinator-api.service
 systemctl start aitbc-coordinator-api aitbc-blockchain-node aitbc-exchange-api aitbc-wallet
 
 # Restart all agent services
-systemctl restart aitbc-agent-* aitbc-ai-service
+systemctl restart aitbc-agent-* aitbc-edge-api
 
 # Check all services status
 systemctl status aitbc-*
