@@ -17,7 +17,7 @@
 - **📖 Previous Scenario**: [06 Basic Trading](./06_basic_trading.md)
 - **📖 Next Scenario**: [08 Marketplace Bidding](./08_marketplace_bidding.md)
 - **🤖 Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **🤖 AI Service**: [AI Engine Documentation](../apps/ai-engine/README.md)
+- **🤖 AI Service**: [AI Service Documentation](../apps/aitbc-edge/README.md)
 
 ---
 

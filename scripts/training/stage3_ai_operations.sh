@@ -387,7 +387,7 @@ main() {
     output_stage_learnings 3 "AI Operations" \
         "./aitbc-cli ai-ops submit <model> <prompt>|./aitbc-cli ai-ops status <job_id>|curl http://localhost:9001/tasks/submit" \
         "Agent Coordinator on port 9001|Task submission format|Job status polling" \
-        "/var/lib/aitbc/keystore|/opt/aitbc/aitbc-ai-service" \
+        "/var/lib/aitbc/keystore|AI_SERVICE_PATH=\"/opt/aitbc/aitbc-ai\"" \
         "AI job submission|Task management|Agent Coordinator integration"
     
     echo
