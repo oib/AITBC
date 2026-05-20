@@ -39,6 +39,24 @@ ssh gitea-runner "/opt/aitbc/aitbc-cli blockchain info"
 ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
 ```
 
+### ns3 (public hub server)
+Direct SSH access. Public hub server hosting AITBC services.
+```bash
+ssh ns3
+# Or execute single command
+ssh ns3 "command"
+# Public hub server at hub.aitbc.bubuit.net
+# IP: 95.216.198.140
+# Bridge: incusbr0 at 192.168.100.1/24
+
+# Check environment configuration
+ssh ns3 "cat /etc/aitbc/.env"
+ssh ns3 "cat /etc/aitbc/node.env"
+
+# Check service status
+ssh ns3 "systemctl status aitbc-blockchain-node --no-pager"
+```
+
 ## Important Notes
 - **Never SSH to localhost**: Commands should run directly on the local machine
 - **Use proper quoting**: When passing commands to SSH, use single quotes to prevent shell expansion
@@ -70,7 +88,7 @@ ssh gitea-runner "bash /path/to/script.sh"
 
 ### Run command on all remote nodes
 ```bash
-for node in aitbc1 gitea-runner; do
+for node in aitbc1 gitea-runner ns3; do
   ssh "$node" "systemctl status aitbc-blockchain-node --no-pager"
 done
 ```
@@ -81,4 +99,8 @@ for node in aitbc1 gitea-runner; do
   echo "=== $node ==="
   ssh "$node" "curl -s http://localhost:8006/rpc/bestBlock | jq '.height'"
 done
+
+# Check ns3 (public hub) separately as it may have different RPC port
+echo "=== ns3 ==="
+ssh ns3 "curl -s http://localhost:8006/rpc/bestBlock | jq '.height'"
 ```
