@@ -1488,3 +1488,50 @@ def rewards(ctx):
         },
         ctx.obj.get("output_format", "table"),
     )
+
+
+@wallet.command()
+@click.argument("address")
+@click.option("--amount", default=1000000, help="Amount to request from faucet (default: 1000000)")
+@click.option("--chain-id", help="Chain ID (defaults to node's chain)")
+@click.pass_context
+def fund(ctx, address: str, amount: int, chain_id: str):
+    """Fund wallet using blockchain faucet"""
+    import httpx
+    from ..utils.chain_id import get_chain_id
+    from ..config import get_config
+
+    config = get_config()
+    rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
+    
+    # Get chain_id
+    if not chain_id:
+        chain_id = get_chain_id(rpc_url)
+    
+    # Normalize address
+    address = address.lower().strip()
+    if not address.startswith("0x"):
+        address = "0x" + address
+    
+    # Call faucet endpoint
+    faucet_url = f"{rpc_url}/faucet"
+    faucet_data = {
+        "address": address,
+        "amount": amount,
+        "chain_id": chain_id
+    }
+    
+    try:
+        response = httpx.post(faucet_url, json=faucet_data, timeout=10)
+        response.raise_for_status()
+        result = response.json()
+        
+        if result.get("success"):
+            success(f"Successfully funded wallet {address} with {amount} units")
+            output(result, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Failed to fund wallet: {result.get('message', 'Unknown error')}")
+    except httpx.HTTPError as e:
+        error(f"HTTP error calling faucet: {e}")
+    except Exception as e:
+        error(f"Error funding wallet: {e}")
