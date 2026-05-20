@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Optional, ClassVar
 import uuid
@@ -22,7 +23,7 @@ class ProposerConfig(BaseModel):
 DEFAULT_ISLAND_ID = str(uuid.uuid4())
 
 class ChainSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="/etc/aitbc/.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(env_file="/etc/aitbc/blockchain.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
     chain_id: str = ""
     supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
@@ -124,8 +125,13 @@ class ChainSettings(BaseSettings):
     large_gap_bulk_interval: int = 30  # min seconds between bulk sync during large gap
 
     gossip_backend: str = "memory"
-    gossip_broadcast_url: Optional[str] = None
+    gossip_broadcast_url: Optional[str] = os.getenv("GOSSIP_BROADCAST_URL", "redis://127.0.0.1:6379")
     default_peer_rpc_url: Optional[str] = None  # HTTP RPC URL of default peer for bulk sync
+
+    # Cross-site synchronization settings
+    cross_site_sync_enabled: bool = True
+    cross_site_remote_endpoints: list[str] = os.getenv("CROSS_SITE_REMOTE_ENDPOINTS", "").split(",") if os.getenv("CROSS_SITE_REMOTE_ENDPOINTS") else []
+    cross_site_poll_interval: int = 10
 
     # NAT Traversal (STUN/TURN)
     stun_servers: str = ""  # Comma-separated STUN server addresses (e.g., "stun.l.google.com:19302,jitsi.example.com:3478")
