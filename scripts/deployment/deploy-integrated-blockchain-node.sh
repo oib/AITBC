@@ -255,7 +255,7 @@ genesis_allocation = {
     "allocations": [
         {
             "address": address,
-            "balance": "1000000000000000000000000",  # 1 billion tokens
+            "balance": "1000000",  # 1 million tokens
             "nonce": 0
         }
     ]
