@@ -252,12 +252,71 @@ with open(wallet_path, "w") as f:
 
 print(f"Generated wallet: {address}")
 print(f"Saved wallet to: {wallet_path}")
-print(f"Note: Wallet needs to be funded via blockchain API after node startup")
 EOF
     
     deactivate
     
     log_info "Wallet generated successfully"
+}
+
+fund_wallet() {
+    log_info "Funding wallet via blockchain API..."
+    
+    cd "$INSTALL_DIR"
+    source venv/bin/activate
+    
+    # Get chain ID from environment file
+    CHAIN_ID=$(grep "^CHAIN_ID=" "$ENV_FILE" | cut -d'=' -f2)
+    
+    # Get wallet address
+    if [ ! -f "/var/lib/aitbc/keystore/genesis-wallet.json" ]; then
+        log_error "Wallet file not found, cannot fund"
+        return 1
+    fi
+    
+    WALLET_ADDRESS=$(python3 << EOF
+import json
+with open("/var/lib/aitbc/keystore/genesis-wallet.json") as f:
+    wallet = json.load(f)
+print(wallet["address"])
+EOF
+)
+    
+    # Fund wallet using Python to directly update database
+    python3 << EOF
+import sys
+sys.path.insert(0, "apps/blockchain-node/src")
+from aitbc_chain.database import session_scope
+from aitbc_chain.models import Account
+from sqlmodel import select
+
+chain_id = "$CHAIN_ID"
+address = "$WALLET_ADDRESS"
+amount = 1000000
+
+with session_scope() as session:
+    # Check if account exists
+    account = session.get(Account, (chain_id, address))
+    if account:
+        account.balance += amount
+        print(f"Updated existing account balance: {account.balance}")
+    else:
+        # Create new account with initial balance
+        account = Account(
+            chain_id=chain_id,
+            address=address,
+            balance=amount,
+            nonce=0
+        )
+        session.add(account)
+        print(f"Created new account with balance: {amount}")
+    session.commit()
+    print(f"Successfully funded wallet {address} with {amount} units")
+EOF
+    
+    deactivate
+    
+    log_info "Wallet funded successfully"
 }
 
 generate_genesis_block() {
@@ -403,6 +462,7 @@ main() {
     setup_python_environment
     generate_wallet_and_genesis
     setup_systemd_service
+    fund_wallet
     start_service
     verify_deployment
     print_summary
