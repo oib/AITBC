@@ -10,7 +10,24 @@ category: operations
 Activate when user requests multi-node operations: git synchronization, service restart across nodes, blockchain state sync, or coordinated actions across the AITBC multi-node deployment.
 
 ## Purpose
-Synchronize git changes, coordinate blockchain state, and manage multi-node operations across genesis (localhost), follower (aitbc1), and gitea-runner nodes.
+Synchronize git changes, coordinate blockchain state, and manage multi-node operations across genesis (aitbc/main node), follower (aitbc1), and gitea-runner nodes.
+
+## Node Architecture
+
+| Node | Hostname | Role | Access |
+|------|----------|------|--------|
+| Main Node | aitbc (localhost) | Primary development + blockchain | Direct |
+| Follower Node | aitbc1 | Secondary blockchain node | `ssh aitbc1` |
+| CI/CD Node | gitea-runner | CI/CD runner (also hosts aitbc2 blockchain) | `ssh gitea-runner` |
+
+## Port Reference (Same on All Nodes)
+
+| Service | Port | Notes |
+|---------|------|-------|
+| Blockchain RPC | 8006 | Main blockchain API |
+| Coordinator API | 8011 | Agent registry |
+| Marketplace | 8102 | Marketplace operations |
+| P2P Network | 7070 | Blockchain peer-to-peer |
 
 ## Prerequisites
 - SSH access configured between all nodes with key-based authentication
@@ -24,14 +41,14 @@ Synchronize git changes, coordinate blockchain state, and manage multi-node oper
 ```bash
 # Check all three nodes
 cd /opt/aitbc
-echo "=== Genesis ===" && git status --short && git rev-parse --short HEAD
-echo "=== Follower ===" && ssh aitbc1 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
+echo "=== Main (aitbc) ===" && git status --short && git rev-parse --short HEAD
+echo "=== Follower (aitbc1) ===" && ssh aitbc1 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
 echo "=== Gitea-Runner ===" && ssh gitea-runner 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
 ```
 
-### Sync All Nodes from Genesis
+### Sync All Nodes from Main
 ```bash
-# 1. Commit and push from genesis
+# 1. Commit and push from main node
 cd /opt/aitbc
 git add . && git commit -m "feat: description" && git push origin main
 
@@ -55,9 +72,9 @@ ssh gitea-runner 'cd /opt/aitbc && git checkout --force . && git clean -fd && gi
 ### Service Restart After Sync
 ```bash
 # Restart services that need code updates
-ssh aitbc1 'systemctl restart aitbc-agent-coordinator.service'
-ssh aitbc1 'systemctl restart aitbc-blockchain-node.service'
-ssh gitea-runner 'systemctl restart aitbc-blockchain-node.service'
+sudo systemctl restart aitbc-coordinator-api.service
+ssh aitbc1 'sudo systemctl restart aitbc-coordinator-api.service'
+ssh gitea-runner 'sudo systemctl restart aitbc-blockchain-node.service'
 ```
 
 ### Check Blockchain Sync Across Nodes
@@ -66,7 +83,7 @@ ssh gitea-runner 'systemctl restart aitbc-blockchain-node.service'
 for node in localhost aitbc1 gitea-runner; do
   echo "=== $node ==="
   if [ "$node" = "localhost" ]; then
-    ./aitbc-cli chain
+    cd /opt/aitbc && ./aitbc-cli chain
   else
     ssh "$node" 'cd /opt/aitbc && ./aitbc-cli chain'
   fi
@@ -89,9 +106,9 @@ done
 ### Coordinated Service Restart
 ```bash
 # Restart blockchain services on all nodes
-systemctl restart aitbc-blockchain-node.service
-ssh aitbc1 'systemctl restart aitbc-blockchain-node.service'
-ssh gitea-runner 'systemctl restart aitbc-blockchain-node.service'
+sudo systemctl restart aitbc-blockchain-node.service
+ssh aitbc1 'sudo systemctl restart aitbc-blockchain-node.service'
+ssh gitea-runner 'sudo systemctl restart aitbc-blockchain-node.service'
 
 # Verify services are running
 systemctl status aitbc-blockchain-node.service
@@ -106,7 +123,7 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 3. **SSH Connectivity Issues:** Verify SSH keys are configured at `/root/.ssh/` for passwordless access
 4. **Sync Partial Failure:** Identify which node failed and retry individually
 5. **Blockchain Height Mismatch:** Wait for sync to complete after service restart
-6. **Port Mismatches:** Coordinator API is on port 8011 (not 8000)
+6. **Port Mismatches:** Coordinator API is on port 8011 (not 9001)
 
 ## Verification Checklist
 - [ ] Git status consistent across all nodes
@@ -115,11 +132,6 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 - [ ] Blockchain heights match across nodes
 - [ ] P2P connections established (port 7070)
 - [ ] RPC endpoints responding (port 8006)
-
-## Node Architecture
-- **Genesis Node** (localhost): `/opt/aitbc` - Primary development node
-- **Follower Node** (aitbc1): `/opt/aitbc` - Secondary blockchain node
-- **Gitea-Runner Node** (gitea-runner): `/opt/aitbc` - CI/CD runner node (also hosts aitbc2 blockchain)
 
 ## Git Remote Strategy
 - **Primary Remote:** `origin` (Gitea at `http://gitea.bubuit.net:3000/oib/aitbc.git`) - Daily development operations
@@ -136,3 +148,15 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 ## CLI Tool Preference
 - **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
 - **SSH Access:** Use `ssh aitbc1` for follower node, `ssh gitea-runner` for CI/CD node
+
+## Status
+**AITBC Multi-Node Operations: FULLY OPERATIONAL**
+- All nodes synchronized
+- Cross-node operations verified
+- **This skill ships with AITBC software repository**
+
+---
+
+**Generated by:** OWL (aitbc main node)
+**Date:** 2026-05-20
+**Location:** `/opt/aitbc/skills/aitbc-multi-node-operations.md`
