@@ -4,14 +4,14 @@ version = "0.1.0"
 description = "Edge API Service for AITBC island and edge operations"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.109.0",
-    "uvicorn>=0.27.0",
-    "sqlmodel>=0.0.14",
-    "sqlalchemy[asyncio]>=2.0.25",
-    "asyncpg>=0.29.0",
-    "httpx>=0.26.0",
-    "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0",
+    "fastapi>=0.115.6",
+    "uvicorn>=0.34.0",
+    "sqlmodel>=0.0.38",
+    "sqlalchemy[asyncio]>=2.0.49",
+    "asyncpg>=0.30.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.11.0",
+    "pydantic-settings>=2.13.1",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
 ]
