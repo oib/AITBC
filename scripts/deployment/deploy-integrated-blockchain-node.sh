@@ -96,7 +96,7 @@ setup_python_environment() {
     
     # Install essential blockchain-node dependencies
     log_info "Installing essential dependencies"
-    pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary aiosqlite httpx redis prometheus-client alembic
+    pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary psycopg2 aiosqlite httpx redis prometheus-client alembic
     
     # Install blockchain-node package in editable mode
     if [ -f "apps/blockchain-node/pyproject.toml" ]; then
@@ -133,6 +133,41 @@ setup_directories() {
     log_info "Directories setup complete"
 }
 
+setup_postgresql() {
+    log_info "Setting up PostgreSQL for mempool..."
+    
+    # Install PostgreSQL
+    if command -v apt-get &> /dev/null; then
+        apt-get update
+        apt-get install -y postgresql postgresql-contrib python3-psycopg2
+    elif command -v yum &> /dev/null; then
+        yum install -y postgresql-server postgresql-contrib python3-psycopg2
+    else
+        log_error "Unsupported package manager"
+        exit 1
+    fi
+    
+    # Start PostgreSQL service
+    if command -v systemctl &> /dev/null; then
+        systemctl enable postgresql
+        systemctl start postgresql
+    fi
+    
+    # Wait for PostgreSQL to be ready
+    sleep 5
+    
+    # Create mempool database and user
+    log_info "Creating mempool database and user..."
+    sudo -u postgres psql << EOF
+CREATE DATABASE aitbc_mempool;
+CREATE USER aitbc_mempool WITH PASSWORD 'aitbc_mempool_password';
+GRANT ALL PRIVILEGES ON DATABASE aitbc_mempool TO aitbc_mempool;
+ALTER USER aitbc_mempool WITH SUPERUSER;
+EOF
+    
+    log_info "PostgreSQL setup complete"
+}
+
 setup_environment_files() {
     log_info "Setting up environment files..."
     
@@ -145,6 +180,7 @@ setup_environment_files() {
         cat > "$ENV_FILE" << EOF
 # Blockchain Node Configuration
 CHAIN_ID=$CHAIN_ID
+SUPPORTED_CHAINS=$CHAIN_ID
 RPC_BIND_HOST=0.0.0.0
 RPC_BIND_PORT=8006
 P2P_BIND_HOST=0.0.0.0
@@ -152,7 +188,8 @@ P2P_BIND_PORT=8001
 ENABLE_BLOCK_PRODUCTION=false
 GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 CROSS_SITE_REMOTE_ENDPOINTS=
-MEMPOOL_BACKEND=memory
+MEMPOOL_BACKEND=database
+MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:aitbc_mempool_password@localhost:5432/aitbc_mempool
 EOF
         chmod 600 "$ENV_FILE"
         log_info "Created $ENV_FILE with chain ID: $CHAIN_ID"
@@ -315,6 +352,7 @@ main() {
     check_prerequisites
     clone_repository
     setup_directories
+    setup_postgresql
     setup_environment_files
     setup_python_environment
     generate_genesis_block
