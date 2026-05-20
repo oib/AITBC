@@ -94,12 +94,14 @@ setup_python_environment() {
     # Activate virtual environment
     source venv/bin/activate
     
-    # Install dependencies
-    if [ -f "apps/blockchain-node/requirements.txt" ]; then
-        pip install -r apps/blockchain-node/requirements.txt
+    # Install blockchain-node package in editable mode
+    if [ -f "apps/blockchain-node/pyproject.toml" ]; then
+        log_info "Installing blockchain-node package in editable mode"
+        pip install -e apps/blockchain-node
     else
-        log_warn "No requirements.txt found, installing core dependencies"
-        pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy psycopg2-binary
+        log_error "No pyproject.toml found in apps/blockchain-node"
+        deactivate
+        exit 1
     fi
     
     deactivate
