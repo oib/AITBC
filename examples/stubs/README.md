@@ -10,7 +10,7 @@ The following services have <10 files and are considered stubs or placeholders:
 - **monitor** (7 files) - Monitoring stub
 - **monitoring-service** (4 files) - Monitoring service stub
 - **plugin-service** (4 files) - Plugin service stub
-- **aitbc-ai-service** (8 files) - AI service stub
+- **aitbc-ai**: AI service stub for job operations
 - **compliance-service** (9 files) - Compliance checking stub
 - **exchange-integration** (9 files) - Exchange integration stub
 - **global-ai-agents** (9 files) - Global AI agents stub
