@@ -67,14 +67,14 @@ clone_repository() {
     
     if [ -d "$INSTALL_DIR" ]; then
         log_warn "Directory $INSTALL_DIR already exists"
-        read -p "Remove and re-clone? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$INSTALL_DIR"
-        else
-            log_info "Using existing installation"
-            return
-        fi
+        log_info "Updating existing repository via git pull"
+        cd "$INSTALL_DIR"
+        git pull origin main || {
+            log_error "Failed to update repository"
+            log_info "Attempting to continue with existing version"
+        }
+        log_info "Repository updated successfully"
+        return
     fi
     
     git clone "$REPO_URL" "$INSTALL_DIR"
