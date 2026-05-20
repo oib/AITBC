@@ -171,7 +171,7 @@ class Account(SQLModel, table=True):
     chain_id: str = Field(primary_key=True)
     address: str = Field(primary_key=True)
     balance: int = Field(default=0, sa_type=BigInteger)
-    nonce: int = 0
+    nonce: int = Field(default=0, sa_type=BigInteger)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Escrow(SQLModel, table=True):
