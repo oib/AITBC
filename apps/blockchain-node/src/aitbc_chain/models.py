@@ -3,7 +3,7 @@ import re
 from typing import List, Optional
 
 from pydantic import field_validator
-from sqlalchemy import Column
+from sqlalchemy import Column, BigInteger
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy import UniqueConstraint
@@ -170,7 +170,7 @@ class Account(SQLModel, table=True):
     
     chain_id: str = Field(primary_key=True)
     address: str = Field(primary_key=True)
-    balance: int = 0
+    balance: int = Field(default=0, sa_type=BigInteger)
     nonce: int = 0
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
