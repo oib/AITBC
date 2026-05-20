@@ -39,22 +39,28 @@ ssh gitea-runner "/opt/aitbc/aitbc-cli blockchain info"
 ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
 ```
 
-### ns3 (public hub server)
-Direct SSH access. Public hub server hosting AITBC services.
+### ns3 (hosts hub.aitbc.bubuit.net incus container)
+Direct SSH access. The hub.aitbc.bubuit.net service runs as an incus container on ns3.
 ```bash
 ssh ns3
 # Or execute single command
 ssh ns3 "command"
-# Public hub server at hub.aitbc.bubuit.net
-# IP: 95.216.198.140
-# Bridge: incusbr0 at 192.168.100.1/24
 
-# Check environment configuration
-ssh ns3 "cat /etc/aitbc/.env"
-ssh ns3 "cat /etc/aitbc/node.env"
+# Access the aitbc container (hub.aitbc.bubuit.net)
+ssh ns3 "incus exec aitbc -- bash"
+# Or execute single command in container
+ssh ns3 "incus exec aitbc -- command"
 
-# Check service status
-ssh ns3 "systemctl status aitbc-blockchain-node --no-pager"
+# Container IP: 192.168.100.10
+# Access via container IP from ns3
+ssh ns3 "curl http://192.168.100.10:8006/rpc/head"
+
+# Check environment configuration in container
+ssh ns3 "incus exec aitbc -- cat /etc/aitbc/.env"
+ssh ns3 "incus exec aitbc -- cat /etc/aitbc/node.env"
+
+# Check service status in container
+ssh ns3 "incus exec aitbc -- systemctl status aitbc-blockchain-node --no-pager"
 ```
 
 ## Important Notes
