@@ -11,16 +11,16 @@ AITBC v0.3.11 is a **code quality and refactoring release** that standardizes in
 ## 🔧 Package Renaming
 
 ### Internal Package Standardization
-- **ai-service → aitbc-ai-service**
+- **ai-service → aitbc-ai**
   - Updated pyproject.toml package name
-  - Renamed directory: `examples/stubs/ai-service/` → `examples/stubs/aitbc-ai-service/`
-  - Renamed package module: `ai_service/` → `aitbc_ai_service/`
+  - Renamed directory: `examples/stubs/ai-service/` → `examples/stubs/aitbc-ai/`
+  - Renamed package module: `ai_service/` → `aitbc_ai/`
   - Updated health check response to use new service name
   
-- **edge-api → aitbc-edge-api**
+- **edge-api → aitbc-edge**
   - Updated pyproject.toml package name
-  - Renamed directory: `apps/edge-api/` → `apps/aitbc-edge-api/`
-  - Renamed package module: `edge_api/` → `aitbc_edge_api/`
+  - Renamed directory: `apps/edge-api/` → `apps/aitbc-edge/`
+  - Renamed package module: `edge_api/` → `aitbc_edge/`
   - Updated wheel packages configuration in pyproject.toml
   - Updated systemd service file reference
 
@@ -35,14 +35,14 @@ AITBC v0.3.11 is a **code quality and refactoring release** that standardizes in
 ### Directory Structure Changes
 ```
 examples/stubs/
-  ai-service/          → aitbc-ai-service/
+  ai-service/          → aitbc-ai/
     src/
-      ai_service/      → aitbc_ai_service/
+      ai_service/      → aitbc_ai/
 
 apps/
-  edge-api/            → aitbc-edge-api/
+  edge-api/            → aitbc-edge/
     src/
-      edge_api/        → aitbc_edge_api/
+      edge_api/        → aitbc_edge/
 ```
 
 ### Configuration Updates
@@ -69,14 +69,14 @@ from ai_service import main
 from edge_api import main
 
 # New imports
-from aitbc_ai_service import main
-from aitbc_edge_api import main
+from aitbc_ai import main
+from aitbc_edge import main
 ```
 
 ### Service Name Changes
 Systemd service references updated:
-- `aitbc-ai-service.service` (new name for AI service)
-- `aitbc-edge-api.service` (new name for edge API)
+- `aitbc-ai.service` (new name for AI service)
+- `aitbc-edge.service` (new name for edge API)
 
 ### Installation Changes
 If installing these packages directly, use new package names:
@@ -86,7 +86,7 @@ If installing these packages directly, use new package names:
 pip install ai-service edge-api
 
 # New installation  
-pip install aitbc-ai-service aitbc-edge-api
+pip install aitbc-ai aitbc-edge
 ```
 
 ## 🔧 Technical Details
@@ -97,8 +97,8 @@ All internal AITBC packages now follow the pattern:
 - `aitbc-cli` - CLI tools
 - `aitbc-crypto` - Cryptography library
 - `aitbc-sdk` - SDK
-- `aitbc-ai-service` - AI services
-- `aitbc-edge-api` - Edge API services
+- `aitbc-ai` - AI services
+- `aitbc-edge` - Edge API services
 
 ### Migration Impact
 - 38 files changed in this refactoring
@@ -123,8 +123,8 @@ Update your import statements to use new package names as shown in Breaking Chan
 If you have custom systemd service files, update service names:
 ```bash
 # Update service references
-sed -i 's/ai-service/aitbc-ai-service/g' your-service-file.service
-sed -i 's/edge-api/aitbc-edge-api/g' your-service-file.service
+sed -i 's/ai-service/aitbc-ai/g' your-service-file.service
+sed -i 's/edge-api/aitbc-edge/g' your-service-file.service
 sudo systemctl daemon-reload
 ```
 
