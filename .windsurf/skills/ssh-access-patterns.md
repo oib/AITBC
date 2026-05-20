@@ -59,8 +59,11 @@ ssh redacted-host "curl http://192.0.2.10:8006/rpc/head"
 ssh redacted-host "incus exec aitbc -- cat /etc/aitbc/.env"
 ssh redacted-host "incus exec aitbc -- cat /etc/aitbc/node.env"
 
+# Check blockchain node configuration
+ssh redacted-host "incus exec aitbc -- cat /opt/blockchain-node/src/aitbc_chain/config.py"
+
 # Check service status in container
-ssh redacted-host "incus exec aitbc -- systemctl status aitbc-blockchain-node --no-pager"
+ssh redacted-host "incus exec aitbc -- systemctl status aitbc-blockchain-node-3 --no-pager"
 ```
 
 ## Important Notes
