@@ -94,6 +94,16 @@ setup_python_environment() {
     # Activate virtual environment
     source venv/bin/activate
     
+    # Install dependencies from root pyproject.toml
+    if [ -f "pyproject.toml" ]; then
+        log_info "Installing dependencies from root pyproject.toml"
+        pip install -e .
+    else
+        log_error "No pyproject.toml found in root"
+        deactivate
+        exit 1
+    fi
+    
     # Install blockchain-node package in editable mode
     if [ -f "apps/blockchain-node/pyproject.toml" ]; then
         log_info "Installing blockchain-node package in editable mode"
