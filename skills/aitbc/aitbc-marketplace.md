@@ -15,83 +15,99 @@ Create, manage, and optimize AITBC marketplace listings with pricing strategies 
 ## Prerequisites
 - AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
 - Wallet with sufficient balance for listing fees
-- Marketplace service operational
+- Marketplace service operational on port 8102
 - GPU provider marketplace operational for resource allocation (if using GPU features)
+
+## Port Reference
+
+| Service | Port | Notes |
+|---------|------|-------|
+| Marketplace | 8102 | Offers, bids, orders |
+| Blockchain RPC | 8006 | Default RPC for CLI |
+| Coordinator API | 8011 | Agent registration |
 
 ## Operations
 
 ### List Marketplace Items
 ```bash
+# Via API
+curl -s http://localhost:8102/v1/marketplace/offers
+
 # Via aitbc-cli
-./aitbc-cli marketplace --action list --rpc-url http://localhost:8006
+cd /opt/aitbc && ./aitbc-cli marketplace --action list
 
 # Alternative command
-./aitbc-cli market-list --rpc-url http://localhost:8006
+cd /opt/aitbc && ./aitbc-cli market-list
 ```
 
 ### Create Marketplace Listing
 ```bash
-# Via aitbc-cli
-./aitbc-cli marketplace \
-  --action create \
-  --name <item_name> \
-  --price <price> \
-  --description <description> \
-  --wallet <wallet_name> \
-  --rpc-url http://localhost:8006
+# Via API
+curl -s -X POST http://localhost:8102/v1/marketplace/offers \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"<address>","item_type":"<type>","price":<price>,"description":"<desc>"}'
 
-# Alternative command
-./aitbc-cli market-create \
+# Via aitbc-cli
+cd /opt/aitbc && ./aitbc-cli market-create \
   --wallet <wallet_name> \
   --type <service_type> \
   --price <price> \
   --description <description> \
-  --password <password> \
-  --rpc-url http://localhost:8006
+  --password <password>
 ```
 
 ### Search Marketplace
 ```bash
-./aitbc-cli marketplace --action search --name <search_term> --rpc-url http://localhost:8006
+cd /opt/aitbc && ./aitbc-cli marketplace --action search --name <search_term>
 ```
 
 ### List My Listings
 ```bash
-./aitbc-cli marketplace --action my-listings --wallet <wallet_name> --rpc-url http://localhost:8006
+cd /opt/aitbc && ./aitbc-cli marketplace --action my-listings --wallet <wallet_name>
 ```
 
 ### GPU Provider Registration
 ```bash
-# Register as GPU provider
-python3 cli/unified_cli.py market gpu-provider-register \
+cd /opt/aitbc && python3 cli/unified_cli.py market gpu-provider-register \
   --wallet <wallet_name> \
   --gpu-model <model_name> \
   --gpu-count <number> \
   --models <comma_separated_models> \
-  --marketplace-url http://aitbc1:8102
+  --marketplace-url http://localhost:8102
 ```
 
 ### Buy/Create Bid
 ```bash
-python3 cli/unified_cli.py market buy \
+# Via API
+curl -s -X POST http://localhost:8102/v1/marketplace/offers/{offer_id}/book \
+  -H "Content-Type: application/json" \
+  -d '{"buyer":"<address>","bid_amount":<amount>}'
+
+# Via CLI
+cd /opt/aitbc && python3 cli/unified_cli.py market buy \
   --item <offer_id> \
   --wallet <wallet_name> \
   --password "$(cat /var/lib/aitbc/keystore/.genesis_password)" \
-  --marketplace-url http://aitbc1:8102
+  --marketplace-url http://localhost:8102
 ```
 
 ### List Bids/Orders
 ```bash
-python3 cli/unified_cli.py market orders \
+# Via API
+curl -s http://localhost:8102/v1/marketplace/bids
+curl -s http://localhost:8102/v1/marketplace/orders
+
+# Via CLI
+cd /opt/aitbc && python3 cli/unified_cli.py market orders \
   --wallet <wallet_name> \
-  --marketplace-url http://aitbc1:8102
+  --marketplace-url http://localhost:8102
 ```
 
 ## Common Pitfalls
 
 1. **Insufficient Balance:** Check wallet balance before creating listings
 2. **Invalid Service Type:** Ensure service type is valid (ai-inference, ai-training, resource-compute, resource-storage, data-processing, gpu-provider)
-3. **Marketplace URL:** Use correct marketplace URL (http://aitbc1:8102 for unified_cli.py)
+3. **Marketplace URL:** Use correct marketplace URL (http://localhost:8102 on main node)
 4. **Password Required:** Use password from `/var/lib/aitbc/keystore/.genesis_password` for genesis wallet
 5. **Listing Not Found:** Verify listing ID is correct when searching or bidding
 
@@ -106,5 +122,17 @@ python3 cli/unified_cli.py market orders \
 ## CLI Tool Preference
 - **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
 - **Module:** `cli/unified_cli.py` is a module within the CLI tool for marketplace and messaging operations
-- **Note:** For marketplace operations, prefer `python3 cli/unified_cli.py` (verified working with 7 bugs fixed)
-- **Marketplace URL:** `http://aitbc1:8102` for unified_cli.py marketplace operations
+- **Note:** For marketplace operations, prefer `python3 cli/unified_cli.py` (verified working)
+- **Marketplace URL:** `http://localhost:8102` on main node
+
+## Status
+**AITBC Marketplace: FULLY OPERATIONAL**
+- All marketplace operations verified working
+- GPU provider integration functional
+- **This skill ships with AITBC software repository**
+
+---
+
+**Generated by:** OWL (aitbc main node)
+**Date:** 2026-05-20
+**Location:** `/opt/aitbc/skills/aitbc-marketplace.md`
