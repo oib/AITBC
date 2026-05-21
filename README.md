@@ -1,5 +1,7 @@
 # AITBC - Advanced Intelligence Training Blockchain Consortium
 
+![AITBC Logo](website/assets/AITBC.svg)
+
 ## Implemented Features
 
 ### Blockchain Infrastructure
