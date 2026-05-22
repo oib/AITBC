@@ -61,8 +61,14 @@ jobs:
         if: inputs.skip_tests != true
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          npm install
-          npx hardhat test
+          
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          pnpm install
+          pnpm hardhat test
           echo "✅ Contract tests passed"
 
       - name: Verify deployment readiness
@@ -105,13 +111,19 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          npm install
+          
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Compile contracts
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          npx hardhat compile
+          pnpm hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Deploy contracts to mainnet
@@ -124,7 +136,7 @@ jobs:
           export MAINNET_RPC_URL=${{ secrets.MAINNET_RPC_URL }}
           
           # Deploy contracts with gas optimization
-          npx hardhat run scripts/deploy-mainnet.js --network mainnet
+          pnpm hardhat run scripts/deploy-mainnet.js --network mainnet
           
           echo "✅ Contracts deployed to mainnet"
 
@@ -140,16 +152,16 @@ jobs:
           echo "🔍 Verifying contracts on Etherscan..."
           
           # Verify PaymentProcessor
-          npx hardhat verify --network mainnet $PAYMENT_PROCESSOR_ADDRESS --constructor-args scripts/deployment/args/payment-processor-args.js
+          pnpm hardhat verify --network mainnet $PAYMENT_PROCESSOR_ADDRESS --constructor-args scripts/deployment/args/payment-processor-args.js
           
           # Verify AgentMarketplace
-          npx hardhat verify --network mainnet $AGENT_MARKETPLACE_ADDRESS --constructor-args scripts/deployment/args/agent-marketplace-args.js
+          pnpm hardhat verify --network mainnet $AGENT_MARKETPLACE_ADDRESS --constructor-args scripts/deployment/args/agent-marketplace-args.js
           
           # Verify StakingContract
-          npx hardhat verify --network mainnet $STAKING_CONTRACT_ADDRESS --constructor-args scripts/deployment/args/staking-contract-args.js
+          pnpm hardhat verify --network mainnet $STAKING_CONTRACT_ADDRESS --constructor-args scripts/deployment/args/staking-contract-args.js
           
           # Verify TreasuryManager
-          npx hardhat verify --network mainnet $TREASURY_MANAGER_ADDRESS --constructor-args scripts/deployment/args/treasury-manager-args.js
+          pnpm hardhat verify --network mainnet $TREASURY_MANAGER_ADDRESS --constructor-args scripts/deployment/args/treasury-manager-args.js
           
           echo "✅ All contracts verified on Etherscan"
 

@@ -5,7 +5,7 @@ echo "=== AITBC Smart Contract Compilation ==="
 # Check if solc is installed
 if ! command -v solc &> /dev/null; then
     echo "Error: solc (Solidity compiler) not found"
-    echo "Please install solc: npm install -g solc"
+    echo "Please install solc: pnpm add -g solc"
     exit 1
 fi
 

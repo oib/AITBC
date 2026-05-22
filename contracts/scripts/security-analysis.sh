@@ -4,7 +4,7 @@
 #
 # Prerequisites:
 #   pip install slither-analyzer mythril
-#   npm install -g solc
+#   pnpm add -g solc
 #
 # Usage:
 #   ./scripts/security-analysis.sh [--slither-only | --mythril-only]

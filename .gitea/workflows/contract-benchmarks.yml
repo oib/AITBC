@@ -50,7 +50,13 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          npm install
+          
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run gas usage benchmarks
@@ -60,7 +66,7 @@ jobs:
           echo "🧪 Running gas usage benchmarks"
           
           # Run benchmarks (gas reporting will be added when tests are implemented)
-          npx hardhat test test/benchmarks/gas-usage.test.js
+          pnpm hardhat test test/benchmarks/gas-usage.test.js
           
           echo "✅ Gas usage benchmarks completed"
 
@@ -103,7 +109,13 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          npm install
+          
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run execution time benchmarks
@@ -112,7 +124,7 @@ jobs:
           
           echo "🧪 Running execution time benchmarks"
           
-          npx hardhat test test/benchmarks/execution-time.test.js
+          pnpm hardhat test test/benchmarks/execution-time.test.js
           
           echo "✅ Execution time benchmarks completed"
 
@@ -154,7 +166,13 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          npm install
+          
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run throughput benchmarks
@@ -163,7 +181,7 @@ jobs:
           
           echo "🧪 Running throughput benchmarks"
           
-          npx hardhat test test/benchmarks/throughput.test.js
+          pnpm hardhat test test/benchmarks/throughput.test.js
           
           echo "✅ Throughput benchmarks completed"
 

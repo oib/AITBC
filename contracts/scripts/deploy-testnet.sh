@@ -2,8 +2,8 @@
 # Deploy ZKReceiptVerifier to testnet
 #
 # Prerequisites:
-#   npm install -g hardhat @nomicfoundation/hardhat-toolbox
-#   cd contracts && npm init -y && npm install hardhat
+#   pnpm install -g hardhat @nomicfoundation/hardhat-toolbox
+#   cd contracts && pnpm install hardhat
 #
 # Usage:
 #   ./scripts/deploy-testnet.sh [--network <network>]
@@ -29,13 +29,13 @@ else
     echo "Generating Groth16Verifier.sol from circuit..."
     ZK_DIR="$CONTRACTS_DIR/../apps/zk-circuits"
     if [[ -f "$ZK_DIR/circuit_final.zkey" ]]; then
-        npx snarkjs zkey export solidityverifier \
+        pnpm snarkjs zkey export solidityverifier \
             "$ZK_DIR/circuit_final.zkey" \
             "$CONTRACTS_DIR/Groth16Verifier.sol"
         echo "Generated Groth16Verifier.sol"
     else
         echo "WARNING: circuit_final.zkey not found. Using stub verifier."
-        echo "To generate: cd apps/zk-circuits && npx snarkjs groth16 setup ..."
+        echo "To generate: cd apps/zk-circuits && pnpm snarkjs groth16 setup ..."
     fi
 fi
 
@@ -43,18 +43,18 @@ fi
 echo ""
 echo "--- Step 2: Compile Contracts ---"
 cd "$CONTRACTS_DIR"
-if command -v npx &>/dev/null && [[ -f "hardhat.config.js" ]]; then
-    npx hardhat compile
+if command -v pnpm &>/dev/null && [[ -f "hardhat.config.js" ]]; then
+    pnpm hardhat compile
 else
     echo "Hardhat not configured. Compile manually:"
-    echo "  cd contracts && npx hardhat compile"
+    echo "  cd contracts && pnpm hardhat compile"
 fi
 
 # Step 3: Deploy
 echo ""
 echo "--- Step 3: Deploy to $NETWORK ---"
-if command -v npx &>/dev/null && [[ -f "hardhat.config.js" ]]; then
-    npx hardhat run scripts/deploy.js --network "$NETWORK"
+if command -v pnpm &>/dev/null && [[ -f "hardhat.config.js" ]]; then
+    pnpm hardhat run scripts/deploy.js --network "$NETWORK"
 else
     echo "Deploy script template:"
     echo ""
