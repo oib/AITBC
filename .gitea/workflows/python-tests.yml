@@ -84,7 +84,9 @@ jobs:
             -c /dev/null --rootdir "$PWD" --import-mode=importlib \
             --tb=short -q --timeout=30 \
             -o asyncio_mode=auto \
-            --cov=apps --cov=packages --cov=cli --cov-append
+            --cov=apps --cov=packages --cov=cli --cov-append \
+            --cov-report=term-missing --cov-report=html \
+            --cov-fail-under=50
 
       - name: Run app and package tests with coverage
         run: |

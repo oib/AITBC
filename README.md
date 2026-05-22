@@ -32,7 +32,7 @@
 
 ### CLI & Tools
 - **Unified CLI** with 50+ command groups
-- **100% test coverage** for CLI commands
+- **Test coverage** for CLI commands (Current: 50%, Target: 85%)
 - **Modular handler architecture** for extensibility
 - **Bridge commands** for blockchain event bridging
 - **Account management** commands
@@ -45,9 +45,10 @@
 - **Encrypted keystores** for secure key management
 
 ### Testing & CI/CD
-- **Comprehensive test suite** with 100% success rate
+- **Comprehensive test suite** with 50% minimum coverage (Target: 85%)
 - **Standardized venv caching** with corruption detection
 - **Automated CI/CD** with Gitea workflows
+- **Phased quality gates** (50% → 70% → 85%+)
 - **Security scanning** optimized for changed files
 - **Cross-node verification tests**
 

@@ -7,7 +7,7 @@ authors = ["AITBC Team"]
 
 
 [tool.poetry.dependencies]
-python = ">=3.13,<3.14"
+python = ">=3.11,<3.14"
 # Core Web Framework
 fastapi = ">=0.115.6"
 uvicorn = {extras = ["standard"], version = ">=0.34.0"}
