@@ -58,16 +58,21 @@ jobs:
             exit 0
           fi
 
-          echo "Node: $(node --version), npm: $(npm --version)"
+          echo "Node: $(node --version), pnpm: $(pnpm --version)"
+
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
 
           # Install
-          npm install --legacy-peer-deps
+          pnpm install
 
           # Compile
           if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
-            npx hardhat compile
+            pnpm hardhat compile
             echo "✅ Compiled"
-            npx hardhat test
+            pnpm hardhat test
             echo "✅ Tests passed"
           elif [[ -f "foundry.toml" ]]; then
             forge build
@@ -76,10 +81,10 @@ jobs:
             echo "✅ Tests passed"
           else
             if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.compile ? 0 : 1)"; then
-              npm run compile
+              pnpm run compile
               echo "✅ Compiled"
             elif node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.build ? 0 : 1)"; then
-              npm run build
+              pnpm run build
               echo "✅ Compiled"
             else
               echo "❌ No compile or build script found"
@@ -87,7 +92,7 @@ jobs:
             fi
 
             if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
-              npm test
+              pnpm test
               echo "✅ Tests passed"
             else
               echo "❌ No test script found"
@@ -189,10 +194,15 @@ jobs:
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
               echo "=== Linting $project ==="
               cd "$project"
-              npm install --legacy-peer-deps
+              
+              # Install pnpm if not available
+              if ! command -v pnpm &> /dev/null; then
+                npm install -g pnpm
+              fi
+              pnpm install
 
               if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.lint ? 0 : 1)"; then
-                npm run lint
+                pnpm run lint
                 echo "✅ Lint passed"
               else
                 echo "⚠️ No lint script for $project, skipping"
@@ -237,23 +247,28 @@ jobs:
 
           echo "=== Deploying Contracts to Localhost ==="
           
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
           # Install dependencies
-          npm install --legacy-peer-deps
+          pnpm install
           
           # Compile contracts
-          npx hardhat compile
+          pnpm hardhat compile
           
           # Start local node in background
-          npx hardhat node &
+          pnpm hardhat node &
           NODE_PID=$!
           sleep 10
           
           # Deploy contracts
-          npx hardhat run scripts/deploy-automation.js --network localhost
+          pnpm hardhat run scripts/deploy-automation.js --network localhost
           echo "✅ Contracts deployed successfully"
           
           # Verify deployment
-          DEPLOYMENT_FILE="deployments-localhost.json" npx hardhat run scripts/verify-deployment.js --network localhost
+          DEPLOYMENT_FILE="deployments-localhost.json" pnpm hardhat run scripts/verify-deployment.js --network localhost
           echo "✅ Deployment verified"
           
           # Cleanup

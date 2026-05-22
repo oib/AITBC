@@ -74,7 +74,7 @@ Configure the following secrets in your CI/CD system:
 ### Local Setup
 ```bash
 cd /opt/aitbc/contracts
-npm install
+pnpm install
 ```
 
 ---
@@ -101,13 +101,13 @@ export PRIVATE_KEY=<your-testnet-private-key>
 export TESTNET_RPC_URL=<testnet-rpc-url>
 
 # Compile contracts
-npx hardhat compile
+pnpm hardhat compile
 
 # Run tests
-npx hardhat test
+pnpm hardhat test
 
 # Deploy contracts
-npx hardhat run scripts/deploy-testnet.js --network testnet
+pnpm hardhat run scripts/deploy-testnet.js --network testnet
 ```
 
 ### Contract Addresses
@@ -152,16 +152,16 @@ export PRIVATE_KEY=<your-mainnet-private-key>
 export MAINNET_RPC_URL=<mainnet-rpc-url>
 
 # Compile contracts
-npx hardhat compile
+pnpm hardhat compile
 
 # Run security scan
 bash scripts/ci/security-scan.sh
 
 # Run contract tests
-npx hardhat test
+pnpm hardhat test
 
 # Deploy contracts
-npx hardhat run scripts/deploy-mainnet.js --network mainnet
+pnpm hardhat run scripts/deploy-mainnet.js --network mainnet
 ```
 
 ### Deployment Safety
@@ -184,13 +184,13 @@ Automated verification is performed during deployment using:
 export ETHERSCAN_API_KEY=<your-etherscan-api-key>
 
 # Verify PaymentProcessor
-npx hardhat verify --network mainnet <PAYMENT_PROCESSOR_ADDRESS> --constructor-args scripts/deployment/args/payment-processor-args.js
+pnpm hardhat verify --network mainnet <PAYMENT_PROCESSOR_ADDRESS> --constructor-args scripts/deployment/args/payment-processor-args.js
 
 # Verify AgentMarketplace
-npx hardhat verify --network mainnet <AGENT_MARKETPLACE_ADDRESS> --constructor-args scripts/deployment/args/agent-marketplace-args.js
+pnpm hardhat verify --network mainnet <AGENT_MARKETPLACE_ADDRESS> --constructor-args scripts/deployment/args/agent-marketplace-args.js
 
 # Verify StakingContract
-npx hardhat verify --network mainnet <STAKING_CONTRACT_ADDRESS> --constructor-args scripts/deployment/args/staking-contract-args.js
+pnpm hardhat verify --network mainnet <STAKING_CONTRACT_ADDRESS> --constructor-args scripts/deployment/args/staking-contract-args.js
 ```
 
 ### Testnet Verification
@@ -270,7 +270,7 @@ bash scripts/monitoring/verify-monitoring.sh <network>
 curl -X POST $RPC_URL -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 
 # Check account balance
-npx hardhat run scripts/check-balance.js --network <network>
+pnpm hardhat run scripts/check-balance.js --network <network>
 ```
 
 ### Verification Fails
@@ -287,7 +287,7 @@ npx hardhat run scripts/check-balance.js --network <network>
 curl https://api.etherscan.io/api?module=contract&action=getabiaddress&address=<CONTRACT_ADDRESS>&apikey=<API_KEY>
 
 # Re-verify with correct arguments
-npx hardhat verify --network <network> <ADDRESS> <CONSTRUCTOR_ARGS>
+pnpm hardhat verify --network <network> <ADDRESS> <CONSTRUCTOR_ARGS>
 ```
 
 ### Monitoring Not Working
