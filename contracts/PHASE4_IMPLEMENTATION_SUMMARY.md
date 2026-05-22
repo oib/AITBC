@@ -152,8 +152,8 @@ docs/
 ## 🎯 **Next Steps**
 
 ### **✅ Ready for Production**
-1. **Deploy to Testnet**: `npm run deploy-phase4`
-2. **Run Verification**: `npm run verify-phase4`
+1. **Deploy to Testnet**: `pnpm run deploy-phase4`
+2. **Run Verification**: `pnpm run verify-phase4`
 3. **Integration Testing**: Test with existing AITBC contracts
 4. **Mainnet Deployment**: Production deployment
 
