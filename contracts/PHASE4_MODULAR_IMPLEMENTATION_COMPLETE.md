@@ -198,16 +198,16 @@ The ContractRegistry enables:
 ### **Deployment Commands**
 ```bash
 # Compile contracts
-npm run compile
+pnpm run compile
 
 # Deploy Phase 4 modular contracts
-npm run deploy-phase4
+pnpm run deploy-phase4
 
 # Run comprehensive tests
-npm run test-phase4
+pnpm run test-phase4
 
 # Verify deployment
-npm run verify-phase4
+pnpm run verify-phase4
 ```
 
 ### **Configuration**

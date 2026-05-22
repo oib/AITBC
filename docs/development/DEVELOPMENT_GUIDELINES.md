@@ -114,7 +114,7 @@ touch dev/tests/test_new_feature.py
 touch dev/scripts/fix_bug.py
 
 # Right way to handle dependencies
-npm install  # Use in contracts/ directory for smart contracts development
+pnpm install  # Use in contracts/ directory for smart contracts development
 source /opt/aitbc/venv/bin/activate  # Use central Python virtual environment
 ```
 

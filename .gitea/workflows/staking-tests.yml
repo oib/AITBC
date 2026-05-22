@@ -145,7 +145,12 @@ jobs:
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
           
-          npm install
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run staking contract tests
@@ -153,8 +158,8 @@ jobs:
           cd "${{ env.WORKSPACE }}/repo/contracts"
           
           echo "🧪 Running staking contract tests..."
-          npx hardhat compile
-          npx hardhat test test/AgentStaking.test.js
+          pnpm hardhat compile
+          pnpm hardhat test test/AgentStaking.test.js
           echo "✅ Contract tests completed"
 
       - name: Cleanup
