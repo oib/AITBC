@@ -179,26 +179,27 @@ jobs:
           fi
 
           node --version
-          npm --version
+          pnpm --version
 
-          if [[ -f "package-lock.json" ]]; then
-            npm ci --legacy-peer-deps --no-audit --no-fund
-          else
-            npm install --legacy-peer-deps --no-audit --no-fund
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
           fi
 
+          pnpm install
+
           # Build
-          npm run build
+          pnpm run build
           echo "✅ Build passed"
 
           # Lint
-          npm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
+          pnpm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
 
           # Test
           if [[ "${{ matrix.package.name }}" == "aitbc-token" ]]; then
-            npx hardhat test --no-compile
+            pnpm hardhat test --no-compile
           else
-            npm test
+            pnpm test
           fi
           echo "✅ Tests passed"
 
