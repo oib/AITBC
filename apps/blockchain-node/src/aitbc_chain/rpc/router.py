@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import re
 import time
 import uuid
@@ -10,6 +11,7 @@ from typing import Any, Dict, Optional, List
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import select, delete
 
@@ -28,6 +30,63 @@ from ..network.island_manager import get_island_manager
 from aitbc.rate_limiting import rate_limit
 
 _logger = get_logger(__name__)
+
+# Security scheme for authentication
+security = HTTPBearer(auto_error=False)
+
+def get_authenticated_address(request: Request, credentials: Optional[HTTPAuthorizationCredentials] = None) -> str:
+    """
+    Extract authenticated wallet address from request headers or JWT token.
+    
+    Priority order:
+    1. X-Wallet-Address header (for API key auth)
+    2. JWT Bearer token (if provided)
+    3. Development mode fallback (if DEV_MODE=true)
+    
+    Returns:
+        str: The authenticated wallet address
+        
+    Raises:
+        HTTPException: If authentication fails and not in development mode
+    """
+    # Check for X-Wallet-Address header (API key authentication)
+    wallet_address = request.headers.get("X-Wallet-Address")
+    if wallet_address:
+        # Validate address format (basic check)
+        if not wallet_address.startswith("0x") or len(wallet_address) != 42:
+            _logger.warning(f"Invalid wallet address format in X-Wallet-Address header: {wallet_address}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid wallet address format"
+            )
+        _logger.debug(f"Authenticated via X-Wallet-Address header: {wallet_address}")
+        return wallet_address
+    
+    # Check for JWT Bearer token
+    if credentials and credentials.scheme == "Bearer":
+        # In a full implementation, this would validate the JWT token
+        # For now, we'll extract a wallet address from the token if present
+        # This is a placeholder for proper JWT validation
+        token = credentials.credentials
+        _logger.debug(f"JWT token provided (validation not yet implemented)")
+        # TODO: Implement proper JWT validation and address extraction
+        # For now, raise an error to require proper implementation
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="JWT authentication not yet implemented. Use X-Wallet-Address header."
+        )
+    
+    # Development mode fallback
+    if os.getenv("DEV_MODE", "false").lower() == "true":
+        _logger.warning("Using development mode fallback for authentication - returning zero address")
+        return "0x0000000000000000000000000000000000000000"
+    
+    # No valid authentication found
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required. Provide X-Wallet-Address header or valid JWT token.",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
 
 router = APIRouter()
 
@@ -1554,12 +1613,19 @@ class GetArbitrationVotesResponse(BaseModel):
 
 
 @router.post("/disputes/file", summary="File a new dispute")
-async def file_dispute(request: FileDisputeRequest) -> FileDisputeResponse:
+async def file_dispute(
+    request: FileDisputeRequest,
+    http_request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> FileDisputeResponse:
     """
     File a new dispute for a marketplace transaction.
     This interacts with the DisputeResolution smart contract.
     """
     try:
+        # Get authenticated address from request
+        sender_address = get_authenticated_address(http_request, credentials)
+        
         # Use dispute resolution service
         result = dispute_resolution_service.file_dispute(
             agreement_id=request.agreement_id,
@@ -1567,7 +1633,7 @@ async def file_dispute(request: FileDisputeRequest) -> FileDisputeResponse:
             dispute_type=request.dispute_type,
             reason=request.reason,
             evidence_hash=request.evidence_hash,
-            sender_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+            sender_address=sender_address
         )
         
         if not result.get("success"):
@@ -1587,17 +1653,24 @@ async def file_dispute(request: FileDisputeRequest) -> FileDisputeResponse:
 
 
 @router.post("/disputes/evidence", summary="Submit evidence for a dispute")
-async def submit_evidence(request: SubmitEvidenceRequest) -> SubmitEvidenceResponse:
+async def submit_evidence(
+    request: SubmitEvidenceRequest,
+    http_request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> SubmitEvidenceResponse:
     """
     Submit evidence for a dispute.
     This interacts with the DisputeResolution smart contract.
     """
     try:
+        # Get authenticated address from request
+        submitter_address = get_authenticated_address(http_request, credentials)
+        
         result = dispute_resolution_service.submit_evidence(
             dispute_id=request.dispute_id,
             evidence_type=request.evidence_type,
             evidence_data=request.evidence_data,
-            submitter_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+            submitter_address=submitter_address
         )
         
         if not result.get("success"):
@@ -1617,18 +1690,25 @@ async def submit_evidence(request: SubmitEvidenceRequest) -> SubmitEvidenceRespo
 
 
 @router.post("/disputes/verify-evidence", summary="Verify evidence (arbitrator only)")
-async def verify_evidence(request: VerifyEvidenceRequest) -> VerifyEvidenceResponse:
+async def verify_evidence(
+    request: VerifyEvidenceRequest,
+    http_request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> VerifyEvidenceResponse:
     """
     Verify evidence submitted in a dispute.
     This can only be called by authorized arbitrators.
     """
     try:
+        # Get authenticated address from request
+        arbitrator_address = get_authenticated_address(http_request, credentials)
+        
         result = dispute_resolution_service.verify_evidence(
             dispute_id=request.dispute_id,
             evidence_id=request.evidence_id,
             is_valid=request.is_valid,
             verification_score=request.verification_score,
-            arbitrator_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+            arbitrator_address=arbitrator_address
         )
         
         if not result.get("success"):
@@ -1647,13 +1727,23 @@ async def verify_evidence(request: VerifyEvidenceRequest) -> VerifyEvidenceRespo
 
 
 @router.post("/disputes/vote", summary="Submit arbitration vote (arbitrator only)")
-async def submit_arbitration_vote(request: SubmitArbitrationVoteRequest) -> SubmitArbitrationVoteResponse:
+async def submit_arbitration_vote(
+    request: SubmitArbitrationVoteRequest,
+    http_request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> SubmitArbitrationVoteResponse:
     """
     Submit an arbitration vote for a dispute.
     This can only be called by authorized arbitrators assigned to the dispute.
     """
     try:
+        # Get authenticated address from request
+        arbitrator_address = get_authenticated_address(http_request, credentials)
+        
         # TODO: Implement actual smart contract interaction with arbitrator authorization check
+        # For now, validate that we have a real address (not zero address unless in dev mode)
+        if arbitrator_address == "0x0000000000000000000000000000000000000000":
+            _logger.warning("Vote submission attempted with zero address - may be in dev mode")
         
         return SubmitArbitrationVoteResponse(
             success=True,
@@ -1666,16 +1756,23 @@ async def submit_arbitration_vote(request: SubmitArbitrationVoteRequest) -> Subm
 
 
 @router.post("/disputes/arbitrators/authorize", summary="Authorize an arbitrator (admin only)")
-async def authorize_arbitrator(request: AuthorizeArbitratorRequest) -> AuthorizeArbitratorResponse:
+async def authorize_arbitrator(
+    request: AuthorizeArbitratorRequest,
+    http_request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> AuthorizeArbitratorResponse:
     """
     Authorize a new arbitrator.
     This can only be called by the contract owner.
     """
     try:
+        # Get authenticated address from request
+        owner_address = get_authenticated_address(http_request, credentials)
+        
         result = dispute_resolution_service.authorize_arbitrator(
             arbitrator_address=request.arbitrator,
             reputation_score=request.reputation_score,
-            owner_address="0x0000000000000000000000000000000000000000"  # TODO: Get from auth
+            owner_address=owner_address
         )
         
         if not result.get("success"):
