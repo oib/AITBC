@@ -5,9 +5,13 @@ Node client for multi-chain operations
 import asyncio
 import httpx
 import json
+import os
+import logging
 from typing import Dict, List, Optional, Any
 from core.config import NodeConfig
 from models.chain import ChainInfo, ChainType, ChainStatus, ConsensusAlgorithm
+
+logger = logging.getLogger(__name__)
 
 class NodeClient:
     """Client for communicating with AITBC nodes"""
@@ -16,6 +20,8 @@ class NodeClient:
         self.config = node_config
         self._client: Optional[httpx.AsyncClient] = None
         self._session_id: Optional[str] = None
+        self._mock_fallback_count = 0
+        self._dev_mocks_enabled = os.getenv("DEV_MOCKS_ENABLED", "false").lower() == "true"
     
     async def __aenter__(self):
         """Async context manager entry"""
@@ -45,7 +51,11 @@ class NodeClient:
                 self._session_id = data.get("session_id")
         except Exception as e:
             # For development, we'll continue without authentication
-            pass # print(f"Warning: Could not authenticate with node {self.config.id}: {e}")
+            if self._dev_mocks_enabled:
+                logger.warning(f"[DEV_MODE] Authentication failed for node {self.config.id}: {e}")
+            else:
+                logger.error(f"Authentication failed for node {self.config.id}: {e}")
+                raise
     
     async def get_node_info(self) -> Dict[str, Any]:
         """Get node information"""
@@ -57,7 +67,13 @@ class NodeClient:
                 raise Exception(f"Node info request failed: {response.status_code}")
         except Exception as e:
             # Return mock data for development
-            return self._get_mock_node_info()
+            if self._dev_mocks_enabled:
+                self._mock_fallback_count += 1
+                logger.warning(f"[DEV_MODE] Using mock node info for {self.config.id} (fallback #{self._mock_fallback_count})")
+                return self._get_mock_node_info()
+            else:
+                logger.error(f"Failed to get node info for {self.config.id}: {e}")
+                raise
     
     async def get_hosted_chains(self) -> List[ChainInfo]:
         """Get all chains hosted by this node"""
