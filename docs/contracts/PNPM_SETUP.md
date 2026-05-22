@@ -1,0 +1,141 @@
+# pnpm Setup for AITBC Contracts
+
+**Level**: Intermediate  
+**Prerequisites**: Node.js, familiarity with package managers  
+**Estimated Time**: 5 minutes  
+**Last Updated**: 2026-05-22  
+**Version**: 1.0
+
+## 🧭 **Navigation Path:**
+**🏠 [Documentation Home](../README.md)** → **📜 Contracts** → **⚙️ pnpm Setup**
+
+**breadcrumb**: Home → Contracts → pnpm Setup
+
+---
+
+## 🎯 **See Also:**
+- **📦 Smart Contract Deployment**: [SMART_CONTRACT_DEPLOYMENT.md](../deployment/SMART_CONTRACT_DEPLOYMENT.md) - Deployment guide using pnpm
+- **🔧 Development Guidelines**: [DEVELOPMENT_GUIDELINES.md](../development/DEVELOPMENT_GUIDELINES.md) - General development setup
+- **📜 Contracts Overview**: [contracts/README.md](README.md) - Contract documentation index
+
+---
+
+## 📦 **Overview**
+
+The AITBC contracts directory uses **pnpm** as the package manager instead of npm. pnpm provides faster installations, better disk efficiency, and stricter dependency management.
+
+## 📋 **Configuration Files**
+
+### `.npmrc`
+The contracts directory includes a `.npmrc` file with the following settings:
+
+```ini
+auto-install-peers=false
+strict-peer-dependencies=true
+prefer-frozen-lockfile=true
+shamefully-hoist=true
+```
+
+**Settings explained:**
+- **auto-install-peers=false**: Don't automatically install peer dependencies - requires explicit installation
+- **strict-peer-dependencies=true**: Fail if peer dependency requirements aren't met
+- **prefer-frozen-lockfile=true**: Use exact versions from lockfile (recommended for CI)
+- **shamefully-hoist=true**: Hoist dependencies to node_modules root (for compatibility with some tools)
+
+### `pnpm-lock.yaml`
+The lockfile is automatically generated and should be committed to version control. It ensures reproducible installs across environments.
+
+## 🚀 **Common Commands**
+
+### Installation
+```bash
+cd /opt/aitbc/contracts
+pnpm install
+```
+
+### Development Commands
+```bash
+# Compile contracts
+pnpm hardhat compile
+
+# Run tests
+pnpm hardhat test
+
+# Deploy contracts
+pnpm hardhat run scripts/deploy.js --network localhost
+
+# Verify contracts
+pnpm hardhat verify --network mainnet <ADDRESS> <CONSTRUCTOR_ARGS>
+```
+
+### CI/CD Commands
+```bash
+# Install with frozen lockfile (recommended for CI)
+pnpm install --frozen-lockfile
+```
+
+## 🔧 **Migration from npm**
+
+If you're migrating from npm to pnpm:
+
+1. **Delete npm artifacts**:
+   ```bash
+   rm package-lock.json
+   rm -rf node_modules
+   ```
+
+2. **Install pnpm** (if not already installed):
+   ```bash
+   npm install -g pnpm
+   ```
+
+3. **Install dependencies with pnpm**:
+   ```bash
+   pnpm install
+   ```
+
+4. **Update scripts**: Replace `npm` with `pnpm` and `npx` with `pnpm`
+
+## 📊 **Benefits of pnpm**
+
+- **Speed**: 2-3x faster installations than npm
+- **Disk Space**: ~50% reduction through content-addressable storage
+- **Strictness**: Better dependency resolution and peer dependency handling
+- **Reproducibility**: More reliable lockfile behavior
+
+## 🛠️ **Troubleshooting**
+
+### Build scripts fail
+If you encounter build script errors, you may need to approve specific packages:
+```bash
+pnpm approve-builds <package-name>
+```
+
+### Peer dependency errors
+If strict peer dependency checking causes issues, you can temporarily disable it:
+```bash
+pnpm install --strict-peer-dependencies=false
+```
+
+### Cache issues
+Clear the pnpm cache if you encounter unexpected behavior:
+```bash
+pnpm store prune
+```
+
+## 🔄 **CI/CD Integration**
+
+All CI workflows have been updated to use pnpm:
+- `smart-contract-tests.yml`
+- `deploy-testnet.yml`
+- `deploy-mainnet.yml`
+- `contract-benchmarks.yml`
+- `staking-tests.yml`
+
+Workflows automatically install pnpm if not available on the runner.
+
+---
+
+*Last updated: 2026-05-22*  
+*Version: 1.0*  
+*Status: Active*
