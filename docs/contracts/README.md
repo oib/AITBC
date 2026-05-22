@@ -23,15 +23,22 @@
 
 ## 📚 **Available Content**
 
-This directory currently focuses on zero-knowledge verification for AITBC receipts:
+This directory contains documentation for AITBC smart contracts:
 
-- **[ZK-VERIFICATION.md](ZK-VERIFICATION.md)** - End-to-end ZK receipt verification guide.
+- **[ZK-VERIFICATION.md](ZK-VERIFICATION.md)** - End-to-end ZK receipt verification guide
+- **[PNPM_SETUP.md](PNPM_SETUP.md)** - pnpm package manager configuration and usage
 
-### **Use this guide when you need to:**
-- Understand the off-chain proof generation flow.
-- Review the on-chain verifier contract interface.
-- Integrate receipt verification with the coordinator API.
-- Validate settlement flows that depend on ZK proofs.
+### **Use ZK-VERIFICATION.md when you need to:**
+- Understand the off-chain proof generation flow
+- Review the on-chain verifier contract interface
+- Integrate receipt verification with the coordinator API
+- Validate settlement flows that depend on ZK proofs
+
+### **Use PNPM_SETUP.md when you need to:**
+- Set up the development environment with pnpm
+- Understand package manager configuration
+- Troubleshoot dependency issues
+- Run build and test commands
 
 ---
 
