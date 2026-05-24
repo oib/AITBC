@@ -10,7 +10,7 @@ import uuid
 from typing import Any, Dict, Optional, List
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import select, delete
@@ -52,34 +52,32 @@ def get_authenticated_address(request: Request, credentials: Optional[HTTPAuthor
     # Check for X-Wallet-Address header (API key authentication)
     wallet_address = request.headers.get("X-Wallet-Address")
     if wallet_address:
-        # Validate address format (basic check)
         if not wallet_address.startswith("0x") or len(wallet_address) != 42:
             _logger.warning(f"Invalid wallet address format in X-Wallet-Address header: {wallet_address}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid wallet address format"
             )
+        if os.getenv("TRUST_X_WALLET_ADDRESS", "false").lower() != "true":
+            _logger.warning("Rejected untrusted X-Wallet-Address header")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="X-Wallet-Address header is not trusted without explicit server configuration"
+            )
         _logger.debug(f"Authenticated via X-Wallet-Address header: {wallet_address}")
         return wallet_address
     
     # Check for JWT Bearer token
     if credentials and credentials.scheme == "Bearer":
-        # In a full implementation, this would validate the JWT token
-        # For now, we'll extract a wallet address from the token if present
-        # This is a placeholder for proper JWT validation
-        token = credentials.credentials
-        _logger.debug(f"JWT token provided (validation not yet implemented)")
-        # TODO: Implement proper JWT validation and address extraction
-        # For now, raise an error to require proper implementation
+        _logger.warning("JWT authentication attempted but not supported")
         raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="JWT authentication not yet implemented. Use X-Wallet-Address header."
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="JWT authentication is not supported. Use X-Wallet-Address header with TRUST_X_WALLET_ADDRESS=true for trusted internal requests."
         )
     
     # Development mode fallback
     if os.getenv("DEV_MODE", "false").lower() == "true":
-        _logger.warning("Using development mode fallback for authentication - returning zero address")
-        return "0x0000000000000000000000000000000000000000"
+        _logger.warning("Rejected unauthenticated request in development mode")
     
     # No valid authentication found
     raise HTTPException(
@@ -1739,17 +1737,22 @@ async def submit_arbitration_vote(
     try:
         # Get authenticated address from request
         arbitrator_address = get_authenticated_address(http_request, credentials)
-        
-        # TODO: Implement actual smart contract interaction with arbitrator authorization check
-        # For now, validate that we have a real address (not zero address unless in dev mode)
+
+        # Reject zero address in all modes - this is a sensitive arbitration operation
         if arbitrator_address == "0x0000000000000000000000000000000000000000":
-            _logger.warning("Vote submission attempted with zero address - may be in dev mode")
-        
+            _logger.error("Vote submission attempted with zero address - rejected")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Zero address is not allowed for arbitration operations"
+            )
+
         return SubmitArbitrationVoteResponse(
             success=True,
             status="Submitted",
             message=f"Vote submitted successfully for dispute {request.dispute_id}"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         _logger.error(f"Error submitting arbitration vote: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to submit vote: {str(e)}")

@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from aitbc.rate_limiting import RateLimitMiddleware
 
-from .config import settings
+from .config import settings, validated_cors_origins
 from .exceptions import register_exception_handlers
 from .lifespan import lifespan
 from .middleware import register_middleware
@@ -21,7 +21,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_validated_cors_origins(settings.cors_origins),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
