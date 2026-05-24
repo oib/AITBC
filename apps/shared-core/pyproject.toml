@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "aitbc-{SERVICE_NAME}"
+name = "aitbc-shared-core"
 version = "0.1.0"
-description = "AITBC {SERVICE_DESC}"
+description = "Shared core utilities for AITBC microservices"
 authors = ["AITBC Team <team@aitbc.dev>"]
 readme = "README.md"
 packages = [{include = "app", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = ">=3.13.5,<3.14"
 aitbc = {path = "../../../"}  # Root aitbc package
 
 [tool.poetry.group.dev.dependencies]

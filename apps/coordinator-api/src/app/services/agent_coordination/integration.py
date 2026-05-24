@@ -1,6 +1,10 @@
 """
 Agent Integration and Deployment Framework for Verifiable AI Agent Orchestration
 Integrates agent orchestration with existing ML ZK proof system and provides deployment tools
+
+MIGRATION IN PROGRESS: This file is being migrated to use shared AgentIntegrationService
+from aitbc-agent-core package. See agent_integration_factory.py for the factory pattern.
+After migration is complete, duplicated code will be removed.
 """
 
 import asyncio
@@ -22,6 +26,9 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 from ...domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
 from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
 from .agent_service import AIAgentOrchestrator
+
+# Import shared service factory for gradual migration
+from ..agent_integration_factory import get_shared_agent_integration_service
 
 
 # Mock ZKProofService for testing

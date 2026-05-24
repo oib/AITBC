@@ -8,7 +8,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "apps" / "marketplace"))
 
-from agent_marketplace import app, GPUOffering, DealRequest, DealConfirmation, MinerRegistration
+from agent_marketplace import app, GPUOffering, DealRequest, DealConfirmation, MinerRegistration, DEFAULT_CORS_ORIGINS, get_cors_origins
 
 
 @pytest.mark.unit
@@ -176,3 +176,16 @@ def test_deal_request_negative_hours():
         chain="ait-devnet"
     )
     assert request.rental_hours == -10
+
+
+@pytest.mark.unit
+def test_default_cors_origins_do_not_allow_wildcard():
+    assert "*" not in DEFAULT_CORS_ORIGINS
+    assert "*" not in get_cors_origins()
+
+
+@pytest.mark.unit
+def test_wildcard_cors_origin_rejected(monkeypatch):
+    monkeypatch.setenv("AITBC_MARKETPLACE_CORS_ORIGINS", "*")
+    with pytest.raises(ValueError):
+        get_cors_origins()

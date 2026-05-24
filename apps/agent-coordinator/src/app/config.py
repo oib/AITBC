@@ -12,6 +12,13 @@ except ImportError:
     SettingsConfigDict = None
 from enum import Enum
 
+
+def validated_cors_origins(origins: list[str]) -> list[str]:
+    if "*" in origins:
+        raise ValueError("Wildcard CORS origins are not allowed when credentials are enabled")
+    return origins
+
+
 class Environment(str, Enum):
     """Environment types"""
     DEVELOPMENT = "development"
@@ -76,7 +83,16 @@ class Settings(BaseSettings):
     # Security settings
     secret_key: str
     allowed_hosts: list = ["*"]
-    cors_origins: list = ["*"]
+    cors_origins: list[str] = [
+        "http://localhost:8001",
+        "http://localhost:8011",
+        "http://localhost:8016",
+        "http://localhost:9001",
+        "http://127.0.0.1:8001",
+        "http://127.0.0.1:8011",
+        "http://127.0.0.1:8016",
+        "http://127.0.0.1:9001",
+    ]
     
     # Monitoring settings
     enable_metrics: bool = True
