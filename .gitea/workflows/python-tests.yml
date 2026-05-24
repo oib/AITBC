@@ -57,6 +57,11 @@ jobs:
             --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust pydantic-settings fastapi uvicorn aiohttp>=3.12.14 sqlmodel>=0.0.38 PyJWT"
           echo "✅ Python environment ready"
 
+      - name: Check requirements.txt sync
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          venv/bin/python scripts/ci/check-requirements-sync.py
+
       - name: Run linting
         run: |
           cd "${{ env.WORKSPACE }}/repo"

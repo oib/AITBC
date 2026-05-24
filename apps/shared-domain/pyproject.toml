@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{include = "app", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = ">=3.13.5,<3.14"
 aitbc = {path = "../../../"}  # Root aitbc package
 sqlmodel = ">=0.0.14"
 

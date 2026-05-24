@@ -2,7 +2,7 @@
 name = "aitbc-edge"
 version = "0.1.0"
 description = "Edge API Service for AITBC island and edge operations"
-requires-python = ">=3.13"
+requires-python = ">=3.13.5"
 dependencies = [
     "fastapi>=0.115.6",
     "uvicorn>=0.34.0",
