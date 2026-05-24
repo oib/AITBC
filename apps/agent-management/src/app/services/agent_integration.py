@@ -1,6 +1,10 @@
 """
 Agent Integration and Deployment Framework for Verifiable AI Agent Orchestration
 Integrates agent orchestration with existing ML ZK proof system and provides deployment tools
+
+MIGRATION IN PROGRESS: This file is being migrated to use shared AgentIntegrationService
+from aitbc-agent-core package. See agent_integration_factory.py for the factory pattern.
+After migration is complete, duplicated code will be removed.
 """
 
 import asyncio
@@ -22,6 +26,9 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 from app.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
 from ..services.agent_security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
 from ..services.agent_service import AIAgentOrchestrator
+
+# Import shared service factory for gradual migration
+from .agent_integration_factory import get_shared_agent_integration_service
 
 
 # Mock ZKProofService for testing
@@ -160,7 +167,13 @@ class AgentDeploymentInstance(SQLModel, table=True):
 
 
 class AgentIntegrationManager:
-    """Manages integration between agent orchestration and existing systems"""
+    """
+    Manages integration between agent orchestration and existing systems
+    
+    MIGRATION IN PROGRESS: Methods are being gradually migrated to use shared
+    AgentIntegrationService from aitbc-agent-core. The shared service is available
+    via get_shared_agent_integration_service() for new implementations.
+    """
 
     def __init__(self, session: Session):
         self.session = session
@@ -168,11 +181,19 @@ class AgentIntegrationManager:
         self.orchestrator = AIAgentOrchestrator(session, None)  # Mock coordinator client
         self.security_manager = AgentSecurityManager(session)
         self.auditor = AgentAuditor(session)
+        
+        # Access to shared service for gradual migration
+        self._shared_service = get_shared_agent_integration_service()
 
     async def integrate_with_zk_system(
         self, execution_id: str, verification_level: VerificationLevel = VerificationLevel.BASIC
     ) -> dict[str, Any]:
-        """Integrate agent execution with ZK proof system"""
+        """
+        Integrate agent execution with ZK proof system
+        
+        MIGRATION: This method could be simplified by using self._shared_service
+        for deploy_agent and generate_verification_proof operations.
+        """
 
         try:
             # Get execution details
