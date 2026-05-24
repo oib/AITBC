@@ -5,6 +5,7 @@ Miners register GPU offerings, choose chains, and confirm deals
 """
 
 import json
+import os
 import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
@@ -13,6 +14,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
+
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:8001",
+    "http://localhost:8011",
+    "http://localhost:8016",
+    "http://localhost:9001",
+    "http://127.0.0.1:8001",
+    "http://127.0.0.1:8011",
+    "http://127.0.0.1:8016",
+    "http://127.0.0.1:9001",
+]
+
+
+def get_cors_origins() -> List[str]:
+    raw_origins = os.getenv("AITBC_MARKETPLACE_CORS_ORIGINS")
+    if not raw_origins:
+        return DEFAULT_CORS_ORIGINS
+    origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+    if "*" in origins:
+        raise ValueError("Wildcard CORS origins are not allowed when credentials are enabled")
+    return origins
+
 
 app = FastAPI(
     title="AITBC Agent-First GPU Marketplace",
@@ -23,7 +46,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
