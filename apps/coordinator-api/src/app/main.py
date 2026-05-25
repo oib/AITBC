@@ -487,12 +487,9 @@ def create_app() -> FastAPI:
 
     # Include Staking router
     try:
-        from .routers import staking
-        if staking:
-            app.include_router(staking, prefix="/v1")
-            logger.info("Staking router included")
-        else:
-            logger.warning("Staking router not available")
+        from .contexts.staking.routers.staking import router as staking_router
+        app.include_router(staking_router, prefix="/v1")
+        logger.info("Staking router included")
     except Exception as e:
         logger.warning(f"Failed to include staking router: {e}")
 

@@ -50,7 +50,7 @@ from .security import wipe_buffer
 logger = get_logger(__name__)
 
 
-router = APIRouter(prefix="/v1", tags=["wallets", "receipts"])
+router = APIRouter(tags=["wallets", "receipts"])
 
 
 def _result_to_response(result: ReceiptValidationResult) -> ReceiptVerifyResponse:
