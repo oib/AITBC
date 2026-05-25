@@ -12,7 +12,7 @@ from sqlalchemy import event
 from .config import settings
 
 # Import all models to ensure they are registered with SQLModel.metadata
-from .models import Block, Transaction, Account, Receipt, Escrow  # noqa: F401
+from .base_models import Block, Transaction, Account, Receipt, Escrow  # noqa: F401
 
 # Database encryption key (in production, this should come from HSM or secure key storage)
 _DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_change_in_production")

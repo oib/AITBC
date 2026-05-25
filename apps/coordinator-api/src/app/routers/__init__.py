@@ -80,9 +80,21 @@ except ImportError:
     logger.warning("Trading router not available")
 
 # Hermes routers moved to contexts/hermes
-from ..contexts.hermes.routers.hermes_enhanced import router as hermes_enhanced
-from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced_simple
-from ..contexts.hermes.routers.hermes_enhanced_health import router as hermes_enhanced_health
+try:
+    from ..contexts.hermes.routers.hermes_enhanced import router as hermes_enhanced
+except ImportError:
+    hermes_enhanced = None  # type: ignore[assignment]
+    logger.warning("Hermes enhanced router not available")
+try:
+    from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced_simple
+except ImportError:
+    hermes_enhanced_simple = None  # type: ignore[assignment]
+    logger.warning("Hermes enhanced simple router not available")
+try:
+    from ..contexts.hermes.routers.hermes_enhanced_health import router as hermes_enhanced_health
+except ImportError:
+    hermes_enhanced_health = None  # type: ignore[assignment]
+    logger.warning("Hermes enhanced health router not available")
 from .hermes import router as hermes
 
 # Security router moved to contexts/security

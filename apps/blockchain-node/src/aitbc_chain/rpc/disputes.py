@@ -12,7 +12,7 @@ from .auth import get_authenticated_address
 _logger = get_logger(__name__)
 
 # Import dispute resolution service and models
-from ..services.dispute_resolution import dispute_resolution_service
+from ..rpc.dispute_resolution_service import dispute_resolution_service
 from ..models.dispute import (
     FileDisputeRequest,
     FileDisputeResponse,
