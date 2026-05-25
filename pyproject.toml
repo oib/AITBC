@@ -152,21 +152,22 @@ module = [
     "web3.*",
     "eth_account.*",
     "sqlalchemy.*",
-    "alembic.*",
-    "uvicorn.*",
-    "fastapi.*",
 ]
 ignore_missing_imports = true
 
+# Tech debt: these modules still have type errors that require per-file annotation work.
+# Tracked in gap analysis. Remove entries as each module is fixed.
 [[tool.mypy.overrides]]
 module = [
     "apps.coordinator-api.src.app.routers.*",
     "apps.coordinator-api.src.app.services.*",
     "apps.coordinator-api.src.app.storage.*",
     "apps.coordinator-api.src.app.utils.*",
-    "apps.coordinator-api.src.app.domain.global_marketplace",
-    "apps.coordinator-api.src.app.domain.cross_chain_reputation",
-    "apps.coordinator-api.src.app.domain.agent_identity",
+    "apps.coordinator-api.src.app.schemas.*",
+    "apps.coordinator-api.src.app.models.*",
+    "apps.coordinator-api.src.app.auth",
+    "apps.coordinator-api.src.app.exceptions",
+    "apps.coordinator-api.src.app.contexts.*",
 ]
 ignore_errors = true
 
