@@ -6,6 +6,8 @@ from typing import Any
 
 from sqlmodel import Session, select
 
+logger = logging.getLogger(__name__)
+
 from ..domain import Job, JobReceipt, Miner
 from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
 from ..contexts.payments.services.payments import PaymentService

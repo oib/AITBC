@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from sqlalchemy.orm import Session
 
@@ -41,15 +41,16 @@ app.include_router(health_router, tags=["health"])
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     return {"status": "ok", "service": "modality-optimization"}
 
 
 @app.post("/optimize")
 async def optimize_modality(
-    modality: str, data: dict, strategy: str = "balanced", session: Annotated[Session, Depends(get_session)] = None
-):
+    modality: str, data: dict[str, Any], strategy: str = "balanced", session: Annotated[Session | None, Depends(get_session)] = None
+) -> dict[str, Any]:
     """Optimize specific modality"""
+    assert session is not None, "DB session required"
     manager = ModalityOptimizationManager(session)
     result = await manager.optimize_modality(
         modality=ModalityType(modality), data=data, strategy=OptimizationStrategy(strategy)
@@ -59,9 +60,10 @@ async def optimize_modality(
 
 @app.post("/optimize-multimodal")
 async def optimize_multimodal(
-    multimodal_data: dict, strategy: str = "balanced", session: Annotated[Session, Depends(get_session)] = None
-):
+    multimodal_data: dict[str, Any], strategy: str = "balanced", session: Annotated[Session | None, Depends(get_session)] = None
+) -> dict[str, Any]:
     """Optimize multiple modalities"""
+    assert session is not None, "DB session required"
     manager = ModalityOptimizationManager(session)
 
     # Convert string keys to ModalityType enum

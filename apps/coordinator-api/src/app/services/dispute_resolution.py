@@ -138,7 +138,7 @@ class DisputeResolutionService:
     MIN_ARBITRATORS = 3
     MIN_STAKE_AMOUNT = 1000
     
-    def __init__(self, session_factory = None):
+    def __init__(self, session_factory: Any = None) -> None:
         self._session_factory = session_factory
         self._disputes: Dict[str, DisputeCase] = {}
         self._arbitrators: set = set()
@@ -223,7 +223,7 @@ class DisputeResolutionService:
             raise ValueError(f"Cannot submit evidence, dispute is {dispute.status.value}")
         
         # Check deadline
-        if datetime.now(timezone.utc) > dispute.evidence_deadline:
+        if dispute.evidence_deadline and datetime.now(timezone.utc) > dispute.evidence_deadline:
             raise ValueError("Evidence submission deadline has passed")
         
         # Verify submitter is involved
@@ -272,11 +272,11 @@ class DisputeResolutionService:
         
         # Auto-advance to voting if evidence period ended
         if dispute.status == DisputeStatus.evidence_phase:
-            if datetime.now(timezone.utc) >= dispute.evidence_deadline:
+            if dispute.evidence_deadline and datetime.now(timezone.utc) >= dispute.evidence_deadline:
                 dispute.status = DisputeStatus.voting_phase
         
         # Check voting deadline
-        if datetime.now(timezone.utc) > dispute.voting_deadline:
+        if dispute.voting_deadline and datetime.now(timezone.utc) > dispute.voting_deadline:
             raise ValueError("Voting deadline has passed")
         
         # Verify arbitrator is valid
@@ -316,7 +316,7 @@ class DisputeResolutionService:
         
         return True
     
-    def _resolve_dispute(self, dispute: DisputeCase):
+    def _resolve_dispute(self, dispute: DisputeCase) -> None:
         """Resolve dispute based on votes"""
         if not dispute.votes:
             return
@@ -396,7 +396,7 @@ class DisputeResolutionService:
 _dispute_service: Optional[DisputeResolutionService] = None
 
 
-def init_dispute_service(session_factory) -> DisputeResolutionService:
+def init_dispute_service(session_factory: Any) -> DisputeResolutionService:
     """Initialize global dispute service"""
     global _dispute_service
     _dispute_service = DisputeResolutionService(session_factory)

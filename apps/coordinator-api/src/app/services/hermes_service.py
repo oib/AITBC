@@ -19,6 +19,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
 from aitbc.aitbc_logging import get_logger
+from sqlmodel import Session
 
 
 logger = get_logger(__name__)
@@ -99,7 +100,7 @@ class HermesService:
     - Delivery tracking
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._messages: Dict[str, AgentMessage] = {}
         self._agent_profiles: Dict[str, AgentProfile] = {}
         self._message_queues: Dict[str, List[str]] = {}  # agent_id -> message_ids
@@ -371,10 +372,6 @@ class HermesService:
             "online_agents": online_agents,
             "queued_messages": sum(len(q) for q in self._message_queues.values())
         }
-
-    def __init__(self, session: Session = None):
-        self.session = session
-        # ... (rest of the code remains the same)
 
 # Global instance
 _hermes_service: Optional[HermesService] = None

@@ -35,8 +35,10 @@ class EncryptedData:
 class FHEProvider(ABC):
     """Abstract base class for FHE providers"""
 
+    available: bool = False
+
     @abstractmethod
-    def generate_context(self, scheme: str, **kwargs) -> FHEContext:
+    def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
         """Generate FHE encryption context"""
         pass
 
@@ -59,11 +61,11 @@ class FHEProvider(ABC):
 class MockFHEProvider(FHEProvider):
     """Mock FHE provider for testing without real FHE libraries"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.available = True
         logger.info("Mock FHE provider initialized")
 
-    def generate_context(self, scheme: str, **kwargs) -> FHEContext:
+    def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
         """Generate mock FHE context"""
         return FHEContext(
             scheme="mock",
@@ -77,8 +79,6 @@ class MockFHEProvider(FHEProvider):
 
     def encrypt(self, data: np.ndarray, context: FHEContext) -> EncryptedData:
         """Mock encryption - just serialize data"""
-        if isinstance(data, list):
-            data = np.array(data)
         
         # Simple mock encryption: serialize the data
         import pickle
@@ -132,9 +132,9 @@ class MockFHEProvider(FHEProvider):
 class TenSEALProvider(FHEProvider):
     """TenSEAL-based FHE provider for rapid prototyping"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.available = False
-        self.ts = None
+        self.ts: Any = None
         
         try:
             import tenseal as ts
@@ -144,10 +144,11 @@ class TenSEALProvider(FHEProvider):
         except ImportError as e:
             logger.warning(f"TenSEAL not available: {e}")
 
-    def generate_context(self, scheme: str, **kwargs) -> FHEContext:
+    def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
         """Generate TenSEAL context"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
+        assert self.ts is not None
             
         if scheme.lower() == "ckks":
             context = self.ts.context(
@@ -180,11 +181,8 @@ class TenSEALProvider(FHEProvider):
         """Encrypt data using TenSEAL"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
-            
-        # Convert list to numpy array if needed
-        if isinstance(data, list):
-            data = np.array(data)
-            
+        assert self.ts is not None
+
         # Deserialize context
         ts_context = self.ts.context_from(context.public_key)
 
@@ -207,7 +205,8 @@ class TenSEALProvider(FHEProvider):
         """Decrypt TenSEAL data"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
-            
+        assert self.ts is not None
+
         # Deserialize context
         ts_context = self.ts.context_from(encrypted_data.context.public_key)
 
@@ -227,7 +226,8 @@ class TenSEALProvider(FHEProvider):
         """Perform basic encrypted inference"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
-            
+        assert self.ts is not None
+
         # Deserialize context and input
         ts_context = self.ts.context_from(encrypted_input.context.public_key)
         encrypted_tensor = self.ts.ckks_vector_from(ts_context, encrypted_input.ciphertext)
@@ -271,9 +271,9 @@ class TenSEALProvider(FHEProvider):
 class ConcreteMLProvider(FHEProvider):
     """Concrete ML provider for neural network inference"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.available = False
-        self.cnp = None
+        self.cnp: Any = None
         
         # Concrete ML requires Python < 3.13
         if sys.version_info >= (3, 13):
@@ -281,16 +281,15 @@ class ConcreteMLProvider(FHEProvider):
                 "Concrete ML requires Python <3.13. Current version: %s",
                 sys.version.split()[0]
             )
-            return
-            
-        try:
-            import concrete.numpy as cnp
-            self.cnp = cnp
-            self.available = True
-        except ImportError as e:
-            logger.warning(f"Concrete ML not available: {e}")
+        else:
+            try:
+                import concrete.numpy as cnp
+                self.cnp = cnp
+                self.available = True
+            except ImportError as e:
+                logger.warning(f"Concrete ML not available: {e}")
 
-    def generate_context(self, scheme: str, **kwargs) -> FHEContext:
+    def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
         """Generate Concrete ML context"""
         if not self.available:
             raise RuntimeError("Concrete ML provider is not available")
@@ -314,11 +313,12 @@ class ConcreteMLProvider(FHEProvider):
         """Encrypt using Concrete ML"""
         if not self.available:
             raise RuntimeError("Concrete ML provider is not available")
-            
+        assert self.cnp is not None
+
         # Concrete ML encryption happens during circuit execution
         # For now, return a placeholder that can be used in circuit compilation
         p = context.provider_specific.get("p", 15) if context.provider_specific else 15
-        
+
         # Convert data to appropriate format for Concrete ML
         encrypted_data = self.cnp.encrypt(data, p=p)
         
@@ -357,9 +357,9 @@ class ConcreteMLProvider(FHEProvider):
 class FHEService:
     """Main FHE service for AITBC"""
 
-    def __init__(self):
-        self.providers = {}
-        self.default_provider = None
+    def __init__(self) -> None:
+        self.providers: Dict[str, FHEProvider] = {}
+        self.default_provider: str = "mock"
 
         # Mock provider (always available as fallback)
         self.providers["mock"] = MockFHEProvider()
@@ -367,7 +367,7 @@ class FHEService:
         logger.info("Mock FHE provider initialized as default")
 
         # TenSEAL provider (optional)
-        tenseal_provider = TenSEALProvider()
+        tenseal_provider: FHEProvider = TenSEALProvider()
         if tenseal_provider.available:
             self.providers["tenseal"] = tenseal_provider
             logger.info("TenSEAL provider initialized")
@@ -375,7 +375,7 @@ class FHEService:
             logger.info("TenSEAL provider not available")
 
         # Concrete ML provider (optional)
-        concrete_provider = ConcreteMLProvider()
+        concrete_provider: FHEProvider = ConcreteMLProvider()
         if concrete_provider.available:
             self.providers["concrete"] = concrete_provider
             logger.info("Concrete ML provider initialized")
@@ -395,7 +395,7 @@ class FHEService:
             )
         return self.providers[provider_name]
 
-    def generate_fhe_context(self, scheme: str = "ckks", provider: Optional[str] = None, **kwargs) -> FHEContext:
+    def generate_fhe_context(self, scheme: str = "ckks", provider: Optional[str] = None, **kwargs: Any) -> FHEContext:
         """Generate FHE context"""
         fhe_provider = self.get_provider(provider)
         return fhe_provider.generate_context(scheme, **kwargs)

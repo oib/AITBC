@@ -6,13 +6,16 @@ import asyncio
 import gzip
 import hashlib
 import json
+import logging
 import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ...config import settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,7 +40,7 @@ class AuditEvent:
 class AuditLogger:
     """Tamper-evident audit logging for privacy compliance"""
 
-    def __init__(self, log_dir: str = None):
+    def __init__(self, log_dir: str | None = None) -> None:
         # Use test-specific directory if in test environment
         if os.getenv("PYTEST_CURRENT_TEST"):
             # Use project logs directory for tests
@@ -53,25 +56,25 @@ class AuditLogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # Current log file
-        self.current_file = None
+        self.current_file: Path | None = None
         self.current_hash = None
 
         # In-memory events for tests
         self._in_memory_events: list[AuditEvent] = []
 
         # Async writer task (unused in tests when sync write is used)
-        self.write_queue = asyncio.Queue(maxsize=10000)
-        self.writer_task = None
+        self.write_queue: asyncio.Queue[AuditEvent] = asyncio.Queue(maxsize=10000)
+        self.writer_task: asyncio.Task[None] | None = None
 
         # Chain of hashes for integrity
         self.chain_hash = self._load_chain_hash()
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the background writer task"""
         if self.writer_task is None:
             self.writer_task = asyncio.create_task(self._background_writer())
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the background writer task"""
         if self.writer_task:
             self.writer_task.cancel()
@@ -91,7 +94,7 @@ class AuditLogger:
         ip_address: str | None = None,
         user_agent: str | None = None,
         authorization: str | None = None,
-    ):
+    ) -> None:
         """Log access to confidential data (synchronous for tests)."""
         event = AuditEvent(
             event_id=self._generate_event_id(),
@@ -123,7 +126,7 @@ class AuditLogger:
         key_version: int,
         outcome: str,
         details: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Log key management operations (synchronous for tests)."""
         event = AuditEvent(
             event_id=self._generate_event_id(),
@@ -145,7 +148,7 @@ class AuditLogger:
         self._write_event_sync(event)
         self._in_memory_events.append(event)
 
-    def _write_event_sync(self, event: AuditEvent):
+    def _write_event_sync(self, event: AuditEvent) -> None:
         """Write event immediately (used in tests)."""
         log_file = self.log_dir / "audit.log"
         payload = asdict(event)
@@ -161,7 +164,7 @@ class AuditLogger:
         change_type: str,
         outcome: str,
         details: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Log access policy changes"""
         event = AuditEvent(
             event_id=self._generate_event_id(),
@@ -223,31 +226,31 @@ class AuditLogger:
                 if log_file.suffix == ".gz":
                     with gzip.open(log_file, "rt") as f:
                         for line in f:
-                            event = self._parse_log_line(line.strip())
+                            parsed = self._parse_log_line(line.strip())
                             if self._matches_query(
-                                event,
+                                parsed,
                                 participant_id,
                                 transaction_id,
                                 event_type,
                                 start_time,
                                 end_time,
-                            ):
-                                results.append(event)
+                            ) and parsed is not None:
+                                results.append(parsed)
                                 if len(results) >= limit:
                                     return results
                 else:
                     with open(log_file) as f:
                         for line in f:
-                            event = self._parse_log_line(line.strip())
+                            parsed = self._parse_log_line(line.strip())
                             if self._matches_query(
-                                event,
+                                parsed,
                                 participant_id,
                                 transaction_id,
                                 event_type,
                                 start_time,
                                 end_time,
-                            ):
-                                results.append(event)
+                            ) and parsed is not None:
+                                results.append(parsed)
                                 if len(results) >= limit:
                                     return results
             except Exception as e:
@@ -264,43 +267,45 @@ class AuditLogger:
         if start_date is None:
             start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
-        results = {
-            "verified_files": 0,
-            "total_files": 0,
-            "integrity_violations": [],
-            "chain_valid": True,
-        }
+        verified_files = 0
+        total_files = 0
+        integrity_violations: list[dict[str, Any]] = []
+        chain_valid = True
 
-        log_files = self._get_log_files(start_date)
+        log_files = self._get_log_files(start_date, None)
 
         for log_file in log_files:
-            results["total_files"] += 1
+            total_files += 1
 
             try:
-                # Verify file hash
                 file_hash = self._calculate_file_hash(log_file)
                 stored_hash = self._get_stored_hash(log_file)
 
                 if file_hash != stored_hash:
-                    results["integrity_violations"].append(
+                    integrity_violations.append(
                         {
                             "file": str(log_file),
                             "expected": stored_hash,
                             "actual": file_hash,
                         }
                     )
-                    results["chain_valid"] = False
+                    chain_valid = False
                 else:
-                    results["verified_files"] += 1
+                    verified_files += 1
 
             except Exception as e:
                 logger.error(f"Failed to verify {log_file}: {e}")
-                results["integrity_violations"].append({"file": str(log_file), "error": str(e)})
-                results["chain_valid"] = False
+                integrity_violations.append({"file": str(log_file), "error": str(e)})
+                chain_valid = False
 
-        return results
+        return {
+            "verified_files": verified_files,
+            "total_files": total_files,
+            "integrity_violations": integrity_violations,
+            "chain_valid": chain_valid,
+        }
 
-    def export_logs(
+    def export_logs(  # noqa: A002
         self,
         start_time: datetime,
         end_time: datetime,
@@ -329,7 +334,7 @@ class AuditLogger:
                 if not include_signatures:
                     event_dict.pop("signature", None)
 
-                export_data["events"].append(event_dict)
+                cast(list[Any], export_data["events"]).append(event_dict)
 
             return json.dumps(export_data, indent=2)
 
@@ -380,12 +385,12 @@ class AuditLogger:
         else:
             raise ValueError(f"Unsupported export format: {format}")
 
-    async def _background_writer(self):
+    async def _background_writer(self) -> None:
         """Background task for writing audit events"""
         while True:
             try:
                 # Get batch of events
-                events = []
+                events: list[AuditEvent] = []
                 while len(events) < 100:
                     try:
                         # Use asyncio.wait_for for timeout
@@ -405,10 +410,11 @@ class AuditLogger:
                 # Brief pause to avoid error loops
                 await asyncio.sleep(1)
 
-    def _write_events(self, events: list[AuditEvent]):
+    def _write_events(self, events: list[AuditEvent]) -> None:
         """Write events to current log file"""
         try:
             self._rotate_if_needed()
+            assert self.current_file is not None
 
             with open(self.current_file, "a") as f:
                 for event in events:
@@ -427,7 +433,7 @@ class AuditLogger:
         except Exception as e:
             logger.error(f"Failed to write audit events: {e}")
 
-    def _rotate_if_needed(self):
+    def _rotate_if_needed(self) -> None:
         """Rotate log file if needed"""
         now = datetime.now(timezone.utc)
         today = now.date()
@@ -441,7 +447,7 @@ class AuditLogger:
             if file_date != today:
                 self._new_log_file(today)
 
-    def _new_log_file(self, date):
+    def _new_log_file(self, date: Any) -> None:
         """Create new log file for date"""
         filename = f"audit_{date.isoformat()}.log"
         self.current_file = self.log_dir / filename
@@ -479,7 +485,7 @@ class AuditLogger:
 
         return hashlib.sha256(combined).hexdigest()
 
-    def _update_chain_hash(self, last_event: AuditEvent):
+    def _update_chain_hash(self, last_event: AuditEvent) -> None:
         """Update chain hash with new event"""
         self.chain_hash = last_event.signature or self.chain_hash
 

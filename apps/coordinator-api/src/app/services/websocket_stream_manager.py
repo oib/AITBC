@@ -13,10 +13,11 @@ import weakref
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
-
+from typing import Any, AsyncGenerator, TYPE_CHECKING
 from websockets.exceptions import ConnectionClosed
-from websockets.server import WebSocketServerProtocol
+if TYPE_CHECKING:
+    from websockets.legacy.server import WebSocketServerProtocol
+WebSocketServerProtocol = Any  # type: ignore[assignment,misc]
 
 from aitbc import get_logger
 
@@ -71,7 +72,7 @@ class StreamMetrics:
     backpressure_events: int = 0
     slow_consumer_events: int = 0
 
-    def update_send_metrics(self, send_time: float, message_size: int):
+    def update_send_metrics(self, send_time: float, message_size: int) -> None:
         """Update send performance metrics"""
         self.messages_sent += 1
         self.bytes_sent += message_size
@@ -103,7 +104,7 @@ class BoundedMessageQueue:
 
     def __init__(self, max_size: int = 1000):
         self.max_size = max_size
-        self.queues = {
+        self.queues: dict[MessageType, deque[StreamMessage]] = {
             MessageType.CRITICAL: deque(maxlen=max_size // 4),
             MessageType.IMPORTANT: deque(maxlen=max_size // 2),
             MessageType.BULK: deque(maxlen=max_size // 4),
@@ -174,14 +175,14 @@ class WebSocketStream:
 
         # Event loop protection
         self._send_lock = asyncio.Lock()
-        self._sender_task = None
-        self._heartbeat_task = None
+        self._sender_task: asyncio.Task[None] | None = None
+        self._heartbeat_task: asyncio.Task[None] | None = None
         self._running = False
 
         # Weak reference for cleanup
         self._finalizer = weakref.finalize(self, self._cleanup)
 
-    async def start(self):
+    async def start(self) -> None:
         """Start stream processing"""
         if self._running:
             return
@@ -197,7 +198,7 @@ class WebSocketStream:
 
         logger.info(f"Stream {self.stream_id} started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop stream processing"""
         if not self._running:
             return
@@ -247,7 +248,7 @@ class WebSocketStream:
 
         return success
 
-    async def _sender_loop(self):
+    async def _sender_loop(self) -> None:
         """Main sender loop with backpressure control"""
         while self._running:
             try:
@@ -321,14 +322,14 @@ class WebSocketStream:
             logger.error(f"Send error for stream {self.stream_id}: {e}")
             return False
 
-    async def _heartbeat_loop(self):
+    async def _heartbeat_loop(self) -> None:
         """Heartbeat loop for connection health monitoring"""
         while self._running:
             try:
                 await asyncio.sleep(self.config.heartbeat_interval)
 
                 if not self._running:
-                    break
+                    break  # type: ignore[unreachable]
 
                 # Send heartbeat
                 heartbeat_msg = {
@@ -363,7 +364,7 @@ class WebSocketStream:
             "last_heartbeat": self.last_heartbeat,
         }
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Cleanup resources"""
         if self._running:
             # This should be called by garbage collector
@@ -385,14 +386,14 @@ class WebSocketStreamManager:
 
         # Event loop protection
         self._manager_lock = asyncio.Lock()
-        self._cleanup_task = None
+        self._cleanup_task: asyncio.Task[None] | None = None
         self._running = False
 
         # Message broadcasting
-        self._broadcast_queue = asyncio.Queue(maxsize=10000)
-        self._broadcast_task = None
+        self._broadcast_queue: asyncio.Queue[tuple[Any, MessageType]] = asyncio.Queue(maxsize=10000)
+        self._broadcast_task: asyncio.Task[None] | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the stream manager"""
         if self._running:
             return
@@ -407,7 +408,7 @@ class WebSocketStreamManager:
 
         logger.info("WebSocket Stream Manager started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the stream manager"""
         if not self._running:
             return
@@ -436,7 +437,7 @@ class WebSocketStreamManager:
 
         logger.info("WebSocket Stream Manager stopped")
 
-    async def manage_stream(self, websocket: WebSocketServerProtocol, config: StreamConfig | None = None):
+    async def manage_stream(self, websocket: Any, config: StreamConfig | None = None) -> AsyncGenerator["WebSocketStream", None]:
         """Context manager for stream lifecycle"""
         stream_id = str(uuid.uuid4())
         stream_config = config or self.default_config
@@ -472,7 +473,7 @@ class WebSocketStreamManager:
 
                 logger.info(f"Stream {stream_id} removed from manager")
 
-    async def broadcast_to_all(self, data: Any, message_type: MessageType = MessageType.IMPORTANT):
+    async def broadcast_to_all(self, data: Any, message_type: MessageType = MessageType.IMPORTANT) -> None:
         """Broadcast message to all streams"""
         if not self._running:
             return
@@ -483,14 +484,14 @@ class WebSocketStreamManager:
             logger.warning("Broadcast queue full, dropping message")
             self.total_messages_dropped += 1
 
-    async def broadcast_to_stream(self, stream_id: str, data: Any, message_type: MessageType = MessageType.IMPORTANT):
+    async def broadcast_to_stream(self, stream_id: str, data: Any, message_type: MessageType = MessageType.IMPORTANT) -> None:
         """Send message to specific stream"""
         async with self._manager_lock:
             stream = self.streams.get(stream_id)
             if stream:
                 await stream.send_message(data, message_type)
 
-    async def _broadcast_loop(self):
+    async def _broadcast_loop(self) -> None:
         """Broadcast messages to all streams"""
         while self._running:
             try:
@@ -521,7 +522,7 @@ class WebSocketStreamManager:
                 logger.error(f"Error in broadcast loop: {e}")
                 await asyncio.sleep(0.1)
 
-    async def _cleanup_loop(self):
+    async def _cleanup_loop(self) -> None:
         """Cleanup disconnected streams"""
         while self._running:
             try:
@@ -563,7 +564,7 @@ class WebSocketStreamManager:
             total_bytes_sent = sum(m["bytes_sent"] for m in stream_metrics)
 
             # Status distribution
-            status_counts = {}
+            status_counts: dict[str, int] = {}
             for stream in self.streams.values():
                 status = stream.status.value
                 status_counts[status] = status_counts.get(status, 0) + 1
@@ -581,7 +582,7 @@ class WebSocketStreamManager:
                 "stream_metrics": stream_metrics,
             }
 
-    async def update_stream_config(self, stream_id: str, config: StreamConfig):
+    async def update_stream_config(self, stream_id: str, config: StreamConfig) -> None:
         """Update configuration for specific stream"""
         async with self._manager_lock:
             if stream_id in self.streams:
@@ -597,7 +598,7 @@ class WebSocketStreamManager:
                 slow_streams.append(stream_id)
         return slow_streams
 
-    async def handle_slow_consumer(self, stream_id: str, action: str = "warn"):
+    async def handle_slow_consumer(self, stream_id: str, action: str = "warn") -> None:
         """Handle slow consumer streams"""
         async with self._manager_lock:
             stream = self.streams.get(stream_id)

@@ -106,9 +106,9 @@ class EdgeCache:
     def __init__(self, location_id: str, max_size_gb: int = 100):
         self.location_id = location_id
         self.max_size_bytes = max_size_gb * 1024 * 1024 * 1024
-        self.cache = {}
+        self.cache: dict[str, CacheEntry] = {}
         self.cache_size_bytes = 0
-        self.access_times = {}
+        self.access_times: dict[str, datetime] = {}
         self.logger = get_logger(f"edge_cache_{location_id}")
 
     async def get(self, cache_key: str) -> CacheEntry | None:
@@ -221,14 +221,14 @@ class EdgeCache:
         else:
             return content
 
-    async def _evict_lru(self):
+    async def _evict_lru(self) -> None:
         """Evict least recently used entry"""
 
         if not self.access_times:
             return
 
         # Find least recently used key
-        lru_key = min(self.access_times, key=self.access_times.get)
+        lru_key = min(self.access_times, key=lambda k: self.access_times[k])
 
         await self.remove(lru_key)
 
@@ -259,10 +259,10 @@ class CDNManager:
 
     def __init__(self, config: CDNConfig):
         self.config = config
-        self.edge_caches = {}
-        self.global_cache = {}
-        self.purge_queue = []
-        self.analytics = {"total_requests": 0, "cache_hits": 0, "cache_misses": 0, "edge_requests": {}, "bandwidth_saved": 0}
+        self.edge_caches: dict[str, EdgeCache] = {}
+        self.global_cache: dict[str, CacheEntry] = {}
+        self.purge_queue: list[str] = []
+        self.analytics: dict[str, Any] = {"total_requests": 0, "cache_hits": 0, "cache_misses": 0, "edge_requests": {}, "bandwidth_saved": 0}
         self.logger = get_logger("cdn_manager")
 
     async def initialize(self) -> bool:
@@ -304,7 +304,7 @@ class CDNManager:
                 entry = await edge_cache.get(cache_key)
                 if entry:
                     # Decompress if needed
-                    content = await self._decompress_content(entry.content, entry.compression_type)
+                    content = await edge_cache._decompress_content(entry.content, entry.compression_type)
 
                     self.analytics["cache_hits"] += 1
                     self.analytics["edge_requests"][edge_location.location_id] = (
@@ -333,7 +333,8 @@ class CDNManager:
                         global_entry.compression_type,
                     )
 
-                content = await self._decompress_content(global_entry.content, global_entry.compression_type)
+                first_edge = next(iter(self.edge_caches.values()), None)
+                content = await first_edge._decompress_content(global_entry.content, global_entry.compression_type) if first_edge else global_entry.content
 
                 self.analytics["cache_hits"] += 1
 
@@ -438,7 +439,7 @@ class CDNManager:
         lat_diff = lat2 - lat1
         lng_diff = lng2 - lng1
 
-        return (lat_diff**2 + lng_diff**2) ** 0.5
+        return float((lat_diff**2 + lng_diff**2) ** 0.5)
 
     async def _select_compression_type(self, content: bytes, content_type: str) -> CompressionType:
         """Select best compression type"""
@@ -494,7 +495,7 @@ class CDNManager:
             self.logger.error(f"Content purge failed: {e}")
             return False
 
-    async def _purge_expired_cache(self):
+    async def _purge_expired_cache(self) -> None:
         """Background task to purge expired cache entries"""
 
         while True:
@@ -522,7 +523,7 @@ class CDNManager:
             except Exception as e:
                 self.logger.error(f"Cache purge failed: {e}")
 
-    async def _health_check_loop(self):
+    async def _health_check_loop(self) -> None:
         """Background task for health checks"""
 
         while True:
@@ -560,7 +561,7 @@ class CDNManager:
             hit_rate = stats["hit_rate"]
 
             # Calculate health score
-            health_score = (hit_rate * 0.6) + ((1 - utilization) * 0.4)
+            health_score = float(hit_rate) * 0.6 + (1 - float(utilization)) * 0.4
 
             return max(0.0, min(1.0, health_score))
 
@@ -571,9 +572,9 @@ class CDNManager:
     async def get_analytics(self) -> dict[str, Any]:
         """Get CDN analytics"""
 
-        total_requests = self.analytics["total_requests"]
-        cache_hits = self.analytics["cache_hits"]
-        cache_misses = self.analytics["cache_misses"]
+        total_requests = int(self.analytics["total_requests"])
+        cache_hits = int(self.analytics["cache_hits"])
+        cache_misses = int(self.analytics["cache_misses"])
 
         hit_rate = (cache_hits / total_requests) if total_requests > 0 else 0.0
 
@@ -583,7 +584,7 @@ class CDNManager:
             edge_stats[edge_id] = await edge_cache.get_cache_stats()
 
         # Calculate bandwidth savings
-        bandwidth_saved = 0
+        bandwidth_saved: float = 0.0
         for edge_cache in self.edge_caches.values():
             for entry in edge_cache.cache.values():
                 if entry.compressed:
@@ -610,8 +611,8 @@ class EdgeComputingManager:
 
     def __init__(self, cdn_manager: CDNManager):
         self.cdn_manager = cdn_manager
-        self.edge_functions = {}
-        self.function_executions = {}
+        self.edge_functions: dict[str, Any] = {}
+        self.function_executions: dict[str, Any] = {}
         self.logger = get_logger("edge_computing")
 
     async def deploy_edge_function(
@@ -683,7 +684,7 @@ class EdgeComputingManager:
                 "edge_location": edge_location.location_id,
                 "execution_time_ms": execution_time,
                 "result": f"Function {function_id} executed successfully",
-                "timestamp": execution_record["timestamp"].isoformat(),
+                "timestamp": str(execution_record["timestamp"]),
             }
 
         except Exception as e:
