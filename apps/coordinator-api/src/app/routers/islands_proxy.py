@@ -20,7 +20,7 @@ async def list_islands(request: Request) -> dict[str, Any]:
         try:
             response = await client.get(f"{EDGE_API_BASE_URL}/islands/", timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
         except httpx.RequestError as exc:
@@ -35,7 +35,7 @@ async def get_island(island_id: str, request: Request) -> dict[str, Any]:
         try:
             response = await client.get(f"{EDGE_API_BASE_URL}/islands/{island_id}", timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 raise HTTPException(status_code=404, detail=f"Island {island_id} not found") from exc
@@ -53,7 +53,7 @@ async def join_island(request: Request) -> dict[str, Any]:
             body = await request.json()
             response = await client.post(f"{EDGE_API_BASE_URL}/islands/join", json=body, timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
         except httpx.RequestError as exc:
@@ -69,7 +69,7 @@ async def leave_island(request: Request) -> dict[str, Any]:
             body = await request.json()
             response = await client.post(f"{EDGE_API_BASE_URL}/islands/leave", json=body, timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
         except httpx.RequestError as exc:
@@ -85,7 +85,7 @@ async def request_bridge(request: Request) -> dict[str, Any]:
             body = await request.json()
             response = await client.post(f"{EDGE_API_BASE_URL}/islands/bridge", json=body, timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
         except httpx.RequestError as exc:

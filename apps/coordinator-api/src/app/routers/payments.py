@@ -237,7 +237,7 @@ async def list_payments(
         
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,  # type: ignore[union-attr]
             detail=f"Failed to list payments: {str(e)}"
         )
 

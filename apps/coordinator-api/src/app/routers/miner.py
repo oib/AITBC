@@ -27,7 +27,7 @@ async def register(
     session: Annotated[Session, Depends(get_session)],
     miner_id: str = Depends(get_miner_id()),
     api_key: str = Depends(require_miner_key()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     service = MinerService(session)
     record = service.register(miner_id, req)
     return {"status": "ok", "session_token": record.session_token}
@@ -41,7 +41,7 @@ async def heartbeat(
     session: Annotated[Session, Depends(get_session)],
     miner_id: str = Depends(get_miner_id()),
     api_key: str = Depends(require_miner_key()),
-) -> dict[str, str]:  # type: ignore[arg-type]
+) -> dict[str, str]:
     try:
         MinerService(session).heartbeat(miner_id, req)
     except KeyError:
@@ -58,11 +58,11 @@ async def poll(
     session: Annotated[Session, Depends(get_session)],
     api_key: str = Depends(require_miner_key()),
     miner_id: str = Depends(get_miner_id()),
-) -> AssignedJob | Response:  # type: ignore[arg-type]
+) -> AssignedJob | Response:
     job = MinerService(session).poll(miner_id, req.max_wait_seconds)
     if job is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    return job
+    return job  # type: ignore[no-any-return]
 
 
 @router.post("/miners/{job_id}/result", summary="Submit job result")
@@ -73,10 +73,10 @@ async def submit_result(
     req: JobResultSubmit,
     session: Annotated[Session, Depends(get_session)],
     miner_id: str = Depends(get_miner_id()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     job_service = JobService(session)
     miner_service = MinerService(session)
-    receipt_service = ReceiptService(session)
+    receipt_service = ReceiptService(session)  # type: ignore[arg-type]
     try:
         job = job_service.get_job(job_id)
     except KeyError:
@@ -131,7 +131,7 @@ async def submit_failure(
     req: JobFailSubmit,
     session: Annotated[Session, Depends(get_session)],
     miner_id: str = Depends(get_miner_id()),
-) -> dict[str, str]:  # type: ignore[arg-type]
+) -> dict[str, str]:
     try:
         service = JobService(session)
         service.fail_job(job_id, miner_id, req.error_message)
@@ -150,9 +150,9 @@ async def list_miner_jobs(
     job_type: str | None = None,
     min_reward: float | None = None,
     job_status: str | None = None,
-    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],  # type: ignore[assignment]
     api_key: str = Depends(require_miner_key()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """List jobs assigned to a specific miner"""
     try:
         service = JobService(session)
@@ -191,9 +191,9 @@ async def get_miner_earnings(
     miner_id: str,
     from_time: str | None = None,
     to_time: str | None = None,
-    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],  # type: ignore[assignment]
     api_key: str = Depends(require_miner_key()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Get earnings for a specific miner"""
     try:
         # For now, return mock earnings data
@@ -228,9 +228,9 @@ async def update_miner_capabilities(
     request: Request,
     miner_id: str,
     req: MinerRegister,
-    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],  # type: ignore[assignment]
     api_key: str = Depends(require_miner_key()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Update capabilities for a registered miner"""
     try:
         service = MinerService(session)
@@ -253,9 +253,9 @@ async def update_miner_capabilities(
 async def deregister_miner(
     request: Request,
     miner_id: str,
-    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],  # type: ignore[assignment]
     api_key: str = Depends(require_miner_key()),
-) -> dict[str, str]:  # type: ignore[arg-type]
+) -> dict[str, str]:
     """Deregister a miner from the coordinator"""
     try:
         service = MinerService(session)
@@ -275,7 +275,7 @@ async def fail_job(
     miner_id: str,
     job_id: str,
     fail_req: JobFailSubmit,
-    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],  # type: ignore[assignment]
     api_key: str = Depends(require_miner_key()),
 ) -> dict[str, str]:
     """Report job failure"""
@@ -306,7 +306,7 @@ async def complete_job(
     miner_id: str,
     job_id: str,
     complete_req: CompleteJobRequest,
-    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_session)] = Annotated[Session, Depends(get_session)],  # type: ignore[assignment]
     api_key: str = Depends(require_miner_key()),
 ) -> dict[str, Any]:
     """

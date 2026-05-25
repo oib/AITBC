@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 try:
     from .admin import router as admin
 except ImportError:
-    admin = None
+    admin = None  # type: ignore[assignment]
     logger.warning("Admin router not available (missing slowapi)")
 
 from .cache_management import router as cache_management
@@ -55,28 +55,28 @@ from ..contexts.governance.routers.governance_enhanced import router as governan
 try:
     from ..contexts.staking.routers.staking import router as staking
 except ImportError:
-    staking = None
+    staking = None  # type: ignore[assignment]
     logger.warning("Staking router not available")
 
 # Reputation router moved to contexts/reputation
 try:
     from ..contexts.reputation.routers.reputation import router as reputation
 except ImportError:
-    reputation = None
+    reputation = None  # type: ignore[assignment]
     logger.warning("Reputation router not available")
 
 # Rewards router moved to contexts/rewards
 try:
     from ..contexts.rewards.routers.rewards import router as rewards
 except ImportError:
-    rewards = None
+    rewards = None  # type: ignore[assignment]
     logger.warning("Rewards router not available")
 
 # Trading router moved to contexts/trading
 try:
     from ..contexts.trading.routers.trading import router as trading
 except ImportError:
-    trading = None
+    trading = None  # type: ignore[assignment]
     logger.warning("Trading router not available")
 
 # Hermes routers moved to contexts/hermes
@@ -89,7 +89,7 @@ from .hermes import router as hermes
 try:
     from ..contexts.security.routers.agent_security_router import router as agent_security_router
 except ImportError:
-    agent_security_router = None
+    agent_security_router = None  # type: ignore[assignment]
     logger.warning("Security router not available")
 
 # Analytics router moved to contexts/analytics

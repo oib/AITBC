@@ -20,6 +20,7 @@ For services not in __all__, import them directly from their module:
 """
 
 from importlib import import_module
+from typing import Any
 
 __all__ = ["JobService", "MinerService", "MarketplaceService", "ExplorerService"]
 
@@ -31,7 +32,7 @@ _MODULE_BY_EXPORT = {
 }
 
 
-def __getattr__(name: str) -> object:
+def __getattr__(name: str) -> Any:
     """Lazy load services on first access."""
     module_name = _MODULE_BY_EXPORT.get(name)
     if module_name is None:

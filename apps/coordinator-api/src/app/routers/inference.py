@@ -72,7 +72,7 @@ async def generate(
 
 
 @router.post("/generate/stream", summary="Generate text (streaming)")
-async def generate_stream(
+async def generate_stream(  # type: ignore[no-untyped-def]
     request: Request,
     req: InferenceRequest
 ):

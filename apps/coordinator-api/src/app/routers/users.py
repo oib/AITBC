@@ -54,7 +54,7 @@ def verify_session_token(token: str) -> str | None:
         del user_sessions[token]
         return None
 
-    return session["user_id"]
+    return session["user_id"]  # type: ignore[no-any-return]
 
 
 @router.post("/register", response_model=UserProfile)
@@ -125,13 +125,13 @@ async def login_user(login_data: UserLogin, request: Request, session: Annotated
         session.refresh(user)
 
         # Create wallet
-        wallet = Wallet(user_id=user.id, address=login_data.wallet_address, balance=0.0, created_at=datetime.now(timezone.utc))
+        wallet = Wallet(user_id=user.id, address=login_data.wallet_address, balance=0.0, created_at=datetime.now(timezone.utc))  # type: ignore[assignment]
 
         session.add(wallet)
         session.commit()
     else:
         # Update last login
-        user = session.execute(select(User).where(User.id == wallet.user_id)).first()
+        user = session.execute(select(User).where(User.id == wallet.user_id)).first()  # type: ignore[assignment]
         user.last_login = datetime.now(timezone.utc)
         session.commit()
 
