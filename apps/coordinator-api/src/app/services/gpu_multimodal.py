@@ -28,7 +28,7 @@ from .multimodal_agent import ModalityType
 class CUDAKernelOptimizer:
     """Custom CUDA kernel optimization for GPU operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.kernel_cache = {}
         self.performance_metrics = {}
@@ -89,7 +89,7 @@ class CUDAKernelOptimizer:
 class GPUFeatureCache:
     """GPU memory management and feature caching system"""
 
-    def __init__(self, max_cache_size_gb: float = 4.0):
+    def __init__(self, max_cache_size_gb: float = 4.0) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_cache_size = max_cache_size_gb * 1024**3  # Convert to bytes
         self.current_cache_size = 0
@@ -156,7 +156,7 @@ class GPUFeatureCache:
 class GPUAttentionOptimizer:
     """GPU-optimized attention mechanisms"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.cuda_optimizer = CUDAKernelOptimizer()
 
@@ -567,7 +567,7 @@ class GPUAcceleratedMultiModal:
 class GPUAttentionOptimizer:
     """GPU attention optimization strategies"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._optimization_cache = {}
 
     async def optimize_attention_config(
@@ -677,7 +677,7 @@ class GPUAttentionOptimizer:
 class GPUFeatureCache:
     """GPU feature caching for performance optimization"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache = {}
         self._cache_stats = {"hits": 0, "misses": 0, "evictions": 0}
 

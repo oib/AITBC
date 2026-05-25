@@ -773,7 +773,7 @@ def list_reports(report_type: str | None = None, status: str | None = None) -> l
 
 
 # Test function
-async def test_regulatory_reporting():
+async def test_regulatory_reporting() -> None:
     """Test regulatory reporting system"""
     logger.info("Testing Regulatory Reporting System")
 

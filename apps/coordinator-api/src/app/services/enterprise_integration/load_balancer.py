@@ -93,14 +93,14 @@ class TrafficPattern:
 class PredictiveScaler:
     """AI-powered predictive auto-scaling"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.traffic_history = []
         self.scaling_predictions = {}
         self.traffic_patterns = {}
         self.model_weights = {}
         self.logger = get_logger("predictive_scaler")
 
-    async def record_traffic(self, timestamp: datetime, request_count: int, response_time_ms: float, error_rate: float):
+    async def record_traffic(self, timestamp: datetime, request_count: int, response_time_ms: float, error_rate: float) -> None:
         """Record traffic metrics"""
 
         traffic_record = {
@@ -123,7 +123,7 @@ class PredictiveScaler:
         # Update traffic patterns
         await self._update_traffic_patterns()
 
-    async def _update_traffic_patterns(self):
+    async def _update_traffic_patterns(self) -> None:
         """Update traffic patterns based on historical data"""
 
         if len(self.traffic_history) < 168:  # Need at least 1 week of data
@@ -336,7 +336,7 @@ class PredictiveScaler:
 class AdvancedLoadBalancer:
     """Advanced load balancer with multiple algorithms and AI optimization"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.backends = {}
         self.algorithm = LoadBalancingAlgorithm.ADAPTIVE
         self.current_index = 0
@@ -698,7 +698,7 @@ class AdvancedLoadBalancer:
             self.logger.error(f"Metrics retrieval failed: {e}")
             return {"error": str(e)}
 
-    async def set_algorithm(self, algorithm: LoadBalancingAlgorithm):
+    async def set_algorithm(self, algorithm: LoadBalancingAlgorithm) -> None:
         """Set load balancing algorithm"""
 
         self.algorithm = algorithm

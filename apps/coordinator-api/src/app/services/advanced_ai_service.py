@@ -96,7 +96,7 @@ advanced_learning = AdvancedLearningService({})
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     """Initialize the Advanced AI Service"""
     logger.info("Starting Advanced AI Service on port 8009")
 
@@ -109,7 +109,7 @@ async def startup_event():
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, Any]:
     """Root endpoint"""
     return {
         "service": "Advanced AI Service",
@@ -127,7 +127,7 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Health check endpoint"""
     return {
         "status": "healthy",
@@ -138,7 +138,7 @@ async def health_check():
 
 
 @app.post("/rl/train")
-async def train_rl_agent(request: RLTrainingRequest, background_tasks: BackgroundTasks):
+async def train_rl_agent(request: RLTrainingRequest, background_tasks: BackgroundTasks) -> Any:
     """Train a reinforcement learning agent"""
 
     try:
@@ -175,7 +175,7 @@ async def _train_rl_agent_background(
     algorithm: str,
     training_config: dict[str, Any] | None,
     training_data: list[dict[str, Any]],
-):
+) -> None:
     """Background task for RL training"""
 
     try:
@@ -200,7 +200,7 @@ async def _train_rl_agent_background(
 
 
 @app.post("/fusion/process")
-async def process_multi_modal_fusion(request: MultiModalFusionRequest):
+async def process_multi_modal_fusion(request: MultiModalFusionRequest) -> Any:
     """Process multi-modal fusion"""
 
     try:
@@ -239,7 +239,7 @@ async def process_multi_modal_fusion(request: MultiModalFusionRequest):
 
 
 @app.post("/gpu/optimize")
-async def optimize_gpu_processing(request: GPUOptimizationRequest):
+async def optimize_gpu_processing(request: GPUOptimizationRequest) -> Any:
     """Perform GPU-optimized processing"""
 
     try:
@@ -262,7 +262,7 @@ async def optimize_gpu_processing(request: GPUOptimizationRequest):
 
 
 @app.post("/process")
-async def advanced_ai_processing(request: AdvancedAIRequest):
+async def advanced_ai_processing(request: AdvancedAIRequest) -> Any:
     """Unified advanced AI processing endpoint"""
 
     try:
@@ -292,32 +292,32 @@ async def advanced_ai_processing(request: AdvancedAIRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _handle_rl_training(input_data: dict[str, Any], config: dict[str, Any] | None):
+async def _handle_rl_training(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle RL training request"""
     # Implementation for unified RL training
     return {"status": "rl_training_initiated", "details": input_data}
 
 
-async def _handle_fusion_processing(input_data: dict[str, Any], config: dict[str, Any] | None):
+async def _handle_fusion_processing(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle fusion processing request"""
     # Implementation for unified fusion processing
     return {"status": "fusion_processing_initiated", "details": input_data}
 
 
-async def _handle_gpu_optimization(input_data: dict[str, Any], config: dict[str, Any] | None):
+async def _handle_gpu_optimization(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle GPU optimization request"""
     # Implementation for unified GPU optimization
     return {"status": "gpu_optimization_initiated", "details": input_data}
 
 
-async def _handle_meta_learning(input_data: dict[str, Any], config: dict[str, Any] | None):
+async def _handle_meta_learning(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle meta-learning request"""
     # Implementation for meta-learning
     return {"status": "meta_learning_initiated", "details": input_data}
 
 
 @app.get("/metrics")
-async def get_performance_metrics():
+async def get_performance_metrics() -> Any:
     """Get service performance metrics"""
 
     try:
@@ -358,7 +358,7 @@ async def get_performance_metrics():
 
 
 @app.get("/models")
-async def list_available_models():
+async def list_available_models() -> Any:
     """List available trained models"""
 
     try:
@@ -373,7 +373,7 @@ async def list_available_models():
 
 
 @app.delete("/models/{model_id}")
-async def delete_model(model_id: str):
+async def delete_model(model_id: str) -> Any:
     """Delete a trained model"""
 
     try:

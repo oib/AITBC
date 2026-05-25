@@ -420,7 +420,7 @@ class GPUWorker:
 
 
 # Standalone worker runner
-async def run_worker(worker_id: str, api_key: str, coordinator_url: str = "http://localhost:8011"):
+async def run_worker(worker_id: str, api_key: str, coordinator_url: str = "http://localhost:8011") -> None:
     """Run a GPU worker instance"""
     worker = GPUWorker(
         worker_id=worker_id,

@@ -28,12 +28,12 @@ logger = get_logger(__name__)
 
 
 class DeveloperPlatformService:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     async def register_developer(self, request: DeveloperCreate) -> DeveloperProfile:
         existing = self.session.execute(
-            select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address)
+            select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address)  # type: ignore[arg-type]
         ).first()
 
         if existing:
@@ -173,7 +173,7 @@ class DeveloperPlatformService:
 
     async def get_developer_profile(self, wallet_address: str) -> DeveloperProfile | None:
         """Get developer profile by wallet address"""
-        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address)).first()
+        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address)).first()  # type: ignore[arg-type]
 
     async def update_developer_profile(self, wallet_address: str, updates: dict) -> DeveloperProfile:
         """Update developer profile"""
@@ -195,8 +195,8 @@ class DeveloperPlatformService:
         """Get developer leaderboard sorted by reputation score"""
         return self.session.execute(
             select(DeveloperProfile)
-            .where(DeveloperProfile.is_active)
-            .order_by(DeveloperProfile.reputation_score.desc())
+            .where(DeveloperProfile.is_active)  # type: ignore[arg-type]
+            .order_by(DeveloperProfile.reputation_score.desc())  # type: ignore[arg-type]
             .offset(offset)
             .limit(limit)
         ).all()
@@ -209,12 +209,12 @@ class DeveloperPlatformService:
 
         # Get bounty statistics
         completed_bounties = self.session.execute(
-            select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved)
+            select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved)  # type: ignore[arg-type]
         ).all()
 
         # Get certification statistics
         certifications = self.session.execute(
-            select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
+            select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)  # type: ignore[arg-type]
         ).all()
 
         return {
@@ -235,9 +235,9 @@ class DeveloperPlatformService:
         """List bounty tasks with optional status filter"""
         query = select(BountyTask)
         if status:
-            query = query.where(BountyTask.status == status)
+            query = query.where(BountyTask.status == status)  # type: ignore[arg-type]
 
-        return self.session.execute(query.order_by(BountyTask.created_at.desc()).offset(offset).limit(limit)).all()
+        return self.session.execute(query.order_by(BountyTask.created_at.desc()).offset(offset).limit(limit)).all()  # type: ignore[arg-type]
 
     async def get_bounty_details(self, bounty_id: str) -> BountyTask | None:
         """Get detailed bounty information"""
@@ -247,7 +247,7 @@ class DeveloperPlatformService:
 
         # Get submissions count
         submissions_count = self.session.execute(
-            select(BountySubmission).where(BountySubmission.bounty_id == bounty_id)
+            select(BountySubmission).where(BountySubmission.bounty_id == bounty_id)  # type: ignore[arg-type]
         ).count()
 
         return {**bounty.__dict__, "submissions_count": submissions_count}
@@ -256,8 +256,8 @@ class DeveloperPlatformService:
         """Get all submissions by a developer"""
         return self.session.execute(
             select(BountySubmission)
-            .where(BountySubmission.developer_id == developer_id)
-            .order_by(BountySubmission.submitted_at.desc())
+            .where(BountySubmission.developer_id == developer_id)  # type: ignore[arg-type]
+            .order_by(BountySubmission.submitted_at.desc())  # type: ignore[arg-type]
         ).all()
 
     async def create_regional_hub(self, name: str, region: str, description: str, manager_address: str) -> RegionalHub:
@@ -273,7 +273,7 @@ class DeveloperPlatformService:
 
     async def get_regional_hubs(self) -> list[RegionalHub]:
         """Get all regional developer hubs"""
-        return self.session.execute(select(RegionalHub).where(RegionalHub.is_active)).all()
+        return self.session.execute(select(RegionalHub).where(RegionalHub.is_active)).all()  # type: ignore[arg-type]
 
     async def get_hub_developers(self, hub_id: str) -> list[DeveloperProfile]:
         """Get developers in a regional hub"""
@@ -284,7 +284,7 @@ class DeveloperPlatformService:
             raise HTTPException(status_code=404, detail="Regional hub not found")
 
         # Mock implementation - in reality would use hub membership table
-        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all()
+        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all()  # type: ignore[arg-type]
 
     async def stake_on_developer(self, staker_address: str, developer_address: str, amount: float) -> dict:
         """Stake AITBC tokens on a developer"""
@@ -376,12 +376,12 @@ class DeveloperPlatformService:
     async def get_bounty_statistics(self) -> dict:
         """Get comprehensive bounty statistics"""
         total_bounties = self.session.execute(select(BountyTask)).count()
-        open_bounties = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.OPEN)).count()
+        open_bounties = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.OPEN)).count()  # type: ignore[arg-type]
         completed_bounties = self.session.execute(
-            select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)
+            select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)  # type: ignore[arg-type]
         ).count()
 
-        total_rewards = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)).all()
+        total_rewards = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)).all()  # type: ignore[arg-type]
         total_reward_amount = sum(bounty.reward_amount for bounty in total_rewards)
 
         return {
