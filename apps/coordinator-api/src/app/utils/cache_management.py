@@ -2,14 +2,17 @@
 Cache management utilities for endpoints
 """
 
+import asyncio
+from typing import Any
+
 from aitbc import get_logger
 
-from ..utils.cache import cache_manager, cleanup_expired_cache
+from ..utils.cache import cache_manager
 
 logger = get_logger(__name__)
 
 
-def invalidate_cache_pattern(pattern: str):
+def invalidate_cache_pattern(pattern: str) -> int:
     """Invalidate cache entries matching a pattern"""
     keys_to_delete = []
 
@@ -59,7 +62,7 @@ class CacheInvalidationStrategy:
     """Strategies for cache invalidation based on events"""
 
     @staticmethod
-    def on_job_created(job_id: str):
+    def on_job_created(job_id: str) -> None:
         """Invalidate caches when a job is created"""
         # Invalidate job list caches
         invalidate_cache_pattern("jobs_")
@@ -67,7 +70,7 @@ class CacheInvalidationStrategy:
         logger.info(f"Invalidated job-related caches for new job: {job_id}")
 
     @staticmethod
-    def on_job_updated(job_id: str):
+    def on_job_updated(job_id: str) -> None:
         """Invalidate caches when a job is updated"""
         # Invalidate specific job cache and lists
         invalidate_cache_pattern(f"jobs_get_job_{job_id}")
@@ -76,13 +79,13 @@ class CacheInvalidationStrategy:
         logger.info(f"Invalidated job caches for updated job: {job_id}")
 
     @staticmethod
-    def on_marketplace_change():
+    def on_marketplace_change() -> None:
         """Invalidate caches when marketplace data changes"""
         invalidate_cache_pattern("marketplace_")
         logger.info("Invalidated marketplace caches due to data change")
 
     @staticmethod
-    def on_payment_created(payment_id: str):
+    def on_payment_created(payment_id: str) -> None:
         """Invalidate caches when a payment is created"""
         invalidate_cache_pattern("balance_")
         invalidate_cache_pattern("payment_")
@@ -90,7 +93,7 @@ class CacheInvalidationStrategy:
         logger.info(f"Invalidated payment caches for new payment: {payment_id}")
 
     @staticmethod
-    def on_payment_updated(payment_id: str):
+    def on_payment_updated(payment_id: str) -> None:
         """Invalidate caches when a payment is updated"""
         invalidate_cache_pattern("balance_")
         invalidate_cache_pattern(f"payment_{payment_id}")
@@ -98,12 +101,12 @@ class CacheInvalidationStrategy:
 
 
 # Background task for cache management
-async def cache_management_task():
+async def cache_management_task() -> None:
     """Background task for cache maintenance"""
     while True:
         try:
             # Clean up expired entries
-            removed_count = cleanup_expired_cache()
+            removed_count = cache_manager.cleanup_expired()
 
             # Log cache health periodically
             if removed_count > 0:
@@ -113,9 +116,6 @@ async def cache_management_task():
                     f"hit rate: {health['hit_rate_percent']}%, "
                     f"entries: {health['total_entries']}"
                 )
-
-            # Run cache management every 5 minutes
-            import asyncio
 
             await asyncio.sleep(300)
 
@@ -128,10 +128,10 @@ async def cache_management_task():
 class CacheWarmer:
     """Cache warming utilities for common endpoints"""
 
-    def __init__(self, session):
+    def __init__(self, session: Any) -> None:
         self.session = session
 
-    async def warm_common_queries(self):
+    async def warm_common_queries(self) -> None:
         """Warm up cache with common queries"""
         try:
             logger.info("Starting cache warming...")
@@ -150,7 +150,7 @@ class CacheWarmer:
         except Exception as e:
             logger.error(f"Cache warming failed: {e}")
 
-    async def _warm_marketplace_stats(self):
+    async def _warm_marketplace_stats(self) -> None:
         """Warm marketplace statistics cache"""
         try:
             from ..contexts.marketplace.services.marketplace import MarketplaceService
@@ -168,7 +168,7 @@ class CacheWarmer:
         except Exception as e:
             logger.warning(f"Failed to warm marketplace stats: {e}")
 
-    async def _warm_admin_stats(self):
+    async def _warm_admin_stats(self) -> None:
         """Warm admin statistics cache"""
         try:
             from sqlmodel import func, select
@@ -181,8 +181,9 @@ class CacheWarmer:
 
             # Simulate admin stats query
             total_jobs = self.session.exec(select(func.count()).select_from(Job)).one()
+            from sqlalchemy import column
             active_jobs = self.session.exec(
-                select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))
+                select(func.count()).select_from(Job).where(column("state").in_(["QUEUED", "RUNNING"]))
             ).one()
             miner_service.list_records()
 
@@ -203,7 +204,7 @@ class CacheWarmer:
         except Exception as e:
             logger.warning(f"Failed to warm admin stats: {e}")
 
-    async def _warm_exchange_rates(self):
+    async def _warm_exchange_rates(self) -> None:
         """Warm exchange rates cache"""
         try:
             # Mock exchange rates - in production this would call an exchange API
@@ -221,12 +222,12 @@ class CacheWarmer:
 
 
 # FastAPI endpoints for cache management
-async def get_cache_stats():
+async def get_cache_stats() -> dict[str, Any]:
     """Get cache statistics (for monitoring)"""
     return get_cache_health()
 
 
-async def clear_cache(pattern: str = None):
+async def clear_cache(pattern: str | None = None) -> dict[str, Any]:
     """Clear cache entries"""
     if pattern:
         count = invalidate_cache_pattern(pattern)
@@ -236,7 +237,7 @@ async def clear_cache(pattern: str = None):
         return {"status": "cleared", "pattern": "all", "count": "all"}
 
 
-async def warm_cache():
+async def warm_cache() -> dict[str, str]:
     """Manually trigger cache warming"""
     # This would need to be called with a session
     # For now, just return status
