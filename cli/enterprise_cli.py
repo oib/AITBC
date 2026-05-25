@@ -13,6 +13,8 @@ from typing import Optional, Dict, Any, List
 import requests
 import getpass
 from aitbc.utils.paths import get_keystore_path
+import click
+
 
 # Default paths
 DEFAULT_KEYSTORE_DIR = get_keystore_path()
@@ -34,12 +36,11 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
         with open(transactions_file) as f:
             transactions = json.load(f)
         
-        print(f"Processing {len(transactions)} transactions...")
+        click.echo(f"Processing {len(transactions)} transactions...")
         results = []
         
         for i, tx in enumerate(transactions, 1):
-            print(f"Transaction {i}/{len(transactions)}: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
-            
+            click.echo(f"Transaction {i}/{len(transactions)}: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
             # Create transaction
             transaction = {
                 "sender": tx['from_wallet'],
@@ -61,16 +62,16 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
                         'hash': tx_hash,
                         'success': tx_hash is not None
                     })
-                    print(f"  ✅ Success: {tx_hash}")
+                    click.echo(f"  ✅ Success: {tx_hash}")
                 else:
-                    print(f"  ❌ Failed: {response.text}")
+                    click.echo(f"  ❌ Failed: {response.text}")
                     results.append({
                         'transaction': tx,
                         'hash': None,
                         'success': False
                     })
             except Exception as e:
-                print(f"  ❌ Error: {e}")
+                click.echo(f"  ❌ Error: {e}")
                 results.append({
                     'transaction': tx,
                     'hash': None,
@@ -80,28 +81,25 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
         
         # Summary
         successful = sum(1 for r in results if r['success'])
-        print(f"\n📊 Batch Summary: {successful}/{len(transactions)} successful")
-        
+        click.echo(f"\n📊 Batch Summary: {successful}/{len(transactions)} successful")
         # Save results
         results_file = transactions_file.replace('.json', '_results.json')
         with open(results_file, 'w') as f:
             json.dump(results, f, indent=2)
-        print(f"Results saved to: {results_file}")
-        
+        click.echo(f"Results saved to: {results_file}")
         return results
     except Exception as e:
-        print(f"Error processing batch: {e}")
+        click.echo(f"Error processing batch: {e}")
         return []
 
 def mining_operations(operation: str, wallet_name: str = None, threads: int = 1, rpc_url: str = DEFAULT_RPC_URL):
     """Handle mining operations"""
     if operation == "start":
         if not wallet_name:
-            print("Error: Wallet name required for mining start")
+            click.echo("Error: Wallet name required for mining start")
             return False
         
-        print(f"Starting mining with wallet '{wallet_name}' using {threads} threads...")
-        
+        click.echo(f"Starting mining with wallet '{wallet_name}' using {threads} threads...")
         mining_config = {
             "proposer_address": wallet_name,  # Fixed field name for PoA
             "threads": threads
@@ -111,52 +109,52 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
             response = requests.post(f"{rpc_url}/rpc/mining/start", json=mining_config)
             if response.status_code == 200:
                 result = response.json()
-                print(f"✅ Mining started successfully")
-                print(f"   Wallet: {wallet_name}")
-                print(f"   Threads: {threads}")
-                print(f"   Status: {result.get('status', 'started')}")
+                click.echo(f"✅ Mining started successfully")
+                click.echo(f"   Wallet: {wallet_name}")
+                click.echo(f"   Threads: {threads}")
+                click.echo(f"   Status: {result.get('status', 'started')}")
                 return True
             else:
-                print(f"❌ Error starting mining: {response.text}")
+                click.echo(f"❌ Error starting mining: {response.text}")
                 return False
         except Exception as e:
-            print(f"❌ Error: {e}")
+            click.echo(f"❌ Error: {e}")
             return False
     
     elif operation == "stop":
-        print("Stopping mining...")
+        click.echo("Stopping mining...")
         try:
             response = requests.post(f"{rpc_url}/rpc/mining/stop", timeout=30)
             if response.status_code == 200:
                 result = response.json()
-                print(f"✅ Mining stopped")
-                print(f"   Status: {result.get('status', 'stopped')}")
+                click.echo(f"✅ Mining stopped")
+                click.echo(f"   Status: {result.get('status', 'stopped')}")
                 return True
             else:
-                print(f"❌ Error stopping mining: {response.text}")
+                click.echo(f"❌ Error stopping mining: {response.text}")
                 return False
         except Exception as e:
-            print(f"❌ Error: {e}")
+            click.echo(f"❌ Error: {e}")
             return False
     
     elif operation == "status":
-        print("Getting mining status...")
+        click.echo("Getting mining status...")
         try:
             response = requests.get(f"{rpc_url}/rpc/mining/status", timeout=30)
             if response.status_code == 200:
                 status = response.json()
-                print("⛏️  Mining Status:")
-                print(f"   Active: {'✅ Yes' if status.get('active', False) else '❌ No'}")
-                print(f"   Threads: {status.get('threads', 0)}")
-                print(f"   Hash Rate: {status.get('hash_rate', 0):.2f} H/s")
-                print(f"   Blocks Mined: {status.get('blocks_mined', 0)}")
-                print(f"   Mining Address: {status.get('miner_address', 'N/A')}")
+                click.echo("⛏️  Mining Status:")
+                click.echo(f"   Active: {'✅ Yes' if status.get('active', False) else '❌ No'}")
+                click.echo(f"   Threads: {status.get('threads', 0)}")
+                click.echo(f"   Hash Rate: {status.get('hash_rate', 0):.2f} H/s")
+                click.echo(f"   Blocks Mined: {status.get('blocks_mined', 0)}")
+                click.echo(f"   Mining Address: {status.get('miner_address', 'N/A')}")
                 return True
             else:
-                print(f"❌ Error getting status: {response.text}")
+                click.echo(f"❌ Error getting status: {response.text}")
                 return False
         except Exception as e:
-            print(f"❌ Error: {e}")
+            click.echo(f"❌ Error: {e}")
             return False
 
 def marketplace_operations(operation: str, wallet_name: str = None, item_type: str = None,
@@ -164,38 +162,37 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
                          rpc_url: str = DEFAULT_RPC_URL):
     """Handle marketplace operations"""
     if operation == "list":
-        print("Getting marketplace listings...")
+        click.echo("Getting marketplace listings...")
         try:
             response = requests.get(f"{rpc_url}/rpc/marketplace/listings", timeout=30)
             if response.status_code == 200:
                 listings = response.json().get("listings", [])
-                print(f"🏪 Marketplace Listings ({len(listings)} items):")
+                click.echo(f"🏪 Marketplace Listings ({len(listings)} items):")
                 if not listings:
-                    print("   No listings found")
+                    click.echo("   No listings found")
                 else:
                     for i, item in enumerate(listings, 1):
-                        print(f"   {i}. {item.get('item_type', 'Unknown')} - {item.get('price', 0)} AIT")
-                        print(f"      {item.get('description', 'No description')[:50]}...")
-                        print(f"      Seller: {item.get('seller_address', 'Unknown')[:16]}...")
-                        print()
+                        click.echo(f"   {i}. {item.get('item_type', 'Unknown')} - {item.get('price', 0)} AIT")
+                        click.echo(f"      {item.get('description', 'No description')[:50]}...")
+                        click.echo(f"      Seller: {item.get('seller_address', 'Unknown')[:16]}...")
+                        click.echo("")
                 return listings
             else:
-                print(f"❌ Error: {response.text}")
+                click.echo(f"❌ Error: {response.text}")
                 return []
         except Exception as e:
-            print(f"❌ Error: {e}")
+            click.echo(f"❌ Error: {e}")
             return []
     
     elif operation == "create":
         if not all([wallet_name, item_type, price is not None, description]):
-            print("❌ Error: All parameters required for marketplace creation")
+            click.echo("❌ Error: All parameters required for marketplace creation")
             return None
         
-        print(f"Creating marketplace listing...")
-        print(f"   Item: {item_type}")
-        print(f"   Price: {price} AIT")
-        print(f"   Description: {description[:50]}...")
-        
+        click.echo(f"Creating marketplace listing...")
+        click.echo(f"   Item: {item_type}")
+        click.echo(f"   Price: {price} AIT")
+        click.echo(f"   Description: {description[:50]}...")
         listing_data = {
             "seller_address": wallet_name,  # Simplified for demo
             "item_type": item_type,
@@ -208,16 +205,16 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
             if response.status_code == 200:
                 result = response.json()
                 listing_id = result.get("listing_id")
-                print(f"✅ Marketplace listing created")
-                print(f"   Listing ID: {listing_id}")
-                print(f"   Item: {item_type}")
-                print(f"   Price: {price} AIT")
+                click.echo(f"✅ Marketplace listing created")
+                click.echo(f"   Listing ID: {listing_id}")
+                click.echo(f"   Item: {item_type}")
+                click.echo(f"   Price: {price} AIT")
                 return listing_id
             else:
-                print(f"❌ Error creating listing: {response.text}")
+                click.echo(f"❌ Error creating listing: {response.text}")
                 return None
         except Exception as e:
-            print(f"❌ Error: {e}")
+            click.echo(f"❌ Error: {e}")
             return None
 
 def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
@@ -226,14 +223,13 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
     """Handle AI operations"""
     if operation == "submit":
         if not all([wallet_name, job_type, prompt, payment is not None]):
-            print("❌ Error: All parameters required for AI job submission")
+            click.echo("❌ Error: All parameters required for AI job submission")
             return None
         
-        print(f"Submitting AI job...")
-        print(f"   Type: {job_type}")
-        print(f"   Payment: {payment} AIT")
-        print(f"   Prompt: {prompt[:50]}...")
-        
+        click.echo(f"Submitting AI job...")
+        click.echo(f"   Type: {job_type}")
+        click.echo(f"   Payment: {payment} AIT")
+        click.echo(f"   Prompt: {prompt[:50]}...")
         job_data = {
             "wallet_address": wallet_name,  # Fixed field name
             "job_type": job_type,
@@ -246,17 +242,17 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
             if response.status_code == 200:
                 result = response.json()
                 job_id = result.get("job_id")
-                print(f"✅ AI job submitted")
-                print(f"   Job ID: {job_id}")
-                print(f"   Type: {job_type}")
-                print(f"   Payment: {payment} AIT")
-                print(f"   Status: {result.get('status', 'queued')}")
+                click.echo(f"✅ AI job submitted")
+                click.echo(f"   Job ID: {job_id}")
+                click.echo(f"   Type: {job_type}")
+                click.echo(f"   Payment: {payment} AIT")
+                click.echo(f"   Status: {result.get('status', 'queued')}")
                 return job_id
             else:
-                print(f"❌ Error submitting job: {response.text}")
+                click.echo(f"❌ Error submitting job: {response.text}")
                 return None
         except Exception as e:
-            print(f"❌ Error: {e}")
+            click.echo(f"❌ Error: {e}")
             return None
 
 def create_sample_batch_file():
@@ -281,10 +277,9 @@ def create_sample_batch_file():
     with open("sample_batch.json", "w") as f:
         json.dump(sample_transactions, f, indent=2)
     
-    print("📝 Sample batch file created: sample_batch.json")
-    print("Edit this file with your actual transactions and run:")
-    print("python /opt/aitbc/cli/advanced_wallet.py batch --file sample_batch.json --password <password>")
-
+    click.echo("📝 Sample batch file created: sample_batch.json")
+    click.echo("Edit this file with your actual transactions and run:")
+    click.echo("python /opt/aitbc/cli/advanced_wallet.py batch --file sample_batch.json --password <password>")
 def main():
     parser = argparse.ArgumentParser(description="AITBC Enterprise CLI - Advanced Operations")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")

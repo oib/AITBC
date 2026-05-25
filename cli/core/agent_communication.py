@@ -15,6 +15,9 @@ from collections import defaultdict
 
 from core.config import MultiChainConfig
 from core.node_client import NodeClient
+import logging
+logger = logging.getLogger(__name__)
+
 
 class MessageType(Enum):
     """Agent message types"""
@@ -146,7 +149,7 @@ class CrossChainAgentCommunication:
             return True
             
         except Exception as e:
-            print(f"Error registering agent {agent_info.agent_id}: {e}")
+            logger.error(f"Error registering agent {agent_info.agent_id}: {e}")
             return False
     
     async def discover_agents(self, chain_id: str, capabilities: Optional[List[str]] = None) -> List[AgentInfo]:
@@ -202,7 +205,7 @@ class CrossChainAgentCommunication:
             return True
             
         except Exception as e:
-            print(f"Error sending message {message.message_id}: {e}")
+            logger.error(f"Error sending message {message.message_id}: {e}")
             return False
     
     async def _deliver_message(self, message: AgentMessage) -> bool:
@@ -221,15 +224,14 @@ class CrossChainAgentCommunication:
                 return await self._deliver_cross_chain(message, receiver)
                 
         except Exception as e:
-            print(f"Error delivering message {message.message_id}: {e}")
+            logger.error(f"Error delivering message {message.message_id}: {e}")
             return False
     
     async def _deliver_same_chain(self, message: AgentMessage, receiver: AgentInfo) -> bool:
         """Deliver message on the same chain"""
         try:
             # Simulate message delivery
-            print(f"Delivering message {message.message_id} to agent {receiver.agent_id} on chain {message.chain_id}")
-            
+            logger.info(f"Delivering message {message.message_id} to agent {receiver.agent_id} on chain {message.chain_id}")
             # Update agent status
             receiver.last_seen = datetime.now()
             self.agents[receiver.agent_id] = receiver
@@ -241,7 +243,7 @@ class CrossChainAgentCommunication:
             return True
             
         except Exception as e:
-            print(f"Error in same-chain delivery: {e}")
+            logger.error(f"Error in same-chain delivery: {e}")
             return False
     
     async def _deliver_cross_chain(self, message: AgentMessage, receiver: AgentInfo) -> bool:
@@ -256,8 +258,7 @@ class CrossChainAgentCommunication:
             for bridge_node in bridge_nodes:
                 try:
                     # Simulate cross-chain routing
-                    print(f"Routing message {message.message_id} through bridge node {bridge_node}")
-                    
+                    logger.info(f"Routing message {message.message_id} through bridge node {bridge_node}")
                     # Update routing table
                     if message.chain_id not in self.routing_table:
                         self.routing_table[message.chain_id] = []
@@ -275,13 +276,13 @@ class CrossChainAgentCommunication:
                     return True
                     
                 except Exception as e:
-                    print(f"Error routing through bridge node {bridge_node}: {e}")
+                    logger.error(f"Error routing through bridge node {bridge_node}: {e}")
                     continue
             
             return False
             
         except Exception as e:
-            print(f"Error in cross-chain delivery: {e}")
+            logger.error(f"Error in cross-chain delivery: {e}")
             return False
     
     async def create_collaboration(self, agent_ids: List[str], collaboration_type: str, governance_rules: Dict[str, Any]) -> Optional[str]:
@@ -346,7 +347,7 @@ class CrossChainAgentCommunication:
             return collaboration_id
             
         except Exception as e:
-            print(f"Error creating collaboration: {e}")
+            logger.error(f"Error creating collaboration: {e}")
             return None
     
     async def update_reputation(self, agent_id: str, interaction_success: bool, feedback_score: Optional[float] = None) -> bool:
@@ -384,7 +385,7 @@ class CrossChainAgentCommunication:
             return True
             
         except Exception as e:
-            print(f"Error updating reputation for agent {agent_id}: {e}")
+            logger.error(f"Error updating reputation for agent {agent_id}: {e}")
             return False
     
     async def get_agent_status(self, agent_id: str) -> Optional[Dict[str, Any]]:
@@ -417,7 +418,7 @@ class CrossChainAgentCommunication:
             return status
             
         except Exception as e:
-            print(f"Error getting agent status for {agent_id}: {e}")
+            logger.error(f"Error getting agent status for {agent_id}: {e}")
             return None
     
     async def get_network_overview(self) -> Dict[str, Any]:
@@ -467,7 +468,7 @@ class CrossChainAgentCommunication:
             return overview
             
         except Exception as e:
-            print(f"Error getting network overview: {e}")
+            logger.error(f"Error getting network overview: {e}")
             return {}
     
     def _validate_agent_info(self, agent_info: AgentInfo) -> bool:
