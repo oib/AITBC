@@ -5,7 +5,7 @@ Service schemas for common GPU workloads
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class ServiceType(StrEnum):
@@ -133,7 +133,7 @@ class StableDiffusionRequest(BaseModel):
 
     @field_validator("seed")
     @classmethod
-    def validate_seed(cls, v):
+    def validate_seed(cls, v: int | list[int] | None) -> int | list[int] | None:
         if v is not None and isinstance(v, list):
             if len(v) > 4:
                 raise ValueError("Maximum 4 seeds allowed")
@@ -308,7 +308,7 @@ class BlenderRequest(BaseModel):
 
     @field_validator("frame_end")
     @classmethod
-    def validate_frame_range(cls, v, info):
+    def validate_frame_range(cls, v: int, info: ValidationInfo) -> int:
         if info and info.data and "frame_start" in info.data and v < info.data["frame_start"]:
             raise ValueError("frame_end must be >= frame_start")
         return v
@@ -346,7 +346,8 @@ class ServiceRequest(BaseModel):
         }
 
         service_class = service_classes[self.service_type]
-        return service_class(**self.request_data)
+        result: WhisperRequest | StableDiffusionRequest | LLMRequest | FFmpegRequest | BlenderRequest = service_class(**self.request_data)
+        return result
 
 
 # Service Response Schemas

@@ -1,6 +1,7 @@
 """
 Database models for confidential transactions
 """
+# mypy: disable-error-code="pydantic-field"
 
 import uuid
 
@@ -152,7 +153,7 @@ class AuditAuthorizationDB(Base):
 
     # Authorization data
     signature = Column(String(512), nullable=False)
-    metadata = Column(JSON, nullable=True)
+    extra_metadata = Column(JSON, nullable=True)
 
     # Status
     active = Column(Boolean, nullable=False, default=True)
