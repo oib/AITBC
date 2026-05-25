@@ -6,7 +6,7 @@ This enables gradual migration from duplicated code to shared implementation.
 from sqlmodel import Session
 
 from aitbc_agent_core import AgentIntegrationService
-from .adapters.agent_core_adapters import (
+from ..adapters.agent_core_adapters import (
     AgentSecurityManagerAdapter,
     AgentAuditorAdapter,
     AgentOrchestratorAdapter,

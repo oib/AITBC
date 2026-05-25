@@ -31,6 +31,8 @@ from .utils import (
 
 from aitbc.rate_limiting import rate_limit
 
+_logger = get_logger(__name__)
+
 # Import domain modules
 from .blocks import (
     get_genesis_allocations,
@@ -55,51 +57,60 @@ from .accounts import (
     get_balance_breakdown,
     reconcile_balance,
 )
-from .disputes import (
-    file_dispute,
-    submit_evidence,
-    verify_evidence,
-    submit_arbitration_vote,
-    authorize_arbitrator,
-    get_active_disputes,
-    get_authorized_arbitrators,
-    get_arbitrator_disputes,
-    get_user_disputes,
-    get_dispute,
-    get_dispute_evidence,
-    get_arbitration_votes,
-)
-from ..models.dispute import (
-    FileDisputeRequest,
-    FileDisputeResponse,
-    SubmitEvidenceRequest,
-    SubmitEvidenceResponse,
-    VerifyEvidenceRequest,
-    VerifyEvidenceResponse,
-    SubmitArbitrationVoteRequest,
-    SubmitArbitrationVoteResponse,
-    AuthorizeArbitratorRequest,
-    AuthorizeArbitratorResponse,
-    GetDisputeResponse,
-    GetEvidenceResponse,
-    GetArbitrationVotesResponse,
-)
-from .contracts import (
-    deploy_messaging_contract,
-    list_contracts,
-    deploy_contract,
-    call_contract,
-    verify_contract,
-    get_messaging_contract_state,
-    get_forum_topics,
-    create_forum_topic,
-    get_topic_messages,
-    post_message,
-    vote_message,
-    search_messages,
-    get_agent_reputation,
-    moderate_message,
-)
+try:
+    from .disputes import (
+        file_dispute,
+        submit_evidence,
+        verify_evidence,
+        submit_arbitration_vote,
+        authorize_arbitrator,
+        get_active_disputes,
+        get_authorized_arbitrators,
+        get_arbitrator_disputes,
+        get_user_disputes,
+        get_dispute,
+        get_dispute_evidence,
+        get_arbitration_votes,
+    )
+except ImportError:
+    _logger.warning("Disputes module not available")
+try:
+    from ..models.dispute import (
+        FileDisputeRequest,
+        FileDisputeResponse,
+        SubmitEvidenceRequest,
+        SubmitEvidenceResponse,
+        VerifyEvidenceRequest,
+        VerifyEvidenceResponse,
+        SubmitArbitrationVoteRequest,
+        SubmitArbitrationVoteResponse,
+        AuthorizeArbitratorRequest,
+        AuthorizeArbitratorResponse,
+        GetDisputeResponse,
+        GetEvidenceResponse,
+        GetArbitrationVotesResponse,
+    )
+except ImportError:
+    _logger.warning("Dispute models not available")
+try:
+    from .contracts import (
+        deploy_messaging_contract,
+        list_contracts,
+        deploy_contract,
+        call_contract,
+        verify_contract,
+        get_messaging_contract_state,
+        get_forum_topics,
+        create_forum_topic,
+        get_topic_messages,
+        post_message,
+        vote_message,
+        search_messages,
+        get_agent_reputation,
+        moderate_message,
+    )
+except ImportError:
+    _logger.warning("Contracts module not available")
 from .sync import (
     export_chain,
     import_chain,
@@ -110,32 +121,57 @@ from .gossip import (
     GetLogsRequest,
     GetLogsResponse,
 )
-from .islands import (
-    join_island,
-    leave_island,
-    list_islands,
-    get_island,
-    request_bridge,
-    JoinIslandRequest,
-    JoinIslandResponse,
-    LeaveIslandRequest,
-    LeaveIslandResponse,
-    BridgeRequestRequest,
-    BridgeRequestResponse,
-)
-from .bridge import (
-    bridge_lock,
-    bridge_confirm,
-    get_bridge_transfer,
-    list_pending_transfers,
-)
-from .staking import (
-    stake_tokens,
-    unstake_tokens,
-    get_staking_info,
-)
-
-_logger = get_logger(__name__)
+try:
+    from .islands import (
+        join_island,
+        leave_island,
+        list_islands,
+        get_island,
+        request_bridge,
+        JoinIslandRequest,
+        JoinIslandResponse,
+        LeaveIslandRequest,
+        LeaveIslandResponse,
+        BridgeRequestRequest,
+        BridgeRequestResponse,
+    )
+except ImportError:
+    _logger.warning("Islands module not available")
+    join_island = None
+    leave_island = None
+    list_islands = None
+    get_island = None
+    request_bridge = None
+    JoinIslandRequest = None
+    JoinIslandResponse = None
+    LeaveIslandRequest = None
+    LeaveIslandResponse = None
+    BridgeRequestRequest = None
+    BridgeRequestResponse = None
+try:
+    from .bridge import (
+        bridge_lock,
+        bridge_confirm,
+        get_bridge_transfer,
+        list_pending_transfers,
+    )
+except ImportError:
+    _logger.warning("Bridge module not available")
+    bridge_lock = None
+    bridge_confirm = None
+    get_bridge_transfer = None
+    list_pending_transfers = None
+try:
+    from .staking import (
+        stake_tokens,
+        unstake_tokens,
+        get_staking_info,
+    )
+except ImportError:
+    _logger.warning("Staking module not available")
+    stake_tokens = None
+    unstake_tokens = None
+    get_staking_info = None
 
 # Security scheme for authentication
 security = HTTPBearer(auto_error=False)
@@ -588,12 +624,16 @@ async def get_logs_route(
 @router.post("/islands/join", summary="Join an island")
 async def join_island_route(request: JoinIslandRequest) -> JoinIslandResponse:
     """Join an island for edge compute operations"""
+    if join_island is None:
+        raise HTTPException(status_code=501, detail="Islands module not available")
     return await join_island(request)
 
 
 @router.post("/islands/leave", summary="Leave an island")
 async def leave_island_route(request: LeaveIslandRequest) -> LeaveIslandResponse:
     """Leave an island"""
+    if leave_island is None:
+        raise HTTPException(status_code=501, detail="Islands module not available")
     return await leave_island(request)
 
 
@@ -601,6 +641,8 @@ async def leave_island_route(request: LeaveIslandRequest) -> LeaveIslandResponse
 @rate_limit(rate=100, per=60)
 async def list_islands_route() -> Dict[str, Any]:
     """List all islands that the node is a member of"""
+    if list_islands is None:
+        raise HTTPException(status_code=501, detail="Islands module not available")
     return await list_islands()
 
 
@@ -608,12 +650,16 @@ async def list_islands_route() -> Dict[str, Any]:
 @rate_limit(rate=100, per=60)
 async def get_island_route(island_id: str) -> Dict[str, Any]:
     """Get details about a specific island"""
+    if get_island is None:
+        raise HTTPException(status_code=501, detail="Islands module not available")
     return await get_island(island_id)
 
 
 @router.post("/islands/bridge", summary="Request a bridge to another island")
 async def request_bridge_route(request: BridgeRequestRequest) -> BridgeRequestResponse:
     """Request a bridge to another island for cross-island communication"""
+    if request_bridge is None:
+        raise HTTPException(status_code=501, detail="Islands module not available")
     return await request_bridge(request)
 
 
@@ -628,6 +674,8 @@ async def bridge_lock_route(
     lock_data: dict
 ) -> Dict[str, Any]:
     """Initiate a cross-chain bridge transfer by locking funds"""
+    if bridge_lock is None:
+        raise HTTPException(status_code=501, detail="Bridge module not available")
     return await bridge_lock(request, lock_data)
 
 
@@ -638,6 +686,8 @@ async def bridge_confirm_route(
     confirm_data: dict
 ) -> Dict[str, Any]:
     """Confirm a cross-chain bridge transfer and release funds"""
+    if bridge_confirm is None:
+        raise HTTPException(status_code=501, detail="Bridge module not available")
     return await bridge_confirm(request, confirm_data)
 
 
@@ -648,6 +698,8 @@ async def get_bridge_transfer_route(
     transfer_id: str
 ) -> Dict[str, Any]:
     """Get the status of a cross-chain transfer"""
+    if get_bridge_transfer is None:
+        raise HTTPException(status_code=501, detail="Bridge module not available")
     return await get_bridge_transfer(request, transfer_id)
 
 
@@ -658,6 +710,8 @@ async def list_pending_transfers_route(
     chain_id: str = None
 ) -> List[Dict[str, Any]]:
     """List all pending cross-chain transfers"""
+    if list_pending_transfers is None:
+        raise HTTPException(status_code=501, detail="Bridge module not available")
     return await list_pending_transfers(request, chain_id)
 
 
@@ -672,6 +726,8 @@ async def stake_tokens_route(
     stake_data: dict
 ) -> Dict[str, Any]:
     """Stake tokens for consensus participation"""
+    if stake_tokens is None:
+        raise HTTPException(status_code=501, detail="Staking module not available")
     return await stake_tokens(request, stake_data)
 
 
@@ -682,6 +738,8 @@ async def unstake_tokens_route(
     unstake_data: dict
 ) -> Dict[str, Any]:
     """Unstake tokens after lock period expires"""
+    if unstake_tokens is None:
+        raise HTTPException(status_code=501, detail="Staking module not available")
     return await unstake_tokens(request, unstake_data)
 
 
@@ -693,4 +751,6 @@ async def get_staking_info_route(
     chain_id: str = None
 ) -> Dict[str, Any]:
     """Get staking information for an address"""
+    if get_staking_info is None:
+        raise HTTPException(status_code=501, detail="Staking module not available")
     return await get_staking_info(request, address, chain_id)
