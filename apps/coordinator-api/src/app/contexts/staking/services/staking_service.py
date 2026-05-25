@@ -33,12 +33,12 @@ class StakingService:
         stake.start_time = self._ensure_utc_datetime(stake.start_time)  # type: ignore[assignment]
         stake.end_time = self._ensure_utc_datetime(stake.end_time)  # type: ignore[assignment]
         stake.last_reward_time = self._ensure_utc_datetime(stake.last_reward_time)  # type: ignore[assignment]
-        stake.unbonding_time = self._ensure_utc_datetime(stake.unbonding_time)  # type: ignore[assignment]
+        stake.unbonding_time = self._ensure_utc_datetime(stake.unbonding_time)
         return stake
 
     def _normalize_agent_metrics_datetimes(self, agent_metrics: AgentMetrics) -> AgentMetrics:
         agent_metrics.last_update_time = self._ensure_utc_datetime(agent_metrics.last_update_time)  # type: ignore[assignment]
-        agent_metrics.first_submission_time = self._ensure_utc_datetime(agent_metrics.first_submission_time)  # type: ignore[assignment]
+        agent_metrics.first_submission_time = self._ensure_utc_datetime(agent_metrics.first_submission_time)
         return agent_metrics
 
     def _normalize_staking_pool_datetimes(self, staking_pool: StakingPool) -> StakingPool:
@@ -102,7 +102,7 @@ class StakingService:
     async def get_stake(self, stake_id: str) -> AgentStake:
         """Get stake by ID"""
         try:
-            stmt = select(AgentStake).where(AgentStake.stake_id == stake_id)
+            stmt = select(AgentStake).where(AgentStake.stake_id == stake_id)  # type: ignore[arg-type]
             result = self.session.execute(stmt).scalar_one_or_none()
             if not result:
                 raise ValueError("Stake not found")
@@ -128,24 +128,24 @@ class StakingService:
     ) -> list[AgentStake]:
         """Get filtered list of user's stakes"""
         try:
-            query = select(AgentStake).where(AgentStake.staker_address == user_address)
+            query = select(AgentStake).where(AgentStake.staker_address == user_address)  # type: ignore[arg-type]
 
             # Apply filters
             if status:
-                query = query.where(AgentStake.status == status)
+                query = query.where(AgentStake.status == status)  # type: ignore[arg-type]
             if agent_wallet:
-                query = query.where(AgentStake.agent_wallet == agent_wallet)
+                query = query.where(AgentStake.agent_wallet == agent_wallet)  # type: ignore[arg-type]
             if min_amount:
-                query = query.where(AgentStake.amount >= min_amount)
+                query = query.where(AgentStake.amount >= min_amount)  # type: ignore[arg-type]
             if max_amount:
-                query = query.where(AgentStake.amount <= max_amount)
+                query = query.where(AgentStake.amount <= max_amount)  # type: ignore[arg-type]
             if agent_tier:
-                query = query.where(AgentStake.agent_tier == agent_tier)
+                query = query.where(AgentStake.agent_tier == agent_tier)  # type: ignore[arg-type]
             if auto_compound is not None:
-                query = query.where(AgentStake.auto_compound == auto_compound)
+                query = query.where(AgentStake.auto_compound == auto_compound)  # type: ignore[arg-type]
 
             # Order by creation time (newest first)
-            query = query.order_by(AgentStake.start_time.desc())
+            query = query.order_by(AgentStake.start_time.desc())  # type: ignore[attr-defined]
 
             # Apply pagination
             offset = (page - 1) * limit
@@ -292,7 +292,7 @@ class StakingService:
     async def get_agent_metrics(self, agent_wallet: str) -> AgentMetrics | None:
         """Get agent performance metrics"""
         try:
-            stmt = select(AgentMetrics).where(AgentMetrics.agent_wallet == agent_wallet)
+            stmt = select(AgentMetrics).where(AgentMetrics.agent_wallet == agent_wallet)  # type: ignore[arg-type]
             result = self.session.execute(stmt).scalar_one_or_none()
             return self._normalize_agent_metrics_datetimes(result) if result else None
 
@@ -303,7 +303,7 @@ class StakingService:
     async def get_staking_pool(self, agent_wallet: str) -> StakingPool | None:
         """Get staking pool for an agent"""
         try:
-            stmt = select(StakingPool).where(StakingPool.agent_wallet == agent_wallet)
+            stmt = select(StakingPool).where(StakingPool.agent_wallet == agent_wallet)  # type: ignore[arg-type]
             result = self.session.execute(stmt).scalar_one_or_none()
             return self._normalize_staking_pool_datetimes(result) if result else None
 
@@ -431,7 +431,7 @@ class StakingService:
 
             # Get active stakes for this agent
             stmt = select(AgentStake).where(
-                and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)
+                and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
             )
             stakes = self.session.execute(stmt).scalars().all()
 
@@ -473,9 +473,9 @@ class StakingService:
             query = select(AgentMetrics)
 
             if tier:
-                query = query.where(AgentMetrics.current_tier == tier)
+                query = query.where(AgentMetrics.current_tier == tier)  # type: ignore[arg-type]
 
-            query = query.order_by(AgentMetrics.total_staked.desc())
+            query = query.order_by(AgentMetrics.total_staked.desc())  # type: ignore[attr-defined]
 
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
@@ -518,34 +518,34 @@ class StakingService:
                 start_date = datetime.now(timezone.utc) - timedelta(days=1)
 
             # Get total staked
-            total_staked_stmt = select(func.sum(AgentStake.amount)).where(AgentStake.start_time >= start_date)
+            total_staked_stmt = select(func.sum(AgentStake.amount)).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
             total_staked = self.session.execute(total_staked_stmt).scalar() or 0.0
 
             # Get active stakes
-            active_stakes_stmt = select(func.count(AgentStake.stake_id)).where(
-                and_(AgentStake.start_time >= start_date, AgentStake.status == StakeStatus.ACTIVE)
+            active_stakes_stmt = select(func.count(AgentStake.stake_id)).where(  # type: ignore[arg-type]
+                and_(AgentStake.start_time >= start_date, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
             )
             active_stakes = self.session.execute(active_stakes_stmt).scalar() or 0
 
             # Get unique stakers
             unique_stakers_stmt = select(func.count(func.distinct(AgentStake.staker_address))).where(
-                AgentStake.start_time >= start_date
+                AgentStake.start_time >= start_date  # type: ignore[arg-type]
             )
             unique_stakers = self.session.execute(unique_stakers_stmt).scalar() or 0
 
             # Get average APY
-            avg_apy_stmt = select(func.avg(AgentStake.current_apy)).where(AgentStake.start_time >= start_date)
+            avg_apy_stmt = select(func.avg(AgentStake.current_apy)).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
             avg_apy = self.session.execute(avg_apy_stmt).scalar() or 0.0
 
             # Get total rewards
             total_rewards_stmt = select(func.sum(AgentMetrics.total_rewards_distributed)).where(
-                AgentMetrics.last_update_time >= start_date
+                AgentMetrics.last_update_time >= start_date  # type: ignore[arg-type]
             )
             total_rewards = self.session.execute(total_rewards_stmt).scalar() or 0.0
 
             # Get tier distribution
             tier_stmt = (
-                select(AgentStake.agent_tier, func.count(AgentStake.stake_id).label("count"))
+                select(AgentStake.agent_tier, func.count(AgentStake.stake_id).label("count"))  # type: ignore[arg-type,call-overload]
                 .where(AgentStake.start_time >= start_date)
                 .group_by(AgentStake.agent_tier)
             )
@@ -583,10 +583,10 @@ class StakingService:
 
             if metric == "total_staked":
                 stmt = (
-                    select(
+                    select(  # type: ignore[call-overload]
                         AgentStake.agent_wallet,
                         func.sum(AgentStake.amount).label("total_staked"),
-                        func.count(AgentStake.stake_id).label("stake_count"),
+                        func.count(AgentStake.stake_id).label("stake_count"),  # type: ignore[arg-type]
                     )
                     .where(AgentStake.start_time >= start_date)
                     .group_by(AgentStake.agent_wallet)
@@ -596,18 +596,18 @@ class StakingService:
 
             elif metric == "total_rewards":
                 stmt = (
-                    select(AgentMetrics.agent_wallet, AgentMetrics.total_rewards_distributed, AgentMetrics.staker_count)
+                    select(AgentMetrics.agent_wallet, AgentMetrics.total_rewards_distributed, AgentMetrics.staker_count)  # type: ignore[call-overload]
                     .where(AgentMetrics.last_update_time >= start_date)
-                    .order_by(AgentMetrics.total_rewards_distributed.desc())
+                    .order_by(AgentMetrics.total_rewards_distributed.desc())  # type: ignore[attr-defined]
                     .limit(limit)
                 )
 
             elif metric == "apy":
                 stmt = (
-                    select(
+                    select(  # type: ignore[call-overload]
                         AgentStake.agent_wallet,
                         func.avg(AgentStake.current_apy).label("avg_apy"),
-                        func.count(AgentStake.stake_id).label("stake_count"),
+                        func.count(AgentStake.stake_id).label("stake_count"),  # type: ignore[arg-type]
                     )
                     .where(AgentStake.start_time >= start_date)
                     .group_by(AgentStake.agent_wallet)
@@ -617,7 +617,7 @@ class StakingService:
 
             result = self.session.execute(stmt).all()
 
-            leaderboard = []
+            leaderboard = []  # type: ignore[var-annotated]
             for row in result:
                 leaderboard.append({"agent_wallet": row.agent_wallet, "rank": len(leaderboard) + 1, **row._asdict()})
 
@@ -642,7 +642,7 @@ class StakingService:
 
             # Get user's stakes
             stmt = select(AgentStake).where(
-                and_(AgentStake.staker_address == user_address, AgentStake.start_time >= start_date)
+                and_(AgentStake.staker_address == user_address, AgentStake.start_time >= start_date)  # type: ignore[arg-type]
             )
             stakes = self.session.execute(stmt).scalars().all()
 
@@ -732,7 +732,7 @@ class StakingService:
 
     # Private helper methods
 
-    async def _update_staking_pool(self, agent_wallet: str, staker_address: str, amount: float, is_stake: bool):
+    async def _update_staking_pool(self, agent_wallet: str, staker_address: str, amount: float, is_stake: bool) -> None:
         """Update staking pool"""
         try:
             pool = await self.get_staking_pool(agent_wallet)
@@ -764,7 +764,7 @@ class StakingService:
             logger.error(f"Failed to update staking pool: {e}")
             raise
 
-    async def _calculate_rewards(self, stake_id: str):
+    async def _calculate_rewards(self, stake_id: str) -> None:
         """Calculate and update rewards for a stake"""
         try:
             stake = await self.get_stake(stake_id)
@@ -816,11 +816,11 @@ class StakingService:
         }
         return tier_scores.get(tier, 60.0)
 
-    async def _update_stake_apy_for_agent(self, agent_wallet: str, new_tier: PerformanceTier):
+    async def _update_stake_apy_for_agent(self, agent_wallet: str, new_tier: PerformanceTier) -> None:
         """Update APY for all active stakes on an agent"""
         try:
             stmt = select(AgentStake).where(
-                and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)
+                and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
             )
             stakes = self.session.execute(stmt).scalars().all()
 

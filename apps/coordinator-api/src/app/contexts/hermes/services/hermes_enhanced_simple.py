@@ -37,7 +37,7 @@ class hermesEnhancedService:
 
     def __init__(self, session: Session):
         self.session = session
-        self.agent_registry = {}  # Simple in-memory agent registry
+        self.agent_registry: dict[str, Any] = {}  # Simple in-memory agent registry
 
     async def route_agent_skill(
         self, skill_type: SkillType, requirements: dict[str, Any], performance_optimization: bool = True
@@ -238,7 +238,7 @@ class hermesEnhancedService:
         # Make decision
         should_offload = cost_benefit or (performance_benefit and resource_availability)
 
-        return should_offload
+        return should_offload  # type: ignore[no-any-return]
 
     async def coordinate_agent_collaboration(
         self, task_data: dict[str, Any], agent_ids: list[str], coordination_algorithm: str = "distributed_consensus"

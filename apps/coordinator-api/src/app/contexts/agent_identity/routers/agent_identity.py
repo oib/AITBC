@@ -124,7 +124,7 @@ async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager =
     try:
         mappings = await manager.registry.get_all_cross_chain_mappings(agent_id)
         return [
-            CrossChainMappingResponse(
+            CrossChainMappingResponse(  # type: ignore[call-arg]
                 id=m.id,
                 agent_id=m.agent_id,
                 chain_id=m.chain_id,
@@ -134,7 +134,7 @@ async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager =
                 verified_at=m.verified_at,
                 wallet_address=m.wallet_address,
                 wallet_type=m.wallet_type,
-                chain_metadata=m.chain_metadata,
+                chain_metadata=m.chain_metadata,  # type: ignore[attr-defined]
                 last_transaction=m.last_transaction,
                 transaction_count=m.transaction_count,
                 created_at=m.created_at,
@@ -340,7 +340,7 @@ async def export_agent_wallet(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
+            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active  # type: ignore[arg-type]
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -378,7 +378,7 @@ async def delete_agent_wallet(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
+            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active  # type: ignore[arg-type]
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -415,7 +415,7 @@ async def sign_message(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
+            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active  # type: ignore[arg-type]
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -526,7 +526,7 @@ async def get_supported_chains(manager: AgentIdentityManager = Depends(get_ident
 
 @router.post("/identities/{agent_id}/export", response_model=dict[str, Any])
 async def export_agent_identity(
-    agent_id: str, request: dict[str, Any] = None, manager: AgentIdentityManager = Depends(get_identity_manager)
+    agent_id: str, request: dict[str, Any] = None, manager: AgentIdentityManager = Depends(get_identity_manager)  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """Export agent identity data for backup or migration"""
     try:

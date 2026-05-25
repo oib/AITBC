@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from aitbc.rate_limiting import rate_limit
 from aitbc import get_logger
 
+logger = get_logger(__name__)
+
 from ....storage import get_session
 
 router = APIRouter()

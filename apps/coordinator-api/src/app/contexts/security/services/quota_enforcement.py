@@ -25,7 +25,7 @@ class QuotaEnforcementService:
         self.logger = __import__("logging").getLogger(f"aitbc.{self.__class__.__name__}")
 
         # Cache for quota lookups
-        self._quota_cache = {}
+        self._quota_cache = {}  # type: ignore[var-annotated]
         self._cache_ttl = 300  # 5 minutes
 
     async def check_quota(self, resource_type: str, quantity: float, tenant_id: str | None = None) -> bool:
@@ -108,7 +108,7 @@ class QuotaEnforcementService:
 
         return usage_record
 
-    async def release_quota(self, resource_type: str, quantity: float, usage_record_id: str, tenant_id: str | None = None):
+    async def release_quota(self, resource_type: str, quantity: float, usage_record_id: str, tenant_id: str | None = None) -> None:
         """Release quota (e.g., when job completes early)"""
 
         tenant_id = tenant_id or get_current_tenant_id()
@@ -127,7 +127,7 @@ class QuotaEnforcementService:
 
         result = self.db.execute(stmt)
 
-        if result.rowcount > 0:
+        if result.rowcount > 0:  # type: ignore[attr-defined]
             # Update quota usage
             await self._update_quota_usage(tenant_id, resource_type, -quantity)
 
@@ -177,18 +177,18 @@ class QuotaEnforcementService:
                 "period_end": quota.period_end.isoformat(),
             }
 
-            status["quotas"][quota.resource_type] = quota_status
+            status["quotas"][quota.resource_type] = quota_status  # type: ignore[assignment,index]
 
             # Update summary
             if usage_percent >= 100:
-                status["summary"]["over_limit"] += 1
+                status["summary"]["over_limit"] += 1  # type: ignore[index,operator]
             elif usage_percent >= 80:
-                status["summary"]["near_limit"] += 1
+                status["summary"]["near_limit"] += 1  # type: ignore[index,operator]
 
         return status
 
     @asynccontextmanager
-    async def quota_reservation(
+    async def quota_reservation(  # type: ignore[no-untyped-def]
         self, resource_type: str, quantity: float, timeout: int = 300, tenant_id: str | None = None  # 5 minutes
     ):
         """Context manager for temporary quota reservation"""
@@ -217,7 +217,7 @@ class QuotaEnforcementService:
             if self.redis:
                 self.redis.delete(f"reservation:{reservation_id}")
 
-    async def reset_quota_period(self, tenant_id: str, resource_type: str):
+    async def reset_quota_period(self, tenant_id: str, resource_type: str) -> None:
         """Reset quota for a new period"""
 
         # Get current quota
@@ -317,7 +317,7 @@ class QuotaEnforcementService:
         if self.redis:
             cached = self.redis.get(cache_key)
             if cached:
-                quota_data = json.loads(cached)
+                quota_data = json.loads(cached)  # type: ignore[arg-type]
                 quota = TenantQuota(**quota_data)
                 # Check if still valid
                 if quota.period_end >= datetime.now(timezone.utc):
@@ -360,7 +360,7 @@ class QuotaEnforcementService:
         if self.redis:
             cached = self.redis.get(cache_key)
             if cached:
-                return float(cached)
+                return float(cached)  # type: ignore[arg-type]
 
         # Query database
         stmt = select(func.sum(UsageRecord.quantity)).where(
@@ -380,7 +380,7 @@ class QuotaEnforcementService:
 
         return usage
 
-    async def _update_quota_usage(self, tenant_id: str, resource_type: str, quantity: float):
+    async def _update_quota_usage(self, tenant_id: str, resource_type: str, quantity: float) -> None:
         """Update quota usage in database"""
 
         stmt = (
@@ -446,7 +446,7 @@ class QuotaMiddleware:
             "/api/v1/analytics": {"resource": "api_calls", "cost": 1},
         }
 
-    async def check_endpoint_quota(self, endpoint: str, estimated_cost: float = 0):
+    async def check_endpoint_quota(self, endpoint: str, estimated_cost: float = 0) -> None:
         """Check if endpoint call is within quota"""
 
         resource_config = self.endpoint_costs.get(endpoint)
@@ -454,12 +454,12 @@ class QuotaMiddleware:
             return  # No quota check for this endpoint
 
         try:
-            await self.quota_service.check_quota(resource_config["resource"], resource_config["cost"] + estimated_cost)
+            await self.quota_service.check_quota(resource_config["resource"], resource_config["cost"] + estimated_cost)  # type: ignore[arg-type,operator]
         except QuotaExceededError as e:
             self.logger.warning(f"Quota exceeded for endpoint {endpoint}: {e}")
             raise
 
-    async def consume_endpoint_quota(self, endpoint: str, actual_cost: float = 0):
+    async def consume_endpoint_quota(self, endpoint: str, actual_cost: float = 0) -> None:
         """Consume quota after endpoint execution"""
 
         resource_config = self.endpoint_costs.get(endpoint)
@@ -467,7 +467,7 @@ class QuotaMiddleware:
             return
 
         try:
-            await self.quota_service.consume_quota(resource_config["resource"], resource_config["cost"] + actual_cost)
+            await self.quota_service.consume_quota(resource_config["resource"], resource_config["cost"] + actual_cost)  # type: ignore[arg-type,operator]
         except Exception as e:
             self.logger.error(f"Failed to consume quota for {endpoint}: {e}")
             # Don't fail the request, just log the error

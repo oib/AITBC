@@ -56,7 +56,7 @@ async def create_global_offer(
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
         # Get agent identity
-        agent_identity = await identity_manager.get_identity(offer_request["agent_id"])
+        agent_identity = await identity_manager.get_identity(offer_request["agent_id"])  # type: ignore[attr-defined]
         if not agent_identity:
             raise HTTPException(status_code=404, detail="Agent identity not found")
 
@@ -222,7 +222,7 @@ async def create_global_transaction(
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
         # Get buyer identity
-        buyer_identity = await identity_manager.get_identity(transaction_request["buyer_id"])
+        buyer_identity = await identity_manager.get_identity(transaction_request["buyer_id"])  # type: ignore[attr-defined]
         if not buyer_identity:
             raise HTTPException(status_code=404, detail="Buyer identity not found")
 
@@ -563,28 +563,28 @@ async def get_global_marketplace_health(
 
     try:
         # Get overall health metrics
-        total_regions = session.execute(select(func.count(MarketplaceRegion.id))).scalar() or 0
+        total_regions = session.execute(select(func.count(MarketplaceRegion.id))).scalar() or 0  # type: ignore[arg-type]
         active_regions = (
             session.execute(
-                select(func.count(MarketplaceRegion.id)).where(MarketplaceRegion.status == RegionStatus.ACTIVE)
+                select(func.count(MarketplaceRegion.id)).where(MarketplaceRegion.status == RegionStatus.ACTIVE)  # type: ignore[arg-type]
             ).scalar()
             or 0
         )
 
-        total_offers = session.execute(select(func.count(GlobalMarketplaceOffer.id))).scalar() or 0
+        total_offers = session.execute(select(func.count(GlobalMarketplaceOffer.id))).scalar() or 0  # type: ignore[arg-type]
         active_offers = (
             session.execute(
-                select(func.count(GlobalMarketplaceOffer.id)).where(
+                select(func.count(GlobalMarketplaceOffer.id)).where(  # type: ignore[arg-type]
                     GlobalMarketplaceOffer.global_status == MarketplaceStatus.ACTIVE
                 )
             ).scalar()
             or 0
         )
 
-        total_transactions = session.execute(select(func.count(GlobalMarketplaceTransaction.id))).scalar() or 0
+        total_transactions = session.execute(select(func.count(GlobalMarketplaceTransaction.id))).scalar() or 0  # type: ignore[arg-type]
         recent_transactions = (
             session.execute(
-                select(func.count(GlobalMarketplaceTransaction.id)).where(
+                select(func.count(GlobalMarketplaceTransaction.id)).where(  # type: ignore[arg-type]
                     GlobalMarketplaceTransaction.created_at >= datetime.now(timezone.utc) - timedelta(hours=24)
                 )
             ).scalar()

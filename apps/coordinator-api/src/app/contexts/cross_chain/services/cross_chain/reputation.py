@@ -66,7 +66,7 @@ class ReputationScore:
     is_active: bool
     tier: ReputationTier = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.tier = self.calculate_tier()
 
     def calculate_tier(self) -> ReputationTier:
@@ -184,7 +184,7 @@ class CrossChainReputationService:
             ReputationTier.DIAMOND: 0.25,  # 25% APY
         }
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the cross-chain reputation service"""
         logger.info("Initializing Cross-Chain Reputation Service")
 
@@ -567,12 +567,12 @@ class CrossChainReputationService:
 
         return total
 
-    async def _load_reputation_data(self):
+    async def _load_reputation_data(self) -> None:
         """Load existing reputation data"""
         # In production, load from database
         pass
 
-    async def _monitor_reputation_sync(self):
+    async def _monitor_reputation_sync(self) -> None:
         """Monitor and process reputation sync requests"""
         while True:
             try:
@@ -583,12 +583,12 @@ class CrossChainReputationService:
                 logger.error(f"Error in reputation sync monitoring: {e}")
                 await asyncio.sleep(60)
 
-    async def _process_pending_syncs(self):
+    async def _process_pending_syncs(self) -> None:
         """Process pending cross-chain sync requests"""
         # In production, implement pending sync processing
         pass
 
-    async def _process_stake_rewards(self):
+    async def _process_stake_rewards(self) -> None:
         """Process stake rewards"""
         while True:
             try:
@@ -599,7 +599,7 @@ class CrossChainReputationService:
                 logger.error(f"Error in stake reward processing: {e}")
                 await asyncio.sleep(3600)
 
-    async def _distribute_stake_rewards(self):
+    async def _distribute_stake_rewards(self) -> None:
         """Distribute rewards for active stakes"""
         current_time = datetime.now(timezone.utc)
 
@@ -615,7 +615,7 @@ class CrossChainReputationService:
                     # Mark stake as inactive
                     stake.is_active = False
 
-    async def _cleanup_expired_stakes(self):
+    async def _cleanup_expired_stakes(self) -> None:
         """Clean up expired stakes and delegations"""
         while True:
             try:
@@ -665,7 +665,7 @@ class CrossChainReputationService:
         else:
             raise ValueError(f"Unsupported format: {format}")
 
-    async def import_reputation_data(self, data: str, format: str = "json"):
+    async def import_reputation_data(self, data: str, format: str = "json") -> None:
         """Import reputation data"""
 
         if format.lower() == "json":
