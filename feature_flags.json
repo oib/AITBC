@@ -1,1 +1,50 @@
-{}
+{
+  "use_shared_agent_integration_service": {
+    "enabled": false,
+    "description": "Route agent integration calls through the shared aitbc-agent-core service instead of per-app implementations. Enable gradually after migration testing.",
+    "rollout_percentage": 0.0,
+    "whitelisted_users": [],
+    "blacklisted_users": [],
+    "enabled_since": null
+  },
+  "use_structlog": {
+    "enabled": false,
+    "description": "Use structlog-based structured logging instead of per-app logging implementations. Enable after logging standardisation migration.",
+    "rollout_percentage": 0.0,
+    "whitelisted_users": [],
+    "blacklisted_users": [],
+    "enabled_since": null
+  },
+  "strict_cors_enforcement": {
+    "enabled": true,
+    "description": "Enforce strict CORS origin allowlists on all services. Disabling falls back to permissive wildcard (dev only).",
+    "rollout_percentage": 100.0,
+    "whitelisted_users": [],
+    "blacklisted_users": [],
+    "enabled_since": "2026-05-24T00:00:00"
+  },
+  "trust_x_wallet_address_header": {
+    "enabled": false,
+    "description": "Trust the X-Wallet-Address header for authentication without JWT verification. Only for internal trusted networks; requires TRUST_X_WALLET_ADDRESS=true env var as well.",
+    "rollout_percentage": 0.0,
+    "whitelisted_users": [],
+    "blacklisted_users": [],
+    "enabled_since": null
+  },
+  "enable_zk_proof_verification": {
+    "enabled": false,
+    "description": "Enable real zero-knowledge proof verification for agent executions. Currently uses mock implementation.",
+    "rollout_percentage": 0.0,
+    "whitelisted_users": [],
+    "blacklisted_users": [],
+    "enabled_since": null
+  },
+  "enable_marketplace_rate_limiting": {
+    "enabled": true,
+    "description": "Enable rate limiting on marketplace API endpoints.",
+    "rollout_percentage": 100.0,
+    "whitelisted_users": [],
+    "blacklisted_users": [],
+    "enabled_since": "2026-05-24T00:00:00"
+  }
+}
