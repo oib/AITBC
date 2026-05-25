@@ -24,7 +24,7 @@ hermes execute --agent GenesisAgent --task pull_latest_code || {
 echo "3. Installing/updating dependencies via hermes GenesisAgent..."
 hermes execute --agent GenesisAgent --task update_dependencies || {
     echo "⚠️ hermes dependency update failed - using manual method"
-    /opt/aitbc/venv/bin/pip install -r requirements.txt
+    cd /opt/aitbc && /opt/aitbc/venv/bin/poetry install
 }
 
 # 4. Create required directories (via hermes)
