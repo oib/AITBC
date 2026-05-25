@@ -2,11 +2,10 @@
 Governance models for AITBC
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from pydantic import ConfigDict
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
@@ -20,7 +19,7 @@ class GovernanceProposal(SQLModel, table=True):
     target: dict[str, Any] | None = Field(default_factory=dict, sa_column=Column(JSON))
     proposer: str = Field(max_length=255, index=True)
     status: str = Field(default="active", max_length=20)  # active, passed, rejected, executed, expired
-    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     voting_deadline: datetime
     quorum_threshold: float = Field(default=0.1)  # Percentage of total voting power
     approval_threshold: float = Field(default=0.5)  # Percentage of votes in favor
@@ -40,7 +39,7 @@ class ProposalVote(SQLModel, table=True):
     vote: str = Field(max_length=10)  # for, against, abstain
     voting_power: int = Field(default=0)  # Amount of voting power at time of vote
     reason: str | None = Field(max_length=500)
-    voted_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    voted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     proposal: GovernanceProposal = Relationship(back_populates="votes")
@@ -57,7 +56,7 @@ class TreasuryTransaction(SQLModel, table=True):
     token: str = Field(default="AITBC", max_length=20)
     transaction_hash: str | None = Field(max_length=255)
     status: str = Field(default="pending", max_length=20)  # pending, confirmed, failed
-    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confirmed_at: datetime | None = None
     memo: str | None = Field(max_length=500)
 
@@ -72,7 +71,7 @@ class GovernanceParameter(SQLModel, table=True):
     min_value: str | None = Field(max_length=100)
     max_value: str | None = Field(max_length=100)
     value_type: str = Field(max_length=20)  # string, number, boolean, json
-    updated_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by_proposal: str | None = Field(foreign_key="governanceproposal.id")
 
 
@@ -82,14 +81,10 @@ class VotingPowerSnapshot(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
     user_id: str = Field(max_length=255, index=True)
     voting_power: int
-    snapshot_time: datetime = Field(default_factory=datetime.now(timezone.utc), index=True)
+    snapshot_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
     block_number: int | None = Field(index=True)
 
-    model_config = ConfigDict(
-        indexes=[
-            {"name": "ix_user_snapshot", "fields": ["user_id", "snapshot_time"]},
-        ]
-    )
+    __table_args__ = ({"info": {"ix_user_snapshot": ["user_id", "snapshot_time"]}},)
 
 
 class ProtocolUpgrade(SQLModel, table=True):
@@ -101,7 +96,7 @@ class ProtocolUpgrade(SQLModel, table=True):
     upgrade_type: str = Field(max_length=50)  # hard_fork, soft_fork, patch
     activation_block: int | None
     status: str = Field(default="pending", max_length=20)  # pending, active, failed
-    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     activated_at: datetime | None = None
     rollback_available: bool = Field(default=False)
 

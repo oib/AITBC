@@ -9,9 +9,9 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import QueuePool
 from sqlmodel import SQLModel
@@ -118,7 +118,7 @@ def session_scope() -> Generator[Session]:
 # Dependency for FastAPI
 
 
-def get_session():
+def get_session() -> Generator[Session, None, None]:
     """Get a database session."""
     engine = get_engine()
     with Session(engine) as session:

@@ -2,7 +2,10 @@
 Caching strategy for expensive queries
 """
 
+import asyncio
+import gc
 import hashlib
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any
@@ -15,7 +18,7 @@ logger = get_logger(__name__)
 class CacheManager:
     """Simple in-memory cache with TTL support and memory management"""
 
-    def __init__(self, max_size: int = 1000, max_memory_mb: int = 100):
+    def __init__(self, max_size: int = 1000, max_memory_mb: int = 100) -> None:
         self._cache: dict[str, dict[str, Any]] = {}
         self._stats = {"hits": 0, "misses": 0, "sets": 0, "evictions": 0}
         self.max_size = max_size
@@ -132,7 +135,7 @@ class CacheManager:
 cache_manager = CacheManager(max_size=1000, max_memory_mb=100)
 
 
-def cache_key_generator(*args, **kwargs) -> str:
+def cache_key_generator(*args: Any, **kwargs: Any) -> str:
     """Generate a cache key from function arguments"""
     # Create a deterministic string representation
     key_parts = []
@@ -154,12 +157,12 @@ def cache_key_generator(*args, **kwargs) -> str:
     return hashlib.sha256(key_string.encode()).hexdigest()
 
 
-def cached(ttl_seconds: int = 300, key_prefix: str = ""):
+def cached(ttl_seconds: int = 300, key_prefix: str = "") -> Callable[[Any], Any]:
     """Decorator for caching function results"""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Generate cache key
             cache_key = f"{key_prefix}{func.__name__}_{cache_key_generator(*args, **kwargs)}"
 
@@ -175,7 +178,7 @@ def cached(ttl_seconds: int = 300, key_prefix: str = ""):
             return result
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Generate cache key
             cache_key = f"{key_prefix}{func.__name__}_{cache_key_generator(*args, **kwargs)}"
 
@@ -189,9 +192,6 @@ def cached(ttl_seconds: int = 300, key_prefix: str = ""):
             cache_manager.set(cache_key, result, ttl_seconds)
 
             return result
-
-        # Return appropriate wrapper based on whether function is async
-        import asyncio
 
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
@@ -217,7 +217,7 @@ def get_cache_config(cache_type: str) -> dict[str, Any]:
 
 
 # Periodic cleanup task
-async def cleanup_expired_cache():
+async def cleanup_expired_cache() -> None:
     """Background task to clean up expired cache entries"""
     while True:
         try:
@@ -237,10 +237,10 @@ async def cleanup_expired_cache():
 class CacheWarmer:
     """Utility class for warming up cache with common queries"""
 
-    def __init__(self, session):
+    def __init__(self, session: Any) -> None:
         self.session = session
 
-    async def warm_marketplace_stats(self):
+    async def warm_marketplace_stats(self) -> None:
         """Warm up marketplace statistics cache"""
         try:
             from ..contexts.marketplace.services.marketplace import MarketplaceService
@@ -248,7 +248,7 @@ class CacheWarmer:
             service = MarketplaceService(self.session)
 
             # Cache common stats queries
-            stats = await service.get_stats()
+            stats = service.get_stats()
             cache_manager.set("marketplace_stats_overview", stats, ttl_seconds=300)
 
             logger.info("Marketplace stats cache warmed up")
@@ -256,7 +256,7 @@ class CacheWarmer:
         except Exception as e:
             logger.error(f"Failed to warm marketplace stats cache: {e}")
 
-    async def warm_exchange_rates(self):
+    async def warm_exchange_rates(self) -> None:
         """Warm up exchange rates cache"""
         try:
             # This would call an exchange rate API
@@ -271,7 +271,7 @@ class CacheWarmer:
 
 
 # Cache middleware for FastAPI
-async def cache_middleware(request, call_next):
+async def cache_middleware(request: Any, call_next: Any) -> Any:
     """FastAPI middleware to add cache headers and track cache performance"""
     response = await call_next(request)
 

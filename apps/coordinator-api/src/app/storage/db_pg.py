@@ -32,7 +32,7 @@ Base = declarative_base()
 
 
 # Direct PostgreSQL connection for performance
-def get_pg_connection():
+def get_pg_connection() -> psycopg2.extensions.connection:
     """Get direct PostgreSQL connection"""
     # Parse database URL from settings
     from urllib.parse import urlparse
@@ -61,28 +61,29 @@ def get_db() -> Generator[Session]:
 class PostgreSQLAdapter:
     """PostgreSQL adapter for high-performance operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.connection = get_pg_connection()
 
-    def execute_query(self, query: str, params: tuple = None) -> list[dict[str, Any]]:
+    def execute_query(self, query: str, params: tuple[Any, ...] | None = None) -> list[dict[str, Any]]:
         """Execute a query and return results"""
         with self.connection.cursor() as cursor:
             cursor.execute(query, params)
-            return cursor.fetchall()
+            rows: list[dict[str, Any]] = cursor.fetchall()
+            return rows
 
-    def execute_update(self, query: str, params: tuple = None) -> int:
+    def execute_update(self, query: str, params: tuple[Any, ...] | list[Any] | None = None) -> int:
         """Execute an update/insert/delete query"""
         with self.connection.cursor() as cursor:
             cursor.execute(query, params)
             self.connection.commit()
-            return cursor.rowcount
+            return int(cursor.rowcount)
 
-    def execute_batch(self, query: str, params_list: list[tuple]) -> int:
+    def execute_batch(self, query: str, params_list: list[tuple[Any, ...]]) -> int:
         """Execute batch insert/update"""
         with self.connection.cursor() as cursor:
             cursor.executemany(query, params_list)
             self.connection.commit()
-            return cursor.rowcount
+            return int(cursor.rowcount)
 
     def get_job_by_id(self, job_id: str) -> dict[str, Any] | None:
         """Get job by ID"""
@@ -121,7 +122,7 @@ class PostgreSQLAdapter:
         """
         return self.execute_query(query, (limit,))
 
-    def update_job_state(self, job_id: str, state: str, **kwargs) -> bool:
+    def update_job_state(self, job_id: str, state: str, **kwargs: Any) -> bool:
         """Update job state"""
         set_clauses = ["state = %s"]
         params = [state, job_id]
@@ -136,7 +137,7 @@ class PostgreSQLAdapter:
             WHERE id = %s
         """
 
-        return self.execute_update(query, params) > 0
+        return self.execute_update(query, list(params)) > 0
 
     def get_marketplace_offers(self, status: str = "active") -> list[dict[str, Any]]:
         """Get marketplace offers"""
@@ -177,7 +178,7 @@ class PostgreSQLAdapter:
                 job_data["expires_at"],
             ),
         )
-        return result[0]["id"]
+        return str(result[0]["id"])
 
     def cleanup_expired_jobs(self) -> int:
         """Clean up expired jobs"""
@@ -203,7 +204,7 @@ class PostgreSQLAdapter:
         results = self.execute_query(query, (miner_id,))
         return results[0] if results else None
 
-    def close(self):
+    def close(self) -> None:
         """Close the connection"""
         if self.connection:
             self.connection.close()
@@ -222,7 +223,7 @@ def get_db_adapter() -> PostgreSQLAdapter:
 
 
 # Database initialization
-def init_db():
+def init_db() -> None:
     """Initialize database tables"""
     # Import models here to avoid circular imports
     from .models import Base
