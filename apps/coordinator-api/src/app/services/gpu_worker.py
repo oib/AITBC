@@ -449,7 +449,7 @@ if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 3:
-        print("Usage: python gpu_worker.py <worker_id> <api_key> [coordinator_url]")
+        logger.error("Usage: python gpu_worker.py <worker_id> <api_key> [coordinator_url]")
         sys.exit(1)
     
     worker_id = sys.argv[1]
