@@ -98,7 +98,7 @@ class Bounty(SQLModel, table=True):
     # DISABLED:     submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},
@@ -147,7 +147,7 @@ class BountySubmission(SQLModel, table=True):
     # DISABLED:     bounty: Bounty = Relationship(back_populates="submissions")
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},
@@ -193,7 +193,7 @@ class AgentStake(SQLModel, table=True):
     stake_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},
@@ -245,7 +245,7 @@ class AgentMetrics(SQLModel, table=True):
     # DISABLED:     stakes: List[AgentStake] = Relationship(back_populates="agent_metrics")
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},
@@ -287,7 +287,7 @@ class StakingPool(SQLModel, table=True):
     pool_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},
@@ -326,7 +326,7 @@ class BountyIntegration(SQLModel, table=True):
     integration_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},
@@ -377,7 +377,7 @@ class BountyStats(SQLModel, table=True):
     stats_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},
@@ -435,7 +435,7 @@ class EcosystemMetrics(SQLModel, table=True):
     metrics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Indexes
-    __table_args__ = {
+    __table_args__: dict[str, object] = {
         # # # "indexes": [
 #            # {"name": "...", "columns": [...]},
 #            # {"name": "...", "columns": [...]},

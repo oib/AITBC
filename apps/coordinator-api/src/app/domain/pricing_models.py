@@ -398,7 +398,7 @@ class PricingAlert(SQLModel, table=True):
     # Status and resolution
     status: str = Field(default="active")  # active, acknowledged, resolved, dismissed
     resolution: str | None = None
-    resolution_notes: str | None = Field(default=None, sa_column=Text)
+    resolution_notes: str | None = Field(default=None, sa_column=Column(Text))
 
     # Impact assessment
     business_impact: str | None = None
@@ -512,7 +512,7 @@ class PricingAuditLog(SQLModel, table=True):
     changed_fields: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Context and reasoning
-    decision_reasoning: str | None = Field(default=None, sa_column=Text)
+    decision_reasoning: str | None = Field(default=None, sa_column=Column(Text))
     market_conditions: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     business_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
