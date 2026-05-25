@@ -1,7 +1,7 @@
 
 from pydantic import BaseModel, Field
 
-from .dao_governance import ProposalType
+from ..domain.dao_governance import ProposalType
 
 
 class MemberCreate(BaseModel):

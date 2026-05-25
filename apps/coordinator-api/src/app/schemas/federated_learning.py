@@ -1,7 +1,7 @@
 
 from pydantic import BaseModel
 
-from .federated_learning import TrainingStatus
+from ..domain.federated_learning import TrainingStatus
 
 
 class FederatedSessionCreate(BaseModel):

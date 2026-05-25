@@ -102,7 +102,7 @@ class APIError(AITBCError):
     error_code: str = "API_ERROR"
     status_code: int = 500
 
-    def __init__(self, message: str, status_code: int = None, response: dict = None):
+    def __init__(self, message: str, status_code: int | None = None, response: dict[str, object] | None = None):
         super().__init__(message)
         self.status_code = status_code or self.status_code
         self.response = response
@@ -144,7 +144,7 @@ class ValidationError(AITBCError):
     error_code: str = "VALIDATION_ERROR"
     status_code: int = 422
 
-    def __init__(self, message: str = "Validation failed", details: list[ErrorDetail] = None):
+    def __init__(self, message: str = "Validation failed", details: list[ErrorDetail] | None = None):
         super().__init__(message)
         self.details = details or []
 
@@ -216,7 +216,7 @@ class QuotaExceededError(ConnectorError):
     error_code: str = "QUOTA_EXCEEDED"
     status_code: int = 429
 
-    def __init__(self, message: str = "Quota exceeded", limit: int = None):
+    def __init__(self, message: str = "Quota exceeded", limit: int | None = None):
         super().__init__(message)
         self.limit = limit
 

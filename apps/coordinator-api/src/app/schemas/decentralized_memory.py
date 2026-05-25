@@ -1,7 +1,7 @@
 
 from pydantic import BaseModel, Field
 
-from .decentralized_memory import MemoryType, StorageStatus
+from ..domain.decentralized_memory import MemoryType, StorageStatus
 
 
 class MemoryNodeCreate(BaseModel):

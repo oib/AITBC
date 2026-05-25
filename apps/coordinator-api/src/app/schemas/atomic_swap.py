@@ -1,7 +1,7 @@
 
 from pydantic import BaseModel
 
-from .atomic_swap import SwapStatus
+from ..domain.atomic_swap import SwapStatus
 
 
 class SwapCreateRequest(BaseModel):

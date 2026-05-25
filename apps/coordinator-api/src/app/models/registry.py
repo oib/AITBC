@@ -2,7 +2,7 @@
 Dynamic service registry models for AITBC
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -56,6 +56,7 @@ class ParameterDefinition(BaseModel):
     max_value: int | float | None = Field(None, description="Maximum value")
     options: list[str | int] | None = Field(None, description="Available options for enum type")
     validation: dict[str, Any] | None = Field(None, description="Custom validation rules")
+    items: dict[str, Any] | None = Field(None, description="Schema for array item type")
 
 
 class HardwareRequirement(BaseModel):
@@ -112,7 +113,7 @@ class ServiceDefinition(BaseModel):
     example_usage: dict[str, Any] | None = Field(None, description="Example usage")
 
     @validator("id")
-    def validate_id(cls, v):
+    def validate_id(cls, v: str) -> str:
         if not v or not v.replace("_", "").replace("-", "").isalnum():
             raise ValueError("Service ID must contain only alphanumeric characters, hyphens, and underscores")
         return v.lower()
@@ -122,7 +123,7 @@ class ServiceRegistry(BaseModel):
     """Service registry containing all available services"""
 
     version: str = Field("1.0.0", description="Registry version")
-    last_updated: datetime = Field(default_factory=datetime.now(timezone.utc), description="Last update time")
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Last update time")
     services: dict[str, ServiceDefinition] = Field(..., description="Service definitions by ID")
 
     def get_service(self, service_id: str) -> ServiceDefinition | None:
