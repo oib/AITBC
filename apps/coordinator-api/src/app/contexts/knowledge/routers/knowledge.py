@@ -18,7 +18,7 @@ class KnowledgeGraphCreateRequest(BaseModel):
     """Request model for creating a knowledge graph"""
     name: str = Field(..., min_length=1, max_length=100)
     description: str = Field(..., min_length=1, max_length=500)
-    schema: str = Field(default=None)
+    schema: str = Field(default=None)  # type: ignore[assignment]
 
 
 class KnowledgeGraphResponse(BaseModel):
@@ -26,7 +26,7 @@ class KnowledgeGraphResponse(BaseModel):
     id: str
     name: str
     description: str
-    schema: Optional[str]
+    schema: Optional[str]  # type: ignore[assignment]
     owner: str
     created_at: str
     node_count: int

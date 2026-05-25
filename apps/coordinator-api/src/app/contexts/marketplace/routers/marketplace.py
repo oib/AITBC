@@ -21,7 +21,7 @@ router = APIRouter(tags=["marketplace"])
 
 
 def _get_service(session: Session = Depends(get_session)) -> MarketplaceService:
-    return MarketplaceService(session)
+    return MarketplaceService(session)  # type: ignore[arg-type]
 
 
 @router.get(

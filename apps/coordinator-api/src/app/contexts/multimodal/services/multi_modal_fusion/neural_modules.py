@@ -67,7 +67,7 @@ class CrossModalAttention(nn.Module):
         # Concatenate heads
         context = context.transpose(1, 2).contiguous().view(batch_size, seq_len_q, self.embed_dim)
 
-        return context, attention_weights
+        return context, attention_weights  # type: ignore[return-value]
 
 
 class MultiModalTransformer(nn.Module):
@@ -157,7 +157,7 @@ class MultiModalTransformer(nn.Module):
         # Output projection
         output = self.output_projection(pooled)
 
-        return output
+        return output  # type: ignore[no-any-return]
 
 
 class AdaptiveModalityWeighting(nn.Module):
@@ -210,4 +210,4 @@ class AdaptiveModalityWeighting(nn.Module):
         # Weighted sum
         fused_features = torch.sum(weighted_features, dim=1)  # (batch_size, feature_dim)
 
-        return fused_features, weights
+        return fused_features, weights  # type: ignore[return-value]

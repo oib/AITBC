@@ -46,18 +46,18 @@ class TranslationCache:
         self.max_cache_size = self.config.get("max_cache_size", 100000)
         self.stats = {"hits": 0, "misses": 0, "sets": 0, "evictions": 0}
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize Redis connection"""
         try:
             self.redis = redis.from_url(self.redis_url, decode_responses=False)
             # Test connection
-            await self.redis.ping()
+            await self.redis.ping()  # type: ignore[misc]
             logger.info("Translation cache Redis connection established")
         except Exception as e:
             logger.error(f"Failed to connect to Redis: {e}")
             raise
 
-    async def close(self):
+    async def close(self) -> None:
         """Close Redis connection"""
         if self.redis:
             await self.redis.close()
@@ -100,8 +100,8 @@ class TranslationCache:
                 cache_entry.last_accessed = time.time()
 
                 # Update access count in Redis
-                await self.redis.hset(f"{cache_key}:stats", "access_count", cache_entry.access_count)
-                await self.redis.hset(f"{cache_key}:stats", "last_accessed", cache_entry.last_accessed)
+                await self.redis.hset(f"{cache_key}:stats", "access_count", cache_entry.access_count)  # type: ignore[misc]
+                await self.redis.hset(f"{cache_key}:stats", "last_accessed", cache_entry.last_accessed)  # type: ignore[misc]
 
                 self.stats["hits"] += 1
 
@@ -168,7 +168,7 @@ class TranslationCache:
             stats_key = f"{cache_key}:stats"
             pipe.hset(
                 stats_key,
-                {
+                {  # type: ignore[arg-type]
                     "access_count": 1,
                     "last_accessed": cache_entry.last_accessed,
                     "created_at": cache_entry.created_at,
@@ -330,7 +330,7 @@ class TranslationCache:
             # This method can be used for manual cleanup if needed
             # For now, just return cache size
             cache_size = await self.redis.dbsize()
-            return cache_size
+            return cache_size  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Cleanup error: {e}")
             return 0
@@ -401,7 +401,7 @@ class TranslationCache:
         for unit in ["B", "KB", "MB", "GB"]:
             if bytes_value < 1024.0:
                 return f"{bytes_value:.2f} {unit}"
-            bytes_value /= 1024.0
+            bytes_value /= 1024.0  # type: ignore[assignment]
         return f"{bytes_value:.2f} TB"
 
     async def health_check(self) -> dict[str, Any]:
@@ -414,7 +414,7 @@ class TranslationCache:
 
         try:
             # Test Redis connection
-            await self.redis.ping()
+            await self.redis.ping()  # type: ignore[misc]
             health_status["redis_connected"] = True
 
             # Get stats

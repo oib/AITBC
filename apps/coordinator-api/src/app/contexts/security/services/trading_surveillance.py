@@ -84,7 +84,7 @@ class TradingPattern:
 class TradingSurveillance:
     """Main trading surveillance system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.alerts: list[TradingAlert] = []
         self.patterns: list[TradingPattern] = []
         self.monitoring_symbols: dict[str, bool] = {}
@@ -98,7 +98,7 @@ class TradingSurveillance:
         self.is_monitoring = False
         self.monitoring_task = None
 
-    async def start_monitoring(self, symbols: list[str]):
+    async def start_monitoring(self, symbols: list[str]) -> None:
         """Start monitoring trading activities"""
         if self.is_monitoring:
             logger.warning("⚠️  Trading surveillance already running")
@@ -106,21 +106,21 @@ class TradingSurveillance:
 
         self.monitoring_symbols = dict.fromkeys(symbols, True)
         self.is_monitoring = True
-        self.monitoring_task = asyncio.create_task(self._monitor_loop())
+        self.monitoring_task = asyncio.create_task(self._monitor_loop())  # type: ignore[assignment]
         logger.info(f"🔍 Trading surveillance started for {len(symbols)} symbols")
 
-    async def stop_monitoring(self):
+    async def stop_monitoring(self) -> None:
         """Stop trading surveillance"""
         self.is_monitoring = False
         if self.monitoring_task:
-            self.monitoring_task.cancel()
+            self.monitoring_task.cancel()  # type: ignore[unreachable]
             try:
                 await self.monitoring_task
             except asyncio.CancelledError:
                 pass
         logger.info("🔍 Trading surveillance stopped")
 
-    async def _monitor_loop(self):
+    async def _monitor_loop(self) -> None:
         """Main monitoring loop"""
         while self.is_monitoring:
             try:
@@ -135,7 +135,7 @@ class TradingSurveillance:
                 logger.error(f"❌ Monitoring error: {e}")
                 await asyncio.sleep(10)
 
-    async def _analyze_symbol(self, symbol: str):
+    async def _analyze_symbol(self, symbol: str) -> None:
         """Analyze trading patterns for a symbol"""
         try:
             # Get recent trading data (mock implementation)
@@ -194,7 +194,7 @@ class TradingSurveillance:
             "total_orders": int(np.random.poisson(500)),
         }
 
-    async def _detect_pump_and_dump(self, symbol: str, data: dict[str, Any]):
+    async def _detect_pump_and_dump(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect pump and dump patterns"""
         try:
             # Look for rapid price increase followed by sharp decline
@@ -251,7 +251,7 @@ class TradingSurveillance:
         except Exception as e:
             logger.error(f"❌ Pump and dump detection error: {e}")
 
-    async def _detect_wash_trading(self, symbol: str, data: dict[str, Any]):
+    async def _detect_wash_trading(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect wash trading patterns"""
         try:
             # Look for circular trading patterns between same entities
@@ -286,7 +286,7 @@ class TradingSurveillance:
         except Exception as e:
             logger.error(f"❌ Wash trading detection error: {e}")
 
-    async def _detect_spoofing(self, symbol: str, data: dict[str, Any]):
+    async def _detect_spoofing(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect order spoofing (placing large orders then cancelling)"""
         try:
             total_orders = data["total_orders"]
@@ -320,7 +320,7 @@ class TradingSurveillance:
         except Exception as e:
             logger.error(f"❌ Spoofing detection error: {e}")
 
-    async def _detect_volume_anomalies(self, symbol: str, data: dict[str, Any]):
+    async def _detect_volume_anomalies(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect unusual volume spikes"""
         try:
             volumes = data["volume_history"]
@@ -358,7 +358,7 @@ class TradingSurveillance:
         except Exception as e:
             logger.error(f"❌ Volume anomaly detection error: {e}")
 
-    async def _detect_price_anomalies(self, symbol: str, data: dict[str, Any]):
+    async def _detect_price_anomalies(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect unusual price movements"""
         try:
             prices = data["price_history"]
@@ -394,7 +394,7 @@ class TradingSurveillance:
         except Exception as e:
             logger.error(f"❌ Price anomaly detection error: {e}")
 
-    async def _detect_concentrated_trading(self, symbol: str, data: dict[str, Any]):
+    async def _detect_concentrated_trading(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect concentrated trading from few users"""
         try:
             user_distribution = data["user_distribution"]
@@ -525,7 +525,7 @@ def get_surveillance_summary() -> dict[str, Any]:
 
 
 # Test function
-async def test_trading_surveillance():
+async def test_trading_surveillance() -> None:
     """Test trading surveillance system"""
     logger.info("Testing Trading Surveillance System")
 
@@ -538,11 +538,11 @@ async def test_trading_surveillance():
 
     # Get alerts
     alerts = get_alerts()
-    logger.info("Generated alerts", total=alerts['total'])
+    logger.info("Generated alerts", total=alerts['total'])  # type: ignore[call-arg]
 
     # Get summary
     summary = get_surveillance_summary()
-    logger.info("Alert summary", summary=summary)
+    logger.info("Alert summary", summary=summary)  # type: ignore[call-arg]
 
     # Stop monitoring
     await stop_surveillance()

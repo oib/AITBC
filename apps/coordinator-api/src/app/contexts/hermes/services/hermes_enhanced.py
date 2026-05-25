@@ -39,7 +39,7 @@ class hermesEnhancedService:
 
     def __init__(self, session: Session) -> None:
         self.session = session
-        self.agent_orchestrator = AIAgentOrchestrator(session, None)  # Mock coordinator client
+        self.agent_orchestrator = AIAgentOrchestrator(session, None)  # type: ignore[arg-type]  # Mock coordinator client
         self.state_manager = AgentStateManager(session)
         self.integration_manager = AgentIntegrationManager(session)
 

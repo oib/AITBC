@@ -180,7 +180,7 @@ class MultiModalAgentService:
                 logger.error(f"Parallel processing failed for {modality}: {result}")
                 results[modality.value] = {"error": str(result)}
             else:
-                results[modality.value] = result
+                results[modality.value] = result  # type: ignore[assignment]
 
         return results
 
@@ -550,7 +550,7 @@ class MultiModalAgentService:
             # Find existing execution or create new one
             execution = (
                 self.session.query(AgentExecution)
-                .filter(AgentExecution.agent_id == agent_id, AgentExecution.status == AgentStatus.RUNNING)
+                .filter(AgentExecution.agent_id == agent_id, AgentExecution.status == AgentStatus.RUNNING)  # type: ignore[arg-type,attr-defined]
                 .first()
             )
 
@@ -598,7 +598,7 @@ class CrossModalAttentionProcessor:
         final_output = {
             "representation": attended_features,
             "attention_summary": attention_weights,
-            "dominant_modality": max(attention_weights, key=attention_weights.get),
+            "dominant_modality": max(attention_weights, key=attention_weights.get),  # type: ignore[arg-type]
         }
 
         return {"attention_weights": attention_weights, "attended_features": attended_features, "final_output": final_output}

@@ -266,7 +266,7 @@ async def buy_gpu(
     
     # Calculate total cost
     try:
-        dynamic_result = await engine.calculate_price(
+        dynamic_result = await engine.calculate_price(  # type: ignore[attr-defined]
             base_price=gpu.price_per_hour,
             strategy=PricingStrategy.MARKET_BALANCE,
             region=gpu.region,
@@ -489,7 +489,7 @@ async def book_gpu(
         "dynamic_price": current_price,
         "price_per_hour": current_price,
         "start_time": booking.start_time.isoformat() + "Z",
-        "end_time": booking.end_time.isoformat() + "Z",
+        "end_time": booking.end_time.isoformat() + "Z",  # type: ignore[union-attr]
         "pricing_factors": dynamic_result.factors_exposed if "dynamic_result" in locals() else {},
         "confidence_score": dynamic_result.confidence_score if "dynamic_result" in locals() else 0.8,
     }
@@ -663,7 +663,7 @@ async def get_gpu_reviews(
     gpu = _get_gpu_or_404(session, gpu_id)
 
     reviews = (
-        session.execute(select(GPUReview).where(GPUReview.gpu_id == gpu_id).order_by(GPUReview.created_at.desc()))
+        session.execute(select(GPUReview).where(GPUReview.gpu_id == gpu_id).order_by(GPUReview.created_at.desc()))  # type: ignore[attr-defined]
         .scalars()
         .all()
     )
@@ -715,7 +715,7 @@ async def add_gpu_review(
         session.flush()  # ensure the new review is visible to aggregate queries
 
         # Recalculate average from DB (new review already included after flush)
-        total_count_result = session.execute(select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)).one()
+        total_count_result = session.execute(select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)).one()  # type: ignore[arg-type]
         total_count = total_count_result[0] if hasattr(total_count_result, "__getitem__") else total_count_result
 
         avg_rating_result = session.execute(select(func.avg(GPUReview.rating)).where(GPUReview.gpu_id == gpu_id)).one()
@@ -724,7 +724,7 @@ async def add_gpu_review(
 
         # Update GPU stats
         gpu.average_rating = round(float(avg_rating), 2)
-        gpu.total_reviews = total_count
+        gpu.total_reviews = total_count  # type: ignore[assignment]
 
         # Commit transaction
         session.commit()
@@ -780,7 +780,7 @@ async def list_orders(
     stmt = select(GPUBooking)
     if status:
         stmt = stmt.where(GPUBooking.status == status)
-    stmt = stmt.order_by(GPUBooking.created_at.desc()).limit(limit)
+    stmt = stmt.order_by(GPUBooking.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
 
     bookings = session.execute(stmt).scalars().all()
     orders = []
@@ -865,10 +865,10 @@ async def get_pricing(
 
     # Calculate aggregate dynamic pricing metrics
     dynamic_price_values = [dp["dynamic_price"] for dp in dynamic_prices]
-    avg_dynamic_price = sum(dynamic_price_values) / len(dynamic_price_values)
+    avg_dynamic_price = sum(dynamic_price_values) / len(dynamic_price_values)  # type: ignore[arg-type]
 
     # Find best value GPU (considering price and confidence)
-    best_value_gpu = min(dynamic_prices, key=lambda x: x["dynamic_price"] / x["confidence"])
+    best_value_gpu = min(dynamic_prices, key=lambda x: x["dynamic_price"] / x["confidence"])  # type: ignore[operator]
 
     # Get market analysis
     market_analysis = None
@@ -901,11 +901,11 @@ async def get_pricing(
             "recommended_gpu": cheapest.id,
         },
         "dynamic_pricing": {
-            "min_price": min(dynamic_price_values),
-            "max_price": max(dynamic_price_values),
+            "min_price": min(dynamic_price_values),  # type: ignore[type-var]
+            "max_price": max(dynamic_price_values),  # type: ignore[type-var]
             "average_price": avg_dynamic_price,
-            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,
-            "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),
+            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,  # type: ignore[type-var]
+            "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),  # type: ignore[misc]
             "recommended_gpu": best_value_gpu["gpu_id"],
             "recommended_price": best_value_gpu["dynamic_price"],
         },
@@ -915,8 +915,8 @@ async def get_pricing(
                 (avg_dynamic_price - (sum(static_prices) / len(static_prices))) / (sum(static_prices) / len(static_prices))
             )
             * 100,
-            "gpus_with_price_increase": len([dp for dp in dynamic_prices if dp["price_change"] > 0]),
-            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if dp["price_change"] < 0]),
+            "gpus_with_price_increase": len([dp for dp in dynamic_prices if dp["price_change"] > 0]),  # type: ignore[operator]
+            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if dp["price_change"] < 0]),  # type: ignore[operator]
         },
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,

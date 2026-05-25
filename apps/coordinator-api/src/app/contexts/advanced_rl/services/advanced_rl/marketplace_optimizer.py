@@ -22,7 +22,7 @@ from .engine import AdvancedReinforcementLearningEngine
 class MarketplaceStrategyOptimizer:
     """Advanced marketplace strategy optimization using RL"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.rl_engine = AdvancedReinforcementLearningEngine()
         self.strategy_types = {
             "pricing_strategy": "price_optimization",

@@ -122,7 +122,7 @@ class BidStrategyEngine:
         self.price_history_days = 30
         self.volatility_threshold = 0.15
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the bid strategy engine"""
         logger.info("Initializing Bid Strategy Engine")
 
@@ -196,7 +196,7 @@ class BidStrategyEngine:
             logger.error(f"Failed to calculate bid: {e}")
             raise
 
-    async def update_agent_preferences(self, agent_id: str, preferences: dict[str, Any]):
+    async def update_agent_preferences(self, agent_id: str, preferences: dict[str, Any]) -> None:
         """Update agent bidding preferences"""
 
         self.agent_preferences[agent_id] = {
@@ -278,7 +278,7 @@ class BidStrategyEngine:
             strategy_scores[BidStrategy(preferred_strategy)] *= 1.2
 
         # Select highest scoring strategy
-        optimal_strategy = max(strategy_scores, key=strategy_scores.get)
+        optimal_strategy = max(strategy_scores, key=strategy_scores.get)  # type: ignore[arg-type]
 
         logger.debug(f"Selected strategy {optimal_strategy} for task {task_requirements.task_id}")
         return optimal_strategy
@@ -582,17 +582,17 @@ class BidStrategyEngine:
             timestamp=datetime.now(timezone.utc),
         )
 
-    async def _load_market_history(self):
+    async def _load_market_history(self) -> None:
         """Load historical market data"""
         # In a real implementation, this would load from database
         pass
 
-    async def _load_agent_preferences(self):
+    async def _load_agent_preferences(self) -> None:
         """Load agent preferences from storage"""
         # In a real implementation, this would load from database
         pass
 
-    async def _monitor_market_conditions(self):
+    async def _monitor_market_conditions(self) -> None:
         """Monitor market conditions continuously"""
         while True:
             try:

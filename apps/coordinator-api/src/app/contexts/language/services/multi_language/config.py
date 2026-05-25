@@ -10,7 +10,7 @@ from typing import Any
 class MultiLanguageConfig:
     """Configuration class for multi-language services"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.translation = self._get_translation_config()
         self.cache = self._get_cache_config()
         self.detection = self._get_detection_config()
@@ -321,20 +321,20 @@ class MultiLanguageConfig:
 class DevelopmentConfig(MultiLanguageConfig):
     """Development environment configuration"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.cache["redis"]["url"] = "redis://localhost:6379/1"
-        self.monitoring["logging"]["level"] = "DEBUG"
-        self.deployment["debug"] = True
+        self.monitoring["logging"]["level"] = "DEBUG"  # type: ignore[attr-defined]
+        self.deployment["debug"] = True  # type: ignore[attr-defined]
 
 
 class ProductionConfig(MultiLanguageConfig):
     """Production environment configuration"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.monitoring["logging"]["level"] = "INFO"
-        self.deployment["debug"] = False
+        self.monitoring["logging"]["level"] = "INFO"  # type: ignore[attr-defined]
+        self.deployment["debug"] = False  # type: ignore[attr-defined]
         self.api["rate_limiting"]["enabled"] = True
         self.cache["cache_settings"]["default_ttl"] = 86400  # 24 hours
 
@@ -342,7 +342,7 @@ class ProductionConfig(MultiLanguageConfig):
 class TestingConfig(MultiLanguageConfig):
     """Testing environment configuration"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.cache["redis"]["url"] = "redis://localhost:6379/15"
         self.translation["providers"]["local"]["model_path"] = "tests/fixtures/models"

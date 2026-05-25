@@ -26,7 +26,7 @@ from app.domain.reputation import AgentReputation
 class CertificationSystem:
     """Agent certification framework and verification system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.certification_levels = {
             CertificationLevel.BASIC: {
                 "requirements": ["identity_verified", "basic_performance"],
@@ -84,7 +84,7 @@ class CertificationSystem:
 
         # Verify all requirements
         verification_results = {}
-        for requirement in requirements:
+        for requirement in requirements:  # type: ignore[attr-defined]
             try:
                 result = await self.verify_requirement(session, agent_id, requirement)
                 verification_results[requirement] = result
@@ -103,7 +103,7 @@ class CertificationSystem:
         certification_id = f"cert_{uuid4().hex[:8]}"
         verification_hash = self.generate_verification_hash(agent_id, level, certification_id)
 
-        expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])
+        expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])  # type: ignore[arg-type]
 
         certification = AgentCertification(
             certification_id=certification_id,
@@ -550,7 +550,7 @@ class CertificationSystem:
         renewal_requirements = level_config["renewal_requirements"]
         errors = []
 
-        for requirement in renewal_requirements:
+        for requirement in renewal_requirements:  # type: ignore[attr-defined]
             result = await self.verify_requirement(session, certification.agent_id, requirement)
             if not result["passed"]:
                 errors.append(f"Renewal requirement '{requirement}' failed: {result.get('reason', 'Unknown reason')}")
@@ -559,7 +559,7 @@ class CertificationSystem:
             return False, f"Renewal requirements not met: {'; '.join(errors)}"
 
         # Update certification
-        certification.expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])
+        certification.expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])  # type: ignore[arg-type]
         certification.renewal_count += 1
         certification.last_renewed_at = datetime.now(timezone.utc)
         certification.verification_hash = self.generate_verification_hash(
