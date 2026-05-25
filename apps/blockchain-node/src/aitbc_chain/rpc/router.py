@@ -111,6 +111,22 @@ try:
     )
 except ImportError:
     _logger.warning("Contracts module not available")
+    from .contracts_stub import (  # type: ignore[assignment]
+        deploy_messaging_contract,
+        list_contracts,
+        deploy_contract,
+        call_contract,
+        verify_contract,
+        get_messaging_contract_state,
+        get_forum_topics,
+        create_forum_topic,
+        get_topic_messages,
+        post_message,
+        vote_message,
+        search_messages,
+        get_agent_reputation,
+        moderate_message,
+    )
 from .sync import (
     export_chain,
     import_chain,
