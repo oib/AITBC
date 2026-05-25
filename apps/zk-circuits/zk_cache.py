@@ -9,9 +9,13 @@ Tracks file dependencies and invalidates cache when source files change.
 import hashlib
 import json
 import os
+import logging
+import click
 from pathlib import Path
 from typing import Dict, List, Optional
 import time
+
+logger = logging.getLogger(__name__)
 
 class ZKCircuitCache:
     """Cache system for ZK circuit compilation artifacts"""
@@ -123,7 +127,7 @@ class ZKCircuitCache:
                 json.dump(manifest, f, indent=2)
 
         except Exception as e:
-            print(f"Warning: Failed to save cache entry: {e}")
+            logger.warning(f"Failed to save cache entry: {e}")
 
     def get_cached_artifacts(self, circuit_file: Path, output_dir: Path) -> Optional[Dict]:
         """Retrieve cached artifacts if valid"""
@@ -206,14 +210,14 @@ def main():
 
     if args.action == 'stats':
         stats = cache.get_cache_stats()
-        print(f"Cache Statistics:")
-        print(f"  Entries: {stats['entries']}")
-        print(f"  Total Size: {stats['total_size_mb']:.2f} MB")
-        print(f"  Cache Directory: {stats['cache_dir']}")
+        click.echo(f"Cache Statistics:")
+        click.echo(f"  Entries: {stats['entries']}")
+        click.echo(f"  Total Size: {stats['total_size_mb']:.2f} MB")
+        click.echo(f"  Cache Directory: {stats['cache_dir']}")
 
     elif args.action == 'clear':
         cache.clear_cache()
-        print("Cache cleared successfully")
+        click.echo("Cache cleared successfully")
 
 if __name__ == "__main__":
     main()

@@ -125,7 +125,8 @@ $DEV_USER ALL=(root) NOPASSWD: /usr/bin/g++ *
 
 # Virtual environment operations (no password)
 $DEV_USER ALL=(root) NOPASSWD: /usr/bin/python3 -m venv /opt/aitbc/cli/venv
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/pip3 install -r /opt/aitbc/cli/requirements.txt
+$DEV_USER ALL=(root) NOPASSWD: /usr/bin/pip3 install poetry
+$DEV_USER ALL=(root) NOPASSWD: /usr/bin/poetry install
 
 # Process management (no password)
 $DEV_USER ALL=(root) NOPASSWD: /usr/bin/kill -HUP *aitbc*

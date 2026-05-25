@@ -330,14 +330,15 @@ setup_venvs() {
         source /opt/aitbc/venv/bin/activate
     fi
     
-    # Install all dependencies from central requirements.txt
-    log "Installing all dependencies from central requirements.txt..."
+    # Install all dependencies using Poetry
+    log "Installing all dependencies using Poetry..."
     
-    # Install main requirements (contains all service dependencies)
-    if [ -f "/opt/aitbc/requirements.txt" ]; then
-        pip install -r /opt/aitbc/requirements.txt
+    # Install using Poetry (source of truth is pyproject.toml)
+    if [ -f "/opt/aitbc/pyproject.toml" ]; then
+        pip install poetry
+        poetry install
     else
-        error "Main requirements.txt not found"
+        error "pyproject.toml not found"
     fi
     
     success "Virtual environments setup completed"

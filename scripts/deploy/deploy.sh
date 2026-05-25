@@ -137,11 +137,12 @@ install_python_dependencies() {
     # Upgrade pip
     pip install --upgrade pip setuptools wheel
     
-    # Install requirements
-    if [[ -f "$REPO_ROOT/requirements.txt" ]]; then
-        pip install -r "$REPO_ROOT/requirements.txt"
+    # Install using Poetry
+    if [[ -f "$REPO_ROOT/pyproject.toml" ]]; then
+        pip install poetry
+        cd "$REPO_ROOT" && poetry install
     else
-        warning "requirements.txt not found, installing basic dependencies"
+        warning "pyproject.toml not found, installing basic dependencies"
         pip install fastapi uvicorn sqlmodel alembic pydantic httpx requests
     fi
     

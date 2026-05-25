@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/**'
       - 'pyproject.toml'
+      - 'poetry.lock'
       - '.gitea/workflows/package-tests.yml'
   pull_request:
     branches: [main, develop]

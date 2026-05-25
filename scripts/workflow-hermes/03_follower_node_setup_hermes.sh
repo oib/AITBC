@@ -34,7 +34,7 @@ hermes execute --agent FollowerAgent --task pull_latest_code --node aitbc1 || {
 echo "4. Installing/updating dependencies on aitbc1 via hermes FollowerAgent..."
 hermes execute --agent FollowerAgent --task update_dependencies --node aitbc1 || {
     echo "⚠️ hermes dependency update failed - using SSH method"
-    ssh aitbc1 '/opt/aitbc/venv/bin/pip install -r requirements.txt'
+    ssh aitbc1 'cd /opt/aitbc && /opt/aitbc/venv/bin/poetry install'
 }
 
 # 5. Create required directories on aitbc1 (via hermes)

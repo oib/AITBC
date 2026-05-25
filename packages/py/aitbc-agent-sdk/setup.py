@@ -15,24 +15,21 @@ def read_readme():
             return f.read()
     return "AITBC Agent SDK - Python package for AI agent network participation"
 
-# Read requirements
+# Read requirements from pyproject.toml
 def read_requirements():
-    requirements_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
-    if os.path.exists(requirements_path):
-        with open(requirements_path, 'r', encoding='utf-8') as f:
-            return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    import tomli
+    pyproject_path = os.path.join(os.path.dirname(__file__), 'pyproject.toml')
+    if os.path.exists(pyproject_path):
+        try:
+            with open(pyproject_path, 'rb') as f:
+                data = tomli.load(f)
+                return data.get("project", {}).get("dependencies", [])
+        except ImportError:
+            pass
+    # Fallback to hardcoded list
     return [
-        'fastapi>=0.104.0',
-        'uvicorn>=0.24.0',
-        'pydantic>=2.4.0',
-        'sqlalchemy>=2.0.0',
-        'alembic>=1.12.0',
-        'redis>=5.0.0',
-        'cryptography>=41.0.0',
-        'web3>=6.11.0',
-        'requests>=2.31.0',
-        'psutil>=5.9.0',
-        'asyncio-mqtt>=0.16.0'
+        'requests>=2.32.4',
+        'pydantic>=2.11.0'
     ]
 
 setup(

@@ -9,7 +9,7 @@ import os
 import logging
 from typing import Dict, List, Optional, Any
 from .config import NodeConfig
-from models.chain import ChainInfo, ChainType, ChainStatus, ConsensusAlgorithm
+from aitbc.models.chain import ChainInfo, ChainType, ChainStatus, ConsensusAlgorithm
 
 logger = logging.getLogger(__name__)
 
