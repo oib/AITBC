@@ -13,7 +13,7 @@ import statistics
 
 from .config import MultiChainConfig
 from .node_client import NodeClient
-from models.chain import ChainInfo, ChainType, ChainStatus
+from aitbc.models.chain import ChainInfo, ChainType, ChainStatus
 import logging
 logger = logging.getLogger(__name__)
 

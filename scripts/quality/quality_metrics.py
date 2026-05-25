@@ -7,6 +7,7 @@ Tracks bug escape rate, test flakiness, and code review coverage
 import json
 import subprocess
 import os
+import click
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
@@ -89,26 +90,26 @@ class QualityMetricsTracker:
 
     def print_report(self):
         """Print a formatted metrics report"""
-        print("=" * 60)
-        print("Quality Metrics Report")
-        print("=" * 60)
-        print(f"Last Updated: {self.metrics['last_updated']}")
-        print()
-        print("Bug Escape Rate:")
-        print(f"  Total Bugs: {self.metrics['bug_escape_rate']['total_bugs']}")
-        print(f"  Escaped Bugs: {self.metrics['bug_escape_rate']['escaped_bugs']}")
-        print(f"  Escape Rate: {self.metrics['bug_escape_rate']['rate']:.2f}%")
-        print()
-        print("Test Flakiness:")
-        print(f"  Total Runs: {self.metrics['test_flakiness']['total_runs']}")
-        print(f"  Flaky Runs: {self.metrics['test_flakiness']['flaky_runs']}")
-        print(f"  Flakiness Rate: {self.metrics['test_flakiness']['rate']:.2f}%")
-        print()
-        print("Code Review Coverage:")
-        print(f"  Total PRs: {self.metrics['code_review_coverage']['total_prs']}")
-        print(f"  Reviewed PRs: {self.metrics['code_review_coverage']['reviewed_prs']}")
-        print(f"  Review Coverage: {self.metrics['code_review_coverage']['rate']:.2f}%")
-        print("=" * 60)
+        click.echo("=" * 60)
+        click.echo("Quality Metrics Report")
+        click.echo("=" * 60)
+        click.echo(f"Last Updated: {self.metrics['last_updated']}")
+        click.echo()
+        click.echo("Bug Escape Rate:")
+        click.echo(f"  Total Bugs: {self.metrics['bug_escape_rate']['total_bugs']}")
+        click.echo(f"  Escaped Bugs: {self.metrics['bug_escape_rate']['escaped_bugs']}")
+        click.echo(f"  Escape Rate: {self.metrics['bug_escape_rate']['rate']:.2f}%")
+        click.echo()
+        click.echo("Test Flakiness:")
+        click.echo(f"  Total Runs: {self.metrics['test_flakiness']['total_runs']}")
+        click.echo(f"  Flaky Runs: {self.metrics['test_flakiness']['flaky_runs']}")
+        click.echo(f"  Flakiness Rate: {self.metrics['test_flakiness']['rate']:.2f}%")
+        click.echo()
+        click.echo("Code Review Coverage:")
+        click.echo(f"  Total PRs: {self.metrics['code_review_coverage']['total_prs']}")
+        click.echo(f"  Reviewed PRs: {self.metrics['code_review_coverage']['reviewed_prs']}")
+        click.echo(f"  Review Coverage: {self.metrics['code_review_coverage']['rate']:.2f}%")
+        click.echo("=" * 60)
 
 
 def main():
@@ -126,24 +127,24 @@ def main():
     if command == "bug":
         escaped = "--escaped" in sys.argv
         tracker.record_bug(escaped=escaped)
-        print(f"Recorded bug (escaped={escaped})")
+        click.echo(f"Recorded bug (escaped={escaped})")
     
     elif command == "test":
         flaky = "--flaky" in sys.argv
         tracker.record_test_run(flaky=flaky)
-        print(f"Recorded test run (flaky={flaky})")
+        click.echo(f"Recorded test run (flaky={flaky})")
     
     elif command == "pr":
         reviewed = "--reviewed" in sys.argv
         tracker.record_pr(reviewed=reviewed)
-        print(f"Recorded PR (reviewed={reviewed})")
+        click.echo(f"Recorded PR (reviewed={reviewed})")
     
     elif command == "report":
         tracker.print_report()
     
     else:
-        print(f"Unknown command: {command}")
-        print("Available commands: bug, test, pr, report")
+        click.echo(f"Unknown command: {command}")
+        click.echo("Available commands: bug, test, pr, report")
 
 
 if __name__ == "__main__":

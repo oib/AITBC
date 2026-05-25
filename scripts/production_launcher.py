@@ -7,11 +7,12 @@ Launches AITBC production services from system locations
 import os
 import sys
 import subprocess
+import click
 from pathlib import Path
 
 def launch_service(service_name: str, script_path: str):
     """Launch a production service"""
-    print(f"Launching {service_name}...")
+    click.echo(f"Launching {service_name}...")
     
     # Ensure log directory exists
     log_dir = Path(f"/var/log/aitbc/production/{service_name}")
@@ -24,17 +25,17 @@ def launch_service(service_name: str, script_path: str):
             str(Path("/opt/aitbc/services") / script_path)
         ], check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Failed to launch {service_name}: {e}")
+        click.echo(f"Failed to launch {service_name}: {e}")
         return False
     except FileNotFoundError:
-        print(f"Service script not found: {script_path}")
+        click.echo(f"Service script not found: {script_path}")
         return False
     
     return True
 
 def main():
     """Main launcher"""
-    print("=== AITBC Production Services Launcher ===")
+    click.echo("=== AITBC Production Services Launcher ===")
     
     services = [
         ("blockchain", "blockchain.py"),
@@ -44,7 +45,7 @@ def main():
     
     for service_name, script_path in services:
         if not launch_service(service_name, script_path):
-            print(f"Skipping {service_name} due to error")
+            click.echo(f"Skipping {service_name} due to error")
             continue
 
 if __name__ == "__main__":

@@ -85,31 +85,29 @@ check_service_files() {
     fi
 }
 
-# Function to check requirements files
+# Function to check dependency files
 check_requirements_files() {
-    echo -e "\n📋 Checking requirements files..."
+    echo -e "\n📋 Checking dependency files..."
     
-    # Check Python requirements
-    if [ -f "apps/coordinator-api/requirements.txt" ]; then
-        echo "Checking coordinator-api requirements.txt..."
-        
-        # Check for Python version specification
-        if grep -q "python_requires" apps/coordinator-api/requirements.txt; then
-            echo -e "${GREEN}✅ Python version requirement specified${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Python version requirement not specified in requirements.txt${NC}"
-        fi
-    fi
-    
-    # Check pyproject.toml
+    # Check pyproject.toml (Poetry source of truth)
     if [ -f "pyproject.toml" ]; then
         echo "Checking pyproject.toml..."
         
+        # Check for Python version specification
+        if grep -q "python = " pyproject.toml; then
+            echo -e "${GREEN}✅ Python version requirement specified in pyproject.toml${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Python version requirement not specified in pyproject.toml${NC}"
+        fi
+        
+        # Check for Python 3.13+ requirement
         if grep -q "requires-python.*3\.13" pyproject.toml; then
             echo -e "${GREEN}✅ Python 3.13+ requirement in pyproject.toml${NC}"
         else
             echo -e "${YELLOW}⚠️  Python 3.13+ requirement missing in pyproject.toml${NC}"
         fi
+    else
+        echo -e "${RED}❌ pyproject.toml not found${NC}"
     fi
 }
 

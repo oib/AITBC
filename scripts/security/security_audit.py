@@ -339,8 +339,8 @@ class SecurityAudit:
             except Exception as e:
                 logger.warning(f"Could not analyze dependencies: {type(e).__name__}")
         
-        # Check for poetry.lock or requirements.txt
-        lock_files = ["poetry.lock", "requirements.txt"]
+        # Check for poetry.lock (Poetry source of truth)
+        lock_files = ["poetry.lock"]
         has_lock_file = any((self.project_root / f).exists() for f in lock_files)
         
         if not has_lock_file:
