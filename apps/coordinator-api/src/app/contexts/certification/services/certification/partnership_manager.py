@@ -23,7 +23,7 @@ from app.domain.reputation import AgentReputation
 class PartnershipManager:
     """Partnership program management system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.partnership_types = {
             PartnershipType.TECHNOLOGY: {
                 "benefits": ["api_access", "technical_support", "co_marketing"],
@@ -57,7 +57,7 @@ class PartnershipManager:
             },
         }
 
-    async def create_partnership_program(
+    async def create_partnership_program(  # type: ignore[no-untyped-def]
         self, session: Session, program_name: str, program_type: PartnershipType, description: str, created_by: str, **kwargs
     ) -> PartnershipProgram:
         """Create a new partnership program"""
@@ -75,13 +75,13 @@ class PartnershipManager:
             tier_levels=kwargs.get("tier_levels", ["basic", "premium"]),
             benefits_by_tier=kwargs.get(
                 "benefits_by_tier",
-                {"basic": type_config.get("benefits", []), "premium": type_config.get("benefits", []) + ["enhanced_support"]},
+                {"basic": type_config.get("benefits", []), "premium": type_config.get("benefits", []) + ["enhanced_support"]},  # type: ignore[operator]
             ),
             requirements_by_tier=kwargs.get(
                 "requirements_by_tier",
                 {
                     "basic": type_config.get("requirements", []),
-                    "premium": type_config.get("requirements", []) + ["advanced_criteria"],
+                    "premium": type_config.get("requirements", []) + ["advanced_criteria"],  # type: ignore[operator]
                 },
             ),
             eligibility_requirements=kwargs.get("eligibility_requirements", type_config.get("requirements", [])),

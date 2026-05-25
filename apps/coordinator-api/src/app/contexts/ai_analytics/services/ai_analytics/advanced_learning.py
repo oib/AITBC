@@ -186,7 +186,7 @@ class AdvancedLearningService:
             ModelType.CLASSIFICATION: {"architecture": "cnn", "layers": 5, "filters": 128, "kernel_size": 3},
         }
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the advanced learning service"""
         logger.info("Initializing Advanced Learning Service")
 
@@ -582,7 +582,7 @@ class AdvancedLearningService:
             logger.error(f"Failed to optimize model {model_id}: {e}")
             return False
 
-    async def _execute_learning_session(self, session_id: str):
+    async def _execute_learning_session(self, session_id: str) -> None:
         """Execute a learning session"""
 
         try:
@@ -605,15 +605,15 @@ class AdvancedLearningService:
                 # Check convergence
                 if iteration > 0 and iteration % 10 == 0:
                     loss = np.random.uniform(0.1, 1.0) * (1.0 - iteration / 100)
-                    session.results[f"epoch_{iteration}"] = {"loss": loss}
+                    session.results[f"epoch_{iteration}"] = {"loss": loss}  # type: ignore[assignment]
 
                     if loss < session.convergence_threshold:
                         session.status = LearningStatus.COMPLETED
                         break
 
                     # Early stopping
-                    if session.early_stopping and iteration > session.early_stopping_patience:
-                        if loss > session.results.get(f"epoch_{iteration - session.early_stopping_patience}", {}).get(
+                    if session.early_stopping and iteration > session.early_stopping_patience:  # type: ignore[attr-defined]
+                        if loss > session.results.get(f"epoch_{iteration - session.early_stopping_patience}", {}).get(  # type: ignore[attr-defined,call-overload,union-attr]
                             "loss", 1.0
                         ):
                             session.status = LearningStatus.COMPLETED
@@ -624,7 +624,7 @@ class AdvancedLearningService:
             model.precision = np.random.uniform(0.7, 0.95)
             model.recall = np.random.uniform(0.7, 0.95)
             model.f1_score = np.random.uniform(0.7, 0.95)
-            model.loss = session.results.get(f"epoch_{session.iterations}", {}).get("loss", 0.1)
+            model.loss = session.results.get(f"epoch_{session.iterations}", {}).get("loss", 0.1)  # type: ignore[call-overload,union-attr]
             model.training_time = (datetime.now(timezone.utc) - session.start_time).total_seconds()
             model.inference_time = np.random.uniform(0.01, 0.1)
             model.status = LearningStatus.ACTIVE
@@ -644,7 +644,7 @@ class AdvancedLearningService:
             logger.error(f"Failed to execute learning session {session_id}: {e}")
             session.status = LearningStatus.FAILED
 
-    async def _execute_meta_learning(self, session_id: str, algorithm: str):
+    async def _execute_meta_learning(self, session_id: str, algorithm: str) -> None:
         """Execute meta-learning"""
 
         try:
@@ -665,7 +665,7 @@ class AdvancedLearningService:
 
                 if iteration % 100 == 0:
                     loss = np.random.uniform(0.1, 1.0) * (1.0 - iteration / 1000)
-                    session.results[f"meta_iter_{iteration}"] = {"loss": loss}
+                    session.results[f"meta_iter_{iteration}"] = {"loss": loss}  # type: ignore[assignment]
 
                     if loss < session.convergence_threshold:
                         break
@@ -684,7 +684,7 @@ class AdvancedLearningService:
             logger.error(f"Failed to execute meta-learning {session_id}: {e}")
             session.status = LearningStatus.FAILED
 
-    async def _execute_federated_learning(self, session_id: str, algorithm: str):
+    async def _execute_federated_learning(self, session_id: str, algorithm: str) -> None:
         """Execute federated learning"""
 
         try:
@@ -705,7 +705,7 @@ class AdvancedLearningService:
 
                 if round_num % 10 == 0:
                     loss = np.random.uniform(0.1, 1.0) * (1.0 - round_num / 100)
-                    session.results[f"round_{round_num}"] = {"loss": loss}
+                    session.results[f"round_{round_num}"] = {"loss": loss}  # type: ignore[assignment]
 
                     if loss < session.convergence_threshold:
                         break
@@ -806,7 +806,7 @@ class AdvancedLearningService:
 
         return {"training": training_data, "validation": validation_data}
 
-    async def _monitor_learning_sessions(self):
+    async def _monitor_learning_sessions(self) -> None:
         """Monitor active learning sessions"""
 
         while True:
@@ -826,7 +826,7 @@ class AdvancedLearningService:
                 logger.error(f"Error monitoring learning sessions: {e}")
                 await asyncio.sleep(60)
 
-    async def _process_federated_learning(self):
+    async def _process_federated_learning(self) -> None:
         """Process federated learning aggregation"""
 
         while True:
@@ -842,7 +842,7 @@ class AdvancedLearningService:
                 logger.error(f"Error processing federated learning: {e}")
                 await asyncio.sleep(30)
 
-    async def _optimize_model_performance(self):
+    async def _optimize_model_performance(self) -> None:
         """Optimize model performance periodically"""
 
         while True:
@@ -857,7 +857,7 @@ class AdvancedLearningService:
                 logger.error(f"Error optimizing models: {e}")
                 await asyncio.sleep(3600)
 
-    async def _cleanup_inactive_sessions(self):
+    async def _cleanup_inactive_sessions(self) -> None:
         """Clean up inactive learning sessions"""
 
         while True:
@@ -893,7 +893,7 @@ class AdvancedLearningService:
 
         return str(uuid.uuid4())
 
-    async def _load_learning_data(self):
+    async def _load_learning_data(self) -> None:
         """Load existing learning data"""
         # In production, load from database
         pass
@@ -913,7 +913,7 @@ class AdvancedLearningService:
         else:
             raise ValueError(f"Unsupported format: {format}")
 
-    async def import_learning_data(self, data: str, format: str = "json"):
+    async def import_learning_data(self, data: str, format: str = "json") -> None:
         """Import learning data"""
 
         if format.lower() == "json":

@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone
 import threading
 import multiprocessing
+from uuid import uuid4
 
 from aitbc import get_logger
 
@@ -36,9 +37,9 @@ class MarketplaceGPUOptimizer:
     
     def __init__(self, simulation_mode: bool = not CUDA_AVAILABLE):
         self.simulation_mode = simulation_mode
-        self.gpu_devices = []
-        self.gpu_memory_pools = {}
-        self.active_jobs = {}
+        self.gpu_devices = []  # type: ignore[var-annotated]
+        self.gpu_memory_pools = {}  # type: ignore[var-annotated]
+        self.active_jobs = {}  # type: ignore[var-annotated]
         self.resource_metrics = {
             'total_utilization': 0.0,
             'memory_utilization': 0.0,
@@ -61,7 +62,7 @@ class MarketplaceGPUOptimizer:
         self.lock = threading.Lock()
         self._initialize_gpu_devices()
         
-    def _initialize_gpu_devices(self):
+    def _initialize_gpu_devices(self) -> None:
         """Initialize available GPU devices"""
         if self.simulation_mode:
             # Create simulated GPUs
@@ -339,7 +340,7 @@ class MarketplaceGPUOptimizer:
             
             return True
             
-    def _merge_free_blocks(self, gpu_id: int):
+    def _merge_free_blocks(self, gpu_id: int) -> None:
         """Merge adjacent free memory blocks to reduce fragmentation"""
         pool = self.gpu_memory_pools[gpu_id]
         if len(pool['free_blocks']) <= 1:
@@ -360,7 +361,7 @@ class MarketplaceGPUOptimizer:
         pool['free_blocks'] = merged
         self._recalculate_fragmentation(gpu_id)
         
-    def _recalculate_fragmentation(self, gpu_id: int):
+    def _recalculate_fragmentation(self, gpu_id: int) -> None:
         """Calculate memory fragmentation index (0.0 to 1.0)"""
         pool = self.gpu_memory_pools[gpu_id]
         if not pool['free_blocks']:
@@ -432,7 +433,7 @@ class MarketplaceGPUOptimizer:
         best_gpu = -1
         best_score = -float('inf')
         
-        for gpu_id, status in self.gpu_status.items():
+        for gpu_id, status in self.gpu_status.items():  # type: ignore[attr-defined]
             pool = self.gpu_memory_pools[gpu_id]
             available_mem = pool['total_memory'] - pool['allocated_memory']
             
@@ -505,7 +506,7 @@ class MarketplaceGPUOptimizer:
             
         return False
         
-    def _update_metrics(self):
+    def _update_metrics(self) -> None:
         """Update overall system metrics"""
         total_util = 0.0
         total_mem_util = 0.0
@@ -568,7 +569,7 @@ class MarketplaceGPUOptimizer:
             }
 
 # Example usage function
-async def optimize_marketplace_batch(jobs: List[Dict[str, Any]]):
+async def optimize_marketplace_batch(jobs: List[Dict[str, Any]]) -> None:
     """Process a batch of marketplace jobs through the optimizer"""
     optimizer = MarketplaceGPUOptimizer()
     
@@ -577,4 +578,4 @@ async def optimize_marketplace_batch(jobs: List[Dict[str, Any]]):
         res = await optimizer.optimize_resource_allocation(job)
         results.append(res)
         
-    return results, optimizer.get_system_status()
+    return results, optimizer.get_system_status()  # type: ignore[return-value]

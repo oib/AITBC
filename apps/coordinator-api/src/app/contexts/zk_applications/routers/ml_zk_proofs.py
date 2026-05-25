@@ -35,10 +35,10 @@ async def prove_ml_training(request: Request, proof_request: dict) -> dict[str, 
         )
 
         return {
-            "proof_id": proof_result["proof_id"],
-            "proof": proof_result["proof"],
-            "public_signals": proof_result["public_signals"],
-            "verification_key": proof_result["verification_key"],
+            "proof_id": proof_result["proof_id"],  # type: ignore[index]
+            "proof": proof_result["proof"],  # type: ignore[index]
+            "public_signals": proof_result["public_signals"],  # type: ignore[index]
+            "verification_key": proof_result["verification_key"],  # type: ignore[index]
             "circuit_type": "ml_training",
         }
     except Exception as e:
@@ -79,10 +79,10 @@ async def prove_modular_ml(request: Request, proof_request: dict) -> dict[str, A
         )
 
         return {
-            "proof_id": proof_result["proof_id"],
-            "proof": proof_result["proof"],
-            "public_signals": proof_result["public_signals"],
-            "verification_key": proof_result["verification_key"],
+            "proof_id": proof_result["proof_id"],  # type: ignore[index]
+            "proof": proof_result["proof"],  # type: ignore[index]
+            "public_signals": proof_result["public_signals"],  # type: ignore[index]
+            "verification_key": proof_result["verification_key"],  # type: ignore[index]
             "circuit_type": "modular_ml",
             "optimization_level": "phase3_optimized",
         }

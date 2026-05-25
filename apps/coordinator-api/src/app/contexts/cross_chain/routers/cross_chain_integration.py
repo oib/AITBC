@@ -119,7 +119,7 @@ async def get_wallet_balance(
         # Get balance
         balance_data = await adapter.get_balance(wallet_address, token_address)
 
-        return balance_data
+        return balance_data  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting balance")
@@ -160,7 +160,7 @@ async def execute_wallet_transaction(
             gas_price=gas_price,
         )
 
-        return transaction_data
+        return transaction_data  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error executing transaction")
@@ -191,7 +191,7 @@ async def get_wallet_transaction_history(
         # Get transaction history
         transactions = await adapter.get_transaction_history(wallet_address, limit, offset, from_block, to_block)
 
-        return transactions
+        return transactions  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting transaction history")
@@ -215,7 +215,7 @@ async def sign_message(
         # Sign message
         signature_data = await adapter.secure_sign_message(message, private_key)
 
-        return signature_data
+        return signature_data  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error signing message")
@@ -291,7 +291,7 @@ async def create_bridge_request(
             deadline_minutes=deadline_minutes,
         )
 
-        return bridge_request
+        return bridge_request  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error creating bridge request")
@@ -309,7 +309,7 @@ async def get_bridge_request_status(request: Request, bridge_request_id: str, se
         # Get bridge request status
         status = await bridge_service.get_bridge_request_status(bridge_request_id)
 
-        return status
+        return status  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting bridge request status")
@@ -330,7 +330,7 @@ async def cancel_bridge_request(
         # Cancel bridge request
         result = await bridge_service.cancel_bridge_request(bridge_request_id, reason)
 
-        return result
+        return result  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error cancelling bridge request")
@@ -351,7 +351,7 @@ async def get_bridge_statistics(
         # Get statistics
         stats = await bridge_service.get_bridge_statistics(time_period_hours)
 
-        return stats
+        return stats  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting bridge statistics")
@@ -369,7 +369,7 @@ async def get_liquidity_pools(request: Request, session: Session = Depends(get_s
         # Get liquidity pools
         pools = await bridge_service.get_liquidity_pools()
 
-        return pools
+        return pools  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting liquidity pools")
@@ -426,7 +426,7 @@ async def submit_transaction(
             metadata=metadata,
         )
 
-        return result
+        return result  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error submitting transaction")
@@ -448,7 +448,7 @@ async def get_transaction_status(request: Request, transaction_id: str, session:
         # Get transaction status
         status = await tx_manager.get_transaction_status(transaction_id)
 
-        return status
+        return status  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting transaction status")
@@ -470,7 +470,7 @@ async def cancel_transaction(request: Request, transaction_id: str, reason: str,
         # Cancel transaction
         result = await tx_manager.cancel_transaction(transaction_id, reason)
 
-        return result
+        return result  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error cancelling transaction")
@@ -514,7 +514,7 @@ async def get_transaction_history(
             to_date=to_date,
         )
 
-        return history
+        return history  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting transaction history")
@@ -541,7 +541,7 @@ async def get_transaction_statistics(
         # Get statistics
         stats = await tx_manager.get_transaction_statistics(time_period_hours, chain_id)
 
-        return stats
+        return stats  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error getting transaction statistics")
@@ -573,7 +573,7 @@ async def optimize_transaction_routing(
             transaction_type=transaction_type, amount=amount, from_chain=from_chain, to_chain=to_chain, urgency=urgency
         )
 
-        return optimization
+        return optimization  # type: ignore[no-any-return]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error optimizing routing")

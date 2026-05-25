@@ -32,7 +32,7 @@ async def hermes_enhanced_health(request: Request, session: Annotated[Session, D
     """
     try:
         # Initialize service
-        hermesEnhancedService(session)
+        hermesEnhancedService(session)  # type: ignore[arg-type]
 
         # Check system resources
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -110,7 +110,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
     Deep health check with hermes ecosystem validation
     """
     try:
-        hermesEnhancedService(session)
+        hermesEnhancedService(session)  # type: ignore[arg-type]
 
         # Test each hermes feature
         feature_tests = {}

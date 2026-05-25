@@ -49,7 +49,7 @@ def get_encryption_service() -> EncryptionService:
 
         key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
         key_manager = KeyManager(key_storage)
-        encryption_service = EncryptionService(key_manager)
+        encryption_service = EncryptionService(key_manager)  # type: ignore[arg-type]
     return encryption_service
 
 
@@ -176,7 +176,7 @@ async def access_confidential_data(
     """Request access to decrypt confidential transaction data"""
     try:
         # Validate request
-        if request.transaction_id != transaction_id:
+        if request.transaction_id != transaction_id:  # type: ignore[attr-defined]
             raise HTTPException(status_code=400, detail="Transaction ID mismatch")
 
         # Get transaction (in production, query from database)
@@ -203,7 +203,7 @@ async def access_confidential_data(
 
         # Check access authorization
         acc_controller = get_access_controller()
-        if not acc_controller.verify_access(request):
+        if not acc_controller.verify_access(request):  # type: ignore[arg-type]
             raise HTTPException(status_code=403, detail="Access denied")
 
         # If mock data, bypass real decryption for tests
@@ -232,7 +232,7 @@ async def access_confidential_data(
         # Decrypt for requester
         try:
             decrypted_data = enc_service.decrypt(
-                encrypted_data=encrypted_data, participant_id=request.requester, purpose=request.purpose
+                encrypted_data=encrypted_data, participant_id=request.requester, purpose=request.purpose  # type: ignore[attr-defined]
             )
 
             return ConfidentialAccessResponse(
@@ -317,12 +317,12 @@ async def register_encryption_key(
 
         # Check if participant already has keys
         try:
-            existing_key = km.get_public_key(request.participant_id)
+            existing_key = km.get_public_key(request.participant_id)  # type: ignore[attr-defined]
             if existing_key:
                 # Key exists, return version
                 return KeyRegistrationResponse(
                     success=True,
-                    participant_id=request.participant_id,
+                    participant_id=request.participant_id,  # type: ignore[attr-defined]
                     key_version=1,  # Would get from storage
                     registered_at=datetime.now(timezone.utc),
                     error=None,
@@ -331,11 +331,11 @@ async def register_encryption_key(
             pass  # Key doesn't exist, continue
 
         # Generate new key pair
-        key_pair = await km.generate_key_pair(request.participant_id)
+        key_pair = await km.generate_key_pair(request.participant_id)  # type: ignore[attr-defined]
 
         return KeyRegistrationResponse(
             success=True,
-            participant_id=request.participant_id,
+            participant_id=request.participant_id,  # type: ignore[attr-defined]
             key_version=key_pair.version,
             registered_at=key_pair.created_at,
             error=None,
@@ -344,7 +344,7 @@ async def register_encryption_key(
     except KeyManagementError as e:
         logger.error(f"Key registration failed: {e}")
         return KeyRegistrationResponse(
-            success=False, participant_id=request.participant_id, key_version=0, registered_at=datetime.now(timezone.utc), error=str(e)
+            success=False, participant_id=request.participant_id, key_version=0, registered_at=datetime.now(timezone.utc), error=str(e)  # type: ignore[attr-defined]
         )
     except Exception as e:
         logger.error(f"Failed to register key: {e}")

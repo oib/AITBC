@@ -28,7 +28,7 @@ class RainbowDQNAgent(nn.Module):
             nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(), nn.Linear(hidden_dim // 2, action_dim * num_atoms)
         )
 
-    def forward(self, state):
+    def forward(self, state):  # type: ignore[no-untyped-def]
         features = self.feature_layer(state)
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)

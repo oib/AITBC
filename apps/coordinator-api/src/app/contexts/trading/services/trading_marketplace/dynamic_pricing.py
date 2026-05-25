@@ -4,7 +4,7 @@ Implements sophisticated pricing algorithms based on real-time market conditions
 """
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
@@ -181,7 +181,7 @@ class DynamicPricingEngine:
         self.circuit_breaker_threshold = config.get("circuit_breaker_threshold", 0.5)
         self.circuit_breakers: dict[str, bool] = {}
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the dynamic pricing engine"""
         logger.info("Initializing Dynamic Pricing Engine")
 
@@ -397,7 +397,7 @@ class DynamicPricingEngine:
             avg_competitor_price = np.mean(market_conditions.competitor_prices)
             competition_ratio = avg_competitor_price / base_price
             competition_adjustment = (competition_ratio - 1) * config["competition_weight"]
-            price *= 1 + competition_adjustment
+            price *= 1 + competition_adjustment  # type: ignore[assignment]
 
         # Apply individual multipliers
         price *= factors.time_multiplier
@@ -409,7 +409,7 @@ class DynamicPricingEngine:
         if config["growth_priority"] > 0.5:
             price *= 1 - (config["growth_priority"] - 0.5) * 0.2  # Discount for growth
 
-        return max(price, self.min_price)
+        return max(price, self.min_price)  # type: ignore[no-any-return]
 
     async def _apply_constraints_and_risk(
         self, resource_id: str, price: float, constraints: PriceConstraints | None, factors: PricingFactors
@@ -544,9 +544,9 @@ class DynamicPricingEngine:
             else:
                 return 1.0
         elif strategy == PricingStrategy.PROFIT_MAXIMIZATION:
-            return 1.0 + (price_ratio - 1) * 0.3  # Less sensitive to competition
+            return float(1.0 + (price_ratio - 1) * 0.3)  # Less sensitive to competition
         else:
-            return 1.0 + (price_ratio - 1) * 0.5  # Moderate competition sensitivity
+            return float(1.0 + (price_ratio - 1) * 0.5)  # Moderate competition sensitivity
 
     def _calculate_sentiment_multiplier(self, sentiment: float) -> float:
         """Calculate market sentiment multiplier"""
@@ -670,7 +670,7 @@ class DynamicPricingEngine:
 
         return max(0.3, min(0.95, confidence))
 
-    async def _store_price_point(self, resource_id: str, price: float, factors: PricingFactors, strategy: PricingStrategy):
+    async def _store_price_point(self, resource_id: str, price: float, factors: PricingFactors, strategy: PricingStrategy) -> None:
         """Store price point in history"""
 
         if resource_id not in self.pricing_history:
@@ -721,17 +721,17 @@ class DynamicPricingEngine:
 
         return conditions
 
-    async def _load_pricing_history(self):
+    async def _load_pricing_history(self) -> None:
         """Load historical pricing data"""
         # In a real implementation, this would load from database
         pass
 
-    async def _load_provider_strategies(self):
+    async def _load_provider_strategies(self) -> None:
         """Load provider strategies from storage"""
         # In a real implementation, this would load from database
         pass
 
-    async def _update_market_conditions(self):
+    async def _update_market_conditions(self) -> None:
         """Background task to update market conditions"""
         while True:
             try:
@@ -742,7 +742,7 @@ class DynamicPricingEngine:
                 logger.error(f"Error updating market conditions: {e}")
                 await asyncio.sleep(60)
 
-    async def _monitor_price_volatility(self):
+    async def _monitor_price_volatility(self) -> None:
         """Background task to monitor price volatility"""
         while True:
             try:
@@ -759,7 +759,7 @@ class DynamicPricingEngine:
                 logger.error(f"Error monitoring volatility: {e}")
                 await asyncio.sleep(120)
 
-    async def _optimize_strategies(self):
+    async def _optimize_strategies(self) -> None:
         """Background task to optimize pricing strategies"""
         while True:
             try:
@@ -769,7 +769,7 @@ class DynamicPricingEngine:
                 logger.error(f"Error optimizing strategies: {e}")
                 await asyncio.sleep(300)
 
-    async def _reset_circuit_breaker(self, resource_id: str, delay: int):
+    async def _reset_circuit_breaker(self, resource_id: str, delay: int) -> None:
         """Reset circuit breaker after delay"""
         await asyncio.sleep(delay)
         self.circuit_breakers[resource_id] = False
@@ -786,7 +786,7 @@ class DynamicPricingEngine:
 
         # Calculate slope
         slope = np.polyfit(x, y, 1)[0]
-        return slope
+        return slope  # type: ignore[no-any-return]
 
     def _calculate_seasonal_factor(self, hour: int) -> float:
         """Calculate seasonal adjustment factor"""
@@ -814,7 +814,7 @@ class DynamicPricingEngine:
         noise = np.random.normal(0, 0.05)
         forecast = max(0.0, min(1.0, recent_avg + noise))
 
-        return forecast
+        return forecast  # type: ignore[return-value]
 
     def _forecast_supply_level(self, historical: list[float], hour_ahead: int) -> float:
         """Simple supply level forecasting"""
@@ -828,4 +828,4 @@ class DynamicPricingEngine:
         noise = np.random.normal(0, 0.02)
         forecast = max(0.0, min(1.0, recent_avg + noise))
 
-        return forecast
+        return forecast  # type: ignore[return-value]

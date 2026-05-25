@@ -72,7 +72,7 @@ async def get_block(height: int) -> dict[str, Any]:
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)
         response = client.get(f"{rpc_url}/rpc/blocks/{height}")
-        return response
+        return response  # type: ignore[no-any-return]
     except NetworkError as e:
         logger.error(f"RPC connection failed: {e}")
         return {"status": "error", "error": "RPC connection failed"}
@@ -87,7 +87,7 @@ async def get_block_by_hash(block_hash: str) -> dict[str, Any]:
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)
         response = client.get(f"{rpc_url}/rpc/blocks/hash/{block_hash}")
-        return response
+        return response  # type: ignore[no-any-return]
     except NetworkError as e:
         logger.error(f"RPC connection failed: {e}")
         return {"status": "error", "error": "RPC connection failed"}
@@ -102,7 +102,7 @@ async def get_transaction(tx_hash: str) -> dict[str, Any]:
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)
         response = client.get(f"{rpc_url}/rpc/transactions/{tx_hash}")
-        return response
+        return response  # type: ignore[no-any-return]
     except NetworkError as e:
         logger.error(f"RPC connection failed: {e}")
         return {"status": "error", "error": "RPC connection failed"}
@@ -117,7 +117,7 @@ async def get_account(address: str) -> dict[str, Any]:
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)
         response = client.get(f"{rpc_url}/rpc/accounts/{address}")
-        return response
+        return response  # type: ignore[no-any-return]
     except NetworkError as e:
         logger.error(f"RPC connection failed: {e}")
         return {"status": "error", "error": "RPC connection failed"}

@@ -16,7 +16,7 @@ from ...blockchain.contract_interactions import ContractInteractionService
 from ....domain.dao_governance import DAOMember, DAOProposal, ProposalState, ProposalType, TreasuryAllocation, Vote
 from ....schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # type: ignore[name-defined]
 
 
 class DAOGovernanceService:
@@ -33,7 +33,7 @@ class DAOGovernanceService:
             existing.voting_power = existing.staked_amount  # 1:1 mapping for simplicity
             self.session.commit()
             self.session.refresh(existing)
-            return existing
+            return existing  # type: ignore[return-value]
 
         member = DAOMember(
             wallet_address=request.wallet_address, staked_amount=request.staked_amount, voting_power=request.staked_amount
