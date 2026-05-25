@@ -3,9 +3,6 @@ from __future__ import annotations
 from fastapi import FastAPI
 import uvicorn
 
-import sys
-sys.path.insert(0, "/opt/aitbc")
-
 from aitbc.rate_limiting import RateLimitMiddleware
 
 from .api_jsonrpc import router as jsonrpc_router
