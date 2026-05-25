@@ -108,7 +108,7 @@ class MinerService:
         return miner
 
     def list_records(self) -> list[Miner]:
-        return list(self.session.execute(select(Miner)).all())
+        return list(self.session.scalars(select(Miner)).all())
 
     def online_count(self) -> int:
         result = self.session.execute(select(Miner).where(Miner.status == "ONLINE"))

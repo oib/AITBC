@@ -5,7 +5,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 from datetime import datetime, timezone
 from secrets import token_hex
-from typing import Any
+from typing import Any, cast
 
 from aitbc_crypto.signing import ReceiptSigner
 from sqlmodel import Session
@@ -126,7 +126,7 @@ class ReceiptService:
             attestation_payload = dict(payload)
             attestation_payload.pop("attestations", None)
             attestation_payload.pop("signature", None)
-            payload["attestations"].append(self._attestation_signer.sign(attestation_payload))
+            cast(list[Any], payload["attestations"]).append(self._attestation_signer.sign(attestation_payload))
 
         # Skip async ZK proof generation in synchronous context; log intent
         if privacy_level and zk_proof_service.is_enabled():

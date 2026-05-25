@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from sqlalchemy.orm import Session
 
@@ -41,17 +41,19 @@ app.include_router(health_router, tags=["health"])
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     return {"status": "ok", "service": "multimodal-agent"}
 
 
 @app.post("/process")
 async def process_multimodal(
-    agent_id: str, inputs: dict, processing_mode: str = "fusion", session: Annotated[Session, Depends(get_session)] = None
-):
+    agent_id: str, inputs: dict[str, Any], processing_mode: str = "fusion", session: Annotated[Session | None, Depends(get_session)] = None
+) -> dict[str, Any]:
     """Process multi-modal input"""
+    assert session is not None, "DB session required"
+    from ..contexts.multimodal.services.multimodal_agent import ProcessingMode
     service = MultiModalAgentService(session)
-    result = await service.process_multimodal_input(agent_id=agent_id, inputs=inputs, processing_mode=processing_mode)
+    result = await service.process_multimodal_input(agent_id=agent_id, inputs=inputs, processing_mode=ProcessingMode(processing_mode))
     return result
 
 

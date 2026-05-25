@@ -128,7 +128,7 @@ class SwarmCluster:
     nodes: Set[str] = field(default_factory=set)
     tasks: List[str] = field(default_factory=list)
     
-    def to_dict(self, node_service) -> Dict[str, Any]:
+    def to_dict(self, node_service: Any) -> Dict[str, Any]:
         return {
             "cluster_id": self.cluster_id,
             "name": self.name,
@@ -156,7 +156,7 @@ class SwarmService:
     HEARTBEAT_TIMEOUT_SECONDS = 60
     MAX_RETRIES = 3
     
-    def __init__(self, session = None):
+    def __init__(self, session: Any = None) -> None:
         self._nodes: Dict[str, SwarmNode] = {}
         self._tasks: Dict[str, SwarmTask] = {}
         self._clusters: Dict[str, SwarmCluster] = {}

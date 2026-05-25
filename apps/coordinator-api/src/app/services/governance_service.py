@@ -125,7 +125,7 @@ class GovernanceService:
     QUORUM_PERCENTAGE = 20  # 20% of total stake must vote
     APPROVAL_THRESHOLD = 50  # 50% approval required
     
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Any) -> None:
         self._session_factory = session_factory
         self._proposals: Dict[str, Proposal] = {}
         self._votes: Dict[str, List[Vote]] = {}  # proposal_id -> votes
@@ -265,7 +265,7 @@ class GovernanceService:
         
         return True
     
-    def _check_proposal_resolution(self, proposal: Proposal):
+    def _check_proposal_resolution(self, proposal: Proposal) -> None:
         """Check if proposal meets resolution criteria"""
         total_votes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain
         
@@ -280,7 +280,7 @@ class GovernanceService:
         # Calculate approval percentage
         total_for_against = proposal.votes_for + proposal.votes_against
         if total_for_against == 0:
-            approval_pct = 0
+            approval_pct = 0.0
         else:
             approval_pct = (proposal.votes_for / total_for_against) * 100
         
@@ -379,7 +379,7 @@ class GovernanceService:
 _governance_service: Optional[GovernanceService] = None
 
 
-def init_governance_service(session_factory) -> GovernanceService:
+def init_governance_service(session_factory: Any) -> GovernanceService:
     """Initialize global governance service"""
     global _governance_service
     _governance_service = GovernanceService(session_factory)
