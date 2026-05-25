@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from sqlalchemy.orm import Session
 
@@ -47,8 +47,8 @@ async def health() -> dict[str, Any]:
 
 @app.post("/create-environment")
 async def create_learning_environment(
-    environment_id: str, config: dict, session: Annotated[Session, Depends(get_session)] = None
-):
+    environment_id: str, config: dict, session: Annotated[Session, Depends(get_session)] = None  # type: ignore[assignment]
+) -> Any:
     """Create safe learning environment"""
     service = AdaptiveLearningService(session)
     result = await service.create_learning_environment(environment_id=environment_id, config=config)
@@ -57,8 +57,8 @@ async def create_learning_environment(
 
 @app.post("/create-agent")
 async def create_learning_agent(
-    agent_id: str, algorithm: str, config: dict, session: Annotated[Session, Depends(get_session)] = None
-):
+    agent_id: str, algorithm: str, config: dict, session: Annotated[Session, Depends(get_session)] = None  # type: ignore[assignment]
+) -> Any:
     """Create reinforcement learning agent"""
     service = AdaptiveLearningService(session)
     result = await service.create_learning_agent(agent_id=agent_id, algorithm=LearningAlgorithm(algorithm), config=config)
@@ -67,8 +67,8 @@ async def create_learning_agent(
 
 @app.post("/train-agent")
 async def train_agent(
-    agent_id: str, environment_id: str, training_config: dict, session: Annotated[Session, Depends(get_session)] = None
-):
+    agent_id: str, environment_id: str, training_config: dict, session: Annotated[Session, Depends(get_session)] = None  # type: ignore[assignment]
+) -> Any:
     """Train agent in environment"""
     service = AdaptiveLearningService(session)
     result = await service.train_agent(agent_id=agent_id, environment_id=environment_id, training_config=training_config)
@@ -76,7 +76,7 @@ async def train_agent(
 
 
 @app.get("/agent-performance/{agent_id}")
-async def get_agent_performance(agent_id: str, session: Annotated[Session, Depends(get_session)] = None):
+async def get_agent_performance(agent_id: str, session: Annotated[Session, Depends(get_session)] = None) -> Any:  # type: ignore[assignment]
     """Get agent performance metrics"""
     service = AdaptiveLearningService(session)
     result = await service.get_agent_performance(agent_id=agent_id)

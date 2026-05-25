@@ -200,14 +200,14 @@ class GPUWorker:
             
             register_data = {
                 "capabilities": {
-                    "gpu": self._capabilities.gpu_available,
-                    "models": self._capabilities.models,
-                    "concurrency": self._capabilities.max_concurrency,
-                    "memory_gb": self._capabilities.memory_gb,
-                    "architecture": self._capabilities.architecture,
-                    "edge_optimized": self._capabilities.edge_optimized
+                    "gpu": self._capabilities.gpu_available,  # type: ignore[union-attr]
+                    "models": self._capabilities.models,  # type: ignore[union-attr]
+                    "concurrency": self._capabilities.max_concurrency,  # type: ignore[union-attr]
+                    "memory_gb": self._capabilities.memory_gb,  # type: ignore[union-attr]
+                    "architecture": self._capabilities.architecture,  # type: ignore[union-attr]
+                    "edge_optimized": self._capabilities.edge_optimized  # type: ignore[union-attr]
                 },
-                "concurrency": self._capabilities.max_concurrency,
+                "concurrency": self._capabilities.max_concurrency,  # type: ignore[union-attr]
                 "region": "local"
             }
             
@@ -231,7 +231,7 @@ class GPUWorker:
             logger.error(f"Failed to register worker: {e}")
             return False
     
-    async def start(self, api_key: str):
+    async def start(self, api_key: str) -> None:
         """Start the worker loop - poll for and execute jobs"""
         self._running = True
         logger.info(f"GPU worker {self.worker_id} started")
@@ -244,13 +244,13 @@ class GPUWorker:
             
             await asyncio.sleep(1.0)  # Poll interval
     
-    def stop(self):
+    def stop(self) -> None:
         """Stop the worker"""
         self._running = False
         self._executor.shutdown(wait=False)
         logger.info(f"GPU worker {self.worker_id} stopped")
     
-    async def _poll_and_execute(self, api_key: str):
+    async def _poll_and_execute(self, api_key: str) -> None:
         """Poll for jobs and execute them"""
         try:
             # Poll for assigned job
@@ -341,7 +341,7 @@ class GPUWorker:
                 )
             
             # Generate receipt
-            receipt = self._generate_receipt(job.get("job_id"), inference_result, execution_time)
+            receipt = self._generate_receipt(job.get("job_id"), inference_result, execution_time)  # type: ignore[arg-type]
             
             self._processed_count += 1
             
@@ -364,7 +364,7 @@ class GPUWorker:
                 error=str(e)
             )
     
-    async def _submit_result(self, job_id: str, result: JobExecutionResult, api_key: str):
+    async def _submit_result(self, job_id: str, result: JobExecutionResult, api_key: str) -> None:
         """Submit job result to coordinator"""
         try:
             response = await self._http_client.post(
