@@ -141,7 +141,7 @@ class AgentOrchestrator:
         self.monitoring_interval = config.get("monitoring_interval", 30)  # 30 seconds
         self.retry_limit = config.get("retry_limit", 3)
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the orchestrator"""
         logger.info("Initializing Agent Orchestrator")
 
@@ -300,7 +300,7 @@ class AgentOrchestrator:
 
         return retried_tasks
 
-    async def register_agent(self, capability: AgentCapability):
+    async def register_agent(self, capability: AgentCapability) -> None:
         """Register a new agent"""
 
         self.agent_capabilities[capability.agent_id] = capability
@@ -308,7 +308,7 @@ class AgentOrchestrator:
 
         logger.info(f"Registered agent {capability.agent_id}")
 
-    async def update_agent_status(self, agent_id: str, status: AgentStatus):
+    async def update_agent_status(self, agent_id: str, status: AgentStatus) -> None:
         """Update agent status"""
 
         if agent_id in self.agent_status:
@@ -392,13 +392,13 @@ class AgentOrchestrator:
             confidence_score=confidence_score,
         )
 
-    async def _execute_assignments(self, plan: OrchestrationPlan):
+    async def _execute_assignments(self, plan: OrchestrationPlan) -> None:
         """Execute agent assignments"""
 
         for assignment in plan.agent_assignments:
             await self._assign_sub_task(assignment.sub_task_id, plan)
 
-    async def _assign_sub_task(self, sub_task_id: str, plan: OrchestrationPlan):
+    async def _assign_sub_task(self, sub_task_id: str, plan: OrchestrationPlan) -> None:
         """Assign sub-task to suitable agent"""
 
         # Find sub-task
@@ -458,7 +458,7 @@ class AgentOrchestrator:
         scored_agents.sort(key=lambda x: x[1], reverse=True)
         return scored_agents[0][0]
 
-    async def _allocate_resources(self, agent_id: str, sub_task_id: str, requirements):
+    async def _allocate_resources(self, agent_id: str, sub_task_id: str, requirements) -> None:  # type: ignore[no-untyped-def]
         """Allocate resources for sub-task"""
 
         allocations = []
@@ -490,7 +490,7 @@ class AgentOrchestrator:
             self.resource_allocations[agent_id] = []
         self.resource_allocations[agent_id].extend(allocations)
 
-    async def _release_agent_resources(self, agent_id: str, sub_task_id: str):
+    async def _release_agent_resources(self, agent_id: str, sub_task_id: str) -> None:
         """Release resources from agent"""
 
         if agent_id in self.resource_allocations:
@@ -507,7 +507,7 @@ class AgentOrchestrator:
             if self.agent_capabilities[agent_id].current_load == 0:
                 self.agent_status[agent_id] = AgentStatus.AVAILABLE
 
-    async def _monitor_executions(self):
+    async def _monitor_executions(self) -> None:
         """Monitor active executions"""
 
         while True:
@@ -557,7 +557,7 @@ class AgentOrchestrator:
                 logger.error(f"Error in execution monitoring: {e}")
                 await asyncio.sleep(60)
 
-    async def _update_agent_status(self):
+    async def _update_agent_status(self) -> None:
         """Update agent status periodically"""
 
         while True:
@@ -584,7 +584,7 @@ class AgentOrchestrator:
                 logger.error(f"Error updating agent status: {e}")
                 await asyncio.sleep(60)
 
-    async def _update_resource_utilization(self):
+    async def _update_resource_utilization(self) -> None:
         """Update resource utilization metrics"""
 
         total_resources = dict.fromkeys(ResourceType, 0)
@@ -643,13 +643,13 @@ class AgentOrchestrator:
                 agent = self.agent_capabilities[assignment.agent_id]
 
                 # Calculate cost based on actual duration
-                duration = assignment.actual_duration or 1.0  # Default to 1 hour
+                duration = getattr(assignment, "actual_duration", None) or 1.0  # Default to 1 hour
                 cost = agent.cost_per_hour * duration
                 actual_cost += cost
 
         return actual_cost
 
-    async def _load_agent_capabilities(self):
+    async def _load_agent_capabilities(self) -> None:
         """Load agent capabilities from storage"""
 
         # In a real implementation, this would load from database or configuration

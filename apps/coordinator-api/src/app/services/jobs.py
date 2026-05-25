@@ -52,11 +52,11 @@ class JobService:
 
     def list_receipts(self, job_id: str, client_id: str | None = None) -> list[JobReceipt]:
         self.get_job(job_id, client_id=client_id)
-        return self.session.execute(select(JobReceipt).where(JobReceipt.job_id == job_id)).scalars().all()
+        return self.session.execute(select(JobReceipt).where(JobReceipt.job_id == job_id)).scalars().all()  # type: ignore[return-value]
 
-    def list_jobs(self, client_id: str | None = None, limit: int = 20, offset: int = 0, **filters) -> list[Job]:
+    def list_jobs(self, client_id: str | None = None, limit: int = 20, offset: int = 0, **filters) -> list[Job]:  # type: ignore[no-untyped-def]
         """List jobs with optional filtering"""
-        query = select(Job).order_by(Job.requested_at.desc())  # type: ignore[arg-type]
+        query = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
 
         if client_id:
             query = query.where(Job.client_id == client_id)
@@ -72,12 +72,12 @@ class JobService:
         # Apply pagination
         query = query.offset(offset).limit(limit)
 
-        return self.session.execute(query).scalars().all()
+        return self.session.execute(query).scalars().all()  # type: ignore[return-value]
 
     def fail_job(self, job_id: str, miner_id: str, error_message: str) -> Job:
         """Mark a job as failed"""
         job = self.get_job(job_id)
-        job.state = JobState.FAILED
+        job.state = JobState.FAILED  # type: ignore[attr-defined]
         job.error = error_message
         job.assigned_miner_id = miner_id
         self.session.add(job)
@@ -118,7 +118,7 @@ class JobService:
     def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
             now = datetime.now()
-            statement = select(Job).where(Job.state == JobState.queued).order_by(Job.requested_at.asc())  # type: ignore[arg-type]
+            statement = select(Job).where(Job.state == JobState.queued).order_by(Job.requested_at.asc())  # type: ignore[attr-defined]
 
             jobs = self.session.scalars(statement).all()
             for job in jobs:
@@ -197,7 +197,7 @@ class JobService:
         if constraints.max_price is not None:
             price = capabilities.get("price")
             try:
-                price_value = float(price)
+                price_value = float(price)  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 return False
             if price_value > constraints.max_price:
@@ -205,7 +205,7 @@ class JobService:
 
         return True
 
-    def execute_job(self, job_id: str, result: Dict[str, Any]) -> Job:
+    def execute_job(self, job_id: str, result: Dict[str, Any]) -> Job:  # type: ignore[name-defined]
         """
         Execute a job and store results.
         

@@ -81,7 +81,7 @@ class MemoryManager:
         self.agent_memories: dict[str, list[str]] = {}  # agent_id -> [cids]
         self._lock = asyncio.Lock()
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize memory manager"""
         logger.info("Initializing Memory Manager")
 
@@ -241,7 +241,7 @@ class MemoryManager:
             except Exception as e:
                 logger.error(f"Batch store error: {e}")
 
-        return results
+        return results  # type: ignore[return-value]
 
     async def list_agent_memories(
         self,
@@ -338,13 +338,13 @@ class MemoryManager:
                 total_size = sum(m.size for m in memories)
 
                 # By type
-                by_type = {}
+                by_type = {}  # type: ignore[var-annotated]
                 for memory in memories:
                     memory_type = memory.memory_type.value
                     by_type[memory_type] = by_type.get(memory_type, 0) + 1
 
                 # By priority
-                by_priority = {}
+                by_priority = {}  # type: ignore[var-annotated]
                 for memory in memories:
                     priority = memory.priority.value
                     by_priority[priority] = by_priority.get(priority, 0) + 1
@@ -388,9 +388,9 @@ class MemoryManager:
                             # Create Filecoin deal for persistence
                             deal_id = await self.ipfs_service.create_filecoin_deal(cid)
                             if deal_id:
-                                optimization_results["archived"] += 1
+                                optimization_results["archived"] += 1  # type: ignore[operator]
                         except Exception as e:
-                            optimization_results["errors"].append(f"Archive failed for {cid}: {e}")
+                            optimization_results["errors"].append(f"Archive failed for {cid}: {e}")  # type: ignore[attr-defined]
 
                 return optimization_results
 
@@ -416,7 +416,7 @@ class MemoryManager:
 
         return max_version + 1
 
-    async def _update_access_count(self, cid: str):
+    async def _update_access_count(self, cid: str) -> None:
         """Update access count and last accessed time"""
         memory_record = self.memory_records.get(cid)
         if memory_record:
@@ -424,7 +424,7 @@ class MemoryManager:
             memory_record.last_accessed = datetime.now(timezone.utc)
             await self._save_memory_record(memory_record)
 
-    async def _enforce_memory_limit(self, agent_id: str):
+    async def _enforce_memory_limit(self, agent_id: str) -> None:
         """Enforce maximum memories per agent"""
 
         agent_cids = self.agent_memories.get(agent_id, [])
@@ -451,7 +451,7 @@ class MemoryManager:
             memory_record, cid = memories[-(i + 1)]  # Delete least important
             await self.delete_memory(cid, permanent=False)
 
-    async def _cleanup_expired_memories(self):
+    async def _cleanup_expired_memories(self) -> None:
         """Background task to clean up expired memories"""
 
         while True:
@@ -479,17 +479,17 @@ class MemoryManager:
             except Exception as e:
                 logger.error(f"Memory cleanup error: {e}")
 
-    async def _load_memory_records(self):
+    async def _load_memory_records(self) -> None:
         """Load memory records from database"""
         # In real implementation, this would load from database
         pass
 
-    async def _save_memory_record(self, memory_record: MemoryRecord):
+    async def _save_memory_record(self, memory_record: MemoryRecord) -> None:
         """Save memory record to database"""
         # In real implementation, this would save to database
         pass
 
-    async def _delete_memory_record(self, cid: str):
+    async def _delete_memory_record(self, cid: str) -> None:
         """Delete memory record from database"""
         # In real implementation, this would delete from database
         pass

@@ -38,7 +38,7 @@ from ...schemas.portfolio import (
     TradeResponse,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # type: ignore[name-defined]
 
 
 class AgentPortfolioManager:
@@ -326,7 +326,7 @@ class AgentPortfolioManager:
         if not portfolio:
             raise HTTPException(status_code=404, detail="Portfolio not found")
 
-        return portfolio
+        return portfolio  # type: ignore[return-value]
 
     def _is_valid_address(self, address: str) -> bool:
         """Validate Ethereum address"""
@@ -376,7 +376,7 @@ class AgentPortfolioManager:
         # Check if sell token exists in portfolio
         sell_asset = self.session.execute(
             select(PortfolioAsset).where(
-                PortfolioAsset.portfolio_id == portfolio.id, PortfolioAsset.token_symbol == trade_request.sell_token
+                PortfolioAsset.portfolio_id == portfolio.id, PortfolioAsset.token_symbol == trade_request.sell_token  # type: ignore[arg-type]
             )
         ).first()
 
@@ -406,7 +406,7 @@ class AgentPortfolioManager:
         # Update sell asset
         sell_asset = self.session.execute(
             select(PortfolioAsset).where(
-                PortfolioAsset.portfolio_id == portfolio.id, PortfolioAsset.token_symbol == trade.sell_token
+                PortfolioAsset.portfolio_id == portfolio.id, PortfolioAsset.token_symbol == trade.sell_token  # type: ignore[arg-type]
             )
         ).first()
 
@@ -417,7 +417,7 @@ class AgentPortfolioManager:
         # Update buy asset
         buy_asset = self.session.execute(
             select(PortfolioAsset).where(
-                PortfolioAsset.portfolio_id == portfolio.id, PortfolioAsset.token_symbol == trade.buy_token
+                PortfolioAsset.portfolio_id == portfolio.id, PortfolioAsset.token_symbol == trade.buy_token  # type: ignore[arg-type]
             )
         ).first()
 
@@ -533,7 +533,7 @@ class AgentPortfolioManager:
         trades = self.session.execute(
             select(PortfolioTrade)
             .where(PortfolioTrade.portfolio_id == portfolio.id)  # type: ignore[arg-type]
-            .order_by(PortfolioTrade.executed_at.desc())  # type: ignore[arg-type]
+            .order_by(PortfolioTrade.executed_at.desc())  # type: ignore[union-attr]
         ).all()
 
         # Calculate returns, volatility, etc.

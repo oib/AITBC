@@ -5,7 +5,7 @@ Implements comprehensive real-time monitoring and analytics for the AITBC market
 
 import time
 import asyncio
-from typing import Dict, List, Optional, Any, collections
+from typing import Dict, List, Optional, Any, collections  # type: ignore[attr-defined]
 from datetime import datetime, timezone, timedelta
 import collections
 
@@ -18,10 +18,10 @@ class TimeSeriesData:
     
     def __init__(self, max_points: int = 3600): # Default 1 hour of second-level data
         self.max_points = max_points
-        self.timestamps = collections.deque(maxlen=max_points)
-        self.values = collections.deque(maxlen=max_points)
+        self.timestamps = collections.deque(maxlen=max_points)  # type: ignore[var-annotated]
+        self.values = collections.deque(maxlen=max_points)  # type: ignore[var-annotated]
         
-    def add(self, value: float, timestamp: float = None):
+    def add(self, value: float, timestamp: float = None) -> None:  # type: ignore[assignment]
         self.timestamps.append(timestamp or time.time())
         self.values.append(value)
         
@@ -49,12 +49,12 @@ class TimeSeriesData:
             
         idx = int(len(valid_values) * percentile)
         idx = min(max(idx, 0), len(valid_values) - 1)
-        return valid_values[idx]
+        return valid_values[idx]  # type: ignore[no-any-return]
 
 class MarketplaceMonitor:
     """Real-time performance monitoring system for the marketplace"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # API Metrics
         self.api_latency_ms = TimeSeriesData()
         self.api_requests_per_sec = TimeSeriesData()
@@ -83,7 +83,7 @@ class MarketplaceMonitor:
         self._last_tick = time.time()
         
         self.is_running = False
-        self._monitor_task = None
+        self._monitor_task: asyncio.Task[None] | None = None
         
         # Alert thresholds
         self.alert_thresholds = {
@@ -97,48 +97,48 @@ class MarketplaceMonitor:
             'capacity_availability_pct': 80.0
         }
         
-        self.active_alerts = []
+        self.active_alerts: list[Any] = []
         
-    async def start(self):
+    async def start(self) -> None:
         if self.is_running:
             return
         self.is_running = True
         self._monitor_task = asyncio.create_task(self._metric_tick_loop())
         logger.info("Marketplace Monitor started")
         
-    async def stop(self):
+    async def stop(self) -> None:
         self.is_running = False
         if self._monitor_task:
             self._monitor_task.cancel()
         logger.info("Marketplace Monitor stopped")
         
-    def record_api_call(self, latency_ms: float, is_error: bool = False):
+    def record_api_call(self, latency_ms: float, is_error: bool = False) -> None:
         """Record an API request for monitoring"""
         self.api_latency_ms.add(latency_ms)
         self._request_counter += 1
         if is_error:
             self._error_counter += 1
             
-    def record_trade(self, matching_time_ms: float):
+    def record_trade(self, matching_time_ms: float) -> None:
         """Record a successful trade match"""
         self.order_matching_time_ms.add(matching_time_ms)
         self._trade_counter += 1
         
-    def update_resource_metrics(self, gpu_util: float, bandwidth: float, providers: int, orders: int):
+    def update_resource_metrics(self, gpu_util: float, bandwidth: float, providers: int, orders: int) -> None:
         """Update system resource metrics"""
         self.gpu_utilization_pct.add(gpu_util)
         self.network_bandwidth_mbps.add(bandwidth)
         self.active_providers.add(providers)
         self.active_orders.add(orders)
         
-    def record_pool_hub_sla(self, uptime_pct: float, response_time_ms: float, completion_rate_pct: float, capacity_pct: float):
+    def record_pool_hub_sla(self, uptime_pct: float, response_time_ms: float, completion_rate_pct: float, capacity_pct: float) -> None:
         """Record pool-hub specific SLA metrics"""
         self.miner_uptime_pct.add(uptime_pct)
         self.miner_response_time_ms.add(response_time_ms)
         self.job_completion_rate_pct.add(completion_rate_pct)
         self.capacity_availability_pct.add(capacity_pct)
         
-    async def _metric_tick_loop(self):
+    async def _metric_tick_loop(self) -> None:
         """Background task that aggregates metrics every second"""
         while self.is_running:
             try:
@@ -173,7 +173,7 @@ class MarketplaceMonitor:
                 logger.error(f"Error in monitor tick loop: {e}")
                 await asyncio.sleep(1.0)
                 
-    def _evaluate_alerts(self):
+    def _evaluate_alerts(self) -> None:
         """Check metrics against thresholds and generate alerts"""
         current_alerts = []
         

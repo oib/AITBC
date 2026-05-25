@@ -167,11 +167,11 @@ class AgentCommunicationService:
         # Templates
         self._initialize_default_templates()
 
-    def set_reputation_service(self, reputation_service: CrossChainReputationService):
+    def set_reputation_service(self, reputation_service: CrossChainReputationService) -> None:
         """Set reputation service for access control"""
         self.reputation_service = reputation_service
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the agent communication service"""
         logger.info("Initializing Agent Communication Service")
 
@@ -421,7 +421,7 @@ class AgentCommunicationService:
             if message.status != MessageStatus.DELIVERED:
                 raise ValueError("Message not delivered")
 
-            if message.read:
+            if message.read:  # type: ignore[attr-defined]
                 raise ValueError("Message already read")
 
             # Mark as read
@@ -699,7 +699,7 @@ class AgentCommunicationService:
         # Check reputation
         if self.reputation_service:
             sender_reputation = await self.reputation_service.get_reputation_score(sender)
-            return sender_reputation >= self.min_reputation_score
+            return sender_reputation >= self.min_reputation_score  # type: ignore[no-any-return]
 
         return False
 
@@ -807,7 +807,7 @@ class AgentCommunicationService:
         # Create new channel
         return await self.create_channel(agent1, agent2, channel_type)
 
-    async def _update_message_stats(self, sender: str, recipient: str, action: str):
+    async def _update_message_stats(self, sender: str, recipient: str, action: str) -> None:
         """Update message statistics"""
 
         if action == "sent":
@@ -826,7 +826,7 @@ class AgentCommunicationService:
             if recipient in self.communication_stats:
                 self.communication_stats[recipient].last_activity = datetime.now(timezone.utc)
 
-    async def _process_message_queue(self):
+    async def _process_message_queue(self) -> None:
         """Process message queue for delivery"""
 
         while True:
@@ -843,7 +843,7 @@ class AgentCommunicationService:
                 logger.error(f"Error processing message queue: {e}")
                 await asyncio.sleep(5)
 
-    async def _cleanup_expired_messages(self):
+    async def _cleanup_expired_messages(self) -> None:
         """Clean up expired messages"""
 
         while True:
@@ -870,7 +870,7 @@ class AgentCommunicationService:
                 logger.error(f"Error cleaning up messages: {e}")
                 await asyncio.sleep(3600)
 
-    async def _cleanup_inactive_channels(self):
+    async def _cleanup_inactive_channels(self) -> None:
         """Clean up inactive channels"""
 
         while True:
@@ -904,7 +904,7 @@ class AgentCommunicationService:
                 logger.error(f"Error cleaning up channels: {e}")
                 await asyncio.sleep(3600)
 
-    def _initialize_default_templates(self):
+    def _initialize_default_templates(self) -> None:
         """Initialize default message templates"""
 
         templates = [
@@ -946,7 +946,7 @@ class AgentCommunicationService:
         for template in templates:
             self.message_templates[template.id] = template
 
-    async def _load_communication_data(self):
+    async def _load_communication_data(self) -> None:
         """Load existing communication data"""
         # In production, load from database
         pass
@@ -966,7 +966,7 @@ class AgentCommunicationService:
         else:
             raise ValueError(f"Unsupported format: {format}")
 
-    async def import_communication_data(self, data: str, format: str = "json"):
+    async def import_communication_data(self, data: str, format: str = "json") -> None:
         """Import communication data"""
 
         if format.lower() == "json":

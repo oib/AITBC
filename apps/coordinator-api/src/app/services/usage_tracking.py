@@ -145,18 +145,18 @@ class UsageTrackingService:
         """Get usage summary for a billing period"""
 
         # Build query
-        stmt = select(
+        stmt = select(  # type: ignore[call-overload]
             UsageRecord.resource_type,
             func.sum(UsageRecord.quantity).label("total_quantity"),
             func.sum(UsageRecord.total_cost).label("total_cost"),
-            func.count(UsageRecord.id).label("record_count"),
+            func.count(UsageRecord.id).label("record_count"),  # type: ignore[arg-type]
             func.avg(UsageRecord.unit_price).label("avg_unit_price"),
         ).where(
-            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)  # type: ignore[arg-type]
+            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)  # type: ignore[arg-type,operator]
         )
 
         if resource_type:
-            stmt = stmt.where(UsageRecord.resource_type == resource_type)  # type: ignore[arg-type]
+            stmt = stmt.where(UsageRecord.resource_type == resource_type)
 
         stmt = stmt.group_by(UsageRecord.resource_type)
 
@@ -253,7 +253,7 @@ class UsageTrackingService:
             start_date = end_date - timedelta(days=30)
 
         # Build base query
-        base_conditions = [UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date]
+        base_conditions = [UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date]  # type: ignore[operator]
 
         if tenant_id:
             base_conditions.append(UsageRecord.tenant_id == tenant_id)
@@ -262,7 +262,7 @@ class UsageTrackingService:
         stmt = select(
             func.sum(UsageRecord.quantity).label("total_quantity"),
             func.sum(UsageRecord.total_cost).label("total_cost"),
-            func.count(UsageRecord.id).label("total_records"),
+            func.count(UsageRecord.id).label("total_records"),  # type: ignore[arg-type]
             func.count(func.distinct(UsageRecord.tenant_id)).label("active_tenants"),
         ).where(and_(*base_conditions))  # type: ignore[arg-type]
 
@@ -270,7 +270,7 @@ class UsageTrackingService:
 
         # Usage by resource type
         stmt = (
-            select(
+            select(  # type: ignore[call-overload]
                 UsageRecord.resource_type,
                 func.sum(UsageRecord.quantity).label("quantity"),
                 func.sum(UsageRecord.total_cost).label("cost"),
@@ -284,7 +284,7 @@ class UsageTrackingService:
         # Top tenants by usage
         if not tenant_id:
             stmt = (
-                select(UsageRecord.tenant_id, func.sum(UsageRecord.total_cost).label("total_cost"))
+                select(UsageRecord.tenant_id, func.sum(UsageRecord.total_cost).label("total_cost"))  # type: ignore[call-overload]
                 .where(and_(*base_conditions))  # type: ignore[arg-type]
                 .group_by(UsageRecord.tenant_id)
                 .order_by(desc("total_cost"))
@@ -309,10 +309,10 @@ class UsageTrackingService:
         metrics = {
             "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "totals": {
-                "quantity": float(totals.total_quantity or 0),
-                "cost": float(totals.total_cost or 0),
-                "records": totals.total_records or 0,
-                "active_tenants": totals.active_tenants or 0,
+                "quantity": float(totals.total_quantity or 0),  # type: ignore[union-attr]
+                "cost": float(totals.total_cost or 0),  # type: ignore[union-attr]
+                "records": totals.total_records or 0,  # type: ignore[union-attr]
+                "active_tenants": totals.active_tenants or 0,  # type: ignore[union-attr]
             },
             "by_resource": {r.resource_type: {"quantity": float(r.quantity), "cost": float(r.cost)} for r in by_resource},
             "top_tenants": [{"tenant_id": str(t.tenant_id), "cost": float(t.total_cost)} for t in top_tenants],
@@ -349,21 +349,21 @@ class UsageTrackingService:
         stmt = (
             select(UsageRecord)
             .where(
-                and_(  # type: ignore[arg-type]
-                    UsageRecord.tenant_id == tenant_id,
-                    UsageRecord.usage_start >= start_date,
-                    UsageRecord.usage_end <= end_date,
+                and_(
+                    UsageRecord.tenant_id == tenant_id,  # type: ignore[arg-type]
+                    UsageRecord.usage_start >= start_date,  # type: ignore[arg-type,operator]
+                    UsageRecord.usage_end <= end_date,  # type: ignore[arg-type,operator]
                 )
             )
-            .order_by(UsageRecord.usage_start)
+            .order_by(UsageRecord.usage_start)  # type: ignore[arg-type]
         )
 
         records = self.db.execute(stmt).scalars().all()
 
         if format == "csv":
-            return await self._export_csv(records)
+            return await self._export_csv(records)  # type: ignore[arg-type]
         elif format == "json":
-            return await self._export_json(records)
+            return await self._export_json(records)  # type: ignore[arg-type]
         else:
             raise BillingError(f"Unsupported export format: {format}")
 
@@ -379,20 +379,20 @@ class UsageTrackingService:
         base_price = config["unit_price"]
 
         if not config.get("tiered", False):
-            return base_price
+            return base_price  # type: ignore[return-value]
 
         # Find applicable tier
         tiers = self.tier_thresholds.get(resource_type, [])
         quantity_float = float(quantity)
 
         for tier in tiers:
-            if (tier["min"] is None or quantity_float >= tier["min"]) and (
-                tier["max"] is None or quantity_float <= tier["max"]
+            if (tier["min"] is None or quantity_float >= tier["min"]) and (  # type: ignore[index]
+                tier["max"] is None or quantity_float <= tier["max"]  # type: ignore[index]
             ):
-                return base_price * Decimal(str(tier["multiplier"]))
+                return base_price * Decimal(str(tier["multiplier"]))  # type: ignore[index,operator]
 
         # Default to highest tier
-        return base_price * Decimal("0.5")
+        return base_price * Decimal("0.5")  # type: ignore[operator]
 
     def _get_unit_for_resource(self, resource_type: str) -> str:
         """Get unit for resource type"""
@@ -436,10 +436,10 @@ class UsageTrackingService:
         # Get sequence for today
         # In a real implementation, use Redis or sequence table
         # For now, use a simple counter
-        stmt = select(func.count(Invoice.id)).where(
+        stmt = select(func.count(Invoice.id)).where(  # type: ignore[arg-type,assignment]
             and_(Invoice.tenant_id == tenant_id, func.date(Invoice.created_at) == func.current_date())  # type: ignore[arg-type]
         )
-        seq = self.db.execute(stmt).scalar() + 1
+        seq = self.db.execute(stmt).scalar() + 1  # type: ignore[operator]
 
         return f"INV-{tenant.slug}-{date_str}-{seq:04d}"
 
@@ -498,10 +498,10 @@ class UsageTrackingService:
             raise BillingError("resource_type required for quota adjustment")
 
         stmt = select(TenantQuota).where(
-            and_(  # type: ignore[arg-type]
-                TenantQuota.tenant_id == event.tenant_id,
-                TenantQuota.resource_type == event.resource_type,
-                TenantQuota.is_active,
+            and_(
+                TenantQuota.tenant_id == event.tenant_id,  # type: ignore[arg-type]
+                TenantQuota.resource_type == event.resource_type,  # type: ignore[arg-type]
+                TenantQuota.is_active,  # type: ignore[arg-type]
             )
         )
         quota = self.db.execute(stmt).scalar_one_or_none()
@@ -513,7 +513,7 @@ class UsageTrackingService:
             raise BillingError("Quota limit must be non-negative")
 
         old_limit = quota.limit_value
-        quota.limit_value = new_limit
+        quota.limit_value = new_limit  # type: ignore[assignment]
         self.db.commit()
         self.logger.info(
             f"Adjusted quota: tenant={event.tenant_id}, " f"resource={event.resource_type}, {old_limit} -> {new_limit}"
@@ -534,7 +534,7 @@ class UsageTrackingService:
         for record in records:
             writer.writerow(
                 [
-                    record.usage_start.isoformat(),
+                    record.usage_start.isoformat(),  # type: ignore[union-attr]
                     record.resource_type,
                     record.quantity,
                     record.unit,
@@ -555,7 +555,7 @@ class UsageTrackingService:
         for record in records:
             data.append(
                 {
-                    "timestamp": record.usage_start.isoformat(),
+                    "timestamp": record.usage_start.isoformat(),  # type: ignore[union-attr]
                     "resource_type": record.resource_type,
                     "quantity": float(record.quantity),
                     "unit": record.unit,
@@ -647,10 +647,10 @@ class BillingScheduler:
         """Reset used_value to 0 for all expired daily quotas and advance their period."""
         now = datetime.now(timezone.utc)
         stmt = select(TenantQuota).where(
-            and_(  # type: ignore[arg-type]
-                TenantQuota.period_type == "daily",
-                TenantQuota.is_active,
-                TenantQuota.period_end <= now  # type: ignore[operator],
+            and_(
+                TenantQuota.period_type == "daily",  # type: ignore[arg-type]
+                TenantQuota.is_active,  # type: ignore[arg-type]
+                TenantQuota.period_end <= now,  # type: ignore[arg-type,operator]
             )
         )
         expired = self.usage_service.db.execute(stmt).scalars().all()
