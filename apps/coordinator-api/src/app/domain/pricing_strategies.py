@@ -500,7 +500,7 @@ class StrategyLibrary:
 class StrategyOptimizer:
     """Optimizes pricing strategies based on performance data"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.performance_history: dict[str, list[dict[str, Any]]] = {}
         self.optimization_rules = self._initialize_optimization_rules()
 
@@ -670,7 +670,7 @@ class StrategyOptimizer:
         except Exception:
             return False
 
-    def _apply_rule_action(self, config: PricingStrategyConfig, action: str, adjustment: float):
+    def _apply_rule_action(self, config: PricingStrategyConfig, action: str, adjustment: float) -> None:
         """Apply optimization rule action"""
 
         if action == "decrease_base_multiplier":
