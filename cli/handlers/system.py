@@ -1,16 +1,17 @@
 """System and utility handlers."""
 
 import sys
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 def handle_system_status(args, cli_version):
     """Handle system status command."""
-    print("System status: OK")
-    print(f"  Version: aitbc-cli v{cli_version}")
-    print("  Services: Running")
-    print("  Nodes: 2 connected")
-
-
+    logger.info("System status: OK")
+    logger.info(f"  Version: aitbc-cli v{cli_version}")
+    logger.info("  Services: Running")
+    logger.info("  Nodes: 2 connected")
 def handle_analytics(args, default_rpc_url, get_blockchain_analytics):
     """Handle analytics command."""
     analytics_type = getattr(args, "analytics_type", None) or getattr(args, "analytics_action", None) or getattr(args, "type", "blocks")
@@ -63,10 +64,10 @@ def handle_analytics(args, default_rpc_url, get_blockchain_analytics):
     else:
         analytics = get_blockchain_analytics(analytics_type, limit, rpc_url=rpc_url)
     if analytics:
-        print(f"Blockchain Analytics ({analytics['type']}):")
+        logger.info(f"Blockchain Analytics ({analytics['type']}):")
         for key, value in analytics.items():
             if key != "type":
-                print(f"  {key}: {value}")
+                logger.info(f"  {key}: {value}")
     else:
         sys.exit(1)
 
@@ -88,7 +89,7 @@ def handle_agent_action(args, agent_operations, render_mapping):
                 "status": "simulated",
                 "timestamp": __import__('datetime').datetime.now().isoformat()
             }
-            print(f"Agent {args.agent_action} (simulated)")
+            logger.info(f"Agent {args.agent_action} (simulated)")
             render_mapping(f"Agent {args.agent_action}:", stub_result)
             return
         # Handle case where result doesn't have 'action' field (e.g., message send)
@@ -96,7 +97,7 @@ def handle_agent_action(args, agent_operations, render_mapping):
             render_mapping(f"Agent {result['action']}:", result)
         else:
             # Just print success message for message send
-            print("Agent operation completed successfully")
+            logger.info("Agent operation completed successfully")
     except Exception as e:
         # Return stub data on error
         stub_result = {
@@ -105,7 +106,7 @@ def handle_agent_action(args, agent_operations, render_mapping):
             "error": str(e),
             "timestamp": __import__('datetime').datetime.now().isoformat()
         }
-        print(f"Agent {args.agent_action} (simulated - error: {e})")
+        logger.error(f"Agent {args.agent_action} (simulated - error: {e})")
         render_mapping(f"Agent {args.agent_action}:", stub_result)
 
 
@@ -125,7 +126,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "timestamp": __import__('datetime').datetime.now().isoformat()
         }
         
-        print(f"Agent SDK created: {name}")
+        logger.info(f"Agent SDK created: {name}")
         render_mapping("Agent SDK:", sdk_data)
     
     elif action == "update-status":
@@ -135,7 +136,7 @@ def handle_agent_sdk_action(args, render_mapping):
         coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
         
         if not agent_id or not status:
-            print("Error: --agent-id and --status are required")
+            logger.error("Error: --agent-id and --status are required")
             sys.exit(1)
         
         status_update_request = {
@@ -143,8 +144,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "load_metrics": load_metrics if isinstance(load_metrics, dict) else {}
         }
         
-        print(f"Updating agent {agent_id} status to {status}...")
-        
+        logger.info(f"Updating agent {agent_id} status to {status}...")
         try:
             import requests
             response = requests.put(
@@ -155,14 +155,14 @@ def handle_agent_sdk_action(args, render_mapping):
             
             if response.status_code == 200:
                 result = response.json()
-                print(f"Agent status updated successfully")
+                logger.info(f"Agent status updated successfully")
                 render_mapping("Status Update:", result)
             else:
-                print(f"Status update failed: {response.status_code}")
-                print(f"Error: {response.text}")
+                logger.error(f"Status update failed: {response.status_code}")
+                logger.error(f"Error: {response.text}")
                 sys.exit(1)
         except Exception as e:
-            print(f"Error updating agent status: {e}")
+            logger.error(f"Error updating agent status: {e}")
             sys.exit(1)
     
     elif action == "register":
@@ -184,8 +184,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "metadata": metadata if isinstance(metadata, dict) else (json.loads(metadata) if metadata else {})
         }
         
-        print(f"Registering agent {agent_id} with coordinator at {coordinator_url}...")
-        
+        logger.info(f"Registering agent {agent_id} with coordinator at {coordinator_url}...")
         try:
             import requests
             response = requests.post(
@@ -196,14 +195,14 @@ def handle_agent_sdk_action(args, render_mapping):
             
             if response.status_code in (200, 201):
                 result = response.json()
-                print(f"Agent registered successfully")
+                logger.info(f"Agent registered successfully")
                 render_mapping("Registration:", result)
             else:
-                print(f"Registration failed: {response.status_code}")
-                print(f"Error: {response.text}")
+                logger.error(f"Registration failed: {response.status_code}")
+                logger.error(f"Error: {response.text}")
                 sys.exit(1)
         except Exception as e:
-            print(f"Error registering agent: {e}")
+            logger.error(f"Error registering agent: {e}")
             sys.exit(1)
     
     elif action == "list":
@@ -218,8 +217,7 @@ def handle_agent_sdk_action(args, render_mapping):
         if agent_type:
             query["agent_type"] = agent_type
         
-        print(f"Discovering agents from coordinator at {coordinator_url}...")
-        
+        logger.info(f"Discovering agents from coordinator at {coordinator_url}...")
         try:
             import requests
             response = requests.post(
@@ -230,22 +228,21 @@ def handle_agent_sdk_action(args, render_mapping):
             
             if response.status_code == 200:
                 result = response.json()
-                print(f"Found {result.get('count', 0)} agents")
+                logger.info(f"Found {result.get('count', 0)} agents")
                 render_mapping("Agents:", result)
             else:
-                print(f"Discovery failed: {response.status_code}")
-                print(f"Error: {response.text}")
+                logger.error(f"Discovery failed: {response.status_code}")
+                logger.error(f"Error: {response.text}")
                 sys.exit(1)
         except Exception as e:
-            print(f"Error discovering agents: {e}")
+            logger.error(f"Error discovering agents: {e}")
             sys.exit(1)
     
     elif action == "status":
         agent_id = getattr(args, "agent_id", None)
         coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
         
-        print(f"Getting agent info for {agent_id} from coordinator at {coordinator_url}...")
-        
+        logger.info(f"Getting agent info for {agent_id} from coordinator at {coordinator_url}...")
         try:
             import requests
             response = requests.get(
@@ -255,17 +252,17 @@ def handle_agent_sdk_action(args, render_mapping):
             
             if response.status_code == 200:
                 result = response.json()
-                print(f"Agent info retrieved")
+                logger.info(f"Agent info retrieved")
                 render_mapping("Agent:", result)
             elif response.status_code == 404:
-                print(f"Agent not found: {agent_id}")
+                logger.info(f"Agent not found: {agent_id}")
                 sys.exit(1)
             else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
+                logger.error(f"Query failed: {response.status_code}")
+                logger.error(f"Error: {response.text}")
                 sys.exit(1)
         except Exception as e:
-            print(f"Error getting agent info: {e}")
+            logger.error(f"Error getting agent info: {e}")
             sys.exit(1)
     
     elif action == "capabilities":
@@ -276,7 +273,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "max_concurrent_jobs": 2
         }
         
-        print("System capabilities")
+        logger.info("System capabilities")
         render_mapping("Capabilities:", caps_data)
     
     else:
@@ -287,7 +284,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "timestamp": __import__('datetime').datetime.now().isoformat()
         }
         
-        print(f"Agent SDK {action} (simulated)")
+        logger.info(f"Agent SDK {action} (simulated)")
         render_mapping("SDK Operation:", sdk_result)
 
 
@@ -369,7 +366,7 @@ def handle_simulate_action(args, simulate_blockchain, simulate_wallets, simulate
     elif args.simulate_command == "ai-jobs":
         simulate_ai_jobs(args.jobs, args.models, args.duration_range)
     else:
-        print(f"Unknown simulate command: {args.simulate_command}")
+        logger.info(f"Unknown simulate command: {args.simulate_command}")
         sys.exit(1)
 
 
@@ -440,7 +437,7 @@ def handle_economics_action(args, render_mapping):
         }
         render_mapping("Token Balance:", result)
     else:
-        print(f"Unknown economics action: {action}")
+        logger.info(f"Unknown economics action: {action}")
         sys.exit(1)
 
 
@@ -466,7 +463,7 @@ def handle_cluster_action(args, render_mapping):
         }
         render_mapping("Cluster Status:", result)
     else:
-        print(f"Unknown cluster action: {action}")
+        logger.info(f"Unknown cluster action: {action}")
         sys.exit(1)
 
 
@@ -491,7 +488,7 @@ def handle_performance_action(args, render_mapping):
         }
         render_mapping("Performance Profile:", result)
     else:
-        print(f"Unknown performance action: {action}")
+        logger.info(f"Unknown performance action: {action}")
         sys.exit(1)
 
 
@@ -523,7 +520,7 @@ def handle_security_action(args, render_mapping):
         }
         render_mapping("Security Patch:", result)
     else:
-        print(f"Unknown security action: {action}")
+        logger.info(f"Unknown security action: {action}")
         sys.exit(1)
 
 
@@ -538,7 +535,7 @@ def handle_compliance_check(args, render_mapping):
         "issues_found": 0
     }
     
-    print(f"Compliance check for {standard}")
+    logger.info(f"Compliance check for {standard}")
     render_mapping("Compliance:", compliance_data)
 
 
@@ -553,7 +550,7 @@ def handle_compliance_report(args, render_mapping):
         "overall_status": "compliant"
     }
     
-    print(f"Compliance report ({format_type})")
+    logger.info(f"Compliance report ({format_type})")
     render_mapping("Report:", report_data)
 
 
@@ -583,7 +580,7 @@ def handle_cluster_sync(args, render_mapping):
         "last_sync": __import__('datetime').datetime.now().isoformat()
     }
     
-    print("Cluster sync completed")
+    logger.info("Cluster sync completed")
     render_mapping("Cluster Sync:", sync_data)
 
 
@@ -598,7 +595,7 @@ def handle_cluster_balance(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print("Workload balanced across cluster")
+    logger.info("Workload balanced across cluster")
     render_mapping("Cluster Balance:", balance_data)
 
 
@@ -614,7 +611,7 @@ def handle_script_run(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Script executed: {file_path}")
+    logger.info(f"Script executed: {file_path}")
     render_mapping("Script:", script_data)
 
 

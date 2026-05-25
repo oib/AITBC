@@ -82,7 +82,7 @@ class Config:
                 self.blockchain_rpc_url = data.get('blockchain_rpc_url', self.blockchain_rpc_url)
                 self.wallet_url = data.get('wallet_url', self.wallet_url)
             except Exception as e:
-                print(f"Warning: Could not load config file: {e}")
+                click.echo(f"Warning: Could not load config file: {e}")
         
         # Validate and enforce localhost URLs after file loading
         self._validate_localhost_urls()

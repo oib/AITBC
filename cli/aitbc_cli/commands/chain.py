@@ -515,7 +515,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
                         live.update(generate_monitor_layout())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             import asyncio

@@ -2,6 +2,7 @@
 
 import time
 import logging
+logger = logging.getLogger(__name__)
 import sys
 import os
 from pathlib import Path
@@ -189,9 +190,9 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
 def render(data: Any, format_type: str = "table", title: str = None):
     """Format and output data"""
     if format_type == "json":
-        console.print(json.dumps(data, indent=2, default=str))
+        console.logger.info(json.dumps(data, indent=2, default=str))
     elif format_type == "yaml":
-        console.print(yaml.dump(data, default_flow_style=False, sort_keys=False))
+        console.logger.info(yaml.dump(data, default_flow_style=False, sort_keys=False))
     elif format_type == "table":
         if isinstance(data, dict) and not isinstance(data, list):
             # Simple key-value table
@@ -204,7 +205,7 @@ def render(data: Any, format_type: str = "table", title: str = None):
                     value = json.dumps(value, default=str)
                 table.add_row(str(key), str(value))
             
-            console.print(table)
+            console.logger.info(table)
         elif isinstance(data, list) and data:
             if all(isinstance(item, dict) for item in data):
                 # Table from list of dicts
@@ -218,17 +219,15 @@ def render(data: Any, format_type: str = "table", title: str = None):
                     row = [str(item.get(h, "")) for h in headers]
                     table.add_row(*row)
                 
-                console.print(table)
+                console.logger.info(table)
             else:
                 # Simple list
                 for item in data:
-                    console.print(f"• {item}")
+                    console.logger.info(f"• {item}")
         else:
-            console.print(data)
+            console.logger.info(data)
     else:
-        console.print(data)
-
-
+        console.logger.info(data)
 # Backward compatibility alias
 def output(data: Any, format_type: str = "table", title: str = None):
     """Deprecated: use render() instead - kept for backward compatibility"""
@@ -237,24 +236,16 @@ def output(data: Any, format_type: str = "table", title: str = None):
 
 def error(message: str):
     """Print error message"""
-    console.print(Panel(f"[red]Error: {message}[/red]", title="❌"))
-
-
+    console.logger.error(Panel(f"[red]Error: {message}[/red]", title="❌"))
 def success(message: str):
     """Print success message"""
-    console.print(Panel(f"[green]{message}[/green]", title="✅"))
-
-
+    console.logger.info(Panel(f"[green]{message}[/green]", title="✅"))
 def info(message: str):
     """Print informational message"""
-    console.print(Panel(f"[cyan]{message}[/cyan]", title="ℹ️"))
-
-
+    console.logger.info(Panel(f"[cyan]{message}[/cyan]", title="ℹ️"))
 def warning(message: str):
     """Print warning message"""
-    console.print(Panel(f"[yellow]{message}[/yellow]", title="⚠️"))
-
-
+    console.logger.info(Panel(f"[yellow]{message}[/yellow]", title="⚠️"))
 def retry_with_backoff(
     func,
     max_retries: int = 3,

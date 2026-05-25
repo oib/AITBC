@@ -2,6 +2,9 @@
 
 import requests
 from typing import Optional, Dict, Any
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 def handle_contract_list(args, default_rpc_url: str):
@@ -16,21 +19,19 @@ def handle_contract_list(args, default_rpc_url: str):
             if data.get("success") is not False:
                 contracts = data.get("contracts", [])
                 if contracts:
-                    print(f"Deployed contracts ({len(contracts)}):")
+                    logger.info(f"Deployed contracts ({len(contracts)}):")
                     for contract in contracts:
-                        print(f"  - Address: {contract.get('address', 'N/A')}")
-                        print(f"    Type: {contract.get('type', 'N/A')}")
-                        print(f"    Deployed: {contract.get('deployed_at', 'N/A')}")
+                        logger.info(f"  - Address: {contract.get('address', 'N/A')}")
+                        logger.info(f"    Type: {contract.get('type', 'N/A')}")
+                        logger.info(f"    Deployed: {contract.get('deployed_at', 'N/A')}")
                 else:
-                    print("No contracts deployed")
+                    logger.info("No contracts deployed")
             else:
-                print(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error(f"Error: {data.get('error', 'Unknown error')}")
         else:
-            print(f"Error: RPC returned {response.status_code}")
+            logger.error(f"Error: RPC returned {response.status_code}")
     except Exception as e:
-        print(f"Error listing contracts: {e}")
-
-
+        logger.error(f"Error listing contracts: {e}")
 def handle_contract_deploy(args, default_rpc_url: str, read_password, render_mapping):
     """Handle contract deploy command"""
     rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
@@ -38,12 +39,12 @@ def handle_contract_deploy(args, default_rpc_url: str, read_password, render_map
     contract_type = getattr(args, 'type', 'zk-verifier')
     
     if not contract_name:
-        print("Error: Contract name is required (--name)")
+        logger.error("Error: Contract name is required (--name)")
         return
     
     password = read_password(args)
     if not password:
-        print("Error: Wallet password is required (--password or --password-file)")
+        logger.error("Error: Wallet password is required (--password or --password-file)")
         return
     
     try:
@@ -64,13 +65,11 @@ def handle_contract_deploy(args, default_rpc_url: str, read_password, render_map
             if data.get("success"):
                 render_mapping("Contract deployed successfully", data)
             else:
-                print(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error(f"Error: {data.get('error', 'Unknown error')}")
         else:
-            print(f"Error: RPC returned {response.status_code}")
+            logger.error(f"Error: RPC returned {response.status_code}")
     except Exception as e:
-        print(f"Error deploying contract: {e}")
-
-
+        logger.error(f"Error deploying contract: {e}")
 def handle_contract_call(args, default_rpc_url: str, read_password):
     """Handle contract call command"""
     rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
@@ -78,11 +77,11 @@ def handle_contract_call(args, default_rpc_url: str, read_password):
     method = getattr(args, 'method', None)
     
     if not contract_address:
-        print("Error: Contract address is required (--address)")
+        logger.error("Error: Contract address is required (--address)")
         return
     
     if not method:
-        print("Error: Method name is required (--method)")
+        logger.error("Error: Method name is required (--method)")
         return
     
     password = read_password(args)
@@ -112,25 +111,23 @@ def handle_contract_call(args, default_rpc_url: str, read_password):
             data = response.json()
             if data.get("success"):
                 result = data.get("result")
-                print(f"Contract call result:")
-                print(f"  Address: {contract_address}")
-                print(f"  Method: {method}")
-                print(f"  Result: {result}")
+                logger.info(f"Contract call result:")
+                logger.info(f"  Address: {contract_address}")
+                logger.info(f"  Method: {method}")
+                logger.info(f"  Result: {result}")
             else:
-                print(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error(f"Error: {data.get('error', 'Unknown error')}")
         else:
-            print(f"Error: RPC returned {response.status_code}")
+            logger.error(f"Error: RPC returned {response.status_code}")
     except Exception as e:
-        print(f"Error calling contract: {e}")
-
-
+        logger.error(f"Error calling contract: {e}")
 def handle_contract_verify(args, default_rpc_url: str, read_password):
     """Handle contract verify command (for ZK proofs)"""
     rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
     contract_address = getattr(args, 'address', None)
     
     if not contract_address:
-        print("Error: Contract address is required (--address)")
+        logger.error("Error: Contract address is required (--address)")
         return
     
     password = read_password(args)
@@ -162,14 +159,14 @@ def handle_contract_verify(args, default_rpc_url: str, read_password):
             data = response.json()
             if data.get("success"):
                 result = data.get("result")
-                print(f"Verification result:")
-                print(f"  Address: {contract_address}")
-                print(f"  Valid: {result.get('valid', False)}")
+                logger.info(f"Verification result:")
+                logger.info(f"  Address: {contract_address}")
+                logger.info(f"  Valid: {result.get('valid', False)}")
                 if result.get('receipt_hash'):
-                    print(f"  Receipt Hash: {result.get('receipt_hash')}")
+                    logger.info(f"  Receipt Hash: {result.get('receipt_hash')}")
             else:
-                print(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error(f"Error: {data.get('error', 'Unknown error')}")
         else:
-            print(f"Error: RPC returned {response.status_code}")
+            logger.error(f"Error: RPC returned {response.status_code}")
     except Exception as e:
-        print(f"Error verifying contract: {e}")
+        logger.error(f"Error verifying contract: {e}")

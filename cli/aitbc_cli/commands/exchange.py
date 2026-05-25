@@ -668,7 +668,8 @@ def connect(ctx, exchange: str, api_key: str, secret: str, sandbox: bool, passph
     try:
         # Import the real exchange integration
         import sys
-        sys.path.append('/home/oib/windsurf/aitbc/apps/exchange')
+        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
+        sys.path.append(exchange_path)
         from real_exchange_integration import connect_to_exchange
         
         # Run async connection
@@ -696,7 +697,8 @@ def status(ctx, exchange: Optional[str]):
     try:
         # Import the real exchange integration
         import sys
-        sys.path.append('/home/oib/windsurf/aitbc/apps/exchange')
+        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
+        sys.path.append(exchange_path)
         from real_exchange_integration import get_exchange_status
         
         # Run async status check
@@ -714,7 +716,7 @@ def status(ctx, exchange: Optional[str]):
             
             if health.error_message:
                 error(f"   Error: {health.error_message}")
-            print()
+            click.echo("")
             
     except ImportError:
         error("❌ Real exchange integration not available. Install ccxt library.")
@@ -730,7 +732,8 @@ def disconnect(ctx, exchange: str):
     try:
         # Import the real exchange integration
         import sys
-        sys.path.append('/home/oib/windsurf/aitbc/apps/exchange')
+        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
+        sys.path.append(exchange_path)
         from real_exchange_integration import disconnect_from_exchange
         
         # Run async disconnection
@@ -758,7 +761,8 @@ def orderbook(ctx, exchange: str, symbol: str, limit: int):
     try:
         # Import the real exchange integration
         import sys
-        sys.path.append('/home/oib/windsurf/aitbc/apps/exchange')
+        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
+        sys.path.append(exchange_path)
         from real_exchange_integration import exchange_manager
         
         # Run async order book fetch
@@ -807,7 +811,8 @@ def balance(ctx, exchange: str):
     try:
         # Import the real exchange integration
         import sys
-        sys.path.append('/home/oib/windsurf/aitbc/apps/exchange')
+        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
+        sys.path.append(exchange_path)
         from real_exchange_integration import exchange_manager
         
         # Run async balance fetch
@@ -844,7 +849,8 @@ def pairs(ctx, exchange: str):
     try:
         # Import the real exchange integration
         import sys
-        sys.path.append('/home/oib/windsurf/aitbc/apps/exchange')
+        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
+        sys.path.append(exchange_path)
         from real_exchange_integration import exchange_manager
         
         # Run async pairs fetch
@@ -885,7 +891,8 @@ def list_exchanges(ctx):
     try:
         # Import the real exchange integration
         import sys
-        sys.path.append('/home/oib/windsurf/aitbc/apps/exchange')
+        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
+        sys.path.append(exchange_path)
         from real_exchange_integration import exchange_manager
         
         success("🏢 Supported Exchanges:")

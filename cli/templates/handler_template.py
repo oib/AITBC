@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 """{{COMMAND_NAME}} command handlers."""
 
 def handle_{{COMMAND_NAME}}_action(args, render_mapping):
@@ -11,5 +14,5 @@ def handle_{{COMMAND_NAME}}_action(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"{{COMMAND_NAME}} executed with option: {option_value}")
+    logger.info(f"{{COMMAND_NAME}} executed with option: {option_value}")
     render_mapping("Result:", result)

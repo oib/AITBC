@@ -1,6 +1,9 @@
 """Performance command handlers for AITBC CLI."""
 
 import json
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 def handle_performance_benchmark(args, output_format, render_mapping):
@@ -15,16 +18,14 @@ def handle_performance_benchmark(args, output_format, render_mapping):
     }
     
     if output_format(args) == "json":
-        print(json.dumps(benchmark_data, indent=2))
+        logger.info(json.dumps(benchmark_data, indent=2))
     else:
-        print("Performance Benchmark:")
-        print(f"  TPS: {benchmark_data['tps']}")
-        print(f"  Latency: {benchmark_data['latency_ms']}ms")
-        print(f"  Throughput: {benchmark_data['throughput_mbps']}Mbps")
-        print(f"  CPU Usage: {benchmark_data['cpu_usage']}%")
-        print(f"  Memory Usage: {benchmark_data['memory_usage']}%")
-
-
+        logger.info("Performance Benchmark:")
+        logger.info(f"  TPS: {benchmark_data['tps']}")
+        logger.info(f"  Latency: {benchmark_data['latency_ms']}ms")
+        logger.info(f"  Throughput: {benchmark_data['throughput_mbps']}Mbps")
+        logger.info(f"  CPU Usage: {benchmark_data['cpu_usage']}%")
+        logger.info(f"  Memory Usage: {benchmark_data['memory_usage']}%")
 def handle_performance_optimize(args, render_mapping):
     """Handle performance optimize command."""
     target = getattr(args, "target", "general")
@@ -36,7 +37,7 @@ def handle_performance_optimize(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Performance optimization applied for {target}")
+    logger.info(f"Performance optimization applied for {target}")
     render_mapping("Optimization:", optimization_data)
 
 
@@ -52,5 +53,5 @@ def handle_performance_tune(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print("Performance tuning applied")
+    logger.info("Performance tuning applied")
     render_mapping("Tuning:", tune_data)

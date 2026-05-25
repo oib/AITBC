@@ -20,7 +20,7 @@ try:
     from config import get_config
 except ImportError:
     def output(msg, format_type):
-        print(msg)
+        click.echo(msg)
     def setup_logging(verbose, debug):
         return "INFO"
     def get_config(config_file=None, role=None):

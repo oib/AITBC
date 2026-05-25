@@ -13,6 +13,8 @@ import json
 import time
 import requests
 from typing import Optional, Dict, Any
+import click
+
 
 # Default configuration
 DEFAULT_COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://localhost:8011")
@@ -563,9 +565,9 @@ def miner_cli_dispatcher(action: str, **kwargs) -> Optional[Dict]:
 
 if __name__ == "__main__":
     # Test the module
-    print("🚀 AITBC Miner Management Module")
-    print("Available functions:")
+    click.echo("🚀 AITBC Miner Management Module")
+    click.echo("Available functions:")
     for func in [register_miner, get_miner_status, send_heartbeat, poll_jobs, 
                 submit_job_result, update_capabilities, check_earnings,
                 list_marketplace_offers, create_marketplace_offer]:
-        print(f"  - {func.__name__}")
+        click.echo(f"  - {func.__name__}")

@@ -316,8 +316,7 @@ def monitor(ctx, deployment_id, interval):
                     live.update(generate_monitor_table())
                     time.sleep(interval)
             except KeyboardInterrupt:
-                console.print("\n[yellow]Monitoring stopped by user[/yellow]")
-        
+                console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort()
