@@ -41,7 +41,7 @@ app.include_router(health_router, tags=["health"])
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     return {"status": "ok", "service": "adaptive-learning"}
 
 

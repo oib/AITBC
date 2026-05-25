@@ -37,7 +37,7 @@ class CoordinatorClient:
 class AgentStateManager:
     """Manages persistent state for AI agent executions"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     async def create_execution(
@@ -59,7 +59,7 @@ class AgentStateManager:
 
         stmt = (
             update(AgentExecution)
-            .where(AgentExecution.id == execution_id)
+            .where(AgentExecution.id == execution_id)  # type: ignore[arg-type]
             .values(status=status, updated_at=datetime.now(timezone.utc), **kwargs)
         )
 
@@ -81,7 +81,7 @@ class AgentStateManager:
 
     async def get_workflow_steps(self, workflow_id: str) -> list[AgentStep]:
         """Get all steps for a workflow"""
-        stmt = select(AgentStep).where(AgentStep.workflow_id == workflow_id).order_by(AgentStep.step_order)
+        stmt = select(AgentStep).where(AgentStep.workflow_id == workflow_id).order_by(AgentStep.step_order)  # type: ignore[arg-type]
         return self.session.execute(stmt).all()
 
     async def create_step_execution(self, execution_id: str, step_id: str) -> AgentStepExecution:
@@ -100,7 +100,7 @@ class AgentStateManager:
 
         stmt = (
             update(AgentStepExecution)
-            .where(AgentStepExecution.id == step_execution_id)
+            .where(AgentStepExecution.id == step_execution_id)  # type: ignore[arg-type]
             .values(updated_at=datetime.now(timezone.utc), **kwargs)
         )
 
@@ -114,7 +114,7 @@ class AgentStateManager:
 class AgentVerifier:
     """Handles verification of agent executions"""
 
-    def __init__(self, cuda_accelerator=None):
+    def __init__(self, cuda_accelerator=None) -> None:
         self.cuda_accelerator = cuda_accelerator
 
     async def verify_step_execution(
@@ -223,7 +223,7 @@ class AgentVerifier:
 class AIAgentOrchestrator:
     """Orchestrates execution of AI agent workflows"""
 
-    def __init__(self, session: Session, coordinator_client: CoordinatorClient):
+    def __init__(self, session: Session, coordinator_client: CoordinatorClient) -> None:
         self.session = session
         self.coordinator = coordinator_client
         self.state_manager = AgentStateManager(session)

@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 class LFU_LRU_Cache:
     """Hybrid Least-Frequently/Least-Recently Used Cache for in-memory optimization"""
     
-    def __init__(self, capacity: int):
+    def __init__(self, capacity: int) -> None:
         self.capacity = capacity
         self.cache = {}
         self.frequencies = {}
@@ -48,7 +48,7 @@ class LFU_LRU_Cache:
         
         return val
         
-    def put(self, key: str, value: Any):
+    def put(self, key: str, value: Any) -> None:
         if self.capacity == 0:
             return
             
@@ -75,7 +75,7 @@ class LFU_LRU_Cache:
 class MarketplaceDataOptimizer:
     """Advanced optimization engine for marketplace data access"""
     
-    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+    def __init__(self, redis_url: str = "redis://localhost:6379/0") -> None:
         self.redis_url = redis_url
         self.redis_client = None
         
@@ -91,7 +91,7 @@ class MarketplaceDataOptimizer:
             'historical_data': 3600   # 1 hour
         }
         
-    async def connect(self):
+    async def connect(self) -> None:
         """Establish connection to Redis L2 cache"""
         try:
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
@@ -102,7 +102,7 @@ class MarketplaceDataOptimizer:
             logger.error(f"Failed to connect to Redis: {e}. Falling back to L1 cache only.")
             self.is_connected = False
             
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Close Redis connection"""
         if self.redis_client:
             await self.redis_client.close()
@@ -146,7 +146,7 @@ class MarketplaceDataOptimizer:
                 
         return None
         
-    async def set_cached_data(self, namespace: str, params: Dict[str, Any], data: Any, custom_ttl: int = None):
+    async def set_cached_data(self, namespace: str, params: Dict[str, Any], data: Any, custom_ttl: int = None) -> None:
         """Store data in the multi-tier cache"""
         key = self._generate_cache_key(namespace, params)
         ttl = custom_ttl or self.ttls.get(namespace, 60)
@@ -170,7 +170,7 @@ class MarketplaceDataOptimizer:
             except Exception as e:
                 logger.warning(f"Redis set failed: {e}")
                 
-    async def invalidate_namespace(self, namespace: str):
+    async def invalidate_namespace(self, namespace: str) -> None:
         """Invalidate all cached items for a specific namespace"""
         if self.is_connected:
             try:

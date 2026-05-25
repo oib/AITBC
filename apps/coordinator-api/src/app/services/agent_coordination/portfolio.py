@@ -68,7 +68,7 @@ class AgentPortfolioManager:
 
             # Check if portfolio already exists
             existing_portfolio = self.session.execute(
-                select(AgentPortfolio).where(AgentPortfolio.agent_address == agent_address)
+                select(AgentPortfolio).where(AgentPortfolio.agent_address == agent_address)  # type: ignore[arg-type]
             ).first()
 
             if existing_portfolio:
@@ -241,7 +241,7 @@ class AgentPortfolioManager:
 
             # Update risk metrics in database
             existing_metrics = self.session.execute(
-                select(RiskMetrics).where(RiskMetrics.portfolio_id == portfolio.id)
+                select(RiskMetrics).where(RiskMetrics.portfolio_id == portfolio.id)  # type: ignore[arg-type]
             ).first()
 
             if existing_metrics:
@@ -321,7 +321,7 @@ class AgentPortfolioManager:
 
     def _get_agent_portfolio(self, agent_address: str) -> AgentPortfolio:
         """Get portfolio for agent address"""
-        portfolio = self.session.execute(select(AgentPortfolio).where(AgentPortfolio.agent_address == agent_address)).first()
+        portfolio = self.session.execute(select(AgentPortfolio).where(AgentPortfolio.agent_address == agent_address)).first()  # type: ignore[arg-type]
 
         if not portfolio:
             raise HTTPException(status_code=404, detail="Portfolio not found")
@@ -442,7 +442,7 @@ class AgentPortfolioManager:
         portfolio_value = await self._calculate_portfolio_value(portfolio)
 
         # Update current allocations
-        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()
+        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()  # type: ignore[arg-type]
 
         for asset in assets:
             if asset.balance > 0:
@@ -457,7 +457,7 @@ class AgentPortfolioManager:
     async def _calculate_portfolio_value(self, portfolio: AgentPortfolio) -> float:
         """Calculate total portfolio value"""
 
-        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()
+        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()  # type: ignore[arg-type]
 
         total_value = 0.0
         for asset in assets:
@@ -480,7 +480,7 @@ class AgentPortfolioManager:
             return True
 
         # Check threshold-based rebalancing
-        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()
+        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()  # type: ignore[arg-type]
 
         for asset in assets:
             if asset.balance > 0:
@@ -496,7 +496,7 @@ class AgentPortfolioManager:
         """Generate rebalancing trades"""
 
         trades = []
-        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()
+        assets = self.session.execute(select(PortfolioAsset).where(PortfolioAsset.portfolio_id == portfolio.id)).all()  # type: ignore[arg-type]
 
         # Calculate current vs target allocations
         for asset in assets:
@@ -532,8 +532,8 @@ class AgentPortfolioManager:
         # Get historical trades
         trades = self.session.execute(
             select(PortfolioTrade)
-            .where(PortfolioTrade.portfolio_id == portfolio.id)
-            .order_by(PortfolioTrade.executed_at.desc())
+            .where(PortfolioTrade.portfolio_id == portfolio.id)  # type: ignore[arg-type]
+            .order_by(PortfolioTrade.executed_at.desc())  # type: ignore[arg-type]
         ).all()
 
         # Calculate returns, volatility, etc.
@@ -555,6 +555,6 @@ class AgentPortfolioManager:
 class ValidationResult:
     """Validation result for trade requests"""
 
-    def __init__(self, is_valid: bool, error_message: str = ""):
+    def __init__(self, is_valid: bool, error_message: str = "") -> None:
         self.is_valid = is_valid
         self.error_message = error_message
