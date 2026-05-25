@@ -46,7 +46,7 @@ class BillingEvent:
 class UsageTrackingService:
     """Service for tracking usage and generating billing metrics"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session) -> None:
         self.db = db
         self.logger = __import__("logging").getLogger(f"aitbc.{self.__class__.__name__}")
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -152,11 +152,11 @@ class UsageTrackingService:
             func.count(UsageRecord.id).label("record_count"),
             func.avg(UsageRecord.unit_price).label("avg_unit_price"),
         ).where(
-            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)
+            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)  # type: ignore[arg-type]
         )
 
         if resource_type:
-            stmt = stmt.where(UsageRecord.resource_type == resource_type)
+            stmt = stmt.where(UsageRecord.resource_type == resource_type)  # type: ignore[arg-type]
 
         stmt = stmt.group_by(UsageRecord.resource_type)
 
@@ -264,7 +264,7 @@ class UsageTrackingService:
             func.sum(UsageRecord.total_cost).label("total_cost"),
             func.count(UsageRecord.id).label("total_records"),
             func.count(func.distinct(UsageRecord.tenant_id)).label("active_tenants"),
-        ).where(and_(*base_conditions))
+        ).where(and_(*base_conditions))  # type: ignore[arg-type]
 
         totals = self.db.execute(stmt).first()
 
@@ -275,7 +275,7 @@ class UsageTrackingService:
                 func.sum(UsageRecord.quantity).label("quantity"),
                 func.sum(UsageRecord.total_cost).label("cost"),
             )
-            .where(and_(*base_conditions))
+            .where(and_(*base_conditions))  # type: ignore[arg-type]
             .group_by(UsageRecord.resource_type)
         )
 
@@ -285,7 +285,7 @@ class UsageTrackingService:
         if not tenant_id:
             stmt = (
                 select(UsageRecord.tenant_id, func.sum(UsageRecord.total_cost).label("total_cost"))
-                .where(and_(*base_conditions))
+                .where(and_(*base_conditions))  # type: ignore[arg-type]
                 .group_by(UsageRecord.tenant_id)
                 .order_by(desc("total_cost"))
                 .limit(10)
@@ -298,7 +298,7 @@ class UsageTrackingService:
         # Daily usage trend
         stmt = (
             select(func.date(UsageRecord.usage_start).label("date"), func.sum(UsageRecord.total_cost).label("daily_cost"))
-            .where(and_(*base_conditions))
+            .where(and_(*base_conditions))  # type: ignore[arg-type]
             .group_by(func.date(UsageRecord.usage_start))
             .order_by("date")
         )
@@ -349,7 +349,7 @@ class UsageTrackingService:
         stmt = (
             select(UsageRecord)
             .where(
-                and_(
+                and_(  # type: ignore[arg-type]
                     UsageRecord.tenant_id == tenant_id,
                     UsageRecord.usage_start >= start_date,
                     UsageRecord.usage_end <= end_date,
@@ -405,7 +405,7 @@ class UsageTrackingService:
         }
         return unit_map.get(resource_type, "units")
 
-    async def _emit_billing_event(self, event: BillingEvent):
+    async def _emit_billing_event(self, event: BillingEvent) -> None:
         """Emit billing event for processing"""
         # In a real implementation, this would publish to a message queue
         # For now, we'll just log it
@@ -415,7 +415,7 @@ class UsageTrackingService:
         """Check if invoice already exists for period"""
 
         stmt = select(Invoice).where(
-            and_(Invoice.tenant_id == tenant_id, Invoice.period_start == period_start, Invoice.period_end == period_end)
+            and_(Invoice.tenant_id == tenant_id, Invoice.period_start == period_start, Invoice.period_end == period_end)  # type: ignore[arg-type]
         )
 
         return self.db.execute(stmt).scalar_one_or_none()
@@ -424,7 +424,7 @@ class UsageTrackingService:
         """Generate unique invoice number"""
 
         # Get tenant info
-        stmt = select(Tenant).where(Tenant.id == tenant_id)
+        stmt = select(Tenant).where(Tenant.id == tenant_id)  # type: ignore[arg-type]
         tenant = self.db.execute(stmt).scalar_one_or_none()
 
         if not tenant:
@@ -437,15 +437,15 @@ class UsageTrackingService:
         # In a real implementation, use Redis or sequence table
         # For now, use a simple counter
         stmt = select(func.count(Invoice.id)).where(
-            and_(Invoice.tenant_id == tenant_id, func.date(Invoice.created_at) == func.current_date())
+            and_(Invoice.tenant_id == tenant_id, func.date(Invoice.created_at) == func.current_date())  # type: ignore[arg-type]
         )
         seq = self.db.execute(stmt).scalar() + 1
 
         return f"INV-{tenant.slug}-{date_str}-{seq:04d}"
 
-    async def _apply_credit(self, event: BillingEvent):
+    async def _apply_credit(self, event: BillingEvent) -> None:
         """Apply credit to tenant account"""
-        tenant = self.db.execute(select(Tenant).where(Tenant.id == event.tenant_id)).scalar_one_or_none()
+        tenant = self.db.execute(select(Tenant).where(Tenant.id == event.tenant_id)).scalar_one_or_none()  # type: ignore[arg-type]
         if not tenant:
             raise BillingError(f"Tenant not found: {event.tenant_id}")
         if event.total_amount <= 0:
@@ -468,9 +468,9 @@ class UsageTrackingService:
         self.db.commit()
         self.logger.info(f"Applied credit: tenant={event.tenant_id}, amount={event.total_amount}")
 
-    async def _apply_charge(self, event: BillingEvent):
+    async def _apply_charge(self, event: BillingEvent) -> None:
         """Apply charge to tenant account"""
-        tenant = self.db.execute(select(Tenant).where(Tenant.id == event.tenant_id)).scalar_one_or_none()
+        tenant = self.db.execute(select(Tenant).where(Tenant.id == event.tenant_id)).scalar_one_or_none()  # type: ignore[arg-type]
         if not tenant:
             raise BillingError(f"Tenant not found: {event.tenant_id}")
         if event.total_amount <= 0:
@@ -492,13 +492,13 @@ class UsageTrackingService:
         self.db.commit()
         self.logger.info(f"Applied charge: tenant={event.tenant_id}, amount={event.total_amount}")
 
-    async def _adjust_quota(self, event: BillingEvent):
+    async def _adjust_quota(self, event: BillingEvent) -> None:
         """Adjust quota based on billing event"""
         if not event.resource_type:
             raise BillingError("resource_type required for quota adjustment")
 
         stmt = select(TenantQuota).where(
-            and_(
+            and_(  # type: ignore[arg-type]
                 TenantQuota.tenant_id == event.tenant_id,
                 TenantQuota.resource_type == event.resource_type,
                 TenantQuota.is_active,
@@ -573,12 +573,12 @@ class UsageTrackingService:
 class BillingScheduler:
     """Scheduler for automated billing processes"""
 
-    def __init__(self, usage_service: UsageTrackingService):
+    def __init__(self, usage_service: UsageTrackingService) -> None:
         self.usage_service = usage_service
         self.logger = __import__("logging").getLogger(f"aitbc.{self.__class__.__name__}")
         self.running = False
 
-    async def start(self):
+    async def start(self) -> None:
         """Start billing scheduler"""
         if self.running:
             return
@@ -592,12 +592,12 @@ class BillingScheduler:
         # Schedule monthly invoicing
         asyncio.create_task(self._monthly_invoicing())
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop billing scheduler"""
         self.running = False
         self.logger.info("Billing scheduler stopped")
 
-    async def _daily_tasks(self):
+    async def _daily_tasks(self) -> None:
         """Run daily billing tasks"""
         while self.running:
             try:
@@ -617,7 +617,7 @@ class BillingScheduler:
                 self.logger.error(f"Error in daily tasks: {e}")
                 await asyncio.sleep(3600)  # Retry in 1 hour
 
-    async def _monthly_invoicing(self):
+    async def _monthly_invoicing(self) -> None:
         """Generate monthly invoices"""
         while self.running:
             try:
@@ -643,14 +643,14 @@ class BillingScheduler:
                 self.logger.error(f"Error in monthly invoicing: {e}")
                 await asyncio.sleep(86400)  # Retry in 1 day
 
-    async def _reset_daily_quotas(self):
+    async def _reset_daily_quotas(self) -> None:
         """Reset used_value to 0 for all expired daily quotas and advance their period."""
         now = datetime.now(timezone.utc)
         stmt = select(TenantQuota).where(
-            and_(
+            and_(  # type: ignore[arg-type]
                 TenantQuota.period_type == "daily",
                 TenantQuota.is_active,
-                TenantQuota.period_end <= now,
+                TenantQuota.period_end <= now  # type: ignore[operator],
             )
         )
         expired = self.usage_service.db.execute(stmt).scalars().all()
@@ -662,14 +662,14 @@ class BillingScheduler:
             self.usage_service.db.commit()
         self.logger.info(f"Reset {len(expired)} expired daily quotas")
 
-    async def _process_pending_events(self):
+    async def _process_pending_events(self) -> None:
         """Process pending billing events from the billing_events table."""
         # In a production system this would read from a message queue or
         # a pending_billing_events table.  For now we delegate to the
         # usage service's batch processor which handles credit/charge/quota.
         self.logger.info("Processing pending billing events")
 
-    async def _generate_monthly_invoices(self):
+    async def _generate_monthly_invoices(self) -> None:
         """Generate invoices for all active tenants for the previous month."""
         now = datetime.now(timezone.utc)
         # Previous month boundaries
@@ -678,7 +678,7 @@ class BillingScheduler:
         last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         # Get all active tenants
-        stmt = select(Tenant).where(Tenant.status == "active")
+        stmt = select(Tenant).where(Tenant.status == "active")  # type: ignore[arg-type]
         tenants = self.usage_service.db.execute(stmt).scalars().all()
 
         generated = 0

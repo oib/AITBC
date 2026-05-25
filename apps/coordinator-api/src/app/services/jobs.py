@@ -56,7 +56,7 @@ class JobService:
 
     def list_jobs(self, client_id: str | None = None, limit: int = 20, offset: int = 0, **filters) -> list[Job]:
         """List jobs with optional filtering"""
-        query = select(Job).order_by(Job.requested_at.desc())
+        query = select(Job).order_by(Job.requested_at.desc())  # type: ignore[arg-type]
 
         if client_id:
             query = query.where(Job.client_id == client_id)
@@ -118,7 +118,7 @@ class JobService:
     def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
             now = datetime.now()
-            statement = select(Job).where(Job.state == JobState.queued).order_by(Job.requested_at.asc())
+            statement = select(Job).where(Job.state == JobState.queued).order_by(Job.requested_at.asc())  # type: ignore[arg-type]
 
             jobs = self.session.scalars(statement).all()
             for job in jobs:

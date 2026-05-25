@@ -82,7 +82,7 @@ class SecurityEvent:
 class HSMManager:
     """Hardware Security Module manager for enterprise key management"""
 
-    def __init__(self, hsm_config: dict[str, Any]):
+    def __init__(self, hsm_config: dict[str, Any]) -> None:
         self.hsm_config = hsm_config
         self.backend = default_backend()
         self.key_store = {}  # In production, use actual HSM
@@ -167,7 +167,7 @@ class HSMManager:
 class EnterpriseEncryption:
     """Enterprise-grade encryption service"""
 
-    def __init__(self, hsm_manager: HSMManager):
+    def __init__(self, hsm_manager: HSMManager) -> None:
         self.hsm_manager = hsm_manager
         self.backend = default_backend()
         self.logger = get_logger("enterprise_encryption")
@@ -377,7 +377,7 @@ class EnterpriseEncryption:
 class ZeroTrustArchitecture:
     """Zero-trust security architecture implementation"""
 
-    def __init__(self, hsm_manager: HSMManager, encryption: EnterpriseEncryption):
+    def __init__(self, hsm_manager: HSMManager, encryption: EnterpriseEncryption) -> None:
         self.hsm_manager = hsm_manager
         self.encryption = encryption
         self.trust_policies = {}
@@ -483,7 +483,7 @@ class ZeroTrustArchitecture:
 
         return thresholds.get(security_level, 0.5)
 
-    async def _log_trust_decision(self, user_id: str, resource_id: str, action: str, trust_score: float, decision: bool):
+    async def _log_trust_decision(self, user_id: str, resource_id: str, action: str, trust_score: float, decision: bool) -> None:
         """Log trust decision for audit"""
 
         SecurityEvent(
@@ -504,13 +504,13 @@ class ZeroTrustArchitecture:
 class ThreatDetectionSystem:
     """Advanced threat detection and response system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.threat_patterns = {}
         self.active_threats = {}
         self.response_actions = {}
         self.logger = get_logger("threat_detection")
 
-    async def register_threat_pattern(self, pattern_id: str, pattern_config: dict[str, Any]):
+    async def register_threat_pattern(self, pattern_id: str, pattern_config: dict[str, Any]) -> None:
         """Register threat detection pattern"""
 
         self.threat_patterns[pattern_id] = {
@@ -571,7 +571,7 @@ class ThreatDetectionSystem:
 
         return min(score, 1.0)
 
-    async def _trigger_response_actions(self, pattern_id: str, threat_event: SecurityEvent):
+    async def _trigger_response_actions(self, pattern_id: str, threat_event: SecurityEvent) -> None:
         """Trigger automated response actions"""
 
         pattern = self.threat_patterns[pattern_id]
@@ -583,7 +583,7 @@ class ThreatDetectionSystem:
             except Exception as e:
                 self.logger.error(f"Response action failed: {action} - {e}")
 
-    async def _execute_response_action(self, action: str, threat_event: SecurityEvent):
+    async def _execute_response_action(self, action: str, threat_event: SecurityEvent) -> None:
         """Execute specific response action"""
 
         if action == "block_user":
@@ -597,22 +597,22 @@ class ThreatDetectionSystem:
 
         self.logger.info(f"Response action executed: {action}")
 
-    async def _block_user(self, user_id: str):
+    async def _block_user(self, user_id: str) -> None:
         """Block user account"""
         # In production, implement actual user blocking
         self.logger.warning(f"User blocked due to threat: {user_id}")
 
-    async def _isolate_resource(self, resource_id: str):
+    async def _isolate_resource(self, resource_id: str) -> None:
         """Isolate compromised resource"""
         # In production, implement actual resource isolation
         self.logger.warning(f"Resource isolated due to threat: {resource_id}")
 
-    async def _escalate_to_admin(self, threat_event: SecurityEvent):
+    async def _escalate_to_admin(self, threat_event: SecurityEvent) -> None:
         """Escalate threat to security administrators"""
         # In production, implement actual escalation
         self.logger.error(f"Threat escalated to admin: {threat_event.event_id}")
 
-    async def _require_mfa(self, user_id: str):
+    async def _require_mfa(self, user_id: str) -> None:
         """Require multi-factor authentication"""
         # In production, implement MFA requirement
         self.logger.warning(f"MFA required for user: {user_id}")
@@ -621,7 +621,7 @@ class ThreatDetectionSystem:
 class EnterpriseSecurityFramework:
     """Main enterprise security framework"""
 
-    def __init__(self, hsm_config: dict[str, Any]):
+    def __init__(self, hsm_config: dict[str, Any]) -> None:
         self.hsm_manager = HSMManager(hsm_config)
         self.encryption = EnterpriseEncryption(self.hsm_manager)
         self.zero_trust = ZeroTrustArchitecture(self.hsm_manager, self.encryption)
@@ -649,7 +649,7 @@ class EnterpriseSecurityFramework:
             self.logger.error(f"Security framework initialization failed: {e}")
             return False
 
-    async def _register_default_threat_patterns(self):
+    async def _register_default_threat_patterns(self) -> None:
         """Register default threat detection patterns"""
 
         patterns = [
@@ -682,7 +682,7 @@ class EnterpriseSecurityFramework:
         for i, pattern in enumerate(patterns):
             await self.threat_detection.register_threat_pattern(f"default_{i}", pattern)
 
-    async def _create_default_policies(self):
+    async def _create_default_policies(self) -> None:
         """Create default trust policies"""
 
         policies = [

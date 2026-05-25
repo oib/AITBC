@@ -80,7 +80,7 @@ class ExplorerService:
         except Exception as e:
             # Fallback to fake data if RPC is unavailable
             logger.warning(f"Failed to fetch blocks from RPC: {e}, falling back to fake data")
-            statement = select(Job).order_by(Job.requested_at.desc())
+            statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[arg-type]
             jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
 
             items: list[BlockSummary] = []
@@ -101,7 +101,7 @@ class ExplorerService:
             return BlockListResponse(items=items, next_offset=next_offset)
 
     def list_transactions(self, *, limit: int = 50, offset: int = 0) -> TransactionListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)
+        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)  # type: ignore[arg-type]
         jobs = self.session.execute(statement).all()
 
         items: list[TransactionSummary] = []
@@ -141,7 +141,7 @@ class ExplorerService:
         return TransactionListResponse(items=items, next_offset=next_offset)
 
     def list_addresses(self, *, limit: int = 50, offset: int = 0) -> AddressListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc())
+        statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[arg-type]
         jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
 
         address_map: dict[str, dict[str, object]] = defaultdict(
@@ -226,9 +226,9 @@ class ExplorerService:
         limit: int = 50,
         offset: int = 0,
     ) -> ReceiptListResponse:
-        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())
+        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())  # type: ignore[arg-type]
         if job_id:
-            statement = statement.where(JobReceipt.job_id == job_id)
+            statement = statement.where(JobReceipt.job_id == job_id)  # type: ignore[arg-type]
 
         rows = self.session.execute(statement.offset(offset).limit(limit)).all()
         items: list[ReceiptSummary] = []

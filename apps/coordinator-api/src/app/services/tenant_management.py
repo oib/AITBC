@@ -58,7 +58,7 @@ except ImportError:
 class TenantManagementService:
     """Service for managing tenants in multi-tenant environment"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session) -> None:
         self.db = db
         self.logger = __import__("logging").getLogger(f"aitbc.{self.__class__.__name__}")
 
@@ -119,17 +119,17 @@ class TenantManagementService:
 
     async def get_tenant(self, tenant_id: str) -> Tenant | None:
         """Get tenant by ID"""
-        stmt = select(Tenant).where(Tenant.id == tenant_id)
+        stmt = select(Tenant).where(Tenant.id == tenant_id)  # type: ignore[arg-type]
         return self.db.execute(stmt).scalar_one_or_none()
 
     async def get_tenant_by_slug(self, slug: str) -> Tenant | None:
         """Get tenant by slug"""
-        stmt = select(Tenant).where(Tenant.slug == slug)
+        stmt = select(Tenant).where(Tenant.slug == slug)  # type: ignore[arg-type]
         return self.db.execute(stmt).scalar_one_or_none()
 
     async def get_tenant_by_domain(self, domain: str) -> Tenant | None:
         """Get tenant by domain"""
-        stmt = select(Tenant).where(Tenant.domain == domain)
+        stmt = select(Tenant).where(Tenant.domain == domain)  # type: ignore[arg-type]
         return self.db.execute(stmt).scalar_one_or_none()
 
     async def update_tenant(self, tenant_id: str, updates: dict[str, Any], actor_id: str, actor_type: str = "user") -> Tenant:
@@ -285,7 +285,7 @@ class TenantManagementService:
         """Add a user to a tenant"""
 
         # Check if user already exists
-        stmt = select(TenantUser).where(and_(TenantUser.tenant_id == tenant_id, TenantUser.user_id == user_id))
+        stmt = select(TenantUser).where(and_(TenantUser.tenant_id == tenant_id, TenantUser.user_id == user_id))  # type: ignore[arg-type]
         existing = self.db.execute(stmt).scalar_one_or_none()
 
         if existing:
@@ -318,7 +318,7 @@ class TenantManagementService:
     async def remove_user_from_tenant(self, tenant_id: str, user_id: str, actor_id: str = "system") -> bool:
         """Remove a user from a tenant"""
 
-        stmt = select(TenantUser).where(and_(TenantUser.tenant_id == tenant_id, TenantUser.user_id == user_id))
+        stmt = select(TenantUser).where(and_(TenantUser.tenant_id == tenant_id, TenantUser.user_id == user_id))  # type: ignore[arg-type]
         tenant_user = self.db.execute(stmt).scalar_one_or_none()
 
         if not tenant_user:
@@ -409,7 +409,7 @@ class TenantManagementService:
         """Revoke an API key"""
 
         stmt = select(TenantApiKey).where(
-            and_(TenantApiKey.tenant_id == tenant_id, TenantApiKey.key_id == key_id, TenantApiKey.is_active)
+            and_(TenantApiKey.tenant_id == tenant_id, TenantApiKey.key_id == key_id, TenantApiKey.is_active)  # type: ignore[arg-type]
         )
         api_key = self.db.execute(stmt).scalar_one_or_none()
 
@@ -460,11 +460,11 @@ class TenantManagementService:
             func.sum(UsageRecord.total_cost).label("total_cost"),
             func.count(UsageRecord.id).label("record_count"),
         ).where(
-            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)
+            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)  # type: ignore[arg-type]
         )
 
         if resource_type:
-            stmt = stmt.where(UsageRecord.resource_type == resource_type)
+            stmt = stmt.where(UsageRecord.resource_type == resource_type)  # type: ignore[arg-type]
 
         stmt = stmt.group_by(UsageRecord.resource_type)
 
@@ -485,7 +485,7 @@ class TenantManagementService:
     async def get_tenant_quotas(self, tenant_id: str) -> list[TenantQuota]:
         """Get all quotas for a tenant"""
 
-        stmt = select(TenantQuota).where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.is_active))
+        stmt = select(TenantQuota).where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.is_active))  # type: ignore[arg-type]
 
         return self.db.execute(stmt).scalars().all()
 
@@ -494,7 +494,7 @@ class TenantManagementService:
 
         # Get current quota
         stmt = select(TenantQuota).where(
-            and_(
+            and_(  # type: ignore[arg-type]
                 TenantQuota.tenant_id == tenant_id,
                 TenantQuota.resource_type == resource_type,
                 TenantQuota.is_active,
@@ -517,12 +517,12 @@ class TenantManagementService:
 
         return True
 
-    async def update_quota_usage(self, tenant_id: str, resource_type: str, quantity: float):
+    async def update_quota_usage(self, tenant_id: str, resource_type: str, quantity: float) -> None:
         """Update quota usage for a tenant"""
 
         # Get current quota
         stmt = select(TenantQuota).where(
-            and_(
+            and_(  # type: ignore[arg-type]
                 TenantQuota.tenant_id == tenant_id,
                 TenantQuota.resource_type == resource_type,
                 TenantQuota.is_active,
@@ -561,12 +561,12 @@ class TenantManagementService:
         if not conditions:
             return False
 
-        stmt = select(func.count(Tenant.id)).where(or_(*conditions))
+        stmt = select(func.count(Tenant.id)).where(or_(*conditions))  # type: ignore[arg-type]
         count = self.db.execute(stmt).scalar()
 
         return count > 0
 
-    async def _create_default_quotas(self, tenant_id: str, plan: str):
+    async def _create_default_quotas(self, tenant_id: str, plan: str) -> None:
         """Create default quotas based on plan"""
 
         # Define quota templates by plan
@@ -612,12 +612,12 @@ class TenantManagementService:
             )
             self.db.add(quota)
 
-    async def _revoke_all_api_keys(self, tenant_id: str):
+    async def _revoke_all_api_keys(self, tenant_id: str) -> None:
         """Revoke all API keys for a tenant"""
 
         stmt = (
             update(TenantApiKey)
-            .where(and_(TenantApiKey.tenant_id == tenant_id, TenantApiKey.is_active))
+            .where(and_(TenantApiKey.tenant_id == tenant_id, TenantApiKey.is_active))  # type: ignore[arg-type]
             .values(is_active=False, revoked_at=datetime.now(timezone.utc))
         )
 

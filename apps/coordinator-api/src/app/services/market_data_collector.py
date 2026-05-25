@@ -63,7 +63,7 @@ class AggregatedMarketData:
 class MarketDataCollector:
     """Collects and processes market data from multiple sources"""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
         self.data_callbacks: dict[DataSource, list[Callable]] = {}
         self.raw_data: list[MarketDataPoint] = []
@@ -88,7 +88,7 @@ class MarketDataCollector:
         self.websocket_port = config.get("websocket_port", 8765)
         self.websocket_server = None
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the market data collector"""
         logger.info("Initializing Market Data Collector")
 
@@ -107,7 +107,7 @@ class MarketDataCollector:
 
         logger.info("Market Data Collector initialized")
 
-    def register_callback(self, source: DataSource, callback: Callable):
+    def register_callback(self, source: DataSource, callback: Callable) -> None:
         """Register callback for data updates"""
         if source not in self.data_callbacks:
             self.data_callbacks[source] = []
@@ -127,7 +127,7 @@ class MarketDataCollector:
 
         return [point for point in self.raw_data if point.source == source and point.timestamp >= cutoff_time]
 
-    async def _collect_data_source(self, source: DataSource):
+    async def _collect_data_source(self, source: DataSource) -> None:
         """Collect data from a specific source"""
 
         interval = self.collection_intervals[source]
@@ -140,7 +140,7 @@ class MarketDataCollector:
                 logger.error(f"Error collecting data from {source.value}: {e}")
                 await asyncio.sleep(60)  # Wait 1 minute on error
 
-    async def _collect_from_source(self, source: DataSource):
+    async def _collect_from_source(self, source: DataSource) -> None:
         """Collect data from a specific source"""
 
         if source == DataSource.GPU_METRICS:
@@ -156,7 +156,7 @@ class MarketDataCollector:
         elif source == DataSource.MARKET_SENTIMENT:
             await self._collect_market_sentiment()
 
-    async def _collect_gpu_metrics(self):
+    async def _collect_gpu_metrics(self) -> None:
         """Collect GPU utilization and performance metrics"""
 
         try:
@@ -189,7 +189,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.error(f"Error collecting GPU metrics: {e}")
 
-    async def _collect_booking_data(self):
+    async def _collect_booking_data(self) -> None:
         """Collect booking and transaction data"""
 
         try:
@@ -224,7 +224,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.error(f"Error collecting booking data: {e}")
 
-    async def _collect_regional_demand(self):
+    async def _collect_regional_demand(self) -> None:
         """Collect regional demand patterns"""
 
         try:
@@ -270,7 +270,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.error(f"Error collecting regional demand: {e}")
 
-    async def _collect_competitor_prices(self):
+    async def _collect_competitor_prices(self) -> None:
         """Collect competitor pricing data"""
 
         try:
@@ -304,7 +304,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.error(f"Error collecting competitor prices: {e}")
 
-    async def _collect_performance_data(self):
+    async def _collect_performance_data(self) -> None:
         """Collect provider performance metrics"""
 
         try:
@@ -338,7 +338,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.error(f"Error collecting performance data: {e}")
 
-    async def _collect_market_sentiment(self):
+    async def _collect_market_sentiment(self) -> None:
         """Collect market sentiment data"""
 
         try:
@@ -370,7 +370,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.error(f"Error collecting market sentiment: {e}")
 
-    async def _add_data_point(self, data_point: MarketDataPoint):
+    async def _add_data_point(self, data_point: MarketDataPoint) -> None:
         """Add a data point and notify callbacks"""
 
         # Add to raw data
@@ -391,7 +391,7 @@ class MarketDataCollector:
         # Broadcast via WebSocket
         await self._broadcast_data_point(data_point)
 
-    async def _aggregate_market_data(self):
+    async def _aggregate_market_data(self) -> None:
         """Aggregate raw market data into useful metrics"""
 
         while True:
@@ -402,7 +402,7 @@ class MarketDataCollector:
                 logger.error(f"Error aggregating market data: {e}")
                 await asyncio.sleep(30)
 
-    async def _perform_aggregation(self):
+    async def _perform_aggregation(self) -> None:
         """Perform the actual data aggregation"""
 
         regions = ["us_west", "us_east", "europe", "asia", "global"]
@@ -616,7 +616,7 @@ class MarketDataCollector:
 
         return max(0.1, min(0.95, overall_confidence))
 
-    async def _cleanup_old_data(self):
+    async def _cleanup_old_data(self) -> None:
         """Clean up old data points"""
 
         while True:
@@ -636,7 +636,7 @@ class MarketDataCollector:
                 logger.error(f"Error cleaning up old data: {e}")
                 await asyncio.sleep(300)
 
-    async def _start_websocket_server(self):
+    async def _start_websocket_server(self) -> None:
         """Start WebSocket server for real-time data streaming"""
 
         async def handle_websocket(websocket, path):
@@ -670,7 +670,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.error(f"Failed to start WebSocket server: {e}")
 
-    async def _broadcast_data_point(self, data_point: MarketDataPoint):
+    async def _broadcast_data_point(self, data_point: MarketDataPoint) -> None:
         """Broadcast data point to all connected WebSocket clients"""
 
         if not self.websocket_connections:

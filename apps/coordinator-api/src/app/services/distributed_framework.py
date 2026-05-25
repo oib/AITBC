@@ -331,7 +331,7 @@ class DistributedProcessingCoordinator:
         except Exception as e:
             self.report_task_failure(task.task_id, str(e))
 
-    def report_task_success(self, task_id: str, result: Any) -> None:
+    def report_task_success(self, task_id: str, result: Any) -> Any:
         """Called by a worker when a task completes successfully"""
         if task_id not in self.tasks:
             return

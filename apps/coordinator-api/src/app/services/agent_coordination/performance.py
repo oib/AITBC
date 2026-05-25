@@ -29,7 +29,7 @@ from ...domain.agent_performance import (
 class MetaLearningEngine:
     """Advanced meta-learning system for rapid skill acquisition"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.meta_algorithms = {
             "model_agnostic_meta_learning": self.maml_algorithm,
             "reptile": self.reptile_algorithm,
@@ -307,7 +307,7 @@ class MetaLearningEngine:
 class ResourceManager:
     """Self-optimizing resource management system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.optimization_algorithms = {
             "genetic_algorithm": self.genetic_optimization,
             "simulated_annealing": self.simulated_annealing,
@@ -546,7 +546,7 @@ class ResourceManager:
 class PerformanceOptimizer:
     """Advanced performance optimization system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.optimization_techniques = {
             "hyperparameter_tuning": self.tune_hyperparameters,
             "architecture_optimization": self.optimize_architecture,
@@ -842,7 +842,7 @@ class PerformanceOptimizer:
 class AgentPerformanceService:
     """Main service for advanced agent performance management"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
         self.meta_learning_engine = MetaLearningEngine()
         self.resource_manager = ResourceManager()
@@ -881,7 +881,7 @@ class AgentPerformanceService:
         """Update agent performance metrics"""
 
         profile = self.session.execute(
-            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
+            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)  # type: ignore[arg-type]
         ).first()
 
         if not profile:
@@ -960,7 +960,7 @@ class AgentPerformanceService:
         """Get comprehensive agent performance profile"""
 
         profile = self.session.execute(
-            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
+            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)  # type: ignore[arg-type]
         ).first()
 
         if not profile:
