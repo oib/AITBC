@@ -1,2 +1,2 @@
-def get_api_key():
+def get_api_key() -> str:
     return "test-key"

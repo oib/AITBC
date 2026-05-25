@@ -3,7 +3,7 @@ Pricing API Schemas
 Pydantic models for dynamic pricing API requests and responses
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -64,7 +64,7 @@ class PricingStrategyRequest(BaseModel):
     regions: list[str] | None = Field(None, description="Applicable regions")
 
     @validator("constraints")
-    def validate_constraints(cls, v):
+    def validate_constraints(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is not None:
             # Validate constraint fields
             if "min_price" in v and v["min_price"] is not None and v["min_price"] <= 0:
@@ -358,7 +358,7 @@ class PricingError(BaseModel):
     error_code: str = Field(..., description="Error code")
     message: str = Field(..., description="Error message")
     details: dict[str, Any] | None = Field(None, description="Additional error details")
-    timestamp: datetime = Field(default_factory=datetime.now(timezone.utc), description="Error timestamp")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Error timestamp")
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}

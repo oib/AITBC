@@ -395,7 +395,7 @@ class BlockListResponse(BaseModel):
 
 
 class TransactionSummary(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, ser_json_tuples=True)
+    model_config = ConfigDict(populate_by_name=True)
 
     hash: str
     block: str | int
