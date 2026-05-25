@@ -170,7 +170,7 @@ async def get_auction_bids(
     if reveal:
         # In production, would use pre-images to reveal amounts
         for bid in mock_bids:
-            bid["amount"] = 100.0 if bid["bid_id"] == "bid_12345678" else 150.0
+            bid["amount"] = 100.0 if bid["bid_id"] == "bid_12345678" else 150.0  # type: ignore[assignment]
 
     return {"auction_id": auction_id, "bids": mock_bids, "revealed": reveal, "total_bids": len(mock_bids)}
 

@@ -6,6 +6,10 @@ from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
 from ....schemas import ConfidentialAccessRequest
 
 
@@ -41,7 +45,7 @@ class ParticipantRole(StrEnum):
 class PolicyStore:
     """Storage for access control policies"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._policies: dict[str, dict] = {}
         self._role_permissions: dict[ParticipantRole, set[str]] = {
             ParticipantRole.CLIENT: {"read_own", "settlement_own"},
@@ -52,7 +56,7 @@ class PolicyStore:
         }
         self._load_default_policies()
 
-    def _load_default_policies(self):
+    def _load_default_policies(self) -> None:
         """Load default access policies"""
         # Client can access their own transactions
         self._policies["client_own_data"] = {
@@ -94,7 +98,7 @@ class PolicyStore:
         """List all policy IDs"""
         return list(self._policies.keys())
 
-    def add_policy(self, policy_id: str, policy: dict):
+    def add_policy(self, policy_id: str, policy: dict) -> None:
         """Add new access policy"""
         self._policies[policy_id] = policy
 
@@ -118,7 +122,7 @@ class AccessController:
             cache_key = self._get_cache_key(request)
             cached_result = self._get_cached_result(cache_key)
             if cached_result is not None:
-                return cached_result["allowed"]
+                return cached_result["allowed"]  # type: ignore[no-any-return]
 
             # Get participant info
             participant_info = self._get_participant_info(request.requester)
@@ -128,7 +132,7 @@ class AccessController:
 
             # Check role-based permissions
             role = participant_info.get("role")
-            if not self._check_role_permissions(role, request):
+            if not self._check_role_permissions(role, request):  # type: ignore[arg-type]
                 return False
 
             # Check transaction-specific policies
@@ -243,7 +247,7 @@ class AccessController:
 
         expiry_date = transaction_date + timedelta(days=retention_days)
 
-        return datetime.now(timezone.utc) <= expiry_date
+        return datetime.now(timezone.utc) <= expiry_date  # type: ignore[no-any-return]
 
     def _get_participant_info(self, participant_id: str) -> dict | None:
         """Get participant information"""
@@ -307,7 +311,7 @@ class AccessController:
                 del self._access_cache[cache_key]
         return None
 
-    def _cache_result(self, cache_key: str, allowed: bool):
+    def _cache_result(self, cache_key: str, allowed: bool) -> None:
         """Cache access result"""
         self._access_cache[cache_key] = {"allowed": allowed, "timestamp": datetime.now(timezone.utc)}
 
@@ -330,7 +334,7 @@ class AccessController:
 
         return policy_id
 
-    def revoke_access(self, participant_id: str, transaction_id: str | None = None):
+    def revoke_access(self, participant_id: str, transaction_id: str | None = None) -> None:
         """Revoke access for participant"""
         # In production, update database
         # For now, clear cache
@@ -352,7 +356,7 @@ class AccessController:
             return {"error": "Participant not found"}
 
         role = participant_info.get("role")
-        permissions = self.policy_store.get_role_permissions(ParticipantRole(role))
+        permissions = self.policy_store.get_role_permissions(ParticipantRole(role))  # type: ignore[arg-type]
 
         return {
             "participant_id": participant_id,

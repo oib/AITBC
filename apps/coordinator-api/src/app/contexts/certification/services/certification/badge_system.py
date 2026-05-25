@@ -19,7 +19,7 @@ from app.domain.reputation import AgentReputation
 class BadgeSystem:
     """Achievement and recognition badge system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.badge_categories = {
             "performance": {
                 "early_adopter": {"threshold": 1, "metric": "jobs_completed"},
@@ -205,7 +205,7 @@ class BadgeSystem:
             "transaction_count": float(reputation.transaction_count),
         }
 
-        return metric_map.get(metric, 0.0)
+        return metric_map.get(metric, 0.0)  # type: ignore[no-any-return]
 
     async def check_and_award_automatic_badges(self, session: Session, agent_id: str) -> list[dict[str, Any]]:
         """Check and award automatic badges for an agent"""
@@ -244,7 +244,7 @@ class BadgeSystem:
                                 "badge_id": badge.badge_id,
                                 "badge_name": badge.badge_name,
                                 "badge_type": badge.badge_type.value,
-                                "awarded_at": agent_badge.awarded_at.isoformat(),
+                                "awarded_at": agent_badge.awarded_at.isoformat(),  # type: ignore[union-attr]
                                 "reason": message,
                             }
                         )

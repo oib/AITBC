@@ -35,7 +35,7 @@ class ModalityOptimizer:
 
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
-        self._performance_history = {}
+        self._performance_history = {}  # type: ignore[var-annotated]
 
     async def optimize(
         self,
@@ -66,8 +66,8 @@ class TextOptimizer(ModalityOptimizer):
 
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         super().__init__(session)
-        self._token_cache = {}
-        self._embedding_cache = {}
+        self._token_cache = {}  # type: ignore[var-annotated]
+        self._embedding_cache = {}  # type: ignore[var-annotated]
 
     async def optimize(
         self,
@@ -311,7 +311,7 @@ class ImageOptimizer(ModalityOptimizer):
 
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         super().__init__(session)
-        self._feature_cache = {}
+        self._feature_cache = {}  # type: ignore[var-annotated]
 
     async def optimize(
         self,
@@ -571,6 +571,7 @@ class AudioOptimizer(ModalityOptimizer):
 
         sample_rate = audio_data.get("sample_rate", 16000)
         duration = audio_data.get("duration", 1.0)
+        channels = audio_data.get("channels", 1)
 
         # Maintain or increase quality
         optimized_sample_rate = max(sample_rate, 22050)  # Minimum 22.05kHz
@@ -873,13 +874,13 @@ class ModalityOptimizationManager:
                 logger.error(f"Optimization failed for {modality}: {result}")
                 results[modality.value] = {"error": str(result)}
             else:
-                results[modality.value] = result
+                results[modality.value] = result  # type: ignore[assignment]
 
         processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         # Calculate aggregate metrics
         total_compression = sum(
-            result.get("optimization_metrics", {}).get("compression_ratio", 1.0)
+            result.get("optimization_metrics", {}).get("compression_ratio", 1.0)  # type: ignore[call-overload,union-attr]
             for result in results.values()
             if "error" not in result
         )

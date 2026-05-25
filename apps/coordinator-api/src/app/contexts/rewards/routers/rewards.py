@@ -135,7 +135,7 @@ async def get_reward_profile(
 ) -> RewardProfileResponse:
     """Get comprehensive reward profile for an agent"""
     
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     
     try:
         profile_data = await reward_engine.get_reward_summary(agent_id)
@@ -161,7 +161,7 @@ async def create_reward_profile(
 ) -> Dict[str, Any]:
     """Create a new reward profile for an agent"""
     
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     
     try:
         profile = await reward_engine.create_reward_profile(agent_id)
@@ -188,7 +188,7 @@ async def calculate_and_distribute_reward(
 ) -> RewardResponse:
     """Calculate and distribute reward for an agent"""
     
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     
     try:
         # Parse reference date if provided
@@ -229,7 +229,7 @@ async def get_tier_progress(
 ) -> TierProgressResponse:
     """Get tier progress information for an agent"""
     
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     
     try:
         # Get reward profile
@@ -331,7 +331,7 @@ async def batch_process_pending_rewards(
 ) -> BatchProcessResponse:
     """Process pending reward distributions in batch"""
     
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     
     try:
         result = await reward_engine.batch_process_pending_rewards(limit)
@@ -358,7 +358,7 @@ async def get_reward_analytics(
 ) -> RewardAnalyticsResponse:
     """Get reward system analytics"""
     
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     
     try:
         # Parse dates if provided
@@ -413,7 +413,7 @@ async def get_reward_leaderboard(
             query = query.where(AgentRewardProfile.current_tier == tier)
         
         profiles = session.execute(
-            query.order_by(AgentRewardProfile.total_earnings.desc()).limit(limit)
+            query.order_by(AgentRewardProfile.total_earnings.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
         
         leaderboard = []
@@ -570,7 +570,7 @@ async def simulate_reward_calculation(
 ) -> Dict[str, Any]:
     """Simulate reward calculation without distributing"""
     
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     
     try:
         # Ensure reward profile exists
@@ -581,7 +581,7 @@ async def simulate_reward_calculation(
             reward_request.agent_id, 
             reward_request.base_amount, 
             reward_request.performance_metrics, 
-            session
+            session  # type: ignore[arg-type]
         )
         
         return {

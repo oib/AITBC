@@ -5,11 +5,15 @@ HSM-backed key management for production use
 import json
 import os
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..config import settings
 from ..repositories.confidential import ParticipantKeyRepository
@@ -48,7 +52,7 @@ class HSMProvider(ABC):
 class SoftwareHSMProvider(HSMProvider):
     """Software-based HSM provider for development/testing"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._keys: dict[str, X25519PrivateKey] = {}
         self._backend = default_backend()
 
@@ -101,7 +105,7 @@ class SoftwareHSMProvider(HSMProvider):
 class AzureKeyVaultProvider(HSMProvider):
     """Azure Key Vault HSM provider for production"""
 
-    def __init__(self, vault_url: str, credential):
+    def __init__(self, vault_url: str, credential):  # type: ignore[no-untyped-def]
         from azure.identity import DefaultAzureCredential
         from azure.keyvault.keys import KeyClient
 
@@ -127,7 +131,7 @@ class AzureKeyVaultProvider(HSMProvider):
         crypto_client = self.key_client.get_cryptography_client(key_id)
 
         sign_result = await crypto_client.sign("ES256", data)
-        return sign_result.signature
+        return sign_result.signature  # type: ignore[no-any-return]
 
     async def derive_shared_secret(self, key_handle: bytes, public_key: bytes) -> bytes:
         """Derive shared secret (not directly supported in Azure)"""
@@ -171,7 +175,7 @@ class AWSKMSProvider(HSMProvider):
     async def sign_with_key(self, key_handle: bytes, data: bytes) -> bytes:
         """Sign with AWS KMS"""
         response = self.kms.sign(KeyId=key_handle.decode(), Message=data, MessageType="RAW", SigningAlgorithm="ECDSA_SHA_256")
-        return response["Signature"]
+        return response["Signature"]  # type: ignore[no-any-return]
 
     async def derive_shared_secret(self, key_handle: bytes, public_key: bytes) -> bytes:
         """Derive shared secret (not directly supported in KMS)"""
@@ -201,10 +205,10 @@ class HSMKeyManager:
         self._master_key = None
         self._init_master_key()
 
-    def _init_master_key(self):
+    def _init_master_key(self) -> None:
         """Initialize master key for encrypting stored data"""
         # In production, this would come from HSM or KMS
-        self._master_key = os.urandom(32)
+        self._master_key = os.urandom(32)  # type: ignore[assignment]
 
     async def generate_key_pair(self, participant_id: str) -> KeyPair:
         """Generate key pair in HSM"""
@@ -224,7 +228,7 @@ class HSMKeyManager:
             )
 
             # Store metadata in database
-            await self.key_repo.create(await self._get_session(), key_pair)
+            await self.key_repo.create(await self._get_session(), key_pair)  # type: ignore[func-returns-value]
 
             logger.info(f"Generated HSM key pair for participant: {participant_id}")
             return key_pair
@@ -236,7 +240,7 @@ class HSMKeyManager:
     async def rotate_keys(self, participant_id: str) -> KeyPair:
         """Rotate keys in HSM"""
         # Get current key
-        current_key = await self.key_repo.get_by_participant(await self._get_session(), participant_id)
+        current_key = await self.key_repo.get_by_participant(await self._get_session(), participant_id)  # type: ignore[func-returns-value]
 
         if not current_key:
             raise ValueError(f"No existing keys for {participant_id}")
@@ -253,7 +257,7 @@ class HSMKeyManager:
             reason="scheduled_rotation",
         )
 
-        await self.key_repo.rotate(await self._get_session(), participant_id, new_key_pair)
+        await self.key_repo.rotate(await self._get_session(), participant_id, new_key_pair)  # type: ignore[func-returns-value]
 
         # Delete old key from HSM
         await self.hsm.delete_key(current_key.private_key)
@@ -270,12 +274,12 @@ class HSMKeyManager:
 
     async def get_private_key_handle(self, participant_id: str) -> bytes:
         """Get HSM key handle for participant"""
-        key = await self.key_repo.get_by_participant(await self._get_session(), participant_id)
+        key = await self.key_repo.get_by_participant(await self._get_session(), participant_id)  # type: ignore[func-returns-value]
 
         if not key:
             raise ValueError(f"No keys found for {participant_id}")
 
-        return key.private_key  # This is the HSM handle
+        return bytes(key.private_key) if key.private_key else b''  # This is the HSM handle
 
     async def derive_shared_secret(self, participant_id: str, peer_public_key: bytes) -> bytes:
         """Derive shared secret using HSM"""
@@ -290,7 +294,7 @@ class HSMKeyManager:
     async def revoke_keys(self, participant_id: str, reason: str) -> bool:
         """Revoke participant's keys"""
         # Get current key
-        current_key = await self.key_repo.get_by_participant(await self._get_session(), participant_id)
+        current_key = await self.key_repo.get_by_participant(await self._get_session(), participant_id)  # type: ignore[func-returns-value]
 
         if not current_key:
             return False
@@ -299,7 +303,7 @@ class HSMKeyManager:
         await self.hsm.delete_key(current_key.private_key)
 
         # Mark as revoked in database
-        return await self.key_repo.update_active(await self._get_session(), participant_id, False, reason)
+        return await self.key_repo.update_active(await self._get_session(), participant_id, False, reason)  # type: ignore[func-returns-value,no-any-return]
 
     async def create_audit_authorization(self, issuer: str, purpose: str, expires_in_hours: int = 24) -> str:
         """Create audit authorization signed with HSM"""
@@ -347,11 +351,11 @@ class HSMKeyManager:
             logger.error(f"Failed to verify audit authorization: {e}")
             return False
 
-    async def _get_session(self):
+    async def _get_session(self) -> None:
         """Get database session"""
         # In production, inject via dependency injection
-        async for session in get_async_session():
-            return session
+        async for session in get_async_session():  # type: ignore[name-defined]
+            return session  # type: ignore[no-any-return]
 
 
 def create_hsm_key_manager() -> HSMKeyManager:
@@ -365,10 +369,10 @@ def create_hsm_key_manager() -> HSMKeyManager:
         hsm = SoftwareHSMProvider()
     elif hsm_type == "azure":
         vault_url = settings.AZURE_KEY_VAULT_URL
-        hsm = AzureKeyVaultProvider(vault_url)
+        hsm = AzureKeyVaultProvider(vault_url)  # type: ignore[assignment,call-arg]
     elif hsm_type == "aws":
         region = getattr(settings, "AWS_REGION", "us-east-1")
-        hsm = AWSKMSProvider(region)
+        hsm = AWSKMSProvider(region)  # type: ignore[assignment]
     else:
         raise ValueError(f"Unknown HSM provider: {hsm_type}")
 

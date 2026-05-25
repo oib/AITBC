@@ -19,7 +19,7 @@ ADDRESS_PATTERN = re.compile(r'^[a-zA-Z0-9]{20,50}$')
 class BlockchainService:
     """Stub blockchain service for staking router compatibility"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
 
@@ -47,7 +47,7 @@ async def mint_tokens(address: str, amount: float) -> dict:
             json={"address": address, "amount": amount},
             headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
         )
-        return response
+        return response  # type: ignore[no-any-return]
     except NetworkError as e:
         raise Exception(f"Failed to mint tokens: {e}")
 

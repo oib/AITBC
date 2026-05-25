@@ -26,7 +26,7 @@ class MarketplaceService:
         limit: int = 100,
         offset: int = 0,
     ) -> list[MarketplaceOfferView]:
-        stmt = select(MarketplaceOffer).order_by(MarketplaceOffer.created_at.desc())
+        stmt = select(MarketplaceOffer).order_by(MarketplaceOffer.created_at.desc())  # type: ignore[attr-defined]
 
         if status is not None:
             normalised = status.strip().lower()
@@ -74,7 +74,7 @@ class MarketplaceService:
         limit: int = 100,
         offset: int = 0,
     ) -> list[MarketplaceBidView]:
-        stmt = select(MarketplaceBid).order_by(MarketplaceBid.submitted_at.desc())
+        stmt = select(MarketplaceBid).order_by(MarketplaceBid.submitted_at.desc())  # type: ignore[attr-defined]
 
         if status is not None:
             normalised = status.strip().lower()
@@ -87,7 +87,7 @@ class MarketplaceService:
 
         stmt = stmt.offset(offset).limit(limit)
         bids = self.session.execute(stmt).all()
-        return [self._to_bid_view(bid) for bid in bids]
+        return [self._to_bid_view(bid) for bid in bids]  # type: ignore[arg-type]
 
     def get_bid(self, bid_id: str) -> MarketplaceBidView | None:
         bid = self.session.get(MarketplaceBid, bid_id)

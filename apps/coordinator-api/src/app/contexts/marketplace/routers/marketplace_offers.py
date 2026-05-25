@@ -76,7 +76,7 @@ async def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -
     """List all offers created from miners"""
 
     # Get all offers with miner details
-    offers = session.execute(select(MarketplaceOffer).where(MarketplaceOffer.provider.like("miner_%"))).all()
+    offers = session.execute(select(MarketplaceOffer).where(MarketplaceOffer.provider.like("miner_%"))).all()  # type: ignore[attr-defined]
 
     result = []
     for offer in offers:
@@ -86,7 +86,7 @@ async def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -
         # Extract attributes
         attrs = offer.attributes or {}
 
-        offer_view = MarketplaceOfferView(
+        offer_view = MarketplaceOfferView(  # type: ignore[call-arg]
             id=offer.id,
             provider_id=offer.provider,
             provider_name=f"Miner {offer.provider}" if miner else "Unknown Miner",

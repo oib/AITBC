@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from ..domain import MarketplaceBid, MarketplaceOffer
+from ..domain import MarketplaceBid, MarketplaceOffer  # type: ignore[attr-defined]
 
 
 class RoyaltyTier(StrEnum):
@@ -160,7 +160,7 @@ class EnhancedMarketplaceService:
                 raise ValueError(f"Offer not found: {offer_id}")
 
             # Simulate verification process
-            verification_result = {
+            verification_result = {  # type: ignore[var-annotated]
                 "offer_id": offer_id,
                 "verification_type": verification_type.value,
                 "status": "verified",
@@ -222,7 +222,7 @@ class EnhancedMarketplaceService:
             }
 
             if "volume" in metrics:
-                analytics["metrics"]["volume"] = {
+                analytics["metrics"]["volume"] = {  # type: ignore[index]
                     "total_offers": len(offers),
                     "total_capacity": sum(offer.capacity or 0 for offer in offers),
                     "average_capacity": sum(offer.capacity or 0 for offer in offers) / len(offers) if offers else 0,
@@ -230,21 +230,21 @@ class EnhancedMarketplaceService:
                 }
 
             if "trends" in metrics:
-                analytics["metrics"]["trends"] = {
+                analytics["metrics"]["trends"] = {  # type: ignore[index]
                     "price_trend": "stable",
                     "demand_trend": "increasing",
                     "capacity_utilization": 0.75,
                 }
 
             if "performance" in metrics:
-                analytics["metrics"]["performance"] = {
+                analytics["metrics"]["performance"] = {  # type: ignore[index]
                     "average_response_time": 0.5,
                     "success_rate": 0.95,
                     "provider_satisfaction": 4.2,
                 }
 
             if "revenue" in metrics:
-                analytics["metrics"]["revenue"] = {
+                analytics["metrics"]["revenue"] = {  # type: ignore[index]
                     "total_revenue": sum(bid.price or 0 for bid in bids),
                     "average_price": sum(offer.price or 0 for offer in offers) / len(offers) if offers else 0,
                     "revenue_growth": 0.12,

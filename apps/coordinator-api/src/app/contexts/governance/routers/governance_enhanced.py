@@ -498,7 +498,7 @@ async def get_governance_system_health(
     try:
         # Check database connectivity
         try:
-            profile_count = session.execute(select(func.count(GovernanceProfile.profile_id))).scalar()
+            profile_count = session.execute(select(func.count(GovernanceProfile.profile_id))).scalar()  # type: ignore[arg-type]
             database_status = "healthy"
         except Exception:
             database_status = "unhealthy"
