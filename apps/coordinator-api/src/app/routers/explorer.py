@@ -32,7 +32,7 @@ async def list_blocks(
     limit: int = Query(default=20, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> BlockListResponse:
-    return _service(session).list_blocks(limit=limit, offset=offset)
+    return _service(session).list_blocks(limit=limit, offset=offset)  # type: ignore[no-any-return]
 
 
 @router.get(
@@ -48,7 +48,7 @@ async def list_transactions(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> TransactionListResponse:
-    return _service(session).list_transactions(limit=limit, offset=offset)
+    return _service(session).list_transactions(limit=limit, offset=offset)  # type: ignore[no-any-return]
 
 
 @router.get("/addresses", response_model=AddressListResponse, summary="List address summaries")
@@ -60,7 +60,7 @@ async def list_addresses(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> AddressListResponse:
-    return _service(session).list_addresses(limit=limit, offset=offset)
+    return _service(session).list_addresses(limit=limit, offset=offset)  # type: ignore[no-any-return]
 
 
 @router.get("/receipts", response_model=ReceiptListResponse, summary="List job receipts")
@@ -73,7 +73,7 @@ async def list_receipts(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> ReceiptListResponse:
-    return _service(session).list_receipts(job_id=job_id, limit=limit, offset=offset)
+    return _service(session).list_receipts(job_id=job_id, limit=limit, offset=offset)  # type: ignore[no-any-return]
 
 
 @router.get("/transactions/{tx_hash}", summary="Get transaction details by hash")
@@ -85,4 +85,4 @@ async def get_transaction(
     tx_hash: str,
 ) -> dict:
     """Get transaction details by hash from blockchain RPC"""
-    return _service(session).get_transaction(tx_hash)
+    return _service(session).get_transaction(tx_hash)  # type: ignore[no-any-return]

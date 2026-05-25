@@ -23,7 +23,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/debug-settings", summary="Debug settings")
 @rate_limit(rate=100, per=60)
-async def debug_settings(request: Request) -> dict:  # type: ignore[arg-type]
+async def debug_settings(request: Request) -> dict:
     # SECURITY FIX: Mask API keys before returning to prevent clear-text exposure
     def mask_keys(keys: list[str]) -> list[str]:
         return [key[:8] + "..." if len(key) > 8 else "***" for key in keys]
@@ -32,7 +32,7 @@ async def debug_settings(request: Request) -> dict:  # type: ignore[arg-type]
         "admin_api_keys": mask_keys(settings.admin_api_keys),
         "client_api_keys": mask_keys(settings.client_api_keys),
         "miner_api_keys": mask_keys(settings.miner_api_keys),
-        "app_env": settings.app_env,
+        "app_env": settings.app_env,  # type: ignore[attr-defined]
     }
 
 
@@ -40,7 +40,7 @@ async def debug_settings(request: Request) -> dict:  # type: ignore[arg-type]
 @rate_limit(rate=10, per=60)
 async def create_test_miner(
     request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
-) -> dict[str, str]:  # type: ignore[arg-type]
+) -> dict[str, str]:
     """Create a test miner for debugging marketplace sync"""
     try:
         from uuid import uuid4
@@ -102,7 +102,7 @@ async def create_test_miner(
 
 @router.get("/test-key", summary="Test API key validation")
 @rate_limit(rate=100, per=60)
-async def test_key(request: Request, api_key: str = Header(default=None, alias="X-Api-Key")) -> dict[str, str]:  # type: ignore[arg-type]
+async def test_key(request: Request, api_key: str = Header(default=None, alias="X-Api-Key")) -> dict[str, str]:
     masked_key = api_key[:8] + "..." if api_key else "None"
     logger.debug(f"Received API key: {masked_key}")
     logger.debug(f"Allowed admin keys count: {len(settings.admin_api_keys)}")
@@ -120,7 +120,7 @@ async def test_key(request: Request, api_key: str = Header(default=None, alias="
 @cached(**get_cache_config("job_list"))  # Cache admin stats for 1 minute
 async def get_stats(
     request: Request, session: Annotated[Session, Depends(get_session)], api_key: str = Header(default=None, alias="X-Api-Key")
-) -> dict[str, int]:  # type: ignore[arg-type]
+) -> dict[str, int]:
     # Temporary debug: bypass dependency and validate directly
     logger.debug("API key validation check")
     logger.debug("Allowed admin keys count: %d", len(settings.admin_api_keys))
@@ -136,7 +136,7 @@ async def get_stats(
     from ..domain import Job
 
     total_jobs = session.execute(select(func.count()).select_from(Job)).one()
-    active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()
+    active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
 
     miner_service = MinerService(session)
     miners = miner_service.list_records()
@@ -153,10 +153,10 @@ async def get_stats(
 
 @router.get("/jobs", summary="List jobs")
 @rate_limit(rate=100, per=60)
-async def list_jobs(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
+async def list_jobs(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:
     from ..domain import Job
 
-    jobs = session.execute(select(Job).order_by(Job.requested_at.desc()).limit(100)).all()
+    jobs = session.execute(select(Job).order_by(Job.requested_at.desc()).limit(100)).all()  # type: ignore[attr-defined]
     return {
         "items": [
             {
@@ -173,7 +173,7 @@ async def list_jobs(request: Request, session: Annotated[Session, Depends(get_se
 
 @router.get("/miners", summary="List miners")
 @rate_limit(rate=100, per=60)
-async def list_miners(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
+async def list_miners(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:
     from sqlmodel import select
 
     from ..domain import Miner
@@ -201,7 +201,7 @@ async def list_miners(request: Request, session: Annotated[Session, Depends(get_
 @rate_limit(rate=100, per=60)
 async def get_system_status(
     request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
-) -> dict[str, any]:  # type: ignore[arg-type]
+) -> dict[str, any]:  # type: ignore[valid-type]
     """Get comprehensive system status for admin dashboard"""
     try:
         # Get job statistics
@@ -211,7 +211,7 @@ async def get_system_status(
         from ..domain import Job
 
         total_jobs = session.execute(select(func.count()).select_from(Job)).one()
-        active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()
+        active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
         completed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "COMPLETED")).one()
         failed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "FAILED")).one()
 

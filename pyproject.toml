@@ -161,7 +161,6 @@ ignore_missing_imports = true
 # Clean (no override needed): domain.*, schemas.*, auth, exceptions, models.*, storage.*, utils.*
 [[tool.mypy.overrides]]
 module = [
-    "apps.coordinator-api.src.app.routers.*",
     "apps.coordinator-api.src.app.contexts.*",
 ]
 ignore_errors = true

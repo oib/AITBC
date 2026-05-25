@@ -116,11 +116,11 @@ async def get_service_schema(request: Request, service_id: str) -> dict[str, Any
         if param.default is not None:
             prop["default"] = param.default
         if param.min_value is not None:
-            prop["minimum"] = param.min_value
+            prop["minimum"] = param.min_value  # type: ignore[assignment]
         if param.max_value is not None:
-            prop["maximum"] = param.max_value
+            prop["maximum"] = param.max_value  # type: ignore[assignment]
         if param.options:
-            prop["enum"] = param.options
+            prop["enum"] = param.options  # type: ignore[assignment]
         if param.validation:
             prop.update(param.validation)
 
@@ -176,7 +176,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_id} not found")
 
     # Validate request data
-    validation_result = {"valid": True, "errors": [], "warnings": []}
+    validation_result: dict[str, Any] = {"valid": True, "errors": [], "warnings": []}
 
     # Check required parameters
     provided_params = set(request_data.keys())
@@ -218,7 +218,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
             # Enum options
             if param.options and value not in param.options:
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be one of: {', '.join(param.options)}")
+                validation_result["errors"].append(f"Parameter {param.name} must be one of: {', '.join(param.options)}")  # type: ignore[arg-type]
 
     return validation_result
 

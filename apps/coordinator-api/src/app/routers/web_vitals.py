@@ -59,7 +59,7 @@ async def collect_web_vitals(request: Request, metric: WebVitalsMetric) -> dict[
             filtered_entries.append(filtered_entry)
 
         # Log the metric for monitoring/analysis
-        logger.info(
+        logger.info(  # type: ignore[call-arg]
             "Web Vitals metric received",
             metric_name=metric.name,
             metric_value=metric.value,
@@ -76,7 +76,7 @@ async def collect_web_vitals(request: Request, metric: WebVitalsMetric) -> dict[
         return {"status": "received", "metric": metric.name, "value": metric.value}
 
     except (ValueError, AttributeError, KeyError) as e:
-        logger.error("Error processing web vitals metric", error=str(e))
+        logger.error("Error processing web vitals metric", error=str(e))  # type: ignore[call-arg]
         raise HTTPException(status_code=500, detail="Failed to process metric")
 
 
