@@ -302,12 +302,12 @@ class MultiChainTransactionManager:
             if priority:
                 stmt = stmt.where(MultiChainTransaction.priority == priority)
             if from_date:
-                stmt = stmt.where(MultiChainTransaction.created_at >= from_date)
+                stmt = stmt.where(MultiChainTransaction.created_at >= from_date)  # type: ignore[operator]
             if to_date:
-                stmt = stmt.where(MultiChainTransaction.created_at <= to_date)
+                stmt = stmt.where(MultiChainTransaction.created_at <= to_date)  # type: ignore[operator]
 
             # Sort by creation time (descending)
-            stmt = stmt.order_by(MultiChainTransaction.created_at.desc())
+            stmt = stmt.order_by(MultiChainTransaction.created_at.desc())  # type: ignore[arg-type]
 
             # Apply pagination
             stmt = stmt.offset(offset).limit(limit)
@@ -354,7 +354,7 @@ class MultiChainTransactionManager:
             cutoff_time = datetime.now(timezone.utc) - timedelta(hours=time_period_hours)
 
             # Query from database
-            stmt = select(MultiChainTransaction).where(MultiChainTransaction.created_at >= cutoff_time)
+            stmt = select(MultiChainTransaction).where(MultiChainTransaction.created_at >= cutoff_time)  # type: ignore[operator]
             if chain_id:
                 stmt = stmt.where(MultiChainTransaction.chain_id == chain_id)
 

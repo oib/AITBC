@@ -25,7 +25,7 @@ from ..domain.bounty import (
 class EcosystemService:
     """Service for ecosystem analytics and metrics"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     async def get_developer_earnings(self, period: str = "monthly") -> dict[str, Any]:
@@ -46,7 +46,7 @@ class EcosystemService:
                 func.sum(Bounty.reward_amount).label("total_earnings"),
                 func.count(func.distinct(Bounty.winner_address)).label("unique_earners"),
                 func.avg(Bounty.reward_amount).label("average_earnings"),
-            ).where(and_(Bounty.status == BountyStatus.COMPLETED, Bounty.creation_time >= start_date))
+            ).where(and_(Bounty.status == BountyStatus.COMPLETED, Bounty.creation_time >= start_date))  # type: ignore[arg-type]
 
             earnings_result = self.session.execute(earnings_stmt).first()
 
@@ -62,7 +62,7 @@ class EcosystemService:
                     func.count(Bounty.bounty_id).label("bounties_won"),
                 )
                 .where(
-                    and_(
+                    and_(  # type: ignore[arg-type]
                         Bounty.status == BountyStatus.COMPLETED,
                         Bounty.creation_time >= start_date,
                         Bounty.winner_address.isnot(None),
@@ -88,7 +88,7 @@ class EcosystemService:
             # Calculate earnings growth (compare with previous period)
             previous_start = start_date - timedelta(days=30) if period == "monthly" else start_date - timedelta(days=7)
             previous_earnings_stmt = select(func.sum(Bounty.reward_amount)).where(
-                and_(
+                and_(  # type: ignore[arg-type]
                     Bounty.status == BountyStatus.COMPLETED,
                     Bounty.creation_time >= previous_start,
                     Bounty.creation_time < start_date,
@@ -130,7 +130,7 @@ class EcosystemService:
                 func.count(AgentMetrics.agent_wallet).label("total_agents"),
                 func.sum(AgentMetrics.total_submissions).label("total_submissions"),
                 func.avg(AgentMetrics.average_accuracy).label("avg_accuracy"),
-            ).where(AgentMetrics.last_update_time >= start_date)
+            ).where(AgentMetrics.last_update_time >= start_date)  # type: ignore[arg-type]
 
             agents_result = self.session.execute(agents_stmt).first()
 
@@ -153,7 +153,7 @@ class EcosystemService:
                     func.count(BountySubmission.submission_id).label("submissions"),
                     func.avg(BountySubmission.accuracy).label("avg_accuracy"),
                 )
-                .where(BountySubmission.submission_time >= start_date)
+                .where(BountySubmission.submission_time >= start_date)  # type: ignore[arg-type]
                 .group_by(BountySubmission.submitter_address)
                 .order_by(func.count(BountySubmission.submission_id).desc())
                 .limit(10)
@@ -174,7 +174,7 @@ class EcosystemService:
             # Get performance distribution
             performance_stmt = (
                 select(AgentMetrics.current_tier, func.count(AgentMetrics.agent_wallet).label("count"))
-                .where(AgentMetrics.last_update_time >= start_date)
+                .where(AgentMetrics.last_update_time >= start_date)  # type: ignore[arg-type]
                 .group_by(AgentMetrics.current_tier)
             )
 
@@ -210,13 +210,13 @@ class EcosystemService:
             # Get bounty fees (treasury inflow)
             inflow_stmt = select(
                 func.sum(Bounty.creation_fee + Bounty.success_fee + Bounty.platform_fee).label("total_inflow")
-            ).where(Bounty.creation_time >= start_date)
+            ).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
 
             total_inflow = self.session.execute(inflow_stmt).scalar() or 0.0
 
             # Get rewards paid (treasury outflow)
             outflow_stmt = select(func.sum(Bounty.reward_amount).label("total_outflow")).where(
-                and_(Bounty.status == BountyStatus.COMPLETED, Bounty.creation_time >= start_date)
+                and_(Bounty.status == BountyStatus.COMPLETED, Bounty.creation_time >= start_date)  # type: ignore[arg-type]
             )
 
             total_outflow = self.session.execute(outflow_stmt).scalar() or 0.0
@@ -268,7 +268,7 @@ class EcosystemService:
                 func.sum(AgentStake.amount).label("total_staked"),
                 func.count(func.distinct(AgentStake.staker_address)).label("total_stakers"),
                 func.avg(AgentStake.current_apy).label("avg_apy"),
-            ).where(AgentStake.start_time >= start_date)
+            ).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
 
             staking_result = self.session.execute(staking_stmt).first()
 
@@ -291,7 +291,7 @@ class EcosystemService:
                     func.count(AgentStake.stake_id).label("stake_count"),
                     func.avg(AgentStake.current_apy).label("avg_apy"),
                 )
-                .where(AgentStake.start_time >= start_date)
+                .where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
                 .group_by(AgentStake.agent_wallet)
                 .order_by(func.sum(AgentStake.amount).desc())
                 .limit(10)
@@ -313,7 +313,7 @@ class EcosystemService:
             # Get tier distribution
             tier_stmt = (
                 select(AgentStake.agent_tier, func.count(AgentStake.stake_id).label("count"))
-                .where(AgentStake.start_time >= start_date)
+                .where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
                 .group_by(AgentStake.agent_tier)
             )
 
@@ -352,7 +352,7 @@ class EcosystemService:
                 func.count(func.distinct(Bounty.bounty_id))
                 .filter(Bounty.status == BountyStatus.ACTIVE)
                 .label("active_bounties"),
-            ).where(Bounty.creation_time >= start_date)
+            ).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
 
             bounty_result = self.session.execute(bounty_stmt).first()
 
@@ -361,7 +361,7 @@ class EcosystemService:
 
             # Get completion rate
             completed_stmt = select(func.count(Bounty.bounty_id)).where(
-                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)  # type: ignore[arg-type]
             )
 
             completed_bounties = self.session.execute(completed_stmt).scalar() or 0
@@ -370,7 +370,7 @@ class EcosystemService:
             # Get average reward and volume
             reward_stmt = select(
                 func.avg(Bounty.reward_amount).label("avg_reward"), func.sum(Bounty.reward_amount).label("total_volume")
-            ).where(Bounty.creation_time >= start_date)
+            ).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
 
             reward_result = self.session.execute(reward_stmt).first()
 
@@ -380,7 +380,7 @@ class EcosystemService:
             # Get category distribution
             category_stmt = (
                 select(Bounty.category, func.count(Bounty.bounty_id).label("count"))
-                .where(and_(Bounty.creation_time >= start_date, Bounty.category.isnot(None), Bounty.category != ""))
+                .where(and_(Bounty.creation_time >= start_date, Bounty.category.isnot(None), Bounty.category != ""))  # type: ignore[arg-type]
                 .group_by(Bounty.category)
             )
 
@@ -390,7 +390,7 @@ class EcosystemService:
             # Get difficulty distribution
             difficulty_stmt = (
                 select(Bounty.difficulty, func.count(Bounty.bounty_id).label("count"))
-                .where(and_(Bounty.creation_time >= start_date, Bounty.difficulty.isnot(None), Bounty.difficulty != ""))
+                .where(and_(Bounty.creation_time >= start_date, Bounty.difficulty.isnot(None), Bounty.difficulty != ""))  # type: ignore[arg-type]
                 .group_by(Bounty.difficulty)
             )
 
