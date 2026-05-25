@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 try:
     from ..exceptions import QuotaExceededError, TenantError
     from ..models.multitenant import Tenant, TenantApiKey, TenantAuditLog, TenantQuota, TenantStatus, TenantUser
-    from ..storage.db import get_db
+    from ..storage.db import get_db  # type: ignore[attr-defined]
 except ImportError:
     # Fallback for direct imports (CLI usage)
     import os
@@ -22,36 +22,36 @@ except ImportError:
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     try:
-        from app.exceptions import QuotaExceededError, TenantError
-        from app.models.multitenant import Tenant, TenantApiKey, TenantAuditLog, TenantQuota, TenantStatus, TenantUser
+        from app.exceptions import QuotaExceededError, TenantError  # type: ignore[no-redef]
+        from app.models.multitenant import Tenant, TenantApiKey, TenantAuditLog, TenantQuota, TenantStatus, TenantUser  # type: ignore[no-redef]
         from app.storage.db import get_db
     except ImportError:
         # Mock classes for CLI testing when full app context not available
-        class Tenant:
+        class Tenant:  # type: ignore[no-redef]
             pass
 
-        class TenantUser:
+        class TenantUser:  # type: ignore[no-redef]
             pass
 
-        class TenantQuota:
+        class TenantQuota:  # type: ignore[no-redef]
             pass
 
-        class TenantApiKey:
+        class TenantApiKey:  # type: ignore[no-redef]
             pass
 
-        class TenantAuditLog:
+        class TenantAuditLog:  # type: ignore[no-redef]
             pass
 
-        class TenantStatus:
+        class TenantStatus:  # type: ignore[no-redef]
             pass
 
-        class TenantError(Exception):
+        class TenantError(Exception):  # type: ignore[no-redef]
             pass
 
-        class QuotaExceededError(Exception):
+        class QuotaExceededError(Exception):  # type: ignore[no-redef]
             pass
 
-        def get_db():
+        def get_db() -> None:
             return None
 
 
@@ -98,11 +98,11 @@ class TenantManagementService:
         self.db.flush()
 
         # Create default quotas
-        await self._create_default_quotas(tenant.id, plan)
+        await self._create_default_quotas(tenant.id, plan)  # type: ignore[arg-type]
 
         # Log creation
         await self._log_audit_event(
-            tenant_id=tenant.id,
+            tenant_id=tenant.id,  # type: ignore[arg-type]
             event_type="tenant_created",
             event_category="lifecycle",
             actor_id="system",
@@ -157,7 +157,7 @@ class TenantManagementService:
 
         # Log update
         await self._log_audit_event(
-            tenant_id=tenant.id,
+            tenant_id=tenant.id,  # type: ignore[arg-type]
             event_type="tenant_updated",
             event_category="lifecycle",
             actor_id=actor_id,
@@ -189,7 +189,7 @@ class TenantManagementService:
 
         # Log activation
         await self._log_audit_event(
-            tenant_id=tenant.id,
+            tenant_id=tenant.id,  # type: ignore[arg-type]
             event_type="tenant_activated",
             event_category="lifecycle",
             actor_id=actor_id,
@@ -227,7 +227,7 @@ class TenantManagementService:
 
         # Log deactivation
         await self._log_audit_event(
-            tenant_id=tenant.id,
+            tenant_id=tenant.id,  # type: ignore[arg-type]
             event_type="tenant_deactivated",
             event_category="lifecycle",
             actor_id=actor_id,
@@ -258,7 +258,7 @@ class TenantManagementService:
 
         # Log suspension
         await self._log_audit_event(
-            tenant_id=tenant.id,
+            tenant_id=tenant.id,  # type: ignore[arg-type]
             event_type="tenant_suspended",
             event_category="lifecycle",
             actor_id=actor_id,
@@ -454,17 +454,17 @@ class TenantManagementService:
             start_date = end_date - timedelta(days=30)
 
         # Build query
-        stmt = select(
+        stmt = select(  # type: ignore[call-overload]
             UsageRecord.resource_type,
             func.sum(UsageRecord.quantity).label("total_quantity"),
             func.sum(UsageRecord.total_cost).label("total_cost"),
-            func.count(UsageRecord.id).label("record_count"),
+            func.count(UsageRecord.id).label("record_count"),  # type: ignore[arg-type]
         ).where(
-            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)  # type: ignore[arg-type]
+            and_(UsageRecord.tenant_id == tenant_id, UsageRecord.usage_start >= start_date, UsageRecord.usage_end <= end_date)  # type: ignore[arg-type,operator]
         )
 
         if resource_type:
-            stmt = stmt.where(UsageRecord.resource_type == resource_type)  # type: ignore[arg-type]
+            stmt = stmt.where(UsageRecord.resource_type == resource_type)
 
         stmt = stmt.group_by(UsageRecord.resource_type)
 
@@ -474,7 +474,7 @@ class TenantManagementService:
         usage = {"period": {"start": start_date.isoformat(), "end": end_date.isoformat()}, "by_resource": {}}
 
         for result in results:
-            usage["by_resource"][result.resource_type] = {
+            usage["by_resource"][result.resource_type] = {  # type: ignore[assignment]
                 "quantity": float(result.total_quantity),
                 "cost": float(result.total_cost),
                 "records": result.record_count,
@@ -487,19 +487,19 @@ class TenantManagementService:
 
         stmt = select(TenantQuota).where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.is_active))  # type: ignore[arg-type]
 
-        return self.db.execute(stmt).scalars().all()
+        return self.db.execute(stmt).scalars().all()  # type: ignore[return-value]
 
     async def check_quota(self, tenant_id: str, resource_type: str, quantity: float) -> bool:
         """Check if tenant has sufficient quota for a resource"""
 
         # Get current quota
         stmt = select(TenantQuota).where(
-            and_(  # type: ignore[arg-type]
-                TenantQuota.tenant_id == tenant_id,
-                TenantQuota.resource_type == resource_type,
-                TenantQuota.is_active,
-                TenantQuota.period_start <= datetime.now(timezone.utc),
-                TenantQuota.period_end >= datetime.now(timezone.utc),
+            and_(
+                TenantQuota.tenant_id == tenant_id,  # type: ignore[arg-type]
+                TenantQuota.resource_type == resource_type,  # type: ignore[arg-type]
+                TenantQuota.is_active,  # type: ignore[arg-type]
+                TenantQuota.period_start <= datetime.now(timezone.utc),  # type: ignore[arg-type,operator]
+                TenantQuota.period_end >= datetime.now(timezone.utc),  # type: ignore[arg-type,operator]
             )
         )
 
@@ -522,12 +522,12 @@ class TenantManagementService:
 
         # Get current quota
         stmt = select(TenantQuota).where(
-            and_(  # type: ignore[arg-type]
-                TenantQuota.tenant_id == tenant_id,
-                TenantQuota.resource_type == resource_type,
-                TenantQuota.is_active,
-                TenantQuota.period_start <= datetime.now(timezone.utc),
-                TenantQuota.period_end >= datetime.now(timezone.utc),
+            and_(
+                TenantQuota.tenant_id == tenant_id,  # type: ignore[arg-type]
+                TenantQuota.resource_type == resource_type,  # type: ignore[arg-type]
+                TenantQuota.is_active,  # type: ignore[arg-type]
+                TenantQuota.period_start <= datetime.now(timezone.utc),  # type: ignore[arg-type,operator]
+                TenantQuota.period_end >= datetime.now(timezone.utc),  # type: ignore[arg-type,operator]
             )
         )
 
@@ -564,7 +564,7 @@ class TenantManagementService:
         stmt = select(func.count(Tenant.id)).where(or_(*conditions))  # type: ignore[arg-type]
         count = self.db.execute(stmt).scalar()
 
-        return count > 0
+        return count > 0  # type: ignore[operator]
 
     async def _create_default_quotas(self, tenant_id: str, plan: str) -> None:
         """Create default quotas based on plan"""
@@ -635,7 +635,7 @@ class TenantManagementService:
         old_values: dict[str, Any] | None = None,
         new_values: dict[str, Any] | None = None,
         event_metadata: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Log an audit event"""
 
         audit_log = TenantAuditLog(

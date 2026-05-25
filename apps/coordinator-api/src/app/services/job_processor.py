@@ -37,7 +37,7 @@ class AIInferenceEngine:
     - Local ML models
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._supported_models = {
             "gpt2": {"latency_ms": 500, "tokens_per_sec": 50},
             "llama2": {"latency_ms": 800, "tokens_per_sec": 30},
@@ -94,7 +94,7 @@ class JobProcessor:
         self._ai_engine = AIInferenceEngine()
         self._processed_count = 0
     
-    async def start(self):
+    async def start(self) -> None:
         """Start the job processor loop"""
         self._running = True
         logger.info("Job processor started", extra={
@@ -110,7 +110,7 @@ class JobProcessor:
             
             await asyncio.sleep(self._poll_interval)
     
-    def stop(self):
+    def stop(self) -> None:
         """Stop the job processor"""
         self._running = False
         self._executor.shutdown(wait=False)
@@ -118,7 +118,7 @@ class JobProcessor:
             "processed_count": self._processed_count
         })
     
-    async def _process_next_batch(self):
+    async def _process_next_batch(self) -> None:
         """Process a batch of pending jobs"""
         # Get all running jobs
         # In a real system, we'd use a queue or pub/sub
@@ -146,8 +146,8 @@ class JobProcessor:
             
             logger.info(f"Processing job {job_id}", extra={
                 "job_id": job_id,
-                "job_type": job.job_type,
-                "provider": job.assigned_provider
+                "job_type": job.job_type,  # type: ignore[attr-defined]
+                "provider": job.assigned_provider  # type: ignore[attr-defined]
             })
             
             # Execute AI inference
@@ -181,7 +181,7 @@ class JobProcessor:
             return {
                 "success": True,
                 "job_id": job_id,
-                "state": completed_job.state.value,
+                "state": completed_job.state.value,  # type: ignore[attr-defined]
                 "receipt": receipt
             }
             

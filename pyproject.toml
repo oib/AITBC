@@ -127,7 +127,7 @@ ensure_newline_before_comments = true
 
 [tool.mypy]
 python_version = "3.13"
-plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 exclude = "^apps/(agent-management|agent-coordinator|agent-services|blockchain-node|computing-node|identity-node|marketplace|mining-pool)/.*"
 warn_return_any = true
 warn_unused_configs = true
@@ -162,7 +162,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "apps.coordinator-api.src.app.routers.*",
-    "apps.coordinator-api.src.app.services.*",
     "apps.coordinator-api.src.app.contexts.*",
 ]
 ignore_errors = true

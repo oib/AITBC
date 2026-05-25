@@ -21,7 +21,7 @@ from .secure_pickle import safe_loads
 ipfshttpclient = None
 web3 = None
 try:
-    import ipfshttpclient
+    import ipfshttpclient  # type: ignore[no-redef]
     from web3 import Web3
     web3 = Web3
 except ImportError as e:
@@ -60,18 +60,18 @@ class IPFSStorageService:
         self.config = config
         self.ipfs_client = None
         self.web3 = None
-        self.cache = {}  # Simple in-memory cache
+        self.cache: dict[str, Any] = {}  # Simple in-memory cache
         self._metadata_cache: dict[str, MemoryMetadata] = {}
         self.compression_threshold = config.get("compression_threshold", 1024)
         self.pin_threshold = config.get("pin_threshold", 100)  # Pin important memories
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize IPFS client and Web3 connection"""
         if ipfshttpclient is None:
             logger.warning("IPFS client not available - ipfshttpclient not installed")
             return
 
-        try:
+        try:  # type: ignore[unreachable]
             # Initialize IPFS client
             ipfs_url = self.config.get("ipfs_url", "/ip4/127.0.0.1/tcp/5001")
             self.ipfs_client = ipfshttpclient.connect(ipfs_url, session=True)
@@ -113,7 +113,7 @@ class IPFSStorageService:
         if self.ipfs_client is None:
             raise ValueError("IPFS service not available")
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(timezone.utc)  # type: ignore[unreachable]
         tags = tags or []
 
         try:
@@ -192,7 +192,7 @@ class IPFSStorageService:
                 raise ValueError(f"No metadata found for CID {cid}")
 
             # Retrieve from IPFS
-            retrieved_data = self.ipfs_client.cat(cid)
+            retrieved_data = self.ipfs_client.cat(cid)  # type: ignore[attr-defined]
 
             # Verify integrity if requested
             if verify_integrity:
@@ -248,7 +248,7 @@ class IPFSStorageService:
             # Small delay between batches to avoid overwhelming IPFS
             await asyncio.sleep(0.1)
 
-        return results
+        return results  # type: ignore[return-value]
 
     async def create_filecoin_deal(self, cid: str, duration: int = 180) -> str | None:
         """Create Filecoin storage deal for CID persistence"""
@@ -290,7 +290,7 @@ class IPFSStorageService:
 
         try:
             # Unpin the CID
-            self.ipfs_client.pin.rm(cid)
+            self.ipfs_client.pin.rm(cid)  # type: ignore[attr-defined]
 
             # Remove from cache
             if cid in self.cache:
@@ -311,7 +311,7 @@ class IPFSStorageService:
 
         try:
             # Get IPFS repo stats
-            stats = self.ipfs_client.repo.stat()
+            stats = self.ipfs_client.repo.stat()  # type: ignore[attr-defined]
 
             return {
                 "total_objects": stats.get("numObjects", 0),
@@ -325,7 +325,7 @@ class IPFSStorageService:
             logger.error(f"Failed to get storage stats: {e}")
             return {}
 
-    async def _store_metadata(self, cid: str, metadata: MemoryMetadata):
+    async def _store_metadata(self, cid: str, metadata: MemoryMetadata) -> None:
         """Store metadata for a CID"""
         self._metadata_cache[cid] = metadata
 
@@ -333,7 +333,7 @@ class IPFSStorageService:
         """Get metadata for a CID"""
         return self._metadata_cache.get(cid)
 
-    async def _delete_metadata(self, cid: str):
+    async def _delete_metadata(self, cid: str) -> None:
         """Delete metadata for a CID"""
         self._metadata_cache.pop(cid, None)
 

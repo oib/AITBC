@@ -181,7 +181,7 @@ async def _train_rl_agent_background(
     try:
         # Simulate database session
 
-        from ..database import get_session
+        from ..database import get_session  # type: ignore[attr-defined]
 
         async with get_session() as session:
             await rl_engine.create_rl_agent(
@@ -208,7 +208,7 @@ async def process_multi_modal_fusion(request: MultiModalFusionRequest) -> Any:
 
         # Simulate database session
 
-        from ..database import get_session
+        from ..database import get_session  # type: ignore[attr-defined]
 
         async with get_session() as session:
             if request.fusion_strategy == "transformer_fusion":
@@ -245,7 +245,7 @@ async def optimize_gpu_processing(request: GPUOptimizationRequest) -> Any:
     try:
         # Simulate database session
 
-        from ..database import get_session
+        from ..database import get_session  # type: ignore[attr-defined]
 
         async with get_session() as session:
             gpu_processor = GPUAcceleratedMultiModal(session)
@@ -339,7 +339,7 @@ async def get_performance_metrics() -> Any:
             "rl_models_trained": len(rl_engine.agents),
             "fusion_models_created": len(fusion_engine.fusion_models),
             "gpu_utilization": (
-                gpu_metrics.get("gpu_memory_allocated_gb", 0) / gpu_metrics.get("gpu_memory_total_gb", 1) * 100
+                gpu_metrics.get("gpu_memory_allocated_gb", 0) / gpu_metrics.get("gpu_memory_total_gb", 1) * 100  # type: ignore[operator]
                 if gpu_metrics.get("gpu_available")
                 else 0
             ),
