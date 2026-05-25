@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 class ZKProofService:
     """Service for generating zero-knowledge proofs for receipts and ML operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.circuits_dir = Path(__file__).parent.parent / "zk-circuits"
 
         # Circuit configurations for different types
@@ -123,7 +123,7 @@ class ZKProofService:
             return None
 
     async def verify_proof(
-        self, proof: dict[str, Any], public_signals: list[str], verification_key: dict[str, Any] = None, test_mode: bool = False
+        self, proof: dict[str, Any], public_signals: list[str], verification_key: dict[str, Any] | None = None, test_mode: bool = False
     ) -> dict[str, Any]:
         """Verify a ZK proof using Groth16 verification
         
@@ -217,20 +217,20 @@ main();
         if privacy_level == "basic":
             # Hide computation details, reveal settlement amount
             return {
-                "data": [str(receipt.job_id), str(receipt.miner_id), str(job_result.result_hash), str(receipt.pricing.rate)],
+                "data": [str(receipt.receiptId), str(receipt.miner), str(getattr(job_result, 'output_hash', '')), str((receipt.payload or {}).get('rate', 0))],
                 "hash": await self._hash_receipt(receipt),
             }
 
         elif privacy_level == "enhanced":
-            # Hide all amounts, prove correctness
+            payload = receipt.payload or {}
             return {
-                "settlementAmount": receipt.settlement_amount,
-                "timestamp": receipt.timestamp,
+                "settlementAmount": payload.get("settlement_amount", 0),
+                "timestamp": receipt.issuedAt.isoformat(),
                 "receipt": self._serialize_receipt(receipt),
-                "computationResult": job_result.result_hash,
-                "pricingRate": receipt.pricing.rate,
-                "minerReward": receipt.miner_reward,
-                "coordinatorFee": receipt.coordinator_fee,
+                "computationResult": getattr(job_result, 'output_hash', ''),
+                "pricingRate": payload.get("rate", 0),
+                "minerReward": payload.get("miner_reward", 0),
+                "coordinatorFee": payload.get("coordinator_fee", 0),
             }
 
         else:
@@ -241,11 +241,12 @@ main();
         # In a real implementation, use Poseidon or the same hash as circuit
         import hashlib
 
+        payload = receipt.payload or {}
         receipt_data = {
-            "job_id": receipt.job_id,
-            "miner_id": receipt.miner_id,
-            "timestamp": receipt.timestamp,
-            "pricing": receipt.pricing.dict(),
+            "receipt_id": receipt.receiptId,
+            "miner": receipt.miner,
+            "timestamp": receipt.issuedAt.isoformat(),
+            "pricing": payload.get("pricing", {}),
         }
 
         receipt_str = json.dumps(receipt_data, sort_keys=True)
@@ -254,15 +255,16 @@ main();
     def _serialize_receipt(self, receipt: Receipt) -> list[str]:
         """Serialize receipt for circuit input"""
         # Convert receipt to field elements for circuit
+        payload = receipt.payload or {}
         return [
-            str(receipt.job_id)[:32],  # Truncate for field size
-            str(receipt.miner_id)[:32],
-            str(receipt.timestamp)[:32],
-            str(receipt.settlement_amount)[:32],
-            str(receipt.miner_reward)[:32],
-            str(receipt.coordinator_fee)[:32],
+            str(receipt.receiptId)[:32],
+            str(receipt.miner)[:32],
+            str(receipt.issuedAt)[:32],
+            str(payload.get("settlement_amount", 0))[:32],
+            str(payload.get("miner_reward", 0))[:32],
+            str(payload.get("coordinator_fee", 0))[:32],
             "0",
-            "0",  # Padding
+            "0",
         ]
 
     async def _generate_proof(self, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -285,8 +287,8 @@ async function main() {{
         const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));
 
         // Load circuit
-        const wasm = fs.readFileSync('{self.wasm_path}');
-        const zkey = fs.readFileSync('{self.zkey_path}');
+        const wasm = fs.readFileSync('{list(self.available_circuits.values())[0]["wasm_path"]}');
+        const zkey = fs.readFileSync('{list(self.available_circuits.values())[0]["zkey_path"]}');
 
         // Calculate witness
         const {{ witness }} = await snarkjs.wtns.calculate(inputs, wasm, wasm);
@@ -318,7 +320,7 @@ main();
                     raise Exception(f"Proof generation failed: {result.stderr}")
 
                 # Parse result
-                return json.loads(result.stdout)
+                return dict(json.loads(result.stdout))
 
             finally:
                 os.unlink(script_file)
@@ -395,7 +397,7 @@ main();
                 stdout, stderr = await result.communicate()
 
                 if result.returncode == 0:
-                    proof_data = json.loads(stdout.decode())
+                    proof_data: dict[str, Any] = json.loads(stdout.decode())
                     return proof_data
                 else:
                     error_msg = stderr.decode() or stdout.decode()

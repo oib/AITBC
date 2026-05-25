@@ -23,7 +23,7 @@ from ..domain.federated_learning import (
 )
 from ..schemas.federated_learning import FederatedSessionCreate, JoinSessionRequest, SubmitUpdateRequest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FederatedLearningService:
@@ -90,13 +90,14 @@ class FederatedLearningService:
         self.session.refresh(participant)
 
         # Check if we have enough participants to start
-        current_count = len(fl_session.participants) + 1  # +1 for the newly added but not refreshed one
+        from sqlalchemy import func
+        current_count = (self.session.scalar(select(func.count()).select_from(TrainingParticipant).where(TrainingParticipant.session_id == fl_session.id)) or 0) + 1
         if current_count >= fl_session.target_participants:
             await self._start_training(fl_session)
 
         return participant
 
-    async def _start_training(self, fl_session: FederatedLearningSession):
+    async def _start_training(self, fl_session: FederatedLearningSession) -> None:
         """Internal method to transition from gathering to active training"""
         fl_session.status = TrainingStatus.TRAINING
         fl_session.current_round = 1
@@ -149,21 +150,24 @@ class FederatedLearningService:
         self.session.refresh(update)
 
         # Check if we should trigger aggregation
-        updates_count = len(current_round.updates) + 1
+        from sqlalchemy import func
+        updates_count = (self.session.scalar(select(func.count()).select_from(LocalModelUpdate).where(LocalModelUpdate.round_id == current_round.id)) or 0) + 1
         if updates_count >= fl_session.min_participants_per_round:
             # Note: In a real system, this might be triggered asynchronously via a Celery task
             await self._aggregate_round(fl_session, current_round)
 
         return update
 
-    async def _aggregate_round(self, fl_session: FederatedLearningSession, current_round: TrainingRound):
+    async def _aggregate_round(self, fl_session: FederatedLearningSession, current_round: TrainingRound) -> None:
         """Mock aggregation process"""
         current_round.status = "aggregating"
         fl_session.status = TrainingStatus.AGGREGATING
         self.session.commit()
 
         # Mocking the actual heavy ML aggregation that would happen elsewhere
-        logger.info(f"Aggregating {len(current_round.updates)} updates for round {current_round.round_number}")
+        from sqlalchemy import func
+        round_updates_count = self.session.scalar(select(func.count()).select_from(LocalModelUpdate).where(LocalModelUpdate.round_id == current_round.id)) or 0
+        logger.info(f"Aggregating {round_updates_count} updates for round {current_round.round_number}")
 
         # Assume successful aggregation creates a new global CID
         import hashlib
@@ -199,7 +203,7 @@ class FederatedLearningService:
             self.session.add(next_round)
 
             # Reset participant statuses
-            for p in fl_session.participants:
+            for p in self.session.scalars(select(TrainingParticipant).where(TrainingParticipant.session_id == fl_session.id)).all():
                 if p.status == ParticipantStatus.SUBMITTED:
                     p.status = ParticipantStatus.TRAINING
 

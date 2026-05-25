@@ -61,8 +61,8 @@ class IPFSClient:
         gateway_url: str = "https://ipfs.io",
         pinning_service: Optional[str] = None,
         pinning_key: Optional[str] = None,
-        session = None
-    ):
+        session: Any = None,
+    ) -> None:
         self.api_url = api_url.rstrip("/")
         self.gateway_url = gateway_url.rstrip("/")
         self.pinning_service = pinning_service
@@ -320,7 +320,7 @@ class IPFSService:
     - Archiving transaction data
     """
     
-    def __init__(self, session = None):
+    def __init__(self, session: Any = None) -> None:
         self.client = IPFSClient()
         self._uploads: Dict[str, IPFSUploadResult] = {}
         self.session = session

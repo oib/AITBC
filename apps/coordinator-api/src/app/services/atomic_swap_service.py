@@ -18,7 +18,7 @@ from ..blockchain.contract_interactions import ContractInteractionService
 from ..domain.atomic_swap import AtomicSwapOrder, SwapStatus
 from ..schemas.atomic_swap import SwapActionRequest, SwapCompleteRequest, SwapCreateRequest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AtomicSwapService:
@@ -78,11 +78,11 @@ class AtomicSwapService:
 
     async def get_agent_swaps(self, agent_id: str) -> list[AtomicSwapOrder]:
         """Get all swaps where the agent is either initiator or participant"""
-        return self.session.execute(
+        return list(self.session.scalars(
             select(AtomicSwapOrder).where(
                 (AtomicSwapOrder.initiator_agent_id == agent_id) | (AtomicSwapOrder.participant_agent_id == agent_id)
             )
-        ).all()
+        ).all())
 
     async def mark_initiated(self, swap_id: str, request: SwapActionRequest) -> AtomicSwapOrder:
         """Mark that the initiator has locked funds on the source chain"""

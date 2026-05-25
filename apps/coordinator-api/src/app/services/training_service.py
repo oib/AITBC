@@ -111,7 +111,7 @@ class TrainingService:
     - Model checkpointing
     """
     
-    def __init__(self, session = None):
+    def __init__(self, session: Any = None) -> None:
         self._jobs: Dict[str, TrainingJob] = {}
         self._job_counter = 0
         self._active_jobs: set = set()
@@ -294,7 +294,7 @@ class TrainingService:
         
         return job
     
-    def _process_queue(self):
+    def _process_queue(self) -> None:
         """Process queued jobs"""
         # Find next queued job
         for job_id, job in self._jobs.items():
