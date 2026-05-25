@@ -34,7 +34,7 @@ class BFVContext:
     scale: float = 1.0
     
     @classmethod
-    def generate(cls, poly_modulus_degree: int = 4096, plain_modulus: int = 1032193):
+    def generate(cls, poly_modulus_degree: int = 4096, plain_modulus: int = 1032193) -> "BFVContext":
         """Generate new BFV context with keys"""
         # Simplified key generation for demonstration
         # In production, use proper cryptographic libraries
@@ -100,7 +100,7 @@ class BFVProvider:
     - Plaintext-ciphertext operations
     """
     
-    def __init__(self, session = None):
+    def __init__(self, session: Any = None) -> None:
         self.available = True
         self.contexts: Dict[str, BFVContext] = {}
         self._next_context_id = 0
@@ -111,7 +111,7 @@ class BFVProvider:
         self,
         scheme: str = "bfv",
         poly_modulus_degree: int = 4096,
-        **kwargs
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Generate new FHE encryption context"""
         try:
@@ -148,7 +148,7 @@ class BFVProvider:
         self,
         data: Union[np.ndarray, List[float]],
         context_id: str,
-        **kwargs
+        **kwargs: Any,
     ) -> EncryptedVector:
         """
         Encrypt data using BFV scheme.
@@ -204,8 +204,8 @@ class BFVProvider:
     def decrypt(
         self,
         encrypted_data: EncryptedVector,
-        **kwargs
-    ) -> np.ndarray:
+        **kwargs: Any,
+    ) -> np.ndarray[tuple[int, ...], np.dtype[np.float64]]:
         """
         Decrypt data using BFV scheme.
         """
@@ -229,8 +229,8 @@ class BFVProvider:
             decoded = plaintext.astype(np.float64) / context.scale
             
             # Reshape to original shape
-            size = np.prod(encrypted_data.shape)
-            result = decoded[:size].reshape(encrypted_data.shape)
+            size = int(np.prod(encrypted_data.shape))
+            result: np.ndarray[tuple[int, ...], np.dtype[np.float64]] = decoded[:size].reshape(encrypted_data.shape)
             
             logger.debug(f"Decrypted vector to shape {encrypted_data.shape}")
             

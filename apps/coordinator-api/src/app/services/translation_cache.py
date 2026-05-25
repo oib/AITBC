@@ -48,7 +48,7 @@ class TranslationCache:
         entry = self.cache.get(key)
         if not entry:
             return None
-        return entry["translation"]
+        return str(entry["translation"])
 
     def set(self, source_text: str, source_lang: str, target_lang: str, translation: str) -> None:
         key = f"{source_lang}:{target_lang}:{source_text}"

@@ -152,7 +152,7 @@ class AggregatedPriceFeed:
     - Local database
     """
     
-    def __init__(self, session = None):
+    def __init__(self, session: Any = None) -> None:
         self.chainlink = ChainlinkAdapter(enabled=False)  # Disabled by default
         self._prices: Dict[str, PriceData] = {}
         self._last_update: Dict[str, datetime] = {}
@@ -276,13 +276,13 @@ class OracleService:
     - Multi-source aggregation
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.feed = AggregatedPriceFeed()
         self._subscribers: List[Callable] = []
         self._running = False
         self._update_task: Optional[asyncio.Task] = None
     
-    async def start(self):
+    async def start(self) -> None:
         """Start background price updates"""
         if self._running:
             return
@@ -291,14 +291,14 @@ class OracleService:
         self._update_task = asyncio.create_task(self._update_loop())
         logger.info("Oracle service started")
     
-    def stop(self):
+    def stop(self) -> None:
         """Stop background updates"""
         self._running = False
         if self._update_task:
             self._update_task.cancel()
         logger.info("Oracle service stopped")
     
-    async def _update_loop(self):
+    async def _update_loop(self) -> None:
         """Background loop for price updates"""
         while self._running:
             try:
@@ -341,11 +341,11 @@ class OracleService:
         
         return data.to_dict()
     
-    def subscribe(self, callback: Callable):
+    def subscribe(self, callback: Callable[..., Any]) -> None:
         """Subscribe to price updates"""
         self._subscribers.append(callback)
     
-    def unsubscribe(self, callback: Callable):
+    def unsubscribe(self, callback: Callable[..., Any]) -> None:
         """Unsubscribe from price updates"""
         if callback in self._subscribers:
             self._subscribers.remove(callback)

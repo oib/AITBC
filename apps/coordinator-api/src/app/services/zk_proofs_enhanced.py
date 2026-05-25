@@ -254,7 +254,7 @@ class EnhancedZKProofService:
     - Privacy-preserving settlement verification
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.circuit = ZKCircuit("ai_computation")
     
     async def generate_proof(

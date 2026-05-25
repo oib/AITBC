@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from sqlalchemy.orm import Session
 
@@ -41,15 +41,16 @@ app.include_router(health_router, tags=["health"])
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     return {"status": "ok", "service": "gpu-multimodal", "cuda_available": True}
 
 
 @app.post("/attention")
 async def cross_modal_attention(
-    modality_features: dict, attention_config: dict = None, session: Annotated[Session, Depends(get_session)] = None
-):
+    modality_features: dict[str, Any], attention_config: dict[str, Any] | None = None, session: Annotated[Session | None, Depends(get_session)] = None
+) -> dict[str, Any]:
     """GPU-accelerated cross-modal attention"""
+    assert session is not None, "DB session required"
     service = GPUAcceleratedMultiModal(session)
     result = await service.accelerated_cross_modal_attention(
         modality_features=modality_features, attention_config=attention_config

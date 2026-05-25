@@ -106,7 +106,7 @@ class PaymentsService:
     - Refunds and cancellations
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._payments: Dict[str, Payment] = {}
         self._escrows: Dict[str, Dict[str, Any]] = {}
         self._payment_counter = 0

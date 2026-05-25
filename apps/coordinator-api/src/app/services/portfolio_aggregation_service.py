@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 class PortfolioAggregationService:
     """Service to aggregate portfolio data from multiple AITBC services"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Service base URLs (these should be configurable)
         self.wallet_service_url = "http://localhost:8003"
         self.exchange_service_url = "http://localhost:8011"
@@ -93,7 +93,7 @@ class PortfolioAggregationService:
         try:
             response = await self.http_client.get(f"{self.exchange_service_url}/v1/exchange/rates")
             if response.status_code == 200:
-                return response.json()
+                return dict(response.json())
             else:
                 logger.warning(f"Exchange service returned status {response.status_code}")
                 return {"rates": {}, "error": "Exchange service unavailable"}
@@ -130,7 +130,7 @@ class PortfolioAggregationService:
                 url += f"?agent_address={agent_address}"
             response = await self.http_client.get(url)
             if response.status_code == 200:
-                return response.json()
+                return dict(response.json())
             else:
                 logger.warning(f"Trading service returned status {response.status_code}")
                 return {"trades": [], "analytics": {}, "error": "Trading service unavailable"}
@@ -241,6 +241,6 @@ class PortfolioAggregationService:
                 "error": str(e),
             }
 
-    async def close(self):
+    async def close(self) -> None:
         """Close HTTP client"""
         await self.http_client.aclose()

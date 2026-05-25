@@ -31,7 +31,7 @@ _MODULE_BY_EXPORT = {
 }
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     """Lazy load services on first access."""
     module_name = _MODULE_BY_EXPORT.get(name)
     if module_name is None:
