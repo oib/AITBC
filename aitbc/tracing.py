@@ -3,10 +3,13 @@ AITBC Distributed Tracing Module
 OpenTelemetry-based distributed tracing for AITBC applications
 """
 
+import logging
 from typing import Optional, Dict, Any, Callable
 from functools import wraps
 from contextlib import contextmanager
 import os
+
+logger = logging.getLogger(__name__)
 
 # OpenTelemetry imports (optional - gracefully handle if not installed)
 try:
@@ -45,7 +48,7 @@ def setup_tracing(
     global _tracer, _tracer_provider
     
     if not OPENTELEMETRY_AVAILABLE:
-        print("OpenTelemetry not available, tracing disabled")
+        logger.warning("OpenTelemetry not available, tracing disabled")
         return
     
     # Create resource with service information
@@ -69,7 +72,7 @@ def setup_tracing(
             span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint))
             _tracer_provider.add_span_processor(span_processor)
         except ImportError:
-            print("OTLP exporter not available, falling back to console")
+            logger.warning("OTLP exporter not available, falling back to console")
             span_processor = BatchSpanProcessor(ConsoleSpanExporter())
             _tracer_provider.add_span_processor(span_processor)
     
@@ -79,7 +82,7 @@ def setup_tracing(
     # Get tracer
     _tracer = trace.get_tracer(__name__)
     
-    print(f"Tracing enabled for {service_name} with {exporter} exporter")
+    logger.info(f"Tracing enabled for {service_name} with {exporter} exporter")
 
 
 def get_tracer() -> Optional[object]:
@@ -100,27 +103,27 @@ def instrument_fastapi(app) -> None:
         app: FastAPI application instance
     """
     if not OPENTELEMETRY_AVAILABLE:
-        print("OpenTelemetry not available, FastAPI instrumentation disabled")
+        logger.warning("OpenTelemetry not available, FastAPI instrumentation disabled")
         return
     
     try:
         FastAPIInstrumentor.instrument_app(app)
-        print("FastAPI instrumentation enabled")
+        logger.info("FastAPI instrumentation enabled")
     except Exception as e:
-        print(f"Failed to instrument FastAPI: {e}")
+        logger.error(f"Failed to instrument FastAPI: {e}")
 
 
 def instrument_httpx() -> None:
     """Instrument HTTPX client with tracing"""
     if not OPENTELEMETRY_AVAILABLE:
-        print("OpenTelemetry not available, HTTPX instrumentation disabled")
+        logger.warning("OpenTelemetry not available, HTTPX instrumentation disabled")
         return
     
     try:
         HTTPXClientInstrumentor().instrument()
-        print("HTTPX instrumentation enabled")
+        logger.info("HTTPX instrumentation enabled")
     except Exception as e:
-        print(f"Failed to instrument HTTPX: {e}")
+        logger.error(f"Failed to instrument HTTPX: {e}")
 
 
 def instrument_sqlalchemy(engine) -> None:
@@ -131,14 +134,14 @@ def instrument_sqlalchemy(engine) -> None:
         engine: SQLAlchemy engine instance
     """
     if not OPENTELEMETRY_AVAILABLE:
-        print("OpenTelemetry not available, SQLAlchemy instrumentation disabled")
+        logger.warning("OpenTelemetry not available, SQLAlchemy instrumentation disabled")
         return
     
     try:
         SQLAlchemyInstrumentor().instrument(engine=engine)
-        print("SQLAlchemy instrumentation enabled")
+        logger.info("SQLAlchemy instrumentation enabled")
     except Exception as e:
-        print(f"Failed to instrument SQLAlchemy: {e}")
+        logger.error(f"Failed to instrument SQLAlchemy: {e}")
 
 
 @contextmanager
