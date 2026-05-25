@@ -35,7 +35,7 @@ from ..agent_integration_factory import get_shared_agent_integration_service
 class ZKProofService:
     """Mock ZK proof service for testing"""
 
-    def __init__(self, session):
+    def __init__(self, session: Any) -> None:
         self.session = session
 
     async def generate_zk_proof(self, circuit_name: str, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -169,10 +169,10 @@ class AgentDeploymentInstance(SQLModel, table=True):
 class AgentIntegrationManager:
     """Manages integration between agent orchestration and existing systems"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
         self.zk_service = ZKProofService(session)
-        self.orchestrator = AIAgentOrchestrator(session, None)  # Mock coordinator client
+        self.orchestrator = AIAgentOrchestrator(session, None)  # type: ignore[arg-type]
         self.security_manager = AgentSecurityManager(session)
         self.auditor = AgentAuditor(session)
 
@@ -183,17 +183,17 @@ class AgentIntegrationManager:
 
         try:
             # Get execution details
-            execution = self.session.execute(select(AgentExecution).where(AgentExecution.id == execution_id)).first()
+            execution = self.session.scalars(select(AgentExecution).where(AgentExecution.id == execution_id)).first()
 
             if not execution:
                 raise ValueError(f"Execution not found: {execution_id}")
 
             # Get step executions
-            step_executions = self.session.execute(
+            step_executions = self.session.scalars(
                 select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id)
             ).all()
 
-            integration_result = {
+            integration_result: dict[str, Any] = {
                 "execution_id": execution_id,
                 "integration_status": "in_progress",
                 "zk_proofs_generated": [],
@@ -203,7 +203,7 @@ class AgentIntegrationManager:
 
             # Generate ZK proofs for each step
             for step_execution in step_executions:
-                if step_execution.requires_proof:
+                if getattr(step_execution, "requires_proof", False):
                     try:
                         # Generate ZK proof for step
                         proof_result = await self._generate_step_zk_proof(step_execution, verification_level)
@@ -235,7 +235,7 @@ class AgentIntegrationManager:
 
             # Generate workflow-level proof
             try:
-                workflow_proof = await self._generate_workflow_zk_proof(execution, step_executions, verification_level)
+                workflow_proof = await self._generate_workflow_zk_proof(execution, list(step_executions), verification_level)
 
                 integration_result["workflow_proof"] = {
                     "proof_id": workflow_proof["proof_id"],
@@ -355,7 +355,7 @@ class AgentIntegrationManager:
 class AgentDeploymentManager:
     """Manages deployment of agent workflows to production environments"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
         self.integration_manager = AgentIntegrationManager(session)
         self.auditor = AgentAuditor(session)
@@ -396,7 +396,7 @@ class AgentDeploymentManager:
             config.deployment_time = datetime.now(timezone.utc)
             self.session.commit()
 
-            deployment_result = {
+            deployment_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "environment": target_environment,
                 "status": "deploying",
@@ -510,11 +510,11 @@ class AgentDeploymentManager:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
 
             # Get deployment instances
-            instances = self.session.execute(
+            instances = self.session.scalars(
                 select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
             ).all()
 
-            health_result = {
+            health_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "total_instances": len(instances),
                 "healthy_instances": 0,
@@ -721,13 +721,13 @@ WantedBy=multi-user.target
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
 
             # Get current instances
-            current_instances = self.session.execute(
+            current_instances = self.session.scalars(
                 select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
             ).all()
 
             current_count = len(current_instances)
 
-            scaling_result = {
+            scaling_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "current_instances": current_count,
                 "target_instances": target_instances,
@@ -752,9 +752,9 @@ WantedBy=multi-user.target
                 if instances_to_remove > 0:
                     # Remove excess instances (remove last ones)
                     instances_to_remove_list = current_instances[-instances_to_remove:]
-                    for instance in instances_to_remove_list:
-                        await self._remove_deployment_instance(instance.id)
-                        scaling_result["scaled_instances"].append({"instance_id": instance.instance_id, "status": "removed"})
+                    for inst_to_remove in instances_to_remove_list:
+                        await self._remove_deployment_instance(inst_to_remove.id)
+                        scaling_result["scaled_instances"].append({"instance_id": inst_to_remove.instance_id, "status": "removed"})
 
             else:
                 scaling_result["scaling_action"] = "no_change"
@@ -765,7 +765,7 @@ WantedBy=multi-user.target
             logger.error(f"Scaling failed for {deployment_config_id}: {e}")
             raise
 
-    async def _remove_deployment_instance(self, instance_id: str):
+    async def _remove_deployment_instance(self, instance_id: str) -> None:
         """Remove deployment instance"""
 
         try:
@@ -815,7 +815,7 @@ WantedBy=multi-user.target
             if not config.rollback_enabled:
                 raise ValueError("Rollback not enabled for this deployment")
 
-            rollback_result = {
+            rollback_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "rollback_status": "in_progress",
                 "rolled_back_instances": [],
@@ -823,7 +823,7 @@ WantedBy=multi-user.target
             }
 
             # Get current instances
-            current_instances = self.session.execute(
+            current_instances = self.session.scalars(
                 select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
             ).all()
 
@@ -832,13 +832,13 @@ WantedBy=multi-user.target
                 try:
                     # Deploy previous version using systemd
                     # For rollback, we redeploy with the previous configuration
-                    if config.previous_version:
+                    if getattr(config, "previous_version", None):
                         # Remove current instance
                         await self._remove_deployment_instance(instance.id)
                         
                         # Redeploy with previous version
                         previous_config = config
-                        previous_config.agent_version = config.previous_version
+                        setattr(previous_config, "agent_version", getattr(config, "previous_version", getattr(config, "agent_version", "")))
                         
                         # Recreate instance with previous version
                         instance_number = int(instance.instance_id.split("-")[-1])
@@ -883,7 +883,7 @@ WantedBy=multi-user.target
 class AgentMonitoringManager:
     """Manages monitoring and metrics for deployed agents"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
         self.deployment_manager = AgentDeploymentManager(session)
         self.auditor = AgentAuditor(session)
@@ -898,11 +898,11 @@ class AgentMonitoringManager:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
 
             # Get deployment instances
-            instances = self.session.execute(
+            instances = self.session.scalars(
                 select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
             ).all()
 
-            metrics = {
+            metrics: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "time_range": time_range,
                 "total_instances": len(instances),
@@ -969,7 +969,7 @@ class AgentMonitoringManager:
 
         try:
             # Query agent instance metrics endpoint
-            metrics_data = {
+            metrics_data: dict[str, Any] = {
                 "instance_id": instance.instance_id,
                 "status": instance.status,
                 "health_status": instance.health_status,
@@ -1080,7 +1080,7 @@ class AgentMonitoringManager:
 class AgentProductionManager:
     """Main production management interface for agent orchestration"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
         self.integration_manager = AgentIntegrationManager(session)
         self.deployment_manager = AgentDeploymentManager(session)
@@ -1093,7 +1093,7 @@ class AgentProductionManager:
         """Deploy agent workflow to production with full integration"""
 
         try:
-            production_result = {
+            production_result: dict[str, Any] = {
                 "workflow_id": workflow_id,
                 "deployment_status": "in_progress",
                 "integration_status": "pending",
