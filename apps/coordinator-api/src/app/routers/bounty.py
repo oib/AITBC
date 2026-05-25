@@ -11,6 +11,7 @@ Provides endpoints for:
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
@@ -18,6 +19,9 @@ from fastapi import APIRouter, Request, HTTPException, status
 from pydantic import BaseModel, Field
 
 from ..services.bounty_service import BountyService, BountyStatus
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/bounty", tags=["bounty"])
@@ -135,7 +139,7 @@ def _create_sample_bounties():  # type: ignore[no-untyped-def]
                 tags=bounty_data.get("tags", [])  # type: ignore[arg-type]
             )
         except Exception as e:
-            print(f"Failed to create sample bounty: {e}")
+            logger.error(f"Failed to create sample bounty: {e}")
 
 
 @router.post("/create", summary="Create a new bounty")

@@ -115,7 +115,7 @@ def mock_auth_service():
         try:
             decoded = jwt.decode(token, "test_secret_key_for_jwt_signing_please_change_in_production", algorithms=["HS256"])
             return decoded
-        except:
+        except Exception:
             return None
     
     def mock_generate_token(user_id: str, role: str = "user") -> str:
