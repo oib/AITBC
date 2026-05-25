@@ -473,7 +473,7 @@ def monitor(ctx, realtime, interval):
                         live.update(generate_monitor_table())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             overview = asyncio.run(comm.get_network_overview())

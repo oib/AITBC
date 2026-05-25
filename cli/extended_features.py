@@ -3,6 +3,9 @@ import os
 import time
 import uuid
 from aitbc.utils.paths import get_data_path
+import logging
+logger = logging.getLogger(__name__)
+
 
 STATE_FILE = str(get_data_path("data/cli_extended_state.json"))
 
@@ -293,7 +296,6 @@ def handle_extended_command(command, args, kwargs):
     return result
 
 def format_output(result):
-    print("Command Output:")
+    logger.info("Command Output:")
     for k, v in result.items():
-        print(f"  {k}: {v}")
-
+        logger.info(f"  {k}: {v}")

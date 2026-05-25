@@ -60,7 +60,7 @@ def rates(ctx, from_chain: Optional[str], to_chain: Optional[str],
                     
                     if rate_table:
                         headers = ["From Chain", "To Chain", "Rate"]
-                        print(tabulate(rate_table, headers=headers, tablefmt="grid"))
+                        click.echo(tabulate(rate_table, headers=headers, tablefmt="grid"))
                     else:
                         output("No cross-chain rates available")
             else:

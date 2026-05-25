@@ -14,6 +14,9 @@ import statistics
 from core.config import MultiChainConfig
 from core.node_client import NodeClient
 from models.chain import ChainInfo, ChainType, ChainStatus
+import logging
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ChainMetrics:
@@ -119,7 +122,7 @@ class ChainAnalytics:
                 return metrics
                 
         except Exception as e:
-            print(f"Error collecting metrics for chain {chain_id}: {e}")
+            logger.error(f"Error collecting metrics for chain {chain_id}: {e}")
             raise
     
     async def collect_all_metrics(self) -> Dict[str, List[ChainMetrics]]:
@@ -139,11 +142,10 @@ class ChainAnalytics:
                                 metrics = await self.collect_metrics(chain.id, nid)
                                 node_metrics.append(metrics)
                             except Exception as e:
-                                print(f"Error getting metrics for chain {chain.id}: {e}")
-                        
+                                logger.error(f"Error getting metrics for chain {chain.id}: {e}")
                         return node_metrics
                 except Exception as e:
-                    print(f"Error getting chains from node {nid}: {e}")
+                    logger.error(f"Error getting chains from node {nid}: {e}")
                     return []
             
             tasks.append(get_node_metrics(node_id))

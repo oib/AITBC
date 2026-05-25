@@ -1,6 +1,9 @@
 """Pool hub SLA and capacity management handlers."""
 
 from aitbc import AITBCHTTPClient, NetworkError
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 def handle_pool_hub_sla_metrics(args):
@@ -10,10 +13,10 @@ def handle_pool_hub_sla_metrics(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print(" SLA Metrics (test mode):")
-            print("  Uptime: 97.5%")
-            print("  Response Time: 850ms")
-            print("  Job Completion Rate: 92.3%")
+            logger.info(" SLA Metrics (test mode):")
+            logger.info("  Uptime: 97.5%")
+            logger.info("  Response Time: 850ms")
+            logger.info("  Job Completion Rate: 92.3%")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
@@ -25,15 +28,13 @@ def handle_pool_hub_sla_metrics(args):
         else:
             metrics = http_client.get("/v1/sla/metrics")
         
-        print(" SLA Metrics:")
+        logger.info(" SLA Metrics:")
         for key, value in metrics.items():
-            print(f"  {key}: {value}")
+            logger.info(f"  {key}: {value}")
     except NetworkError as e:
-        print(f"❌ Failed to get SLA metrics: {e}")
+        logger.error(f"❌ Failed to get SLA metrics: {e}")
     except Exception as e:
-        print(f"❌ Error getting SLA metrics: {e}")
-
-
+        logger.error(f"❌ Error getting SLA metrics: {e}")
 def handle_pool_hub_sla_violations(args):
     """Get SLA violations across all miners."""
     try:
@@ -41,23 +42,21 @@ def handle_pool_hub_sla_violations(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("⚠️  SLA Violations (test mode):")
-            print("  miner_001: response_time violation")
+            logger.info("⚠️  SLA Violations (test mode):")
+            logger.info("  miner_001: response_time violation")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
         violations = http_client.get("/v1/sla/violations")
         
-        print("⚠️  SLA Violations:")
+        logger.info("⚠️  SLA Violations:")
         for v in violations:
-            print(f"  {v}")
+            logger.info(f"  {v}")
     except NetworkError as e:
-        print(f"❌ Failed to get violations: {e}")
+        logger.error(f"❌ Failed to get violations: {e}")
     except Exception as e:
-        print(f"❌ Error getting violations: {e}")
-
-
+        logger.error(f"❌ Error getting violations: {e}")
 def handle_pool_hub_capacity_snapshots(args):
     """Get capacity planning snapshots."""
     try:
@@ -65,24 +64,22 @@ def handle_pool_hub_capacity_snapshots(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("📊 Capacity Snapshots (test mode):")
-            print("  Total Capacity: 1250 GPU")
-            print("  Available: 320 GPU")
+            logger.info("📊 Capacity Snapshots (test mode):")
+            logger.info("  Total Capacity: 1250 GPU")
+            logger.info("  Available: 320 GPU")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
         snapshots = http_client.get("/v1/sla/capacity/snapshots")
         
-        print("📊 Capacity Snapshots:")
+        logger.info("📊 Capacity Snapshots:")
         for s in snapshots:
-            print(f"  {s}")
+            logger.info(f"  {s}")
     except NetworkError as e:
-        print(f"❌ Failed to get snapshots: {e}")
+        logger.error(f"❌ Failed to get snapshots: {e}")
     except Exception as e:
-        print(f"❌ Error getting snapshots: {e}")
-
-
+        logger.error(f"❌ Error getting snapshots: {e}")
 def handle_pool_hub_capacity_forecast(args):
     """Get capacity forecast."""
     try:
@@ -90,24 +87,22 @@ def handle_pool_hub_capacity_forecast(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("🔮 Capacity Forecast (test mode):")
-            print("  Projected Capacity: 1400 GPU")
-            print("  Growth Rate: 12%")
+            logger.info("🔮 Capacity Forecast (test mode):")
+            logger.info("  Projected Capacity: 1400 GPU")
+            logger.info("  Growth Rate: 12%")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
         forecast = http_client.get("/v1/sla/capacity/forecast")
         
-        print("🔮 Capacity Forecast:")
+        logger.info("🔮 Capacity Forecast:")
         for key, value in forecast.items():
-            print(f"  {key}: {value}")
+            logger.info(f"  {key}: {value}")
     except NetworkError as e:
-        print(f"❌ Failed to get forecast: {e}")
+        logger.error(f"❌ Failed to get forecast: {e}")
     except Exception as e:
-        print(f"❌ Error getting forecast: {e}")
-
-
+        logger.error(f"❌ Error getting forecast: {e}")
 def handle_pool_hub_capacity_recommendations(args):
     """Get scaling recommendations."""
     try:
@@ -115,24 +110,22 @@ def handle_pool_hub_capacity_recommendations(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("💡 Capacity Recommendations (test mode):")
-            print("  Type: scale_up")
-            print("  Action: Add 50 GPU capacity")
+            logger.info("💡 Capacity Recommendations (test mode):")
+            logger.info("  Type: scale_up")
+            logger.info("  Action: Add 50 GPU capacity")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
         recommendations = http_client.get("/v1/sla/capacity/recommendations")
         
-        print("💡 Capacity Recommendations:")
+        logger.info("💡 Capacity Recommendations:")
         for r in recommendations:
-            print(f"  {r}")
+            logger.info(f"  {r}")
     except NetworkError as e:
-        print(f"❌ Failed to get recommendations: {e}")
+        logger.error(f"❌ Failed to get recommendations: {e}")
     except Exception as e:
-        print(f"❌ Error getting recommendations: {e}")
-
-
+        logger.error(f"❌ Error getting recommendations: {e}")
 def handle_pool_hub_billing_usage(args):
     """Get billing usage data."""
     try:
@@ -140,24 +133,22 @@ def handle_pool_hub_billing_usage(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("💰 Billing Usage (test mode):")
-            print("  Total GPU Hours: 45678")
-            print("  Total Cost: $12500.50")
+            logger.info("💰 Billing Usage (test mode):")
+            logger.info("  Total GPU Hours: 45678")
+            logger.info("  Total Cost: $12500.50")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
         usage = http_client.get("/v1/sla/billing/usage")
         
-        print("💰 Billing Usage:")
+        logger.info("💰 Billing Usage:")
         for key, value in usage.items():
-            print(f"  {key}: {value}")
+            logger.info(f"  {key}: {value}")
     except NetworkError as e:
-        print(f"❌ Failed to get billing usage: {e}")
+        logger.error(f"❌ Failed to get billing usage: {e}")
     except Exception as e:
-        print(f"❌ Error getting billing usage: {e}")
-
-
+        logger.error(f"❌ Error getting billing usage: {e}")
 def handle_pool_hub_billing_sync(args):
     """Trigger billing sync with coordinator-api."""
     try:
@@ -165,22 +156,20 @@ def handle_pool_hub_billing_sync(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("🔄 Billing sync triggered (test mode)")
-            print("✅ Sync completed successfully")
+            logger.info("🔄 Billing sync triggered (test mode)")
+            logger.info("✅ Sync completed successfully")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=60)
         result = http_client.post("/v1/sla/billing/sync")
         
-        print("🔄 Billing sync triggered")
-        print(f"✅ {result.get('message', 'Success')}")
+        logger.info("🔄 Billing sync triggered")
+        logger.info(f"✅ {result.get('message', 'Success')}")
     except NetworkError as e:
-        print(f"❌ Billing sync failed: {e}")
+        logger.error(f"❌ Billing sync failed: {e}")
     except Exception as e:
-        print(f"❌ Error triggering billing sync: {e}")
-
-
+        logger.error(f"❌ Error triggering billing sync: {e}")
 def handle_pool_hub_collect_metrics(args):
     """Trigger SLA metrics collection."""
     try:
@@ -188,17 +177,17 @@ def handle_pool_hub_collect_metrics(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("📊 SLA metrics collection triggered (test mode)")
-            print("✅ Collection completed successfully")
+            logger.info("📊 SLA metrics collection triggered (test mode)")
+            logger.info("✅ Collection completed successfully")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=60)
         result = http_client.post("/v1/sla/metrics/collect")
         
-        print("📊 SLA metrics collection triggered")
-        print(f"✅ {result.get('message', 'Success')}")
+        logger.info("📊 SLA metrics collection triggered")
+        logger.info(f"✅ {result.get('message', 'Success')}")
     except NetworkError as e:
-        print(f"❌ Metrics collection failed: {e}")
+        logger.error(f"❌ Metrics collection failed: {e}")
     except Exception as e:
-        print(f"❌ Error triggering metrics collection: {e}")
+        logger.error(f"❌ Error triggering metrics collection: {e}")

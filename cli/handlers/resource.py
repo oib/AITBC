@@ -1,6 +1,9 @@
 """Resource command handlers for AITBC CLI."""
 
 import json
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 def handle_resource_status(args, output_format, render_mapping):
@@ -14,7 +17,7 @@ def handle_resource_status(args, output_format, render_mapping):
     }
     
     if output_format(args) == "json":
-        print(json.dumps(status_data, indent=2))
+        logger.info(json.dumps(status_data, indent=2))
     else:
         render_mapping("Resource Status:", status_data)
 
@@ -33,7 +36,7 @@ def handle_resource_allocate(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Resources allocated to {agent_id}")
+    logger.info(f"Resources allocated to {agent_id}")
     render_mapping("Allocation:", allocation_data)
 
 
@@ -50,7 +53,7 @@ def handle_resource_monitor(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Resource monitoring started (interval: {interval}s, duration: {duration}s)")
+    logger.info(f"Resource monitoring started (interval: {interval}s, duration: {duration}s)")
     render_mapping("Monitor:", monitor_data)
 
 
@@ -65,7 +68,7 @@ def handle_resource_optimize(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Resource optimization applied for {target}")
+    logger.info(f"Resource optimization applied for {target}")
     render_mapping("Optimization:", optimization_data)
 
 
@@ -80,5 +83,5 @@ def handle_resource_benchmark(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Resource benchmark completed for {benchmark_type}")
+    logger.info(f"Resource benchmark completed for {benchmark_type}")
     render_mapping("Benchmark:", benchmark_data)

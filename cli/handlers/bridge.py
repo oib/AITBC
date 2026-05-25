@@ -3,6 +3,9 @@
 import subprocess
 
 from aitbc import AITBCHTTPClient, NetworkError
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 def handle_bridge_health(args):
@@ -12,24 +15,22 @@ def handle_bridge_health(args):
         config = get_bridge_config()
         
         if args.test_mode:
-            print("🏥 Blockchain Event Bridge Health (test mode):")
-            print("✅ Status: healthy")
-            print("📦 Service: blockchain-event-bridge")
+            logger.info("🏥 Blockchain Event Bridge Health (test mode):")
+            logger.info("✅ Status: healthy")
+            logger.info("📦 Service: blockchain-event-bridge")
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         health = http_client.get("/health")
         
-        print("🏥 Blockchain Event Bridge Health:")
+        logger.info("🏥 Blockchain Event Bridge Health:")
         for key, value in health.items():
-            print(f"  {key}: {value}")
+            logger.info(f"  {key}: {value}")
     except NetworkError as e:
-        print(f"❌ Health check failed: {e}")
+        logger.error(f"❌ Health check failed: {e}")
     except Exception as e:
-        print(f"❌ Error checking health: {e}")
-
-
+        logger.error(f"❌ Error checking health: {e}")
 def handle_bridge_metrics(args):
     """Get Prometheus metrics from blockchain event bridge service."""
     try:
@@ -37,23 +38,21 @@ def handle_bridge_metrics(args):
         config = get_bridge_config()
         
         if args.test_mode:
-            print("📊 Prometheus Metrics (test mode):")
-            print("  bridge_events_total: 103691")
-            print("  bridge_events_processed_total: 103691")
+            logger.info("📊 Prometheus Metrics (test mode):")
+            logger.info("  bridge_events_total: 103691")
+            logger.info("  bridge_events_processed_total: 103691")
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         metrics = http_client.get("/metrics", return_response=True)
         
-        print("📊 Prometheus Metrics:")
-        print(metrics.text)
+        logger.info("📊 Prometheus Metrics:")
+        logger.info(metrics.text)
     except NetworkError as e:
-        print(f"❌ Failed to get metrics: {e}")
+        logger.error(f"❌ Failed to get metrics: {e}")
     except Exception as e:
-        print(f"❌ Error getting metrics: {e}")
-
-
+        logger.error(f"❌ Error getting metrics: {e}")
 def handle_bridge_status(args):
     """Get detailed status of blockchain event bridge service."""
     try:
@@ -61,24 +60,22 @@ def handle_bridge_status(args):
         config = get_bridge_config()
         
         if args.test_mode:
-            print("📊 Blockchain Event Bridge Status (test mode):")
-            print("✅ Status: running")
-            print("🔔 Subscriptions: blocks, transactions, contract_events")
+            logger.info("📊 Blockchain Event Bridge Status (test mode):")
+            logger.info("✅ Status: running")
+            logger.info("🔔 Subscriptions: blocks, transactions, contract_events")
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         status = http_client.get("/")
         
-        print("📊 Blockchain Event Bridge Status:")
+        logger.info("📊 Blockchain Event Bridge Status:")
         for key, value in status.items():
-            print(f"  {key}: {value}")
+            logger.info(f"  {key}: {value}")
     except NetworkError as e:
-        print(f"❌ Failed to get status: {e}")
+        logger.error(f"❌ Failed to get status: {e}")
     except Exception as e:
-        print(f"❌ Error getting status: {e}")
-
-
+        logger.error(f"❌ Error getting status: {e}")
 def handle_bridge_config(args):
     """Show current configuration of blockchain event bridge service."""
     try:
@@ -86,30 +83,28 @@ def handle_bridge_config(args):
         config = get_bridge_config()
         
         if args.test_mode:
-            print("⚙️  Blockchain Event Bridge Configuration (test mode):")
-            print("🔗 Blockchain RPC URL: http://localhost:8006")
-            print("💬 Gossip Backend: redis")
+            logger.info("⚙️  Blockchain Event Bridge Configuration (test mode):")
+            logger.info("🔗 Blockchain RPC URL: http://localhost:8006")
+            logger.info("💬 Gossip Backend: redis")
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         service_config = http_client.get("/config")
         
-        print("⚙️  Blockchain Event Bridge Configuration:")
+        logger.info("⚙️  Blockchain Event Bridge Configuration:")
         for key, value in service_config.items():
-            print(f"  {key}: {value}")
+            logger.info(f"  {key}: {value}")
     except NetworkError as e:
-        print(f"❌ Failed to get config: {e}")
+        logger.error(f"❌ Failed to get config: {e}")
     except Exception as e:
-        print(f"❌ Error getting config: {e}")
-
-
+        logger.error(f"❌ Error getting config: {e}")
 def handle_bridge_restart(args):
     """Restart blockchain event bridge service (via systemd)."""
     try:
         if args.test_mode:
-            print("🔄 Blockchain event bridge restart triggered (test mode)")
-            print("✅ Restart completed successfully")
+            logger.info("🔄 Blockchain event bridge restart triggered (test mode)")
+            logger.info("✅ Restart completed successfully")
             return
         
         result = subprocess.run(
@@ -120,13 +115,13 @@ def handle_bridge_restart(args):
         )
         
         if result.returncode == 0:
-            print("🔄 Blockchain event bridge restart triggered")
-            print("✅ Restart completed successfully")
+            logger.info("🔄 Blockchain event bridge restart triggered")
+            logger.info("✅ Restart completed successfully")
         else:
-            print(f"❌ Restart failed: {result.stderr}")
+            logger.error(f"❌ Restart failed: {result.stderr}")
     except subprocess.TimeoutExpired:
-        print("❌ Restart timeout - service may be starting")
+        logger.info("❌ Restart timeout - service may be starting")
     except FileNotFoundError:
-        print("❌ systemctl not found - cannot restart service")
+        logger.info("❌ systemctl not found - cannot restart service")
     except Exception as e:
-        print(f"❌ Error restarting service: {e}")
+        logger.error(f"❌ Error restarting service: {e}")

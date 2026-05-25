@@ -185,7 +185,7 @@ class NodeClient:
         except Exception as e:
             # Mock chain creation for development
             chain_id = genesis_block.get("chain_id", f"MOCK-CHAIN-{hash(str(genesis_block)) % 10000}")
-            print(f"Mock created chain {chain_id} on node {self.config.id}")
+            logger.info(f"Mock created chain {chain_id} on node {self.config.id}")
             return chain_id
     
     async def delete_chain(self, chain_id: str) -> bool:
@@ -198,7 +198,7 @@ class NodeClient:
                 raise Exception(f"Chain deletion failed: {response.status_code}")
         except Exception as e:
             # Mock chain deletion for development
-            print(f"Mock deleted chain {chain_id} from node {self.config.id}")
+            logger.info(f"Mock deleted chain {chain_id} from node {self.config.id}")
             return True
     
     async def get_chain_stats(self, chain_id: str) -> Dict[str, Any]:
@@ -233,7 +233,7 @@ class NodeClient:
                 "backup_size_mb": 50.0,
                 "checksum": "mock_checksum_12345"
             }
-            print(f"Mock backed up chain {chain_id} to {backup_info['backup_file']}")
+            logger.info(f"Mock backed up chain {chain_id} to {backup_info['backup_file']}")
             return backup_info
     
     async def restore_chain(self, backup_file: str, chain_id: Optional[str] = None) -> Dict[str, Any]:
@@ -254,7 +254,7 @@ class NodeClient:
                 "blocks_restored": 1000,
                 "verification_passed": True
             }
-            print(f"Mock restored chain from {backup_file}")
+            logger.info(f"Mock restored chain from {backup_file}")
             return restore_info
     
     def _parse_chain_info(self, chain_data: Dict[str, Any]) -> ChainInfo:

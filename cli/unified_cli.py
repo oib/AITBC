@@ -103,16 +103,16 @@ def run_cli(argv, core):
         return first(getattr(args, "format", None), explicit_output, default)
 
     def render_mapping(title, mapping):
-        print(title)
+        click.echo(title)
         for key, value in mapping.items():
             if key == "action":
                 continue
             if isinstance(value, list):
-                print(f"  {key.replace('_', ' ').title()}:")
+                click.echo(f"  {key.replace('_', ' ').title()}:")
                 for item in value:
-                    print(f"    - {item}")
+                    click.echo(f"    - {item}")
             else:
-                print(f"  {key.replace('_', ' ').title()}: {value}")
+                click.echo(f"  {key.replace('_', ' ').title()}: {value}")
 
     def read_blockchain_env(path="/etc/aitbc/blockchain.env"):
         config = {}
@@ -634,11 +634,11 @@ def run_cli(argv, core):
         try:
             result = subprocess.run(["systemctl", "restart", "aitbc-blockchain-bridge.service"], capture_output=True, text=True)
             if result.returncode == 0:
-                print("✅ Blockchain event bridge service restarted successfully")
+                click.echo("✅ Blockchain event bridge service restarted successfully")
             else:
-                print(f"❌ Failed to restart blockchain event bridge service: {result.stderr}")
+                click.echo(f"❌ Failed to restart blockchain event bridge service: {result.stderr}")
         except Exception as e:
-            print(f"❌ Error restarting blockchain event bridge service: {e}")
+            click.echo(f"❌ Error restarting blockchain event bridge service: {e}")
 
     def handle_contract_list(args):
         contract_handlers.handle_contract_list(args, default_rpc_url)
@@ -825,7 +825,7 @@ def handle_genesis_init(args):
         script_path = old_script_path
         use_new_script = False
     else:
-        print(f"Error: Genesis generation script not found")
+        click.echo(f"Error: Genesis generation script not found")
         return
     
     if use_new_script:
@@ -834,7 +834,7 @@ def handle_genesis_init(args):
         if args.proposer:
             cmd.extend(["--proposer", args.proposer])
         else:
-            print("Error: --proposer is required for genesis initialization")
+            click.echo("Error: --proposer is required for genesis initialization")
             return
     else:
         # Use old comprehensive script for wallet creation
@@ -853,11 +853,11 @@ def handle_genesis_init(args):
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        print(result.stdout)
+        click.echo(result.stdout)
         if result.stderr:
-            print(result.stderr)
+            click.echo(result.stderr)
     except subprocess.CalledProcessError as e:
-        print(f"Error: Genesis generation failed: {e.stderr}")
+        click.echo(f"Error: Genesis generation failed: {e.stderr}")
 
 def handle_genesis_verify(args):
     """Verify genesis block and wallet configuration"""
@@ -870,26 +870,26 @@ def handle_genesis_verify(args):
     # Check genesis config file
     genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
     if not genesis_path.exists():
-        print(f"Error: Genesis config not found: {genesis_path}")
+        click.echo(f"Error: Genesis config not found: {genesis_path}")
         return
     
     try:
         with open(genesis_path) as f:
             genesis_data = json.load(f)
         
-        print(f"✓ Genesis config found: {genesis_path}")
-        print(f"  Chain ID: {genesis_data.get('chain_id')}")
-        print(f"  Genesis Hash: {genesis_data.get('block', {}).get('hash')}")
-        print(f"  Proposer: {genesis_data.get('block', {}).get('proposer')}")
-        print(f"  Allocations: {len(genesis_data.get('allocations', []))}")
+        click.echo(f"✓ Genesis config found: {genesis_path}")
+        click.echo(f"  Chain ID: {genesis_data.get('chain_id')}")
+        click.echo(f"  Genesis Hash: {genesis_data.get('block', {}).get('hash')}")
+        click.echo(f"  Proposer: {genesis_data.get('block', {}).get('proposer')}")
+        click.echo(f"  Allocations: {len(genesis_data.get('allocations', []))}")
     except Exception as e:
-        print(f"Error: Failed to read genesis config: {e}")
+        click.echo(f"Error: Failed to read genesis config: {e}")
         return
     
     # Check database
     db_path = Path("/var/lib/aitbc/data/chain.db")
     if not db_path.exists():
-        print(f"Error: Database not found: {db_path}")
+        click.echo(f"Error: Database not found: {db_path}")
         return
     
     try:
@@ -900,39 +900,39 @@ def handle_genesis_verify(args):
         genesis_block = cursor.fetchone()
         
         if genesis_block:
-            print(f"✓ Genesis block found in database")
-            print(f"  Height: {genesis_block[1]}")
-            print(f"  Hash: {genesis_block[2]}")
-            print(f"  Proposer: {genesis_block[4]}")
+            click.echo(f"✓ Genesis block found in database")
+            click.echo(f"  Height: {genesis_block[1]}")
+            click.echo(f"  Hash: {genesis_block[2]}")
+            click.echo(f"  Proposer: {genesis_block[4]}")
         else:
-            print(f"Error: Genesis block not found in database for chain {chain_id}")
+            click.echo(f"Error: Genesis block not found in database for chain {chain_id}")
         
         cursor.execute("SELECT COUNT(*) FROM account WHERE chain_id=?", (chain_id,))
         account_count = cursor.fetchone()[0]
         
         if account_count > 0:
-            print(f"✓ Found {account_count} accounts in database")
+            click.echo(f"✓ Found {account_count} accounts in database")
         else:
-            print(f"Error: No accounts found in database for chain {chain_id}")
+            click.echo(f"Error: No accounts found in database for chain {chain_id}")
         
         conn.close()
     except Exception as e:
-        print(f"Error: Failed to verify database: {e}")
+        click.echo(f"Error: Failed to verify database: {e}")
         return
     
     # Check genesis wallet
     wallet_path = Path("/var/lib/aitbc/keystore/genesis.json")
     if wallet_path.exists():
-        print(f"✓ Genesis wallet found: {wallet_path}")
+        click.echo(f"✓ Genesis wallet found: {wallet_path}")
         try:
             with open(wallet_path) as f:
                 wallet_data = json.load(f)
-            print(f"  Address: {wallet_data.get('address')}")
-            print(f"  Public Key: {wallet_data.get('public_key')[:16]}..." if wallet_data.get('public_key') else "N/A")
+            click.echo(f"  Address: {wallet_data.get('address')}")
+            click.echo(f"  Public Key: {wallet_data.get('public_key')[:16]}..." if wallet_data.get('public_key') else "N/A")
         except Exception as e:
-            print(f"Error: Failed to read genesis wallet: {e}")
+            click.echo(f"Error: Failed to read genesis wallet: {e}")
     else:
-        print(f"Error: Genesis wallet not found: {wallet_path}")
+        click.echo(f"Error: Genesis wallet not found: {wallet_path}")
 
 def handle_genesis_info(args):
     """Show genesis block information"""
@@ -943,7 +943,7 @@ def handle_genesis_info(args):
     genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
     
     if not genesis_path.exists():
-        print(f"Error: Genesis config not found: {genesis_path}")
+        click.echo(f"Error: Genesis config not found: {genesis_path}")
         return
     
     try:
@@ -953,21 +953,21 @@ def handle_genesis_info(args):
         block = genesis_data.get("block", {})
         allocations = genesis_data.get("allocations", [])
         
-        print(f"Genesis Information for {chain_id}:")
-        print(f"  Chain ID: {genesis_data.get('chain_id')}")
-        print(f"  Block Height: {block.get('height')}")
-        print(f"  Block Hash: {block.get('hash')}")
-        print(f"  Parent Hash: {block.get('parent_hash')}")
-        print(f"  Proposer: {block.get('proposer')}")
-        print(f"  Timestamp: {block.get('timestamp')}")
-        print(f"  Transaction Count: {block.get('tx_count')}")
-        print(f"  Total Allocations: {len(allocations)}")
-        print(f"\n  Top Allocations:")
+        click.echo(f"Genesis Information for {chain_id}:")
+        click.echo(f"  Chain ID: {genesis_data.get('chain_id')}")
+        click.echo(f"  Block Height: {block.get('height')}")
+        click.echo(f"  Block Hash: {block.get('hash')}")
+        click.echo(f"  Parent Hash: {block.get('parent_hash')}")
+        click.echo(f"  Proposer: {block.get('proposer')}")
+        click.echo(f"  Timestamp: {block.get('timestamp')}")
+        click.echo(f"  Transaction Count: {block.get('tx_count')}")
+        click.echo(f"  Total Allocations: {len(allocations)}")
+        click.echo(f"\n  Top Allocations:")
         for i, alloc in enumerate(allocations[:5], 1):
-            print(f"    {i}. {alloc.get('address')}: {alloc.get('balance')} AIT")
+            click.echo(f"    {i}. {alloc.get('address')}: {alloc.get('balance')} AIT")
         
     except Exception as e:
-        print(f"Error: Failed to read genesis info: {e}")
+        click.echo(f"Error: Failed to read genesis info: {e}")
 
 def handle_bridge_config(args):
     bridge_handlers.handle_bridge_config(args)

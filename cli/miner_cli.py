@@ -8,6 +8,8 @@ import sys
 import os
 import argparse
 from pathlib import Path
+import click
+
 
 # Add the CLI directory to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -15,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 try:
     from miner_management import miner_cli_dispatcher
 except ImportError:
-    print("❌ Error: miner_management module not found")
+    click.echo("❌ Error: miner_management module not found")
     sys.exit(1)
 
 
@@ -211,44 +213,39 @@ Examples:
             })
             action = "marketplace_create"
         else:
-            print("❌ Unknown marketplace action")
+            click.echo("❌ Unknown marketplace action")
             return
     
     result = miner_cli_dispatcher(action, **kwargs)
     
     # Display results
     if result:
-        print("\n" + "="*60)
-        print(f"🤖 AITBC Miner Management - {action.upper()}")
-        print("="*60)
-        
+        click.echo("\n" + "="*60)
+        click.echo(f"🤖 AITBC Miner Management - {action.upper()}")
+        click.echo("="*60)
         if "status" in result:
-            print(f"Status: {result['status']}")
-        
+            click.echo(f"Status: {result['status']}")
         if result.get("status", "").startswith("✅"):
             # Success - show details
             for key, value in result.items():
                 if key not in ["action", "status"]:
                     if isinstance(value, (dict, list)):
-                        print(f"{key}:")
+                        click.echo(f"{key}:")
                         if isinstance(value, dict):
                             for k, v in value.items():
-                                print(f"  {k}: {v}")
+                                click.echo(f"  {k}: {v}")
                         else:
                             for item in value:
-                                print(f"  - {item}")
+                                click.echo(f"  - {item}")
                     else:
-                        print(f"{key}: {value}")
+                        click.echo(f"{key}: {value}")
         else:
             # Error or info - show all relevant fields
             for key, value in result.items():
                 if key != "action":
-                    print(f"{key}: {value}")
-        
-        print("="*60)
+                    click.echo(f"{key}: {value}")
+        click.echo("="*60)
     else:
-        print("❌ No response from server")
-
-
+        click.echo("❌ No response from server")
 if __name__ == "__main__":
     main()

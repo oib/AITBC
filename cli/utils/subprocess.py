@@ -2,6 +2,9 @@ import subprocess
 import sys
 from typing import List, Optional, Union, Any
 from . import error, output
+import logging
+logger = logging.getLogger(__name__)
+
 
 def run_subprocess(cmd: List[str], check: bool = True, capture_output: bool = True, shell: bool = False, **kwargs: Any) -> Optional[Union[str, subprocess.CompletedProcess]]:
     """Run a subprocess command safely with logging"""
@@ -16,7 +19,7 @@ def run_subprocess(cmd: List[str], check: bool = True, capture_output: bool = Tr
     except subprocess.CalledProcessError as e:
         error(f"Command failed with exit code {e.returncode}")
         if capture_output and getattr(e, 'stderr', None):
-            print(e.stderr, file=sys.stderr)
+            logger.info(e.stderr, file=sys.stderr)
         if check:
             sys.exit(e.returncode)
         return getattr(e, 'stdout', None) if capture_output else None

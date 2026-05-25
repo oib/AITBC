@@ -23,7 +23,7 @@ except ImportError:
     from core.node_client import NodeClient
 
     def info(message):
-        print(message)
+        click.echo(message)
 import uuid
 
 @click.group()
@@ -117,7 +117,7 @@ def chains(ctx, show_private, node_id):
                             chains = await client.get_hosted_chains()
                             return [(nid, chain) for chain in chains]
                     except Exception as e:
-                        print(f"Error getting chains from node {nid}: {e}")
+                        click.echo(f"Error getting chains from node {nid}: {e}")
                         return []
                 
                 tasks.append(get_chains_for_node(node_id, node_config))
@@ -348,7 +348,7 @@ def monitor(ctx, node_id, realtime, interval):
                         live.update(generate_monitor_layout())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             node_info = asyncio.run(get_node_stats())

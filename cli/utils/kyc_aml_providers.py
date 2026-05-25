@@ -278,8 +278,7 @@ def perform_aml_screening(user_id: str, user_data: Dict[str, Any]) -> Dict[str, 
 # Test function
 def test_kyc_aml_integration():
     """Test KYC/AML integration"""
-    print("🧪 Testing KYC/AML Integration...")
-    
+    logger.info("🧪 Testing KYC/AML Integration...")
     # Test KYC submission
     customer_data = {
         "first_name": "John",
@@ -289,17 +288,13 @@ def test_kyc_aml_integration():
     }
     
     kyc_result = submit_kyc_verification("user123", "chainalysis", customer_data)
-    print(f"✅ KYC Submitted: {kyc_result}")
-    
+    logger.info(f"✅ KYC Submitted: {kyc_result}")
     # Test KYC status check
     kyc_status = check_kyc_status(kyc_result["request_id"], "chainalysis")
-    print(f"📋 KYC Status: {kyc_status}")
-    
+    logger.info(f"📋 KYC Status: {kyc_status}")
     # Test AML screening
     aml_result = perform_aml_screening("user123", customer_data)
-    print(f"🔍 AML Screening: {aml_result}")
-    
-    print("🎉 KYC/AML integration test complete!")
-
+    logger.info(f"🔍 AML Screening: {aml_result}")
+    logger.info("🎉 KYC/AML integration test complete!")
 if __name__ == "__main__":
     test_kyc_aml_integration()

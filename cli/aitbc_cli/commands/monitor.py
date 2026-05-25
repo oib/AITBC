@@ -39,52 +39,37 @@ def dashboard(ctx, refresh: int, duration: int):
             console.clear()
             console.rule("[bold blue]AITBC Dashboard[/bold blue]")
             console.print(f"[dim]Refreshing every {refresh}s | Elapsed: {int(elapsed)}s[/dim]\n")
-
             # Fetch system dashboard
             try:
                 http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=5)
                 # Get dashboard data
-                try:
-                    url = "/api/v1/dashboard"
-                    dashboard = http_http_client.get(
-                        url,
-                        headers={"X-Api-Key": config.api_key or ""}
-                    )
-                    console.print("[bold green]Dashboard Status:[/bold green] Online")
-                            
-                            # Overall status
-                            overall_status = dashboard.get("overall_status", "unknown")
-                            console.print(f"  Overall Status: {overall_status}")
-                            
-                            # Services summary
-                            services = dashboard.get("services", {})
-                            console.print(f"  Services: {len(services)}")
-                            
-                            for service_name, service_data in services.items():
-                                status = service_data.get("status", "unknown")
-                                console.print(f"    {service_name}: {status}")
-                            
-                            # Metrics summary
-                            metrics = dashboard.get("metrics", {})
-                            if metrics:
-                                health_pct = metrics.get("health_percentage", 0)
-                                console.print(f"  Health: {health_pct:.1f}%")
-                            
-                        else:
-                            console.print(f"[bold yellow]Dashboard:[/bold yellow] HTTP {resp.status_code}")
-                    except Exception as e:
-                        console.print(f"[bold red]Dashboard:[/bold red] Error - {e}")
-
+                url = "/api/v1/dashboard"
+                dashboard = http_http_client.get(
+                    url,
+                    headers={"X-Api-Key": config.api_key or ""}
+                )
+                console.print("[bold green]Dashboard Status:[/bold green] Online")
+                # Overall status
+                overall_status = dashboard.get("overall_status", "unknown")
+                console.print(f"  Overall Status: {overall_status}")
+                # Services summary
+                services = dashboard.get("services", {})
+                console.print(f"  Services: {len(services)}")
+                for service_name, service_data in services.items():
+                    status = service_data.get("status", "unknown")
+                    console.print(f"    {service_name}: {status}")
+                # Metrics summary
+                metrics = dashboard.get("metrics", {})
+                if metrics:
+                    health_pct = metrics.get("health_percentage", 0)
+                    console.print(f"  Health: {health_pct:.1f}%")
             except Exception as e:
                 console.print(f"[red]Error fetching data: {e}[/red]")
-
             console.print(f"\n[dim]Press Ctrl+C to exit[/dim]")
             time.sleep(refresh)
 
     except KeyboardInterrupt:
         console.print("\n[bold]Dashboard stopped[/bold]")
-
-
 @monitor.command()
 @click.option("--period", default="24h", help="Time period (1h, 24h, 7d, 30d)")
 @click.option("--export", "export_path", type=click.Path(), help="Export metrics to file")
@@ -111,55 +96,55 @@ def metrics(ctx, period: str, export_path: Optional[str]):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-            # Coordinator metrics
-            try:
-                resp = http_client.get(
-                    f"{config.coordinator_url}/status",
-                    headers={"X-Api-Key": config.api_key or ""}
-                )
-                if resp.status_code == 200:
-                    metrics_data["coordinator"] = resp.json()
-                    metrics_data["coordinator"]["status"] = "online"
-                else:
-                    metrics_data["coordinator"]["status"] = f"error_{resp.status_code}"
-            except Exception:
-                metrics_data["coordinator"]["status"] = "offline"
+        # Coordinator metrics
+        try:
+            resp = http_client.get(
+                f"{config.coordinator_url}/status",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            if resp.status_code == 200:
+                metrics_data["coordinator"] = resp.json()
+                metrics_data["coordinator"]["status"] = "online"
+            else:
+                metrics_data["coordinator"]["status"] = f"error_{resp.status_code}"
+        except Exception:
+            metrics_data["coordinator"]["status"] = "offline"
 
-            # Job metrics
-            try:
-                resp = http_client.get(
-                    f"{config.coordinator_url}/v1/jobs",
-                    headers={"X-Api-Key": config.api_key or ""},
-                    params={"limit": 100}
-                )
-                if resp.status_code == 200:
-                    jobs = resp.json()
-                    if isinstance(jobs, list):
-                        metrics_data["jobs"] = {
-                            "total": len(jobs),
-                            "completed": sum(1 for j in jobs if j.get("status") == "completed"),
-                            "pending": sum(1 for j in jobs if j.get("status") == "pending"),
-                            "failed": sum(1 for j in jobs if j.get("status") == "failed"),
-                        }
-            except Exception:
-                metrics_data["jobs"] = {"error": "unavailable"}
+        # Job metrics
+        try:
+            resp = http_client.get(
+                f"{config.coordinator_url}/v1/jobs",
+                headers={"X-Api-Key": config.api_key or ""},
+                params={"limit": 100}
+            )
+            if resp.status_code == 200:
+                jobs = resp.json()
+                if isinstance(jobs, list):
+                    metrics_data["jobs"] = {
+                        "total": len(jobs),
+                        "completed": sum(1 for j in jobs if j.get("status") == "completed"),
+                        "pending": sum(1 for j in jobs if j.get("status") == "pending"),
+                        "failed": sum(1 for j in jobs if j.get("status") == "failed"),
+                    }
+        except Exception:
+            metrics_data["jobs"] = {"error": "unavailable"}
 
-            # Miner metrics
-            try:
-                resp = http_client.get(
-                    f"{config.coordinator_url}/v1/miners",
-                    headers={"X-Api-Key": config.api_key or ""}
-                )
-                if resp.status_code == 200:
-                    miners = resp.json()
-                    if isinstance(miners, list):
-                        metrics_data["miners"] = {
-                            "total": len(miners),
-                            "online": sum(1 for m in miners if m.get("status") == "ONLINE"),
-                            "offline": sum(1 for m in miners if m.get("status") != "ONLINE"),
-                        }
-            except Exception:
-                metrics_data["miners"] = {"error": "unavailable"}
+        # Miner metrics
+        try:
+            resp = http_client.get(
+                f"{config.coordinator_url}/v1/miners",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            if resp.status_code == 200:
+                miners = resp.json()
+                if isinstance(miners, list):
+                    metrics_data["miners"] = {
+                        "total": len(miners),
+                        "online": sum(1 for m in miners if m.get("status") == "ONLINE"),
+                        "offline": sum(1 for m in miners if m.get("status") != "ONLINE"),
+                    }
+        except Exception:
+            metrics_data["miners"] = {"error": "unavailable"}
 
     except Exception as e:
         error(f"Failed to collect metrics: {e}")
@@ -236,13 +221,13 @@ def alerts(ctx, action: str, name: Optional[str], alert_type: Optional[str],
         if alert.get("webhook"):
             try:
                 http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-                    resp = client.post(alert["webhook"], json={
-                        "alert": name,
-                        "type": alert["type"],
-                        "message": f"Test alert from AITBC CLI",
-                        "timestamp": datetime.now().isoformat()
-                    })
-                    output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
+                resp = http_client.post(alert["webhook"], json={
+                    "alert": name,
+                    "type": alert["type"],
+                    "message": f"Test alert from AITBC CLI",
+                    "timestamp": datetime.now().isoformat()
+                })
+                output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
             except Exception as e:
                 error(f"Webhook test failed: {e}")
         else:
@@ -271,25 +256,25 @@ def history(ctx, period: str):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-            try:
-                resp = http_client.get(
-                    f"{config.coordinator_url}/v1/jobs",
-                    headers={"X-Api-Key": config.api_key or ""},
-                    params={"limit": 500}
-                )
-                if resp.status_code == 200:
-                    jobs = resp.json()
-                    if isinstance(jobs, list):
-                        completed = [j for j in jobs if j.get("status") == "completed"]
-                        failed = [j for j in jobs if j.get("status") == "failed"]
-                        analysis["summary"] = {
-                            "total_jobs": len(jobs),
-                            "completed": len(completed),
-                            "failed": len(failed),
-                            "success_rate": f"{len(completed) / max(1, len(jobs)) * 100:.1f}%",
-                        }
-            except Exception:
-                analysis["summary"] = {"error": "Could not fetch job data"}
+        try:
+            resp = http_client.get(
+                f"{config.coordinator_url}/v1/jobs",
+                headers={"X-Api-Key": config.api_key or ""},
+                params={"limit": 500}
+            )
+            if resp.status_code == 200:
+                jobs = resp.json()
+                if isinstance(jobs, list):
+                    completed = [j for j in jobs if j.get("status") == "completed"]
+                    failed = [j for j in jobs if j.get("status") == "failed"]
+                    analysis["summary"] = {
+                        "total_jobs": len(jobs),
+                        "completed": len(completed),
+                        "failed": len(failed),
+                        "success_rate": f"{len(completed) / max(1, len(jobs)) * 100:.1f}%",
+                    }
+        except Exception:
+            analysis["summary"] = {"error": "Could not fetch job data"}
 
     except Exception as e:
         error(f"Analysis failed: {e}")
@@ -356,13 +341,13 @@ def webhooks(ctx, action: str, name: Optional[str], url: Optional[str], events: 
             return
         try:
             http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-                resp = client.post(wh["url"], json={
-                    "event": "test",
-                    "source": "aitbc-cli",
-                    "message": "Test webhook notification",
-                    "timestamp": datetime.now().isoformat()
-                })
-                output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
+            resp = http_client.post(wh["url"], json={
+                "event": "test",
+                "source": "aitbc-cli",
+                "message": "Test webhook notification",
+                "timestamp": datetime.now().isoformat()
+            })
+            output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
         except Exception as e:
             error(f"Webhook test failed: {e}")
 

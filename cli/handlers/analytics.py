@@ -1,6 +1,9 @@
 """Analytics command handlers for AITBC CLI."""
 
 import json
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 def handle_analytics_metrics(args, default_rpc_url, output_format, render_mapping):
@@ -16,7 +19,7 @@ def handle_analytics_metrics(args, default_rpc_url, output_format, render_mappin
     }
     
     if output_format(args) == "json":
-        print(json.dumps(metrics_data, indent=2))
+        logger.info(json.dumps(metrics_data, indent=2))
     else:
         render_mapping("Analytics Metrics:", metrics_data)
 
@@ -36,7 +39,7 @@ def handle_analytics_report(args, default_rpc_url, output_format, render_mapping
     }
     
     if output_format(args) == "json":
-        print(json.dumps(report_data, indent=2))
+        logger.info(json.dumps(report_data, indent=2))
     else:
         render_mapping("Analytics Report:", report_data)
 
@@ -52,7 +55,7 @@ def handle_analytics_export(args, default_rpc_url, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Analytics exported as {format_type}")
+    logger.info(f"Analytics exported as {format_type}")
     render_mapping("Export:", export_data)
 
 
@@ -68,7 +71,7 @@ def handle_analytics_predict(args, default_rpc_url, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Prediction using {model} model for {target}")
+    logger.info(f"Prediction using {model} model for {target}")
     render_mapping("Prediction:", prediction_data)
 
 
@@ -84,5 +87,5 @@ def handle_analytics_optimize(args, default_rpc_url, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
     
-    print(f"Analytics optimization applied for {target}")
+    logger.info(f"Analytics optimization applied for {target}")
     render_mapping("Optimization:", optimization_data)
