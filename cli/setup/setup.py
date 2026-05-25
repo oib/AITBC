@@ -11,10 +11,23 @@ def read_readme():
     with open("README.md", "r", encoding="utf-8") as fh:
         return fh.read()
 
-# Read requirements
+# Read requirements from pyproject.toml
 def read_requirements():
-    with open("requirements.txt", "r", encoding="utf-8") as fh:
-        return [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+    import tomli
+    try:
+        with open("pyproject.toml", "rb") as f:
+            data = tomli.load(f)
+            return data.get("project", {}).get("dependencies", [])
+    except ImportError:
+        # Fallback to hardcoded list if tomli not available
+        return [
+            "click>=8.0",
+            "rich>=13.0",
+            "PyYAML",
+            "requests",
+            "cryptography",
+            "aitbc>=0.6.0",
+        ]
 
 setup(
     name="aitbc-cli",

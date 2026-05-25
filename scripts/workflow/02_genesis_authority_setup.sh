@@ -16,7 +16,7 @@ git pull origin main
 
 # Install/update dependencies
 echo "2. Installing/updating dependencies..."
-/opt/aitbc/venv/bin/pip install -r requirements.txt psycopg
+cd /opt/aitbc && /opt/aitbc/venv/bin/poetry install
 
 # Setup PostgreSQL databases
 echo "2.5. Setting up PostgreSQL databases..."

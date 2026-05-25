@@ -9,6 +9,7 @@ import subprocess
 import sys
 import os
 import json
+import click
 from datetime import datetime
 
 def load_config(config_file):
@@ -18,24 +19,24 @@ def load_config(config_file):
 
 def deploy_redis_cache(config):
     """Deploy Redis cache layer"""
-    print(f"🔧 Deploying Redis cache for {config['edge_node_config']['node_id']}")
+    click.echo(f"🔧 Deploying Redis cache for {config['edge_node_config']['node_id']}")
     
     # Check if Redis is running
     try:
         result = subprocess.run(['redis-cli', 'ping'], capture_output=True, text=True)
         if result.stdout.strip() == 'PONG':
-            print("✅ Redis is already running")
+            click.echo("✅ Redis is already running")
         else:
-            print("⚠️ Redis not responding, attempting to start...")
+            click.echo("⚠️ Redis not responding, attempting to start...")
             # Start Redis if not running
             subprocess.run(['sudo', 'systemctl', 'start', 'redis-server'], check=True)
-            print("✅ Redis started")
+            click.echo("✅ Redis started")
     except FileNotFoundError:
-        print("❌ Redis not installed, installing...")
+        click.echo("❌ Redis not installed, installing...")
         subprocess.run(['sudo', 'apt-get', 'update'], check=True)
         subprocess.run(['sudo', 'apt-get', 'install', '-y', 'redis-server'], check=True)
         subprocess.run(['sudo', 'systemctl', 'start', 'redis-server'], check=True)
-        print("✅ Redis installed and started")
+        click.echo("✅ Redis installed and started")
     
     # Configure Redis
     redis_config = config['edge_node_config']['caching']
@@ -51,11 +52,11 @@ def deploy_redis_cache(config):
         try:
             subprocess.run(['redis-cli', *cmd.split()], check=True, capture_output=True)
         except subprocess.CalledProcessError:
-            print(f"⚠️ Could not set Redis config: {cmd}")
+            click.echo(f"⚠️ Could not set Redis config: {cmd}")
 
 def deploy_monitoring(config):
     """Deploy monitoring agent"""
-    print(f"📊 Deploying monitoring for {config['edge_node_config']['node_id']}")
+    click.echo(f"📊 Deploying monitoring for {config['edge_node_config']['node_id']}")
     
     monitoring_config = config['edge_node_config']['monitoring']
     
@@ -115,11 +116,11 @@ WantedBy=multi-user.target
     subprocess.run(['sudo', 'systemctl', 'enable', f'aitbc-edge-monitoring-{config["edge_node_config"]["node_id"]}.service'], check=True)
     subprocess.run(['sudo', 'systemctl', 'start', f'aitbc-edge-monitoring-{config["edge_node_config"]["node_id"]}.service'], check=True)
     
-    print("✅ Monitoring agent deployed")
+    click.echo("✅ Monitoring agent deployed")
 
 def optimize_network(config):
     """Apply network optimizations"""
-    print(f"🌐 Optimizing network for {config['edge_node_config']['node_id']}")
+    click.echo(f"🌐 Optimizing network for {config['edge_node_config']['node_id']}")
     
     network_config = config['edge_node_config']['network']
     
@@ -136,13 +137,13 @@ def optimize_network(config):
     for param, value in tcp_params.items():
         try:
             subprocess.run(['sudo', 'sysctl', '-w', f'{param}={value}'], check=True, capture_output=True)
-            print(f"✅ Set {param}={value}")
+            click.echo(f"✅ Set {param}={value}")
         except subprocess.CalledProcessError:
-            print(f"⚠️ Could not set {param}")
+            click.echo(f"⚠️ Could not set {param}")
 
 def deploy_edge_services(config):
     """Deploy edge node services"""
-    print(f"🚀 Deploying edge services for {config['edge_node_config']['node_id']}")
+    click.echo(f"🚀 Deploying edge services for {config['edge_node_config']['node_id']}")
     
     # Create edge service configuration
     edge_service_config = {
@@ -157,11 +158,11 @@ def deploy_edge_services(config):
     with open(f'/tmp/aitbc-edge-{config["edge_node_config"]["node_id"]}-config.json', 'w') as f:
         json.dump(edge_service_config, f, indent=2)
     
-    print(f"✅ Edge services configuration saved")
+    click.echo(f"✅ Edge services configuration saved")
 
 def validate_deployment(config):
     """Validate edge node deployment"""
-    print(f"✅ Validating deployment for {config['edge_node_config']['node_id']}")
+    click.echo(f"✅ Validating deployment for {config['edge_node_config']['node_id']}")
     
     validation_results = {}
     
@@ -194,29 +195,29 @@ def validate_deployment(config):
     except Exception as e:
         validation_results['monitoring'] = f'error: {str(e)}'
     
-    print(f"📊 Validation Results:")
+    click.echo(f"📊 Validation Results:")
     for service, status in validation_results.items():
-        print(f"   {service}: {status}")
+        click.echo(f"   {service}: {status}")
     
     return validation_results
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python deploy_edge_node.py <config_file>")
+        click.echo("Usage: python deploy_edge_node.py <config_file>")
         sys.exit(1)
     
     config_file = sys.argv[1]
     
     if not os.path.exists(config_file):
-        print(f"❌ Configuration file {config_file} not found")
+        click.echo(f"❌ Configuration file {config_file} not found")
         sys.exit(1)
     
     try:
         config = load_config(config_file)
         
-        print(f"🚀 Deploying edge node: {config['edge_node_config']['node_id']}")
-        print(f"📍 Region: {config['edge_node_config']['region']}")
-        print(f"🌍 Location: {config['edge_node_config']['location']}")
+        click.echo(f"🚀 Deploying edge node: {config['edge_node_config']['node_id']}")
+        click.echo(f"📍 Region: {config['edge_node_config']['region']}")
+        click.echo(f"🌍 Location: {config['edge_node_config']['location']}")
         
         # Deploy components
         deploy_redis_cache(config)
@@ -238,10 +239,10 @@ def main():
         with open(f'/tmp/aitbc-edge-{config["edge_node_config"]["node_id"]}-deployment.json', 'w') as f:
             json.dump(deployment_status, f, indent=2)
         
-        print(f"✅ Edge node deployment completed for {config['edge_node_config']['node_id']}")
+        click.echo(f"✅ Edge node deployment completed for {config['edge_node_config']['node_id']}")
         
     except Exception as e:
-        print(f"❌ Deployment failed: {str(e)}")
+        click.echo(f"❌ Deployment failed: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":

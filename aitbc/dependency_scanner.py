@@ -39,9 +39,9 @@ class DependencyScanner:
         Initialize dependency scanner
         
         Args:
-            requirements_file: Path to requirements.txt or pyproject.toml
+            requirements_file: Path to pyproject.toml (Poetry source of truth)
         """
-        self.requirements_file = requirements_file or Path("requirements.txt")
+        self.requirements_file = requirements_file or Path("pyproject.toml")
         self._vulnerabilities: List[VulnerabilityReport] = []
     
     def scan_with_pip_audit(self) -> List[VulnerabilityReport]:
