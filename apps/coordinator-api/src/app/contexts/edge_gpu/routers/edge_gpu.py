@@ -124,6 +124,31 @@ async def get_gpu_metrics(request: Request, gpu_id: str) -> dict[str, Any]:
     return {"gpu_id": gpu_id, "error": "Failed to parse metrics"}
 
 
+@router.get("/metrics")
+@rate_limit(rate=200, per=60)
+async def get_all_metrics(request: Request) -> dict[str, Any]:
+    """Get metrics for all GPUs"""
+    gpus = parse_gpu_info()
+    all_metrics = []
+    for gpu in gpus:
+        gpu_id = gpu["gpu_id"]
+        output = run_nvidia_smi([
+            "--query-gpu=utilization.gpu,memory.used,temperature.gpu",
+            "--format=csv,noheader,nounits",
+            f"--id={gpu_id}"
+        ])
+        if output:
+            parts = output.strip().split(", ")
+            if len(parts) >= 3:
+                all_metrics.append({
+                    "gpu_id": gpu_id,
+                    "utilization": float(parts[0].strip()),
+                    "memory_used_mb": float(parts[1].strip()),
+                    "temperature_c": float(parts[2].strip())
+                })
+    return {"metrics": all_metrics, "total": len(all_metrics)}
+
+
 @router.post("/metrics")
 @rate_limit(rate=20, per=60)
 async def submit_metrics(request: Request, metrics: GPUMetrics) -> dict[str, Any]:

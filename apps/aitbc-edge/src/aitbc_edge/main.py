@@ -96,7 +96,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "edge_api.main:app",
+        "aitbc_edge.main:app",
         host=settings.api_host,
         port=settings.api_port,
         reload=True,

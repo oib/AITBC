@@ -3,6 +3,7 @@ Database session management for Marketplace service
 """
 
 import os
+import traceback
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -18,6 +19,8 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/marketplace
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)
+
+logger.info(f"Storage module loaded: engine={engine}, DATABASE_URL={DATABASE_URL}")
 
 
 async def init_db() -> None:
@@ -39,11 +42,23 @@ async def init_db() -> None:
 async def get_session() -> AsyncIterator[AsyncSession]:
     """Get database session"""
     try:
-        logger.debug("Creating database session")
-        async with AsyncSession(engine) as session:
-            logger.debug("Database session created successfully")
+        logger.debug(f"Creating database session, engine={engine}, id={id(engine)}")
+        AsyncSessionClass = AsyncSession
+        logger.debug(f"AsyncSession class: {AsyncSessionClass}, callable: {callable(AsyncSessionClass)}")
+        session = AsyncSessionClass(engine)
+        logger.debug(f"Session created: {session}")
+        async with session:
+            logger.debug("Database session yielded")
             yield session
             logger.debug("Database session closed")
     except Exception as e:
         logger.error(f"Error in get_session: {type(e).__name__}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise
+
+
+@asynccontextmanager
+async def get_session_context() -> AsyncIterator[AsyncSession]:
+    """Get database session as context manager"""
+    async with AsyncSession(engine) as session:
+        yield session
