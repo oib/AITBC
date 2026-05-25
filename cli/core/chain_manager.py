@@ -61,7 +61,7 @@ class ChainManager:
                     chains.append(chain)
             except Exception as e:
                 # Log error but continue with other nodes
-                print(f"Error getting chains from node {node_id}: {e}")
+                logger.error(f"Error getting chains from node {node_id}: {e}")
         
         # Remove duplicates (same chain on multiple nodes)
         unique_chains = {}
@@ -148,7 +148,7 @@ class ChainManager:
             try:
                 await self._delete_chain_from_node(node_id, chain_id)
             except Exception as e:
-                print(f"Error deleting chain from node {node_id}: {e}")
+                logger.error(f"Error deleting chain from node {node_id}: {e}")
                 success = False
         
         # Remove from cache
@@ -171,7 +171,7 @@ class ChainManager:
             await self._add_chain_to_node(node_id, chain_info)
             return True
         except Exception as e:
-            print(f"Error adding chain to node: {e}")
+            logger.error(f"Error adding chain to node: {e}")
             return False
     
     async def remove_chain_from_node(self, chain_id: str, node_id: str, migrate: bool = False) -> bool:
@@ -194,7 +194,7 @@ class ChainManager:
             await self._remove_chain_from_node(node_id, chain_id)
             return True
         except Exception as e:
-            print(f"Error removing chain from node: {e}")
+            logger.error(f"Error removing chain from node: {e}")
             return False
     
     async def migrate_chain(self, chain_id: str, from_node: str, to_node: str, dry_run: bool = False) -> ChainMigrationResult:
@@ -289,7 +289,7 @@ class ChainManager:
             async with NodeClient(node_config) as client:
                 return await client.get_hosted_chains()
         except Exception as e:
-            print(f"Error getting chains from node {node_id}: {e}")
+            logger.error(f"Error getting chains from node {node_id}: {e}")
             return []
     
     async def _find_chain_on_nodes(self, chain_id: str) -> Optional[ChainInfo]:
@@ -362,9 +362,9 @@ class ChainManager:
         try:
             async with NodeClient(node_config) as client:
                 chain_id = await client.create_chain(genesis_block.dict())
-                print(f"Successfully created chain {chain_id} on node {node_id}")
+                logger.info(f"Successfully created chain {chain_id} on node {node_id}")
         except Exception as e:
-            print(f"Error creating chain on node {node_id}: {e}")
+            logger.error(f"Error creating chain on node {node_id}: {e}")
             raise
     
     async def _get_chain_hosting_nodes(self, chain_id: str) -> List[str]:
@@ -390,22 +390,22 @@ class ChainManager:
             async with NodeClient(node_config) as client:
                 success = await client.delete_chain(chain_id)
                 if success:
-                    print(f"Successfully deleted chain {chain_id} from node {node_id}")
+                    logger.info(f"Successfully deleted chain {chain_id} from node {node_id}")
                 else:
                     raise Exception(f"Failed to delete chain {chain_id}")
         except Exception as e:
-            print(f"Error deleting chain from node {node_id}: {e}")
+            logger.error(f"Error deleting chain from node {node_id}: {e}")
             raise
     
     async def _add_chain_to_node(self, node_id: str, chain_info: ChainInfo) -> None:
         """Add a chain to a specific node"""
         # This would actually add the chain to the node
-        print(f"Adding chain {chain_info.id} to node {node_id}")
+        logger.info(f"Adding chain {chain_info.id} to node {node_id}")
     
     async def _remove_chain_from_node(self, node_id: str, chain_id: str) -> None:
         """Remove a chain from a specific node"""
         # This would actually remove the chain from the node
-        print(f"Removing chain {chain_id} from node {node_id}")
+        logger.info(f"Removing chain {chain_id} from node {node_id}")
     
     async def _find_alternative_node(self, chain_id: str, exclude_node: str) -> Optional[str]:
         """Find an alternative node for a chain"""
@@ -433,7 +433,7 @@ class ChainManager:
     async def _execute_migration(self, chain_id: str, from_node: str, to_node: str) -> ChainMigrationResult:
         """Execute the actual migration"""
         # This would actually execute the migration
-        print(f"Migrating chain {chain_id} from {from_node} to {to_node}")
+        logger.info(f"Migrating chain {chain_id} from {from_node} to {to_node}")
         
         return ChainMigrationResult(
             chain_id=chain_id,
@@ -466,7 +466,7 @@ class ChainManager:
                     verification_passed=verify
                 )
         except Exception as e:
-            print(f"Error during backup: {e}")
+            logger.error(f"Error during backup: {e}")
             raise
     
     async def _execute_restore(self, backup_path: str, node_id: str, verify: bool) -> ChainRestoreResult:
@@ -487,7 +487,7 @@ class ChainManager:
                     verification_passed=restore_info["verification_passed"]
                 )
         except Exception as e:
-            print(f"Error during restore: {e}")
+            logger.error(f"Error during restore: {e}")
             raise
     
     async def _select_best_node_for_restore(self) -> str:

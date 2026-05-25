@@ -10,6 +10,8 @@ import argparse
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import requests
+import click
+
 
 # Default paths
 DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
@@ -26,8 +28,7 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
         
         results = []
         for i, tx in enumerate(transactions, 1):
-            print(f"Processing transaction {i}/{len(transactions)}...")
-            
+            click.echo(f"Processing transaction {i}/{len(transactions)}...")
             result = send_transaction(
                 tx['from_wallet'],
                 tx['to_address'],
@@ -44,24 +45,22 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
             })
             
             if result:
-                print(f"✅ Success: {result}")
+                click.echo(f"✅ Success: {result}")
             else:
-                print(f"❌ Failed")
-        
+                click.echo(f"❌ Failed")
         # Summary
         successful = sum(1 for r in results if r['success'])
-        print(f"\nBatch Summary: {successful}/{len(transactions)} successful")
-        
+        click.echo(f"\nBatch Summary: {successful}/{len(transactions)} successful")
         return results
     except Exception as e:
-        print(f"Error processing batch: {e}")
+        click.echo(f"Error processing batch: {e}")
         return []
 
 def mining_operations(operation: str, wallet_name: str = None, threads: int = 1, rpc_url: str = DEFAULT_RPC_URL):
     """Handle mining operations"""
     if operation == "start":
         if not wallet_name:
-            print("Error: Wallet name required for mining start")
+            click.echo("Error: Wallet name required for mining start")
             return False
         
         # Get wallet address
@@ -78,28 +77,28 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
         try:
             response = requests.post(f"{rpc_url}/rpc/mining/start", json=mining_config)
             if response.status_code == 200:
-                print(f"Mining started with wallet '{wallet_name}'")
-                print(f"Address: {wallet_info['address']}")
-                print(f"Threads: {threads}")
+                click.echo(f"Mining started with wallet '{wallet_name}'")
+                click.echo(f"Address: {wallet_info['address']}")
+                click.echo(f"Threads: {threads}")
                 return True
             else:
-                print(f"Error: {response.text}")
+                click.echo(f"Error: {response.text}")
                 return False
         except Exception as e:
-            print(f"Error: {e}")
+            click.echo(f"Error: {e}")
             return False
     
     elif operation == "stop":
         try:
             response = requests.post(f"{rpc_url}/rpc/mining/stop")
             if response.status_code == 200:
-                print("Mining stopped")
+                click.echo("Mining stopped")
                 return True
             else:
-                print(f"Error: {response.text}")
+                click.echo(f"Error: {response.text}")
                 return False
         except Exception as e:
-            print(f"Error: {e}")
+            click.echo(f"Error: {e}")
             return False
     
     elif operation == "status":
@@ -107,17 +106,17 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
             response = requests.get(f"{rpc_url}/rpc/mining/status")
             if response.status_code == 200:
                 status = response.json()
-                print("Mining Status:")
-                print(f"  Active: {status.get('active', False)}")
-                print(f"  Threads: {status.get('threads', 0)}")
-                print(f"  Hash Rate: {status.get('hash_rate', 0)} H/s")
-                print(f"  Blocks Mined: {status.get('blocks_mined', 0)}")
+                click.echo("Mining Status:")
+                click.echo(f"  Active: {status.get('active', False)}")
+                click.echo(f"  Threads: {status.get('threads', 0)}")
+                click.echo(f"  Hash Rate: {status.get('hash_rate', 0)} H/s")
+                click.echo(f"  Blocks Mined: {status.get('blocks_mined', 0)}")
                 return True
             else:
-                print(f"Error: {response.text}")
+                click.echo(f"Error: {response.text}")
                 return False
         except Exception as e:
-            print(f"Error: {e}")
+            click.echo(f"Error: {e}")
             return False
 
 def marketplace_operations(operation: str, wallet_name: str = None, item_type: str = None,
@@ -129,23 +128,23 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
             response = requests.get(f"{rpc_url}/rpc/marketplace/listings")
             if response.status_code == 200:
                 listings = response.json().get("listings", [])
-                print(f"Marketplace Listings ({len(listings)} items):")
+                click.echo(f"Marketplace Listings ({len(listings)} items):")
                 for i, item in enumerate(listings, 1):
-                    print(f"  {i}. {item.get('item_type', 'Unknown')} - {item.get('price', 0)} AIT")
-                    print(f"     {item.get('description', 'No description')}")
-                    print(f"     Seller: {item.get('seller_address', 'Unknown')}")
-                    print()
+                    click.echo(f"  {i}. {item.get('item_type', 'Unknown')} - {item.get('price', 0)} AIT")
+                    click.echo(f"     {item.get('description', 'No description')}")
+                    click.echo(f"     Seller: {item.get('seller_address', 'Unknown')}")
+                    click.echo("")
                 return listings
             else:
-                print(f"Error: {response.text}")
+                click.echo(f"Error: {response.text}")
                 return []
         except Exception as e:
-            print(f"Error: {e}")
+            click.echo(f"Error: {e}")
             return []
     
     elif operation == "create":
         if not all([wallet_name, item_type, price is not None, description, password]):
-            print("Error: All parameters required for marketplace creation")
+            click.echo("Error: All parameters required for marketplace creation")
             return None
         
         # Get wallet address
@@ -165,16 +164,16 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
             if response.status_code == 200:
                 result = response.json()
                 listing_id = result.get("listing_id")
-                print(f"Marketplace listing created")
-                print(f"Listing ID: {listing_id}")
-                print(f"Item: {item_type}")
-                print(f"Price: {price} AIT")
+                click.echo(f"Marketplace listing created")
+                click.echo(f"Listing ID: {listing_id}")
+                click.echo(f"Item: {item_type}")
+                click.echo(f"Price: {price} AIT")
                 return listing_id
             else:
-                print(f"Error: {response.text}")
+                click.echo(f"Error: {response.text}")
                 return None
         except Exception as e:
-            print(f"Error: {e}")
+            click.echo(f"Error: {e}")
             return None
 
 def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
@@ -183,7 +182,7 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
     """Handle AI operations"""
     if operation == "submit":
         if not all([wallet_name, job_type, prompt, payment is not None, password]):
-            print("Error: All parameters required for AI job submission")
+            click.echo("Error: All parameters required for AI job submission")
             return None
         
         # Get wallet address
@@ -203,16 +202,16 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
             if response.status_code == 200:
                 result = response.json()
                 job_id = result.get("job_id")
-                print(f"AI job submitted")
-                print(f"Job ID: {job_id}")
-                print(f"Type: {job_type}")
-                print(f"Payment: {payment} AIT")
+                click.echo(f"AI job submitted")
+                click.echo(f"Job ID: {job_id}")
+                click.echo(f"Type: {job_type}")
+                click.echo(f"Payment: {payment} AIT")
                 return job_id
             else:
-                print(f"Error: {response.text}")
+                click.echo(f"Error: {response.text}")
                 return None
         except Exception as e:
-            print(f"Error: {e}")
+            click.echo(f"Error: {e}")
             return None
 
 def main():
