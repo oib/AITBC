@@ -51,14 +51,14 @@ class DistributedTask:
         self.max_retries = max_retries
         
         self.status = TaskStatus.PENDING
-        self.created_at = time.time()
-        self.scheduled_at = None
-        self.started_at = None
-        self.completed_at = None
-        
-        self.assigned_worker_id = None
-        self.result = None
-        self.error = None
+        self.created_at: float = time.time()
+        self.scheduled_at: Optional[float] = None
+        self.started_at: Optional[float] = None
+        self.completed_at: Optional[float] = None
+
+        self.assigned_worker_id: Optional[str] = None
+        self.result: Any = None
+        self.error: Optional[str] = None
         self.retries = 0
         
         # Calculate content hash for caching/deduplication
@@ -79,7 +79,7 @@ class WorkerNode:
         self.max_concurrent_tasks = max_concurrent_tasks
         
         self.status = WorkerStatus.IDLE
-        self.active_tasks = []
+        self.active_tasks: List[str] = []
         self.last_heartbeat = time.time()
         self.total_completed = 0
         self.performance_score = 1.0  # 0.0 to 1.0 based on success rate and speed
@@ -90,19 +90,19 @@ class DistributedProcessingCoordinator:
     Implements advanced scheduling, fault tolerance, and load balancing.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.tasks: Dict[str, DistributedTask] = {}
         self.workers: Dict[str, WorkerNode] = {}
-        self.task_queue = asyncio.PriorityQueue()
+        self.task_queue: asyncio.PriorityQueue[tuple[int, float, str]] = asyncio.PriorityQueue()
         
         # Result cache (content_hash -> result)
         self.result_cache: Dict[str, Any] = {}
         
         self.is_running = False
-        self._scheduler_task = None
-        self._monitor_task = None
+        self._scheduler_task: Optional[asyncio.Task[None]] = None
+        self._monitor_task: Optional[asyncio.Task[None]] = None
         
-    async def start(self):
+    async def start(self) -> None:
         """Start the coordinator background tasks"""
         if self.is_running:
             return
@@ -112,7 +112,7 @@ class DistributedProcessingCoordinator:
         self._monitor_task = asyncio.create_task(self._health_monitor_loop())
         logger.info("Distributed Processing Coordinator started")
         
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the coordinator gracefully"""
         self.is_running = False
         if self._scheduler_task:
@@ -121,7 +121,7 @@ class DistributedProcessingCoordinator:
             self._monitor_task.cancel()
         logger.info("Distributed Processing Coordinator stopped")
         
-    def register_worker(self, worker_id: str, capabilities: List[str], has_gpu: bool = False, max_tasks: int = 4):
+    def register_worker(self, worker_id: str, capabilities: List[str], has_gpu: bool = False, max_tasks: int = 4) -> None:
         """Register a new worker node in the cluster"""
         if worker_id not in self.workers:
             self.workers[worker_id] = WorkerNode(worker_id, capabilities, has_gpu, max_tasks)
@@ -136,7 +136,7 @@ class DistributedProcessingCoordinator:
             if worker.status == WorkerStatus.OFFLINE:
                 worker.status = WorkerStatus.IDLE
                 
-    def heartbeat(self, worker_id: str, metrics: Optional[Dict[str, Any]] = None):
+    def heartbeat(self, worker_id: str, metrics: Optional[Dict[str, Any]] = None) -> None:
         """Record a heartbeat from a worker node"""
         if worker_id in self.workers:
             worker = self.workers[worker_id]
@@ -188,7 +188,8 @@ class DistributedProcessingCoordinator:
         if task.status == TaskStatus.COMPLETED:
             response['result'] = task.result
             response['completed_at'] = task.completed_at
-            response['duration_ms'] = int((task.completed_at - (task.started_at or task.created_at)) * 1000)
+            if task.completed_at is not None:
+                response['duration_ms'] = int((task.completed_at - (task.started_at or task.created_at)) * 1000)
         elif task.status in [TaskStatus.FAILED, TaskStatus.TIMEOUT]:
             response['error'] = str(task.error)
             
@@ -197,7 +198,7 @@ class DistributedProcessingCoordinator:
             
         return response
 
-    async def _scheduling_loop(self):
+    async def _scheduling_loop(self) -> None:
         """Background task that assigns queued tasks to available workers"""
         while self.is_running:
             try:
@@ -237,7 +238,7 @@ class DistributedProcessingCoordinator:
                 logger.error(f"Error in scheduling loop: {e}")
                 await asyncio.sleep(1.0)
                 
-    async def _requeue_delayed(self, priority: int, task: DistributedTask):
+    async def _requeue_delayed(self, priority: int, task: DistributedTask) -> None:
         """Put a task back in the queue after a short delay"""
         await asyncio.sleep(0.5)
         if self.is_running and task.status in [TaskStatus.PENDING, TaskStatus.RETRYING]:
@@ -283,7 +284,7 @@ class DistributedProcessingCoordinator:
         candidates.sort(key=lambda x: x[0], reverse=True)
         return candidates[0][1]
 
-    async def _assign_task(self, task: DistributedTask, worker: WorkerNode):
+    async def _assign_task(self, task: DistributedTask, worker: WorkerNode) -> None:
         """Assign a task to a specific worker"""
         task.status = TaskStatus.SCHEDULED
         task.assigned_worker_id = worker.worker_id
@@ -301,7 +302,7 @@ class DistributedProcessingCoordinator:
         # Here we simulate the network dispatch asynchronously
         asyncio.create_task(self._simulate_worker_execution(task, worker))
 
-    async def _simulate_worker_execution(self, task: DistributedTask, worker: WorkerNode):
+    async def _simulate_worker_execution(self, task: DistributedTask, worker: WorkerNode) -> None:
         """Simulate the execution on the remote worker node"""
         task.status = TaskStatus.PROCESSING
         task.started_at = time.time()
@@ -330,7 +331,7 @@ class DistributedProcessingCoordinator:
         except Exception as e:
             self.report_task_failure(task.task_id, str(e))
 
-    def report_task_success(self, task_id: str, result: Any):
+    def report_task_success(self, task_id: str, result: Any) -> None:
         """Called by a worker when a task completes successfully"""
         if task_id not in self.tasks:
             return
@@ -362,7 +363,7 @@ class DistributedProcessingCoordinator:
                 
         logger.info(f"Task {task_id} completed successfully")
 
-    def report_task_failure(self, task_id: str, error: str):
+    def report_task_failure(self, task_id: str, error: str) -> None:
         """Called when a task fails execution"""
         if task_id not in self.tasks:
             return
@@ -395,7 +396,7 @@ class DistributedProcessingCoordinator:
             task.completed_at = time.time()
             logger.error(f"Task {task_id} failed permanently")
 
-    async def _health_monitor_loop(self):
+    async def _health_monitor_loop(self) -> None:
         """Background task that monitors worker health and task timeouts"""
         while self.is_running:
             try:
