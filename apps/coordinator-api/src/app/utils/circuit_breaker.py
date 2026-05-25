@@ -35,9 +35,9 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         timeout_seconds: int = 60,
-        expected_exception: type = Exception,
+        expected_exception: type[BaseException] = Exception,
         name: str = "circuit_breaker",
-    ):
+    ) -> None:
         self.failure_threshold = failure_threshold
         self.timeout_seconds = timeout_seconds
         self.expected_exception = expected_exception
@@ -51,7 +51,7 @@ class CircuitBreaker:
         # Statistics
         self.stats = {"total_calls": 0, "successful_calls": 0, "failed_calls": 0, "circuit_opens": 0, "circuit_closes": 0}
 
-    async def call(self, func: Callable, *args, **kwargs) -> Any:
+    async def call(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """Execute function with circuit breaker protection"""
         self.stats["total_calls"] += 1
 
@@ -77,7 +77,9 @@ class CircuitBreaker:
 
             return result
 
-        except self.expected_exception as e:
+        except Exception as e:  # noqa: BLE001
+            if not isinstance(e, self.expected_exception):
+                raise
             # Expected failure - update circuit state
             self._on_failure()
             self.stats["failed_calls"] += 1
@@ -91,7 +93,7 @@ class CircuitBreaker:
 
         return datetime.now() - self.last_failure_time > timedelta(seconds=self.timeout_seconds)
 
-    def _on_success(self):
+    def _on_success(self) -> None:
         """Handle successful call"""
         if self.state == CircuitState.HALF_OPEN:
             # Successful call in half-open state - close circuit
@@ -104,7 +106,7 @@ class CircuitBreaker:
             # Reset failure count on success in closed state
             self.failures = 0
 
-    def _on_failure(self):
+    def _on_failure(self) -> None:
         """Handle failed call"""
         self.failures += 1
         self.last_failure_time = datetime.now()
@@ -134,7 +136,7 @@ class CircuitBreaker:
             ),
         }
 
-    def reset(self):
+    def reset(self) -> None:
         """Manually reset circuit breaker to closed state"""
         self.state = CircuitState.CLOSED
         self.failures = 0
@@ -144,11 +146,14 @@ class CircuitBreaker:
 
 
 def circuit_breaker(
-    failure_threshold: int = 5, timeout_seconds: int = 60, expected_exception: type = Exception, name: str = None
-):
+    failure_threshold: int = 5,
+    timeout_seconds: int = 60,
+    expected_exception: type[BaseException] = Exception,
+    name: str | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for adding circuit breaker protection to functions"""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         breaker_name = name or f"{func.__module__}.{func.__name__}"
         breaker = CircuitBreaker(
             failure_threshold=failure_threshold,
@@ -157,18 +162,14 @@ def circuit_breaker(
             name=breaker_name,
         )
 
-        # Store breaker on function for access to stats
-        func._circuit_breaker = breaker
-
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             return await breaker.call(func, *args, **kwargs)
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             return asyncio.run(breaker.call(func, *args, **kwargs))
 
-        # Return appropriate wrapper
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:
@@ -181,7 +182,7 @@ def circuit_breaker(
 class CircuitBreakers:
     """Collection of pre-configured circuit breakers"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Blockchain RPC circuit breaker
         self.blockchain_rpc = CircuitBreaker(
             failure_threshold=3, timeout_seconds=30, expected_exception=ConnectionError, name="blockchain_rpc"
@@ -211,7 +212,7 @@ class CircuitBreakers:
             "payment_processor": self.payment_processor.get_state(),
         }
 
-    def reset_all(self):
+    def reset_all(self) -> None:
         """Reset all circuit breakers"""
         self.blockchain_rpc.reset()
         self.exchange_api.reset()
@@ -228,7 +229,7 @@ circuit_breakers = CircuitBreakers()
 class ProtectedServiceClient:
     """Example of a service client with circuit breaker protection"""
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str) -> None:
         self.base_url = base_url
         self.circuit_breaker = CircuitBreaker(failure_threshold=3, timeout_seconds=60, name=f"service_client_{base_url}")
 
@@ -240,7 +241,8 @@ class ProtectedServiceClient:
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{self.base_url}{endpoint}", json=data)
             response.raise_for_status()
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
     def get_health_status(self) -> dict[str, Any]:
         """Get health status including circuit breaker state"""
@@ -248,12 +250,12 @@ class ProtectedServiceClient:
 
 
 # FastAPI endpoint for circuit breaker monitoring
-async def get_circuit_breaker_status():
+async def get_circuit_breaker_status() -> dict[str, dict[str, Any]]:
     """Get status of all circuit breakers (for monitoring)"""
     return circuit_breakers.get_all_states()
 
 
-async def reset_circuit_breaker(breaker_name: str):
+async def reset_circuit_breaker(breaker_name: str) -> dict[str, str]:
     """Reset a specific circuit breaker (for admin operations)"""
     breaker_map = {
         "blockchain_rpc": circuit_breakers.blockchain_rpc,
@@ -272,7 +274,7 @@ async def reset_circuit_breaker(breaker_name: str):
 
 
 # Background task for circuit breaker health monitoring
-async def monitor_circuit_breakers():
+async def monitor_circuit_breakers() -> None:
     """Background task to monitor circuit breaker health"""
     while True:
         try:

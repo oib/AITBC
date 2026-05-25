@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class MetricsCollector:
     """Basic metrics collection for system and application monitoring"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._metrics: dict[str, Any] = {
             "api_requests": 0,
             "api_errors": 0,
