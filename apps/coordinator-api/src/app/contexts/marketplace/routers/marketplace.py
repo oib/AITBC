@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status as http_status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -137,3 +139,59 @@ async def get_marketplace_bid(
     except Exception:
         marketplace_errors_total.labels(endpoint="/marketplace/bids/{bid_id}", method="GET", error_type="internal").inc()
         raise
+
+
+@router.get(
+    "/marketplace/plugins",
+    summary="List marketplace plugins",
+)
+async def list_marketplace_plugins(
+    request: Request,
+    *,
+    session: Session = Depends(get_session),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    """List available marketplace plugins"""
+    marketplace_requests_total.labels(endpoint="/marketplace/plugins", method="GET").inc()
+    try:
+        # Return a list of available plugins (mock data for now)
+        plugins = [
+            {
+                "id": "ollama-integration",
+                "name": "Ollama Integration",
+                "version": "1.0.0",
+                "description": "Integrate Ollama for local LLM inference",
+                "author": "AITBC Team",
+                "status": "active",
+                "downloads": 1250
+            },
+            {
+                "id": "ipfs-storage",
+                "name": "IPFS Storage",
+                "version": "1.2.0",
+                "description": "Decentralized storage using IPFS",
+                "author": "AITBC Team",
+                "status": "active",
+                "downloads": 890
+            },
+            {
+                "id": "gpu-optimizer",
+                "name": "GPU Optimizer",
+                "version": "0.9.0",
+                "description": "Optimize GPU utilization for ML workloads",
+                "author": "Community",
+                "status": "beta",
+                "downloads": 450
+            }
+        ]
+        return {
+            "plugins": plugins[offset:offset+limit],
+            "total": len(plugins),
+            "offset": offset,
+            "limit": limit
+        }
+    except Exception as e:
+        marketplace_errors_total.labels(endpoint="/marketplace/plugins", method="GET", error_type="internal").inc()
+        logger.error(f"Error listing plugins: {e}")
+        raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list plugins")
