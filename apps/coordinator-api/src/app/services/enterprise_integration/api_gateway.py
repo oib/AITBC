@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 
 from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota
 from ...exceptions import QuotaExceededError, TenantError
-from ...storage.db import get_db
+from ...storage.db import get_session
 
 
 # Pydantic models for API requests/responses
@@ -104,20 +104,20 @@ class EnterpriseIntegration:
         self.status = IntegrationStatus.PENDING
         self.created_at = datetime.now(timezone.utc)
         self.last_updated = datetime.now(timezone.utc)
-        self.webhook_config = None
+        self.webhook_config: dict[str, Any] | None = None
         self.metrics = {"api_calls": 0, "errors": 0, "last_call": None}
 
 
 class EnterpriseAPIGateway:
     """Enterprise API Gateway with multi-tenant support"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tenant_service = None  # Will be initialized with database session
-        self.active_tokens = {}  # In-memory token storage (in production, use Redis)
-        self.rate_limiters = {}  # Per-tenant rate limiters
-        self.webhooks = {}  # Webhook configurations
-        self.integrations = {}  # Enterprise integrations
-        self.api_metrics = {}  # API performance metrics
+        self.active_tokens: dict[str, Any] = {}  # In-memory token storage (in production, use Redis)
+        self.rate_limiters: dict[str, Any] = {}  # Per-tenant rate limiters
+        self.webhooks: dict[str, Any] = {}  # Webhook configurations
+        self.integrations: dict[str, Any] = {}  # Enterprise integrations
+        self.api_metrics: dict[str, Any] = {}  # API performance metrics
 
         # Default quotas
         self.default_quotas = {
@@ -131,7 +131,7 @@ class EnterpriseAPIGateway:
         self.jwt_algorithm = "HS256"
         self.token_expiry = 3600  # 1 hour
 
-    async def authenticate_enterprise_client(self, request: EnterpriseAuthRequest, db_session) -> EnterpriseAuthResponse:
+    async def authenticate_enterprise_client(self, request: EnterpriseAuthRequest, db_session: Any) -> EnterpriseAuthResponse:
         """Authenticate enterprise client and issue access token"""
 
         try:
@@ -201,7 +201,7 @@ class EnterpriseAPIGateway:
 
         return jwt.encode(payload, self.jwt_secret, algorithm=self.jwt_algorithm)
 
-    async def _validate_tenant_credentials(self, tenant_id: str, client_id: str, client_secret: str, db_session) -> Tenant:
+    async def _validate_tenant_credentials(self, tenant_id: str, client_id: str, client_secret: str, db_session: Any) -> Tenant:
         """Validate tenant credentials"""
 
         # Find tenant
@@ -225,7 +225,7 @@ class EnterpriseAPIGateway:
 
         return tenant
 
-    async def check_api_quota(self, tenant_id: str, endpoint: str, method: str, db_session) -> APIQuotaResponse:
+    async def check_api_quota(self, tenant_id: str, endpoint: str, method: str, db_session: Any) -> APIQuotaResponse:
         """Check and enforce API quotas"""
 
         try:
@@ -254,7 +254,7 @@ class EnterpriseAPIGateway:
             logger.error(f"Quota check failed: {e}")
             raise HTTPException(status_code=500, detail="Quota check failed")
 
-    async def _get_tenant_quota(self, tenant_id: str, db_session) -> dict[str, int]:
+    async def _get_tenant_quota(self, tenant_id: str, db_session: Any) -> dict[str, int]:
         """Get tenant quota configuration"""
 
         # Get tenant-specific quota
@@ -280,7 +280,7 @@ class EnterpriseAPIGateway:
 
         return 0
 
-    async def _update_usage(self, tenant_id: str, quota_type: str, usage: int):
+    async def _update_usage(self, tenant_id: str, quota_type: str, usage: int) -> None:
         """Update quota usage"""
 
         if quota_type == "rate_limit":
@@ -295,7 +295,7 @@ class EnterpriseAPIGateway:
             self.rate_limiters[tenant_id] = [t for t in self.rate_limiters[tenant_id] if t > cutoff]
 
     async def create_enterprise_integration(
-        self, tenant_id: str, request: EnterpriseIntegrationRequest, db_session
+        self, tenant_id: str, request: EnterpriseIntegrationRequest, db_session: Any
     ) -> dict[str, Any]:
         """Create new enterprise integration"""
 
@@ -337,7 +337,7 @@ class EnterpriseAPIGateway:
             logger.error(f"Failed to create enterprise integration: {e}")
             raise HTTPException(status_code=500, detail="Integration creation failed")
 
-    async def _initialize_integration(self, integration: EnterpriseIntegration):
+    async def _initialize_integration(self, integration: Any) -> None:
         """Initialize enterprise integration"""
 
         try:
@@ -357,7 +357,7 @@ class EnterpriseAPIGateway:
             integration.status = IntegrationStatus.ERROR
             raise
 
-    async def _initialize_erp_integration(self, integration: EnterpriseIntegration):
+    async def _initialize_erp_integration(self, integration: Any) -> None:
         """Initialize ERP integration"""
 
         # ERP-specific initialization
@@ -372,7 +372,7 @@ class EnterpriseAPIGateway:
 
         logger.info(f"ERP integration initialized: {integration.provider}")
 
-    async def _initialize_sap_integration(self, integration: EnterpriseIntegration):
+    async def _initialize_sap_integration(self, integration: Any) -> None:
         """Initialize SAP ERP integration"""
 
         # SAP integration logic
@@ -388,7 +388,23 @@ class EnterpriseAPIGateway:
         # In production, implement actual SAP connection testing
         logger.info(f"SAP connection test successful for {integration.integration_id}")
 
-    async def get_enterprise_metrics(self, tenant_id: str, db_session) -> EnterpriseMetrics:
+    async def _initialize_crm_integration(self, integration: Any) -> None:
+        """Initialize CRM integration"""
+        logger.info(f"CRM integration initialized: {integration.integration_id}")
+
+    async def _initialize_bi_integration(self, integration: Any) -> None:
+        """Initialize BI integration"""
+        logger.info(f"BI integration initialized: {integration.integration_id}")
+
+    async def _initialize_oracle_integration(self, integration: Any) -> None:
+        """Initialize Oracle integration"""
+        logger.info(f"Oracle integration initialized: {integration.integration_id}")
+
+    async def _initialize_microsoft_integration(self, integration: Any) -> None:
+        """Initialize Microsoft integration"""
+        logger.info(f"Microsoft integration initialized: {integration.integration_id}")
+
+    async def get_enterprise_metrics(self, tenant_id: str, db_session: Any) -> EnterpriseMetrics:
         """Get enterprise metrics and analytics"""
 
         try:
@@ -433,7 +449,7 @@ class EnterpriseAPIGateway:
             logger.error(f"Failed to get enterprise metrics: {e}")
             raise HTTPException(status_code=500, detail="Metrics retrieval failed")
 
-    async def record_api_call(self, tenant_id: str, endpoint: str, response_time: float, success: bool):
+    async def record_api_call(self, tenant_id: str, endpoint: str, response_time: float, success: bool) -> None:
         """Record API call for metrics"""
 
         if tenant_id not in self.api_metrics:
@@ -489,16 +505,15 @@ gateway = EnterpriseAPIGateway()
 
 
 # Dependency for database session
-async def get_db_session():
+async def get_db_session() -> Any:
     """Get database session"""
-
-    async with get_db() as session:
+    for session in get_session():
         yield session
 
 
 # Middleware for API metrics
 @app.middleware("http")
-async def api_metrics_middleware(request: Request, call_next):
+async def api_metrics_middleware(request: Request, call_next: Any) -> Any:
     """Middleware to record API metrics"""
 
     start_time = time.time()
@@ -526,7 +541,7 @@ async def api_metrics_middleware(request: Request, call_next):
 
 
 @app.post("/enterprise/auth")
-async def enterprise_auth(request: EnterpriseAuthRequest, db_session=Depends(get_db_session)):
+async def enterprise_auth(request: EnterpriseAuthRequest, db_session: Any = Depends(get_db_session)) -> Any:
     """Authenticate enterprise client"""
 
     result = await gateway.authenticate_enterprise_client(request, db_session)
@@ -534,7 +549,7 @@ async def enterprise_auth(request: EnterpriseAuthRequest, db_session=Depends(get
 
 
 @app.post("/enterprise/quota/check")
-async def check_quota(request: APIQuotaRequest, db_session=Depends(get_db_session)):
+async def check_quota(request: APIQuotaRequest, db_session: Any = Depends(get_db_session)) -> Any:
     """Check API quota"""
 
     result = await gateway.check_api_quota(request.tenant_id, request.endpoint, request.method, db_session)
@@ -542,7 +557,7 @@ async def check_quota(request: APIQuotaRequest, db_session=Depends(get_db_sessio
 
 
 @app.post("/enterprise/integrations")
-async def create_integration(request: EnterpriseIntegrationRequest, db_session=Depends(get_db_session)):
+async def create_integration(request: EnterpriseIntegrationRequest, db_session: Any = Depends(get_db_session)) -> Any:
     """Create enterprise integration"""
 
     # Extract tenant from token (in production, proper authentication)
@@ -553,7 +568,7 @@ async def create_integration(request: EnterpriseIntegrationRequest, db_session=D
 
 
 @app.get("/enterprise/analytics")
-async def get_analytics(db_session=Depends(get_db_session)):
+async def get_analytics(db_session: Any = Depends(get_db_session)) -> Any:
     """Get enterprise analytics dashboard"""
 
     # Extract tenant from token (in production, proper authentication)
@@ -564,7 +579,7 @@ async def get_analytics(db_session=Depends(get_db_session)):
 
 
 @app.get("/enterprise/status")
-async def get_status():
+async def get_status() -> dict[str, Any]:
     """Get enterprise gateway status"""
 
     return {
@@ -579,7 +594,7 @@ async def get_status():
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, Any]:
     """Root endpoint"""
     return {
         "service": "Enterprise API Gateway",
@@ -597,7 +612,7 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Health check endpoint"""
     return {
         "status": "healthy",

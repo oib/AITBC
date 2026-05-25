@@ -11,7 +11,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
@@ -215,9 +215,9 @@ class AgentSandboxConfig(SQLModel, table=True):
 class AgentAuditor:
     """Comprehensive auditing system for agent operations"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
-        self.security_policies = {}
+        self.security_policies: dict[str, Any] = {}
         self.trust_manager = AgentTrustManager(session)
         self.sandbox_manager = AgentSandboxManager(session)
 
@@ -234,11 +234,12 @@ class AgentAuditor:
         new_state: dict[str, Any] | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        requires_investigation: bool = False,
     ) -> AgentAuditLog:
         """Log an audit event with comprehensive security context"""
 
         # Calculate risk score
-        risk_score = self._calculate_risk_score(event_type, event_data, security_level)
+        risk_score = self._calculate_risk_score(event_type, event_data or {}, security_level)
 
         # Create audit log entry
         audit_log = AgentAuditLog(
@@ -254,9 +255,9 @@ class AgentAuditor:
             previous_state=previous_state,
             new_state=new_state,
             risk_score=risk_score,
-            requires_investigation=risk_score >= 70,
-            cryptographic_hash=self._generate_event_hash(event_data),
-            signature_valid=self._verify_signature(event_data),
+            requires_investigation=requires_investigation or risk_score >= 70,
+            cryptographic_hash=self._generate_event_hash(event_data or {}),
+            signature_valid=self._verify_signature(event_data or {}),
         )
 
         # Store audit log
@@ -323,7 +324,7 @@ class AgentAuditor:
     def _generate_event_hash(self, event_data: dict[str, Any]) -> str:
         """Generate cryptographic hash for event data"""
         if not event_data:
-            return None
+            return ""
 
         # Create canonical JSON representation
         canonical_json = json.dumps(event_data, sort_keys=True, separators=(",", ":"))
@@ -354,7 +355,7 @@ class AgentAuditor:
             logger.error(f"Signature verification failed: {e}")
             return False
 
-    async def _handle_high_risk_event(self, audit_log: AgentAuditLog):
+    async def _handle_high_risk_event(self, audit_log: AgentAuditLog) -> None:
         """Handle high-risk audit events requiring investigation"""
 
         logger.warning(f"High-risk audit event detected: {audit_log.event_type.value} (Score: {audit_log.risk_score})")
@@ -390,7 +391,7 @@ class AgentAuditor:
 class AgentTrustManager:
     """Trust and reputation management for agents and users"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     async def update_trust_score(
@@ -400,20 +401,22 @@ class AgentTrustManager:
         execution_success: bool,
         execution_time: float | None = None,
         security_violation: bool = False,
-        policy_violation: bool = bool,
+        policy_violation: bool = False,
     ) -> AgentTrustScore:
         """Update trust score based on execution results"""
 
         # Get or create trust score record
-        trust_score = self.session.execute(
+        trust_score_row = self.session.scalars(
             select(AgentTrustScore).where(
                 (AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id)
             )
         ).first()
 
-        if not trust_score:
+        if trust_score_row is None:
             trust_score = AgentTrustScore(entity_type=entity_type, entity_id=entity_id)
             self.session.add(trust_score)
+        else:
+            trust_score = trust_score_row
 
         # Update metrics
         trust_score.total_executions += 1
@@ -426,12 +429,12 @@ class AgentTrustManager:
         if security_violation:
             trust_score.security_violations += 1
             trust_score.last_violation = datetime.now(timezone.utc)
-            trust_score.violation_history.append({"timestamp": datetime.now(timezone.utc).isoformat(), "type": "security_violation"})
+            cast(list[Any], trust_score.violation_history).append({"timestamp": datetime.now(timezone.utc).isoformat(), "type": "security_violation"})
 
         if policy_violation:
             trust_score.policy_violations += 1
             trust_score.last_violation = datetime.now(timezone.utc)
-            trust_score.violation_history.append({"timestamp": datetime.now(timezone.utc).isoformat(), "type": "policy_violation"})
+            cast(list[Any], trust_score.violation_history).append({"timestamp": datetime.now(timezone.utc).isoformat(), "type": "policy_violation"})
 
         # Calculate scores
         trust_score.trust_score = self._calculate_trust_score(trust_score)
@@ -512,7 +515,7 @@ class AgentTrustManager:
 class AgentSandboxManager:
     """Sandboxing and isolation management for agent execution"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     async def create_sandbox_environment(
@@ -760,7 +763,7 @@ class AgentSandboxManager:
 class AgentSecurityManager:
     """Main security management interface for agent operations"""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
         self.auditor = AgentAuditor(session)
         self.trust_manager = AgentTrustManager(session)
@@ -791,7 +794,7 @@ class AgentSecurityManager:
     async def validate_workflow_security(self, workflow: AIAgentWorkflow, user_id: str) -> dict[str, Any]:
         """Validate workflow against security policies"""
 
-        validation_result = {
+        validation_result: dict[str, Any] = {
             "valid": True,
             "violations": [],
             "warnings": [],
@@ -837,7 +840,7 @@ class AgentSecurityManager:
             AuditEventType.WORKFLOW_CREATED,
             workflow_id=workflow.id,
             user_id=user_id,
-            security_level=validation_result["required_security_level"],
+            security_level=cast(SecurityLevel, validation_result["required_security_level"]),
             event_data={"validation_result": validation_result},
         )
 
@@ -846,7 +849,7 @@ class AgentSecurityManager:
     async def monitor_execution_security(self, execution_id: str, workflow_id: str) -> dict[str, Any]:
         """Monitor execution for security violations"""
 
-        monitoring_result = {
+        monitoring_result: dict[str, Any] = {
             "execution_id": execution_id,
             "workflow_id": workflow_id,
             "security_status": "monitoring",

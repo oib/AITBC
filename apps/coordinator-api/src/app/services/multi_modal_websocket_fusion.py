@@ -98,7 +98,7 @@ class GPUProviderMetrics:
 class GPUProviderFlowControl:
     """Flow control for GPU providers"""
 
-    def __init__(self, provider_id: str):
+    def __init__(self, provider_id: str) -> None:
         self.provider_id = provider_id
         self.metrics = GPUProviderMetrics(
             provider_id=provider_id,
@@ -112,9 +112,9 @@ class GPUProviderFlowControl:
         )
 
         # Flow control queues
-        self.input_queue = asyncio.Queue(maxsize=100)
-        self.output_queue = asyncio.Queue(maxsize=100)
-        self.control_queue = asyncio.Queue(maxsize=50)
+        self.input_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=100)
+        self.output_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=100)
+        self.control_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=50)
 
         # Flow control parameters
         self.max_concurrent_requests = 4
@@ -123,15 +123,15 @@ class GPUProviderFlowControl:
         self.overload_threshold = 0.8  # queue fill ratio
 
         # Performance tracking
-        self.request_times = []
+        self.request_times: list[float] = []
         self.error_count = 0
         self.total_requests = 0
 
         # Flow control task
-        self._flow_control_task = None
+        self._flow_control_task: asyncio.Task[None] | None = None
         self._running = False
 
-    async def start(self):
+    async def start(self) -> None:
         """Start flow control"""
         if self._running:
             return
@@ -140,7 +140,7 @@ class GPUProviderFlowControl:
         self._flow_control_task = asyncio.create_task(self._flow_control_loop())
         logger.info(f"GPU provider flow control started: {self.provider_id}")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop flow control"""
         if not self._running:
             return
@@ -203,7 +203,7 @@ class GPUProviderFlowControl:
 
         return None
 
-    async def _flow_control_loop(self):
+    async def _flow_control_loop(self) -> None:
         """Main flow control loop"""
         while self._running:
             try:
@@ -229,7 +229,7 @@ class GPUProviderFlowControl:
                 logger.error(f"Flow control error for {self.provider_id}: {e}")
                 await asyncio.sleep(0.1)
 
-    async def _process_request(self, request_data: dict[str, Any]):
+    async def _process_request(self, request_data: dict[str, Any]) -> None:
         """Process individual request"""
         request_id = request_data["request_id"]
         data: FusionData = request_data["data"]
@@ -273,14 +273,14 @@ class GPUProviderFlowControl:
         finally:
             self.current_requests -= 1
 
-    def _update_metrics(self, processing_time: float, success: bool):
+    def _update_metrics(self, processing_time: float, success: bool) -> None:
         """Update provider metrics"""
         # Update processing time
         self.request_times.append(processing_time)
         if len(self.request_times) > 100:
             self.request_times.pop(0)
 
-        self.metrics.avg_processing_time = np.mean(self.request_times)
+        self.metrics.avg_processing_time = float(np.mean(self.request_times))
 
         # Update error rate
         if not success:
@@ -323,7 +323,7 @@ class GPUProviderFlowControl:
 class MultiModalWebSocketFusion:
     """Multi-modal fusion service with WebSocket streaming and backpressure control"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.stream_manager = stream_manager
         self.fusion_service = None  # Will be injected
         self.gpu_providers: dict[str, GPUProviderFlowControl] = {}
@@ -349,9 +349,9 @@ class MultiModalWebSocketFusion:
 
         # Running state
         self._running = False
-        self._monitor_task = None
+        self._monitor_task: asyncio.Task[None] | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the fusion service"""
         if self._running:
             return
@@ -369,7 +369,7 @@ class MultiModalWebSocketFusion:
 
         logger.info("Multi-Modal WebSocket Fusion started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the fusion service"""
         if not self._running:
             return
@@ -393,16 +393,16 @@ class MultiModalWebSocketFusion:
 
         logger.info("Multi-Modal WebSocket Fusion stopped")
 
-    async def register_fusion_stream(self, stream_id: str, config: FusionStreamConfig):
+    async def register_fusion_stream(self, stream_id: str, config: FusionStreamConfig) -> None:
         """Register a fusion stream"""
         self.fusion_streams[stream_id] = config
         logger.info(f"Registered fusion stream: {stream_id} ({config.stream_type.value})")
 
-    async def handle_websocket_connection(self, websocket, stream_id: str, stream_type: FusionStreamType):
+    async def handle_websocket_connection(self, websocket: Any, stream_id: str, stream_type: FusionStreamType) -> None:
         """Handle WebSocket connection for fusion stream"""
         config = FusionStreamConfig(stream_type=stream_type, max_queue_size=500, gpu_timeout=2.0, fusion_timeout=5.0)
 
-        async with self.stream_manager.manage_stream(websocket, config.to_stream_config()):
+        async for _ in self.stream_manager.manage_stream(websocket, config.to_stream_config()):
             logger.info(f"Fusion stream connected: {stream_id} ({stream_type.value})")
 
             try:
@@ -413,7 +413,7 @@ class MultiModalWebSocketFusion:
             except Exception as e:
                 logger.error(f"Error in fusion stream {stream_id}: {e}")
 
-    async def _handle_stream_message(self, stream_id: str, stream_type: FusionStreamType, message: str):
+    async def _handle_stream_message(self, stream_id: str, stream_type: FusionStreamType, message: str) -> None:
         """Handle incoming stream message"""
         try:
             data = json.loads(message)
@@ -438,7 +438,7 @@ class MultiModalWebSocketFusion:
         except Exception as e:
             logger.error(f"Error handling stream message: {e}")
 
-    async def _submit_to_gpu_provider(self, fusion_data: FusionData):
+    async def _submit_to_gpu_provider(self, fusion_data: FusionData) -> None:
         """Submit fusion data to GPU provider"""
         # Select best GPU provider
         provider_id = await self._select_gpu_provider(fusion_data)
@@ -466,7 +466,7 @@ class MultiModalWebSocketFusion:
             error = result.get("error", "Unknown error") if result else "Timeout"
             await self._handle_fusion_error(fusion_data, error)
 
-    async def _process_cpu_fusion(self, fusion_data: FusionData):
+    async def _process_cpu_fusion(self, fusion_data: FusionData) -> None:
         """Process fusion data on CPU"""
         try:
             # Simulate CPU fusion processing
@@ -485,7 +485,7 @@ class MultiModalWebSocketFusion:
             logger.error(f"CPU fusion error: {e}")
             await self._handle_fusion_error(fusion_data, str(e))
 
-    async def _handle_fusion_result(self, fusion_data: FusionData, result: dict[str, Any]):
+    async def _handle_fusion_result(self, fusion_data: FusionData, result: dict[str, Any]) -> None:
         """Handle successful fusion result"""
         # Update metrics
         self.fusion_metrics["total_fusions"] += 1
@@ -504,7 +504,7 @@ class MultiModalWebSocketFusion:
 
         logger.info(f"Fusion completed for {fusion_data.stream_id}")
 
-    async def _handle_fusion_error(self, fusion_data: FusionData, error: str):
+    async def _handle_fusion_error(self, fusion_data: FusionData, error: str) -> None:
         """Handle fusion error"""
         # Update metrics
         self.fusion_metrics["total_fusions"] += 1
@@ -542,24 +542,24 @@ class MultiModalWebSocketFusion:
 
         return best_provider[0]
 
-    async def _initialize_gpu_providers(self):
+    async def _initialize_gpu_providers(self) -> None:
         """Initialize GPU providers"""
         # Create mock GPU providers
-        provider_configs = [
+        provider_configs: list[dict[str, Any]] = [
             {"provider_id": "gpu_1", "max_concurrent": 4},
             {"provider_id": "gpu_2", "max_concurrent": 2},
             {"provider_id": "gpu_3", "max_concurrent": 6},
         ]
 
         for config in provider_configs:
-            provider = GPUProviderFlowControl(config["provider_id"])
-            provider.max_concurrent_requests = config["max_concurrent"]
+            provider = GPUProviderFlowControl(str(config["provider_id"]))
+            provider.max_concurrent_requests = int(config["max_concurrent"])
             await provider.start()
-            self.gpu_providers[config["provider_id"]] = provider
+            self.gpu_providers[str(config["provider_id"])] = provider
 
         logger.info(f"Initialized {len(self.gpu_providers)} GPU providers")
 
-    async def _monitor_loop(self):
+    async def _monitor_loop(self) -> None:
         """Monitor system performance and backpressure"""
         while self._running:
             try:
@@ -582,10 +582,10 @@ class MultiModalWebSocketFusion:
                 logger.error(f"Monitor loop error: {e}")
                 await asyncio.sleep(1)
 
-    async def _update_global_metrics(self):
+    async def _update_global_metrics(self) -> None:
         """Update global performance metrics"""
         # Get stream manager metrics
-        manager_metrics = self.stream_manager.get_manager_metrics()
+        manager_metrics = await self.stream_manager.get_manager_metrics()
 
         # Update global queue size
         self.global_queue_size = manager_metrics["total_queue_size"]
@@ -606,7 +606,7 @@ class MultiModalWebSocketFusion:
             self.fusion_metrics["gpu_utilization"] = total_gpu_util / active_providers
             self.fusion_metrics["memory_usage"] = total_memory / active_providers
 
-    async def _check_backpressure(self):
+    async def _check_backpressure(self) -> None:
         """Check and handle backpressure"""
         if self.global_queue_size > self.max_global_queue_size * 0.8:
             logger.warning("High backpressure detected, applying flow control")
@@ -618,7 +618,7 @@ class MultiModalWebSocketFusion:
             for stream_id in slow_streams:
                 await self.stream_manager.handle_slow_consumer(stream_id, "throttle")
 
-    async def _monitor_gpu_providers(self):
+    async def _monitor_gpu_providers(self) -> None:
         """Monitor GPU provider health"""
         for provider_id, provider in self.gpu_providers.items():
             metrics = provider.get_metrics()
