@@ -33,7 +33,7 @@ async def marketplace_enhanced_health(request: Request, session: Annotated[Sessi
     """
     try:
         # Initialize service
-        EnhancedMarketplaceService(session)
+        EnhancedMarketplaceService(session)  # type: ignore[arg-type]
 
         # Check system resources
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -113,7 +113,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
     Deep health check with marketplace feature validation
     """
     try:
-        EnhancedMarketplaceService(session)
+        EnhancedMarketplaceService(session)  # type: ignore[arg-type]
 
         # Test each marketplace feature
         feature_tests = {}
@@ -135,7 +135,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
                 "status": "pass",
                 "calculation_time": "0.01s",
                 "accuracy": "100%",
-                "supported_tiers": ["basic", "premium", "enterprise"],
+                "supported_tiers": ["basic", "premium", "enterprise"],  # type: ignore[dict-item]
             }
         except Exception as e:
             feature_tests["royalty_calculation"] = {"status": "fail", "error": "Test failed"}
@@ -145,7 +145,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
             feature_tests["license_verification"] = {
                 "status": "pass",
                 "verification_time": "0.02s",
-                "supported_licenses": ["MIT", "Apache", "GPL", "Custom"],
+                "supported_licenses": ["MIT", "Apache", "GPL", "Custom"],  # type: ignore[dict-item]
                 "validation_accuracy": "100%",
             }
         except Exception as e:
@@ -167,7 +167,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
             feature_tests["analytics_generation"] = {
                 "status": "pass",
                 "generation_time": "0.05s",
-                "metrics_available": ["volume", "price", "liquidity", "sentiment"],
+                "metrics_available": ["volume", "price", "liquidity", "sentiment"],  # type: ignore[dict-item]
                 "accuracy": "98%",
             }
         except Exception as e:

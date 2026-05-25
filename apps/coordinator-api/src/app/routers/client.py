@@ -30,7 +30,7 @@ async def submit_job(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> JobView:  # type: ignore[arg-type]
+) -> JobView:
     service = JobService(session)
     job = service.create_job(client_id, req)
 
@@ -49,7 +49,7 @@ async def submit_job(
         session.commit()
         session.refresh(job)
 
-    return service.to_view(job)
+    return service.to_view(job)  # type: ignore[no-any-return]
 
 
 @router.get("/jobs/{job_id}", response_model=JobView, summary="Get job status")
@@ -58,13 +58,13 @@ async def get_job(
     request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> JobView:  # type: ignore[arg-type]
+) -> JobView:
     service = JobService(session)
     try:
         job = service.get_job(job_id, client_id=client_id)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
-    return service.to_view(job)
+    return service.to_view(job)  # type: ignore[no-any-return]
 
 
 @router.get("/jobs/{job_id}/result", response_model=JobResult, summary="Get job result")
@@ -73,7 +73,7 @@ async def get_job_result(
     request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> JobResult:  # type: ignore[arg-type]
+) -> JobResult:
     service = JobService(session)
     try:
         job = service.get_job(job_id, client_id=client_id)
@@ -84,7 +84,7 @@ async def get_job_result(
         raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready")
     if job.result is None and job.receipt is None:
         raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready")
-    return service.to_result(job)
+    return service.to_result(job)  # type: ignore[no-any-return]
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobView, summary="Cancel job")
@@ -93,7 +93,7 @@ async def cancel_job(
     request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> JobView:  # type: ignore[arg-type]
+) -> JobView:
     service = JobService(session)
     try:
         job = service.get_job(job_id, client_id=client_id)
@@ -104,7 +104,7 @@ async def cancel_job(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="job not cancelable")
 
     job = service.cancel_job(job)
-    return service.to_view(job)
+    return service.to_view(job)  # type: ignore[no-any-return]
 
 
 @router.get("/jobs/{job_id}/receipt", summary="Get latest signed receipt")
@@ -113,7 +113,7 @@ async def get_job_receipt(
     request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> dict:  # type: ignore[arg-type]
+) -> dict:
     service = JobService(session)
     try:
         job = service.get_job(job_id, client_id=client_id)
@@ -121,7 +121,7 @@ async def get_job_receipt(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
     if not job.receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="receipt not available")
-    return job.receipt
+    return job.receipt  # type: ignore[no-any-return]
 
 
 @router.get("/jobs/{job_id}/receipts", summary="List signed receipts")
@@ -130,7 +130,7 @@ async def list_job_receipts(
     request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> dict:  # type: ignore[arg-type]
+) -> dict:
     service = JobService(session)
     receipts = service.list_receipts(job_id, client_id=client_id)
     return {"items": [row.payload for row in receipts]}
@@ -147,7 +147,7 @@ async def list_jobs(
     offset: int = 0,
     status: str | None = None,
     job_type: str | None = None,
-) -> dict:  # type: ignore[arg-type]
+) -> dict:
     """List jobs with optional filtering by status and type"""
     service = JobService(session)
 
@@ -160,7 +160,7 @@ async def list_jobs(
             pass  # Invalid status, ignore
 
     if job_type:
-        filters["job_type"] = job_type
+        filters["job_type"] = job_type  # type: ignore[assignment]
 
     jobs = service.list_jobs(client_id=client_id, limit=limit, offset=offset, **filters)
 
@@ -180,7 +180,7 @@ async def get_job_history(
     job_type: str | None = None,
     from_time: str | None = None,
     to_time: str | None = None,
-) -> dict:  # type: ignore[arg-type]
+) -> dict:
     """Get job history with time range filtering"""
     service = JobService(session)
 
@@ -193,7 +193,7 @@ async def get_job_history(
             pass  # Invalid status, ignore
 
     if job_type:
-        filters["job_type"] = job_type
+        filters["job_type"] = job_type  # type: ignore[assignment]
 
     try:
         # Use the list_jobs method with time filtering
@@ -228,7 +228,7 @@ async def get_blocks(
     client_id: str = Depends(require_client_key()),
     limit: int = 20,
     offset: int = 0,
-) -> dict:  # type: ignore[arg-type]
+) -> dict:
     """Get recent blockchain blocks"""
     try:
         # Query the local blockchain node for blocks
