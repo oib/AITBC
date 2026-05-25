@@ -46,7 +46,7 @@ class Dispute:
     evidence_deadline: int
     arbitration_deadline: int
     resolution_amount: int = 0
-    winner: str = "0x0000000000000000000000000000000000000000"
+    winner: str | None = None
     resolution_reason: str = ""
     arbitrator_count: int = 0
     is_escalated: bool = False
@@ -64,7 +64,7 @@ class Evidence:
     submission_time: int
     is_valid: bool = False
     verification_score: int = 0
-    verified_by: str = "0x0000000000000000000000000000000000000000"
+    verified_by: str | None = None
 
 
 @dataclass
