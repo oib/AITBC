@@ -507,22 +507,59 @@ setup_autostart() {
 
 # Main function
 main() {
+    echo "=== AITBC SETUP STARTED ==="
     log "Starting AITBC setup..."
 
+    echo "[STEP 1/10] Checking root privileges..."
     check_root
+    echo "[STEP 1/10] ✓ Root privileges verified"
+
+    echo "[STEP 2/10] Checking prerequisites..."
     check_prerequisites
+    echo "[STEP 2/10] ✓ Prerequisites check passed"
+
+    echo "[STEP 3/10] Cloning repository..."
     clone_repo
+    echo "[STEP 3/10] ✓ Repository cloned"
+
+    echo "[STEP 4/10] Setting up runtime directories..."
     setup_runtime_directories
+    echo "[STEP 4/10] ✓ Runtime directories created"
+
+    echo "[STEP 5/10] Setting up PostgreSQL databases..."
     setup_postgresql_databases
+    echo "[STEP 5/10] ✓ PostgreSQL databases configured"
+
+    echo "[STEP 6/10] Setting up node identities..."
     setup_node_identities
+    echo "[STEP 6/10] ✓ Node identities configured"
+
+    echo "[STEP 7/10] Setting up credentials..."
     setup_credentials
+    echo "[STEP 7/10] ✓ Credentials configured"
+
+    echo "[STEP 8/10] Setting up virtual environments..."
     setup_venvs
+    echo "[STEP 8/10] ✓ Virtual environments created"
+
+    echo "[STEP 9/10] Installing systemd services..."
     install_services
+    echo "[STEP 9/10] ✓ Systemd services installed"
+
+    echo "[STEP 10/10] Preparing health check..."
     prepare_health_check
+    echo "[STEP 10/10] ✓ Health check prepared"
+
+    echo "[STARTING] Starting AITBC services..."
     start_services
+    echo "[STARTING] ✓ Services started"
+
+    echo "[AUTOSTART] Configuring auto-start..."
     setup_autostart
+    echo "[AUTOSTART] ✓ Auto-start configured"
 
     success "AITBC setup completed!"
+    echo "=== AITBC SETUP COMPLETED ==="
     echo ""
     echo "Service Information:"
     echo "  Wallet API: http://localhost:8003/health"
