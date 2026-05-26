@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Utility script to generate and set unique node IDs for AITBC nodes.
-This script updates /etc/aitbc/.env and /etc/aitbc/node.env with unique UUID-based IDs.
+This script updates /etc/aitbc/blockchain.env and /etc/aitbc/node.env with unique UUID-based IDs.
 """
 
 import uuid
@@ -77,7 +77,7 @@ def main():
     print("=== AITBC Unique Node ID Generator ===\n")
     
     # Paths
-    env_path = Path("/etc/aitbc/.env")
+    env_path = Path("/etc/aitbc/blockchain.env")
     node_env_path = Path("/etc/aitbc/node.env")
     
     # Check if running as root
@@ -92,8 +92,8 @@ def main():
     print(f"Generated proposer_id: {proposer_id}")
     print(f"Generated p2p_node_id: {p2p_node_id}\n")
     
-    # Update /etc/aitbc/.env with proposer_id
-    print("Updating /etc/aitbc/.env...")
+    # Update /etc/aitbc/blockchain.env with proposer_id
+    print("Updating /etc/aitbc/blockchain.env...")
     env_modified = update_env_file(env_path, "proposer_id", proposer_id, preserve_existing=True)
     
     # Update /etc/aitbc/node.env with p2p_node_id

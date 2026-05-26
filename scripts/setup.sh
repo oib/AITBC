@@ -293,19 +293,19 @@ setup_node_identities() {
         local key="$1"
         local value="$2"
 
-        if grep -q "^${key}=" /etc/aitbc/.env; then
-            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/.env
+        if grep -q "^${key}=" /etc/aitbc/blockchain.env; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/blockchain.env
         else
-            echo "${key}=${value}" >> /etc/aitbc/.env
+            echo "${key}=${value}" >> /etc/aitbc/blockchain.env
         fi
     }
 
-    # Generate unique proposer_id if not already set in /etc/aitbc/.env
-    if [ ! -f "/etc/aitbc/.env" ]; then
-        log "/etc/aitbc/.env does not exist, creating with unique IDs..."
+    # Generate unique proposer_id if not already set in /etc/aitbc/blockchain.env
+    if [ ! -f "/etc/aitbc/blockchain.env" ]; then
+        log "/etc/aitbc/blockchain.env does not exist, creating with unique IDs..."
         PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
         P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
-        cat > /etc/aitbc/.env << EOF
+        cat > /etc/aitbc/blockchain.env << EOF
 # AITBC Blockchain Configuration
 # Auto-generated unique node identities
 proposer_id=$PROPOSER_ID
@@ -314,15 +314,15 @@ gossip_backend=broadcast
 gossip_broadcast_url=redis://localhost:6379
 default_peer_rpc_url=http://127.0.0.1:8006
 EOF
-        log "Created /etc/aitbc/.env with unique IDs"
+        log "Created /etc/aitbc/blockchain.env with unique IDs"
     else
         # Check if proposer_id exists, if not add it
-        if ! grep -q "^proposer_id=" /etc/aitbc/.env; then
+        if ! grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
             PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
             set_env proposer_id "$PROPOSER_ID"
-            log "Added unique proposer_id to /etc/aitbc/.env"
+            log "Added unique proposer_id to /etc/aitbc/blockchain.env"
         else
-            log "proposer_id already exists in /etc/aitbc/.env"
+            log "proposer_id already exists in /etc/aitbc/blockchain.env"
         fi
     fi
 
@@ -405,13 +405,13 @@ setup_credentials() {
         log "Keystore password already exists"
     fi
 
-    # Copy proposer_id from .env to credentials
-    if [ -f "/etc/aitbc/.env" ] && grep -q "^proposer_id=" /etc/aitbc/.env; then
-        grep "^proposer_id=" /etc/aitbc/.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
+    # Copy proposer_id from blockchain.env to credentials
+    if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
+        grep "^proposer_id=" /etc/aitbc/blockchain.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
         chmod 600 /etc/aitbc/credentials/proposer_id
         log "Copied proposer_id to credentials"
     else
-        log "No proposer_id found in /etc/aitbc/.env, generating random ID"
+        log "No proposer_id found in /etc/aitbc/blockchain.env, generating random ID"
         if python3 -c "import secrets; print(secrets.token_hex(16))" > /etc/aitbc/credentials/proposer_id 2>/dev/null; then
             chmod 600 /etc/aitbc/credentials/proposer_id
             log "Generated random proposer_id"
@@ -423,10 +423,10 @@ setup_credentials() {
         fi
     fi
 
-    # Add API_KEY_HASH_SECRET to .env if not present
-    if [ -f "/etc/aitbc/.env" ] && ! grep -q "^API_KEY_HASH_SECRET=" /etc/aitbc/.env; then
-        echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)" >> /etc/aitbc/.env
-        log "Added API_KEY_HASH_SECRET to .env"
+    # Add API_KEY_HASH_SECRET to blockchain.env if not present
+    if [ -f "/etc/aitbc/blockchain.env" ] && ! grep -q "^API_KEY_HASH_SECRET=" /etc/aitbc/blockchain.env; then
+        echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)" >> /etc/aitbc/blockchain.env
+        log "Added API_KEY_HASH_SECRET to blockchain.env"
     fi
 
     # Generate runtime secrets file for systemd services

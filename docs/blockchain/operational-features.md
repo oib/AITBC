@@ -12,7 +12,7 @@ Automatic bulk sync is implemented in the blockchain node to automatically detec
 
 ### Configuration
 
-Configuration parameters in `/etc/aitbc/.env`:
+Configuration parameters in `/etc/aitbc/blockchain.env`:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -25,10 +25,10 @@ Configuration parameters in `/etc/aitbc/.env`:
 
 To enable on a node:
 
-1. Add `auto_sync_enabled=true` to `/etc/aitbc/.env`
+1. Add `auto_sync_enabled=true` to `/etc/aitbc/blockchain.env`
 2. Restart the blockchain node service:
    ```bash
-   sudo systemctl restart aitbc-blockchain-node.service
+   sudo systemctl restart aitbc-blockchain-p2p.service
    ```
 
 ### Sync Triggers
@@ -189,10 +189,10 @@ Content-Type: application/json
 **Symptoms**: Block gaps not detected or sync not starting.
 
 **Solutions**:
-- Verify `auto_sync_enabled=true` in `/etc/aitbc/.env`
+- Verify `auto_sync_enabled=true` in `/etc/aitbc/blockchain.env`
 - Check `auto_sync_threshold` is appropriate for your network
 - Verify blockchain node service is running
-- Check logs: `journalctl -u aitbc-blockchain-node.service -f`
+- Check logs: `journalctl -u aitbc-blockchain-p2p.service -f`
 
 ### Force Sync Failing
 

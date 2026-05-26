@@ -34,10 +34,10 @@ for db_user in aitbc_user aitbc_marketplace aitbc_governance aitbc_trading aitbc
     fi
 done
 
-# Add non-sensitive config from main .env
-if [ -f "/etc/aitbc/.env" ]; then
+# Add non-sensitive config from main blockchain.env
+if [ -f "/etc/aitbc/blockchain.env" ]; then
     # Skip lines that are comments or contain migrated secrets
-    grep -v '^#' /etc/aitbc/.env | grep -v 'API_KEY_HASH_SECRET' | grep -v 'proposer_id' >> "$ENV_FILE" || true
+    grep -v '^#' /etc/aitbc/blockchain.env | grep -v 'API_KEY_HASH_SECRET' | grep -v 'proposer_id' >> "$ENV_FILE" || true
 fi
 
 chmod 600 "$ENV_FILE"
