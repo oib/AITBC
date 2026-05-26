@@ -12,7 +12,11 @@ from typing import Optional
 
 import click
 
-from ..utils import error, success
+from ..utils import error, success, output
+from ..config import get_config
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
+
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -156,3 +160,66 @@ def stop(agent_id: Optional[str]):
     """Stop Hermes training"""
     success(f"Stop Hermes training for agent {agent_id}")
     # TODO: Implement actual stop command via coordinator API
+
+
+@hermes.command()
+@click.argument('message')
+@click.option('--to-agent', help='Target agent ID')
+@click.option('--priority', default='normal', help='Message priority')
+@click.pass_context
+def send(ctx, message: str, to_agent: Optional[str], priority: str):
+    """Send a message via hermes service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.hermes_service_url, timeout=10)
+        message_data = {
+            "message": message,
+            "priority": priority
+        }
+        if to_agent:
+            message_data["to_agent"] = to_agent
+        
+        result = http_client.post("/hermes/send", json=message_data)
+        success("Message sent via hermes")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error sending message: {e}")
+
+
+@hermes.command()
+@click.option('--limit', type=int, default=20, help='Number of messages to return')
+@click.pass_context
+def receive(ctx, limit: int):
+    """Receive messages from hermes service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.hermes_service_url, timeout=10)
+        messages_data = http_client.get("/hermes/messages", params={"limit": limit})
+        success("Messages:")
+        output(messages_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error receiving messages: {e}")
+
+
+@hermes.command()
+@click.pass_context
+def peers(ctx):
+    """List hermes service peers"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.hermes_service_url, timeout=10)
+        peers_data = http_client.get("/hermes/peers")
+        success("Hermes Peers:")
+        output(peers_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching peers: {e}")
+

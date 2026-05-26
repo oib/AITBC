@@ -8,7 +8,11 @@ from typing import Optional
 
 import click
 
-from ..utils import error, success
+from ..utils import error, success, output
+from ..config import get_config
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
+
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -126,3 +130,50 @@ def optimize(target: str, agent_id: Optional[str], mock: bool):
     click.echo("Improvement: 12.5%")
     click.echo("Status: Optimized")
     return 0
+
+
+@resource.command()
+@click.option('--resource-id', help='Specific resource ID to check')
+@click.pass_context
+def status(ctx, resource_id: Optional[str]):
+    """Get resource allocation status from coordinator-api"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        
+        if resource_id:
+            status_data = http_client.get(f"/api/v1/resources/{resource_id}/status")
+        else:
+            status_data = http_client.get("/api/v1/resources/status")
+        
+        success("Resource Status:")
+        output(status_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching resource status: {e}")
+
+
+@resource.command()
+@click.argument('resource_id')
+@click.option('--force', is_flag=True, help='Force deallocation without confirmation')
+@click.pass_context
+def deallocate(ctx, resource_id: str, force: bool):
+    """Deallocate resources via coordinator-api"""
+    config = get_config()
+    
+    if not force:
+        if not click.confirm(f"Are you sure you want to deallocate resource {resource_id}?"):
+            return
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        result = http_client.post(f"/api/v1/resources/{resource_id}/deallocate")
+        success(f"Resource {resource_id} deallocated successfully")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error deallocating resource: {e}")
+

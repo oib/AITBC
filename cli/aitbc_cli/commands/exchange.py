@@ -877,11 +877,92 @@ def pairs(ctx, exchange: str):
             
             if len(base_currencies[base]) > 10:
                 success(f"  ... and {len(base_currencies[base]) - 10} more")
-            
-    except ImportError:
-        error("❌ Real exchange integration not available. Install ccxt library.")
+
+
+@exchange.command()
+@click.argument('order_id')
+@click.pass_context
+def order(ctx, order_id: str):
+    """Get specific order details from exchange-service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+        order_data = http_client.get(f"/exchange/order/{order_id}")
+        success(f"Order {order_id}:")
+        output(order_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
     except Exception as e:
-        error(f"❌ Pairs error: {e}")
+        error(f"Error fetching order: {e}")
+
+
+@exchange.command()
+@click.option('--pair', help='Filter by trading pair')
+@click.option('--status', help='Filter by status')
+@click.option('--limit', type=int, default=20, help='Number of orders to return')
+@click.pass_context
+def orders(ctx, pair: Optional[str], status: Optional[str], limit: int):
+    """List orders from exchange-service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+        params = {"limit": limit}
+        if pair:
+            params["pair"] = pair
+        if status:
+            params["status"] = status
+        
+        orders_data = http_client.get("/exchange/orders", params=params)
+        success("Orders:")
+        output(orders_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching orders: {e}")
+
+
+@exchange.command()
+@click.option('--pair', required=True, help='Trading pair (e.g., AITBC/BTC)')
+@click.option('--limit', type=int, default=20, help='Order book depth')
+@click.pass_context
+def book(ctx, pair: str, limit: int):
+    """Get order book from exchange-service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+        book_data = http_client.get("/exchange/orderbook", params={"pair": pair, "limit": limit})
+        success(f"Order Book for {pair}:")
+        output(book_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching order book: {e}")
+
+
+@exchange.command()
+@click.option('--pair', help='Filter by trading pair')
+@click.option('--limit', type=int, default=50, help='Number of history entries')
+@click.pass_context
+def history(ctx, pair: Optional[str], limit: int):
+    """Get trade history from exchange-service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+        params = {"limit": limit}
+        if pair:
+            params["pair"] = pair
+        
+        history_data = http_client.get("/exchange/history", params=params)
+        success("Trade History:")
+        output(history_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching trade history: {e}")
 
 
 @exchange.command()
