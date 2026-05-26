@@ -3,6 +3,8 @@ Transaction commands for AITBC CLI
 """
 
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -136,8 +138,21 @@ def send(from_wallet: str, to_address: str, amount: float, fee: float, password:
         with open(password_file) as f:
             password = f.read().strip()
     elif not password:
-        import getpass
-        password = getpass.getpass("Enter wallet password: ")
+        # Check if we're in a TTY environment
+        if not sys.stdin.isatty():
+            # Non-interactive: try environment variable
+            password = os.environ.get("AITBC_WALLET_PASSWORD")
+            if not password:
+                error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                raise click.Abort()
+        else:
+            # Interactive: prompt for password
+            import getpass
+            try:
+                password = getpass.getpass("Enter wallet password: ")
+            except Exception as e:
+                error(f"Password prompt failed: {e}")
+                raise click.Abort()
     
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -158,8 +173,21 @@ def batch(transactions_file: str, password: Optional[str], password_file: Option
         with open(password_file) as f:
             password = f.read().strip()
     elif not password:
-        import getpass
-        password = getpass.getpass("Enter wallet password: ")
+        # Check if we're in a TTY environment
+        if not sys.stdin.isatty():
+            # Non-interactive: try environment variable
+            password = os.environ.get("AITBC_WALLET_PASSWORD")
+            if not password:
+                error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                raise click.Abort()
+        else:
+            # Interactive: prompt for password
+            import getpass
+            try:
+                password = getpass.getpass("Enter wallet password: ")
+            except Exception as e:
+                error(f"Password prompt failed: {e}")
+                raise click.Abort()
     
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL

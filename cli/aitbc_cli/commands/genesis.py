@@ -163,8 +163,9 @@ def verify(ctx, chain_id: str):
 
 @genesis.command()
 @click.option("--chain-id", default=None, help="Chain ID to show info for (auto-detected from config if not provided)")
+@click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
 @click.pass_context
-def info(ctx, chain_id: str):
+def info(ctx, chain_id: str, data_dir: Optional[str]):
     """Show genesis block information"""
     # Auto-detect chain_id from config if not provided
     if not chain_id:
@@ -172,12 +173,18 @@ def info(ctx, chain_id: str):
         config = get_config()
         chain_id = getattr(config, 'chain_id', 'ait-mainnet')
     
+    # Use provided data dir or default
+    if not data_dir:
+        data_dir = "/var/lib/aitbc/data"
+    
     import json
     import sqlite3
     
-    genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
+    genesis_path = Path(data_dir) / chain_id / "genesis.json"
     if not genesis_path.exists():
         error(f"Genesis config not found: {genesis_path}")
+        error(f"Chain ID: {chain_id}, Data directory: {data_dir}")
+        error("Run 'aitbc genesis init' to create genesis block")
         return
     
     try:
