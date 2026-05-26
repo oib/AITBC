@@ -14,8 +14,9 @@ import uuid
 from decimal import Decimal
 from collections import defaultdict
 
-from core.config import MultiChainConfig
-from core.node_client import NodeClient
+from aitbc_cli.core.config import MultiChainConfig
+from aitbc_cli.core.node_client import NodeClient
+from aitbc_cli.models.chain import ChainInfo, ChainType, ChainStatus
 import logging
 logger = logging.getLogger(__name__)
 

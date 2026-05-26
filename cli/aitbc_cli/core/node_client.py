@@ -8,8 +8,8 @@ import json
 import os
 import logging
 from typing import Dict, List, Optional, Any
-from core.config import NodeConfig
-from models.chain import ChainInfo, ChainType, ChainStatus, ConsensusAlgorithm
+from aitbc_cli.core.config import NodeConfig
+from aitbc_cli.models.chain import ChainInfo, ChainType, ChainStatus, ConsensusAlgorithm
 
 logger = logging.getLogger(__name__)
 

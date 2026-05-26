@@ -16,7 +16,7 @@ sys.path.insert(0, "/opt/aitbc/cli")
 from utils import error, success
 
 if TYPE_CHECKING:
-    from core.config import Config
+    from aitbc_cli.core.config import Config
 
 
 @dataclass
