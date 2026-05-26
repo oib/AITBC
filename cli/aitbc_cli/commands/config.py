@@ -34,6 +34,13 @@ def show(ctx):
     output(config_dict, ctx.obj['output_format'])
 
 
+@config.command(name="get")
+@click.pass_context
+def get(ctx):
+    """Get current configuration (alias for show)"""
+    return ctx.invoke(show)
+
+
 @config.command()
 @click.argument("key")
 @click.argument("value")
