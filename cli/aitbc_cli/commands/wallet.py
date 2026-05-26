@@ -476,11 +476,17 @@ def info(ctx):
 
 
 @wallet.command()
+@click.argument("name", required=False)
 @click.pass_context
-def balance(ctx):
+def balance(ctx, name: Optional[str]):
     """Check wallet balance"""
-    wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
+    wallet_name = name or ctx.obj["wallet_name"]
+    if not wallet_name:
+        error("No wallet specified. Use --wallet-name or provide wallet name as argument")
+        return
+    
+    wallet_dir = ctx.obj["wallet_dir"]
+    wallet_path = wallet_dir / f"{wallet_name}.json"
     config = ctx.obj.get("config")
 
     # Auto-create wallet if it doesn't exist
@@ -699,11 +705,17 @@ def spend(ctx, amount: float, description: str):
 
 
 @wallet.command()
+@click.argument("name", required=False)
 @click.pass_context
-def address(ctx):
+def address(ctx, name: Optional[str]):
     """Show wallet address"""
-    wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
+    wallet_name = name or ctx.obj["wallet_name"]
+    if not wallet_name:
+        error("No wallet specified. Use --wallet-name or provide wallet name as argument")
+        return
+    
+    wallet_dir = ctx.obj["wallet_dir"]
+    wallet_path = wallet_dir / f"{wallet_name}.json"
 
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
