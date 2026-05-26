@@ -17,7 +17,7 @@ from aitbc_cli.commands.agent_sdk import agent
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
 from aitbc_cli.commands.exchange import exchange
-from aitbc_cli.commands.config import config_cmd
+from aitbc_cli.commands.config import config as config_cmd
 
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
