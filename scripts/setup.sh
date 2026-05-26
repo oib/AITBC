@@ -358,17 +358,37 @@ setup_credentials() {
 
     # Generate secure secrets if they don't exist
     if [ ! -f "/etc/aitbc/credentials/api_hash_secret" ]; then
-        python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/api_hash_secret
-        chmod 600 /etc/aitbc/credentials/api_hash_secret
-        log "Generated API_KEY_HASH_SECRET"
+        log "Generating API_KEY_HASH_SECRET..."
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/api_hash_secret 2>/dev/null; then
+            chmod 600 /etc/aitbc/credentials/api_hash_secret
+            log "Generated API_KEY_HASH_SECRET"
+        else
+            warning "Failed to generate API_KEY_HASH_SECRET"
+            warning "Using fallback random value"
+            openssl rand -hex 32 > /etc/aitbc/credentials/api_hash_secret 2>/dev/null || {
+                warning "OpenSSL also failed, using timestamp-based fallback"
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/api_hash_secret
+            }
+            chmod 600 /etc/aitbc/credentials/api_hash_secret
+        fi
     else
         log "API_KEY_HASH_SECRET already exists"
     fi
 
     if [ ! -f "/etc/aitbc/credentials/keystore_password" ]; then
-        python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/keystore_password
-        chmod 600 /etc/aitbc/credentials/keystore_password
-        log "Generated keystore password"
+        log "Generating keystore password..."
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/keystore_password 2>/dev/null; then
+            chmod 600 /etc/aitbc/credentials/keystore_password
+            log "Generated keystore password"
+        else
+            warning "Failed to generate keystore password"
+            warning "Using fallback random value"
+            openssl rand -hex 32 > /etc/aitbc/credentials/keystore_password 2>/dev/null || {
+                warning "OpenSSL also failed, using timestamp-based fallback"
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/keystore_password
+            }
+            chmod 600 /etc/aitbc/credentials/keystore_password
+        fi
     else
         log "Keystore password already exists"
     fi
@@ -378,6 +398,17 @@ setup_credentials() {
         grep "^proposer_id=" /etc/aitbc/.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
         chmod 600 /etc/aitbc/credentials/proposer_id
         log "Copied proposer_id to credentials"
+    else
+        log "No proposer_id found in /etc/aitbc/.env, generating random ID"
+        if python3 -c "import secrets; print(secrets.token_hex(16))" > /etc/aitbc/credentials/proposer_id 2>/dev/null; then
+            chmod 600 /etc/aitbc/credentials/proposer_id
+            log "Generated random proposer_id"
+        else
+            warning "Failed to generate proposer_id"
+            echo "proposer-$(date +%s)-$(head -c 8 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/proposer_id
+            chmod 600 /etc/aitbc/credentials/proposer_id
+            log "Generated fallback proposer_id"
+        fi
     fi
 
     # Add API_KEY_HASH_SECRET to .env if not present
