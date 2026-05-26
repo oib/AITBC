@@ -12,7 +12,7 @@ from aitbc_cli.commands.chain import chain
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.analytics import analytics
 from aitbc_cli.commands.cross_chain import cross_chain
-from aitbc_cli.commands.deployment import deployment
+# from aitbc_cli.commands.deployment import deployment  # Disabled - missing core.deployment module
 from aitbc_cli.commands.monitor import monitor
 from aitbc_cli.commands.node import node
 from aitbc_cli.commands.agent_comm import agent_comm
@@ -124,7 +124,7 @@ cli.add_command(chain, name="blockchain")
 cli.add_command(agent, name="ai")
 cli.add_command(analytics)
 cli.add_command(cross_chain, name="crosschain")
-cli.add_command(deployment)
+# cli.add_command(deployment)  # Disabled - missing core.deployment module
 cli.add_command(monitor)
 cli.add_command(node)
 cli.add_command(agent_comm, name="agent")
