@@ -670,3 +670,86 @@ def providers(ctx):
     except Exception as e:
         error(f"Error querying GPU providers: {str(e)}")
         raise click.Abort()
+
+
+@gpu.command()
+@click.argument('gpu_id')
+@click.option('--specs', help='GPU specifications (JSON string)')
+@click.option('--pricing', help='Pricing model (JSON string)')
+@click.pass_context
+def register(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str]):
+    """Register a GPU with the gpu-service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+        
+        gpu_data = {"gpu_id": gpu_id}
+        
+        if specs:
+            try:
+                gpu_data["specs"] = json.loads(specs)
+            except json.JSONDecodeError:
+                error("Invalid JSON specifications")
+                raise click.Abort()
+        
+        if pricing:
+            try:
+                gpu_data["pricing"] = json.loads(pricing)
+            except json.JSONDecodeError:
+                error("Invalid JSON pricing")
+                raise click.Abort()
+        
+        result = http_client.post("/gpu/register", json=gpu_data)
+        success(f"GPU {gpu_id} registered successfully")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error registering GPU: {e}")
+
+
+@gpu.command()
+@click.argument('gpu_id')
+@click.option('--specs', help='Updated GPU specifications (JSON string)')
+@click.option('--pricing', help='Updated pricing model (JSON string)')
+@click.option('--status', help='Update GPU status')
+@click.pass_context
+def update(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str], status: Optional[str]):
+    """Update GPU registration with the gpu-service"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+        
+        update_data = {}
+        
+        if specs:
+            try:
+                update_data["specs"] = json.loads(specs)
+            except json.JSONDecodeError:
+                error("Invalid JSON specifications")
+                raise click.Abort()
+        
+        if pricing:
+            try:
+                update_data["pricing"] = json.loads(pricing)
+            except json.JSONDecodeError:
+                error("Invalid JSON pricing")
+                raise click.Abort()
+        
+        if status:
+            update_data["status"] = status
+        
+        if not update_data:
+            error("No updates provided. Specify --specs, --pricing, or --status")
+            raise click.Abort()
+        
+        result = http_client.put(f"/gpu/{gpu_id}", json=update_data)
+        success(f"GPU {gpu_id} updated successfully")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error updating GPU: {e}")
+
