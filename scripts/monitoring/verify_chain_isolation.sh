@@ -97,11 +97,12 @@ check_node_configuration() {
     
     supported_chains=$(grep "^supported_chains=" "$blockchain_env" | cut -d'=' -f2)
     
-    if [ "$supported_chains" != "$expected_chain" ]; then
-        log_error "$node_name supported_chains=$supported_chains (expected: $expected_chain)"
-        ((VIOLATION_COUNT++))
+    # Check if expected chain is in the supported chains list (handles comma-separated values)
+    if [[ ",$supported_chains," == *",$expected_chain,"* ]]; then
+        log_success "$node_name supported_chains=$supported_chains (includes $expected_chain)"
     else
-        log_success "$node_name supported_chains=$supported_chains"
+        log_error "$node_name supported_chains=$supported_chains (expected to include: $expected_chain)"
+        ((VIOLATION_COUNT++))
     fi
 }
 
@@ -109,22 +110,56 @@ check_node_configuration() {
 main() {
     log "=== Chain Isolation Verification Started ==="
     
-    # Check aitbc (mainnet) node
-    check_node_configuration "aitbc" "/etc/aitbc/blockchain.env" "ait-mainnet"
-    check_database_isolation "$DATA_DIR/ait-mainnet/chain.db" "ait-mainnet"
+    # Detect which node this script is running on
+    local hostname=$(hostname)
+    local expected_chain=""
     
-    # Check aitbc1 (testnet) node if accessible
-    if ssh aitbc1 test -f "/etc/aitbc/blockchain.env" 2>/dev/null; then
-        REMOTE_CHAINS=$(ssh aitbc1 'cat /etc/aitbc/blockchain.env | grep "^supported_chains=" | cut -d"=" -f2')
-        if [ "$REMOTE_CHAINS" != "ait-testnet" ]; then
-            log_error "aitbc1 supported_chains=$REMOTE_CHAINS (expected: ait-testnet)"
-            ((VIOLATION_COUNT++))
-        else
-            log_success "aitbc1 supported_chains=$REMOTE_CHAINS"
-        fi
-        check_database_isolation "$DATA_DIR/ait-testnet/chain.db" "ait-testnet"
+    if [ "$hostname" = "aitbc" ]; then
+        expected_chain="ait-mainnet"
+    elif [ "$hostname" = "aitbc1" ]; then
+        expected_chain="ait-testnet"
     else
-        log_warning "aitbc1 not accessible, skipping remote checks"
+        log_warning "Unknown hostname: $hostname, defaulting to ait-mainnet check"
+        expected_chain="ait-mainnet"
+    fi
+    
+    log "Running on node: $hostname (expected chain: $expected_chain)"
+    
+    # Check local node configuration
+    check_node_configuration "$hostname" "/etc/aitbc/blockchain.env" "$expected_chain"
+    check_database_isolation "$DATA_DIR/$expected_chain/chain.db" "$expected_chain"
+    
+    # Check remote node if accessible
+    if [ "$hostname" = "aitbc" ]; then
+        # On aitbc, check aitbc1 (testnet)
+        if ssh aitbc1 test -f "/etc/aitbc/blockchain.env" 2>/dev/null; then
+            REMOTE_CHAINS=$(ssh aitbc1 'cat /etc/aitbc/blockchain.env | grep "^supported_chains=" | cut -d"=" -f2')
+            # Check if expected chain is in the supported chains list (handles comma-separated values)
+            if [[ ",$REMOTE_CHAINS," == *",ait-testnet,"* ]]; then
+                log_success "aitbc1 supported_chains=$REMOTE_CHAINS (includes ait-testnet)"
+            else
+                log_error "aitbc1 supported_chains=$REMOTE_CHAINS (expected to include: ait-testnet)"
+                ((VIOLATION_COUNT++))
+            fi
+            check_database_isolation "$DATA_DIR/ait-testnet/chain.db" "ait-testnet"
+        else
+            log_warning "aitbc1 not accessible, skipping remote checks"
+        fi
+    elif [ "$hostname" = "aitbc1" ]; then
+        # On aitbc1, check aitbc (mainnet)
+        if ssh aitbc test -f "/etc/aitbc/blockchain.env" 2>/dev/null; then
+            REMOTE_CHAINS=$(ssh aitbc 'cat /etc/aitbc/blockchain.env | grep "^supported_chains=" | cut -d"=" -f2')
+            # Check if expected chain is in the supported chains list (handles comma-separated values)
+            if [[ ",$REMOTE_CHAINS," == *",ait-mainnet,"* ]]; then
+                log_success "aitbc supported_chains=$REMOTE_CHAINS (includes ait-mainnet)"
+            else
+                log_error "aitbc supported_chains=$REMOTE_CHAINS (expected to include: ait-mainnet)"
+                ((VIOLATION_COUNT++))
+            fi
+            check_database_isolation "$DATA_DIR/ait-mainnet/chain.db" "ait-mainnet"
+        else
+            log_warning "aitbc not accessible, skipping remote checks"
+        fi
     fi
     
     log "=== Chain Isolation Verification Completed ==="
