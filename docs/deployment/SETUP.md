@@ -150,15 +150,37 @@ source ../.venv/bin/activate
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+## Configuration Files
+
+AITBC uses two main configuration files located in `/etc/aitbc/`:
+
+### /etc/aitbc/blockchain.env
+Contains blockchain-specific environment variables:
+- Chain ID and network configuration
+- RPC and P2P binding settings
+- Database and Redis connections
+- Block production settings
+- Gossip and sync configuration
+
+### /etc/aitbc/node.env
+Contains node-specific environment variables:
+- Node ID and island ID
+- Node role (genesis/follower)
+- P2P port configuration
+- Node-specific settings
+
+**Note**: AITBC does NOT use `/etc/aitbc/.env`. All configuration should be in `blockchain.env` and `node.env`.
+
 ## Production Considerations
 
 For production deployment:
-1. Configure proper environment variables
-2. Set up reverse proxy (nginx)
-3. Configure SSL certificates manually outside `scripts/setup.sh`
-4. Set up log rotation
-5. Configure monitoring and alerts
-6. Use proper database setup (PostgreSQL/Redis)
+1. Configure `/etc/aitbc/blockchain.env` with proper environment variables
+2. Configure `/etc/aitbc/node.env` with node-specific settings
+3. Set up reverse proxy (nginx)
+4. Configure SSL certificates manually outside `scripts/setup.sh`
+5. Set up log rotation
+6. Configure monitoring and alerts
+7. Use proper database setup (PostgreSQL/Redis)
 
 ## Hermes Skills Integration
 
