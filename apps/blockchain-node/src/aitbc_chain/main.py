@@ -157,7 +157,7 @@ class BlockchainNode:
         
         async def process_txs():
             from .mempool import get_mempool
-            from .rpc.router import _normalize_transaction_data
+            from .rpc.utils import normalize_transaction_data
             mempool = get_mempool()
             while True:
                 try:
@@ -167,7 +167,7 @@ class BlockchainNode:
                         tx_data = json.loads(tx_data)
                     chain_id = tx_data.get("chain_id", settings.chain_id)
                     # Normalize transaction data to ensure type field is preserved
-                    tx_data = _normalize_transaction_data(tx_data, chain_id)
+                    tx_data = normalize_transaction_data(tx_data, chain_id)
                     mempool.add(tx_data, chain_id=chain_id)
                 except Exception as exc:
                     logger.error(f"Error processing transaction from gossip: {exc}")
