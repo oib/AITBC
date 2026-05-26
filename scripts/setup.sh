@@ -32,11 +32,16 @@ check_prerequisites() {
 
     # Install missing prerequisites
     local missing=()
-    for cmd in python3 pip3 git systemctl node npm; do
+    for cmd in python3 pip3 git systemctl node npm postgresql psql; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing+=("$cmd")
         fi
     done
+
+    # Check for python3-venv package (not a command, but a package)
+    if ! python3 -m venv --help >/dev/null 2>&1; then
+        missing+=("python3-venv")
+    fi
 
     if [ "${#missing[@]}" -gt 0 ]; then
         log "Installing missing prerequisites: ${missing[*]}"
@@ -47,7 +52,7 @@ check_prerequisites() {
             for cmd in "${missing[@]}"; do
                 case "$cmd" in
                     python3)
-                        apt-get install -y python3 python3-pip
+                        apt-get install -y python3 python3-pip python3-venv
                         ;;
                     pip3)
                         apt-get install -y python3-pip
@@ -68,10 +73,19 @@ check_prerequisites() {
                         curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
                         apt-get install -y nodejs
                         ;;
+                    postgresql)
+                        apt-get install -y postgresql postgresql-contrib
+                        ;;
+                    psql)
+                        apt-get install -y postgresql-client
+                        ;;
+                    python3-venv)
+                        apt-get install -y python3-venv
+                        ;;
                 esac
             done
         elif command -v yum >/dev/null 2>&1; then
-            yum install -y python3 python3-pip git systemd
+            yum install -y python3 python3-pip python3-venv git systemd postgresql postgresql-server postgresql-contrib
             # Install Node.js 24.x
             curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
             yum install -y nodejs
