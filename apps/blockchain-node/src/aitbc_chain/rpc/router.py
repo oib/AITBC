@@ -770,3 +770,126 @@ async def get_staking_info_route(
     if get_staking_info is None:
         raise HTTPException(status_code=501, detail="Staking module not available")
     return await get_staking_info(request, address, chain_id)
+
+
+# ============================================================================
+# MINING ENDPOINTS
+# ============================================================================
+
+@router.post("/mining/start", summary="Start mining")
+@rate_limit(rate=10, per=60)
+async def start_mining_route(
+    request: Request,
+    mining_data: dict
+) -> Dict[str, Any]:
+    """Start mining with specified wallet"""
+    miner_address = mining_data.get("miner_address")
+    threads = mining_data.get("threads", 1)
+    
+    if not miner_address:
+        raise HTTPException(status_code=400, detail="miner_address is required")
+    
+    # Store mining configuration in memory (simplified implementation)
+    if not hasattr(start_mining_route, "miners"):
+        start_mining_route.miners = {}
+    
+    start_mining_route.miners[miner_address] = {
+        "address": miner_address,
+        "threads": threads,
+        "enabled": True,
+        "started_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    return {
+        "status": "started",
+        "miner_address": miner_address,
+        "threads": threads,
+        "message": "Mining started successfully"
+    }
+
+
+@router.post("/mining/stop", summary="Stop mining")
+@rate_limit(rate=10, per=60)
+async def stop_mining_route(
+    request: Request
+) -> Dict[str, Any]:
+    """Stop all mining operations"""
+    if hasattr(start_mining_route, "miners"):
+        for miner in start_mining_route.miners.values():
+            miner["enabled"] = False
+            miner["stopped_at"] = datetime.now(timezone.utc).isoformat()
+    
+    return {
+        "status": "stopped",
+        "message": "Mining stopped successfully"
+    }
+
+
+@router.get("/mining/status", summary="Get mining status")
+@rate_limit(rate=100, per=60)
+async def get_mining_status_route(
+    request: Request
+) -> Dict[str, Any]:
+    """Get current mining status"""
+    if not hasattr(start_mining_route, "miners"):
+        return {
+            "status": "idle",
+            "miners": [],
+            "active_count": 0
+        }
+    
+    active_miners = [m for m in start_mining_route.miners.values() if m.get("enabled", False)]
+    
+    return {
+        "status": "mining" if active_miners else "idle",
+        "miners": list(start_mining_route.miners.values()),
+        "active_count": len(active_miners)
+    }
+
+
+@router.get("/mining/miners", summary="List active miners")
+@rate_limit(rate=100, per=60)
+async def list_miners_route(
+    request: Request
+) -> Dict[str, Any]:
+    """List all registered miners"""
+    if not hasattr(start_mining_route, "miners"):
+        return {
+            "miners": [],
+            "count": 0
+        }
+    
+    return {
+        "miners": list(start_mining_route.miners.values()),
+        "count": len(start_mining_route.miners)
+    }
+
+
+# ============================================================================
+# PENDING TRANSACTIONS ENDPOINT (alias for mempool)
+# ============================================================================
+
+@router.get("/pending", summary="Get pending transactions")
+@rate_limit(rate=100, per=60)
+async def get_pending_transactions_route(
+    request: Request,
+    chain_id: str = None,
+    limit: int = 100
+) -> Dict[str, Any]:
+    """Get pending transactions from mempool (alias for /mempool)"""
+    try:
+        mempool = get_mempool()
+        pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
+        
+        return {
+            "transactions": pending_txs,
+            "count": len(pending_txs)
+        }
+    except Exception as e:
+        _logger.error(f"Error getting pending transactions: {e}")
+        return {
+            "transactions": [],
+            "count": 0,
+            "error": str(e)
+        }
+
