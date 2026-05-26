@@ -68,9 +68,9 @@ echo "4. Updating systemd configurations via hermes agents..."
 hermes execute --agent GenesisAgent --task update_systemd_config || {
     echo "⚠️ hermes config update failed - using manual method"
     # Update main service files
-    sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+    sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
     # Update drop-in configs
-    find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "10-central-env.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' {} \; 2>/dev/null || true
+    find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "10-central-env.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' {} \; 2>/dev/null || true
     # Fix override configs (wrong venv paths)
     find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "override.conf" -exec sed -i 's|/opt/aitbc/apps/blockchain-node/.venv/bin/python3|/opt/aitbc/venv/bin/python3|g' {} \; 2>/dev/null || true
     systemctl daemon-reload
@@ -80,8 +80,8 @@ hermes execute --agent GenesisAgent --task update_systemd_config || {
 echo "5. Setting up central configuration via hermes agents..."
 hermes execute --agent CoordinatorAgent --task setup_central_config || {
     echo "⚠️ hermes config setup failed - using manual method"
-    cp /opt/aitbc/.env /etc/aitbc/.env.backup 2>/dev/null || true
-    mv /opt/aitbc/.env /etc/aitbc/.env 2>/dev/null || true
+    cp /opt/aitbc/.env /etc/aitbc/blockchain.env.backup 2>/dev/null || true
+    mv /opt/aitbc/.env /etc/aitbc/blockchain.env 2>/dev/null || true
 }
 
 # 6. Setup AITBC CLI tool (via hermes)

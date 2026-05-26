@@ -22,7 +22,7 @@ def encrypt_secret(plaintext: str, encryption_password: str) -> bytes:
     return salt + nonce + ciphertext
 
 def main():
-    env_file = Path('/etc/aitbc/.env')
+    env_file = Path('/etc/aitbc/blockchain.env')
     keystore_config_dir = Path('/var/lib/aitbc/keystore/config')
     keystore_passwords_dir = Path('/var/lib/aitbc/keystore/passwords')
 

@@ -14,7 +14,7 @@ def main():
     credentials_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(credentials_dir, 0o700)
 
-    env_file = Path('/etc/aitbc/.env')
+    env_file = Path('/etc/aitbc/blockchain.env')
 
     # Read current .env values
     env_vars = {}
