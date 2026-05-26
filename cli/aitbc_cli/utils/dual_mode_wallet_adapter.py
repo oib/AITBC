@@ -12,9 +12,9 @@ from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 
 sys.path.insert(0, "/opt/aitbc/cli")
-from utils.wallet_daemon_client import WalletDaemonClient, WalletInfo, WalletBalance, ChainInfo, WalletMigrationResult
+from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient, WalletInfo, WalletBalance, ChainInfo, WalletMigrationResult
 from aitbc_cli.config import CLIConfig as Config
-from utils import error, success, output
+from aitbc_cli.utils import error, success, output
 
 
 class DualModeWalletAdapter:
