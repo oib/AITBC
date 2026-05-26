@@ -85,7 +85,7 @@ AITBC uses standard Linux system directories for runtime data:
 | Wallet API | 8003 | `http://localhost:8003/health` |
 | Exchange API | 8001 | `http://localhost:8001/api/health` |
 | Coordinator API | 8000 | `http://localhost:8011/health` |
-| Blockchain RPC | 8545 | `http://localhost:8545` |
+| Blockchain RPC | 8006 | `http://localhost:8006/health` |
 
 ## Management Commands
 

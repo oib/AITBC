@@ -184,7 +184,7 @@ class BridgeMessageTooLargeError(BridgeError):
 class EthereumBridge(BridgeAdapter):
     """Ethereum settlement bridge implementation"""
     
-    def __init__(self, config: BridgeConfig, rpc_url: str = "http://localhost:8545"):
+    def __init__(self, config: BridgeConfig, rpc_url: str = "http://localhost:8006"):
         super().__init__(config)
         self.rpc_url = rpc_url
         self._web3_client = None
