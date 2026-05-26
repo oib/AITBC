@@ -674,7 +674,7 @@ main() {
     echo "Service Information:"
     echo "  Wallet API: http://localhost:8003/health"
     echo "  Exchange API: http://localhost:8001/api/health"
-    echo "  Coordinator API: http://localhost:8000/health"
+    echo "  Coordinator API: http://localhost:8011/health"
     echo ""
     echo "Runtime Directories:"
     echo "  Keystore: /var/lib/aitbc/keystore/"
