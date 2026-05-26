@@ -48,8 +48,30 @@ systemctl daemon-reload
 
 # 5. Setup central configuration file
 echo "5. Setting up central configuration file..."
-cp /opt/aitbc/.env /etc/aitbc/blockchain.env.backup 2>/dev/null || true
-mv /opt/aitbc/.env /etc/aitbc/blockchain.env 2>/dev/null || true
+# Create blockchain.env if it doesn't exist
+if [ ! -f "/etc/aitbc/blockchain.env" ]; then
+    echo "Creating /etc/aitbc/blockchain.env with default configuration..."
+    cat > /etc/aitbc/blockchain.env << 'EOF'
+# AITBC Blockchain Configuration
+# This file contains shared environment variables for all AITBC services
+NODE_ENV=production
+DEBUG=false
+LOG_LEVEL=INFO
+CHAIN_ID=ait-mainnet
+BLOCK_TIME=5
+NETWORK_ID=1337
+CONSENSUS=proof_of_authority
+rpc_bind_host=0.0.0.0
+rpc_bind_port=8006
+auto_sync_enabled=true
+island_id=ait-mainnet-island
+supported_chains=ait-mainnet,ait-testnet
+default_peer_rpc_url=http://aitbc1:8006
+EOF
+    echo "Created /etc/aitbc/blockchain.env"
+else
+    echo "/etc/aitbc/blockchain.env already exists"
+fi
 
 # 6. Setup AITBC CLI tool
 echo "6. Setting up AITBC CLI tool..."
