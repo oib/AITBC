@@ -103,22 +103,26 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
     except Exception:
         actual_nonce = 0
     
-    # Create transaction
-    # Match RPC server schema (TransactionRequest in apps/blockchain-node/src/aitbc_chain/rpc/transactions.py)
-    transaction = {
+    # Create transaction payload
+    # RPC expects nested structure: {"payload": {...}, "signature": "..."}
+    transaction_payload = {
         "type": "TRANSFER",
         "from": sender_address,
         "to": to_address,
         "amount": int(amount),
         "fee": int(fee),
-        "nonce": actual_nonce,
-        "payload": {}
+        "nonce": actual_nonce
     }
     
-    # Sign transaction
-    message = json.dumps(transaction, sort_keys=True).encode()
+    # Sign transaction payload
+    message = json.dumps(transaction_payload, sort_keys=True).encode()
     signature = private_key.sign(message)
-    transaction["signature"] = signature.hex()
+    
+    # Submit to blockchain with nested structure
+    transaction = {
+        "payload": transaction_payload,
+        "signature": signature.hex()
+    }
     
     # Submit to blockchain
     try:
