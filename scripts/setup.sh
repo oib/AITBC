@@ -386,6 +386,17 @@ setup_credentials() {
         log "Added API_KEY_HASH_SECRET to .env"
     fi
 
+    # Generate runtime secrets file for systemd services
+    log "Generating runtime secrets file..."
+    if [ -f "/opt/aitbc/scripts/utils/load-keystore-secrets.sh" ]; then
+        /opt/aitbc/scripts/utils/load-keystore-secrets.sh || {
+            warning "Failed to generate runtime secrets file"
+            warning "Services may fail to start without /run/aitbc/secrets/.env"
+        }
+    else
+        warning "load-keystore-secrets.sh not found, skipping runtime secrets generation"
+    fi
+
     success "Secure credentials setup completed"
 }
 
