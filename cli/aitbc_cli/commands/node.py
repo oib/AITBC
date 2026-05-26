@@ -19,8 +19,8 @@ try:
     from ..core.node_client import NodeClient
 except ImportError:
     from utils import output, error, success, warning
-    from core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
-    from core.node_client import NodeClient
+    from aitbc_cli.core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
+    from aitbc_cli.core.node_client import NodeClient
 
     def info(message):
         click.echo(message)

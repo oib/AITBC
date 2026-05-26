@@ -29,7 +29,7 @@ def _load_cli_module() -> ModuleType:
     if _CLI_MODULE is not None:
         return _CLI_MODULE
 
-    cli_path = Path(__file__).with_name("core") / "main.py"
+    cli_path = Path(__file__).parent / "aitbc_cli" / "core" / "main.py"
     spec = importlib.util.spec_from_file_location("aitbc_cli_core_main", cli_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Unable to load modular CLI entrypoint from {cli_path}")

@@ -8,8 +8,8 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
-from core.config import MultiChainConfig
-from models.chain import GenesisBlock, GenesisConfig, ChainType, ConsensusAlgorithm
+from aitbc_cli.core.config import MultiChainConfig
+from aitbc_cli.models.chain import GenesisBlock, GenesisConfig, ChainType, ConsensusAlgorithm
 
 class GenesisValidationError(Exception):
     """Genesis validation error"""
