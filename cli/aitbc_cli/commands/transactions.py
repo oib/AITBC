@@ -20,7 +20,8 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://localhost:8006"
-DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
+# Use the same wallet directory as wallet create command
+DEFAULT_KEYSTORE_DIR = Path.home() / ".aitbc" / "wallets"
 
 
 @click.group()
