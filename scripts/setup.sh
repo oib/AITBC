@@ -88,10 +88,13 @@ check_prerequisites() {
                     redis-cli)
                         apt-get install -y redis-tools
                         ;;
+                    libpq-dev)
+                        apt-get install -y libpq-dev
+                        ;;
                 esac
             done
         elif command -v yum >/dev/null 2>&1; then
-            yum install -y python3 python3-pip python3-venv git systemd postgresql postgresql-server postgresql-contrib redis
+            yum install -y python3 python3-pip python3-venv git systemd postgresql postgresql-server postgresql-contrib redis postgresql-devel
             # Install Node.js 24.x
             curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
             yum install -y nodejs
@@ -494,12 +497,29 @@ setup_venvs() {
             log "Running poetry install..."
             if ! poetry install; then
                 warning "Poetry install failed"
+                warning "Installing critical dependencies manually..."
+                
+                # Install critical dependencies that services need
+                log "Installing psycopg2 for PostgreSQL support..."
+                pip install psycopg2-binary || warning "Failed to install psycopg2-binary"
+                
+                log "Installing other critical packages..."
+                pip install fastapi uvicorn sqlmodel || warning "Failed to install core packages"
+                
                 warning "Dependencies may need to be installed manually"
                 warning "Manual install: cd /opt/aitbc && source venv/bin/activate && pip install -e cli/ apps/blockchain-node/"
             fi
         fi
     else
         warning "pyproject.toml not found, skipping Poetry installation"
+        warning "Installing critical dependencies manually..."
+        
+        # Install critical dependencies without Poetry
+        log "Installing psycopg2 for PostgreSQL support..."
+        pip install psycopg2-binary || warning "Failed to install psycopg2-binary"
+        
+        log "Installing other critical packages..."
+        pip install fastapi uvicorn sqlmodel || warning "Failed to install core packages"
     fi
     
     success "Virtual environments setup completed"
