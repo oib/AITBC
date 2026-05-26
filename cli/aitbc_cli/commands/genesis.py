@@ -15,7 +15,7 @@ def genesis():
 
 
 @genesis.command()
-@click.option("--chain-id", default="ait-mainnet", help="Chain ID for genesis")
+@click.option("--chain-id", default=None, help="Chain ID for genesis (auto-detected from config if not provided)")
 @click.option("--create-wallet", is_flag=True, help="Create genesis wallet with secure random key")
 @click.option("--password", help="Wallet password (auto-generated if not provided)")
 @click.option("--proposer", help="Proposer address (defaults to genesis wallet)")
@@ -26,6 +26,12 @@ def genesis():
 def init(ctx, chain_id: str, create_wallet: bool, password: Optional[str], proposer: Optional[str], 
           force: bool, register_service: bool, service_url: str):
     """Initialize genesis block and wallet for a blockchain"""
+    # Auto-detect chain_id from config if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+    
     script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
     
     if not script_path.exists():
@@ -66,10 +72,16 @@ def init(ctx, chain_id: str, create_wallet: bool, password: Optional[str], propo
 
 
 @genesis.command()
-@click.option("--chain-id", default="ait-mainnet", help="Chain ID to verify")
+@click.option("--chain-id", default=None, help="Chain ID to verify (auto-detected from config if not provided)")
 @click.pass_context
 def verify(ctx, chain_id: str):
     """Verify genesis block and wallet configuration"""
+    # Auto-detect chain_id from config if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+    
     import json
     import sqlite3
     
@@ -150,10 +162,16 @@ def verify(ctx, chain_id: str):
 
 
 @genesis.command()
-@click.option("--chain-id", default="ait-mainnet", help="Chain ID to show info for")
+@click.option("--chain-id", default=None, help="Chain ID to show info for (auto-detected from config if not provided)")
 @click.pass_context
 def info(ctx, chain_id: str):
     """Show genesis block information"""
+    # Auto-detect chain_id from config if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+    
     import json
     import sqlite3
     
