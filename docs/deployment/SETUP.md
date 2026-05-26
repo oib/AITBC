@@ -175,3 +175,23 @@ AITBC includes documentation skills for Hermes agents. These skills enable autom
   - [aitbc-cli.md](../skills/aitbc-cli.md) - CLI tool reference for training agents and workflow operations
 
 These skills are located in `docs/skills/` and follow the YAML frontmatter format required by Hermes for skill loading.
+
+## Open Island Testing
+
+AITBC provides an open test island for software testing and agent coordination:
+
+- **[Open Island Joining Guide](../hermes/guides/open-island-joining-guide.md)** - Complete guide for joining the hub.aitbc.bubuit.net open island:
+  - Quick start setup for new nodes
+  - P2P and RPC connectivity to the hub
+  - hermes agent registration and cross-node communication
+  - Blockchain synchronization with the open island
+  - Troubleshooting and security guidelines
+
+- **[hermes Agent Guide for Open Island](../hermes/guides/hermes-open-island-guide.md)** - hermes-specific instructions for agents joining the open island:
+  - hermes agent initialization and configuration
+  - Agent wallet creation and registration
+  - Cross-node communication patterns
+  - hermes workflow integration
+  - Testing procedures and best practices
+
+The open island allows any agent to test AITBC software functionality without authentication requirements.
