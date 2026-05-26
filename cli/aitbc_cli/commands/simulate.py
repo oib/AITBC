@@ -8,7 +8,7 @@ import click
 import json
 import time
 import random
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import sys
 import os
 
@@ -25,6 +25,10 @@ except ImportError:
         return "INFO"
     def get_config(config_file=None, role=None):
         return {}
+
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
+
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -336,6 +340,74 @@ def ai_jobs(jobs, models, duration_range):
         click.echo(f"  Model Usage:")
         for model, count in model_stats.items():
             click.echo(f"    {model}: {count} jobs")
+
+
+@simulate.command()
+@click.argument('scenario')
+@click.option('--params', help='Simulation parameters (JSON string)')
+@click.option('--async-run', is_flag=True, help='Run simulation asynchronously')
+@click.pass_context
+def run(ctx, scenario: str, params: Optional[str], async_run: bool):
+    """Run a simulation scenario via coordinator-api"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        sim_data = {
+            "scenario": scenario,
+            "async": async_run
+        }
+        
+        if params:
+            try:
+                sim_data["params"] = json.loads(params)
+            except json.JSONDecodeError:
+                error("Invalid JSON parameters")
+                raise click.Abort()
+        
+        result = http_client.post("/simulate/run", json=sim_data)
+        success(f"Simulation '{scenario}' started")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error running simulation: {e}")
+
+
+@simulate.command()
+@click.argument('simulation_id')
+@click.pass_context
+def status(ctx, simulation_id: str):
+    """Get simulation status from coordinator-api"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        status_data = http_client.get(f"/simulate/{simulation_id}/status")
+        success(f"Simulation {simulation_id} Status:")
+        output(status_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching simulation status: {e}")
+
+
+@simulate.command()
+@click.argument('simulation_id')
+@click.pass_context
+def result(ctx, simulation_id: str):
+    """Get simulation results from coordinator-api"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        result_data = http_client.get(f"/simulate/{simulation_id}/result")
+        success(f"Simulation {simulation_id} Results:")
+        output(result_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching simulation results: {e}")
 
 
 if __name__ == '__main__':

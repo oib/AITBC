@@ -8,15 +8,77 @@ import httpx
 from typing import Optional
 from ..utils import output, error, success, info, warning
 from ..config import get_config
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 # Initialize logger
-logger = None
+logger = get_logger(__name__)
 
 
 @click.group()
 def edge():
     """Edge API commands for island, GPU, database, serve, and metrics operations"""
     pass
+
+
+@edge.command()
+@click.pass_context
+def status(ctx):
+    """Get edge status from coordinator-api"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        status_data = http_client.get("/edge-gpu/metrics")
+        success("Edge Status:")
+        output(status_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching edge status: {e}")
+
+
+@edge.command()
+@click.pass_context
+def balance(ctx):
+    """Get edge wallet balance from coordinator-api"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        balance_data = http_client.get("/edge-gpu/balance")
+        success("Edge Wallet Balance:")
+        output(balance_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching edge balance: {e}")
+
+
+@edge.command()
+@click.argument('to_address')
+@click.argument('amount', type=float)
+@click.option('--note', help='Transfer note')
+@click.pass_context
+def transfer(ctx, to_address: str, amount: float, note: Optional[str]):
+    """Transfer edge tokens to another address"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        transfer_data = {
+            "to_address": to_address,
+            "amount": amount
+        }
+        if note:
+            transfer_data["note"] = note
+        
+        result = http_client.post("/edge-gpu/transfer", json=transfer_data)
+        success(f"Transfer of {amount} to {to_address} submitted")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error executing transfer: {e}")
 
 
 def get_edge_client():

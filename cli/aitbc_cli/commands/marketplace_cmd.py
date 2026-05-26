@@ -13,6 +13,9 @@ from ..core.marketplace import (
 )
 from ..utils import output, error, success
 from ..config import get_config
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
+
+logger = get_logger(__name__)
 
 @click.group()
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
@@ -517,3 +520,100 @@ def monitor(ctx, realtime, interval):
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort()
+
+
+@marketplace.command()
+@click.argument('price', type=float)
+@click.argument('quantity', type=float)
+@click.option('--market', help='Market identifier')
+@click.pass_context
+def bid(ctx, price: float, quantity: float, market: Optional[str]):
+    """Place a bid in the marketplace"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
+        bid_data = {
+            "price": price,
+            "quantity": quantity,
+            "market": market or "default"
+        }
+        result = http_client.post("/marketplace/bid", json=bid_data)
+        success(f"Bid placed: {quantity} @ {price}")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error placing bid: {e}")
+
+
+@marketplace.command()
+@click.option('--market', help='Filter by market')
+@click.option('--limit', type=int, default=20, help='Number of bids to return')
+@click.pass_context
+def bids(ctx, market: Optional[str], limit: int):
+    """List bids from the marketplace"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
+        params = {"limit": limit}
+        if market:
+            params["market"] = market
+        
+        bids_data = http_client.get("/marketplace/bids", params=params)
+        success("Bids:")
+        output(bids_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching bids: {e}")
+
+
+@marketplace.command()
+@click.argument('price', type=float)
+@click.argument('quantity', type=float)
+@click.option('--market', help='Market identifier')
+@click.pass_context
+def ask(ctx, price: float, quantity: float, market: Optional[str]):
+    """Place an ask in the marketplace"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
+        ask_data = {
+            "price": price,
+            "quantity": quantity,
+            "market": market or "default"
+        }
+        result = http_client.post("/marketplace/ask", json=ask_data)
+        success(f"Ask placed: {quantity} @ {price}")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error placing ask: {e}")
+
+
+@marketplace.command()
+@click.option('--market', help='Filter by market')
+@click.option('--limit', type=int, default=20, help='Number of asks to return')
+@click.pass_context
+def asks(ctx, market: Optional[str], limit: int):
+    """List asks from the marketplace"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
+        params = {"limit": limit}
+        if market:
+            params["market"] = market
+        
+        asks_data = http_client.get("/marketplace/asks", params=params)
+        success("Asks:")
+        output(asks_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error fetching asks: {e}")
+
