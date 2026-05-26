@@ -89,10 +89,11 @@ async def submit_transaction(
         chain_id = get_chain_id(None)
 
         # Convert TransactionRequest to dict for normalization
+        # Use validated top-level fields instead of reading from payload
         tx_data_dict = {
             "from": tx_data.sender,
-            "to": tx_data.payload.get("to"),
-            "amount": tx_data.payload.get("amount", tx_data.payload.get("value", 0)),
+            "to": tx_data.recipient,
+            "amount": tx_data.amount,
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
