@@ -16,8 +16,8 @@ from aitbc_cli.commands.agent_sdk import agent
 # from aitbc_cli.commands.monitor import monitor  # Disabled - may have similar issues
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
-# from aitbc_cli.commands.exchange import exchange  # Disabled - may have similar issues
-# from aitbc_cli.commands.config import config_cmd  # Disabled - may have similar issues
+from aitbc_cli.commands.exchange import exchange
+from aitbc_cli.commands.config import config_cmd
 
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
@@ -128,8 +128,8 @@ cli.add_command(agent, name="ai")
 # cli.add_command(monitor)  # Disabled - may have similar issues
 # cli.add_command(node)  # Disabled - imports from non-existent aitbc_cli.core
 # cli.add_command(agent_comm, name="agent")  # Disabled - imports from non-existent aitbc_cli.core
-# cli.add_command(exchange)  # Disabled - may have similar issues
-# cli.add_command(config_cmd, name="config")  # Disabled - may have similar issues
+cli.add_command(exchange)
+cli.add_command(config_cmd, name="config")
 cli.add_command(list_wallets)
 cli.add_command(version)
 cli.add_command(gpu)
