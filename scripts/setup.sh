@@ -245,11 +245,20 @@ setup_postgresql_databases() {
             db_name=$(echo "$db_user" | cut -d':' -f1)
             db_user=$(echo "$db_user" | cut -d':' -f2)
 
-            # Create user if not exists
+            # Generate secure password for this user
+            db_password=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || openssl rand -base64 32 2>/dev/null || echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)")
+            
+            # Store password in credentials directory
+            echo "$db_password" > /etc/aitbc/credentials/postgres_${db_user}_password
+            chmod 600 /etc/aitbc/credentials/postgres_${db_user}_password
+
+            # Create user if not exists with secure password
             sudo -u postgres psql -c "DO \$\$
             BEGIN
                 IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${db_user}') THEN
-                    CREATE USER ${db_user} WITH PASSWORD 'password';
+                    CREATE USER ${db_user} WITH PASSWORD '${db_password}';
+                ELSE
+                    ALTER USER ${db_user} WITH PASSWORD '${db_password}';
                 END IF;
             END
             \$\$;" 2>/dev/null || true
@@ -260,7 +269,7 @@ setup_postgresql_databases() {
             # Grant privileges
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_user};" 2>/dev/null || true
 
-            log "Database ${db_name} setup complete"
+            log "Database ${db_name} setup complete with secure password"
         done
     fi
 
