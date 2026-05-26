@@ -576,6 +576,19 @@ install_services() {
         systemctl daemon-reload
     fi
 
+    # Add aitbc CLI to PATH
+    log "Adding aitbc CLI to system PATH..."
+    if [ -f "/opt/aitbc/aitbc-cli" ]; then
+        ln -sf /opt/aitbc/aitbc-cli /usr/local/bin/aitbc-cli 2>/dev/null || {
+            warning "Failed to create symlink for aitbc-cli"
+            warning "You may need to add /opt/aitbc to PATH manually"
+        }
+        chmod +x /usr/local/bin/aitbc-cli 2>/dev/null || true
+        log "aitbc CLI added to /usr/local/bin/aitbc-cli"
+    else
+        warning "aitbc-cli not found at /opt/aitbc/aitbc-cli"
+    fi
+
     success "Systemd services installed"
 }
 
