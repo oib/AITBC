@@ -120,10 +120,7 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daem
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
     
     # Initialize dual-mode adapter
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "cli"))
-    from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+    from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
     
     config = get_config()
     adapter = DualModeWalletAdapter(config, use_daemon=use_daemon)
@@ -264,10 +261,7 @@ def list(ctx):
         error("Wallet daemon is not available. Falling back to file-based wallet listing.")
         # Switch to file mode
         from ..config import get_config
-        import sys
-        from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "cli"))
-        from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+        from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
     
