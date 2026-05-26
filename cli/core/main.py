@@ -10,6 +10,14 @@ from aitbc_cli.commands.system import system
 from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.chain import chain
 from aitbc_cli.commands.agent_sdk import agent
+from aitbc_cli.commands.analytics import analytics
+from aitbc_cli.commands.cross_chain import cross_chain
+from aitbc_cli.commands.deployment import deployment
+from aitbc_cli.commands.monitor import monitor
+from aitbc_cli.commands.node import node
+from aitbc_cli.commands.agent_comm import agent_comm
+from aitbc_cli.commands.exchange import exchange
+from aitbc_cli.commands.config import config_cmd
 
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
@@ -114,6 +122,14 @@ cli.add_command(system)
 cli.add_command(marketplace, name="market")
 cli.add_command(chain, name="blockchain")
 cli.add_command(agent, name="ai")
+cli.add_command(analytics)
+cli.add_command(cross_chain, name="crosschain")
+cli.add_command(deployment)
+cli.add_command(monitor)
+cli.add_command(node)
+cli.add_command(agent_comm, name="agent")
+cli.add_command(exchange)
+cli.add_command(config_cmd, name="config")
 cli.add_command(list_wallets)
 cli.add_command(version)
 cli.add_command(gpu)
