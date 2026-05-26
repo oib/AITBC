@@ -32,7 +32,7 @@ from aitbc_chain.state.merkle_patricia_trie import StateManager
 SERVICE_NAME = "aitbc-blockchain-node.service"
 DATA_ROOT = Path("/var/lib/aitbc/data")
 BACKUP_ROOT = Path("/var/lib/aitbc/backups/mpt-regeneration")
-ENV_FILES = [Path("/etc/aitbc/.env"), Path("/etc/aitbc/node.env")]
+ENV_FILES = [Path("/etc/aitbc/blockchain.env"), Path("/etc/aitbc/node.env")]
 
 
 def _run(command: list[str], check: bool = False) -> subprocess.CompletedProcess[str]:
