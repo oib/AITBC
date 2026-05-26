@@ -13,6 +13,11 @@ CLI_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(CLI_DIR))
 
+# Ensure we don't pick up hermes-agent's cli module
+hermes_cli_path = "/usr/local/lib/hermes-agent"
+if hermes_cli_path in sys.path:
+    sys.path.remove(hermes_cli_path)
+
 from aitbc.constants import BLOCKCHAIN_RPC_PORT
 
 DEFAULT_RPC_URL = f"http://localhost:{BLOCKCHAIN_RPC_PORT}"
