@@ -43,9 +43,28 @@ def _get_wallet_password(wallet_name: str) -> str:
     except Exception:
         pass
 
+    # Check if we're in a TTY environment
+    import sys
+    if not sys.stdin.isatty():
+        # Non-interactive: try environment variable
+        password = os.environ.get(f"AITBC_WALLET_PASSWORD_{wallet_name.upper()}")
+        if password:
+            return password
+        # Try generic password env var
+        password = os.environ.get("AITBC_WALLET_PASSWORD")
+        if password:
+            return password
+        error("No TTY available for password prompt. Set AITBC_WALLET_PASSWORD environment variable.")
+        raise click.Abort()
+
     # Prompt for password
     while True:
-        password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
+        try:
+            password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
+        except Exception as e:
+            error(f"Password prompt failed: {e}")
+            raise click.Abort()
+        
         if not password:
             error("Password cannot be empty")
             continue
