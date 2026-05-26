@@ -6,6 +6,8 @@ from ..utils import output, error, success
 import subprocess
 import sys
 from pathlib import Path
+import json
+import httpx
 
 
 @click.group()
@@ -229,3 +231,86 @@ def info(ctx, chain_id: str, data_dir: Optional[str], rpc_url: Optional[str]):
         
     except Exception as e:
         error(f"Failed to read genesis info: {e}")
+
+
+@genesis.command()
+@click.option("--chain-id", default=None, help="Chain ID to sync genesis for (auto-detected from config if not provided)")
+@click.option("--rpc-url", default=None, help="Hub RPC URL to fetch genesis from (default: from config)")
+@click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
+@click.option("--force", is_flag=True, help="Force overwrite existing genesis.json")
+@click.pass_context
+def sync_from_hub(ctx, chain_id: str, rpc_url: Optional[str], data_dir: Optional[str], force: bool):
+    """Sync genesis.json from hub RPC endpoint"""
+    # Auto-detect chain_id from config if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+    
+    # Auto-detect rpc_url from config if not provided
+    if not rpc_url:
+        from ..config import get_config
+        config = get_config()
+        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+    
+    # Use provided data dir or default
+    if not data_dir:
+        data_dir = "/var/lib/aitbc/data"
+    
+    genesis_dir = Path(data_dir) / chain_id
+    genesis_path = genesis_dir / "genesis.json"
+    
+    # Check if genesis.json already exists
+    if genesis_path.exists() and not force:
+        error(f"Genesis file already exists: {genesis_path}")
+        error("Use --force to overwrite")
+        return
+    
+    # Create directory if it doesn't exist
+    genesis_dir.mkdir(parents=True, exist_ok=True)
+    
+    success(f"Fetching genesis from hub: {rpc_url}")
+    success(f"Chain ID: {chain_id}")
+    
+    try:
+        # Fetch genesis from hub RPC endpoint
+        # The hub should expose a /rpc/genesis endpoint or similar
+        # For now, we'll try to fetch from the block endpoint
+        with httpx.Client(timeout=10.0) as client:
+            # Try to get genesis block from RPC
+            response = client.get(f"{rpc_url}/rpc/blocks/0?chain_id={chain_id}")
+            response.raise_for_status()
+            block_data = response.json()
+            
+            # Construct genesis data from block
+            genesis_data = {
+                "genesis_hash": block_data.get("hash"),
+                "parent_hash": block_data.get("parent_hash", "0x00"),
+                "proposer": block_data.get("proposer", "genesis"),
+                "timestamp": block_data.get("timestamp"),
+                "state_root": block_data.get("state_root", "0x0000000000000000000000000000000000000000000000000000000000000000"),
+                "allocations": []
+            }
+            
+            # Write genesis.json
+            with open(genesis_path, 'w') as f:
+                json.dump(genesis_data, f, indent=2, default=str)
+            
+            success(f"✓ Genesis synced successfully: {genesis_path}")
+            output({
+                "chain_id": chain_id,
+                "genesis_hash": genesis_data["genesis_hash"],
+                "timestamp": genesis_data["timestamp"],
+                "file_path": str(genesis_path)
+            }, ctx.obj.get("output_format", "table"))
+            
+    except httpx.HTTPStatusError as e:
+        error(f"Failed to fetch genesis from hub: HTTP {e.response.status_code}")
+        error(f"Response: {e.response.text}")
+        return
+    except httpx.RequestError as e:
+        error(f"Failed to connect to hub: {e}")
+        return
+    except Exception as e:
+        error(f"Failed to sync genesis: {e}")
+        return
