@@ -81,7 +81,7 @@ else
 fi
 
 # Check ports
-ports=("8545" "30303" "9090")
+ports=("8006" "30303" "9090")
 for port in "${ports[@]}"; do
     if netstat -tuln 2>/dev/null | grep -q ":$port "; then
         echo -e "${GREEN}✅ Port $port: OPEN${NC}"

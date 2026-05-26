@@ -196,7 +196,7 @@ sudo journalctl -u aitbc-node.service -f
 ## 🌐 **Network Configuration**
 
 ### **Default Ports**
-- **Node:** 30333 (P2P), 8545 (RPC)
+- **Node:** 30333 (P2P), 8006 (RPC)
 - **Coordinator:** 8000 (API)
 - **Marketplace:** 8001 (API)
 - **Explorer:** 3000 (Web), 3001 (API)

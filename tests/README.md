@@ -317,7 +317,7 @@ export TEST_REDIS_URL="redis://localhost:6379/1"
 # Service URLs for integration tests
 export COORDINATOR_URL="http://localhost:8001"
 export WALLET_URL="http://localhost:8002"
-export BLOCKCHAIN_URL="http://localhost:8545"
+export BLOCKCHAIN_URL="http://localhost:8006"
 
 # Security test configuration
 export TEST_HSM_ENDPOINT="http://localhost:9999"
