@@ -35,6 +35,8 @@ def _load_cli_module() -> ModuleType:
         raise ImportError(f"Unable to load modular CLI entrypoint from {cli_path}")
 
     module = importlib.util.module_from_spec(spec)
+    # Register module in sys.modules with proper package name for import resolution
+    sys.modules["aitbc_cli.core.main"] = module
     spec.loader.exec_module(module)
     _CLI_MODULE = module
     return module
