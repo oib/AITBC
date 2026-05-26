@@ -409,11 +409,27 @@ setup_venvs() {
             fi
         fi
         
-        source venv/bin/activate
-        pip install --upgrade pip
+        # Activate venv with error handling
+        if ! source venv/bin/activate; then
+            warning "Failed to activate virtual environment"
+            warning "Virtual environment may be corrupted"
+            warning "Manual fix: rm -rf /opt/aitbc/venv && python3 -m venv /opt/aitbc/venv"
+            return 0
+        fi
+        
+        # Upgrade pip with error handling
+        if ! pip install --upgrade pip; then
+            warning "Failed to upgrade pip in virtual environment"
+            warning "Continuing with existing pip version"
+        fi
     else
         log "Central virtual environment already exists, activating..."
-        source /opt/aitbc/venv/bin/activate
+        if ! source /opt/aitbc/venv/bin/activate; then
+            warning "Failed to activate existing virtual environment"
+            warning "Virtual environment may be corrupted"
+            warning "Manual fix: rm -rf /opt/aitbc/venv && python3 -m venv /opt/aitbc/venv"
+            return 0
+        fi
     fi
     
     # Install all dependencies using Poetry
@@ -421,8 +437,19 @@ setup_venvs() {
     
     # Install using Poetry (source of truth is pyproject.toml)
     if [ -f "/opt/aitbc/pyproject.toml" ]; then
-        pip install poetry
-        poetry install
+        log "Installing Poetry..."
+        if ! pip install poetry; then
+            warning "Failed to install Poetry"
+            warning "Skipping Poetry-based dependency installation"
+            warning "Dependencies may need to be installed manually"
+        else
+            log "Running poetry install..."
+            if ! poetry install; then
+                warning "Poetry install failed"
+                warning "Dependencies may need to be installed manually"
+                warning "Manual install: cd /opt/aitbc && source venv/bin/activate && pip install -e cli/ apps/blockchain-node/"
+            fi
+        fi
     else
         warning "pyproject.toml not found, skipping Poetry installation"
     fi
