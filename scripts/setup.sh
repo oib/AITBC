@@ -30,8 +30,59 @@ LEGACY_HEALTH_CHECK_PATH="/opt/aitbc/health-check.sh"
 check_prerequisites() {
     log "Checking prerequisites..."
 
-    require_commands python3 pip3 git systemctl node npm
+    # Install missing prerequisites
+    local missing=()
+    for cmd in python3 pip3 git systemctl node npm; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing+=("$cmd")
+        fi
+    done
 
+    if [ "${#missing[@]}" -gt 0 ]; then
+        log "Installing missing prerequisites: ${missing[*]}"
+        
+        # Detect package manager
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq
+            for cmd in "${missing[@]}"; do
+                case "$cmd" in
+                    python3)
+                        apt-get install -y python3 python3-pip
+                        ;;
+                    pip3)
+                        apt-get install -y python3-pip
+                        ;;
+                    git)
+                        apt-get install -y git
+                        ;;
+                    systemctl)
+                        apt-get install -y systemd
+                        ;;
+                    node)
+                        # Install Node.js 24.x from NodeSource
+                        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+                        apt-get install -y nodejs
+                        ;;
+                    npm)
+                        # npm comes with nodejs
+                        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+                        apt-get install -y nodejs
+                        ;;
+                esac
+            done
+        elif command -v yum >/dev/null 2>&1; then
+            yum install -y python3 python3-pip git systemd
+            # Install Node.js 24.x
+            curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
+            yum install -y nodejs
+        else
+            error "Unsupported package manager. Please install manually: ${missing[*]}"
+        fi
+        
+        log "Prerequisites installed"
+    fi
+
+    # Verify versions after installation
     python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
     require_min_version "$python_version" "3.13.5" "Python"
 
