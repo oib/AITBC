@@ -66,12 +66,22 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
     
     sender_address = sender_data['address']
     
-    # Decrypt private key
+    # Decrypt private key if wallet is encrypted, otherwise use directly
     try:
-        private_key_hex = decrypt_private_key(sender_keystore, password)
+        # Check if wallet is encrypted
+        if sender_data.get("encrypted") or sender_data.get("encrypted_private_key"):
+            # Wallet is encrypted, need to decrypt
+            private_key_hex = decrypt_private_key(sender_keystore, password)
+        else:
+            # Wallet is not encrypted (created with --no-encrypt), use private_key directly
+            private_key_hex = sender_data.get("private_key")
+            if not private_key_hex:
+                error("Wallet does not contain private key")
+                return None
+        
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
-        error(f"Error decrypting wallet: {e}")
+        error(f"Error loading private key: {e}")
         return None
     
     # Get chain_id from RPC health endpoint or use override
