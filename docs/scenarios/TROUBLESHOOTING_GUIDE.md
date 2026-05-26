@@ -428,7 +428,7 @@ env | grep AITBC
 ### Network Diagnostics
 ```bash
 # Check connectivity to blockchain node
-curl -X POST http://localhost:8545 -H "Content-Type: application/json" \
+curl -X POST http://localhost:8006 -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 
 # Check peer connections

@@ -253,7 +253,7 @@ class MultiChainWalletAdapter:
             },
             1000: {  # AITBC Mainnet
                 "chain_type": ChainType.AITBC,
-                "rpc_url": "http://localhost:8545",
+                "rpc_url": "http://localhost:8006",
                 "name": "AITBC Mainnet",
             },
         }
