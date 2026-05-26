@@ -39,17 +39,17 @@ systemctl stop aitbc-blockchain-* 2>/dev/null || echo "No services to stop"
 # 4. Update systemd configurations
 echo "4. Updating systemd configurations..."
 # Update main service files
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
 # Update drop-in configs
-find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "10-central-env.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' {} \; 2>/dev/null || true
+find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "10-central-env.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' {} \; 2>/dev/null || true
 # Fix override configs (wrong venv paths)
 find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "override.conf" -exec sed -i 's|/opt/aitbc/apps/blockchain-node/.venv/bin/python3|/opt/aitbc/venv/bin/python3|g' {} \; 2>/dev/null || true
 systemctl daemon-reload
 
 # 5. Setup central configuration file
 echo "5. Setting up central configuration file..."
-cp /opt/aitbc/.env /etc/aitbc/.env.backup 2>/dev/null || true
-mv /opt/aitbc/.env /etc/aitbc/.env 2>/dev/null || true
+cp /opt/aitbc/.env /etc/aitbc/blockchain.env.backup 2>/dev/null || true
+mv /opt/aitbc/.env /etc/aitbc/blockchain.env 2>/dev/null || true
 
 # 6. Setup AITBC CLI tool
 echo "6. Setting up AITBC CLI tool..."
