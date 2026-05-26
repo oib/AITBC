@@ -162,16 +162,27 @@ def verify(ctx, chain_id: str):
 
 
 @genesis.command()
-@click.option("--chain-id", default=None, help="Chain ID to show info for (auto-detected from config if not provided)")
+@click.option("--chain-id", default=None, help="Chain ID to show info for (auto-detected from blockchain node if not provided)")
 @click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL for chain ID auto-detection (default: http://localhost:8006)")
 @click.pass_context
-def info(ctx, chain_id: str, data_dir: Optional[str]):
+def info(ctx, chain_id: str, data_dir: Optional[str], rpc_url: Optional[str]):
     """Show genesis block information"""
-    # Auto-detect chain_id from config if not provided
+    # Auto-detect chain_id from blockchain node if not provided
     if not chain_id:
         from ..config import get_config
         config = get_config()
-        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+        
+        # Try to get chain_id from RPC health endpoint
+        if not rpc_url:
+            rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+        
+        try:
+            from ..utils.chain_id import get_chain_id
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        except Exception:
+            # Fallback to config or default
+            chain_id = getattr(config, 'chain_id', 'ait-mainnet')
     
     # Use provided data dir or default
     if not data_dir:
@@ -184,6 +195,7 @@ def info(ctx, chain_id: str, data_dir: Optional[str]):
     if not genesis_path.exists():
         error(f"Genesis config not found: {genesis_path}")
         error(f"Chain ID: {chain_id}, Data directory: {data_dir}")
+        error(f"RPC URL used for detection: {rpc_url}")
         error("Run 'aitbc genesis init' to create genesis block")
         return
     

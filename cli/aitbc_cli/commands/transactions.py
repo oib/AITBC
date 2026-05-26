@@ -134,25 +134,56 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
 @click.option('--rpc-url', help='Blockchain RPC URL')
 def send(from_wallet: str, to_address: str, amount: float, fee: float, password: Optional[str], password_file: Optional[str], rpc_url: Optional[str]):
     """Send transaction from one wallet to another"""
-    if password_file:
+    # Password resolution priority:
+    # 1. --password flag
+    # 2. --password-file flag
+    # 3. AITBC_WALLET_PASSWORD environment variable
+    # 4. Check if wallet is unencrypted (skip password)
+    # 5. Interactive getpass prompt (only if TTY)
+    
+    if password is not None:
+        # Password provided via flag (even if empty string)
+        pass
+    elif password_file:
         with open(password_file) as f:
             password = f.read().strip()
-    elif not password:
-        # Check if we're in a TTY environment
-        if not sys.stdin.isatty():
-            # Non-interactive: try environment variable
-            password = os.environ.get("AITBC_WALLET_PASSWORD")
-            if not password:
+    elif "AITBC_WALLET_PASSWORD" in os.environ:
+        # Environment variable is set (even if empty)
+        password = os.environ["AITBC_WALLET_PASSWORD"]
+    else:
+        # Check if wallet is unencrypted
+        keystore_dir = DEFAULT_KEYSTORE_DIR
+        sender_keystore = keystore_dir / f"{from_wallet}.json"
+        if sender_keystore.exists():
+            with open(sender_keystore) as f:
+                sender_data = json.load(f)
+            # If wallet has no encrypted_private_key, it's unencrypted
+            if not sender_data.get("encrypted_private_key"):
+                password = ""  # Empty password for unencrypted wallets
+            else:
+                # Wallet is encrypted, need password
+                if not sys.stdin.isatty():
+                    error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                    raise click.Abort()
+                else:
+                    import getpass
+                    try:
+                        password = getpass.getpass("Enter wallet password: ")
+                    except Exception as e:
+                        error(f"Password prompt failed: {e}")
+                        raise click.Abort()
+        else:
+            # Wallet file doesn't exist, will fail later in _send_transaction_impl
+            if not sys.stdin.isatty():
                 error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
                 raise click.Abort()
-        else:
-            # Interactive: prompt for password
-            import getpass
-            try:
-                password = getpass.getpass("Enter wallet password: ")
-            except Exception as e:
-                error(f"Password prompt failed: {e}")
-                raise click.Abort()
+            else:
+                import getpass
+                try:
+                    password = getpass.getpass("Enter wallet password: ")
+                except Exception as e:
+                    error(f"Password prompt failed: {e}")
+                    raise click.Abort()
     
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -169,25 +200,72 @@ def send(from_wallet: str, to_address: str, amount: float, fee: float, password:
 @click.option('--rpc-url', help='Blockchain RPC URL')
 def batch(transactions_file: str, password: Optional[str], password_file: Optional[str], rpc_url: Optional[str]):
     """Send batch transactions"""
-    if password_file:
+    # Password resolution priority:
+    # 1. --password flag
+    # 2. --password-file flag
+    # 3. AITBC_WALLET_PASSWORD environment variable
+    # 4. Check if wallet is unencrypted (skip password)
+    # 5. Interactive getpass prompt (only if TTY)
+    
+    if password is not None:
+        # Password provided via flag (even if empty string)
+        pass
+    elif password_file:
         with open(password_file) as f:
             password = f.read().strip()
-    elif not password:
-        # Check if we're in a TTY environment
-        if not sys.stdin.isatty():
-            # Non-interactive: try environment variable
-            password = os.environ.get("AITBC_WALLET_PASSWORD")
-            if not password:
+    elif "AITBC_WALLET_PASSWORD" in os.environ:
+        # Environment variable is set (even if empty)
+        password = os.environ["AITBC_WALLET_PASSWORD"]
+    else:
+        # Check if first wallet is unencrypted
+        with open(transactions_file) as f:
+            transactions_data = json.load(f)
+        if transactions_data:
+            first_wallet = transactions_data[0].get('from_wallet')
+            keystore_dir = DEFAULT_KEYSTORE_DIR
+            sender_keystore = keystore_dir / f"{first_wallet}.json"
+            if sender_keystore.exists():
+                with open(sender_keystore) as f:
+                    sender_data = json.load(f)
+                # If wallet has no encrypted_private_key, it's unencrypted
+                if not sender_data.get("encrypted_private_key"):
+                    password = ""  # Empty password for unencrypted wallets
+                else:
+                    # Wallet is encrypted, need password
+                    if not sys.stdin.isatty():
+                        error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                        raise click.Abort()
+                    else:
+                        import getpass
+                        try:
+                            password = getpass.getpass("Enter wallet password: ")
+                        except Exception as e:
+                            error(f"Password prompt failed: {e}")
+                            raise click.Abort()
+            else:
+                # Wallet file doesn't exist
+                if not sys.stdin.isatty():
+                    error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                    raise click.Abort()
+                else:
+                    import getpass
+                    try:
+                        password = getpass.getpass("Enter wallet password: ")
+                    except Exception as e:
+                        error(f"Password prompt failed: {e}")
+                        raise click.Abort()
+        else:
+            # Empty transactions file
+            if not sys.stdin.isatty():
                 error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
                 raise click.Abort()
-        else:
-            # Interactive: prompt for password
-            import getpass
-            try:
-                password = getpass.getpass("Enter wallet password: ")
-            except Exception as e:
-                error(f"Password prompt failed: {e}")
-                raise click.Abort()
+            else:
+                import getpass
+                try:
+                    password = getpass.getpass("Enter wallet password: ")
+                except Exception as e:
+                    error(f"Password prompt failed: {e}")
+                    raise click.Abort()
     
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
