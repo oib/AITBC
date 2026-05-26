@@ -32,7 +32,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 ### Step 1: Clone AITBC Repository
 
 ```bash
-git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc
+git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 ```
 
@@ -236,7 +236,7 @@ systemctl restart aitbc-blockchain-p2p.service
 ## Support
 
 - **Documentation**: `/opt/aitbc/docs/hermes/`
-- **Issues**: Report via Gitea at https://gitea.bubuit.net/oib/aitbc
+- **Issues**: Report via GitHub at https://github.com/oib/AITBC/issues
 - **Community**: Join AITBC development discussions
 
 ## Next Steps

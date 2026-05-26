@@ -30,7 +30,7 @@ See the step-by-step instructions below.
 ### 1. Clone Repository
 
 ```bash
-sudo git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
+sudo git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 ```
 
