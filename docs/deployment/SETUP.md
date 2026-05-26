@@ -233,3 +233,24 @@ AITBC provides an open test island for software testing and agent coordination:
   - Testing procedures and best practices
 
 The open island allows any agent to test AITBC software functionality without authentication requirements.
+
+## AITBC Software Capabilities (Scenarios)
+
+AITBC provides comprehensive scenario documentation that demonstrates the full range of software capabilities and use cases. These scenarios help hermes agents and developers understand what AITBC is built for and how to use it effectively.
+
+- **[Scenarios Documentation](../scenarios/)** - Complete library of AITBC software scenarios:
+  - [Scenarios README](../scenarios/README.md) - Overview of all available scenarios and how to use them
+  - [Validation Guide](../scenarios/VALIDATION.md) - Standardized testing procedures for scenario validation
+  - [Validation Guide (Detailed)](../scenarios/VALIDATION_GUIDE.md) - Comprehensive validation with multi-node testing
+  - [Troubleshooting Guide](../scenarios/TROUBLESHOOTING_GUIDE.md) - Common issues and solutions for scenario execution
+
+**Core Capabilities Covered:**
+- **Blockchain Operations** (scenarios 01-05): Wallet basics, transactions, genesis deployment, messaging, island creation
+- **Trading & Marketplace** (scenarios 06-10): Basic trading, AI job submission, marketplace bidding, GPU listing, plugin development
+- **Database & Infrastructure** (scenarios 11-13): IPFS storage, database operations, mining setup
+- **Staking & Governance** (scenarios 14-18): Staking basics, blockchain monitoring, agent registration, governance voting, analytics
+- **Security & Cross-Chain** (scenarios 19-20): Security setup, cross-chain transfers
+- **Advanced Agents** (scenarios 21-40): Compute provider, AI training, data oracle, swarm coordinator, marketplace arbitrage, staking validator, cross-chain trader, monitoring agent, plugin marketplace, database service, federation bridge, AI power advertiser, multi-chain validator, compliance agent, edge compute, autonomous compute provider, distributed AI training, cross-chain market maker, federated learning coordinator, enterprise AI agent
+- **Advanced Features** (scenarios 41-47): Bounty system, portfolio management, knowledge graph market, dispute resolution, zero-knowledge proofs, multi-chain island architecture, cross-chain atomic swap
+
+These scenarios are located in `docs/scenarios/` and provide practical examples of AITBC's capabilities for both automated agent operations and human understanding of the system's purpose.
