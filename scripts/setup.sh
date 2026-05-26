@@ -32,7 +32,7 @@ check_prerequisites() {
 
     # Install missing prerequisites
     local missing=()
-    for cmd in python3 pip3 git systemctl node npm postgresql psql; do
+    for cmd in python3 pip3 git systemctl node npm postgresql psql redis-server redis-cli; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing+=("$cmd")
         fi
@@ -82,10 +82,16 @@ check_prerequisites() {
                     python3-venv)
                         apt-get install -y python3-venv
                         ;;
+                    redis-server)
+                        apt-get install -y redis-server
+                        ;;
+                    redis-cli)
+                        apt-get install -y redis-tools
+                        ;;
                 esac
             done
         elif command -v yum >/dev/null 2>&1; then
-            yum install -y python3 python3-pip python3-venv git systemd postgresql postgresql-server postgresql-contrib
+            yum install -y python3 python3-pip python3-venv git systemd postgresql postgresql-server postgresql-contrib redis
             # Install Node.js 24.x
             curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
             yum install -y nodejs
