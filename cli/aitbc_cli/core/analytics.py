@@ -11,9 +11,9 @@ from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
 import statistics
 
-from core.config import MultiChainConfig
-from core.node_client import NodeClient
-from models.chain import ChainInfo, ChainType, ChainStatus
+from aitbc_cli.core.config import MultiChainConfig
+from aitbc_cli.core.node_client import NodeClient
+from aitbc_cli.models.chain import ChainInfo, ChainType, ChainStatus
 import logging
 logger = logging.getLogger(__name__)
 
