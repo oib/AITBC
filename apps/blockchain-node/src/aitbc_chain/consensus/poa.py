@@ -474,52 +474,61 @@ class PoAProposer:
                 else:
                     self._logger.warning(f"RPC bootstrap returned incomplete genesis data, falling back to local creation")
 
-            # Fall back to local genesis block creation
-            self._logger.info(f"Creating genesis block locally for chain {self._config.chain_id}")
+            # Fall back to local genesis block creation from genesis.json file
+            self._logger.info(f"Loading genesis block from local file for chain {self._config.chain_id}")
             
-            # Use current timestamp for genesis block
-            timestamp = datetime.now(timezone.utc)
-            block_hash = self._compute_block_hash(0, "0x00", timestamp)
+            # Load genesis data from file
+            local_genesis_data = self._load_genesis_data_from_file()
             
-            # Check if block with this hash already exists (duplicate check)
-            existing = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).where(Block.hash == block_hash).limit(1)).first()
-            if existing is not None:
-                self._logger.info(f"Genesis block with hash {block_hash} already exists, skipping creation")
-                return
+            if not local_genesis_data:
+                self._logger.error(f"Genesis file not found at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json. Cannot create genesis block without genesis.json file.")
+                raise RuntimeError(f"Genesis file required but not found for chain {self._config.chain_id}. Please create genesis.json at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json")
             
-            # Load genesis allocations for embedding in metadata
-            genesis_allocations = self._load_genesis_allocations_for_metadata()
+            # Extract genesis data from file
+            genesis_hash = local_genesis_data.get("genesis_hash")
+            genesis_timestamp = local_genesis_data.get("timestamp")
+            genesis_state_root = local_genesis_data.get("state_root")
+            genesis_allocations = local_genesis_data.get("allocations", [])
             
-            # Initialize accounts from genesis allocations file or RPC bootstrap
-            await self._initialize_genesis_allocations(session)
+            if not genesis_hash or not genesis_timestamp or not genesis_state_root:
+                self._logger.error(f"Genesis file missing required fields: genesis_hash, timestamp, or state_root")
+                raise RuntimeError(f"Genesis file at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json is missing required fields (genesis_hash, timestamp, state_root)")
             
-            # Use RPC-provided state_root if available, otherwise compute locally
-            if hasattr(self, '_rpc_genesis_state_root') and self._rpc_genesis_state_root:
-                state_root = self._rpc_genesis_state_root
-                self._logger.info(f"Using RPC-provided genesis state_root: {state_root}")
-            else:
-                # Compute state root for genesis block (local file case)
-                state_root = _compute_state_root(session, self._config.chain_id)
-                self._logger.info(f"Computed local genesis state_root: {state_root}")
+            # Parse timestamp from string to datetime
+            try:
+                if isinstance(genesis_timestamp, str):
+                    timestamp = datetime.fromisoformat(genesis_timestamp)
+                else:
+                    timestamp = genesis_timestamp
+            except Exception as e:
+                self._logger.error(f"Failed to parse genesis timestamp: {e}")
+                raise RuntimeError(f"Invalid timestamp format in genesis file: {e}")
             
+            # Create genesis block using data from genesis.json
             genesis = Block(
                 chain_id=self._config.chain_id,
                 height=0,
-                hash=block_hash,
+                hash=genesis_hash,
                 parent_hash="0x00",
-                proposer="genesis",  # Use "genesis" as the proposer for genesis block to avoid hash conflicts
+                proposer="genesis",
                 timestamp=timestamp,
                 tx_count=0,
-                state_root=state_root,
+                state_root=genesis_state_root,
                 block_metadata=json.dumps({"allocations": genesis_allocations}) if genesis_allocations else None,
             )
             session.add(genesis)
             try:
                 session.commit()
+                self._logger.info(f"Successfully created genesis block from genesis.json: hash={genesis_hash}, state_root={genesis_state_root}, timestamp={timestamp}")
+                
+                # Initialize accounts from genesis allocations
+                if genesis_allocations:
+                    self._create_accounts_from_allocations(session, genesis_allocations)
+                    self._logger.info(f"Initialized {len(genesis_allocations)} accounts from genesis.json")
             except Exception as e:
-                self._logger.warning(f"Failed to create genesis block: {e}")
+                self._logger.error(f"Failed to create genesis block from genesis.json: {e}")
                 session.rollback()
-                return
+                raise
 
             # Broadcast genesis block for initial sync
             await gossip_broker.publish(
@@ -541,9 +550,10 @@ class PoAProposer:
         self._logger.info(f"Initializing genesis allocations for chain: {self._config.chain_id}")
         
         # Try local file first
-        local_allocations = self._load_genesis_allocations_from_file()
-        if local_allocations:
-            self._logger.info(f"Using local genesis allocations file for chain {self._config.chain_id}")
+        local_genesis_data = self._load_genesis_data_from_file()
+        if local_genesis_data:
+            local_allocations = local_genesis_data.get("allocations", [])
+            self._logger.info(f"Using local genesis file for chain {self._config.chain_id}")
             self._create_accounts_from_allocations(session, local_allocations)
             return
         
@@ -566,8 +576,8 @@ class PoAProposer:
         except Exception as e:
             self._logger.warning(f"RPC bootstrap failed for chain {self._config.chain_id}: {e}, skipping account initialization")
     
-    def _load_genesis_allocations_from_file(self) -> list:
-        """Load genesis allocations from local file."""
+    def _load_genesis_data_from_file(self) -> dict:
+        """Load complete genesis data from local file."""
         genesis_paths = [
             Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
         ]
@@ -579,15 +589,15 @@ class PoAProposer:
                 break
         
         if not genesis_path:
-            return []
+            return {}
         
         try:
             with open(genesis_path) as f:
                 genesis_data = json.load(f)
-            return genesis_data.get("allocations", [])
+            return genesis_data
         except Exception as e:
-            self._logger.warning(f"Failed to load genesis allocations file: {e}")
-            return []
+            self._logger.warning(f"Failed to load genesis file: {e}")
+            return {}
 
     def _load_genesis_allocations_for_metadata(self) -> list:
         """Load genesis allocations from file for embedding in genesis block metadata."""
