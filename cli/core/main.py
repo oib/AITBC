@@ -3,6 +3,14 @@
 AITBC CLI - Fixed version with modular command groups
 """
 
+import sys
+from pathlib import Path
+
+# Ensure parent directory is on path for aitbc_cli imports
+CLI_DIR = Path(__file__).parent.parent
+if str(CLI_DIR) not in sys.path:
+    sys.path.insert(0, str(CLI_DIR))
+
 import click
 
 # Import modular command groups
