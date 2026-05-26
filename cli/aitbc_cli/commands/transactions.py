@@ -104,16 +104,15 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
         actual_nonce = 0
     
     # Create transaction
+    # Match RPC server schema (TransactionRequest in apps/blockchain-node/src/aitbc_chain/rpc/transactions.py)
     transaction = {
         "type": "TRANSFER",
-        "chain_id": chain_id,
         "from": sender_address,
-        "nonce": actual_nonce,
+        "to": to_address,
+        "amount": int(amount),
         "fee": int(fee),
-        "payload": {
-            "recipient": to_address,
-            "amount": int(amount)
-        }
+        "nonce": actual_nonce,
+        "payload": {}
     }
     
     # Sign transaction
