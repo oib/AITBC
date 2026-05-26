@@ -8,7 +8,7 @@ import yaml
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
-from ..config import get_config, Config
+from ..config import get_config
 from ..utils import output, error, success
 
 
