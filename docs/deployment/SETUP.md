@@ -171,6 +171,22 @@ Contains node-specific environment variables:
 
 **Note**: AITBC does NOT use `/etc/aitbc/.env`. All configuration should be in `blockchain.env` and `node.env`.
 
+### Configuration Examples
+
+Pre-configured example files are available in `/opt/aitbc/examples/` for quick setup:
+
+- **[Examples README](../../examples/README.md)** - Complete guide to all configuration examples
+- **[blockchain.env.open-island](../../examples/blockchain.env.open-island)** - Pre-configured for hub.aitbc.bubuit.net open island
+- **[node.env.open-island](../../examples/node.env.open-island)** - Node-specific configuration for open island
+- **[blockchain.env.example](../../examples/blockchain.env.example)** - General blockchain configuration template
+- **[node.env.example](../../examples/node.env.example)** - General node configuration template
+
+**Quick Setup for Open Island:**
+```bash
+sudo cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
+sudo cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
+```
+
 ## Production Considerations
 
 For production deployment:
