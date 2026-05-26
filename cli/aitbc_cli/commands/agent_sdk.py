@@ -19,6 +19,12 @@ except ImportError:
     ComputeConsumer = None
     AITBCAgent = None
 
+from ..utils import output, error, success
+from ..config import get_config
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
+
+logger = get_logger(__name__)
+
 
 def get_agent_config_dir() -> Path:
     """Get the agent configuration directory"""
@@ -601,6 +607,88 @@ try:
         except Exception as e:
             error(f"Error exporting configuration: {str(e)}")
             raise click.Abort()
+
+    @agent.command()
+    @click.argument('job_id')
+    @click.pass_context
+    def job(ctx, job_id: str):
+        """Get specific AI job details from coordinator-api"""
+        config = get_config()
+        
+        try:
+            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            job_data = http_client.get(f"/api/v1/jobs/{job_id}")
+            success(f"Job {job_id}:")
+            output(job_data, ctx.obj.get("output_format", "table"))
+        except NetworkError as e:
+            error(f"Network error: {e}")
+        except Exception as e:
+            error(f"Error fetching job: {e}")
+
+    @agent.command()
+    @click.option('--status', help='Filter by job status')
+    @click.option('--limit', type=int, default=20, help='Number of jobs to return')
+    @click.pass_context
+    def jobs(ctx, status: Optional[str], limit: int):
+        """List AI jobs from coordinator-api"""
+        config = get_config()
+        
+        try:
+            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            params = {"limit": limit}
+            if status:
+                params["status"] = status
+            
+            jobs_data = http_client.get("/api/v1/jobs", params=params)
+            success("Jobs:")
+            output(jobs_data, ctx.obj.get("output_format", "table"))
+        except NetworkError as e:
+            error(f"Network error: {e}")
+        except Exception as e:
+            error(f"Error fetching jobs: {e}")
+
+    @agent.command()
+    @click.argument('task')
+    @click.option('--model', help='AI model to use')
+    @click.option('--priority', default='normal', help='Job priority')
+    @click.pass_context
+    def submit(ctx, task: str, model: Optional[str], priority: str):
+        """Submit an AI job to coordinator-api"""
+        config = get_config()
+        
+        try:
+            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            job_data = {
+                "task": task,
+                "priority": priority
+            }
+            if model:
+                job_data["model"] = model
+            
+            result = http_client.post("/api/v1/jobs", json=job_data)
+            success(f"Job submitted: {result.get('job_id')}")
+            output(result, ctx.obj.get("output_format", "table"))
+        except NetworkError as e:
+            error(f"Network error: {e}")
+        except Exception as e:
+            error(f"Error submitting job: {e}")
+
+    @agent.command()
+    @click.argument('job_id')
+    @click.pass_context
+    def cancel(ctx, job_id: str):
+        """Cancel an AI job via coordinator-api"""
+        config = get_config()
+        
+        try:
+            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            result = http_client.delete(f"/api/v1/jobs/{job_id}")
+            success(f"Job {job_id} cancelled")
+            output(result, ctx.obj.get("output_format", "table"))
+        except NetworkError as e:
+            error(f"Network error: {e}")
+        except Exception as e:
+            error(f"Error cancelling job: {e}")
 
 except ImportError:
     # Click not available, commands will be added programmatically

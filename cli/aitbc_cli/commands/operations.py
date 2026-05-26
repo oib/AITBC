@@ -10,11 +10,14 @@ from typing import Optional
 
 import click
 
-from ..utils import error, success
+from ..utils import error, success, output
 from ..utils.wallet import decrypt_private_key
-from aitbc import AITBCHTTPClient, NetworkError, KEYSTORE_DIR
+from ..config import get_config
+from aitbc import AITBCHTTPClient, NetworkError, KEYSTORE_DIR, get_logger
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
+
+logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://localhost:8006"
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
@@ -356,4 +359,89 @@ def message(agent: str, message: str, wallet: str, password: Optional[str], pass
         click.echo(f"TX Hash: {result.get('transaction_hash', 'unknown')}")
     except Exception as e:
         error(f"Error sending message: {e}")
+
+
+# Governance operations
+@operations.group()
+def governance():
+    """Governance operations"""
+    pass
+
+
+@governance.command()
+@click.argument('proposal_id')
+@click.option('--vote', type=click.Choice(['yes', 'no', 'abstain']), required=True, help='Vote option')
+@click.option('--wallet', required=True, help='Wallet name for signing')
+@click.pass_context
+def vote(ctx, proposal_id: str, vote: str, wallet: str):
+    """Vote on a governance proposal"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
+        vote_data = {
+            "proposal_id": proposal_id,
+            "vote": vote,
+            "wallet": wallet
+        }
+        result = http_client.post("/governance/vote", json=vote_data)
+        success(f"Vote '{vote}' cast for proposal {proposal_id}")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error casting vote: {e}")
+
+
+@governance.command()
+@click.option('--title', required=True, help='Proposal title')
+@click.option('--description', required=True, help='Proposal description')
+@click.option('--type', default='parameter', help='Proposal type')
+@click.option('--wallet', required=True, help='Wallet name for signing')
+@click.pass_context
+def proposal(ctx, title: str, description: str, type: str, wallet: str):
+    """Create a governance proposal"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
+        proposal_data = {
+            "title": title,
+            "description": description,
+            "type": type,
+            "wallet": wallet
+        }
+        result = http_client.post("/governance/proposals", json=proposal_data)
+        success(f"Proposal created: {result.get('proposal_id')}")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error creating proposal: {e}")
+
+
+@governance.command()
+@click.argument('to_address')
+@click.option('--amount', type=float, required=True, help='Amount to delegate')
+@click.option('--wallet', required=True, help='Wallet name for signing')
+@click.pass_context
+def delegate(ctx, to_address: str, amount: float, wallet: str):
+    """Delegate voting power to another address"""
+    config = get_config()
+    
+    try:
+        http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
+        delegate_data = {
+            "to_address": to_address,
+            "amount": amount,
+            "wallet": wallet
+        }
+        result = http_client.post("/governance/delegate", json=delegate_data)
+        success(f"Delegated {amount} to {to_address}")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error delegating: {e}")
+
 

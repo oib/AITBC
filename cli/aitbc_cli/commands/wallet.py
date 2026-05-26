@@ -1561,3 +1561,84 @@ def fund(ctx, address: str, amount: int, chain_id: str):
         error(f"HTTP error calling faucet: {e}")
     except Exception as e:
         error(f"Error funding wallet: {e}")
+
+
+@wallet.command()
+@click.option('--destination', help='Destination file path (default: wallet_name_export.json)')
+@click.pass_context
+def export(ctx, destination: Optional[str]):
+    """Export wallet to JSON file"""
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
+    if not wallet_path.exists():
+        error(f"Wallet '{wallet_name}' not found")
+        return
+
+    try:
+        wallet_data = _load_wallet(wallet_path, wallet_name)
+        
+        # Generate export filename if not provided
+        if not destination:
+            destination = f"{wallet_name}_export.json"
+        
+        export_path = Path(destination)
+        
+        # Write export file
+        with open(export_path, 'w') as f:
+            json.dump(wallet_data, f, indent=2)
+        
+        success(f"Wallet exported to {export_path}")
+        output({
+            "wallet": wallet_name,
+            "exported_to": str(export_path),
+            "address": wallet_data.get("address"),
+            "balance": wallet_data.get("balance", 0)
+        }, ctx.obj.get("output_format", "table"))
+    except Exception as e:
+        error(f"Error exporting wallet: {e}")
+
+
+@wallet.command()
+@click.argument('file_path')
+@click.option('--name', help='New wallet name (default: from file)')
+@click.pass_context
+def import_wallet(ctx, file_path: str, name: Optional[str]):
+    """Import wallet from JSON file"""
+    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
+    wallet_dir.mkdir(parents=True, exist_ok=True)
+    
+    import_path = Path(file_path)
+    
+    if not import_path.exists():
+        error(f"Import file not found: {file_path}")
+        return
+    
+    try:
+        with open(import_path, 'r') as f:
+            wallet_data = json.load(f)
+        
+        # Determine wallet name
+        wallet_name = name or wallet_data.get("name", import_path.stem)
+        wallet_path = wallet_dir / f"{wallet_name}.json"
+        
+        if wallet_path.exists():
+            if not click.confirm(f"Wallet '{wallet_name}' already exists. Overwrite?"):
+                return
+        
+        # Save imported wallet
+        with open(wallet_path, 'w') as f:
+            json.dump(wallet_data, f, indent=2)
+        
+        success(f"Wallet imported as '{wallet_name}'")
+        output({
+            "wallet": wallet_name,
+            "imported_from": str(import_path),
+            "address": wallet_data.get("address"),
+            "balance": wallet_data.get("balance", 0)
+        }, ctx.obj.get("output_format", "table"))
+    except json.JSONDecodeError:
+        error("Invalid JSON file")
+    except Exception as e:
+        error(f"Error importing wallet: {e}")
+
