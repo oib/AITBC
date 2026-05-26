@@ -14,6 +14,9 @@ chmod 700 "$RUN_DIR"
 # Create .env file from credentials
 ENV_FILE="$RUN_DIR/.env"
 
+# Clear existing file to avoid duplicate entries
+> "$ENV_FILE"
+
 if [ -f "$CREDENTIALS_DIR/api_hash_secret" ]; then
     echo "API_KEY_HASH_SECRET=$(cat $CREDENTIALS_DIR/api_hash_secret)" >> "$ENV_FILE"
 fi
