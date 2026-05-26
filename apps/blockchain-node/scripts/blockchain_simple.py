@@ -36,8 +36,8 @@ def main():
             
             # Run the blockchain FastAPI app
             import uvicorn
-            logger.info("Starting blockchain FastAPI app on port 8545")
-            uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8545)))
+            logger.info("Starting blockchain FastAPI app on port 8006")
+            uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8006)))
             
         except ImportError as e:
             logger.error(f"Failed to import blockchain app: {e}")
@@ -121,8 +121,8 @@ def basic_blockchain_node():
         activity_thread = threading.Thread(target=blockchain_activity, daemon=True)
         activity_thread.start()
         
-        logger.info("Starting basic blockchain API on port 8545")
-        uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8545)))
+        logger.info("Starting basic blockchain API on port 8006")
+        uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8006)))
         
     except ImportError:
         # Fallback to simple heartbeat

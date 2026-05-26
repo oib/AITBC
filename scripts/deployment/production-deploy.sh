@@ -108,7 +108,7 @@ echo "========================"
 
 echo -e "${GREEN}✅ Localhost: ACTIVE${NC}"
 echo "   Status: Production ready"
-echo "   Agents: $(curl -s http://localhost:8545/health 2>/dev/null || echo "API not running")"
+echo "   Agents: $(curl -s http://localhost:8006/health 2>/dev/null || echo "API not running")"
 
 # Check aitbc1 status
 if ssh aitbc1 'cd /opt/aitbc && test -f data/agent_registry.json' 2>/dev/null; then

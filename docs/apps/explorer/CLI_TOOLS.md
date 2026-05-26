@@ -435,7 +435,7 @@ aitbc blockchain remote --node https://node.aitbc.dev
 aitbc blockchain remote --explorer https://explorer.aitbc.dev
 
 # SSH tunnel for secure access
-aitbc blockchain tunnel --ssh user@server --port 8545
+aitbc blockchain tunnel --ssh user@server --port 8006
 ```
 
 ### Mobile Optimization

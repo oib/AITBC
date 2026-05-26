@@ -77,7 +77,7 @@ Before running this scenario, you must deploy the CrossChainAtomicSwap contract 
 aitbc contract deploy \
   --name CrossChainAtomicSwap \
   --type atomic-swap \
-  --rpc-url http://localhost:8545 \
+  --rpc-url http://localhost:8006 \
   --password-file ~/.aitbc/wallets/mainnet-wallet.password
 
 # Deploy on destination chain
@@ -123,7 +123,7 @@ Lock tokens on source chain with hashlock and timelock:
 aitbc contract deploy \
   --name CrossChainAtomicSwap \
   --type atomic-swap \
-  --rpc-url http://localhost:8545 \
+  --rpc-url http://localhost:8006 \
   --password-file ~/.aitbc/wallets/mainnet-wallet.password
 
 # Call the initiateSwap method
@@ -131,7 +131,7 @@ aitbc contract call \
   --address <CONTRACT_ADDRESS> \
   --method initiateSwap \
   --params '{"swapId": "'"$SWAP_ID"'", "token": "AITBC", "amount": 1000, "participant": "aitbc1recipient", "hashlock": "'"$HASHLOCK"'", "timelock": 3600}' \
-  --rpc-url http://localhost:8545 \
+  --rpc-url http://localhost:8006 \
   --password-file ~/.aitbc/wallets/mainnet-wallet.password
 ```
 
@@ -180,7 +180,7 @@ aitbc contract call \
   --address <CONTRACT_ADDRESS> \
   --method completeSwap \
   --params '{"swapId": "'"$SWAP_ID"'", "secret": "'"$SECRET"'"}' \
-  --rpc-url http://localhost:8545 \
+  --rpc-url http://localhost:8006 \
   --password-file ~/.aitbc/wallets/mainnet-wallet.password
 
 # Counterparty completes with same secret on destination chain
@@ -222,7 +222,7 @@ aitbc contract call \
   --address <CONTRACT_ADDRESS> \
   --method refundSwap \
   --params '{"swapId": "'"$SWAP_ID"'"}' \
-  --rpc-url http://localhost:8545 \
+  --rpc-url http://localhost:8006 \
   --password-file ~/.aitbc/wallets/mainnet-wallet.password
 ```
 
