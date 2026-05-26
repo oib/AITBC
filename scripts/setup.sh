@@ -11,7 +11,7 @@ DEPLOY_COMMON_TEMP=""
 
 if [ ! -f "$DEPLOY_COMMON_PATH" ]; then
     DEPLOY_COMMON_TEMP="$(mktemp)"
-    if ! curl -fsSL "https://gitea.bubuit.net/oib/aitbc/raw/branch/main/scripts/utils/deploy_common.sh" -o "$DEPLOY_COMMON_TEMP"; then
+    if ! curl -fsSL "https://raw.githubusercontent.com/oib/AITBC/main/scripts/utils/deploy_common.sh" -o "$DEPLOY_COMMON_TEMP"; then
         rm -f "$DEPLOY_COMMON_TEMP"
         echo "[ERROR] Failed to load shared deployment helper"
         exit 1
@@ -104,7 +104,7 @@ clone_repo() {
     
     # Clone repository
     cd /opt
-    git clone http://gitea.bubuit.net:3000/oib/aitbc.git aitbc || error "Failed to clone repository"
+    git clone https://github.com/oib/AITBC.git aitbc || error "Failed to clone repository"
     
     cd /opt/aitbc
     success "Repository cloned successfully"
