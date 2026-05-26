@@ -79,6 +79,10 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
                 error("Wallet does not contain private key")
                 return None
         
+        # Strip 0x prefix if present
+        if private_key_hex.startswith("0x"):
+            private_key_hex = private_key_hex[2:]
+        
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
         error(f"Error loading private key: {e}")
