@@ -104,25 +104,21 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
         actual_nonce = 0
     
     # Create transaction payload
-    # RPC expects nested structure: {"payload": {...}, "signature": "..."}
-    transaction_payload = {
-        "type": "TRANSFER",
+    # RPC expects all fields at top level, with payload as additional free-form object
+    transaction = {
         "from": sender_address,
         "to": to_address,
         "amount": int(amount),
         "fee": int(fee),
-        "nonce": actual_nonce
+        "nonce": actual_nonce,
+        "type": "TRANSFER",
+        "payload": {}
     }
     
-    # Sign transaction payload
-    message = json.dumps(transaction_payload, sort_keys=True).encode()
+    # Sign transaction
+    message = json.dumps(transaction, sort_keys=True).encode()
     signature = private_key.sign(message)  # cryptography library returns just signature bytes
-    
-    # Submit to blockchain with nested structure
-    transaction = {
-        "payload": transaction_payload,
-        "signature": signature.hex()
-    }
+    transaction["signature"] = signature.hex()
     
     # Submit to blockchain
     try:
