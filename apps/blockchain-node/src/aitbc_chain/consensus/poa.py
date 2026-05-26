@@ -119,6 +119,11 @@ class PoAProposer:
     async def start(self) -> None:
         if self._task is not None:
             return
+        # Skip proposer loop if block production is disabled
+        from ..config import settings
+        if not getattr(settings, "enable_block_production", True):
+            self._logger.info("Block production disabled, skipping PoA proposer loop")
+            return
         self._logger.info("Starting PoA proposer loop", extra={"interval": self._config.interval_seconds})
         await self._ensure_genesis_block()
 
