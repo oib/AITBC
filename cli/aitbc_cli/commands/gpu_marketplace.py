@@ -678,7 +678,7 @@ def providers(ctx):
 @click.option('--pricing', help='Pricing model (JSON string)')
 @click.pass_context
 def register(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str]):
-    """Register a GPU with the gpu-service"""
+    """Register a GPU with the gpu-service (no island credentials required)"""
     config = get_config()
     
     try:
@@ -716,7 +716,7 @@ def register(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str]):
 @click.option('--status', help='Update GPU status')
 @click.pass_context
 def update(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str], status: Optional[str]):
-    """Update GPU registration with the gpu-service"""
+    """Update GPU registration with the gpu-service (no island credentials required)"""
     config = get_config()
     
     try:
