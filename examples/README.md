@@ -122,7 +122,7 @@ The hub.aitbc.bubuit.net open island is a test environment for AITBC software. A
 **Quick Setup:**
 ```bash
 # Clone repository
-git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc
+git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
 # Install dependencies
@@ -198,7 +198,7 @@ sudo journalctl -u aitbc-blockchain-p2p -f
 ## Support
 
 - **Documentation:** `/opt/aitbc/docs/`
-- **Issues:** https://gitea.bubuit.net/oib/aitbc
+- **Issues:** https://github.com/oib/AITBC/issues
 - **Community:** Join AITBC development discussions
 
 ---
