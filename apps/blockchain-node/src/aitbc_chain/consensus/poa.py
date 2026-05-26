@@ -124,14 +124,6 @@ class PoAProposer:
         if not getattr(settings, "enable_block_production", True):
             self._logger.info("Block production disabled, skipping PoA proposer loop")
             return
-        # Check if genesis block exists before starting proposer loop
-        with self._session_factory() as session:
-            genesis = session.exec(
-                select(Block).where(Block.chain_id == self._config.chain_id).where(Block.height == 0).limit(1)
-            ).first()
-        if genesis is None:
-            self._logger.warning("No genesis block found, skipping PoA proposer loop. Block production requires a genesis block.")
-            return
         self._logger.info("Starting PoA proposer loop", extra={"interval": self._config.interval_seconds})
         await self._ensure_genesis_block()
 

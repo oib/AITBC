@@ -287,9 +287,9 @@ class BlockchainNode:
         else:
             logger.warning("Island manager not available - island operations will be disabled")
 
-        await self._ensure_genesis_for_chains()
         # Start proposers only if enabled (followers set enable_block_production=False)
         if self._block_production_enabled():
+            await self._ensure_genesis_for_chains()
             self._start_proposers()
         else:
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
