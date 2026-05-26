@@ -202,9 +202,13 @@ setup_postgresql_databases() {
 
     # Check if PostgreSQL is running
     if ! systemctl is-active --quiet postgresql.service; then
-        warning "PostgreSQL service is not running, skipping database setup"
-        warning "To start PostgreSQL: systemctl start postgresql.service"
-        return 0
+        log "PostgreSQL service is not running, attempting to start..."
+        systemctl start postgresql.service || {
+            warning "Failed to start PostgreSQL service"
+            warning "To start PostgreSQL manually: systemctl start postgresql.service"
+            return 0
+        }
+        log "PostgreSQL service started successfully"
     fi
 
     # Use centralized database setup script if available
@@ -387,7 +391,24 @@ setup_venvs() {
     if [ ! -d "/opt/aitbc/venv" ]; then
         log "Creating central virtual environment..."
         cd /opt/aitbc
-        python3 -m venv venv
+        if ! python3 -m venv venv; then
+            warning "Failed to create virtual environment"
+            warning "Checking if configs exist that might need cleanup..."
+            
+            # Check for existing configs that might have been created before venv failure
+            if [ -d "/etc/aitbc" ] && [ "$(ls -A /etc/aitbc 2>/dev/null)" ]; then
+                warning "Found existing configs in /etc/aitbc"
+                warning "Virtual environment creation failed, but configs exist"
+                warning "You may need to manually create the venv or remove configs and retry"
+                warning "Manual venv creation: cd /opt/aitbc && python3 -m venv venv"
+                # Don't fail the entire setup, just warn
+                return 0
+            else
+                error "Failed to create virtual environment and no existing configs found"
+                error "Please ensure python3-venv is installed: apt install python3-venv"
+            fi
+        fi
+        
         source venv/bin/activate
         pip install --upgrade pip
     else
@@ -403,7 +424,7 @@ setup_venvs() {
         pip install poetry
         poetry install
     else
-        error "pyproject.toml not found"
+        warning "pyproject.toml not found, skipping Poetry installation"
     fi
     
     success "Virtual environments setup completed"
