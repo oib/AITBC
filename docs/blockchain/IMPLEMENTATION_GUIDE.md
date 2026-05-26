@@ -92,7 +92,7 @@ AITBC has two blockchain node implementations with different capabilities and de
 **Setup:**
 ```bash
 # Clone main repository
-git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
+git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
 # Run setup script
@@ -171,7 +171,7 @@ sudo systemctl disable aitbc-blockchain-node-3
 
 2. **Clone main repository:**
 ```bash
-sudo git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
+sudo git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 ```
 

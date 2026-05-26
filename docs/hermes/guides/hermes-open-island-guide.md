@@ -343,7 +343,7 @@ After setting up your hermes agent:
 ## Support
 
 - **Documentation**: `/opt/aitbc/docs/hermes/`
-- **Issues**: https://gitea.bubuit.net/oib/aitbc
+- **Issues**: https://github.com/oib/AITBC/issues
 - **Open Island Guide**: [Open Island Joining Guide](./open-island-joining-guide.md)
 
 ---

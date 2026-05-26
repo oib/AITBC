@@ -7,13 +7,13 @@ The main setup script lives at `scripts/setup.sh`.
 Run this single command on any new host to install AITBC:
 
 ```bash
-sudo bash <(curl -sSL https://gitea.bubuit.net/oib/aitbc/raw/branch/main/scripts/setup.sh)
+sudo bash <(curl -sSL https://github.com/oib/AITBC/raw/branch/main/scripts/setup.sh)
 ```
 
 Or clone and run manually:
 
 ```bash
-sudo git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc
+sudo git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 sudo chmod +x scripts/setup.sh
 sudo ./scripts/setup.sh

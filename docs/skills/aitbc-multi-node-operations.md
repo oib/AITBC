@@ -122,8 +122,8 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 - **Gitea-Runner Node** (gitea-runner): `/opt/aitbc` - CI/CD runner node (also hosts aitbc2 blockchain)
 
 ## Git Remote Strategy
-- **Primary Remote:** `origin` (Gitea at `http://gitea.bubuit.net:3000/oib/aitbc.git`) - Daily development operations
-- **Secondary Remote:** `github` (GitHub at `https://github.com/oib/AITBC.git`) - Milestone releases only
+- **Primary Remote:** `origin` (GitHub at `https://github.com/oib/AITBC.git`) - Public repository for all operations
+- **Development Remote:** `gitea` (Gitea at `http://gitea.bubuit.net:3000/oib/aitbc.git`) - Internal development only
 
 ## Best Practices
 1. Always verify git status on all nodes before major changes
