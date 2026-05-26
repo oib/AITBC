@@ -116,7 +116,8 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
     
     # Sign transaction payload
     message = json.dumps(transaction_payload, sort_keys=True).encode()
-    signature = private_key.sign(message)
+    signed_message = private_key.sign(message)
+    signature = signed_message.signature  # Extract 64-byte signature only
     
     # Submit to blockchain with nested structure
     transaction = {
