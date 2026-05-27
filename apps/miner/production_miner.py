@@ -273,7 +273,12 @@ def execute_job(job, available_models):
     logger.info(f"Executing job {job_id}: {payload}")
     
     try:
-        if payload.get('type') == 'inference':
+        # Infer job type from payload if not explicitly set
+        job_type = payload.get('type')
+        if job_type is None and 'model' in payload and 'prompt' in payload:
+            job_type = 'inference'
+        
+        if job_type == 'inference':
             # Get the prompt and model
             prompt = payload.get('prompt', '')
             model = payload.get('model', 'llama3.2:latest')
