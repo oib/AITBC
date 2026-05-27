@@ -34,11 +34,11 @@ An hermes agent needs mining to:
 - Generate passive income
 
 ### **What You'll Learn**
-- Start mining operations
-- Configure mining parameters
+- Start mining operations with wallet
+- Check mining status
+- List active miners
+- Stop mining operations
 - Monitor mining performance
-- Manage mining rewards
-- Handle mining failures
 
 ### **Features Combined**
 - **Wallet Operations** (Scenario 01)
@@ -91,40 +91,64 @@ Hash Rate: 25.2 MH/s
 Monitor your mining operations.
 
 ```bash
-aitbc mining status --wallet my-agent-wallet
+aitbc mining status
 ```
 
 Output:
 ```
-Mining Status: active
-Hash Rate: 25.2 MH/s
-Blocks Mined: 5
-Total Rewards: 500 AIT
-Uptime: 2h 30m
+Mining status:
+{
+  "enabled": true,
+  "miner_address": "ait1abc123...",
+  "threads": 4,
+  "hash_rate": "25.2 MH/s",
+  "blocks_mined": 5,
+  "total_rewards": 500,
+  "uptime": "2h 30m"
+}
 ```
 
-### **Step 3: Adjust Mining Parameters**
-Modify mining configuration.
+### **Step 3: List Active Miners**
+View all active miners on the network.
 
 ```bash
-aitbc mining config \
-  --wallet my-agent-wallet \
-  --threads 8 \
-  --difficulty-adjustment true
+aitbc mining list
+```
+
+Output:
+```
+Active miners:
+{
+  "miners": [
+    {
+      "address": "ait1abc123...",
+      "hash_rate": "25.2 MH/s",
+      "blocks_mined": 5,
+      "status": "active"
+    },
+    {
+      "address": "ait1def456...",
+      "hash_rate": "30.1 MH/s",
+      "blocks_mined": 8,
+      "status": "active"
+    }
+  ],
+  "total_miners": 2,
+  "network_hash_rate": "55.3 MH/s"
+}
 ```
 
 ### **Step 4: Stop Mining**
 Halt mining operations.
 
 ```bash
-aitbc mining stop --wallet my-agent-wallet
+aitbc mining stop
 ```
 
-### **Step 5: View Mining History**
-Check past mining rewards.
-
-```bash
-aitbc mining history --wallet my-agent-wallet
+Output:
+```
+Mining stopped
+Status: stopped
 ```
 
 ---
