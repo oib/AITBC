@@ -18,10 +18,10 @@ from aitbc_cli.commands.system import system
 from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.chain import chain
 from aitbc_cli.commands.agent_sdk import agent
-# from aitbc_cli.commands.analytics import analytics  # Disabled - imports from non-existent aitbc_cli.core
-# from aitbc_cli.commands.cross_chain import cross_chain  # Disabled - may have similar issues
+# from aitbc_cli.commands.analytics import analytics  # Disabled - imports from non-existent aitbc_cli.core.analytics
+from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
 # from aitbc_cli.commands.deployment import deployment  # Disabled - missing core.deployment module
-# from aitbc_cli.commands.monitor import monitor  # Disabled - may have similar issues
+from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependency
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
 from aitbc_cli.commands.exchange import exchange
