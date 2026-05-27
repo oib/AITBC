@@ -78,56 +78,56 @@ run_test "Island leave" "aitbc edge island leave test_island_123" "true"
 run_test "Island bridge" "aitbc edge island bridge --source island_a --target island_b" "true"
 
 # GPU operations
-run_test "GPU list" "aitbc edge gpu list_gpus" "true"
+run_test "GPU list" "aitbc edge gpu list-gpus" "true"
 
-run_test "GPU get" "aitbc edge gpu get_gpu --gpu-id gpu_123" "true"
+run_test "GPU get" "aitbc edge gpu get-gpu --gpu-id gpu_123" "true"
 
-run_test "GPU remove" "aitbc edge gpu remove_gpu --gpu-id gpu_123" "true"
+run_test "GPU remove" "aitbc edge gpu remove-gpu --gpu-id gpu_123" "true"
 
-run_test "GPU scan" "aitbc edge gpu scan_gpus" "true"
+run_test "GPU scan" "aitbc edge gpu scan-gpus" "true"
 
-run_test "GPU metrics" "aitbc edge gpu gpu_metrics --gpu-id gpu_123" "true"
+run_test "GPU metrics" "aitbc edge gpu gpu-metrics --gpu-id gpu_123" "true"
 
 # Database operations
-run_test "Database init" "aitbc edge database init_db --db-name test_db" "true"
+run_test "Database init" "aitbc edge database init-db --db-name test_db" "true"
 
-run_test "Database list" "aitbc edge database list_dbs" "true"
+run_test "Database list" "aitbc edge database list-dbs" "true"
 
-run_test "Database get" "aitbc edge database get_db --db-id db_123" "true"
+run_test "Database get" "aitbc edge database get-db --db-id db_123" "true"
 
-run_test "Database delete" "aitbc edge database delete_db --db-id db_123" "true"
+run_test "Database delete" "aitbc edge database delete-db --db-id db_123" "true"
 
-run_test "Database sync" "aitbc edge database sync_db --db-id db_123" "true"
+run_test "Database sync" "aitbc edge database sync-db --db-id db_123" "true"
 
 # Serve operations
-run_test "Serve submit request" "aitbc edge serve submit_request --request-type compute --parameters '{\"gpu_count\": 2}'" "true"
+run_test "Serve submit request" "aitbc edge serve submit-request --request-type compute --parameters '{\"gpu_count\": 2}'" "true"
 
-run_test "Serve list requests" "aitbc edge serve list_requests" "true"
+run_test "Serve list requests" "aitbc edge serve list-requests" "true"
 
-run_test "Serve get request" "aitbc edge serve get_request --request-id req_123" "true"
+run_test "Serve get request" "aitbc edge serve get-request --request-id req_123" "true"
 
-run_test "Serve cancel request" "aitbc edge serve cancel_request --request-id req_123" "true"
+run_test "Serve cancel request" "aitbc edge serve cancel-request --request-id req_123" "true"
 
-run_test "Serve get result" "aitbc edge serve get_result --request-id req_123" "true"
+run_test "Serve get result" "aitbc edge serve get-result --request-id req_123" "true"
 
 # Metrics operations
 run_test "Metrics record" "aitbc edge metrics record --metric-name test_metric --value 100" "true"
 
-run_test "Metrics list" "aitbc edge metrics list_metrics" "true"
+run_test "Metrics list" "aitbc edge metrics list-metrics" "true"
 
-run_test "Metrics get" "aitbc edge metrics get_metric --metric-id metric_123" "true"
+run_test "Metrics get" "aitbc edge metrics get-metric --metric-id metric_123" "true"
 
-run_test "Metrics delete" "aitbc edge metrics delete_metric --metric-id metric_123" "true"
+run_test "Metrics delete" "aitbc edge metrics delete-metric --metric-id metric_123" "true"
 
 # Error handling tests (should handle gracefully)
 run_test "Island leave nonexistent" "aitbc edge island leave nonexistent_island" "false"
 
-run_test "GPU get nonexistent" "aitbc edge gpu get_gpu --gpu-id nonexistent_gpu" "false"
+run_test "GPU get nonexistent" "aitbc edge gpu get-gpu --gpu-id nonexistent_gpu" "false"
 
 # Output format tests
-run_test "GPU list table format" "aitbc edge gpu list_gpus --format table" "true"
+run_test "GPU list table format" "aitbc edge gpu list-gpus --format table" "true"
 
-run_test "Database list table format" "aitbc edge database list_dbs --format table" "true"
+run_test "Database list table format" "aitbc edge database list-dbs --format table" "true"
 
 # Summary
 echo ""
