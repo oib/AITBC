@@ -34,20 +34,28 @@ async def submit_job(
     service = JobService(session)
     job = service.create_job(client_id, req)
 
-    # Create payment if amount is specified
+    # Create payment if amount is specified (optional for proof-of-concept)
     if req.payment_amount and req.payment_amount > 0:
-        payment_service = PaymentService(session)
-        payment_create = JobPaymentCreate(
-            job_id=job.id,
-            amount=req.payment_amount,
-            currency=req.payment_currency,
-            payment_method="aitbc_token",  # Jobs use AITBC tokens
-        )
-        payment = await payment_service.create_payment(job.id, payment_create)
-        job.payment_id = payment.id
-        job.payment_status = payment.status
-        session.commit()
-        session.refresh(job)
+        try:
+            payment_service = PaymentService(session)
+            payment_create = JobPaymentCreate(
+                job_id=job.id,
+                amount=req.payment_amount,
+                currency=req.payment_currency,
+                payment_method="aitbc_token",  # Jobs use AITBC tokens
+            )
+            payment = await payment_service.create_payment(job.id, payment_create)
+            job.payment_id = payment.id
+            job.payment_status = payment.status
+            session.commit()
+            session.refresh(job)
+            logger.info(f"Payment created for job {job.id}: {payment.id}")
+        except Exception as e:
+            # Payment creation failure should not block job submission for proof-of-concept
+            logger.warning(f"Payment creation failed for job {job.id}, proceeding without payment: {e}")
+            job.payment_status = "skipped"
+            session.commit()
+            session.refresh(job)
 
     return service.to_view(job)  # type: ignore[no-any-return]
 
