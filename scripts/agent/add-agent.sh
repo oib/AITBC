@@ -56,7 +56,7 @@ import time
 import random
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 # Generate unique agent address
@@ -86,7 +86,7 @@ registry['active_agents'] += 1
 registry['last_updated'] = time.time()
 
 # Save updated registry
-with open('/opt/aitbc/data/agent_registry.json', 'w') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'w') as f:
     json.dump(registry, f, indent=2)
 
 print(f'✅ Agent Added Successfully')
