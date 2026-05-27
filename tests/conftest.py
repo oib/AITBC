@@ -64,23 +64,24 @@ import pytest
 from click.testing import CliRunner
 
 
-@pytest.fixture
-def cli_runner():
-    """CLI runner with mock context object for isolated testing"""
-    runner = CliRunner()
-    return runner
-
-
-@pytest.fixture
-def ctx_obj():
-    """Mock Click context object for CLI tests"""
-    return {
-        'output': 'table',
-        'url': None,
-        'api_key': None,
-        'verbose': 0,
-        'debug': False
-    }
+@pytest.fixture(autouse=True)
+def mock_ctx_obj(monkeypatch):
+    """Auto-use fixture that patches CliRunner.invoke to set ctx.obj"""
+    original_invoke = CliRunner.invoke
+    
+    def patched_invoke(self, cli, args, **kwargs):
+        # Ensure obj is set with default context values
+        if 'obj' not in kwargs or kwargs['obj'] is None:
+            kwargs['obj'] = {
+                'output': 'table',
+                'url': None,
+                'api_key': None,
+                'verbose': 0,
+                'debug': False
+            }
+        return original_invoke(self, cli, args, **kwargs)
+    
+    monkeypatch.setattr(CliRunner, 'invoke', patched_invoke)
 
 
 @pytest.fixture(scope="session")
