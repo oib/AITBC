@@ -130,10 +130,10 @@ cli.add_command(system)
 cli.add_command(marketplace, name="market")
 cli.add_command(chain, name="blockchain")
 cli.add_command(agent, name="ai")
-# cli.add_command(analytics)  # Disabled - imports from non-existent aitbc_cli.core
-# cli.add_command(cross_chain, name="crosschain")  # Disabled - may have similar issues
+# cli.add_command(analytics)  # Disabled - imports from non-existent aitbc_cli.core.analytics
+cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
 # cli.add_command(deployment)  # Disabled - missing core.deployment module
-# cli.add_command(monitor)  # Disabled - may have similar issues
+cli.add_command(monitor)  # Re-enabled - no core dependency
 # cli.add_command(node)  # Disabled - imports from non-existent aitbc_cli.core
 # cli.add_command(agent_comm, name="agent")  # Disabled - imports from non-existent aitbc_cli.core
 cli.add_command(exchange)
