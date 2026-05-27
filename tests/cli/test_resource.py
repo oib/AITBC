@@ -68,7 +68,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'status'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         mock_client.get.assert_called_once_with("/api/v1/resources/status")
@@ -94,7 +94,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'status',
             '--resource-id', 'res_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         mock_client.get.assert_called_once_with("/api/v1/resources/res_123/status")
@@ -118,7 +118,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         mock_client.post.assert_called_once_with("/api/v1/resources/res_123/deallocate")
@@ -142,7 +142,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'deallocate', 'res_123',
             '--force'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         mock_client.post.assert_called_once_with("/api/v1/resources/res_123/deallocate")
@@ -162,7 +162,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'status'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert "Network error" in result.output
@@ -182,7 +182,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert "Network error" in result.output
@@ -193,7 +193,7 @@ class TestResourceCommands:
             'allocate',
             '--resource-type', 'gpu',
             '--quantity', '4'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         # Should fail with experimental warning
         assert result.exit_code != 0
@@ -204,7 +204,7 @@ class TestResourceCommands:
         """Test that list command shows experimental warning without --mock"""
         result = runner.invoke(resource, [
             'list'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         # Should fail with experimental warning
         assert result.exit_code != 0
@@ -215,7 +215,7 @@ class TestResourceCommands:
         """Test that release command shows experimental warning without --mock"""
         result = runner.invoke(resource, [
             'release', 'res_123'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         # Should fail with experimental warning
         assert result.exit_code != 0
@@ -226,7 +226,7 @@ class TestResourceCommands:
         """Test that utilization command shows experimental warning without --mock"""
         result = runner.invoke(resource, [
             'utilization'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         # Should fail with experimental warning
         assert result.exit_code != 0
@@ -237,7 +237,7 @@ class TestResourceCommands:
         """Test that optimize command shows experimental warning without --mock"""
         result = runner.invoke(resource, [
             'optimize'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         # Should fail with experimental warning
         assert result.exit_code != 0
@@ -263,7 +263,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'status'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert "Resource Status" in result.output
@@ -286,7 +286,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
-        ], obj={'config': mock_config, 'output_format': 'json'}, input='y\n')
+        ], obj={'config': mock_config, 'output': 'json'}, input='y\n')
         
         assert result.exit_code == 0
         mock_client.post.assert_called_once_with("/api/v1/resources/res_123/deallocate")
@@ -305,7 +305,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
-        ], obj={'config': mock_config, 'output_format': 'json'}, input='n\n')
+        ], obj={'config': mock_config, 'output': 'json'}, input='n\n')
         
         assert result.exit_code == 0
         # Should not call post if cancelled
@@ -326,7 +326,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'status'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         mock_client.get.assert_called_once_with("/api/v1/resources/status")
@@ -335,7 +335,7 @@ class TestResourceCommands:
         """Test resource status with actual coordinator-api call"""
         result = runner.invoke(resource, [
             'status'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -346,7 +346,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'deallocate', 'test_res_123',
             '--force'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -359,7 +359,7 @@ class TestResourceCommands:
             '--resource-type', 'gpu',
             '--quantity', '4',
             '--mock'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -370,7 +370,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'list',
             '--mock'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -381,7 +381,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'release', 'test_res_123',
             '--mock'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -392,7 +392,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'utilization',
             '--mock'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -403,7 +403,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'optimize',
             '--mock'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -417,7 +417,7 @@ class TestResourceCommands:
             '--quantity', '8',
             '--min-memory', '32',
             '--mock'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -428,7 +428,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'status',
             '--resource-type', 'gpu'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -444,7 +444,7 @@ class TestResourceCommands:
         
         result = runner.invoke(resource, [
             'status'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Should either fail gracefully or skip with appropriate message
         assert result.exit_code != 0 or 'error' in result.output.lower() or 'unavailable' in result.output.lower()

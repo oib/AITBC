@@ -47,7 +47,7 @@ class TestMarketplaceBidCommands:
             '--capacity', '100',
             '--price', '0.05',
             '--notes', 'Need GPU capacity for AI training'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -100,7 +100,7 @@ class TestMarketplaceBidCommands:
             '--provider', 'miner123',
             '--capacity', '0',  # Invalid: must be > 0
             '--price', '0.05'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -119,7 +119,7 @@ class TestMarketplaceBidCommands:
             '--provider', 'miner123',
             '--capacity', '100',
             '--price', '-0.05'  # Invalid: must be > 0
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -146,7 +146,7 @@ class TestMarketplaceBidCommands:
             '--provider', 'invalid_provider',
             '--capacity', '100',
             '--price', '0.05'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -187,7 +187,7 @@ class TestMarketplaceBidCommands:
         result = runner.invoke(marketplace, [
             'bid',
             'list'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -232,7 +232,7 @@ class TestMarketplaceBidCommands:
             '--status', 'pending',
             '--provider', 'miner123',
             '--limit', '10'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -268,7 +268,7 @@ class TestMarketplaceBidCommands:
             'bid',
             'details',
             'bid123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -301,7 +301,7 @@ class TestMarketplaceBidCommands:
             'bid',
             'details',
             'nonexistent'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -349,7 +349,7 @@ class TestMarketplaceOffersCommands:
         result = runner.invoke(marketplace, [
             'offers',
             'list'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -399,7 +399,7 @@ class TestMarketplaceOffersCommands:
             '--memory-min', '16',
             '--region', 'us-west',
             '--limit', '10'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -471,7 +471,7 @@ class TestMarketplaceBidIntegration:
             'offers',
             'list',
             '--status', 'open'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         assert result1.exit_code == 0
         
         # Submit bid
@@ -481,7 +481,7 @@ class TestMarketplaceBidIntegration:
             '--provider', 'miner123',
             '--capacity', '100',
             '--price', '0.05'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         assert result2.exit_code == 0
         
         # Check bid details
@@ -489,7 +489,7 @@ class TestMarketplaceBidIntegration:
             'bid',
             'details',
             'bid123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         assert result3.exit_code == 0
         
         # Verify all API calls were made

@@ -53,7 +53,7 @@ class TestConfigCommands:
         """Test showing current configuration"""
         result = runner.invoke(config, [
             'show'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -68,7 +68,7 @@ class TestConfigCommands:
                 'set',
                 'coordinator_url',
                 'http://new:8000'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert 'Coordinator URL set to: http://new:8000' in result.output
@@ -86,7 +86,7 @@ class TestConfigCommands:
             'set',
             'api_key',
             'new_test_key_12345'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'API key set (use --global to set permanently)' in result.output
@@ -98,7 +98,7 @@ class TestConfigCommands:
                 'set',
                 'timeout',
                 '45'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert 'Timeout set to: 45s' in result.output
@@ -109,7 +109,7 @@ class TestConfigCommands:
             'set',
             'timeout',
             'invalid'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'Timeout must be an integer' in result.output
@@ -120,7 +120,7 @@ class TestConfigCommands:
             'set',
             'invalid_key',
             'value'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'Unknown configuration key' in result.output
@@ -130,7 +130,7 @@ class TestConfigCommands:
         with runner.isolated_filesystem():
             result = runner.invoke(config, [
                 'path'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert '.aitbc.yaml' in result.output
@@ -140,7 +140,7 @@ class TestConfigCommands:
         result = runner.invoke(config, [
             'path',
             '--global'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert '.config/aitbc/config.yaml' in result.output
@@ -156,7 +156,7 @@ class TestConfigCommands:
             
             result = runner.invoke(config, [
                 'edit'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert result.exit_code == 0
             # Verify editor was called
@@ -177,7 +177,7 @@ class TestConfigCommands:
             
             result = runner.invoke(config, [
                 'reset'
-            ], obj={'config': mock_config, 'output_format': 'json'}, input='n\n')
+            ], obj={'config': mock_config, 'output': 'json'}, input='n\n')
             
             assert result.exit_code == 0
             # File should still exist
@@ -195,7 +195,7 @@ class TestConfigCommands:
             
             result = runner.invoke(config, [
                 'reset'
-            ], obj={'config': mock_config, 'output_format': 'table'}, input='y\n')
+            ], obj={'config': mock_config, 'output': 'table'}, input='y\n')
             
             assert result.exit_code == 0
             assert 'Configuration reset' in result.output
@@ -207,7 +207,7 @@ class TestConfigCommands:
         with runner.isolated_filesystem():
             result = runner.invoke(config, [
                 'reset'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert result.exit_code == 0
             assert 'No configuration file found' in result.output
@@ -225,7 +225,7 @@ class TestConfigCommands:
             result = runner.invoke(config, [
                 'export',
                 '--format', 'yaml'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             output_data = yaml.safe_load(result.output)
@@ -245,7 +245,7 @@ class TestConfigCommands:
             result = runner.invoke(config, [
                 'export',
                 '--format', 'json'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             data = json.loads(result.output)
@@ -262,7 +262,7 @@ class TestConfigCommands:
             result = runner.invoke(config, [
                 'export',
                 '--format', 'json'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
 
             assert result.exit_code == 0
             data = json.loads(result.output)
@@ -278,7 +278,7 @@ class TestConfigCommands:
             result = runner.invoke(config, [
                 'export',
                 '--format', 'yaml'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
 
             assert result.exit_code == 0
             data = yaml.safe_load(result.output)
@@ -289,7 +289,7 @@ class TestConfigCommands:
         with runner.isolated_filesystem():
             result = runner.invoke(config, [
                 'export'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert result.exit_code != 0
             assert 'No configuration file found' in result.output
@@ -311,7 +311,7 @@ class TestConfigCommands:
             result = runner.invoke(config, [
                 'import-config',
                 str(import_file)
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert 'Configuration imported' in result.output
@@ -341,7 +341,7 @@ class TestConfigCommands:
             result = runner.invoke(config, [
                 'import-config',
                 str(import_file)
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             
@@ -372,7 +372,7 @@ class TestConfigCommands:
                 'import-config',
                 str(import_file),
                 '--merge'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             
@@ -387,7 +387,7 @@ class TestConfigCommands:
         result = runner.invoke(config, [
             'import-config',
             '/nonexistent/file.yaml'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'File not found' in result.output
@@ -396,7 +396,7 @@ class TestConfigCommands:
         """Test validating valid configuration"""
         result = runner.invoke(config, [
             'validate'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'Configuration valid' in result.output
@@ -407,7 +407,7 @@ class TestConfigCommands:
         
         result = runner.invoke(config, [
             'validate'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code != 0
         assert 'validation failed' in result.output
@@ -418,7 +418,7 @@ class TestConfigCommands:
         
         result = runner.invoke(config, [
             'validate'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code != 0
         assert 'validation failed' in result.output
@@ -429,7 +429,7 @@ class TestConfigCommands:
         
         result = runner.invoke(config, [
             'validate'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code != 0
         assert 'validation failed' in result.output
@@ -440,7 +440,7 @@ class TestConfigCommands:
         
         result = runner.invoke(config, [
             'validate'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'valid with warnings' in result.output
@@ -450,7 +450,7 @@ class TestConfigCommands:
         """Test listing environment variables"""
         result = runner.invoke(config, [
             'environments'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'CLIENT_API_KEY' in result.output
@@ -465,7 +465,7 @@ class TestConfigCommands:
                 'profiles',
                 'save',
                 'test_profile'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert "Profile 'test_profile' saved" in result.output
@@ -496,7 +496,7 @@ class TestConfigCommands:
             result = runner.invoke(config, [
                 'profiles',
                 'list'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert 'profile1' in result.output
@@ -519,7 +519,7 @@ class TestConfigCommands:
                 'profiles',
                 'load',
                 'load_me'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert "Profile 'load_me' loaded" in result.output
@@ -541,7 +541,7 @@ class TestConfigCommands:
                 'profiles',
                 'delete',
                 'delete_me'
-            ], obj={'config': mock_config, 'output_format': 'table'}, input='y\n')
+            ], obj={'config': mock_config, 'output': 'table'}, input='y\n')
             
             assert result.exit_code == 0
             assert "Profile 'delete_me' deleted" in result.output
@@ -564,7 +564,7 @@ class TestConfigCommands:
                 'profiles',
                 'delete',
                 'keep_me'
-            ], obj={'config': mock_config, 'output_format': 'json'}, input='n\n')
+            ], obj={'config': mock_config, 'output': 'json'}, input='n\n')
             
             assert result.exit_code == 0
             assert profile_file.exists()  # Should still exist

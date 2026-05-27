@@ -42,7 +42,7 @@ class TestClientCommands:
             '--type', 'inference',
             '--prompt', 'Test prompt',
             '--model', 'test_model'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -79,7 +79,7 @@ class TestClientCommands:
         result = runner.invoke(client, [
             'submit',
             '--file', str(job_file)
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -109,7 +109,7 @@ class TestClientCommands:
         result = runner.invoke(client, [
             'status',
             'test_job_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -136,7 +136,7 @@ class TestClientCommands:
         result = runner.invoke(client, [
             'cancel',
             'test_job_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -167,7 +167,7 @@ class TestClientCommands:
         result = runner.invoke(client, [
             'blocks',
             '--limit', '2'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -201,7 +201,7 @@ class TestClientCommands:
             '--status', 'completed',
             '--type', 'inference',
             '--limit', '10'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -228,7 +228,7 @@ class TestClientCommands:
         result = runner.invoke(client, [
             'status',
             'test_job_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code != 0
@@ -238,7 +238,7 @@ class TestClientCommands:
         """Test submit command with missing required arguments"""
         result = runner.invoke(client, [
             'submit'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'Error' in result.output
@@ -263,7 +263,7 @@ class TestClientCommands:
             'pay', 'job_123', '10.0',
             '--currency', 'AITBC',
             '--method', 'aitbc_token'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
         assert 'pay_abc' in result.output
@@ -280,7 +280,7 @@ class TestClientCommands:
 
         result = runner.invoke(client, [
             'pay', 'job_123', '10.0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code != 0
         assert 'Payment failed' in result.output
@@ -302,7 +302,7 @@ class TestClientCommands:
 
         result = runner.invoke(client, [
             'payment-status', 'job_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
         assert 'escrowed' in result.output
@@ -318,7 +318,7 @@ class TestClientCommands:
 
         result = runner.invoke(client, [
             'payment-status', 'job_999'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code != 0
         assert 'No payment found' in result.output
@@ -341,7 +341,7 @@ class TestClientCommands:
 
         result = runner.invoke(client, [
             'payment-receipt', 'pay_abc'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
         assert '0xabc123' in result.output
@@ -362,7 +362,7 @@ class TestClientCommands:
         result = runner.invoke(client, [
             'refund', 'job_123', 'pay_abc',
             '--reason', 'Job timed out'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
         assert 'refunded' in result.output
@@ -380,7 +380,7 @@ class TestClientCommands:
         result = runner.invoke(client, [
             'refund', 'job_123', 'pay_abc',
             '--reason', 'Changed mind'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code != 0
         assert 'Refund failed' in result.output

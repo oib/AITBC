@@ -54,7 +54,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'island', 'leave',
             '--island-id', 'test_island_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -66,7 +66,7 @@ class TestEdgeAdvancedCommands:
             'island', 'bridge',
             '--source', 'island_a',
             '--target', 'island_b'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -77,7 +77,7 @@ class TestEdgeAdvancedCommands:
         """Test listing GPUs"""
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -88,7 +88,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'gpu', 'get_gpu',
             '--gpu-id', 'gpu_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -99,7 +99,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'gpu', 'remove_gpu',
             '--gpu-id', 'gpu_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -109,7 +109,7 @@ class TestEdgeAdvancedCommands:
         """Test scanning for available GPUs"""
         result = runner.invoke(edge, [
             'gpu', 'scan_gpus'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -120,7 +120,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'gpu', 'gpu_metrics',
             '--gpu-id', 'gpu_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -132,7 +132,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'database', 'init_db',
             '--db-name', 'test_db'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -142,7 +142,7 @@ class TestEdgeAdvancedCommands:
         """Test listing databases"""
         result = runner.invoke(edge, [
             'database', 'list_dbs'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -153,7 +153,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'database', 'get_db',
             '--db-id', 'db_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -164,7 +164,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'database', 'delete_db',
             '--db-id', 'db_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -175,7 +175,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'database', 'sync_db',
             '--db-id', 'db_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -188,7 +188,7 @@ class TestEdgeAdvancedCommands:
             'serve', 'submit_request',
             '--request-type', 'compute',
             '--parameters', '{"gpu_count": 2}'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -198,7 +198,7 @@ class TestEdgeAdvancedCommands:
         """Test listing serve requests"""
         result = runner.invoke(edge, [
             'serve', 'list_requests'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -209,7 +209,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'serve', 'get_request',
             '--request-id', 'req_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -220,7 +220,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'serve', 'cancel_request',
             '--request-id', 'req_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -231,7 +231,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'serve', 'get_result',
             '--request-id', 'req_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -244,7 +244,7 @@ class TestEdgeAdvancedCommands:
             'metrics', 'record',
             '--metric-name', 'test_metric',
             '--value', '100'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -254,7 +254,7 @@ class TestEdgeAdvancedCommands:
         """Test listing metrics"""
         result = runner.invoke(edge, [
             'metrics', 'list_metrics'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -265,7 +265,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'metrics', 'get_metric',
             '--metric-id', 'metric_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -276,7 +276,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'metrics', 'delete_metric',
             '--metric-id', 'metric_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -288,7 +288,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'island', 'leave',
             '--island-id', 'nonexistent_island'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Should handle gracefully
         assert result.exit_code != 0 or 'not found' in result.output.lower()
@@ -298,7 +298,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'gpu', 'get_gpu',
             '--gpu-id', 'nonexistent_gpu'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Should handle gracefully
         assert result.exit_code != 0 or 'not found' in result.output.lower()
@@ -310,7 +310,7 @@ class TestEdgeAdvancedCommands:
         
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Should either fail gracefully or skip with appropriate message
         assert result.exit_code != 0 or 'error' in result.output.lower() or 'unavailable' in result.output.lower()
@@ -320,7 +320,7 @@ class TestEdgeAdvancedCommands:
         """Test GPU list in table format"""
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'GPU' in result.output or 'gpus' in result.output.lower()
@@ -329,7 +329,7 @@ class TestEdgeAdvancedCommands:
         """Test database list in table format"""
         result = runner.invoke(edge, [
             'database', 'list_dbs'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'Database' in result.output or 'databases' in result.output.lower()
@@ -354,6 +354,6 @@ class TestEdgeAdvancedCommands:
         
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0

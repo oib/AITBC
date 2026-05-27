@@ -60,7 +60,7 @@ class TestGovernanceCommands:
                 'propose', 'Test Proposal',
                 '--description', 'A test proposal',
                 '--duration', '7'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = extract_json_from_output(result.output)
@@ -78,7 +78,7 @@ class TestGovernanceCommands:
                 '--type', 'parameter_change',
                 '--parameter', 'block_size',
                 '--value', '2000000'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = extract_json_from_output(result.output)
@@ -92,7 +92,7 @@ class TestGovernanceCommands:
                 '--description', 'Fund development',
                 '--type', 'funding',
                 '--amount', '10000'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = extract_json_from_output(result.output)
@@ -105,14 +105,14 @@ class TestGovernanceCommands:
             result = runner.invoke(operations, ['governance',
                 'propose', 'Vote Test',
                 '--description', 'Test voting'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
             # Vote
             result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for',
                 '--voter', 'alice'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = extract_json_from_output(result.output)
@@ -126,13 +126,13 @@ class TestGovernanceCommands:
             result = runner.invoke(operations, ['governance',
                 'propose', 'Against Test',
                 '--description', 'Test against'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
             result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'against',
                 '--voter', 'bob'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = extract_json_from_output(result.output)
@@ -144,13 +144,13 @@ class TestGovernanceCommands:
             result = runner.invoke(operations, ['governance',
                 'propose', 'Weight Test',
                 '--description', 'Test weights'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
             result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for',
                 '--voter', 'whale', '--weight', '10.0'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = extract_json_from_output(result.output)
@@ -163,16 +163,16 @@ class TestGovernanceCommands:
             result = runner.invoke(operations, ['governance',
                 'propose', 'Dup Test',
                 '--description', 'Test duplicate'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
             runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'alice'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'alice'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code != 0
             assert 'already voted' in result.output
@@ -182,7 +182,7 @@ class TestGovernanceCommands:
         with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
             result = runner.invoke(operations, ['governance',
                 'vote', 'nonexistent', 'for'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code != 0
             assert 'not found' in result.output
@@ -193,14 +193,14 @@ class TestGovernanceCommands:
             # Create two proposals
             runner.invoke(operations, ['governance',
                 'propose', 'Prop A', '--description', 'First'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             runner.invoke(operations, ['governance',
                 'propose', 'Prop B', '--description', 'Second'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             result = runner.invoke(operations, ['governance',
                 'list'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = json.loads(result.output)
@@ -211,11 +211,11 @@ class TestGovernanceCommands:
         with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
             runner.invoke(operations, ['governance',
                 'propose', 'Active Prop', '--description', 'Active'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             result = runner.invoke(operations, ['governance',
                 'list', '--status', 'active'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = json.loads(result.output)
@@ -228,23 +228,23 @@ class TestGovernanceCommands:
             result = runner.invoke(operations, ['governance',
                 'propose', 'Result Test',
                 '--description', 'Test results'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
             # Cast votes
             runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'alice'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'against', '--voter', 'bob'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'charlie'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             result = runner.invoke(operations, ['governance',
                 'result', proposal_id
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code == 0
             data = extract_json_from_output(result.output)
@@ -258,7 +258,7 @@ class TestGovernanceCommands:
         with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
             result = runner.invoke(operations, ['governance',
                 'result', 'nonexistent'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
 
             assert result.exit_code != 0
             assert 'not found' in result.output
