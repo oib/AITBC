@@ -43,7 +43,7 @@ class TestExchangeRatesCommand:
         
         # Run command
         result = runner.invoke(exchange, ['rates'], 
-                             obj={'config': mock_config, 'output_format': 'json'})
+                             obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -90,7 +90,7 @@ class TestExchangeRatesCommand:
         
         # Run command
         result = runner.invoke(exchange, ['rates'], 
-                             obj={'config': mock_config, 'output_format': 'json'})
+                             obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -139,7 +139,7 @@ class TestExchangeCreatePaymentCommand:
             '--aitbc-amount', '1000',
             '--user-id', 'test_user',
             '--notes', 'Test payment'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -196,7 +196,7 @@ class TestExchangeCreatePaymentCommand:
         result = runner.invoke(exchange, [
             'create-payment',
             '--btc-amount', '0.005'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -212,7 +212,7 @@ class TestExchangeCreatePaymentCommand:
         """Test creating payment without specifying amount"""
         # Run command without amount
         result = runner.invoke(exchange, ['create-payment'], 
-                             obj={'config': mock_config, 'output_format': 'json'})
+                             obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -224,7 +224,7 @@ class TestExchangeCreatePaymentCommand:
         result = runner.invoke(exchange, [
             'create-payment',
             '--aitbc-amount', '0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -236,7 +236,7 @@ class TestExchangeCreatePaymentCommand:
         result = runner.invoke(exchange, [
             'create-payment',
             '--btc-amount', '-0.01'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -256,7 +256,7 @@ class TestExchangeCreatePaymentCommand:
         result = runner.invoke(exchange, [
             'create-payment',
             '--aitbc-amount', '1000'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -291,7 +291,7 @@ class TestExchangePaymentStatusCommand:
         result = runner.invoke(exchange, [
             'payment-status',
             '--payment-id', 'pay_123456'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -329,7 +329,7 @@ class TestExchangePaymentStatusCommand:
         result = runner.invoke(exchange, [
             'payment-status',
             '--payment-id', 'pay_123456'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -361,7 +361,7 @@ class TestExchangePaymentStatusCommand:
         result = runner.invoke(exchange, [
             'payment-status',
             '--payment-id', 'pay_123456'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -381,7 +381,7 @@ class TestExchangePaymentStatusCommand:
         result = runner.invoke(exchange, [
             'payment-status',
             '--payment-id', 'nonexistent'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -411,7 +411,7 @@ class TestExchangeMarketStatsCommand:
         
         # Run command
         result = runner.invoke(exchange, ['market-stats'], 
-                             obj={'config': mock_config, 'output_format': 'json'})
+                             obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -472,7 +472,7 @@ class TestExchangeWalletCommands:
         
         # Run command
         result = runner.invoke(exchange, ['wallet', 'balance'], 
-                             obj={'config': mock_config, 'output_format': 'json'})
+                             obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -506,7 +506,7 @@ class TestExchangeWalletCommands:
         
         # Run command
         result = runner.invoke(exchange, ['wallet', 'info'], 
-                             obj={'config': mock_config, 'output_format': 'json'})
+                             obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -573,21 +573,21 @@ class TestExchangeIntegration:
         # Execute workflow
         # Get rates
         result1 = runner.invoke(exchange, ['rates'], 
-                              obj={'config': mock_config, 'output_format': 'json'})
+                              obj={'config': mock_config, 'output': 'json'})
         assert result1.exit_code == 0
         
         # Create payment
         result2 = runner.invoke(exchange, [
             'create-payment',
             '--aitbc-amount', '1000'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         assert result2.exit_code == 0
         
         # Check payment status
         result3 = runner.invoke(exchange, [
             'payment-status',
             '--payment-id', 'pay_workflow_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         assert result3.exit_code == 0
         
         # Verify all API calls were made

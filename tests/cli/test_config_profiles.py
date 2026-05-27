@@ -51,7 +51,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'save', profile_name
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert f"Profile '{profile_name}' saved" in result.output
@@ -83,7 +83,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'save', profile_name
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             
@@ -100,7 +100,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'list'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert result.exit_code == 0
             import json
@@ -127,7 +127,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'list'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert result.exit_code == 0
             data = json.loads(result.output)
@@ -152,7 +152,7 @@ class TestConfigProfilesIntegration:
             with runner.isolated_filesystem(temp_dir=tmp_path):
                 result = runner.invoke(config, [
                     'profiles', 'load', profile_name
-                ], obj={'config': mock_config, 'output_format': 'table'})
+                ], obj={'config': mock_config, 'output': 'table'})
                 
                 assert result.exit_code == 0
                 assert f"Profile '{profile_name}' loaded" in result.output
@@ -173,7 +173,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'load', 'nonexistent'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code != 0
             assert "not found" in result.output
@@ -196,7 +196,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'delete', profile_name
-            ], obj={'config': mock_config, 'output_format': 'table'}, input='y\n')
+            ], obj={'config': mock_config, 'output': 'table'}, input='y\n')
             
             assert result.exit_code == 0
             assert f"Profile '{profile_name}' deleted" in result.output
@@ -218,7 +218,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'delete', profile_name
-            ], obj={'config': mock_config, 'output_format': 'json'}, input='n\n')
+            ], obj={'config': mock_config, 'output': 'json'}, input='n\n')
             
             assert result.exit_code == 0
             assert profile_file.exists()  # Should still exist
@@ -230,7 +230,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'delete', 'nonexistent'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code != 0
             assert "not found" in result.output
@@ -245,13 +245,13 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'save', profile_name
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             assert result.exit_code == 0
             
             # List
             result = runner.invoke(config, [
                 'profiles', 'list'
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert profile_name in [p['name'] for p in data['profiles']]
@@ -260,13 +260,13 @@ class TestConfigProfilesIntegration:
             with runner.isolated_filesystem(temp_dir=tmp_path):
                 result = runner.invoke(config, [
                     'profiles', 'load', profile_name
-                ], obj={'config': mock_config, 'output_format': 'table'})
+                ], obj={'config': mock_config, 'output': 'table'})
                 assert result.exit_code == 0
             
             # Delete
             result = runner.invoke(config, [
                 'profiles', 'delete', profile_name
-            ], obj={'config': mock_config, 'output_format': 'table'}, input='y\n')
+            ], obj={'config': mock_config, 'output': 'table'}, input='y\n')
             assert result.exit_code == 0
             
             # Verify deleted
@@ -284,7 +284,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'save', 'different_profile'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             
@@ -304,7 +304,7 @@ class TestConfigProfilesIntegration:
             
             result = runner.invoke(config, [
                 'profiles', 'save', 'new_profile'
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert profiles_dir.exists()

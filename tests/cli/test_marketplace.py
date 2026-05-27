@@ -59,7 +59,7 @@ class TestMarketplaceCommands:
         result = runner.invoke(marketplace, [
             'gpu',
             'list'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -102,7 +102,7 @@ class TestMarketplaceCommands:
             'gpu',
             'list',
             '--available'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -146,7 +146,7 @@ class TestMarketplaceCommands:
             '--model', 'RTX4090',
             '--memory-min', '16',
             '--price-max', '1.0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -188,7 +188,7 @@ class TestMarketplaceCommands:
             'gpu',
             'details',
             'gpu1'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -227,7 +227,7 @@ class TestMarketplaceCommands:
             'book',
             'gpu1',
             '--hours', '2'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -288,7 +288,7 @@ class TestMarketplaceCommands:
             'gpu',
             'release',
             'gpu1'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -347,7 +347,7 @@ class TestMarketplaceCommands:
         # Run command
         result = runner.invoke(marketplace, [
             'orders'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -408,7 +408,7 @@ class TestMarketplaceCommands:
         result = runner.invoke(marketplace, [
             'pricing',
             'RTX4090'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -455,7 +455,7 @@ class TestMarketplaceCommands:
         result = runner.invoke(marketplace, [
             'reviews',
             'gpu1'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -492,7 +492,7 @@ class TestMarketplaceCommands:
             'gpu1',
             '--rating', '5',
             '--comment', 'Amazing GPU!'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
@@ -546,7 +546,7 @@ class TestMarketplaceCommands:
             'gpu',
             'details',
             'nonexistent'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0  # The command doesn't exit on error
