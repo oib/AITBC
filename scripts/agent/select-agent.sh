@@ -46,15 +46,15 @@ import json
 import time
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 # Load job marketplace
-with open('/opt/aitbc/data/job_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 # Load economic system
-with open('/opt/aitbc/data/economic_system.json', 'r') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 # Validate job exists
@@ -133,11 +133,11 @@ economics['network_metrics']['total_value_locked'] += escrow_amount
 economics['last_updated'] = time.time()
 
 # Save updated marketplace
-with open('/opt/aitbc/data/job_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'w') as f:
     json.dump(marketplace, f, indent=2)
 
 # Save updated economic system
-with open('/opt/aitbc/data/economic_system.json', 'w') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'w') as f:
     json.dump(economics, f, indent=2)
 
 print(f'✅ Agent Selected Successfully')

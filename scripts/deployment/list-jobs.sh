@@ -28,7 +28,7 @@ import json
 import time
 
 # Load job marketplace
-with open('/opt/aitbc/data/job_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 print(f'Total Jobs: {marketplace[\"total_jobs\"]}')

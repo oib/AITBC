@@ -28,7 +28,7 @@ import json
 import time
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 print(f'Total Agents: {registry[\"total_agents\"]}')

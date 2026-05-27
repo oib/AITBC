@@ -103,9 +103,9 @@ agent_registry = {
 }
 
 # Save agent registry
-registry_file = '/opt/aitbc/data/agent_registry.json'
+registry_file = '/var/lib/aitbc/data/agent_registry.json'
 import os
-os.makedirs('/opt/aitbc/data', exist_ok=True)
+os.makedirs('/var/lib/aitbc/data', exist_ok=True)
 
 with open(registry_file, 'w') as f:
     json.dump(agent_registry, f, indent=2)
@@ -152,9 +152,9 @@ job_marketplace = {
 }
 
 # Save job marketplace
-marketplace_file = '/opt/aitbc/data/job_marketplace.json'
+marketplace_file = '/var/lib/aitbc/data/job_marketplace.json'
 import os
-os.makedirs('/opt/aitbc/data', exist_ok=True)
+os.makedirs('/var/lib/aitbc/data', exist_ok=True)
 
 with open(marketplace_file, 'w') as f:
     json.dump(job_marketplace, f, indent=2)
@@ -197,9 +197,9 @@ economic_system = {
 }
 
 # Save economic system
-economic_file = '/opt/aitbc/data/economic_system.json'
+economic_file = '/var/lib/aitbc/data/economic_system.json'
 import os
-os.makedirs('/opt/aitbc/data', exist_ok=True)
+os.makedirs('/var/lib/aitbc/data', exist_ok=True)
 
 with open(economic_file, 'w') as f:
     json.dump(economic_system, f, indent=2)
@@ -224,7 +224,7 @@ import time
 import random
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     agent_registry = json.load(f)
 
 # Create sample agents
@@ -256,7 +256,7 @@ for agent in sample_agents:
 agent_registry['last_updated'] = time.time()
 
 # Save updated registry
-with open('/opt/aitbc/data/agent_registry.json', 'w') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'w') as f:
     json.dump(agent_registry, f, indent=2)
 
 print('✅ Sample Agents Created')
@@ -280,11 +280,11 @@ import time
 import random
 
 # Load job marketplace
-with open('/opt/aitbc/data/job_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
     job_marketplace = json.load(f)
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     agent_registry = json.load(f)
 
 # Create sample jobs
@@ -317,7 +317,7 @@ for job in sample_jobs:
 job_marketplace['last_updated'] = time.time()
 
 # Save updated marketplace
-with open('/opt/aitbc/data/job_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'w') as f:
     json.dump(job_marketplace, f, indent=2)
 
 print('✅ Sample Jobs Created')
@@ -342,9 +342,9 @@ echo "   Jobs: 3 sample jobs posted"
 echo "   Economy: Treasury and reward pool established"
 echo ""
 echo "🔗 System Components:"
-echo "   Agent Registry: /opt/aitbc/data/agent_registry.json"
-echo "   Job Marketplace: /opt/aitbc/data/job_marketplace.json"
-echo "   Economic System: /opt/aitbc/data/economic_system.json"
+echo "   Agent Registry: /var/lib/aitbc/data/agent_registry.json"
+echo "   Job Marketplace: /var/lib/aitbc/data/job_marketplace.json"
+echo "   Economic System: /var/lib/aitbc/data/economic_system.json"
 echo ""
 echo "🚀 Next Operations:"
 echo "   1. Monitor agent activity: ./scripts/agent-dashboard.sh"

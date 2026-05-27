@@ -20,7 +20,7 @@ DEV_USER="oib"
 SERVICE_USER="aitbc"
 PROJECT_DIR="/opt/aitbc"
 LOG_DIR="/opt/aitbc/logs"
-DATA_DIR="/opt/aitbc/data"
+DATA_DIR="/var/lib/aitbc/data"
 
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -249,8 +249,8 @@ export AITBC_BLOCKCHAIN_RPC=http://localhost:8006
 export AITBC_WEB_UI=http://localhost:3000
 
 # Database (development)
-export AITBC_DB_PATH=/opt/aitbc/data/coordinator.db
-export AITBC_BLOCKCHAIN_DB_PATH=/opt/aitbc/data/blockchain.db
+export AITBC_DB_PATH=/var/lib/aitbc/data/coordinator.db
+export AITBC_BLOCKCHAIN_DB_PATH=/var/lib/aitbc/data/blockchain.db
 
 # Development tools
 export AITBC_CLI_PATH=/opt/aitbc/cli

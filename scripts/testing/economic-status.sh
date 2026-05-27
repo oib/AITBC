@@ -28,15 +28,15 @@ import json
 import time
 
 # Load economic system
-with open('/opt/aitbc/data/economic_system.json', 'r') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 # Load job marketplace
-with open('/opt/aitbc/data/job_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 print(f'Treasury Address: {economics[\"treasury_address\"]}')
