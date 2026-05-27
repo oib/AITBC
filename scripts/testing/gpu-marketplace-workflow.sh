@@ -57,7 +57,7 @@ gpu_listing = {
 }
 
 # Save GPU listing
-with open('/opt/aitbc/data/gpu_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'w') as f:
     json.dump({'gpu_listings': {gpu_listing['id']: gpu_listing}}, f, indent=2)
 
 print(f'✅ GPU Listing Created:')
@@ -80,11 +80,11 @@ import json
 import time
 
 # Load GPU marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 # Get first GPU listing and agent
@@ -114,7 +114,7 @@ if 'bids' not in gpu_listing:
 gpu_listing['bids'][bid['id']] = bid
 
 # Save updated marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'w') as f:
     json.dump(marketplace, f, indent=2)
 
 print(f'✅ Agent Bid Created:')
@@ -133,7 +133,7 @@ echo ""
 echo -e "${CYAN}🔄 Step 3: Sync to aitbc1${NC}"
 echo "======================"
 
-scp /opt/aitbc/data/gpu_marketplace.json aitbc1:/opt/aitbc/data/
+scp /var/lib/aitbc/data/gpu_marketplace.json aitbc1:/var/lib/aitbc/data/
 echo "✅ GPU marketplace synced to aitbc1"
 
 echo ""
@@ -147,7 +147,7 @@ import json
 import time
 
 # Load GPU marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 # Get the bid
@@ -167,7 +167,7 @@ gpu_listing['reserved_by'] = bid['agent_id']
 gpu_listing['reservation_expires'] = time.time() + (bid['duration_hours'] * 3600)
 
 # Save updated marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'w') as f:
     json.dump(marketplace, f, indent=2)
 
 print(f'✅ Bid Confirmed by aitbc1:')
@@ -185,7 +185,7 @@ echo ""
 echo -e "${CYAN}🔄 Step 5: Sync Back to Server${NC}"
 echo "=========================="
 
-scp aitbc1:/opt/aitbc/data/gpu_marketplace.json /opt/aitbc/data/
+scp aitbc1:/var/lib/aitbc/data/gpu_marketplace.json /var/lib/aitbc/data/
 echo "✅ Confirmed bid synced back to server"
 
 echo ""
@@ -200,7 +200,7 @@ import json
 import time
 
 # Load GPU marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 # Get the confirmed bid
@@ -233,7 +233,7 @@ bid['task'] = task
 bid['status'] = 'task_sent'
 
 # Save updated marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'w') as f:
     json.dump(marketplace, f, indent=2)
 
 print(f'✅ Ollama Task Sent:')
@@ -251,7 +251,7 @@ echo ""
 echo -e "${CYAN}🔄 Step 7: Sync Task to aitbc1${NC}"
 echo "=========================="
 
-scp /opt/aitbc/data/gpu_marketplace.json aitbc1:/opt/aitbc/data/
+scp /var/lib/aitbc/data/gpu_marketplace.json aitbc1:/var/lib/aitbc/data/
 echo "✅ Task synced to aitbc1"
 
 echo ""
@@ -265,7 +265,7 @@ import json
 import time
 
 # Load GPU marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 # Get the task
@@ -293,7 +293,7 @@ del gpu_listing['reserved_by']
 del gpu_listing['reservation_expires']
 
 # Save updated marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'w') as f:
     json.dump(marketplace, f, indent=2)
 
 print(f'✅ Task Completed by aitbc1:')
@@ -310,7 +310,7 @@ echo ""
 echo -e "${CYAN}🔄 Step 9: Sync Completion to Server${NC}"
 echo "==========================="
 
-scp aitbc1:/opt/aitbc/data/gpu_marketplace.json /opt/aitbc/data/
+scp aitbc1:/var/lib/aitbc/data/gpu_marketplace.json /var/lib/aitbc/data/
 echo "✅ Task completion synced to server"
 
 echo ""
@@ -325,15 +325,15 @@ import json
 import time
 
 # Load GPU marketplace
-with open('/opt/aitbc/data/gpu_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 # Load economic system
-with open('/opt/aitbc/data/economic_system.json', 'r') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 # Get the completed bid
@@ -379,13 +379,13 @@ bid['payment_status'] = 'paid'
 bid['paid_at'] = time.time()
 
 # Save all updated files
-with open('/opt/aitbc/data/gpu_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'w') as f:
     json.dump(marketplace, f, indent=2)
 
-with open('/opt/aitbc/data/economic_system.json', 'w') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'w') as f:
     json.dump(economics, f, indent=2)
 
-with open('/opt/aitbc/data/agent_registry.json', 'w') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'w') as f:
     json.dump(registry, f, indent=2)
 
 print(f'✅ Blockchain Payment Processed:')
@@ -404,7 +404,7 @@ echo ""
 echo -e "${CYAN}🔄 Step 11: Final Sync to aitbc1${NC}"
 echo "=========================="
 
-scp /opt/aitbc/data/gpu_marketplace.json /opt/aitbc/data/economic_system.json /opt/aitbc/data/agent_registry.json aitbc1:/opt/aitbc/data/
+scp /var/lib/aitbc/data/gpu_marketplace.json /var/lib/aitbc/data/economic_system.json /var/lib/aitbc/data/agent_registry.json aitbc1:/var/lib/aitbc/data/
 echo "✅ Final payment data synced to aitbc1"
 
 echo ""
@@ -426,10 +426,10 @@ cd "$AITBC_ROOT"
 import json
 
 # Load final data
-with open('/opt/aitbc/data/gpu_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/gpu_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
-with open('/opt/aitbc/data/economic_system.json', 'r') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 gpu_id = list(marketplace['gpu_listings'].keys())[0]

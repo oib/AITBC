@@ -23,7 +23,7 @@ class DatabaseConfig(BaseSettings):
         if self.adapter == "sqlite":
             # Use absolute path from DATA_DIR if available
             import os
-            data_dir = os.getenv("DATA_DIR", "/opt/aitbc/data")
+            data_dir = os.getenv("DATA_DIR", "/var/lib/aitbc/data")
             return f"sqlite:///{data_dir}/coordinator.db"
         return f"{self.adapter}://localhost:5432/agent_management"
 

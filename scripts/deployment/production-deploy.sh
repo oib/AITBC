@@ -66,17 +66,17 @@ echo ""
 echo -e "${CYAN}🤖 AGENT ECONOMY STATUS${NC}"
 echo "=========================="
 
-if [[ -f "/opt/aitbc/data/agent_registry.json" ]]; then
+if [[ -f "/var/lib/aitbc/data/agent_registry.json" ]]; then
     economy_info=$("$PYTHON_CMD" -c "
 import json
 
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
-with open('/opt/aitbc/data/job_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
-with open('/opt/aitbc/data/economic_system.json', 'r') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 print(f'ECONOMY:ACTIVE:{registry[\"total_agents\"]}:{marketplace[\"total_jobs\"]}:{economics[\"network_metrics\"][\"total_transactions\"]}:{economics[\"network_metrics\"][\"total_jobs_completed\"]}')

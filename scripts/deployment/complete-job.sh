@@ -44,15 +44,15 @@ import json
 import time
 
 # Load agent registry
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 # Load job marketplace
-with open('/opt/aitbc/data/job_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 # Load economic system
-with open('/opt/aitbc/data/economic_system.json', 'r') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 # Validate job exists
@@ -118,13 +118,13 @@ marketplace['completed_jobs'] += 1
 marketplace['last_updated'] = time.time()
 
 # Save all updated files
-with open('/opt/aitbc/data/job_marketplace.json', 'w') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'w') as f:
     json.dump(marketplace, f, indent=2)
 
-with open('/opt/aitbc/data/agent_registry.json', 'w') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'w') as f:
     json.dump(registry, f, indent=2)
 
-with open('/opt/aitbc/data/economic_system.json', 'w') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'w') as f:
     json.dump(economics, f, indent=2)
 
 print(f'✅ Job Completed Successfully')

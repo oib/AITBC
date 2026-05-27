@@ -30,11 +30,11 @@ echo -e "${CYAN}🤖 AGENT ECONOMY STATUS${NC}"
 echo "=============================="
 
 cd "$AITBC_ROOT"
-if [[ -f "/opt/aitbc/data/agent_registry.json" ]]; then
+if [[ -f "/var/lib/aitbc/data/agent_registry.json" ]]; then
     agent_info=$("$PYTHON_CMD" -c "
 import json
 
-with open('/opt/aitbc/data/agent_registry.json', 'r') as f:
+with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 print(f'AGENTS:ACTIVE:{registry[\"total_agents\"]}:{registry[\"active_agents\"]}')
@@ -77,11 +77,11 @@ echo ""
 echo -e "${CYAN}💼 JOB MARKETPLACE STATUS${NC}"
 echo "==============================="
 
-if [[ -f "/opt/aitbc/data/job_marketplace.json" ]]; then
+if [[ -f "/var/lib/aitbc/data/job_marketplace.json" ]]; then
     job_info=$("$PYTHON_CMD" -c "
 import json
 
-with open('/opt/aitbc/data/job_marketplace.json', 'r') as f:
+with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
     marketplace = json.load(f)
 
 print(f'JOBS:ACTIVE:{marketplace[\"total_jobs\"]}:{marketplace[\"active_jobs\"]}:{marketplace[\"completed_jobs\"]}')
@@ -132,11 +132,11 @@ echo ""
 echo -e "${CYAN}💰 ECONOMIC SYSTEM STATUS${NC}"
 echo "============================="
 
-if [[ -f "/opt/aitbc/data/economic_system.json" ]]; then
+if [[ -f "/var/lib/aitbc/data/economic_system.json" ]]; then
     economic_info=$("$PYTHON_CMD" -c "
 import json
 
-with open('/opt/aitbc/data/economic_system.json', 'r') as f:
+with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 print(f'ECONOMICS:ACTIVE:{economics[\"total_supply\"]}:{economics[\"reward_pool\"]}:{economics[\"circulating_supply\"]}')
@@ -174,18 +174,18 @@ echo -e "${CYAN}📈 RECENT ACTIVITY${NC}"
 echo "===================="
 
 # Check latest files
-if [[ -f "/opt/aitbc/data/agent_registry.json" ]]; then
-    agent_time=$(stat -c %Y /opt/aitbc/data/agent_registry.json 2>/dev/null || echo "0")
+if [[ -f "/var/lib/aitbc/data/agent_registry.json" ]]; then
+    agent_time=$(stat -c %Y /var/lib/aitbc/data/agent_registry.json 2>/dev/null || echo "0")
     echo "Agent Registry Updated: $(date -d @$agent_time '+%Y-%m-%d %H:%M:%S')"
 fi
 
-if [[ -f "/opt/aitbc/data/job_marketplace.json" ]]; then
-    job_time=$(stat -c %Y /opt/aitbc/data/job_marketplace.json 2>/dev/null || echo "0")
+if [[ -f "/var/lib/aitbc/data/job_marketplace.json" ]]; then
+    job_time=$(stat -c %Y /var/lib/aitbc/data/job_marketplace.json 2>/dev/null || echo "0")
     echo "Job Marketplace Updated: $(date -d @$job_time '+%Y-%m-%d %H:%M:%S')"
 fi
 
-if [[ -f "/opt/aitbc/data/economic_system.json" ]]; then
-    econ_time=$(stat -c %Y /opt/aitbc/data/economic_system.json 2>/dev/null || echo "0")
+if [[ -f "/var/lib/aitbc/data/economic_system.json" ]]; then
+    econ_time=$(stat -c %Y /var/lib/aitbc/data/economic_system.json 2>/dev/null || echo "0")
     echo "Economic System Updated: $(date -d @$econ_time '+%Y-%m-%d %H:%M:%S')"
 fi
 

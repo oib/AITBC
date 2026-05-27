@@ -12,7 +12,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///opt/aitbc/data/edge.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///var/lib/aitbc/data/edge.db")
 
 # Ensure data directory exists
 if DATABASE_URL.startswith("sqlite"):
