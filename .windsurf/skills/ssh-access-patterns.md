@@ -40,7 +40,7 @@ ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
 ```
 
 ### redacted-host (hosts hub.aitbc.bubuit.net incus container)
-Direct SSH access. The hub.aitbc.bubuit.net service runs as an incus container on redacted-host.
+Direct SSH access. The hub.aitbc.bubuit.net service runs as an incus container named "aitbc" on redacted-host.
 ```bash
 ssh redacted-host
 # Or execute single command
@@ -51,19 +51,29 @@ ssh redacted-host "incus exec aitbc -- bash"
 # Or execute single command in container
 ssh redacted-host "incus exec aitbc -- command"
 
+# Check container hostname
+ssh redacted-host "incus exec aitbc -- hostname"
+# Output: hub.aitbc.bubuit.net
+
 # Container IP: 192.0.2.10
 # Access via container IP from redacted-host
 ssh redacted-host "curl http://192.0.2.10:8006/rpc/head"
 
 # Check environment configuration in container
-ssh redacted-host "incus exec aitbc -- cat /etc/aitbc/.env"
+ssh redacted-host "incus exec aitbc -- cat /etc/aitbc/blockchain.env"
 ssh redacted-host "incus exec aitbc -- cat /etc/aitbc/node.env"
 
 # Check blockchain node configuration
-ssh redacted-host "incus exec aitbc -- cat /opt/blockchain-node/src/aitbc_chain/config.py"
+ssh redacted-host "incus exec aitbc -- cat /opt/aitbc/apps/blockchain-node/src/aitbc_chain/config.py"
 
 # Check service status in container
-ssh redacted-host "incus exec aitbc -- systemctl status aitbc-blockchain-node-3 --no-pager"
+ssh redacted-host "incus exec aitbc -- systemctl status aitbc-blockchain-node --no-pager"
+
+# Restart service in container
+ssh redacted-host "incus exec aitbc -- systemctl restart aitbc-blockchain-node"
+
+# View service logs in container
+ssh redacted-host "incus exec aitbc -- journalctl -u aitbc-blockchain-node -n 50 --no-pager"
 ```
 
 ## Important Notes
