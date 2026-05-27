@@ -61,6 +61,14 @@ from tests.fixtures.auth_fixtures import (
 from tests.fixtures.test_data_factory import TestDataFactory
 
 import pytest
+from click.testing import CliRunner
+
+
+@pytest.fixture
+def cli_runner():
+    """CLI runner with mock context object for isolated testing"""
+    runner = CliRunner()
+    return runner
 
 
 @pytest.fixture
