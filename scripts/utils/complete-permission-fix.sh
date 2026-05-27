@@ -130,9 +130,9 @@ fix_permissions() {
     
     # Special permissions for logs and data
     print_status "Setting special permissions for logs and data"
-    mkdir -p /opt/aitbc/logs /opt/aitbc/data
-    chown -R aitbc:aitbc /opt/aitbc/logs /opt/aitbc/data
-    chmod 775 /opt/aitbc/logs /opt/aitbc/data
+    mkdir -p /opt/aitbc/logs /var/lib/aitbc/data
+    chown -R aitbc:aitbc /opt/aitbc/logs /var/lib/aitbc/data
+    chmod 775 /opt/aitbc/logs /var/lib/aitbc/data
     
     print_status "Directory permissions fixed"
 }
@@ -266,8 +266,8 @@ export AITBC_BLOCKCHAIN_RPC=http://localhost:8006
 export AITBC_WEB_UI=http://localhost:3000
 
 # Database paths
-export AITBC_DB_PATH=/opt/aitbc/data/coordinator.db
-export AITBC_BLOCKCHAIN_DB_PATH=/opt/aitbc/data/blockchain.db
+export AITBC_DB_PATH=/var/lib/aitbc/data/coordinator.db
+export AITBC_BLOCKCHAIN_DB_PATH=/var/lib/aitbc/data/blockchain.db
 
 # Development paths
 export AITBC_HOME=/opt/aitbc
