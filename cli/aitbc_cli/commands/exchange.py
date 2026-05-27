@@ -877,6 +877,8 @@ def pairs(ctx, exchange: str):
             
             if len(base_currencies[base]) > 10:
                 success(f"  ... and {len(base_currencies[base]) - 10} more")
+    except Exception as e:
+        error(f"Error fetching pairs: {e}")
 
 
 @exchange.command()

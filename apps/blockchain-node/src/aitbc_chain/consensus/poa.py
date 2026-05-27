@@ -484,11 +484,12 @@ class PoAProposer:
                 self._logger.error(f"Genesis file not found at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json. Cannot create genesis block without genesis.json file.")
                 raise RuntimeError(f"Genesis file required but not found for chain {self._config.chain_id}. Please create genesis.json at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json")
             
-            # Extract genesis data from file
-            genesis_hash = local_genesis_data.get("genesis_hash")
-            genesis_timestamp = local_genesis_data.get("timestamp")
-            genesis_state_root = local_genesis_data.get("state_root")
-            genesis_allocations = local_genesis_data.get("allocations", [])
+            # Extract genesis data from file (support both flat and nested formats)
+            block_data = local_genesis_data.get("block", {})
+            genesis_hash = local_genesis_data.get("genesis_hash") or block_data.get("hash")
+            genesis_timestamp = local_genesis_data.get("timestamp") or block_data.get("timestamp")
+            genesis_state_root = local_genesis_data.get("state_root") or block_data.get("state_root")
+            genesis_allocations = local_genesis_data.get("allocations", block_data.get("allocations", []))
             
             if not genesis_hash or not genesis_timestamp or not genesis_state_root:
                 self._logger.error(f"Genesis file missing required fields: genesis_hash, timestamp, or state_root")
