@@ -258,22 +258,15 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
 @click.option('--type', type=click.Choice(['offer', 'bid', 'all']), default='all', help='Filter by type')
 @click.pass_context
 def list(ctx, provider: Optional[str], status: Optional[str], type: str):
-    """List GPU marketplace offers and bids"""
+    """List GPU marketplace offers and bids (no island credentials required)"""
     try:
         # Load CLI config
         config = get_config()
-        
-        # Load island credentials
-        credentials = safe_load_credentials()
-        if not credentials:
-            return
-        island_id = get_island_id()
 
         # Query GPU service for GPU marketplace transactions
         try:
             params = {
                 'transaction_type': 'gpu_marketplace',
-                'island_id': island_id
             }
             if provider:
                 params['provider_node_id'] = provider
@@ -318,7 +311,7 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
                         "Created": tx.get('created_at', '')[:19]
                     })
             
-            output(market_data, ctx.obj.get('output_format', 'table'), title=f"GPU Marketplace ({island_id[:16]}...)")
+            output(market_data, ctx.obj.get('output_format', 'table'), title="GPU Marketplace")
         except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
             raise click.Abort()
