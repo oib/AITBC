@@ -40,7 +40,7 @@ ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
 ```
 
 ### ns3 (hosts hub.aitbc.bubuit.net incus container)
-Direct SSH access. The hub.aitbc.bubuit.net service runs as an incus container on ns3.
+Direct SSH access. The hub.aitbc.bubuit.net service runs as an incus container named "aitbc" on ns3.
 ```bash
 ssh ns3
 # Or execute single command
@@ -51,19 +51,29 @@ ssh ns3 "incus exec aitbc -- bash"
 # Or execute single command in container
 ssh ns3 "incus exec aitbc -- command"
 
+# Check container hostname
+ssh ns3 "incus exec aitbc -- hostname"
+# Output: hub.aitbc.bubuit.net
+
 # Container IP: 192.168.100.10
 # Access via container IP from ns3
 ssh ns3 "curl http://192.168.100.10:8006/rpc/head"
 
 # Check environment configuration in container
-ssh ns3 "incus exec aitbc -- cat /etc/aitbc/.env"
+ssh ns3 "incus exec aitbc -- cat /etc/aitbc/blockchain.env"
 ssh ns3 "incus exec aitbc -- cat /etc/aitbc/node.env"
 
 # Check blockchain node configuration
-ssh ns3 "incus exec aitbc -- cat /opt/blockchain-node/src/aitbc_chain/config.py"
+ssh ns3 "incus exec aitbc -- cat /opt/aitbc/apps/blockchain-node/src/aitbc_chain/config.py"
 
 # Check service status in container
-ssh ns3 "incus exec aitbc -- systemctl status aitbc-blockchain-node-3 --no-pager"
+ssh ns3 "incus exec aitbc -- systemctl status aitbc-blockchain-node --no-pager"
+
+# Restart service in container
+ssh ns3 "incus exec aitbc -- systemctl restart aitbc-blockchain-node"
+
+# View service logs in container
+ssh ns3 "incus exec aitbc -- journalctl -u aitbc-blockchain-node -n 50 --no-pager"
 ```
 
 ## Important Notes
