@@ -8,6 +8,7 @@ import time
 import sys
 import subprocess
 import os
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
@@ -188,12 +189,13 @@ def register_miner():
 
     headers = {
         "X-Api-Key": AUTH_TOKEN,
+        "X-Miner-ID": MINER_ID,
         "Content-Type": "application/json"
     }
 
     try:
         client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=10)
-        response = client.post(f"/v1/miners/register?miner_id={MINER_ID}", json=register_data)
+        response = client.post("/v1/miners/register", json=register_data)
 
         if response:
             logger.info(f"Successfully registered miner: {response}")
@@ -239,12 +241,13 @@ def send_heartbeat():
 
     headers = {
         "X-Api-Key": AUTH_TOKEN,
+        "X-Miner-ID": MINER_ID,
         "Content-Type": "application/json"
     }
 
     try:
         client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=5)
-        response = client.post(f"/v1/miners/heartbeat?miner_id={MINER_ID}", json=heartbeat_data)
+        response = client.post("/v1/miners/heartbeat", json=heartbeat_data)
 
         if response:
             logger.info(f"Heartbeat sent (GPU: {gpu_info['utilization'] if gpu_info else 'N/A'}%)")
@@ -374,21 +377,36 @@ def poll_for_jobs():
 
     headers = {
         "X-Api-Key": AUTH_TOKEN,
+        "X-Miner-ID": MINER_ID,
         "Content-Type": "application/json"
     }
 
     try:
-        client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=10)
-        response = client.post("/v1/miners/poll", json=poll_data)
-
-        if response:
-            job = response
+        # Use requests directly to handle 204 No Content properly
+        import requests
+        url = f"{COORDINATOR_URL}/v1/miners/poll"
+        response = requests.post(url, json=poll_data, headers=headers, timeout=10)
+        
+        if response.status_code == 204:
+            # No jobs available
+            return None
+        
+        response.raise_for_status()
+        job = response.json()
+        
+        if job and job.get("job_id"):
             logger.info(f"Received job: {job}")
             return job
         else:
             return None
 
-    except NetworkError as e:
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 204:
+            logger.debug("No jobs available (204 No Content)")
+            return None
+        logger.error(f"HTTP error polling for jobs: {e}")
+        return None
+    except Exception as e:
         logger.error(f"Error polling for jobs: {e}")
         return None
 
@@ -399,18 +417,23 @@ def main():
     # Check GPU availability
     gpu_info = get_gpu_info()
     if not gpu_info:
-        logger.error("GPU not available, exiting")
-        # sys.exit(1)
-    
-    logger.info(f"GPU detected: {gpu_info['name']} ({gpu_info['memory_total']}MB)")
+        logger.warning("GPU not available, running in CPU-only mode")
+        gpu_info = {
+            "name": "CPU-Only",
+            "memory_total": 0,
+            "memory_used": 0,
+            "utilization": 0
+        }
+    else:
+        logger.info(f"GPU detected: {gpu_info['name']} ({gpu_info['memory_total']}MB)")
     
     # Check Ollama
     ollama_available, models = check_ollama()
     if not ollama_available:
-        logger.error("Ollama not available - please install and start Ollama")
-        # sys.exit(1)
-
-    logger.info(f"Ollama models available: {', '.join(models)}")
+        logger.warning("Ollama not available - miner will not be able to execute inference jobs")
+        models = []
+    else:
+        logger.info(f"Ollama models available: {', '.join(models)}")
     
     # Wait for coordinator
     if not wait_for_coordinator():
