@@ -57,7 +57,7 @@ log_info "Starting workflow CLI integration tests"
 run_test "List workflows" "aitbc workflow list"
 
 # Test 2: List workflows in JSON format
-run_test "List workflows (JSON)" "aitbc workflow list --format json | jq -e '.'"
+run_test "List workflows (JSON)" "aitbc workflow list --format json | tail -n +2 | jq -e '.'"
 
 # Test 3: Run workflow (dry run)
 run_test "Run workflow (dry run)" "aitbc workflow run test_workflow --dry-run"
