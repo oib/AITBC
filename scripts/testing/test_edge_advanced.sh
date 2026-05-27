@@ -75,7 +75,7 @@ log_info "Edge API URL: $EDGE_URL"
 # Island advanced operations
 run_test "Island leave" "aitbc edge island leave test_island_123" "true"
 
-run_test "Island bridge" "aitbc edge island bridge --source island_a --target island_b" "true"
+run_test "Island bridge" "aitbc edge island bridge island_b" "true"
 
 # GPU operations
 run_test "GPU list" "aitbc edge gpu list-gpus" "true"
