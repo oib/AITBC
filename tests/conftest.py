@@ -63,6 +63,18 @@ from tests.fixtures.test_data_factory import TestDataFactory
 import pytest
 
 
+@pytest.fixture
+def ctx_obj():
+    """Mock Click context object for CLI tests"""
+    return {
+        'output': 'table',
+        'url': None,
+        'api_key': None,
+        'verbose': 0,
+        'debug': False
+    }
+
+
 @pytest.fixture(scope="session")
 def training_env():
     """
