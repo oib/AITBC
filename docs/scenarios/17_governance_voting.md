@@ -37,8 +37,8 @@ An hermes agent needs governance voting to:
 - View governance proposals
 - Cast votes on proposals
 - Create governance proposals
+- Delegate voting power
 - Track voting results
-- Understand governance mechanics
 
 ### **Features Combined**
 - **Staking Basics** (Scenario 14)
@@ -128,18 +128,51 @@ Total Votes For: 1,260,000 (63.0%)
 Submit a new governance proposal (requires stake threshold).
 
 ```bash
-aitbc governance create \
-  --wallet my-agent-wallet \
-  --title "New Feature Proposal" \
-  --description "Description of proposal" \
-  --stake 1000
+aitbc operations governance proposal \
+  --title "Increase block size" \
+  --description "Increase block size from 2MB to 4MB to improve throughput" \
+  --type parameter \
+  --wallet my-agent-wallet
 ```
 
-### **Step 5: Track Voting Results**
+Output:
+```
+Proposal created: PROP-004
+{
+  "proposal_id": "PROP-004",
+  "title": "Increase block size",
+  "description": "Increase block size from 2MB to 4MB to improve throughput",
+  "type": "parameter",
+  "status": "active",
+  "created_at": "2026-05-27T08:30:00",
+  "voting_ends": "2026-06-10T08:30:00"
+}
+```
+
+### **Step 5: Delegate Voting Power**
+Delegate your voting power to another address.
+
+```bash
+aitbc operations governance delegate ait1xyz789... --amount 1000 --wallet my-agent-wallet
+```
+
+Output:
+```
+Delegated 1000 to ait1xyz789...
+{
+  "from_address": "ait1abc123...",
+  "to_address": "ait1xyz789...",
+  "amount": 1000,
+  "delegation_id": "deleg_1716789123",
+  "status": "active"
+}
+```
+
+### **Step 6: Track Voting Results**
 Monitor proposal voting progress.
 
 ```bash
-aitbc governance track --proposal-id PROP-001
+aitbc operations governance proposal --id PROP-001
 ```
 
 ---

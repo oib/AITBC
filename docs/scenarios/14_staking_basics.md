@@ -34,11 +34,11 @@ An Hermes agent needs staking to:
 - Support Proof-of-Stake consensus
 
 ### **What You'll Learn**
-- Stake AIT tokens
-- Monitor staking rewards
-- Unstake tokens
-- Participate in governance voting
-- Manage validator operations
+- Stake AIT tokens with wallet
+- View staking information
+- Unstake tokens and claim rewards
+- Check staking rewards
+- Monitor staking positions
 
 ### **Features Combined**
 - **Wallet Operations** (Scenario 01)
@@ -73,62 +73,94 @@ An Hermes agent needs staking to:
 Lock your tokens to earn rewards.
 
 ```bash
-aitbc stake create \
-  --wallet my-agent-wallet \
-  --amount 1000 \
-  --duration 90
+aitbc wallet my-agent-wallet stake 1000 --duration 90
 ```
 
 Output:
 ```
-Stake created
-Stake ID: stake_abc123...
-Amount: 1000 AIT
-Duration: 90 days
-APY: 12.5%
-Expected Rewards: 125 AIT
+Staked 1000 AITBC for 90 days
+{
+  "wallet": "my-agent-wallet",
+  "stake_id": "stake_1716789123",
+  "amount": 1000,
+  "duration_days": 90,
+  "apy": 9.5,
+  "new_balance": 9000
+}
 ```
 
-### **Step 2: Check Staking Status**
-Monitor your staking positions.
+### **Step 2: View Staking Information**
+Check your staking positions and details.
 
 ```bash
-aitbc stake status --wallet my-agent-wallet
+aitbc wallet my-agent-wallet staking-info
 ```
 
 Output:
 ```
-Staking Positions:
-Stake ID         Amount    Duration    Rewards    Status
-----------------------------------------------------------
-stake_abc123...  1000 AIT  90 days     12.5 AIT   active
+Staking Information:
+{
+  "wallet": "my-agent-wallet",
+  "total_staked": 1000,
+  "active_stakes": 1,
+  "stakes": [
+    {
+      "stake_id": "stake_1716789123",
+      "amount": 1000,
+      "duration_days": 90,
+      "start_date": "2026-05-27T08:30:00",
+      "end_date": "2026-08-25T08:30:00",
+      "status": "active",
+      "apy": 9.5
+    }
+  ]
+}
 ```
 
-### **Step 3: Claim Rewards**
-Withdraw earned staking rewards.
+### **Step 3: Check Rewards**
+View earned staking rewards.
 
 ```bash
-aitbc stake claim \
-  --stake-id stake_abc123... \
-  --wallet my-agent-wallet
+aitbc wallet my-agent-wallet rewards
+```
+
+Output:
+```
+Rewards Summary:
+{
+  "wallet": "my-agent-wallet",
+  "total_rewards": 12.5,
+  "claimable_rewards": 12.5,
+  "pending_rewards": 0,
+  "reward_history": [
+    {
+      "stake_id": "stake_1716789123",
+      "amount": 12.5,
+      "earned_date": "2026-05-27T08:30:00"
+    }
+  ]
+}
 ```
 
 ### **Step 4: Unstake Tokens**
-Unlock your staked tokens after duration expires.
+Unlock your staked tokens and claim rewards.
 
 ```bash
-aitbc stake unstake \
-  --stake-id stake_abc123... \
-  --wallet my-agent-wallet
+aitbc wallet my-agent-wallet unstake stake_1716789123
 ```
 
-### **Step 5: Become Validator**
-Register as a network validator.
-
-```bash
-aitbc validator register \
-  --wallet my-agent-wallet \
-  --stake-amount 10000
+Output:
+```
+Unstaked 1000 AITBC + 12.5000 rewards
+{
+  "wallet": "my-agent-wallet",
+  "stake_id": "stake_1716789123",
+  "principal": 1000,
+  "rewards": 12.5,
+  "total_returned": 1012.5,
+  "days_staked": 1,
+  "new_balance": 10012.5
+}
 ```
 
 ---
