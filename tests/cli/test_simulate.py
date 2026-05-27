@@ -106,7 +106,7 @@ class TestSimulateCommands:
                 result = runner.invoke(simulate, [
                     'init',
                     '--distribute', '5000,2000'
-                ], obj={'config': mock_config, 'output_format': 'json'})
+                ], obj={'config': mock_config, 'output': 'json'})
                 
                 # Assertions
                 assert result.exit_code == 0
@@ -135,7 +135,7 @@ class TestSimulateCommands:
                 result = runner.invoke(simulate, [
                     'init',
                     '--reset'
-                ], obj={'config': mock_config, 'output_format': 'json'})
+                ], obj={'config': mock_config, 'output': 'json'})
                 
                 # Assertions
                 assert result.exit_code == 0
@@ -160,7 +160,7 @@ class TestSimulateCommands:
                     '--type', 'client',
                     '--name', 'testuser',
                     '--balance', '1000'
-                ], obj={'config': mock_config, 'output_format': 'json'})
+                ], obj={'config': mock_config, 'output': 'json'})
                 
                 # Assertions
                 assert result.exit_code == 0
@@ -188,7 +188,7 @@ class TestSimulateCommands:
                 result = runner.invoke(simulate, [
                     'user',
                     'list'
-                ], obj={'config': mock_config, 'output_format': 'json'})
+                ], obj={'config': mock_config, 'output': 'json'})
                 
                 # Assertions
                 assert result.exit_code == 0
@@ -217,7 +217,7 @@ class TestSimulateCommands:
                     'user',
                     'balance',
                     'testuser'
-                ], obj={'config': mock_config, 'output_format': 'json'})
+                ], obj={'config': mock_config, 'output': 'json'})
                 
                 # Assertions
                 assert result.exit_code == 0
@@ -246,7 +246,7 @@ class TestSimulateCommands:
                     'fund',
                     'testuser',
                     '500'
-                ], obj={'config': mock_config, 'output_format': 'json'})
+                ], obj={'config': mock_config, 'output': 'json'})
                 
                 # Assertions
                 assert result.exit_code == 0
@@ -261,7 +261,7 @@ class TestSimulateCommands:
             'workflow',
             '--jobs', '5',
             '--rounds', '2'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # The command should exist
         assert result.exit_code == 0
@@ -278,7 +278,7 @@ class TestSimulateCommands:
             '--miners', '1',
             '--duration', '5',
             '--job-rate', '2'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # The command should exist
         assert result.exit_code == 0
@@ -316,7 +316,7 @@ class TestSimulateCommands:
             result = runner.invoke(simulate, [
                 'scenario',
                 '--file', str(scenario_file)
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert result.exit_code == 0
             assert "Running scenario: Test Scenario" in result.output
@@ -326,7 +326,7 @@ class TestSimulateCommands:
         result = runner.invoke(simulate, [
             'results',
             'sim_123'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         # Extract JSON from output
@@ -353,7 +353,7 @@ class TestSimulateCommands:
                 result = runner.invoke(simulate, [
                     'init',
                     '--reset'
-                ], obj={'config': mock_config, 'output_format': 'json'})
+                ], obj={'config': mock_config, 'output': 'json'})
                 
                 # Assertions
                 assert result.exit_code == 0
@@ -364,7 +364,7 @@ class TestSimulateCommands:
         result = runner.invoke(simulate, [
             'init',
             '--distribute', 'invalid'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Assertions
         assert result.exit_code == 0
