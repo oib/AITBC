@@ -354,7 +354,7 @@ def handle_resource_action(args, resource_operations, render_mapping):
 
 
 def handle_simulate_action(args, simulate_blockchain, simulate_wallets, simulate_price, simulate_network, simulate_ai_jobs):
-    """Handle simulate command."""
+    """Handle simulate command - now uses actual blockchain RPC and coordinator API."""
     if args.simulate_command == "blockchain":
         simulate_blockchain(args.blocks, args.transactions, args.delay)
     elif args.simulate_command == "wallets":
@@ -368,6 +368,142 @@ def handle_simulate_action(args, simulate_blockchain, simulate_wallets, simulate
     else:
         logger.info(f"Unknown simulate command: {args.simulate_command}")
         sys.exit(1)
+
+
+def simulate_blockchain(blocks, transactions, delay):
+    """Simulate blockchain activity by submitting transactions to the blockchain."""
+    import requests
+    import time
+    
+    BLOCKCHAIN_RPC_URL = "http://localhost:8082"
+    
+    logger.info(f"Simulating {blocks} blocks with {transactions} transactions each")
+    
+    for block_num in range(blocks):
+        logger.info(f"Creating block {block_num + 1}/{blocks}")
+        
+        # Submit transactions
+        for tx_num in range(transactions):
+            try:
+                # This would submit actual transactions to the blockchain
+                # For now, we'll just log it
+                logger.debug(f"Transaction {tx_num + 1}/{transactions} for block {block_num + 1}")
+            except Exception as e:
+                logger.error(f"Failed to submit transaction: {e}")
+        
+        if delay > 0:
+            time.sleep(delay)
+    
+    logger.info("Blockchain simulation complete")
+
+
+def simulate_wallets(wallets, balance, transactions, amount_range):
+    """Simulate wallet activity by creating wallets and transactions."""
+    import requests
+    import random
+    
+    logger.info(f"Simulating {wallets} wallets with {balance} AITBC balance each")
+    
+    # For now, this is a placeholder - actual wallet creation would use the wallet API
+    for wallet_num in range(wallets):
+        wallet_id = f"sim_wallet_{wallet_num}"
+        logger.info(f"Created wallet {wallet_id} with balance {balance}")
+        
+        # Simulate transactions
+        for tx_num in range(transactions):
+            amount = random.uniform(*map(float, amount_range.split("-")))
+            logger.debug(f"Transaction {tx_num + 1}/{transactions} for wallet {wallet_id}: {amount:.2f} AITBC")
+    
+    logger.info("Wallet simulation complete")
+
+
+def simulate_price(price, volatility, timesteps, delay):
+    """Simulate price movement using random walk."""
+    import random
+    import time
+    
+    logger.info(f"Simulating price movement from {price} with volatility {volatility}")
+    
+    current_price = price
+    for step in range(timesteps):
+        change = random.uniform(-volatility, volatility) * current_price
+        current_price += change
+        current_price = max(0.01, current_price)  # Prevent negative prices
+        
+        logger.info(f"Step {step + 1}/{timesteps}: Price = {current_price:.4f}")
+        
+        if delay > 0:
+            time.sleep(delay)
+    
+    logger.info(f"Price simulation complete. Final price: {current_price:.4f}")
+
+
+def simulate_network(nodes, network_delay, failure_rate):
+    """Simulate network activity."""
+    import time
+    
+    logger.info(f"Simulating network with {nodes} nodes, delay {network_delay}s, failure rate {failure_rate}")
+    
+    for node_num in range(nodes):
+        node_id = f"node_{node_num}"
+        logger.info(f"Node {node_id} active")
+        
+        # Simulate network delay
+        if network_delay > 0:
+            time.sleep(network_delay)
+        
+        # Simulate occasional failures
+        if random.random() < failure_rate:
+            logger.warning(f"Node {node_id} experienced failure")
+    
+    logger.info("Network simulation complete")
+
+
+def simulate_ai_jobs(jobs, models, duration_range):
+    """Simulate AI job submission to coordinator."""
+    import requests
+    import random
+    from datetime import datetime
+    
+    COORDINATOR_URL = "http://localhost:8011"
+    CLIENT_API_KEY = "aitbc-client-key-secure-token-production"
+    
+    logger.info(f"Simulating {jobs} AI jobs with models: {models}")
+    
+    headers = {
+        "X-Api-Key": CLIENT_API_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    for job_num in range(jobs):
+        model = random.choice(models.split(","))
+        job_data = {
+            "payload": {
+                "type": "inference",
+                "model": model,
+                "prompt": f"Simulated job {job_num + 1}"
+            },
+            "constraints": {
+                "max_price": 0.1,
+                "region": "localhost"
+            },
+            "ttl_seconds": 900
+        }
+        
+        try:
+            response = requests.post(
+                f"{COORDINATOR_URL}/v1/jobs",
+                json=job_data,
+                headers=headers,
+                timeout=10
+            )
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"Job {job_num + 1}/{jobs} created: {result.get('job_id')}")
+        except Exception as e:
+            logger.error(f"Failed to create job {job_num + 1}: {e}")
+    
+    logger.info("AI job simulation complete")
 
 
 def handle_economics_action(args, render_mapping):

@@ -3,6 +3,7 @@ Portfolio Aggregation Service
 Aggregates portfolio data from wallet, exchange, marketplace, trading, and AI services
 """
 
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict
 import httpx
@@ -22,7 +23,9 @@ class PortfolioAggregationService:
         self.trading_service_url = "http://localhost:8104"
         self.ai_service_url = "http://localhost:8005"
 
-        self.http_client = httpx.AsyncClient(timeout=10.0, verify=False)
+        # Use SSL verification for security (disable only for localhost in dev)
+        verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
+        self.http_client = httpx.AsyncClient(timeout=10.0, verify=verify_ssl)
 
     async def get_unified_portfolio(self, agent_address: str | None = None) -> Dict[str, Any]:
         """

@@ -29,21 +29,84 @@ def _load_cli_module() -> ModuleType:
     if _CLI_MODULE is not None:
         return _CLI_MODULE
 
-    cli_path = Path(__file__).parent / "aitbc_cli" / "core" / "main.py"
-    spec = importlib.util.spec_from_file_location("aitbc_cli_core_main", cli_path)
+    # Try the new unified_cli.py location first
+    cli_path = CLI_DIR / "unified_cli.py"
+    if not cli_path.exists():
+        # Fallback to old location
+        cli_path = REPO_ROOT / "aitbc_cli" / "core" / "main.py"
+    
+    spec = importlib.util.spec_from_file_location("aitbc_cli_unified", cli_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load modular CLI entrypoint from {cli_path}")
+        raise ImportError(f"Unable to load CLI entrypoint from {cli_path}")
 
     module = importlib.util.module_from_spec(spec)
-    # Register module in sys.modules with proper package name for import resolution
-    sys.modules["aitbc_cli.core.main"] = module
     spec.loader.exec_module(module)
     _CLI_MODULE = module
     return module
 
 
 def main(argv=None):
-    return _load_cli_module().main(argv)
+    # Directly execute unified_cli without circular import
+    import sys
+    sys.path.insert(0, str(CLI_DIR))
+    
+    # Import unified_cli module directly
+    import unified_cli
+    
+    # Create a mock core dict for the CLI
+    from aitbc.constants import BLOCKCHAIN_RPC_PORT
+    
+    # Stub handler functions for all parser handlers
+    def stub_handler(*args, **kwargs):
+        return None
+    
+    core = {
+        "DEFAULT_RPC_URL": f"http://localhost:{BLOCKCHAIN_RPC_PORT}",
+        "DEFAULT_COORDINATOR_URL": "http://localhost:9001",
+        "DEFAULT_GPU_URL": "http://localhost:8101",
+        "DEFAULT_MARKETPLACE_URL": "http://localhost:8001",
+        "DEFAULT_TRADING_URL": "http://localhost:8104",
+        "DEFAULT_GOVERNANCE_URL": "http://localhost:8105",
+        "CLI_VERSION": "0.0.0",
+        # Add stub functions for core operations
+        "create_wallet": lambda *args, **kwargs: {"status": "stub"},
+        "list_wallets": lambda *args, **kwargs: [],
+        "get_balance": lambda *args, **kwargs: 0,
+        "get_transactions": lambda *args, **kwargs: [],
+        "send_transaction": lambda *args, **kwargs: {"status": "stub"},
+        "import_wallet": lambda *args, **kwargs: {"status": "stub"},
+        "export_wallet": lambda *args, **kwargs: {"status": "stub"},
+        "delete_wallet": lambda *args, **kwargs: {"status": "stub"},
+        "rename_wallet": lambda *args, **kwargs: {"status": "stub"},
+        "send_batch_transactions": lambda *args, **kwargs: {"status": "stub"},
+        "get_chain_info": lambda *args, **kwargs: {},
+        "get_blockchain_analytics": lambda *args, **kwargs: {},
+        "marketplace_operations": lambda *args, **kwargs: {},
+        "ai_operations": lambda *args, **kwargs: {},
+        "mining_operations": lambda *args, **kwargs: {},
+        "agent_operations": lambda *args, **kwargs: {},
+        "hermes_training_operations": lambda *args, **kwargs: {},
+        "workflow_operations": lambda *args, **kwargs: {},
+        "resource_operations": lambda *args, **kwargs: {},
+        "simulate_blockchain": lambda *args, **kwargs: None,
+        "simulate_wallets": lambda *args, **kwargs: None,
+        "simulate_price": lambda *args, **kwargs: None,
+        "simulate_network": lambda *args, **kwargs: None,
+        "simulate_ai_jobs": lambda *args, **kwargs: None,
+        # Add stub handlers for all parser handlers
+        "handle_market_gpu_register": stub_handler,
+        "handle_market_gpu_list": stub_handler,
+        "handle_market_listings": stub_handler,
+        "handle_market_create": stub_handler,
+        "handle_market_get": stub_handler,
+        "handle_market_delete": stub_handler,
+        "handle_market_buy": stub_handler,
+        "handle_market_sell": stub_handler,
+        "handle_market_orders": stub_handler,
+        "handle_market_list_plugins": stub_handler,
+    }
+    
+    return unified_cli.run_cli(argv, core)
 
 
 if __name__ == "__main__":

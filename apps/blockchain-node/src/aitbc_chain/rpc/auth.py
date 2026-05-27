@@ -54,13 +54,14 @@ def get_authenticated_address(request: Request, credentials: Optional[HTTPAuthor
             detail="JWT authentication is not supported. Use X-Wallet-Address header with TRUST_X_WALLET_ADDRESS=true for trusted internal requests."
         )
 
-    # Development mode fallback
+    # Development mode fallback - remove zero-address fallback for security
     if os.getenv("DEV_MODE", "false").lower() == "true":
-        _logger.warning("Rejected unauthenticated request in development mode")
+        _logger.warning("Development mode enabled but authentication still required")
+        # Still require authentication even in dev mode for security
 
     # No valid authentication found
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentication required. Provide X-Wallet-Address header or valid JWT token.",
+        detail="Authentication required. Provide X-Wallet-Address header with TRUST_X_WALLET_ADDRESS=true for trusted internal requests.",
         headers={"WWW-Authenticate": "Bearer"}
     )

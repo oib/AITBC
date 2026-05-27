@@ -12,7 +12,7 @@ Environment="BLOCKCHAIN_RPC_HOST=localhost"
 Environment="BLOCKCHAIN_RPC_PORT=8006"
 Environment="GPU_SERVICE_HOST=localhost"
 Environment="GPU_SERVICE_PORT=8101"
-Environment="JWT_SECRET_KEY=your-secret-key-change-in-production"
+Environment="JWT_SECRET_KEY=CQNLjrtnUVGzdO1skuLsxoiPEEmav2Vj3aA302cvo8I"
 Environment="API_PORT=8103"
 ExecStart=/opt/aitbc/venv/bin/python -m edge_api.main
 Restart=always
