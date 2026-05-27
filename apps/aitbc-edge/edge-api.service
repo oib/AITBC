@@ -4,17 +4,18 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/aitbc/apps/edge-api
+WorkingDirectory=/opt/aitbc/apps/aitbc-edge
 Environment="PATH=/opt/aitbc/venv/bin"
-Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/edge-api/src:/opt/aitbc"
-Environment="DATABASE_URL=postgresql+asyncpg://aitbc_edge:password@localhost:5432/aitbc_edge"
+Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/aitbc-edge/src:/opt/aitbc"
+Environment="DATABASE_URL=sqlite+aiosqlite:///opt/aitbc/data/edge.db"
+Environment="DATA_DIR=/opt/aitbc/data"
 Environment="BLOCKCHAIN_RPC_HOST=localhost"
 Environment="BLOCKCHAIN_RPC_PORT=8006"
 Environment="GPU_SERVICE_HOST=localhost"
 Environment="GPU_SERVICE_PORT=8101"
 Environment="JWT_SECRET_KEY=CQNLjrtnUVGzdO1skuLsxoiPEEmav2Vj3aA302cvo8I"
 Environment="API_PORT=8103"
-ExecStart=/opt/aitbc/venv/bin/python -m edge_api.main
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_edge.main
 Restart=always
 RestartSec=10
 

@@ -12,7 +12,15 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://aitbc_edge:password@localhost:5432/aitbc_edge")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///opt/aitbc/data/edge.db")
+
+# Ensure data directory exists
+if DATABASE_URL.startswith("sqlite"):
+    db_path = DATABASE_URL.replace("sqlite+aiosqlite:///", "").split("?")[0]
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+        logger.info(f"Created database directory: {db_dir}")
 
 # Create async engine with proper connection pool settings
 engine = create_async_engine(
