@@ -16,11 +16,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from utils import output, setup_logging
+    from utils import output, error, setup_logging
     from config import get_config
 except ImportError:
     def output(msg, format_type):
         click.echo(msg)
+    def error(msg):
+        click.echo(f"Error: {msg}")
     def setup_logging(verbose, debug):
         return "INFO"
     def get_config(config_file=None, role=None):

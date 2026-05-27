@@ -73,7 +73,7 @@ log_info "Starting edge advanced CLI integration tests"
 log_info "Edge API URL: $EDGE_URL"
 
 # Island advanced operations
-run_test "Island leave" "aitbc edge island leave --island-id test_island_123" "true"
+run_test "Island leave" "aitbc edge island leave test_island_123" "true"
 
 run_test "Island bridge" "aitbc edge island bridge --source island_a --target island_b" "true"
 
@@ -120,7 +120,7 @@ run_test "Metrics get" "aitbc edge metrics get_metric --metric-id metric_123" "t
 run_test "Metrics delete" "aitbc edge metrics delete_metric --metric-id metric_123" "true"
 
 # Error handling tests (should handle gracefully)
-run_test "Island leave nonexistent" "aitbc edge island leave --island-id nonexistent_island" "false"
+run_test "Island leave nonexistent" "aitbc edge island leave nonexistent_island" "false"
 
 run_test "GPU get nonexistent" "aitbc edge gpu get_gpu --gpu-id nonexistent_gpu" "false"
 
