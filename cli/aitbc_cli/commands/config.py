@@ -31,7 +31,7 @@ def show(ctx):
         "config_file": getattr(config, 'config_file', None)
     }
     
-    output(config_dict, ctx.obj['output_format'])
+    output(config_dict, ctx.obj['output'])
 
 
 @config.command(name="get")
@@ -68,16 +68,16 @@ def set(ctx, key: str, value: str, global_config: bool):
     # Set the value
     if key == "api_key":
         config_data["api_key"] = value
-        if ctx.obj['output_format'] == 'table':
+        if ctx.obj['output'] == 'table':
             success("API key set (use --global to set permanently)")
     elif key == "coordinator_url":
         config_data["coordinator_url"] = value
-        if ctx.obj['output_format'] == 'table':
+        if ctx.obj['output'] == 'table':
             success(f"Coordinator URL set to: {value}")
     elif key == "timeout":
         try:
             config_data["timeout"] = int(value)
-            if ctx.obj['output_format'] == 'table':
+            if ctx.obj['output'] == 'table':
                 success(f"Timeout set to: {value}s")
         except ValueError:
             error("Timeout must be an integer")
@@ -94,7 +94,7 @@ def set(ctx, key: str, value: str, global_config: bool):
         "config_file": str(config_file),
         "key": key,
         "value": value
-    }, ctx.obj['output_format'])
+    }, ctx.obj['output'])
 
 
 @config.command()
@@ -243,7 +243,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
     with open(config_file, 'w') as f:
         yaml.dump(config_data, f, default_flow_style=False)
     
-    if ctx.obj['output_format'] == 'table':
+    if ctx.obj['output'] == 'table':
         success(f"Configuration imported to {config_file}")
 
 
@@ -284,13 +284,13 @@ def validate(ctx):
         error("Configuration validation failed")
         ctx.exit(1)
     elif warnings:
-        if ctx.obj['output_format'] == 'table':
+        if ctx.obj['output'] == 'table':
             success("Configuration valid with warnings")
     else:
-        if ctx.obj['output_format'] == 'table':
+        if ctx.obj['output'] == 'table':
             success("Configuration is valid")
     
-    output(result, ctx.obj['output_format'])
+    output(result, ctx.obj['output'])
 
 
 @config.command()
@@ -331,7 +331,8 @@ def profiles():
 @click.pass_context
 def save(ctx, name: str):
     """Save current configuration as a profile"""
-    config = ctx.obj['config']
+    # Build profile data from current config or ctx.obj
+    config = get_config()
     
     # Create profiles directory
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
@@ -348,7 +349,7 @@ def save(ctx, name: str):
     with open(profile_file, 'w') as f:
         yaml.dump(profile_data, f, default_flow_style=False)
     
-    if ctx.obj['output_format'] == 'table':
+    if ctx.obj['output'] == 'table':
         success(f"Profile '{name}' saved")
 
 
@@ -396,7 +397,7 @@ def load(ctx, name: str):
     with open(config_file, 'w') as f:
         yaml.dump(profile_data, f, default_flow_style=False)
     
-    if ctx.obj['output_format'] == 'table':
+    if ctx.obj['output'] == 'table':
         success(f"Profile '{name}' loaded")
 
 
@@ -416,7 +417,7 @@ def delete(ctx, name: str):
         return
     
     profile_file.unlink()
-    if ctx.obj['output_format'] == 'table':
+    if ctx.obj['output'] == 'table':
         success(f"Profile '{name}' deleted")
 
 
@@ -445,9 +446,9 @@ def set_secret(ctx, key: str, value: str):
     # Restrict file permissions
     secrets_file.chmod(0o600)
     
-    if ctx.obj['output_format'] == 'table':
+    if ctx.obj['output'] == 'table':
         success(f"Secret '{key}' saved (encrypted)")
-    output({"key": key, "status": "encrypted"}, ctx.obj['output_format'])
+    output({"key": key, "status": "encrypted"}, ctx.obj['output'])
 
 
 @config.command(name="get-secret")
@@ -473,7 +474,7 @@ def get_secret(ctx, key: str):
         return
     
     decrypted = decrypt_value(secrets[key])
-    output({"key": key, "value": decrypted}, ctx.obj['output_format'])
+    output({"key": key, "value": decrypted}, ctx.obj['output'])
 
 
 # Add profiles group to config
