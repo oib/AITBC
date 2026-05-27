@@ -93,13 +93,10 @@ class TestWorkflowCommands:
         
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert 'workflows' in data or isinstance(data, list)
-        
-        # If it's a list, check structure
-        if isinstance(data, list):
-            assert len(data) > 0
-            assert 'name' in data[0]
-            assert 'status' in data[0]
+        assert isinstance(data, list)
+        assert len(data) > 0
+        assert 'name' in data[0]
+        assert 'status' in data[0]
 
     def test_workflow_list_table_format(self, runner, mock_config):
         """Test listing workflows in table format"""
@@ -209,14 +206,14 @@ class TestWorkflowCommands:
         data = json.loads(result.output)
         
         # Verify expected workflow types are present
-        if isinstance(data, list):
-            workflow_names = [w['name'] for w in data]
-            # Check for known workflow types from implementation
-            expected_types = ['gpu-marketplace', 'ai-job-processing', 'mining-optimization']
-            for expected in expected_types:
-                if expected in workflow_names:
-                    assert True  # Found expected workflow
-                    break
+        assert isinstance(data, list)
+        workflow_names = [w['name'] for w in data]
+        # Check for known workflow types from implementation
+        expected_types = ['gpu-marketplace', 'ai-job-processing', 'mining-optimization']
+        for expected in expected_types:
+            if expected in workflow_names:
+                assert True  # Found expected workflow
+                break
 
     def test_workflow_status_output_format(self, runner, mock_config):
         """Test workflow status in different output formats"""
@@ -255,13 +252,12 @@ class TestWorkflowCommands:
         
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert 'workflows' in data or isinstance(data, list)
+        assert isinstance(data, list)
         
         # Validate workflow structure
-        if isinstance(data, list):
-            for workflow in data:
-                assert 'name' in workflow
-                assert 'status' in workflow
+        for workflow in data:
+            assert 'name' in workflow
+            assert 'status' in workflow
 
     def test_workflow_status_with_coordinator_api(self, runner, mock_config, coordinator_available):
         """Test getting workflow status from coordinator-api"""
