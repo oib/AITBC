@@ -99,18 +99,26 @@ def build_gpu_capabilities() -> Dict:
     arch = classify_architecture(model) if model else "unknown"
     edge_optimized = arch in {"ada_lovelace", "ampere", "turing"}
 
+    # Get available Ollama models
+    ollama_available, models = check_ollama()
+
     return {
-        "gpu": {
-            "model": model,
-            "architecture": arch,
-            "consumer_grade": True,
-            "edge_optimized": edge_optimized,
-            "memory_gb": memory_total,
-            "cuda_version": cuda_version,
-            "platform": "CUDA",
-            "supported_tasks": ["inference", "training", "stable-diffusion", "llama"],
-            "max_concurrent_jobs": 1
-        }
+        "gpus": [
+            {
+                "name": model,
+                "memory_mb": memory_total,
+                "architecture": arch,
+                "consumer_grade": True,
+                "edge_optimized": edge_optimized,
+            }
+        ] if gpu_info else [],
+        "cuda": cuda_version,
+        "models": models if ollama_available else [],
+        "price": 0.01,  # Default price per hour
+        "region": "localhost",
+        "platform": "CUDA" if gpu_info else "CPU",
+        "supported_tasks": ["inference", "training", "stable-diffusion", "llama"],
+        "max_concurrent_jobs": 1
     }
 
 
@@ -354,6 +362,7 @@ def submit_result(job_id, result):
     """Submit job result to coordinator"""
     headers = {
         "X-Api-Key": AUTH_TOKEN,
+        "X-Miner-ID": MINER_ID,
         "Content-Type": "application/json"
     }
 
