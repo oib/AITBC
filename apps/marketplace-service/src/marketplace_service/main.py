@@ -24,6 +24,7 @@ from aitbc import (
 
 from .storage import init_db, get_session
 from .services.marketplace_service import MarketplaceService
+from .services.matching_service import MatchingService
 
 # Configure structured logging
 configure_logging(level="INFO")
@@ -120,6 +121,11 @@ async def metrics() -> PlainTextResponse:
 async def get_marketplace_service(session: AsyncSession = Depends(get_session)) -> MarketplaceService:
     """Get marketplace service instance"""
     return MarketplaceService(session)
+
+
+async def get_matching_service(session: AsyncSession = Depends(get_session)) -> MatchingService:
+    """Get matching service instance"""
+    return MatchingService(session)
 
 
 @app.get("/v1/marketplace/offers")
@@ -254,6 +260,82 @@ async def get_analytics(
 ):
     """Get marketplace analytics"""
     return await svc.get_analytics(period_type=period_type)
+
+
+@app.post("/v1/marketplace/match")
+async def find_match(
+    bid_requirements: dict,
+    max_price: float | None = None,
+    preferred_region: str | None = None,
+    min_gpu_memory: int | None = None,
+    required_gpu_model: str | None = None,
+    matching_svc: MatchingService = Depends(get_matching_service),
+):
+    """Find best matching offer for bid requirements"""
+    try:
+        logger.info(f"POST /v1/marketplace/match called with requirements: {bid_requirements.keys()}")
+        result = await matching_svc.find_best_match(
+            bid_requirements=bid_requirements,
+            max_price=max_price,
+            preferred_region=preferred_region,
+            min_gpu_memory=min_gpu_memory,
+            required_gpu_model=required_gpu_model
+        )
+        logger.info(f"Match result: {result is not None}")
+        return result or {"message": "No matching offer found"}
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/match: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.post("/v1/marketplace/matches")
+async def create_match(
+    bid_id: str,
+    offer_id: str,
+    match_data: dict,
+    matching_svc: MatchingService = Depends(get_matching_service),
+):
+    """Create a match between a bid and an offer"""
+    try:
+        logger.info(f"POST /v1/marketplace/matches called: bid_id={bid_id}, offer_id={offer_id}")
+        result = await matching_svc.create_match(bid_id, offer_id, match_data)
+        logger.info(f"Created match: {result['match_id']}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/matches: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.get("/v1/marketplace/matches")
+async def list_matches(
+    status: str | None = None,
+    provider: str | None = None,
+    matching_svc: MatchingService = Depends(get_matching_service),
+):
+    """List all matches"""
+    try:
+        logger.info(f"GET /v1/marketplace/matches called with filters: status={status}, provider={provider}")
+        result = await matching_svc.list_matches(status=status, provider=provider)
+        logger.info(f"Found {len(result)} matches")
+        return {"matches": result}
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/matches: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.post("/v1/marketplace/matches/auto")
+async def auto_match(
+    matching_svc: MatchingService = Depends(get_matching_service),
+):
+    """Automatically match all pending bids with available offers"""
+    try:
+        logger.info("POST /v1/marketplace/matches/auto called")
+        result = await matching_svc.auto_match_pending_bids()
+        logger.info(f"Auto-match complete: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/matches/auto: {type(e).__name__}: {str(e)}")
+        raise
 
 
 @app.get("/v1/marketplace/plugins")
