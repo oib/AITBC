@@ -6,13 +6,16 @@ import time
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
-from ..utils import output, error, success, console
+from rich.console import Console
+
+from ..utils import output, error, success
 
 # Import shared modules
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
-# Initialize logger
+# Initialize logger and console
 logger = get_logger(__name__)
+console = Console()
 
 
 @click.group()
