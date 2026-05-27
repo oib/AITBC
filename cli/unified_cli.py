@@ -457,6 +457,9 @@ def run_cli(argv, core):
     def handle_market_orders(args):
         market_handlers.handle_market_orders(args, default_marketplace_url, output_format, render_mapping)
 
+    def handle_market_list_plugins(args):
+        market_handlers.handle_market_list_plugins(args, default_marketplace_url, output_format, render_mapping)
+
     def handle_workflow_create(args):
         workflow_handlers.handle_workflow_create(args, render_mapping)
 
@@ -702,6 +705,7 @@ def run_cli(argv, core):
         "handle_market_buy": handle_market_buy,
         "handle_market_sell": handle_market_sell,
         "handle_market_orders": handle_market_orders,
+        "handle_market_list_plugins": handle_market_list_plugins,
         "handle_workflow_create": handle_workflow_create,
         "handle_workflow_schedule": handle_workflow_schedule,
         "handle_workflow_monitor": handle_workflow_monitor,
@@ -976,17 +980,11 @@ def handle_bridge_restart(args):
     bridge_handlers.handle_bridge_restart(args)
 
 def main(argv=None):
-    import importlib.util
-    from pathlib import Path
-
-    cli_path = Path(__file__).with_name("aitbc_cli.py")
-    spec = importlib.util.spec_from_file_location("aitbc_cli_script_entry", cli_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load CLI entrypoint from {cli_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.main(argv)
+    """Main entry point for unified CLI - requires core dict to be provided."""
+    # This function requires a core dict to be passed via run_cli
+    # For standalone execution, use the aitbc-cli wrapper script
+    raise RuntimeError("unified_cli.main() requires core dict. Use run_cli(argv, core) instead.")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise RuntimeError("Use aitbc-cli script to run the CLI, not unified_cli.py directly")
