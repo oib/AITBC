@@ -78,7 +78,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'balance'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -92,7 +92,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', str(wallet_path),
             'balance'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         assert wallet_path.exists()
@@ -109,7 +109,7 @@ class TestWalletCommands:
             '25.5',
             'job_456',
             '--desc', 'Another test job'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -129,7 +129,7 @@ class TestWalletCommands:
             'spend',
             '30.0',
             'GPU rental'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -143,7 +143,7 @@ class TestWalletCommands:
             'spend',
             '200.0',
             'Too much'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
@@ -154,7 +154,7 @@ class TestWalletCommands:
             '--wallet-path', temp_wallet,
             'history',
             '--limit', '5'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -167,7 +167,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'address'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -178,7 +178,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'stats'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -205,7 +205,7 @@ class TestWalletCommands:
             'aitbc1recipient',
             '25.0',
             '--description', 'Payment'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -227,7 +227,7 @@ class TestWalletCommands:
             'aitbc1payer',
             '50.0',
             '--description', 'Service payment'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -244,7 +244,7 @@ class TestWalletCommands:
             'send',
             'aitbc1recipient',
             '200.0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
@@ -257,7 +257,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', str(wallet_path),
             'balance'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         assert wallet_path.exists()
@@ -270,7 +270,7 @@ class TestWalletCommands:
             'stake',
             '50.0',
             '--duration', '30'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -293,7 +293,7 @@ class TestWalletCommands:
             '--wallet-path', temp_wallet,
             'stake',
             '200.0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
@@ -306,7 +306,7 @@ class TestWalletCommands:
             'stake',
             '50.0',
             '--duration', '30'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         assert result.exit_code == 0
         stake_data = extract_json_from_output(result.output)
         stake_id = stake_data['stake_id']
@@ -316,7 +316,7 @@ class TestWalletCommands:
             '--wallet-path', temp_wallet,
             'unstake',
             stake_id
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -332,7 +332,7 @@ class TestWalletCommands:
             '--wallet-path', temp_wallet,
             'unstake',
             'nonexistent_stake'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'not found' in result.output
@@ -343,13 +343,13 @@ class TestWalletCommands:
         runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'stake', '30.0', '--duration', '60'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Check staking info
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'staking-info'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -364,7 +364,7 @@ class TestWalletCommands:
             'liquidity-stake', '40.0',
             '--pool', 'main',
             '--lock-days', '0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -381,7 +381,7 @@ class TestWalletCommands:
             '--wallet-path', temp_wallet,
             'liquidity-stake', '30.0',
             '--lock-days', '30'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -393,7 +393,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-stake', '500.0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
@@ -406,7 +406,7 @@ class TestWalletCommands:
             'liquidity-stake', '50.0',
             '--pool', 'main',
             '--lock-days', '0'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         assert result.exit_code == 0
         stake_id = extract_json_from_output(result.output)['stake_id']
         
@@ -414,7 +414,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-unstake', stake_id
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -428,7 +428,7 @@ class TestWalletCommands:
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-unstake', 'nonexistent'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code != 0
         assert 'not found' in result.output
@@ -439,17 +439,17 @@ class TestWalletCommands:
         runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'stake', '20.0', '--duration', '30'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-stake', '20.0', '--pool', 'main'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'rewards'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)

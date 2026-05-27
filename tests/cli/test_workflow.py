@@ -54,7 +54,7 @@ class TestWorkflowCommands:
         """Test running a basic workflow"""
         result = runner.invoke(workflow, [
             'run', 'test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
@@ -68,7 +68,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'run', 'test_workflow',
             '--config', str(config_file)
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
@@ -79,7 +79,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'run', 'test_workflow',
             '--dry-run'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'Dry run' in result.output
@@ -89,7 +89,7 @@ class TestWorkflowCommands:
         """Test listing available workflows"""
         result = runner.invoke(workflow, [
             'list'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -106,7 +106,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'list',
             '--format', 'table'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'Available workflows' in result.output
@@ -115,7 +115,7 @@ class TestWorkflowCommands:
         """Test getting workflow status"""
         result = runner.invoke(workflow, [
             'status', 'test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
@@ -125,7 +125,7 @@ class TestWorkflowCommands:
         """Test stopping a workflow"""
         result = runner.invoke(workflow, [
             'stop', 'test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
@@ -150,7 +150,7 @@ class TestWorkflowCommands:
         
         result = runner.invoke(workflow, [
             'run', 'api_workflow'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         # Verify API was called (if workflow command uses coordinator-api)
@@ -160,13 +160,13 @@ class TestWorkflowCommands:
         """Test that workflow execution generates unique IDs"""
         result1 = runner.invoke(workflow, [
             'run', 'test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         time.sleep(0.1)  # Small delay to ensure different timestamp
         
         result2 = runner.invoke(workflow, [
             'run', 'test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result1.exit_code == 0
         assert result2.exit_code == 0
@@ -184,7 +184,7 @@ class TestWorkflowCommands:
         """Test getting status of non-existent workflow"""
         result = runner.invoke(workflow, [
             'status', 'nonexistent_workflow_xyz'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         # Should return status even for non-existent workflows
@@ -194,7 +194,7 @@ class TestWorkflowCommands:
         """Test stopping non-existent workflow"""
         result = runner.invoke(workflow, [
             'stop', 'nonexistent_workflow_xyz'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result.exit_code == 0
         # Should attempt to stop even if not running
@@ -212,7 +212,7 @@ class TestWorkflowCommands:
         for name in special_names:
             result = runner.invoke(workflow, [
                 'run', name
-            ], obj={'config': mock_config, 'output_format': 'table'})
+            ], obj={'config': mock_config, 'output': 'table'})
             
             assert result.exit_code == 0
             assert name in result.output
@@ -221,7 +221,7 @@ class TestWorkflowCommands:
         """Test workflow listing with potential filters"""
         result = runner.invoke(workflow, [
             'list'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -241,14 +241,14 @@ class TestWorkflowCommands:
         # Table format
         result_table = runner.invoke(workflow, [
             'status', 'test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'table'})
+        ], obj={'config': mock_config, 'output': 'table'})
         
         assert result_table.exit_code == 0
         
         # JSON format
         result_json = runner.invoke(workflow, [
             'status', 'test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result_json.exit_code == 0
         # Should be parseable as JSON or contain status info
@@ -258,7 +258,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'run', 'test_integration_workflow',
             '--async'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -269,7 +269,7 @@ class TestWorkflowCommands:
         """Test listing workflows from coordinator-api"""
         result = runner.invoke(workflow, [
             'list'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -286,7 +286,7 @@ class TestWorkflowCommands:
         # First run a workflow
         run_result = runner.invoke(workflow, [
             'run', 'status_test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
@@ -296,7 +296,7 @@ class TestWorkflowCommands:
             # Get status
             status_result = runner.invoke(workflow, [
                 'status', workflow_id
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert status_result.exit_code == 0
             status_data = json.loads(status_result.output)
@@ -308,7 +308,7 @@ class TestWorkflowCommands:
         # Run a workflow
         run_result = runner.invoke(workflow, [
             'run', 'stop_test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
@@ -318,7 +318,7 @@ class TestWorkflowCommands:
             # Stop the workflow
             stop_result = runner.invoke(workflow, [
                 'stop', workflow_id
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert stop_result.exit_code == 0
             stop_data = json.loads(stop_result.output)
@@ -330,7 +330,7 @@ class TestWorkflowCommands:
             'run', 'param_test_workflow',
             '--param', 'gpu_count=4',
             '--param', 'timeout=300'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -341,7 +341,7 @@ class TestWorkflowCommands:
         # Start workflow
         run_result = runner.invoke(workflow, [
             'run', 'tracking_test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
@@ -351,7 +351,7 @@ class TestWorkflowCommands:
             # Check status immediately
             status1 = runner.invoke(workflow, [
                 'status', workflow_id
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert status1.exit_code == 0
             
@@ -360,7 +360,7 @@ class TestWorkflowCommands:
             
             status2 = runner.invoke(workflow, [
                 'status', workflow_id
-            ], obj={'config': mock_config, 'output_format': 'json'})
+            ], obj={'config': mock_config, 'output': 'json'})
             
             assert status2.exit_code == 0
             status2_data = json.loads(status2.output)
@@ -373,7 +373,7 @@ class TestWorkflowCommands:
         
         result = runner.invoke(workflow, [
             'run', 'error_test_workflow'
-        ], obj={'config': mock_config, 'output_format': 'json'})
+        ], obj={'config': mock_config, 'output': 'json'})
         
         # Should either fail gracefully or skip with appropriate message
         # The exact behavior depends on implementation
