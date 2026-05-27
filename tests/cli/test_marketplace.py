@@ -4,7 +4,7 @@ import pytest
 import json
 from click.testing import CliRunner
 from unittest.mock import Mock, patch
-from aitbc_cli.commands.marketplace import marketplace
+from aitbc_cli.commands.marketplace_cmd import marketplace
 
 
 @pytest.fixture

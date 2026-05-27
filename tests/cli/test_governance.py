@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from click.testing import CliRunner
 from unittest.mock import patch, MagicMock
-from aitbc_cli.commands.governance import governance
+from aitbc_cli.commands.operations import operations
 
 
 def extract_json_from_output(output_text):
@@ -47,7 +47,7 @@ def mock_config():
 def governance_dir(tmp_path):
     gov_dir = tmp_path / "governance"
     gov_dir.mkdir()
-    with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', gov_dir):
+    with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', gov_dir):
         yield gov_dir
 
 
@@ -55,8 +55,8 @@ class TestGovernanceCommands:
 
     def test_propose_general(self, runner, mock_config, governance_dir):
         """Test creating a general proposal"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Test Proposal',
                 '--description', 'A test proposal',
                 '--duration', '7'
@@ -71,8 +71,8 @@ class TestGovernanceCommands:
 
     def test_propose_parameter_change(self, runner, mock_config, governance_dir):
         """Test creating a parameter change proposal"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Change Block Size',
                 '--description', 'Increase block size to 2MB',
                 '--type', 'parameter_change',
@@ -86,8 +86,8 @@ class TestGovernanceCommands:
 
     def test_propose_funding(self, runner, mock_config, governance_dir):
         """Test creating a funding proposal"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Dev Fund',
                 '--description', 'Fund development',
                 '--type', 'funding',
@@ -100,16 +100,16 @@ class TestGovernanceCommands:
 
     def test_vote_for(self, runner, mock_config, governance_dir):
         """Test voting for a proposal"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
             # Create proposal
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Vote Test',
                 '--description', 'Test voting'
             ], obj={'config': mock_config, 'output_format': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
             # Vote
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for',
                 '--voter', 'alice'
             ], obj={'config': mock_config, 'output_format': 'json'})
@@ -122,14 +122,14 @@ class TestGovernanceCommands:
 
     def test_vote_against(self, runner, mock_config, governance_dir):
         """Test voting against a proposal"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Against Test',
                 '--description', 'Test against'
             ], obj={'config': mock_config, 'output_format': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'against',
                 '--voter', 'bob'
             ], obj={'config': mock_config, 'output_format': 'json'})
@@ -140,14 +140,14 @@ class TestGovernanceCommands:
 
     def test_vote_weighted(self, runner, mock_config, governance_dir):
         """Test weighted voting"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Weight Test',
                 '--description', 'Test weights'
             ], obj={'config': mock_config, 'output_format': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for',
                 '--voter', 'whale', '--weight', '10.0'
             ], obj={'config': mock_config, 'output_format': 'json'})
@@ -159,18 +159,18 @@ class TestGovernanceCommands:
 
     def test_vote_duplicate_rejected(self, runner, mock_config, governance_dir):
         """Test that duplicate votes are rejected"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Dup Test',
                 '--description', 'Test duplicate'
             ], obj={'config': mock_config, 'output_format': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
-            runner.invoke(governance, [
+            runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'alice'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'alice'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
@@ -179,8 +179,8 @@ class TestGovernanceCommands:
 
     def test_vote_invalid_proposal(self, runner, mock_config, governance_dir):
         """Test voting on nonexistent proposal"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'vote', 'nonexistent', 'for'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
@@ -189,16 +189,16 @@ class TestGovernanceCommands:
 
     def test_list_proposals(self, runner, mock_config, governance_dir):
         """Test listing proposals"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
             # Create two proposals
-            runner.invoke(governance, [
+            runner.invoke(operations, ['governance',
                 'propose', 'Prop A', '--description', 'First'
             ], obj={'config': mock_config, 'output_format': 'json'})
-            runner.invoke(governance, [
+            runner.invoke(operations, ['governance',
                 'propose', 'Prop B', '--description', 'Second'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'list'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
@@ -208,12 +208,12 @@ class TestGovernanceCommands:
 
     def test_list_filter_by_status(self, runner, mock_config, governance_dir):
         """Test listing proposals filtered by status"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            runner.invoke(operations, ['governance',
                 'propose', 'Active Prop', '--description', 'Active'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'list', '--status', 'active'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
@@ -224,25 +224,25 @@ class TestGovernanceCommands:
 
     def test_result_command(self, runner, mock_config, governance_dir):
         """Test viewing proposal results"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'propose', 'Result Test',
                 '--description', 'Test results'
             ], obj={'config': mock_config, 'output_format': 'json'})
             proposal_id = extract_json_from_output(result.output)['proposal_id']
 
             # Cast votes
-            runner.invoke(governance, [
+            runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'alice'
             ], obj={'config': mock_config, 'output_format': 'json'})
-            runner.invoke(governance, [
+            runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'against', '--voter', 'bob'
             ], obj={'config': mock_config, 'output_format': 'json'})
-            runner.invoke(governance, [
+            runner.invoke(operations, ['governance',
                 'vote', proposal_id, 'for', '--voter', 'charlie'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
-            result = runner.invoke(governance, [
+            result = runner.invoke(operations, ['governance',
                 'result', proposal_id
             ], obj={'config': mock_config, 'output_format': 'json'})
 
@@ -255,8 +255,8 @@ class TestGovernanceCommands:
 
     def test_result_invalid_proposal(self, runner, mock_config, governance_dir):
         """Test result for nonexistent proposal"""
-        with patch('aitbc_cli.commands.governance.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(governance, [
+        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
+            result = runner.invoke(operations, ['governance',
                 'result', 'nonexistent'
             ], obj={'config': mock_config, 'output_format': 'json'})
 
