@@ -41,7 +41,6 @@ def run(workflow_name: str, config: Optional[str], dry_run: bool):
 @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 def list(format: str):
     """List available workflows"""
-    success("Available workflows:")
     workflows = [
         {"name": "gpu-marketplace", "status": "active", "steps": 5},
         {"name": "ai-job-processing", "status": "active", "steps": 3},
@@ -51,6 +50,7 @@ def list(format: str):
     if format == 'json':
         click.echo(json.dumps(workflows, indent=2))
     else:
+        success("Available workflows:")
         for wf in workflows:
             click.echo(f"  - {wf['name']}: {wf['status']} ({wf['steps']} steps)")
 
