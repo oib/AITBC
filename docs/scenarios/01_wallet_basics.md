@@ -37,6 +37,10 @@ An hermes agent needs a wallet to:
 - Check wallet balance
 - List all wallets
 - Export private key (with security warnings)
+- Send AIT tokens to another address
+- Request payment from another address
+- Create multisig wallets
+- Stake liquidity in pools
 
 ### **Features Combined**
 - **Basic Wallet Operations**: Wallet creation, import, and management
@@ -152,6 +156,100 @@ aitbc wallet export my-agent-wallet
 ```
 
 You'll be prompted for the wallet password to decrypt the key.
+
+### **Step 6: Send AIT Tokens**
+Transfer AIT tokens to another address.
+
+```bash
+aitbc wallet my-agent-wallet send ait1recipient... 100
+```
+
+Output:
+```
+Transaction sent
+{
+  "tx_id": "0xabc123...",
+  "from": "ait1sender...",
+  "to": "ait1recipient...",
+  "amount": 100,
+  "fee": 1,
+  "status": "pending"
+}
+```
+
+### **Step 7: Request Payment**
+Generate a payment request for another address to send funds.
+
+```bash
+aitbc wallet my-agent-wallet request-payment 500
+```
+
+Output:
+```
+Payment request generated
+{
+  "request_id": "req_1716789123",
+  "address": "ait1sender...",
+  "amount": 500,
+  "status": "pending",
+  "expires_at": "2026-05-28T08:30:00"
+}
+```
+
+### **Step 8: Fund Wallet from Faucet**
+Request testnet funds from faucet (testnet only).
+
+```bash
+aitbc wallet my-agent-wallet fund
+```
+
+Output:
+```
+Faucet request submitted
+{
+  "address": "ait1sender...",
+  "amount": 1000000,
+  "status": "processing",
+  "tx_id": "0xdef456..."
+}
+```
+
+### **Step 9: Create Multisig Wallet**
+Create a multi-signature wallet requiring multiple signers.
+
+```bash
+aitbc wallet multisig-create ait1signer1... ait1signer2... ait1signer3...
+```
+
+Output:
+```
+Multisig wallet created
+{
+  "wallet_name": "multisig_wallet_001",
+  "signers": ["ait1signer1...", "ait1signer2...", "ait1signer3..."],
+  "threshold": 2,
+  "address": "ait1multisig..."
+}
+```
+
+### **Step 10: Stake Liquidity**
+Stake tokens in a liquidity pool to earn rewards.
+
+```bash
+aitbc wallet my-agent-wallet liquidity-stake 1000 --pool main
+```
+
+Output:
+```
+Liquidity stake created
+{
+  "stake_id": "liquidity_1716789123",
+  "amount": 1000,
+  "pool": "main",
+  "apy": 8.5,
+  "status": "active"
+}
+```
 
 ---
 
