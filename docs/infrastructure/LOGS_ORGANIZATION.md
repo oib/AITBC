@@ -4,7 +4,7 @@
 
 ## Log Files Location
 
-System logs are now properly organized in /var/log/aitbc (symlink to /var/lib/aitbc/logs/):
+System logs are now properly organized in /var/log/aitbc:
 
 ### Current Log Files:
 - 

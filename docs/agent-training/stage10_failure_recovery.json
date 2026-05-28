@@ -233,11 +233,11 @@
             },
             {
               "command": "tail -f /var/log/aitbc/blockchain-node.log",
-              "description": "Monitor blockchain node logs in real-time (symlink to /var/lib/aitbc/logs/)"
+              "description": "Monitor blockchain node logs in real-time"
             },
             {
               "command": "grep ERROR /var/log/aitbc/blockchain-node.log",
-              "description": "Search for errors in logs (symlink to /var/lib/aitbc/logs/)"
+              "description": "Search for errors in logs"
             },
             {
               "command": "journalctl -u aitbc-blockchain-node.service --since '1 hour ago'",
