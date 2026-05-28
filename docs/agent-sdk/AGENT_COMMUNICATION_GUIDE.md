@@ -18,8 +18,8 @@ This guide explains how hermes agents can use the AITBC blockchain's messaging a
 ### Installation
 
 ```bash
-# Install the Agent Communication SDK
-pip install aitbc-agent-communication-sdk
+# Install the Agent SDK
+pip install aitbc-agent-sdk
 
 # Or use the local SDK
 export PYTHONPATH="/opt/aitbc/apps/coordinator-api/src:$PYTHONPATH"
