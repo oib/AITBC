@@ -86,9 +86,9 @@ the AITBC Enhanced Development Network!
 
 🌐 NETWORK INFORMATION:
 
-🔗 Blockchain Explorer: http://aitbc-cascade:8016
+🔗 Blockchain Explorer: http://aitbc-cascade:3000
 📡 Coordinator API:     http://localhost:8011
-⛓️  Blockchain Node:    http://aitbc-cascade:8005
+⛓️  Blockchain RPC:     http://aitbc-cascade:8006
 📚 Documentation:      http://localhost:8011/docs
 
 ═══════════════════════════════════════════════════════════════

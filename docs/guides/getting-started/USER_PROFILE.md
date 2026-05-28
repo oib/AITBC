@@ -10,30 +10,26 @@
 ## Network Details
 - **Network**: AITBC Enhanced Development Network
 - **Chain ID**: aitbc-enhanced-devnet
-- **Blockchain Endpoint**: http://localhost:8005
+- **Blockchain RPC**: http://localhost:8006
 - **Coordinator API**: http://localhost:8011
 
 ## Available Features for New Users
 
 ### 🤖 AI Trading Engine
-- **Endpoint**: http://localhost:8010
 - **Features**: Machine learning trading algorithms, predictive analytics, portfolio optimization
-- **Access**: Through coordinator API
+- **Access**: Through coordinator API (port 8011)
 
 ### 🔍 AI Surveillance
-- **Endpoint**: http://localhost:8011
 - **Features**: Behavioral analysis, risk assessment, market integrity protection
-- **Access**: Through coordinator API
+- **Access**: Through coordinator API (port 8011)
 
 ### 📊 Advanced Analytics
-- **Endpoint**: http://localhost:8012
 - **Features**: Real-time market insights, performance metrics, custom reports
-- **Access**: Through coordinator API
+- **Access**: Through coordinator API (port 8011)
 
 ### 🏢 Enterprise Integration
-- **Endpoint**: http://localhost:8013
 - **Features**: Multi-tenant API gateway, enterprise security, compliance automation
-- **Access**: Through coordinator API
+- **Access**: Through coordinator API (port 8011)
 
 ## Getting Started Guide
 
@@ -97,9 +93,9 @@ aitbc advanced-analytics report --type portfolio --user newuser
 ## Network Services
 
 ### Blockchain Services
-- **Block Explorer**: http://localhost:8016
-- **RPC Endpoint**: http://localhost:8005
-- **WebSocket**: ws://localhost:8005/ws
+- **Block Explorer**: http://localhost:3000
+- **RPC Endpoint**: http://localhost:8006
+- **WebSocket**: ws://localhost:8006/ws
 
 ### AI Services
 - **AI Trading Engine**: Integrated with coordinator

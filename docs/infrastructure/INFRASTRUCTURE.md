@@ -29,11 +29,11 @@ Internet → aitbc1.bubuit.net (HTTPS :443) → aitbc.bubuit.net
 │  │                                        │  │
 │  │  Nginx (:80) → routes to services:    │  │
 │  │    /              → static website     │  │
-│  │    /api/          → :8000 (coordinator)│  │
+│  │    /api/          → :8011 (coordinator)│  │
 │  │    /exchange/     → :8001 (exchange)  │  │
 │  │    /rpc/          → :8006 (blockchain) │  │
-│  │    /wallet/       → :8000 (wallet)     │  │
-│  │    /health        → :8000 (health)    │  │
+│  │    /wallet/       → :8011 (wallet)     │  │
+│  │    /health        → :8011 (health)    │  │
 │  │    /gpu/multimodal/ → :8010            │  │
 │  │    /gpu/service/   → :8011             │  │
 │  │    /optimization/  → :8012             │  │
@@ -292,7 +292,7 @@ ssh aitbc                          # Direct SSH to aitbc server
 **Miner Service**: Not needed - aitbc server operates in CPU-only mode.
 
 **Host Proxies (for localhost GPU clients)**
-- `127.0.0.1:8000` → container `127.0.0.1:8000` (coordinator/marketplace API)
+- `127.0.0.1:8011` → container `127.0.0.1:8011` (coordinator/marketplace API)
 - Use this to submit offers/bids/contracts/mining requests from localhost GPU miners/dev clients.
 
 **Container Services (Updated March 5, 2026 - Port Logic 8000+)**
@@ -346,16 +346,16 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 
 **at1 dual-miner/dual-client test (shared GPU)**
 - Run two miners on **at1** (GPU shared), targeting each marketplace:
-  - Miner A → `http://127.0.0.1:8000`
+  - Miner A → `http://127.0.0.1:8011`
   - Miner B → `http://127.0.0.1:8015`
 - Run two clients on **at1** for bids/contracts/Ollama answers:
-  - Client 1 → `http://127.0.0.1:8000`
+  - Client 1 → `http://127.0.0.1:8011`
   - Client 2 → `http://127.0.0.1:8015`
 - Use a shared dev chain so both marketplaces see the same on-chain events.
 - Example commands (adjust to your scripts/flags):
-  - `miner --id miner-A --gpu 0 --api http://127.0.0.1:8000`
+  - `miner --id miner-A --gpu 0 --api http://127.0.0.1:8011`
   - `miner --id miner-B --gpu 0 --api http://127.0.0.1:8015`
-  - `client --id client-1 --api http://127.0.0.1:8000 --ollama-model <model>`
+  - `client --id client-1 --api http://127.0.0.1:8011 --ollama-model <model>`
   - `client --id client-2 --api http://127.0.0.1:8015 --ollama-model <model>`
 
 
@@ -409,7 +409,7 @@ ssh aitbc "python3 --version"  # Should show Python 3.13.5
 ssh aitbc "node --version"      # Should show v24.14.x
 ssh aitbc "npm --version"       # Should show compatible version
 ssh aitbc "ls -la /opt/*/.venv/bin/python"  # Check venv symlinks
-ssh aitbc "curl -s http://127.0.0.1:8000/v1/health"  # Coordinator API health
+ssh aitbc "curl -s http://127.0.0.1:8011/v1/health"  # Coordinator API health
 curl -s https://aitbc.bubuit.net/api/v1/health  # External API access
 ```
 
@@ -429,11 +429,11 @@ Config: `/etc/nginx/sites-enabled/aitbc`
 | Route | Target | Type | Status |
 |-------|--------|------|--------|
 | `/` | static files (`/var/www/html/`) | try_files | ✅ |
-| `/api/` | proxy → `127.0.0.1:8000/v1/` | proxy_pass | ✅ |
+| `/api/` | proxy → `127.0.0.1:8011/v1/` | proxy_pass | ✅ |
 | `/exchange/` | proxy → `127.0.0.1:8001/` | proxy_pass | ✅ |
 | `/rpc/` | proxy → `127.0.0.1:8006/rpc/` | proxy_pass | ✅ |
-| `/wallet/` | proxy → `127.0.0.1:8000/wallet/` | proxy_pass | ✅ |
-| `/health` | proxy → `127.0.0.1:8000/v1/health` | proxy_pass | ✅ |
+| `/wallet/` | proxy → `127.0.0.1:8011/wallet/` | proxy_pass | ✅ |
+| `/health` | proxy → `127.0.0.1:8011/v1/health` | proxy_pass | ✅ |
 | `/gpu/multimodal/` | proxy → `127.0.0.1:8010/` | proxy_pass | ✅ (CPU-only) |
 | `/gpu/service/` | proxy → `127.0.0.1:8011/` | proxy_pass | ✅ (CPU-only) |
 | `/optimization/` | proxy → `127.0.0.1:8012/` | proxy_pass | ✅ |

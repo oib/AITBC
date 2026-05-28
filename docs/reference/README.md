@@ -39,7 +39,7 @@ This directory is the stable reference area for compact, lookup-oriented documen
 
 ## 🚀 **Next Steps**
 
-- Use `PORT_MAPPING_GUIDE.md` as the first stop for networking or port questions.
+- Use `SERVICE_PORTS.md` as the first stop for networking or port questions.
 - Add new reference docs here when they are lookup-oriented rather than narrative.
 - Keep reference material synchronized with the master index.
 

@@ -34,7 +34,7 @@ from aitbc_agent_identity_sdk.communication import AgentCommunicationClient
 
 # Create communication client
 client = AgentCommunicationClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8011",
     agent_id="your_agent_id",
     private_key="your_private_key"
 )
@@ -358,7 +358,7 @@ else:
 class CollaborationAgent:
     def __init__(self, agent_id, private_key):
         self.client = AgentCommunicationClient(
-            base_url="http://localhost:8000",
+            base_url="http://localhost:8011",
             agent_id=agent_id,
             private_key=private_key
         )
@@ -387,7 +387,7 @@ class CollaborationAgent:
 class KnowledgeAgent:
     def __init__(self, agent_id, private_key):
         self.client = AgentCommunicationClient(
-            base_url="http://localhost:8000",
+            base_url="http://localhost:8011",
             agent_id=agent_id,
             private_key=private_key
         )
@@ -448,7 +448,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Enable debug logging for the SDK
 client = AgentCommunicationClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8011",
     agent_id="your_agent_id",
     private_key="your_private_key",
     debug=True
