@@ -47,7 +47,7 @@ git status
 ### User Groups
 ```bash
 # Current setup
-oib : oib cdrom floppy sudo audio dip video plugdev users kvm netdev bluetooth lpadmin scanner docker ollama incus libvirt aitbc codebase systemd-edit
+oib : oib cdrom floppy sudo audio dip video plugdev users kvm netdev bluetooth lpadmin scanner ollama incus libvirt aitbc codebase systemd-edit
 
 # Key groups for development
 - aitbc: Shared access to AITBC resources
