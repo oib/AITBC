@@ -1,5 +1,7 @@
 # AITBC Infrastructure Documentation
 
+> **Important:** This document describes the designed infrastructure architecture. For the current operational state and deployment status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+>
 > Last updated: 2026-03-10 (Updated nginx configuration with new port logic implementation)
 
 ## Overview
@@ -49,35 +51,57 @@ Internet → aitbc1.bubuit.net (HTTPS :443) → aitbc.bubuit.net
 
 ## Port Logic Implementation (Updated March 10, 2026)
 
+> **Status:** The port assignments below represent the designed architecture. For current operational status and actual port usage, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md) and [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
+### Verification Commands
+
+To verify the actual running services and port usage:
+
+```bash
+# Check which AITBC services are actually running
+systemctl list-units --state=running | grep aitbc
+
+# Check which ports are actually in use
+sudo netstat -tlnp | grep -E ":(8000|8001|8005|8006|8010|8011|8012|8013|8014|8015|8016|8017)"
+
+# Check systemd service files that actually exist
+ls -la /etc/systemd/system/aitbc-*.service
+
+# Check actual directory structure
+ls -la /opt/aitbc/
+ls -la /var/lib/aitbc/
+ls -la /etc/aitbc/
+```
+
 ### **Core Services (8000-8001) - AT1 STANDARD REFERENCE**
-- **Port 8000**: Coordinator API ✅ PRODUCTION READY
-- **Port 8001**: Exchange API ✅ PRODUCTION READY (127.0.0.1 binding)
+- **Port 8000**: Coordinator API 🟡 Designed
+- **Port 8001**: Exchange API 🟡 Designed (127.0.0.1 binding)
 
 ### **Blockchain Services (8005-8006) - AT1 STANDARD REFERENCE**
-- **Port 8005**: Primary Blockchain Node ✅ PRODUCTION READY (aitbc-blockchain-node.service)
-- **Port 8006**: Primary Blockchain RPC ✅ PRODUCTION READY (aitbc-blockchain-rpc.service)
+- **Port 8005**: Primary Blockchain Node 🟡 Designed (aitbc-blockchain-node.service)
+- **Port 8006**: Primary Blockchain RPC 🟡 Designed (aitbc-blockchain-rpc.service)
 
 ### **Enhanced Services (8010-8017) - CPU-ONLY MODE**
-- **Port 8010**: Multimodal GPU Service ✅ PRODUCTION READY (CPU-only mode)
-- **Port 8011**: GPU Multimodal Service ✅ PRODUCTION READY (CPU-only mode)
-- **Port 8012**: Modality Optimization Service ✅ PRODUCTION READY
-- **Port 8013**: Adaptive Learning Service ✅ PRODUCTION READY
-- **Port 8014**: Marketplace Enhanced Service ✅ PRODUCTION READY
-- **Port 8015**: hermes Enhanced Service ✅ PRODUCTION READY
-- **Port 8016**: Blockchain Explorer Service ✅ PRODUCTION READY
-- **Port 8017**: Geographic Load Balancer ✅ PRODUCTION READY
+- **Port 8010**: Multimodal GPU Service 🟡 Designed (CPU-only mode)
+- **Port 8011**: GPU Multimodal Service 🟡 Designed (CPU-only mode)
+- **Port 8012**: Modality Optimization Service 🟡 Designed
+- **Port 8013**: Adaptive Learning Service 🟡 Designed
+- **Port 8014**: Marketplace Enhanced Service 🟡 Designed
+- **Port 8015**: hermes Enhanced Service 🟡 Designed
+- **Port 8016**: Blockchain Explorer Service 🟡 Designed
+- **Port 8017**: Geographic Load Balancer 🟡 Designed
 
 ### **Mock & Test Services (8020-8029)**
-- **Port 8020**: Mock Coordinator API ✅ TESTING READY
-- **Port 8021**: Coordinator API (dev) ✅ TESTING READY
-- **Port 8022**: Test Blockchain Node (localhost) ✅ TESTING READY
-- **Port 8023**: Mock Exchange API ✅ TESTING READY
-- **Port 8024**: Mock Blockchain RPC ✅ TESTING READY
-- **Port 8025**: Development Blockchain Node ✅ TESTING READY (aitbc-blockchain-node-dev.service)
-- **Port 8026**: Development Blockchain RPC ✅ TESTING READY (aitbc-blockchain-rpc-dev.service)
-- **Port 8027**: Load Testing Endpoint ✅ TESTING READY
-- **Port 8028**: Integration Test API ✅ TESTING READY
-- **Port 8029**: Performance Monitor ✅ TESTING READY
+- **Port 8020**: Mock Coordinator API 🟡 Designed
+- **Port 8021**: Coordinator API (dev) 🟡 Designed
+- **Port 8022**: Test Blockchain Node (localhost) 🟡 Designed
+- **Port 8023**: Mock Exchange API 🟡 Designed
+- **Port 8024**: Mock Blockchain RPC 🟡 Designed
+- **Port 8025**: Development Blockchain Node 🟡 Designed (aitbc-blockchain-node-dev.service)
+- **Port 8026**: Development Blockchain RPC 🟡 Designed (aitbc-blockchain-rpc-dev.service)
+- **Port 8027**: Load Testing Endpoint 🟡 Designed
+- **Port 8028**: Integration Test API 🟡 Designed
+- **Port 8029**: Performance Monitor 🟡 Designed
 
 ### **Container Services (8080-8089) - LEGACY**
 - **Port 8080**: Container Coordinator API (aitbc) ⚠️ LEGACY - Use port 8000-8003 range

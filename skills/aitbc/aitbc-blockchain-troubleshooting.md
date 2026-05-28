@@ -6,6 +6,8 @@ category: troubleshooting
 
 # AITBC Blockchain Troubleshooting Skill
 
+**Status:** 🟢 **Evergreen Reference** - Troubleshooting procedures valid regardless of service state
+
 ## Trigger Conditions
 Activate when user requests blockchain troubleshooting: sync issues, P2P problems, service failures, data corruption, or blockchain recovery operations.
 
@@ -19,8 +21,30 @@ Diagnose and troubleshoot AITBC blockchain issues including synchronization fail
 - Data directory at `/var/lib/aitbc/`
 - CLI accessible at `/opt/aitbc/aitbc-cli`
 
+## Prerequisites Check
+Before proceeding, verify:
+```bash
+# Check SSH connectivity
+ssh aitbc1 'echo "SSH to aitbc1 working"'
+ssh gitea-runner 'echo "SSH to gitea-runner working"'
+
+# Check service status on all nodes
+systemctl list-units --state=running | grep aitbc
+ssh aitbc1 'systemctl list-units --state=running | grep aitbc'
+ssh gitea-runner 'systemctl list-units --state=running | grep aitbc'
+
+# Verify CLI accessible
+/opt/aitbc/aitbc-cli --version
+
+# Check data directory
+ls -la /var/lib/aitbc/
+```
+
 ## Port Reference
 
+For authoritative port configuration, see [Service Ports Reference](../../docs/reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
 | Blockchain RPC | 8006 | Main blockchain API + messaging |
@@ -202,16 +226,19 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
 - [ ] CoW disabled on data directory
 - [ ] WAL mode enabled for database
 
-## CLI Tool Preference
-- **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
-- **RPC URL:** Default is `http://localhost:8006`
-- **Coordinator API:** Port 8011
+## CLI Entry Point
 
-## Status
-**AITBC Blockchain Troubleshooting: FULLY OPERATIONAL**
-- All blockchain services running
-- Troubleshooting procedures verified
-- **This skill ships with AITBC software repository**
+**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+
+This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+
+**Usage Examples:**
+```bash
+# All CLI operations (use wrapper)
+/opt/aitbc/aitbc-cli chain
+/opt/aitbc/aitbc-cli network
+/opt/aitbc/aitbc-cli mempool status
+```
 
 ---
 

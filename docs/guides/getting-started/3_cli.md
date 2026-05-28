@@ -2,6 +2,8 @@
 
 **Complete Command Line Interface Setup and Usage**
 
+> **Note:** This document describes the CLI usage for the AITBC platform. For the current operational state and deployment status, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+
 ## 🚀 **Quick Start**
 
 ### Prerequisites
@@ -11,15 +13,15 @@
 
 ### Installation
 ```bash
-# 1. Load development environment
-source /opt/aitbc/.env.dev
+# 1. Navigate to AITBC directory
+cd /opt/aitbc
 
 # 2. Test CLI installation
-aitbc --help
-aitbc version
+/opt/aitbc/aitbc-cli --help
+/opt/aitbc/aitbc-cli --version
 
 # 3. Verify services are running
-aitbc-services status
+systemctl list-units --state=running | grep aitbc
 ```
 
 ## 🔧 **Development Environment Setup**
@@ -35,13 +37,11 @@ sudo /opt/aitbc/scripts/clean-sudoers-fix.sh
 
 ### Environment Variables
 ```bash
-# Load development environment
-source /opt/aitbc/.env.dev
+# Activate Python virtual environment
+source /opt/aitbc/venv/bin/activate
 
-# Available aliases
-aitbc-services    # Service management
-aitbc-fix         # Quick permission fix
-aitbc-logs        # View logs
+# Check dependencies
+/opt/aitbc/scripts/utils/check-dependencies.sh
 ```
 
 ## 📋 **Basic Operations**
@@ -49,87 +49,53 @@ aitbc-logs        # View logs
 ### Wallet Management
 ```bash
 # Create new wallet
-aitbc wallet create --name "my-wallet"
+/opt/aitbc/aitbc-cli create --name "my-wallet" --password "password123"
 
 # List wallets
-aitbc wallet list
+/opt/aitbc/aitbc-cli list
 
 # Check balance
-aitbc wallet balance --wallet "my-wallet"
-
-# Get address
-aitbc wallet address --wallet "my-wallet"
+/opt/aitbc/aitbc-cli balance --name "my-wallet"
 ```
 
 ### Exchange Operations
 ```bash
-# Register with exchange
-aitbc exchange register --name "Binance" --api-key <your-api-key>
-
-# Create trading pair
-aitbc exchange create-pair AITBC/BTC
-
-# Start trading
-aitbc exchange start-trading --pair AITBC/BTC
-
-# Check exchange status
-aitbc exchange status
+# Note: Exchange operations may require additional setup
+# Check exchange status via API
+curl -s http://localhost:8001/health
 ```
 
 ### Blockchain Operations
 ```bash
 # Get blockchain info
-aitbc blockchain info
+/opt/aitbc/aitbc-cli chain
 
 # Check node status
-aitbc blockchain status
-
-# List recent blocks
-aitbc blockchain blocks --limit 10
+/opt/aitbc/aitbc-cli network
 
 # Check balance
-aitbc blockchain balance --address <address>
+/opt/aitbc/aitbc-cli balance --name "my-wallet"
 ```
 
 ## 🛠️ **Advanced Usage**
 
 ### Output Formats
 ```bash
-# JSON output
-aitbc --output json wallet balance
-
-# YAML output
-aitbc --output yaml blockchain info
-
 # Table output (default)
-aitbc wallet list
+/opt/aitbc/aitbc-cli list
+
+# JSON output (if supported)
+/opt/aitbc/aitbc-cli chain --output json
 ```
 
 ### Debug Mode
 ```bash
-# Enable debug output
-aitbc --debug wallet list
+# Enable debug output (if supported)
+/opt/aitbc/aitbc-cli --debug chain
 
-# Test mode (uses mock data)
-aitbc --test-mode exchange status
-
-# Custom timeout
-aitbc --timeout 60 blockchain info
-```
-
-### Configuration
-```bash
-# Show current configuration
-aitbc config show
-
-# Get specific config value
-aitbc config get coordinator_url
-
-# Set config value
-aitbc config set timeout 30
-
-# Edit configuration
-aitbc config edit
+# Test service connectivity
+curl -s http://localhost:8006/health
+curl -s http://localhost:8011/health
 ```
 
 ## 🔍 **Troubleshooting**
@@ -148,49 +114,36 @@ aitbc config edit
 #### Service Not Running
 ```bash
 # Check service status
-aitbc-services status
+systemctl list-units --state=running | grep aitbc
 
 # Restart services
-aitbc-services restart
+sudo systemctl restart aitbc-blockchain-node.service
 
 # View logs
-aitbc-logs
+journalctl -u aitbc-blockchain-node.service -f
 ```
 
 #### Command Not Found
 ```bash
 # Check CLI installation
-which aitbc
+ls -la /opt/aitbc/aitbc-cli
 
-# Load environment
-source /opt/aitbc/.env.dev
+# Activate virtual environment
+source /opt/aitbc/venv/bin/activate
 
-# Check PATH
-echo $PATH | grep aitbc
+# Check dependencies
+/opt/aitbc/scripts/utils/check-dependencies.sh
 ```
 
 #### API Connection Issues
 ```bash
-# Test with debug mode
-aitbc --debug blockchain status
-
-# Test with custom URL
-aitbc --url http://localhost:8011 blockchain info
-
 # Check service endpoints
-curl http://localhost:8011/health
-```
+curl -s http://localhost:8006/health
+curl -s http://localhost:8011/health
+curl -s http://localhost:8102/health
 
-### Debug Mode
-```bash
-# Enable debug for any command
-aitbc --debug <command>
-
-# Check configuration
-aitbc config show
-
-# Test service connectivity
-aitbc --test-mode blockchain status
+# Check service status
+systemctl status aitbc-coordinator-api.service
 ```
 
 ## 📚 **Next Steps**
@@ -217,17 +170,20 @@ aitbc --test-mode blockchain status
 
 ### Development Workflow
 ```bash
-# 1. Load environment
-source /opt/aitbc/.env.dev
+# 1. Navigate to AITBC directory
+cd /opt/aitbc
 
-# 2. Check services
-aitbc-services status
+# 2. Activate virtual environment
+source venv/bin/activate
 
-# 3. Test CLI
-aitbc version
+# 3. Check services
+systemctl list-units --state=running | grep aitbc
 
-# 4. Start development
-aitbc wallet create
+# 4. Test CLI
+/opt/aitbc/aitbc-cli --version
+
+# 5. Check dependencies
+./scripts/utils/check-dependencies.sh
 ```
 
 ### Security Best Practices
@@ -245,6 +201,6 @@ aitbc wallet create
 
 ---
 
-**Last Updated**: March 8, 2026  
-**CLI Version**: 0.1.0  
-**Test Coverage**: 67/67 tests passing (100%)
+**Last Updated**: May 28, 2026
+**CLI Version**: Current
+**Test Coverage**: See [ROADMAP.md](../../planning/ROADMAP.md) for current test coverage targets

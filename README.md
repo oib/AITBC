@@ -2,6 +2,8 @@
 
 ![AITBC Logo](website/assets/AITBC.svg)
 
+> **Note:** This README describes the designed capabilities of the AITBC platform. For the current operational state and deployment status, see [Current Operational State](docs/infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## Implemented Features
 
 ### Blockchain Infrastructure

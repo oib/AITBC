@@ -62,9 +62,9 @@ def main(argv=None):
     
     core = {
         "DEFAULT_RPC_URL": f"http://localhost:{BLOCKCHAIN_RPC_PORT}",
-        "DEFAULT_COORDINATOR_URL": "http://localhost:9001",
+        "DEFAULT_COORDINATOR_URL": "http://localhost:8011",
         "DEFAULT_GPU_URL": "http://localhost:8101",
-        "DEFAULT_MARKETPLACE_URL": "http://localhost:8001",
+        "DEFAULT_MARKETPLACE_URL": "http://localhost:8102",
         "DEFAULT_TRADING_URL": "http://localhost:8104",
         "DEFAULT_GOVERNANCE_URL": "http://localhost:8105",
         "CLI_VERSION": "0.0.0",

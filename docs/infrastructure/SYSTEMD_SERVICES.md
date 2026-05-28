@@ -1,14 +1,18 @@
 # SystemD Services Management Guide
 
-**Last Updated**: 2026-03-29  
-**Version**: 3.4 (Debian Root Usage)  
-**Environment**: Debian Linux with root user (no sudo required)
+> **Important:** This document describes the designed systemd service configuration. For the current operational state and actual service status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+>
+> **Last Updated**: 2026-03-29
+> **Version**: 3.4 (Debian Root Usage)
+> **Environment**: Debian Linux with root user (no sudo required)
 
 ## Overview
 
 This guide covers SystemD service management for AITBC following the infrastructure optimization that fixed 34+ services.
 
 ## 🚀 Service Status After Optimization
+
+> **Note:** The service fixes described below represent designed configuration. Actual service availability depends on deployment state. Verify current status using the verification commands in this document.
 
 ### ✅ Fixed Services (34+ services updated)
 - **Python Interpreter**: Changed from non-existent venvs to `/usr/bin/python3`
@@ -17,6 +21,8 @@ This guide covers SystemD service management for AITBC following the infrastruct
 - **PYTHONPATH**: Fixed module import paths
 
 ### 📁 Service Categories
+
+> **Note:** Port assignments below represent designed configuration. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 #### Core Services
 - `aitbc-coordinator-api.service` - Central API (Port 8011)
@@ -42,9 +48,29 @@ This guide covers SystemD service management for AITBC following the infrastruct
 
 ## 🧭 Current Port Mapping
 
+> **Note:** Port assignments below represent designed configuration. Verify actual port usage with verification commands.
+
+### Verification Commands
+
+```bash
+# Check which AITBC systemd services are actually installed
+ls -la /etc/systemd/system/aitbc-*.service
+
+# Check which AITBC services are actually running
+systemctl list-units --state=running | grep aitbc
+
+# Check which ports are actually in use by AITBC services
+sudo netstat -tlnp | grep -E ":(8001|8003|8005|8006|8010|8011)"
+
+# Check service status for specific services
+systemctl status aitbc-coordinator-api.service
+systemctl status aitbc-blockchain-node.service
+systemctl status aitbc-blockchain-rpc.service
+```
+
 ### Active Services (as of 2026-03-29)
 ```bash
-✅ Port 8001 - Exchange API (aitbc-exchange-api.service)  
+✅ Port 8001 - Exchange API (aitbc-exchange-api.service)
 ✅ Port 8003 - Wallet Service (aitbc-wallet.service)
 ✅ Port 8006 - Blockchain RPC (aitbc-blockchain-rpc.service)
 ✅ Port 8011 - Coordinator API (aitbc-coordinator-api.service)

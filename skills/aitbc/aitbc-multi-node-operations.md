@@ -6,6 +6,8 @@ category: operations
 
 # AITBC Multi-Node Operations Skill
 
+**Status:** 🟡 **Procedure Validated** - Procedures accurate if dependencies and services are present
+
 ## Trigger Conditions
 Activate when user requests multi-node operations: git synchronization, service restart across nodes, blockchain state sync, or coordinated actions across the AITBC multi-node deployment.
 
@@ -22,6 +24,9 @@ Synchronize git changes, coordinate blockchain state, and manage multi-node oper
 
 ## Port Reference (Same on All Nodes)
 
+For authoritative port configuration, see [Service Ports Reference](../../docs/reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
 | Blockchain RPC | 8006 | Main blockchain API |
@@ -34,6 +39,25 @@ Synchronize git changes, coordinate blockchain state, and manage multi-node oper
 - Git remote configured: `origin` (Gitea) and `github` (GitHub)
 - All nodes have AITBC repository at `/opt/aitbc`
 - Systemd services operational on all nodes
+
+## Prerequisites Check
+Before proceeding, verify:
+```bash
+# Check SSH connectivity to all nodes
+ssh aitbc1 'echo "SSH to aitbc1 working"'
+ssh gitea-runner 'echo "SSH to gitea-runner working"'
+
+# Check git remotes
+cd /opt/aitbc && git remote -v
+
+# Check service status on all nodes
+systemctl list-units --state=running | grep aitbc
+ssh aitbc1 'systemctl list-units --state=running | grep aitbc'
+ssh gitea-runner 'systemctl list-units --state=running | grep aitbc'
+
+# Verify CLI accessible
+/opt/aitbc/aitbc-cli --version
+```
 
 ## Operations
 
@@ -145,15 +169,19 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 5. Verify service health after sync and restart
 6. Check blockchain sync after service restarts
 
-## CLI Tool Preference
-- **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
-- **SSH Access:** Use `ssh aitbc1` for follower node, `ssh gitea-runner` for CI/CD node
+## CLI Entry Point
 
-## Status
-**AITBC Multi-Node Operations: FULLY OPERATIONAL**
-- All nodes synchronized
-- Cross-node operations verified
-- **This skill ships with AITBC software repository**
+**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+
+This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+
+**Usage Examples:**
+```bash
+# All CLI operations (use wrapper)
+/opt/aitbc/aitbc-cli chain
+/opt/aitbc/aitbc-cli network
+/opt/aitbc/aitbc-cli balance --name genesis
+```
 
 ---
 

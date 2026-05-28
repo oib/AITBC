@@ -1,10 +1,12 @@
 # AITBC Server Deployment Guide
 
+> **Important:** This document describes the designed deployment architecture for the aitbc server. For the current operational state and deployment status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+>
+> **Note**: This documentation is specific to the aitbc secondary server. For aitbc1 primary server documentation, see [aitbc1.md](./aitbc1.md).
+
 ## Overview
 
 This guide provides comprehensive deployment instructions for the **aitbc server** (secondary development server), including infrastructure requirements, service configurations, and troubleshooting procedures. **Updated March 25, 2026: Updated architecture with aitbc1 as primary server and aitbc as secondary server.**
-
-**Note**: This documentation is specific to the aitbc secondary server. For aitbc1 primary server documentation, see [aitbc1.md](./aitbc1.md).
 
 ## System Requirements
 
@@ -54,6 +56,32 @@ This guide provides comprehensive deployment instructions for the **aitbc server
 - **Legacy Container Ports**: 8080-8089 (deprecated - use new port ranges)
 - **Firewall**: Managed by firehol on at1 host (container networking handled by incus)
 - **SSL/TLS**: Recommended for production deployments
+
+### **Verification Commands**
+
+Before deploying, verify the current state:
+
+```bash
+# Check which AITBC systemd services are actually installed
+ls -la /etc/systemd/system/aitbc-*.service
+
+# Check which AITBC services are actually running
+systemctl list-units --state=running | grep aitbc
+
+# Check which ports are actually in use
+sudo netstat -tlnp | grep -E ":(8000|8001|8002|8003|8005|8006|8007|8008|8010|8011|8012|8013|8014|8015|8016|8017)"
+
+# Check actual directory structure
+ls -la /opt/aitbc/
+ls -la /var/lib/aitbc/
+ls -la /etc/aitbc/
+
+# Check Python version
+python3 --version
+
+# Check if PostgreSQL is running (if using PostgreSQL)
+systemctl status postgresql
+```
 
 ### **Container Access & SSH Management (Updated March 6, 2026)**
 

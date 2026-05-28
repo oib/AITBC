@@ -6,6 +6,8 @@ category: marketplace
 
 # AITBC Marketplace Skill
 
+**Status:** 🟡 **Procedure Validated** - Procedures accurate if dependencies and services are present
+
 ## Trigger Conditions
 Activate when user requests marketplace operations: listing creation, price optimization, market analysis, trading operations, GPU provider registration, or marketplace status checks.
 
@@ -18,8 +20,32 @@ Create, manage, and optimize AITBC marketplace listings with pricing strategies 
 - Marketplace service operational on port 8102
 - GPU provider marketplace operational for resource allocation (if using GPU features)
 
+## Prerequisites Check
+Before proceeding, verify:
+```bash
+# Check service status
+systemctl list-units --state=running | grep aitbc
+
+# Check Python dependencies
+source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
+
+# Verify CLI accessible
+/opt/aitbc/aitbc-cli --version
+
+# Check marketplace health
+curl -s http://localhost:8102/health
+
+# Check wallet balance
+/opt/aitbc/aitbc-cli balance --name genesis
+```
+
+**If services are not running or dependencies are missing**, see [Blockchain Troubleshooting](aitbc-blockchain-troubleshooting.md) for resolution steps.
+
 ## Port Reference
 
+For authoritative port configuration, see [Service Ports Reference](../../docs/reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
 | Marketplace | 8102 | Offers, bids, orders |
@@ -119,17 +145,29 @@ cd /opt/aitbc && python3 cli/unified_cli.py market orders \
 - [ ] GPU provider registration returns provider ID
 - [ ] Bid creation returns bid ID and status
 
-## CLI Tool Preference
-- **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
-- **Module:** `cli/unified_cli.py` is a module within the CLI tool for marketplace and messaging operations
-- **Note:** For marketplace operations, prefer `python3 cli/unified_cli.py` (verified working)
-- **Marketplace URL:** `http://localhost:8102` on main node
+## CLI Entry Point
 
-## Status
-**AITBC Marketplace: FULLY OPERATIONAL**
-- All marketplace operations verified working
-- GPU provider integration functional
-- **This skill ships with AITBC software repository**
+**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+
+This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+
+**Direct Python Invocation:** `python3 cli/unified_cli.py`
+
+Use direct Python invocation for:
+- Marketplace operations (GPU provider registration, trading)
+- GPU testing and Ollama operations
+- Specific module features requiring direct access
+
+**Usage Examples:**
+```bash
+# Standard operations (use wrapper)
+/opt/aitbc/aitbc-cli marketplace --action list
+/opt/aitbc/aitbc-cli market-create --wallet genesis --type ai-inference --price 100
+
+# Marketplace/GPU operations (use direct Python)
+python3 cli/unified_cli.py market gpu-provider-register --wallet genesis --gpu-model llama2
+python3 cli/unified_cli.py market buy --item <offer_id> --wallet genesis
+```
 
 ---
 
