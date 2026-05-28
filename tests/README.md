@@ -236,7 +236,8 @@ Full system tests that simulate real user workflows:
 - **Examples**:
   ```bash
   # Start full system
-  docker-compose up -d
+  sudo systemctl start aitbc-coordinator-api.service
+  sudo systemctl start aitbc-blockchain-node.service
   
   # Run E2E tests
   pytest tests/e2e/ -v -s
@@ -414,51 +415,6 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost/postgres
           REDIS_URL: redis://localhost:6379/0
-```
-
-### Docker Compose for Testing
-
-```yaml
-# docker-compose.test.yml
-version: '3.8'
-
-services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: aitbc_test
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-  
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6380:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-  
-  coordinator:
-    build: ./apps/coordinator-api
-    environment:
-      DATABASE_URL: postgresql://test:test@postgres:5432/aitbc_test
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports:
-      - "8011:8011"
 ```
 
 ## Troubleshooting

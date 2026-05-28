@@ -270,12 +270,12 @@ curl -s https://api.aitbc.io/v1/health
 
 ```bash
 # 1. Contain breach
-kubectl scale deployment [affected-service] --replicas=0
+sudo systemctl stop [affected-service]
 iptables -A INPUT -s [attacker-ip] -j DROP
 
 # 2. Preserve forensic evidence
-kubectl cp [pod-name]:/var/log /tmp/forensic-logs
-docker commit [container-id] forensic-image
+sudo cp -r /var/log /tmp/forensic-logs
+sudo journalctl -u [affected-service] > /tmp/forensic-logs/service.log
 
 # 3. Identify compromise scope
 grep -r "malicious" /var/log/
