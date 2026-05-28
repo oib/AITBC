@@ -20,7 +20,7 @@ This document provides comprehensive technical documentation for architecture re
 **aitbc.md** - Main deployment documentation:
 ```diff
 ├── Core Services
-│   ├── Coordinator API (Port 8000)
+│   ├── Coordinator API (Port 8011)
 │   ├── Exchange API (Port 8001)
 │   ├── Blockchain Node (Port 8082)
 │   ├── Blockchain RPC (Port 9080)

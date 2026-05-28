@@ -288,7 +288,7 @@ cat /etc/nginx/sites-available/aitbc-proxy.conf
 
 # Ensure upstream configuration includes aitbc secondary server
 upstream aitbc_backend {
-    server 10.1.223.1:8000;  # Coordinator API (aitbc secondary)
+    server 10.1.223.1:8011;  # Coordinator API (aitbc secondary)
     server 10.1.223.1:8001;  # Exchange API (aitbc secondary)
     server 10.1.223.1:8003;  # Blockchain RPC (aitbc secondary)
     # Add enhanced services ports
@@ -442,7 +442,7 @@ fi
 
 # Container access test for aitbc1 server (IP: 10.1.223.40)
 echo -e "\nContainer Access Test:"
-curl -s -o /dev/null -w "%{http_code}" "http://10.1.223.40:8000/health" | grep -q "200" && echo "Container Access: ✅" || echo "Container Access: ❌"
+curl -s -o /dev/null -w "%{http_code}" "http://10.1.223.40:8011/health" | grep -q "200" && echo "Container Access: ✅" || echo "Container Access: ❌"
 EOF
 
 chmod +x /opt/aitbc/scripts/monitor-aitbc.sh
@@ -680,7 +680,7 @@ sudo systemctl restart aitbc-*.service
 1. Check service status: `systemctl status aitbc-*`
 2. Review logs: `journalctl -u aitbc-coordinator-api.service`
 3. Run monitoring: `/opt/aitbc/scripts/monitor-aitbc.sh`
-4. Check container access: `curl http://10.1.223.1:8000/health`
+4. Check container access: `curl http://10.1.223.1:8011/health`
 5. Verify core services only (enhanced services disabled)
 6. Confirm no miner service is needed
 7. Contact support if issues persist

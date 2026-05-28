@@ -90,7 +90,7 @@ sudo netstat -tlnp | grep -E ":(8010|8011|8012|8013|8014|8015|8016)"
 
 
 **🎯 Core Services (8000-8003):**
-- **✅ Port 8000**: Coordinator API - **WORKING**
+- **✅ Port 8011**: Coordinator API - **WORKING**
 - **✅ Port 8001**: Exchange API - **WORKING**
 - **✅ Port 8002**: Blockchain Node - **WORKING**
 - **✅ Port 8003**: Blockchain RPC - **WORKING**

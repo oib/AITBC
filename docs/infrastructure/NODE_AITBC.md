@@ -124,7 +124,7 @@ ssh aitbc 'systemctl status aitbc-blockchain-rpc-dev'
 # NEW UNIFIED PORT LOGIC - MARCH 2026
 
 # Core Services (8000-8003):
-- Port 8000: Coordinator API (localhost + containers)
+- Port 8011: Coordinator API (localhost + containers)
 - Port 8001: Exchange API (localhost + containers)
 - Port 8002: Blockchain Node (localhost + containers)
 - Port 8003: Blockchain RPC (localhost + containers)
@@ -169,7 +169,7 @@ ssh aitbc 'systemctl status aitbc-blockchain-rpc-dev'
 ```
 AITBC Platform Architecture (Updated March 7, 2026)
 ├── Core Services (8000-8003) ✅ PRODUCTION READY
-│   ├── Coordinator API (Port 8000) ✅ PRODUCTION READY
+│   ├── Coordinator API (Port 8011) ✅ PRODUCTION READY
 │   ├── Exchange API (Port 8001) ✅ PRODUCTION READY
 │   ├── Blockchain Node (Port 8002) ✅ PRODUCTION READY
 │   └── Blockchain RPC (Port 8003) ✅ PRODUCTION READY
@@ -260,7 +260,7 @@ DATABASE_URL=sqlite:///./aitbc_coordinator.db
 LOG_LEVEL=INFO
 ENVIRONMENT=production
 API_HOST=0.0.0.0
-API_PORT=8000
+API_PORT=8011
 WORKERS=4
 # Note: No miner service needed - configuration kept for compatibility
 EOF
@@ -403,7 +403,7 @@ systemctl list-units --type=service --state=running | grep aitbc | wc -l | xargs
 
 # Core endpoint health
 echo -e "\nCore Services Health:"
-for port in 8000 8001 8003; do
+for port in 8011 8001 8003; do
     status=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$port/health" 2>/dev/null)
     if [ "$status" = "200" ]; then
         echo "Port $port: ✅ Healthy"
@@ -431,7 +431,7 @@ echo "Disk: $(df -h / | tail -1 | awk '{print $3"/"$2}')"
 
 # Port usage verification
 echo -e "\nPort Usage:"
-sudo netstat -tlnp | grep -E ":(8000|8001|8003|8010|8011|8012|8013|8014|8015|8016|8017)" | sort
+sudo netstat -tlnp | grep -E ":(8011|8001|8003|8010|8011|8012|8013|8014|8015|8016|8017)" | sort
 EOF
 
 chmod +x /opt/aitbc/scripts/monitor-services.sh
@@ -474,7 +474,7 @@ mv /opt/aitbc/apps/coordinator-api/aitbc_coordinator.db /opt/aitbc/apps/coordina
 netstat -tlnp | grep -E ":(8000|8001|8003|8010|8011|8012|8013|8014|8015|8016|8017)"
 
 # Kill conflicting processes
-fuser -k 8000/tcp  # Core services
+fuser -k 8011/tcp  # Core services
 fuser -k 8010/tcp  # Enhanced services
 
 # Restart services
