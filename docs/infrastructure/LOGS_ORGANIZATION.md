@@ -4,7 +4,7 @@
 
 ## Log Files Location
 
-System logs are now properly organized in /var/log/aitbc/:
+System logs are now properly organized in /var/log/aitbc (symlink to /var/lib/aitbc/logs/):
 
 ### Current Log Files:
 - 
@@ -34,6 +34,7 @@ System logs are now properly organized in /var/log/aitbc/:
 - **testing_completion_report.txt**: Testing completion logs
 
 ## Change History
+- **2026-05-28**: Corrected documentation - /var/log/aitbc/ is a real directory, not a symlink
 - **2026-03-30**: Moved from /opt/aitbc/results/ to /var/log/aitbc/ for proper organization
 - **2026-03-30**: Consolidated /opt/aitbc/logs/host_gpu_miner.log to /var/log/aitbc/ for unified logging
 - **2026-03-30**: Cleaned up /opt/aitbc/temp/ directory and moved qa-cycle.log to proper logs location
