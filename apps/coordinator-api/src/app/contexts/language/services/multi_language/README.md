@@ -90,7 +90,7 @@ FASTTEXT_MODEL_PATH=models/lid.176.bin
 # Service Settings
 ENVIRONMENT=development
 LOG_LEVEL=INFO
-PORT=8000
+PORT=8011
 ```
 
 ### Configuration Structure
@@ -216,7 +216,7 @@ PORT=8000
 2. Configure environment variables
 3. Run database migrations: `psql -f database_schema.sql`
 4. Download NLP models: `python -m spacy download en_core_web_sm`
-5. Start service: `uvicorn main:app --host 0.0.0.0 --port 8000`
+5. Start service: `uvicorn main:app --host 0.0.0.0 --port 8011`
 
 ### Docker-Free Deployment
 ```bash

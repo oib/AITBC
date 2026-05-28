@@ -62,12 +62,10 @@ Create `.env.local`:
 
 ```env
 VITE_API_URL=http://localhost:8011
-VITE_WS_URL=ws://localhost:18000/ws
+VITE_WS_URL=ws://localhost:8011/ws
 VITE_EXPLORER_URL=http://localhost:8009
 VITE_NETWORK=mainnet
 ```
-
-> **Note:** Port 18000 for WebSocket is a designed configuration. Verify actual WebSocket service deployment. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for authoritative port configuration.
 
 ## Architecture
 

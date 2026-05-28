@@ -61,7 +61,7 @@ An hermes agent needs to:
 
 ### **System Requirements**
 - AITBC CLI installed
-- coordinator-api running (http://127.0.0.1:18000)
+- coordinator-api running (http://127.0.0.1:8011)
 - Access to distributed compute resources
 
 ---
@@ -404,7 +404,7 @@ done
 
 ### Coordinator-API Integration
 - `status` and `deallocate` use coordinator-api
-- Require coordinator-api running at http://127.0.0.1:18000
+- Require coordinator-api running at http://127.0.0.1:8011
 - API calls validated and tracked
 - Network errors handled gracefully
 
@@ -445,13 +445,13 @@ aitbc resource status --resource-id res_123
 
 **Error:**
 ```
-Error: coordinator-api unavailable at http://127.0.0.1:18000
+Error: coordinator-api unavailable at http://127.0.0.1:8011
 ```
 
 **Solution:**
 ```bash
 # Check coordinator-api status
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Start coordinator-api if not running
 systemctl start aitbc-coordinator-api

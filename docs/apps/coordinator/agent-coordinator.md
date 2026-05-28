@@ -1,5 +1,7 @@
 # Agent Coordinator
 
+> **Important:** This document uses port 9001 for the Agent Coordinator service. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## Status
 ✅ Operational
 
@@ -59,7 +61,7 @@ API_KEY=your-api-key
 
 ### Running the Service
 ```bash
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 9001
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8011
 ```
 
 ## Developer Guide

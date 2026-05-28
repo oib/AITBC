@@ -458,7 +458,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "8001:8000"
+      - "8011:8011"
 ```
 
 ## Troubleshooting

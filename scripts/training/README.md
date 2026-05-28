@@ -149,7 +149,7 @@ cli_cmd_node "$FOLLOWER_NODE" "blockchain --info"
 
 ### System Requirements
 - **AITBC CLI**: `/opt/aitbc/aitbc-cli` accessible and executable
-- **Services**: Ports 8001, 9001, 8006 running and accessible
+- **Services**: Ports 8001, 8011, 8006 running and accessible
 - **Ollama**: Port 11434 for AI operations (Stage 3+)
 - **Bash**: Version 4.0+ for associative array support
 - **Standard Tools**: bc (for calculations), curl, timeout

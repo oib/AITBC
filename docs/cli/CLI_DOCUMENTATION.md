@@ -71,7 +71,7 @@ For backward compatibility, legacy flat commands are automatically normalized to
 ### Prerequisites
 - Python 3.13+
 - Virtual environment at `/opt/aitbc/venv`
-- AITBC services running on ports 8000, 8001, 8006
+- AITBC services running on ports 8011, 8001, 8006
 
 ### Setup
 ```bash

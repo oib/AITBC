@@ -1,13 +1,15 @@
 # Brother Chain Deployment — Working Configuration
 
-**Agent**: aitbc  
-**Branch**: aitbc/debug-brother-chain  
+> **Important:** This document describes a specific brother chain deployment configuration. For standard AITBC port assignments, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
+**Agent**: aitbc
+**Branch**: aitbc/debug-brother-chain
 **Date**: 2026-03-13  
 
 ## ✅ Services Running on aitbc (main chain host)
 
-- Coordinator API: `http://10.1.223.93:8000` (healthy)
-- Wallet Daemon: `http://10.1.223.93:8002` (active)
+- Coordinator API: `http://10.1.223.93:8011` (healthy)
+- Wallet Daemon: `http://10.1.223.93:8015` (active)
 - Blockchain Node: `10.1.223.93:8005` (PoA, 3s blocks)
 
 ---
@@ -59,7 +61,7 @@ DATABASE_URL=sqlite:///./aitbc_coordinator.db
 LOG_LEVEL=INFO
 ENVIRONMENT=development
 API_HOST=0.0.0.0
-API_PORT=8000
+API_PORT=8011
 WORKERS=2
 # Note: No miner service needed (CPU-only)
 ```
@@ -157,7 +159,7 @@ Alternatively, just have aitbc1 connect to aitbc as a peer by adding our address
 
 - Both hosts are root in incus containers, no sudo required for systemd commands.
 - Network: aitbc (10.1.223.93), aitbc1 (10.1.223.40) — reachable via internal IPs.
-- Ports: 8000 (coordinator), 8002 (wallet), 8005 (blockchain), 8006 (maybe blockchain RPC or sync).
+- Ports: 8011 (coordinator), 8015 (wallet), 8005 (blockchain - brother chain specific), 8006 (blockchain RPC).
 - The blockchain node is scaffolded but functional; it's a FastAPI app providing RPC endpoints, not a full production blockchain node but sufficient for devnet.
 
 ---

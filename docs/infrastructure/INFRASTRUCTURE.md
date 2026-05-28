@@ -74,7 +74,7 @@ ls -la /etc/aitbc/
 ```
 
 ### **Core Services (8000-8001) - AT1 STANDARD REFERENCE**
-- **Port 8000**: Coordinator API 🟡 Designed
+- **Port 8011**: Coordinator API 🟡 Designed
 - **Port 8001**: Exchange API 🟡 Designed (127.0.0.1 binding)
 
 ### **Blockchain Services (8005-8006) - AT1 STANDARD REFERENCE**
@@ -83,13 +83,13 @@ ls -la /etc/aitbc/
 
 ### **Enhanced Services (8010-8017) - CPU-ONLY MODE**
 - **Port 8010**: Multimodal GPU Service 🟡 Designed (CPU-only mode)
-- **Port 8011**: GPU Multimodal Service 🟡 Designed (CPU-only mode)
-- **Port 8012**: Modality Optimization Service 🟡 Designed
-- **Port 8013**: Adaptive Learning Service 🟡 Designed
-- **Port 8014**: Marketplace Enhanced Service 🟡 Designed
-- **Port 8015**: hermes Enhanced Service 🟡 Designed
-- **Port 8016**: Blockchain Explorer Service 🟡 Designed
-- **Port 8017**: Geographic Load Balancer 🟡 Designed
+- **Port 8012**: GPU Multimodal Service 🟡 Designed (CPU-only mode)
+- **Port 8013**: Modality Optimization Service 🟡 Designed
+- **Port 8014**: Adaptive Learning Service 🟡 Designed
+- **Port 8015**: Marketplace Enhanced Service 🟡 Designed
+- **Port 8016**: hermes Enhanced Service 🟡 Designed
+- **Port 8017**: Blockchain Explorer Service 🟡 Designed
+- **Port 8018**: Geographic Load Balancer 🟡 Designed
 
 ### **Mock & Test Services (8020-8029)**
 - **Port 8020**: Mock Coordinator API 🟡 Designed
@@ -136,10 +136,10 @@ ls -la /etc/aitbc/
 
 | Service | Port | Process | Python Version | Purpose | Status |
 |---------|------|---------|----------------|---------|--------|
-| Coordinator API | 8000 | python3 | 3.13.5+ | Production coordinator API | systemd: aitbc-coordinator-api.service |
+| Coordinator API | 8011 | python3 | 3.13.5+ | Production coordinator API | systemd: aitbc-coordinator-api.service |
 | Mock Coordinator | 8020 | python3 | 3.13.5+ | Development/testing API endpoint | systemd: aitbc-mock-coordinator.service |
 | Blockchain Node | N/A | python3 | 3.13.5+ | Local blockchain node | systemd: aitbc-blockchain-node.service |
-| Blockchain Node RPC | 8003 | python3 | 3.13.5+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
+| Blockchain Node RPC | 8006 | python3 | 3.13.5+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
 | Local Development Tools | Varies | python3 | 3.13.5+ | CLI tools, scripts, testing | Manual/venv |
 | **Note**: GPU Miner Client removed - no miner service needed on aitbc server |
 | **Port Logic**: Production services use 8000-8019, Mock/Testing services use 8020+ |
@@ -150,9 +150,9 @@ All services are configured as systemd units but currently inactive:
 
 ```bash
 # Service files location: /etc/systemd/system/
-aitbc-coordinator-api.service       # Production coordinator API on port 8000
+aitbc-coordinator-api.service       # Production coordinator API on port 8011
 aitbc-blockchain-node.service       # Blockchain node main process
-aitbc-blockchain-rpc.service        # RPC API on port 8003
+aitbc-blockchain-rpc.service        # RPC API on port 8006
 aitbc-mock-coordinator.service      # Mock coordinator on port 8020
 # Note: aitbc-gpu-miner.service removed - no miner service needed
 ```
@@ -364,10 +364,10 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 | Service | Port (8000+) | Process | Python Version | Public URL | Status |
 |---------|-------------|---------|----------------|------------|--------|
 | Nginx (web) | 80 | nginx | N/A | https://aitbc.bubuit.net/ | ✅ |
-| Coordinator API | 8000 | python (uvicorn) | 3.13.5 | /api/ → /v1/ | ✅ |
+| Coordinator API | 8011 | python (uvicorn) | 3.13.5 | /api/ → /v1/ | ✅ |
 | Exchange API | 8001 | python (uvicorn) | 3.13.5 | /api/exchange/* | ✅ |
 | Blockchain Node | 8002 | python3 | 3.13.5 | Internal | ✅ |
-| Blockchain RPC | 8003 | python3 | 3.13.5 | /rpc/ | ✅ |
+| Blockchain RPC | 8006 | python3 | 3.13.5 | /rpc/ | ✅ |
 | Multimodal GPU | 8010 | python | 3.13.5 | /api/gpu/* | ✅ (CPU-only) |
 | GPU Multimodal | 8011 | python | 3.13.5 | /api/gpu-multimodal/* | ✅ (CPU-only) |
 | Modality Optimization | 8012 | python | 3.13.5 | /api/optimization/* | ✅ |
@@ -724,10 +724,10 @@ ssh aitbc 'systemctl status aitbc-coordinator-api'
 # === NEW STANDARD PORT LOGIC ===
 
 # Core Services (8000-8003) - NEW STANDARD
-- Port 8000: Coordinator API (local) ✅ NEW STANDARD
+- Port 8011: Coordinator API (local) ✅ NEW STANDARD
 - Port 8001: Exchange API (local) ✅ NEW STANDARD
 - Port 8002: Blockchain Node (local) ✅ NEW STANDARD
-- Port 8003: Blockchain RPC (local) ✅ NEW STANDARD
+- Port 8006: Blockchain RPC (local) ✅ NEW STANDARD
 
 # Blockchain Services (8004-8005) - PRODUCTION READY
 - Port 8004: Primary Blockchain Node ✅ PRODUCTION READY (aitbc-blockchain-node.service)
@@ -735,12 +735,12 @@ ssh aitbc 'systemctl status aitbc-coordinator-api'
 
 # Level 2 Services (8010-8017) - NEW STANDARD
 - Port 8010: Multimodal GPU Service ✅ NEW STANDARD
-- Port 8011: GPU Multimodal Service ✅ NEW STANDARD
-- Port 8012: Modality Optimization Service ✅ NEW STANDARD
-- Port 8013: Adaptive Learning Service ✅ NEW STANDARD
-- Port 8014: Marketplace Enhanced Service ✅ NEW STANDARD
-- Port 8015: hermes Enhanced Service ✅ NEW STANDARD
-- Port 8016: Web UI Service ✅ NEW STANDARD
+- Port 8012: GPU Multimodal Service ✅ NEW STANDARD
+- Port 8013: Modality Optimization Service ✅ NEW STANDARD
+- Port 8014: Adaptive Learning Service ✅ NEW STANDARD
+- Port 8015: Marketplace Enhanced Service ✅ NEW STANDARD
+- Port 8016: hermes Enhanced Service ✅ NEW STANDARD
+- Port 8017: Web UI Service ✅ NEW STANDARD
 - Port 8017: Geographic Load Balancer ✅ NEW STANDARD
 
 # Mock & Test Services (8020-8029) - NEW STANDARD

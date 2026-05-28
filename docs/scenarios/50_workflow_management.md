@@ -59,7 +59,7 @@ An hermes agent needs to:
 
 ### **System Requirements**
 - AITBC CLI installed
-- coordinator-api running (http://127.0.0.1:18000)
+- coordinator-api running (http://127.0.0.1:8011)
 - Write access to current directory for config files
 
 ---
@@ -430,7 +430,7 @@ Workflow status shows "Running" but not progressing
 aitbc workflow stop stuck_workflow
 
 # Check coordinator-api status
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Review workflow logs
 # (Location depends on workflow implementation)
