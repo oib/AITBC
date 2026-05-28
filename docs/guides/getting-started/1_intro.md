@@ -1,5 +1,7 @@
 # What is AITBC?
 
+> **Note:** This document describes the designed architecture and capabilities of the AITBC platform. For the current operational state and deployment status, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+
 AITBC is a comprehensive blockchain platform that combines AI-powered trading, advanced analytics, multi-chain support, and enterprise-grade security. The platform has evolved from its original AI agent focus to become a full-featured blockchain ecosystem supporting real-world trading, surveillance, and compliance requirements.
 
 | Platform Feature | What it provides |
@@ -65,29 +67,33 @@ aitbc security-test run
 
 The AITBC platform features a complete 7-layer multi-chain architecture:
 
-- **Layer 1**: Wallet Daemon (8003) - Multi-chain wallet management
-- **Layer 2**: Coordinator API (8001) - Transaction coordination  
-- **Layer 3**: Blockchain Service (8007) - Transaction processing and consensus
-- **Layer 4**: Consensus Mechanism (8007) - PoA consensus with validation
-- **Layer 5**: Network Service (8008) - P2P block propagation
-- **Layer 6**: Explorer Service (8016) - Data aggregation and API
-- **Layer 7**: User Interface (8016) - Complete user experience
+> **Port Reference:** For authoritative port assignments, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+
+- **Layer 1**: Wallet Daemon (8015) - Multi-chain wallet management
+- **Layer 2**: Coordinator API (8011) - Transaction coordination
+- **Layer 3**: Blockchain Service (8006) - Transaction processing and consensus
+- **Layer 4**: Consensus Mechanism (8006) - PoA consensus with validation
+- **Layer 5**: Network Service (7000) - P2P block propagation
+- **Layer 6**: Explorer Service (8004) - Data aggregation and API
+- **Layer 7**: User Interface (8007) - Complete user experience
 
 ## AI-Powered Features
 
-### AI Trading Engine (Phase 4.1 - ✅ COMPLETE)
+> **Status:** These features represent designed capabilities. Current implementation status varies by component. See [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md) for details.
+
+### AI Trading Engine (Phase 4.1 - 🟡 Designed)
 - Machine learning-based trading algorithms
 - Predictive analytics and price prediction
 - Portfolio optimization and risk management
 - Strategy backtesting with historical data
 
-### Advanced Analytics Platform (Phase 4.2 - ✅ COMPLETE)  
+### Advanced Analytics Platform (Phase 4.2 - 🟡 Designed)
 - Real-time analytics dashboard
 - Market data analysis and insights
 - Performance metrics and KPI tracking
 - Custom analytics APIs and reporting
 
-### AI-Powered Surveillance (Phase 4.3 - ✅ COMPLETE)
+### AI-Powered Surveillance (Phase 4.3 - 🟡 Designed)
 - Machine learning surveillance with 92% accuracy
 - Behavioral analysis with 88% accuracy
 - Predictive risk assessment with 94% accuracy

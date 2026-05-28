@@ -6,6 +6,8 @@ category: operations
 
 # AITBC Node Coordination Skill
 
+**Status:** 🟡 **Procedure Validated** - Procedures accurate if dependencies and services are present
+
 ## Trigger Conditions
 Activate when user requests cross-node operations: synchronization, coordination, messaging, or multi-node status checks.
 
@@ -28,8 +30,32 @@ Coordinate cross-node operations, synchronize blockchain state, and manage inter
 - P2P mesh network active on port 7070 with peer configuration
 - Unique node IDs configured (proposer_id and p2p_node_id in `/etc/aitbc/.env`)
 
+## Prerequisites Check
+Before proceeding, verify:
+```bash
+# Check SSH connectivity
+ssh aitbc1 'echo "SSH to aitbc1 working"'
+ssh gitea-runner 'echo "SSH to gitea-runner working"'
+
+# Check service status on all nodes
+systemctl list-units --state=running | grep aitbc
+ssh aitbc1 'systemctl list-units --state=running | grep aitbc'
+
+# Check Python dependencies
+source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
+
+# Verify CLI accessible
+/opt/aitbc/aitbc-cli --version
+
+# Check P2P network
+ss -tlnp | grep 7070
+```
+
 ## Port Reference
 
+For authoritative port configuration, see [Service Ports Reference](../../docs/reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
 | Blockchain RPC | 8006 | Main blockchain API + messaging |
@@ -116,16 +142,19 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli network'
 - [ ] Services running on all nodes
 - [ ] Node IDs unique (no duplicate p2p_node_id)
 
-## CLI Tool Preference
-- **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
-- **SSH Access:** Use `ssh aitbc1` for follower node, `ssh gitea-runner` for CI/CD node
+## CLI Entry Point
 
-## Status
-**AITBC Node Coordination: FULLY OPERATIONAL**
-- Cross-node messaging working
-- Agent discovery functional
-- P2P mesh operational
-- **This skill ships with AITBC software repository**
+**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+
+This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+
+**Usage Examples:**
+```bash
+# All CLI operations (use wrapper)
+/opt/aitbc/aitbc-cli chain
+/opt/aitbc/aitbc-cli network
+/opt/aitbc/aitbc-cli balance --name genesis
+```
 
 ---
 

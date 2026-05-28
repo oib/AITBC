@@ -1,5 +1,7 @@
 # Installation
 
+> **Note:** This document describes the installation process for the AITBC platform. For the current operational state and deployment status, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+
 ## Prerequisites
 
 - Python 3.13+
@@ -18,10 +20,12 @@
 # This will fix 90+ CVEs, harden SSH, and verify smart contracts
 ```
 
-**Security Status**: 🛡️ AUDITED & HARDENED  
+**Security Status**: 🛡️ AUDITED & HARDENED
 - **0 vulnerabilities** in smart contracts (35 OpenZeppelin warnings only)
-- **90 CVEs** fixed in dependencies
-- **95/100 system hardening** index achieved
+- **90 CVEs** fixed in dependencies (target achieved)
+- **95/100 system hardening** index achieved (target metric)
+
+> **Note:** Security metrics represent targets achieved during audit periods. Current security status should be verified using `./scripts/utils/check-dependencies.sh` and CI/CD security scanning.
 
 ## Monorepo Install
 
@@ -80,7 +84,7 @@ MEMPOOL_BACKEND=database
 cp systemd/aitbc-*.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now aitbc-coordinator-api
-systemctl enable --now aitbc-blockchain-node-1
+systemctl enable --now aitbc-blockchain-node
 ```
 
 ## Verify

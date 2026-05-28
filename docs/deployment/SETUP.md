@@ -1,5 +1,7 @@
 # AITBC Setup Guide
 
+> **Important:** This document describes the setup process. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
 ## Quick Setup (New Host)
 
 The main setup script lives at `scripts/setup.sh`.
@@ -80,12 +82,18 @@ AITBC uses standard Linux system directories for runtime data:
 
 ## Service Endpoints
 
+For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Health Endpoint |
 |---------|------|----------------|
-| Wallet API | 8003 | `http://localhost:8003/health` |
-| Exchange API | 8001 | `http://localhost:8001/api/health` |
-| Coordinator API | 8000 | `http://localhost:8011/health` |
+| Wallet API | 8015 | `http://localhost:8015/health` |
+| Exchange API | 8001 | `http://localhost:8001/health` |
+| Coordinator API | 8011 | `http://localhost:8011/health` |
 | Blockchain RPC | 8006 | `http://localhost:8006/health` |
+| Marketplace | 8102 | `http://localhost:8102/health` |
+
+**Note:** Port configurations are defined in service wrapper scripts and application main.py files. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for complete details and source references.
 
 ## Management Commands
 
@@ -147,7 +155,7 @@ python simple_exchange_api.py
 
 cd /opt/aitbc/apps/coordinator-api/src
 source ../.venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
 ```
 
 ## Configuration Files

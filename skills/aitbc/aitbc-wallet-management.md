@@ -6,6 +6,8 @@ category: operations
 
 # AITBC Wallet Management Skill
 
+**Status:** 🟡 **Procedure Validated** - Procedures accurate if dependencies and services are present
+
 ## Trigger Conditions
 Activate when user requests wallet operations: creation, listing, balance checking, wallet information retrieval, import, export, or deletion.
 
@@ -18,8 +20,30 @@ Create, list, import, export, and manage AITBC blockchain wallets with determini
 - Wallet daemon running on port 8015 (localhost only)
 - Default wallet password: from `/var/lib/aitbc/keystore/.genesis_password`
 
+## Prerequisites Check
+Before proceeding, verify:
+```bash
+# Check service status
+systemctl list-units --state=running | grep aitbc
+
+# Check Python dependencies
+source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
+
+# Verify CLI accessible
+/opt/aitbc/aitbc-cli --version
+
+# Check wallet daemon health
+curl -s http://localhost:8015/health
+
+# Verify keystore directory
+ls -la /var/lib/aitbc/keystore/
+```
+
 ## Port Reference
 
+For authoritative port configuration, see [Service Ports Reference](../../docs/reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
 | Wallet Daemon | 8015 | Wallet API (localhost only) |
@@ -110,17 +134,19 @@ curl -s http://localhost:8015/wallets/{wallet_name}/balance
 - Use strong passwords (minimum 12 characters)
 - Enable encryption for sensitive wallets
 
-## CLI Tool Preference
-- **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
-- **Keystore Location:** `/var/lib/aitbc/keystore/`
-- **Password File:** `/var/lib/aitbc/keystore/.genesis_password`
-- **Wallet Daemon:** Port 8015 (localhost only, via `aitbc-wallet.service`)
+## CLI Entry Point
 
-## Status
-**AITBC Wallet Management: FULLY OPERATIONAL**
-- All wallet operations verified working
-- Wallet daemon running (port 8015)
-- **This skill ships with AITBC software repository**
+**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+
+This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+
+**Usage Examples:**
+```bash
+# All wallet operations (use wrapper)
+/opt/aitbc/aitbc-cli create --name test-wallet --password test123
+/opt/aitbc/aitbc-cli balance --name genesis
+/opt/aitbc/aitbc-cli export --name genesis --password "$(cat /var/lib/aitbc/keystore/.genesis_password)"
+```
 
 ---
 

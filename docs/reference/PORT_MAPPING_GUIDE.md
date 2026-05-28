@@ -1,4 +1,8 @@
-# AITBC Port Mapping Guide - March 30, 2026
+# AITBC Port Mapping Guide
+
+> **⚠️ DEPRECATED**: This document is outdated. For authoritative port configuration, see [SERVICE_PORTS.md](./SERVICE_PORTS.md).
+>
+> This document was last updated March 30, 2026 and contains aspirational port assignments that do not match the actual deployed services. Please use SERVICE_PORTS.md for accurate port information.
 
 ## 🚀 Complete Service Port Allocation
 

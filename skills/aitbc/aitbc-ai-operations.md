@@ -6,6 +6,8 @@ category: mlops
 
 # AITBC AI Operations Skill
 
+**Status:** 🟡 **Procedure Validated** - Procedures accurate if dependencies and services are present
+
 ## Trigger Conditions
 Activate when user requests AI operations: job submission, status monitoring, results retrieval, resource allocation testing, or AI job monitoring.
 
@@ -19,8 +21,30 @@ Submit, monitor, and optimize AITBC AI jobs with deterministic performance track
 - Default test wallet: "genesis" (password from `/var/lib/aitbc/keystore/.genesis_password`)
 - Resource allocation system functional
 
+## Prerequisites Check
+Before proceeding, verify:
+```bash
+# Check service status
+systemctl list-units --state=running | grep aitbc
+
+# Check Python dependencies
+source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
+
+# Verify CLI accessible
+/opt/aitbc/aitbc-cli --version
+
+# Check AI service health
+curl -s http://localhost:8005/health 2>/dev/null || echo "AI service not running"
+
+# Check wallet balance
+/opt/aitbc/aitbc-cli balance --name genesis
+```
+
 ## Port Reference
 
+For authoritative port configuration, see [Service Ports Reference](../../docs/reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
 | Blockchain RPC | 8006 | Default RPC URL for CLI |
@@ -101,16 +125,27 @@ cd /opt/aitbc && python3 cli/unified_cli.py ollama gpu-test \
   --marketplace-url http://localhost:8102
 ```
 
-## CLI Tool Preference
-- **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
-- **Module:** `cli/unified_cli.py` is a module within the CLI tool for marketplace and GPU operations
-- **Note:** For GPU provider operations, prefer `python3 cli/unified_cli.py` (verified working)
+## CLI Entry Point
 
-## Status
-**AITBC AI Operations: FULLY OPERATIONAL**
-- All AI job operations verified working
-- GPU provider integration functional
-- **This skill ships with AITBC software repository**
+**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+
+This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+
+**Direct Python Invocation:** `python3 cli/unified_cli.py`
+
+Use direct Python invocation for:
+- GPU testing and Ollama operations
+- Specific module features requiring direct access
+
+**Usage Examples:**
+```bash
+# Standard operations (use wrapper)
+/opt/aitbc/aitbc-cli ai-ops submit --wallet genesis --type inference --prompt "test"
+/opt/aitbc/aitbc-cli resource allocate --agent-id hermes-main --gpu 1
+
+# GPU operations (use direct Python)
+python3 cli/unified_cli.py ollama gpu-test --wallet genesis --model llama2
+```
 
 ---
 
