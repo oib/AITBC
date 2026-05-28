@@ -127,14 +127,14 @@ sudo journalctl -u blockchain-rpc-2 -f
 ## Files Created/Modified
 
 ### Deployment Scripts
-- `/home/oib/windsurf/aitbc/scripts/deploy/deploy-first-node.sh`
-- `/home/oib/windsurf/aitbc/scripts/deploy/deploy-second-node.sh`
-- `/home/oib/windsurf/aitbc/scripts/deploy/setup-gossip-relay.sh`
+- `/opt/aitbc/scripts/deploy/deploy-first-node.sh`
+- `/opt/aitbc/scripts/deploy/deploy-second-node.sh`
+- `/opt/aitbc/scripts/deploy/setup-gossip-relay.sh`
 
 ### Test Scripts
-- `/home/oib/windsurf/aitbc/tests/test_blockchain_nodes.py`
-- `/home/oib/windsurf/aitbc/tests/test_blockchain_simple.py`
-- `/home/oib/windsurf/aitbc/tests/test_blockchain_final.py`
+- `/opt/aitbc/tests/test_blockchain_nodes.py`
+- `/opt/aitbc/tests/test_blockchain_simple.py`
+- `/opt/aitbc/tests/test_blockchain_final.py`
 
 ### Configuration Files
 - `/opt/blockchain-node/.env`
