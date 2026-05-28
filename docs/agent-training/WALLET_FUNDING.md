@@ -100,7 +100,7 @@ curl -X POST http://localhost:8080/fund \
 **Test wallets:**
 - `test-agent` - Agent testing
 - `scenario_user` - Scenario testing
-- `openclaw-trainee` - OpenClaw training
+- `hermes-trainee` - Hermes training
 
 ## Troubleshooting
 

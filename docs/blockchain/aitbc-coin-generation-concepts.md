@@ -247,7 +247,7 @@ aitbc miner earnings --chain ait-finance
 ## � **Changelog**
 
 ### **Version 2.0 (2026-05-07) - Hermes Integration Update**
-- **System Migration**: Updated all references from OpenClaw to Hermes agent framework
+- **System Migration**: Updated agent framework to Hermes
 - **Coordinator API**: Updated service endpoints and router naming conventions
 - **Architecture**: Multi-chain isolation enhanced with Hermes agent coordination
 - **Security**: Updated security controls for Hermes-based agent operations

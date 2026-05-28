@@ -24,7 +24,7 @@ This document provides comprehensive technical documentation for aitbc priority 
 
 **🔧 1. Fix Proxy Health Service (Non-Critical)**
 - **Status**: ✅ FIXED AND WORKING
-- **Issue**: Proxy health service checking wrong port (18000 instead of 8000)
+- **Issue**: Proxy health service checking wrong port
 - **Solution**: Updated health check script to use correct port 8000
 - **Result**: Proxy health service now working correctly
 
