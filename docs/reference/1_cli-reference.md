@@ -7,7 +7,7 @@ The AITBC CLI provides a comprehensive command-line interface for interacting wi
 ## Installation
 
 ```bash
-cd /home/oib/windsurf/aitbc
+cd /opt/aitbc
 pip install -e .
 ```
 

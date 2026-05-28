@@ -6,7 +6,7 @@
 **Prerequisites**: Basic computer skills
 **Estimated Time**: Varies by learning path
 **Last Updated**: 2026-05-28
-**Version**: 6.6 (May 28, 2026 Update - documentation review and port consistency fixes)
+**Version**: 6.7 (May 28, 2026 Update - port consistency, path standardization, and documentation review)
 
 ## 🧭 **Navigation Path:**
 

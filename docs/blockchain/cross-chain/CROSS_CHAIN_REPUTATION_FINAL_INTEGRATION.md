@@ -128,14 +128,14 @@ The Cross-Chain Reputation System has been successfully implemented and tested. 
 ### **Step 1: Minor Code Fixes**
 ```bash
 # Fix Field import in reputation router
-cd /home/oib/windsurf/aitbc/apps/coordinator-api/src/app/routers/
+cd /opt/aitbc/apps/coordinator-api/src/app/routers/
 # Add Field import to line 18: from sqlmodel import select, func, Field
 ```
 
 ### **Step 2: Database Migration**
 ```bash
 # Create Alembic migration
-cd /home/oib/windsurf/aitbc/apps/coordinator-api
+cd /opt/aitbc/apps/coordinator-api
 alembic revision --autogenerate -m "Add cross-chain reputation tables"
 alembic upgrade head
 ```
