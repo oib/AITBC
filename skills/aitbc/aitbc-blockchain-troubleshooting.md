@@ -206,6 +206,110 @@ cd /opt/aitbc && ./aitbc-cli chain
 ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
 ```
 
+### 8. GPU Detection Validation
+
+**Purpose:** Verify GPU availability for AI operations and mining.
+
+**Check GPU Status:**
+```bash
+# Check NVIDIA GPU availability
+nvidia-smi
+
+# Check GPU driver version
+nvidia-smi --query-gpu=driver_version --format=csv,noheader
+
+# Check CUDA version
+nvidia-smi --query-gpu=cuda_version --format=csv,noheader
+
+# Check GPU memory usage
+nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader
+```
+
+**Troubleshooting GPU Issues:**
+
+**Symptoms:**
+- `nvidia-smi: command not found`
+- `Failed to get GPU info: [Errno 2] No such file or directory: 'nvidia-smi'`
+- GPU not detected by AITBC services
+
+**Diagnosis:**
+```bash
+# Check if NVIDIA drivers are loaded
+lsmod | grep nvidia
+
+# Check if nvidia-smi is in PATH
+which nvidia-smi
+
+# Check if nvidia-smi is installed but not in PATH
+find /usr -name nvidia-smi 2>/dev/null
+
+# Check if container/VM has GPU passthrough
+lspci | grep -i nvidia
+
+# Check NVIDIA driver version
+cat /proc/driver/nvidia/version 2>/dev/null || echo "NVIDIA driver not loaded"
+```
+
+**Solutions:**
+
+**1. Install NVIDIA Drivers (if missing):**
+```bash
+# On Ubuntu/Debian
+sudo apt update
+sudo apt install nvidia-driver-535 nvidia-cuda-toolkit
+
+# Reboot after installation
+sudo reboot
+```
+
+**2. Fix PATH Issues:**
+```bash
+# Add NVIDIA tools to PATH if installed in non-standard location
+export PATH=/usr/local/cuda/bin:$PATH
+echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
+```
+
+**3. Check Container/VM GPU Passthrough:**
+```bash
+# If running in Docker, ensure GPU is passed through
+docker run --gpus all ...
+
+# If running in VM, check GPU passthrough configuration
+# This requires hypervisor-level configuration
+```
+
+**4. Verify GPU Access for AITBC Services:**
+```bash
+# Check if AITBC services have GPU access
+systemctl status aitbc-miner.service | grep -i gpu
+
+# Check miner logs for GPU detection
+journalctl -u aitbc-miner.service | grep -i gpu
+
+# Test GPU with simple CUDA program
+nvidia-smi --query-gpu=name --format=csv,noheader
+```
+
+**Common GPU Issues:**
+1. **NVIDIA Drivers Not Installed:** Install appropriate NVIDIA drivers for your GPU
+2. **nvidia-smi Not in PATH:** Add CUDA bin directory to PATH
+3. **GPU Passthrough Not Configured:** Configure GPU passthrough in container/VM
+4. **Driver Version Mismatch:** Ensure driver version matches CUDA toolkit version
+5. **GPU Already in Use:** Check if other processes are using the GPU
+6. **Insufficient GPU Memory:** Check available GPU memory with `nvidia-smi`
+
+**Verification:**
+```bash
+# Verify GPU is accessible
+nvidia-smi
+
+# Verify AITBC can detect GPU
+cd /opt/aitbc && ./aitbc-cli mining gpu-status 2>/dev/null || echo "GPU status command not available"
+
+# Check miner logs for GPU detection
+journalctl -u aitbc-miner.service -n 20 | grep -i gpu
+```
+
 ## Common Pitfalls
 
 1. **Duplicate P2P Node IDs:** Check for duplicate p2p_node_id in `/etc/aitbc/.env` - generate unique IDs
