@@ -63,7 +63,7 @@ def on_message(ws, message):
     print(message)
 
 ws = websocket.WebSocketApp(
-    "ws://localhost:8000/v1/jobs/ws",
+    "ws://localhost:8011/v1/jobs/ws",
     on_message=on_message
 )
 ws.run_forever()

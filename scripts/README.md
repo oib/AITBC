@@ -75,44 +75,25 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 
 ## 📊 Service Ports
 
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../docs/reference/SERVICE_PORTS.md).
+
 | Port | Service | Description |
 |------|---------|-------------|
-| 8000 | Coordinator API | Main API service |
+| 8011 | Coordinator API | Main API service |
 | 8001 | Exchange API | Trading functionality |
-| 8002 | Marketplace API | GPU compute marketplace |
-| 8003 | Wallet API | Digital wallet management |
-| 8004 | Explorer | Blockchain explorer |
+| 8102 | Marketplace API | GPU compute marketplace |
+| 8015 | Wallet API | Digital wallet management |
 | 8006 | Blockchain RPC | Blockchain node RPC |
-| 8007 | Web UI | Web user interface |
-| 8010 | GPU Service | GPU-accelerated processing |
-| 8011 | Learning Service | Machine learning |
-| 8012 | Agent Coordinator | Agent orchestration |
-| 8013 | Agent Registry | Agent registration |
-| 8014 | hermes Service | Edge computing |
-| 8015 | AI Service | Advanced AI capabilities |
-| 8020 | Multimodal Service | Multi-modal processing |
-| 8021 | Modality Optimization | Modality optimization |
-| 8081 | Blockchain Node 1 | Blockchain instance |
-| 8082 | Blockchain Node 2 | Blockchain instance |
-| 8006 | Coordinator API (dev) | Development API |
+| 7070 | P2P Network | Peer-to-peer networking |
 
 ## 🔍 Health Endpoints
 
 The scripts test these health endpoints:
-- `http://localhost:8000/health` - Coordinator API
+- `http://localhost:8011/health` - Coordinator API
 - `http://localhost:8001/api/health` - Exchange API
-- `http://localhost:8002/health` - Marketplace API
-- `http://localhost:8003/health` - Wallet API
-- `http://localhost:8004/health` - Explorer
-- `http://localhost:8007/` - Web UI
-- `http://localhost:8010/health` - GPU Service
-- `http://localhost:8011/health` - Learning Service
-- `http://localhost:8012/health` - Agent Coordinator
-- `http://localhost:8013/health` - Agent Registry
-- `http://localhost:8014/health` - hermes Service
-- `http://localhost:8015/health` - AI Service
-- `http://localhost:8020/health` - Multimodal Service
-- `http://localhost:8021/health` - Modality Optimization
+- `http://localhost:8102/health` - Marketplace API
+- `http://localhost:8015/health` - Wallet API
+- `http://localhost:8006/health` - Blockchain RPC
 
 ## 📝 Output Examples
 

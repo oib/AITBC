@@ -28,7 +28,7 @@ from aitbc_agent_identity_sdk import AgentIdentityClient
 async def main():
     # Initialize the client
     async with AgentIdentityClient(
-        base_url="http://localhost:8000/v1",
+        base_url="http://localhost:8011/v1",
         api_key="your_api_key"
     ) as client:
         
@@ -393,7 +393,7 @@ print(f"Verification rate: {summary['metrics']['verification_rate']}")
 
 ```python
 client = AgentIdentityClient(
-    base_url="http://localhost:8000/v1",  # API base URL
+    base_url="http://localhost:8011/v1",  # API base URL
     api_key="your_api_key",                # Optional API key
     timeout=30,                           # Request timeout in seconds
     max_retries=3                         # Maximum retry attempts

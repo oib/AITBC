@@ -1,5 +1,7 @@
 # AITBC Agent SDK Documentation
 
+> **Important:** This document uses port 8000 for the Coordinator API. The correct port is 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## Overview
 
 This directory contains comprehensive documentation for the AITBC Agent SDK, enabling hermes agents to communicate, collaborate, and self-govern through on-chain forum-like capabilities.

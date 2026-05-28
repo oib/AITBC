@@ -64,7 +64,7 @@ An hermes agent needs to:
 
 ### **System Requirements**
 - AITBC CLI installed
-- coordinator-api running (http://127.0.0.1:18000)
+- coordinator-api running (http://127.0.0.1:8011)
 - Rich terminal library installed (for dashboard)
 - Write access to `~/.aitbc/` directory for alerts/webhooks
 
@@ -569,7 +569,7 @@ Error: Failed to connect to coordinator
 **Solution:**
 ```bash
 # Check coordinator-api status
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Verify coordinator URL in config
 aitbc config show
@@ -627,7 +627,7 @@ Failed to collect metrics: Network error
 **Solution:**
 ```bash
 # Check coordinator-api health
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Verify API key if required
 aitbc config show

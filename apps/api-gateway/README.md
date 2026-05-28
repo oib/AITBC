@@ -11,7 +11,7 @@ The gateway routes requests to the following services:
 - **Agent Service** (port 8103): `/agent/*` → Agent operations
 - **Trading Service** (port 8104): `/trading/*` → Trading operations
 - **Governance Service** (port 8105): `/governance/*` → Governance operations
-- **Coordinator API** (port 8000): `/coordinator/*` → Coordinator API (default)
+- **Coordinator API** (port 8011): `/coordinator/*` → Coordinator API (default)
 
 ## Installation
 

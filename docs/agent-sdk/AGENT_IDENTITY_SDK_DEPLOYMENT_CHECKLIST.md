@@ -1,5 +1,7 @@
 # 🚀 Agent Identity SDK - Deployment Checklist
 
+> **Important:** This document uses port 8000 for the Coordinator API. The correct port is 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## ✅ **IMPLEMENTATION STATUS: COMPLETE**
 
 The Agent Identity SDK has been successfully implemented and tested. Here's your deployment checklist:

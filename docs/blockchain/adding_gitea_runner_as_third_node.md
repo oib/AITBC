@@ -82,7 +82,7 @@ api_port=8011
 
 # Wallet Configuration
 wallet_host=0.0.0.0
-wallet_port=8003
+wallet_port=8015
 
 # Exchange Configuration
 exchange_host=0.0.0.0

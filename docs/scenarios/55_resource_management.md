@@ -472,7 +472,7 @@ Network error: Failed to connect to coordinator
 **Solution:**
 ```bash
 # Check coordinator-api status
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Verify coordinator URL in config
 aitbc config show

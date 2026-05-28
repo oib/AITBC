@@ -1,5 +1,7 @@
 # AITBC Agent Coordinator - Architecture Documentation
 
+> **Important:** This document describes the Agent Coordinator architecture. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## System Overview
 
 The AITBC Agent Coordinator is a distributed task distribution system that manages AI agents, coordinates task assignment, and provides load balancing across multiple agent instances. The system uses Redis for persistence and FastAPI for REST API endpoints.
