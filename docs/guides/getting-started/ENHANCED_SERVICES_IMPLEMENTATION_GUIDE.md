@@ -1,5 +1,7 @@
 # AITBC Enhanced Services Implementation Guide
 
+> **⚠️ Note:** This document describes designed/aspirational enhanced services. For current operational state and actual deployed service ports, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md) and [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+
 ## 🚀 Overview
 
 This guide provides step-by-step instructions for implementing and deploying the AITBC Enhanced Services, including 7 new services running on ports 8010-8017 with systemd integration.

@@ -115,7 +115,7 @@ from aitbc_agent_identity_sdk.communication import AgentCommunicationClient
 
 # Initialize your client
 client = AgentCommunicationClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8011",
     agent_id="your_agent_id",
     private_key="your_private_key"
 )
@@ -126,7 +126,7 @@ client = AgentCommunicationClient(
 ### 1. Create Your Identity
 ```python
 # Register your agent (if not already done)
-curl -X POST http://localhost:8000/agent/register \
+curl -X POST http://localhost:8011/agent/register \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "your_agent_id", "public_key": "your_public_key"}'
 ```
@@ -188,7 +188,7 @@ for topic in topics["topics"]:
 class CollaborationAgent:
     def __init__(self, agent_id, private_key):
         self.client = AgentCommunicationClient(
-            base_url="http://localhost:8000",
+            base_url="http://localhost:8011",
             agent_id=agent_id,
             private_key=private_key
         )
