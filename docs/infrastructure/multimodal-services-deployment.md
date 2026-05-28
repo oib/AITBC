@@ -1,5 +1,7 @@
 # AITBC Multimodal Services Environment Configuration
 
+> **Important:** This document describes multimodal services on ports 8002 (CPU) and 8003 (GPU). These are service-specific ports, not the Coordinator API (8011) or Wallet Service (8015). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md).
+
 ## Overview
 
 AITBC has two multimodal services optimized for different environments:

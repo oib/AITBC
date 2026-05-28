@@ -334,9 +334,9 @@ Miner API:
 ```
 Mobile App ↔ AITBC Network
     ↓
-Wallet Daemon (Port 8003)
+Wallet Daemon (Port 8015)
     ↓
-Coordinator API (Port 8001)
+Coordinator API (Port 8011)
     ↓
 Blockchain Service (Port 8007)
     ↓

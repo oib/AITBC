@@ -86,7 +86,7 @@ Before creating profiles, set up your base configuration:
 
 ```bash
 # Set coordinator URL
-aitbc config set coordinator_url http://127.0.0.1:18000
+aitbc config set coordinator_url http://127.0.0.1:8011
 
 # Set timeout
 aitbc config set timeout 30
@@ -97,7 +97,7 @@ aitbc config show
 
 **Expected Output:**
 ```
-coordinator_url: http://127.0.0.1:18000
+coordinator_url: http://127.0.0.1:8011
 api_key: None
 timeout: 30
 config_file: /home/user/.aitbc.yaml
@@ -128,7 +128,7 @@ cat ~/.config/aitbc/profiles/development.yaml
 
 **Expected file content:**
 ```yaml
-coordinator_url: http://127.0.0.1:18000
+coordinator_url: http://127.0.0.1:8011
 timeout: 30
 ```
 
@@ -138,7 +138,7 @@ Switch to production settings and save as a profile:
 
 ```bash
 # Set production coordinator URL
-aitbc config set coordinator_url http://prod.example.com:18000
+aitbc config set coordinator_url http://prod.example.com:8011
 
 # Set production timeout
 aitbc config set timeout 60
@@ -149,7 +149,7 @@ aitbc config profiles save production
 
 **Expected Output:**
 ```
-Coordinator URL set to: http://prod.example.com:18000
+Coordinator URL set to: http://prod.example.com:8011
 Timeout set to: 60s
 Profile 'production' saved
 ```
@@ -168,12 +168,12 @@ aitbc config profiles list
   "profiles": [
     {
       "name": "development",
-      "coordinator_url": "http://127.0.0.1:18000",
+      "coordinator_url": "http://127.0.0.1:8011",
       "timeout": 30
     },
     {
       "name": "production",
-      "coordinator_url": "http://prod.example.com:18000",
+      "coordinator_url": "http://prod.example.com:8011",
       "timeout": 60
     }
   ]
@@ -205,7 +205,7 @@ aitbc config show
 
 **Expected Output:**
 ```
-coordinator_url: http://127.0.0.1:18000
+coordinator_url: http://127.0.0.1:8011
 api_key: None
 timeout: 30
 config_file: .aitbc.yaml
@@ -240,15 +240,15 @@ Create profiles for different network configurations:
 
 ```bash
 # Local development
-aitbc config set coordinator_url http://localhost:18000
+aitbc config set coordinator_url http://localhost:8011
 aitbc config profiles save local
 
 # Testnet
-aitbc config set coordinator_url http://testnet.aitbc.io:18000
+aitbc config set coordinator_url http://testnet.aitbc.io:8011
 aitbc config profiles save testnet
 
 # Mainnet
-aitbc config set coordinator_url http://mainnet.aitbc.io:18000
+aitbc config set coordinator_url http://mainnet.aitbc.io:8011
 aitbc config profiles save mainnet
 ```
 
@@ -258,12 +258,12 @@ Create profiles specific to agent roles:
 
 ```bash
 # GPU provider profile
-aitbc config set coordinator_url http://gpu-hub.aitbc.io:18000
+aitbc config set coordinator_url http://gpu-hub.aitbc.io:8011
 aitbc config set timeout 120
 aitbc config profiles save gpu-provider
 
 # AI job submitter profile
-aitbc config set coordinator_url http://ai-hub.aitbc.io:18000
+aitbc config set coordinator_url http://ai-hub.aitbc.io:8011
 aitbc config set timeout 30
 aitbc config profiles save ai-submitter
 ```
@@ -279,7 +279,7 @@ nano ~/.config/aitbc/profiles/custom.yaml
 
 **Custom profile example:**
 ```yaml
-coordinator_url: http://custom.example.com:18000
+coordinator_url: http://custom.example.com:8011
 timeout: 45
 custom_field: custom_value
 ```
@@ -367,7 +367,7 @@ Loaded profile has different values than expected
 cat ~/.config/aitbc/profiles/my_profile.yaml
 
 # Re-save profile with current config
-aitbc config set coordinator_url http://correct:18000
+aitbc config set coordinator_url http://correct:8011
 aitbc config profiles save my_profile
 ```
 

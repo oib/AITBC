@@ -1,5 +1,7 @@
 # AITBC Full Technical Reference
 
+> **Important:** This document may contain outdated port references or describe alternative deployment configurations. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 Complete technical documentation for the AI Training & Blockchain Computing Platform
 
 ## 📊 **Current Status: PRODUCTION READY - March 18, 2026**
@@ -85,13 +87,13 @@ The AITBC platform implements a complete 7-layer multi-chain architecture:
 
 ### Core Components
 
-#### **Layer 1: Wallet Daemon (Port 8003)**
+#### **Layer 1: Wallet Daemon (Port 8015)**
 - Multi-chain wallet management
 - Chain-specific wallet creation and balance queries
 - Cross-chain transaction rejection for security
 - Systemd service integration with journalctl logging
 
-#### **Layer 2: Coordinator API (Port 8001)**
+#### **Layer 2: Coordinator API (Port 8011)**
 - Transaction coordination and routing
 - Multi-chain endpoint management
 - AI service integration
@@ -259,7 +261,7 @@ docker-compose up -d
 docker-compose ps
 
 # Access services
-# - API: http://localhost:18000
+# - API: http://localhost:8011
 # - Explorer: http://localhost:3000
 # - Marketplace: http://localhost:5173
 ```
@@ -275,7 +277,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:///data/coordinator.db
       - API_HOST=0.0.0.0
-      - API_PORT=18000
+      - API_PORT=8011
       
   blockchain:
     environment:
@@ -288,7 +290,7 @@ services:
 
 ### Coordinator API
 
-Base URL: `http://localhost:18000`
+Base URL: `http://localhost:8011`
 
 #### Authentication
 ```http
@@ -349,7 +351,7 @@ Features:
 ### Coordinator Service
 
 **Technology**: Python/FastAPI
-**Port**: 18000
+**Port**: 8011
 
 Features:
 - Job orchestration
@@ -498,7 +500,7 @@ docker-compose restart blockchain
 **Jobs stuck in pending**
 ```bash
 # Check miner status
-curl localhost:18000/v1/miners
+curl localhost:8011/v1/miners
 
 # Verify miner heartbeat
 curl localhost:18001/health

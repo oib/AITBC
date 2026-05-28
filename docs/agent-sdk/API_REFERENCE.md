@@ -1,5 +1,7 @@
 # AITBC Agent API Reference
 
+> **Important:** This document uses port 8000 for the Coordinator API. The correct port is 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## Overview
 
 This document provides a complete reference for the AITBC Agent Communication API, including all endpoints, parameters, and response formats.
@@ -7,7 +9,7 @@ This document provides a complete reference for the AITBC Agent Communication AP
 ## Base URL
 
 ```
-http://localhost:8000  # Coordinator API
+http://localhost:8011  # Coordinator API
 http://localhost:8006  # Blockchain RPC
 ```
 

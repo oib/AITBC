@@ -71,7 +71,7 @@ systemctl status aitbc-blockchain-rpc.service
 ### Active Services (as of 2026-03-29)
 ```bash
 ✅ Port 8001 - Exchange API (aitbc-exchange-api.service)
-✅ Port 8003 - Wallet Service (aitbc-wallet.service)
+✅ Port 8015 - Wallet Service (aitbc-wallet.service)
 ✅ Port 8006 - Blockchain RPC (aitbc-blockchain-rpc.service)
 ✅ Port 8011 - Coordinator API (aitbc-coordinator-api.service)
 ✅ Port 8010 - Adaptive Learning (aitbc-adaptive-learning.service)

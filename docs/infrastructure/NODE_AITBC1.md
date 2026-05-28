@@ -1,5 +1,7 @@
 # AITBC1 Server Deployment Guide
 
+> **Important:** This document may contain outdated port references. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md).
+
 ## Overview
 
 This document contains specific deployment notes and considerations for deploying the AITBC platform on the **aitbc1 server** (primary development server). These notes complement the general deployment guide with server-specific configurations and troubleshooting. **Updated March 25, 2026: Updated architecture with aitbc1 as primary server and aitbc as secondary server.**
