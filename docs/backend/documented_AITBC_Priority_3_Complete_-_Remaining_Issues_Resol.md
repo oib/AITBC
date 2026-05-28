@@ -46,7 +46,7 @@ This document provides comprehensive technical documentation for aitbc priority 
 
 ### Test Result: ✅ PASS
 
-Coordinator proxy healthy: http://127.0.0.1:8000/v1/health
+Coordinator proxy healthy: http://127.0.0.1:8011/v1/health
 ```
 
 **🚀 Enhanced Services Implementation:**
