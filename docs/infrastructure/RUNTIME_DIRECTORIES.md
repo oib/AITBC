@@ -19,7 +19,7 @@ This document outlines the standard Linux system directories used by AITBC for r
 - Network settings
 
 ### `/var/log/aitbc/`
-**Purpose**: System logging (symlinked from `/var/lib/aitbc/logs/`)
+**Purpose**: System logging
 
 ## Security & Permissions
 

@@ -198,7 +198,7 @@ TEST_DATABASE_URL=sqlite:///test_aitbc.db
 
 # Test logging
 TEST_LOG_LEVEL=DEBUG
-TEST_LOG_FILE=/var/log/aitbc/test.log
+TEST_LOG_FILE=/var/log/aitbc/test.log (symlink to `/var/lib/aitbc/logs/`)
 
 # Test API endpoints
 # Note: Port 8012 = Learning Service (updated from 8011 to avoid Coordinator API conflict)

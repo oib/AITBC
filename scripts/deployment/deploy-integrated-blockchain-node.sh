@@ -119,7 +119,7 @@ setup_directories() {
     # Create runtime directories
     mkdir -p /var/lib/aitbc/keystore
     mkdir -p /var/lib/aitbc/data
-    mkdir -p /var/lib/aitbc/logs
+    mkdir -p /var/log/aitbc
     
     # Create configuration directory
     mkdir -p /etc/aitbc
@@ -127,7 +127,7 @@ setup_directories() {
     # Set permissions
     chmod 700 /var/lib/aitbc/keystore
     chmod 755 /var/lib/aitbc/data
-    chmod 755 /var/lib/aitbc/logs
+    chmod 755 /var/log/aitbc
     chmod 755 /etc/aitbc
     
     log_info "Directories setup complete"
