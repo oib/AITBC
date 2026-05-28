@@ -97,6 +97,81 @@ cd /opt/aitbc && ./aitbc-cli resource status
 cd /opt/aitbc && ./aitbc-cli resource list
 ```
 
+## Troubleshooting: Services Not Running
+
+If AI services are not running, follow these steps:
+
+### 1. Check Service Status
+```bash
+# List all AITBC services
+systemctl list-units --type=service | grep aitbc
+
+# Check AI-specific services
+systemctl status aitbc-ai-service.service 2>/dev/null || echo "AI service not installed"
+systemctl status ollama.service 2>/dev/null || echo "Ollama service not installed"
+```
+
+### 2. Check Ollama Service
+```bash
+# Check if Ollama is running
+systemctl status ollama
+
+# Start Ollama if not running
+sudo systemctl start ollama
+sudo systemctl enable ollama
+
+# Test Ollama directly
+curl -s http://localhost:11434/api/tags
+```
+
+### 3. Check Coordinator API
+```bash
+# Check coordinator API status
+systemctl status aitbc-coordinator-api.service
+
+# Start coordinator API if not running
+sudo systemctl start aitbc-coordinator-api.service
+sudo systemctl enable aitbc-coordinator-api.service
+
+# Test coordinator API health
+curl -s http://localhost:8011/health
+```
+
+### 4. Check Marketplace Service
+```bash
+# Check marketplace status
+systemctl status aitbc-marketplace.service 2>/dev/null || echo "Marketplace service not installed"
+
+# Test marketplace health
+curl -s http://localhost:8102/health
+```
+
+### 5. Check Service Logs
+```bash
+# View coordinator API logs
+journalctl -u aitbc-coordinator-api.service -n 50 --no-pager
+
+# View Ollama logs
+journalctl -u ollama.service -n 50 --no-pager
+
+# Follow logs in real-time
+journalctl -u aitbc-coordinator-api.service -f
+```
+
+### 6. GPU Detection
+```bash
+# Check if GPU is available
+nvidia-smi
+
+# If nvidia-smi fails, check if NVIDIA drivers are installed
+lsmod | grep nvidia
+
+# Check CUDA installation
+nvcc --version 2>/dev/null || echo "CUDA not found"
+```
+
+For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-troubleshooting.md).
+
 ## Common Pitfalls
 
 1. **Insufficient Wallet Balance:** Check wallet balance before job submission

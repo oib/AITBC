@@ -110,6 +110,63 @@ curl -s http://localhost:8015/health
 systemctl list-units --type=service --state=running | grep aitbc
 ```
 
+## Troubleshooting: Services Not Running
+
+If services are not running, follow these steps:
+
+### 1. Check Service Status
+```bash
+# List all AITBC services
+systemctl list-units --type=service | grep aitbc
+
+# Check specific service status
+systemctl status aitbc-blockchain-node.service
+systemctl status aitbc-blockchain-p2p.service
+systemctl status aitbc-coordinator-api.service
+systemctl status aitbc-wallet.service
+systemctl status aitbc-exchange-api.service
+```
+
+### 2. Start Failed Services
+```bash
+# Start individual services
+sudo systemctl start aitbc-blockchain-node.service
+sudo systemctl start aitbc-blockchain-p2p.service
+sudo systemctl start aitbc-coordinator-api.service
+sudo systemctl start aitbc-wallet.service
+sudo systemctl start aitbc-exchange-api.service
+
+# Enable services to start on boot
+sudo systemctl enable aitbc-blockchain-node.service
+sudo systemctl enable aitbc-blockchain-p2p.service
+sudo systemctl enable aitbc-coordinator-api.service
+```
+
+### 3. Check Service Logs for Errors
+```bash
+# View recent service logs
+journalctl -u aitbc-blockchain-node.service -n 50 --no-pager
+journalctl -u aitbc-coordinator-api.service -n 50 --no-pager
+
+# Follow logs in real-time
+journalctl -u aitbc-blockchain-node.service -f
+```
+
+### 4. Common Service Failure Causes
+- **Missing dependencies:** Check Python venv and required packages
+- **Configuration errors:** Verify `/etc/aitbc/.env` and `/etc/aitbc/node.env` exist
+- **Port conflicts:** Check if ports 8006, 8011, 8102, 8015, 8001 are available
+- **Database issues:** Verify `/var/lib/aitbc/data/` has proper permissions
+- **Keystore issues:** Check `/var/lib/aitbc/keystore/` exists and has correct permissions
+
+### 5. Restart All Services
+```bash
+# Restart all AITBC services
+sudo systemctl restart aitbc-*
+```
+
+For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-troubleshooting.md).
+
 ## Common Pitfalls
 
 1. **CLI Not Found:** Ensure `/opt/aitbc/aitbc-cli` exists and is executable
