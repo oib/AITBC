@@ -85,7 +85,7 @@ AITBC uses standard Linux system directories for runtime data:
 └── logs/         # Application logs
 
 /etc/aitbc/       # Configuration files
-/var/log/aitbc/   # System logging (symlink)
+/var/log/aitbc/   # System logging
 ```
 
 ### Security Notes

@@ -721,7 +721,7 @@ main() {
     echo "Runtime Directories:"
     echo "  Keystore: /var/lib/aitbc/keystore/"
     echo "  Data: /var/lib/aitbc/data/"
-    echo "  Logs: /var/lib/aitbc/logs/"
+    echo "  Logs: /var/log/aitbc/"
     echo "  Config: /etc/aitbc/"
     echo "  Credentials: /etc/aitbc/credentials/ (600 permissions)"
     echo "  Runtime secrets: /run/aitbc/secrets/ (tmpfs)"
