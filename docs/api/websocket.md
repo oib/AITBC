@@ -1,5 +1,7 @@
 # WebSocket API Documentation
 
+> **Important:** This document describes the WebSocket API endpoints. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
 The AITBC platform provides WebSocket endpoints for real-time updates on job status, blockchain events, and marketplace activities.
 
 ## Overview
@@ -12,6 +14,8 @@ WebSocket connections provide real-time, bidirectional communication with the AI
 
 ## Connection URLs
 
+> **Note:** Port assignments below represent designed configuration. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
 ### Coordinator API WebSocket
 
 - Development: `ws://localhost:8011/v1/jobs/{job_id}/ws`
@@ -19,7 +23,7 @@ WebSocket connections provide real-time, bidirectional communication with the AI
 
 ### Blockchain API WebSocket
 
-- Development: `ws://localhost:8080/v1/events`
+- Development: `ws://localhost:8006/v1/events`
 - Production: `wss://aitbc.bubuit.net/api/v1/events`
 
 ### Marketplace WebSocket
@@ -125,7 +129,7 @@ websocat ws://localhost:8011/v1/jobs/job-id/ws?api_key=your-api-key
 ### Endpoint
 
 ```
-ws://localhost:8080/v1/events
+ws://localhost:8006/v1/events
 ```
 
 ### Message Format
@@ -160,7 +164,7 @@ import websockets
 import json
 
 async def monitor_blockchain():
-    uri = "ws://localhost:8080/v1/events"
+    uri = "ws://localhost:8006/v1/events"
     
     async with websockets.connect(uri) as websocket:
         async for message in websocket:
@@ -177,7 +181,7 @@ asyncio.run(monitor_blockchain())
 ### Example (JavaScript)
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/v1/events');
+const ws = new WebSocket('ws://localhost:8006/v1/events');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);

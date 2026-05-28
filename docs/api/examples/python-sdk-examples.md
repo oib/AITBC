@@ -162,7 +162,7 @@ print(f"Amount: {payment.amount}")
 
 ```python
 blockchain = aitbc_sdk.BlockchainClient(
-    base_url="http://localhost:8080"
+    base_url="http://localhost:8006"
 )
 ```
 

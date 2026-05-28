@@ -2,8 +2,8 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-05-11
-**Version**: 6.5 (May 11, 2026 Update - roadmap simplification)
+**Last Updated**: 2026-05-28
+**Version**: 6.6 (May 28, 2026 Update - documentation review and cleanup)
 
 ---
 
@@ -18,8 +18,7 @@
 ├── 🤖 agents/                      # Agent documentation and integration assets
 ├── 📱 apps/                        # Applications documentation (72 items)
 ├── 🏗️ architecture/                # System architecture and design patterns
-├── 📚 archive/                    # Historical documents (228 items)
-├── 💻 backend/                    # Backend system documentation
+├──  backend/                    # Backend system documentation
 ├── ⛓️ blockchain/                  # Blockchain documentation (29 items)
 ├── 💻 cli/                        # Command-line interface documentation (5 items)
 ├── 📜 contracts/                  # Smart contract verification docs (2 items)
@@ -34,7 +33,6 @@
 ├── 📋 project/                    # Project documentation (28 items)
 ├── 📖 reference/                  # Compact lookup and reference docs (22 items)
 ├── 📋 releases/                   # Release notes and version history (7 items)
-├── 📊 reports/                    # Status, quality, and completion reports (29 items)
 ├── 🎭 scenarios/                  # hermes agent scenarios (49 items)
 ├── 🔒 security/                   # Security documentation (20 items)
 ├── 🧪 testing/                    # Test suite documentation (7 items)
@@ -46,11 +44,11 @@
 
 ## 📊 Directory Statistics
 
-- **Total Directories**: 27
-- **Total Files**: 600+ markdown files
-- **Archive Items**: 228 historical documents
+- **Total Directories**: 25
+- **Total Files**: 500+ markdown files
 - **Apps Documentation**: 72 items
 - **Scenarios**: 49 hermes agent scenarios
+- **Release Notes**: 7 items (latest 5 releases retained)
 
 ---
 
@@ -67,7 +65,6 @@ Documentation about the documentation system itself
 - **[Compliance Audit](about/DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Current remediation checklist
 - **[Organization Analysis](about/DOCS_ORGANIZATION_ANALYSIS.md)** - Structure analysis and quality assessment
 - **[10/10 Roadmap](about/DOCS_10_10_ROADMAP.md)** - Path to perfect documentation quality
-- **[Archive Structure Fix](about/ARCHIVE_STRUCTURE_FIX.md)** - Archive reorganization documentation
 - **[Centralization Guide](about/CENTRALIZED_DOCS_STRUCTURE.md)** - Documentation centralization process
 - **[Sorting Summary](about/DOCUMENTATION_SORTING_SUMMARY.md)** - Documentation sorting and organization
 
@@ -102,21 +99,7 @@ Documentation about the documentation system itself
 ### 🏗️ Architecture Documentation
 - **[Architecture](architecture/)** - System architecture and design patterns (10 items)
 
-### 📚 Archive Documentation
-- **[Archive](archive/)** - Historical documents (228 items)
-  - [summaries/](archive/summaries/) - Task completion summaries and handoffs
-  - [completed/](archive/completed/) - Completed work and implemented plans
-  - [expert/](archive/expert/) - Expert-level issues and completed phases
-  - [analytics/](archive/analytics/) - AI agent communication analysis
-  - [backend/](archive/backend/) - Backend system documentation
-  - [cli/](archive/cli/) - CLI implementation and testing
-  - [core_planning/](archive/core_planning/) - Planning and requirements
-  - [general/](archive/general/) - General project documentation
-  - [infrastructure/](archive/infrastructure/) - Infrastructure and deployment
-  - [security/](archive/security/) - Security and compliance
-  - [trail/](archive/trail/) - Operational breadcrumbs and success notes
-
-### 💻 Backend Documentation
+###  Backend Documentation
 - **[Backend](backend/)** - Backend system documentation (16 items)
 
 ### ⛓️ Blockchain Documentation
@@ -178,12 +161,6 @@ Documentation about the documentation system itself
   - [RELEASE_v0.2.4.md](releases/RELEASE_v0.2.4.md)
   - [RELEASE_v0.2.3.md](releases/RELEASE_v0.2.3.md)
 
-### 📊 Reports Documentation
-- **[Reports](reports/)** - Status, quality, and completion reports (29 items)
-  - [completion/](reports/completion/) - Project completion and phase reports
-  - [phase/](reports/phase/) - Detailed phase implementation reports
-  - [github-resolution/](reports/github-resolution/) - GitHub PR resolution and updates
-
 ### 🎭 Scenarios Documentation
 - **[Scenarios](scenarios/)** - hermes agent scenarios (49 items)
   - 45 scenarios covering all AITBC features
@@ -205,7 +182,7 @@ Documentation about the documentation system itself
 
 ---
 
-## 🔄 Recent Consolidations (v6.4 - May 3, 2026)
+## 🔄 Recent Consolidations (v6.6 - May 28, 2026)
 
 The following directories were consolidated to improve documentation organization:
 
@@ -218,7 +195,8 @@ The following directories were consolidated to improve documentation organizatio
 7. **nodes/ → deployment/** - Node operations documentation merged into deployment
 8. **policies/ → security/policies/** - Policy documentation merged into security
 9. **clients/ → apps/clients/** - Client documentation moved to apps directory
-10. **trail/ → archive/trail/** - Trail documentation moved to archive
+10. **archive/** - Historical archive directory removed (cleanup completed)
+11. **reports/** - Historical reports directory removed (cleanup completed)
 
 All cross-references have been updated to reflect these changes.
 
@@ -230,7 +208,6 @@ All cross-references have been updated to reflect these changes.
 - **Developers**: Review [Project Structure](project/) and [Blockchain](blockchain/) documentation
 - **System Administrators**: Check [Deployment](deployment/) and [Security](security/) documentation
 - **hermes Agents**: See [Agent SDK](agent-sdk/) and [Scenarios](scenarios/) documentation
-- **Historical Reference**: Browse [Archive](archive/) for completed work and historical documents
 
 ---
 
@@ -244,6 +221,6 @@ All cross-references have been updated to reflect these changes.
 
 ---
 
-**Last Updated**: 2026-05-03
-**Documentation Version**: 6.4
+**Last Updated**: 2026-05-28
+**Documentation Version**: 6.6
 **Status**: Production Ready with consolidated structure

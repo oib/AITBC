@@ -6,6 +6,8 @@ category: operations
 
 # AITBC Basic Operations Skill
 
+**Status:** 🟡 **Procedure Validated** - Procedures accurate if dependencies and services are present
+
 ## Trigger Conditions
 Activate when user requests basic AITBC operations: CLI validation, wallet operations, blockchain status, service health checks, or system verification.
 
@@ -19,8 +21,31 @@ Test and validate AITBC basic CLI functionality, core blockchain operations, wal
 - Working directory: `/opt/aitbc`
 - Default test wallet: "genesis" with password from `/var/lib/aitbc/keystore/.genesis_password`
 
+## Prerequisites Check
+Before proceeding, verify:
+```bash
+# Check service status
+systemctl list-units --state=running | grep aitbc
+
+# Check Python dependencies
+source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
+
+# Verify CLI accessible
+/opt/aitbc/aitbc-cli --version
+
+# Check service health endpoints
+curl -s http://localhost:8006/health
+curl -s http://localhost:8011/health
+curl -s http://localhost:8102/health
+```
+
+**If services are not running or dependencies are missing**, see [Blockchain Troubleshooting](aitbc-blockchain-troubleshooting.md) for resolution steps.
+
 ## Port Reference
 
+For authoritative port configuration, see [Service Ports Reference](../../docs/reference/SERVICE_PORTS.md).
+
+**Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
 | Blockchain RPC | 8006 | Main blockchain node |
@@ -102,16 +127,30 @@ systemctl list-units --type=service --state=running | grep aitbc
 - [ ] Network status shows peer connections
 - [ ] All services (coordinator, exchange, blockchain, marketplace, wallet) return healthy status
 
-## CLI Tool Preference
-- **Primary CLI:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
-- **Module:** `cli/unified_cli.py` is a module within the CLI tool for marketplace and messaging operations
-- **Note:** For marketplace operations, prefer `python3 cli/unified_cli.py` (verified working)
+## CLI Entry Point
 
-## Status
-**AITBC Basic Operations: FULLY OPERATIONAL**
-- 23 systemd services running
-- All basic operations verified working
-- **This skill ships with AITBC software repository**
+**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+
+This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+
+**Direct Python Invocation:** `python3 cli/unified_cli.py`
+
+Use direct Python invocation for:
+- Marketplace operations (GPU provider registration, trading)
+- GPU testing and Ollama operations
+- Specific module features requiring direct access
+
+**Usage Examples:**
+```bash
+# Standard operations (use wrapper)
+/opt/aitbc/aitbc-cli balance --name genesis
+/opt/aitbc/aitbc-cli chain
+/opt/aitbc/aitbc-cli network
+
+# Marketplace/GPU operations (use direct Python)
+python3 cli/unified_cli.py market gpu-provider-register --wallet genesis --gpu-model llama2
+python3 cli/unified_cli.py ollama gpu-test --wallet genesis --model llama2
+```
 
 ---
 

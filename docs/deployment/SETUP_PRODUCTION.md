@@ -1,5 +1,7 @@
 # Production Blockchain Setup Guide
 
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## Overview
 
 This guide sets up the AITBC blockchain in production mode with:
@@ -69,7 +71,7 @@ BLOCK_TIME_SECONDS=2
 RPC_BIND_HOST=127.0.0.1
 RPC_BIND_PORT=8006
 P2P_BIND_HOST=127.0.0.2
-P2P_BIND_PORT=8005
+P2P_BIND_PORT=7070
 
 MEMPOOL_BACKEND=database
 MIN_FEE=0

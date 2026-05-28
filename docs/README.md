@@ -5,8 +5,8 @@
 **Level**: All Levels
 **Prerequisites**: Basic computer skills
 **Estimated Time**: Varies by learning path
-**Last Updated**: 2026-05-11
-**Version**: 6.5 (May 11, 2026 Update - roadmap simplification)
+**Last Updated**: 2026-05-28
+**Version**: 6.6 (May 28, 2026 Update - documentation review and port consistency fixes)
 
 ## 🧭 **Navigation Path:**
 
@@ -64,11 +64,18 @@ See [Development Roadmap](ROADMAP.md) for complete list of remaining tasks.
 
 ### 🚀 **Production Deployment Status**
 
-- **Service Health**: ✅ Running on port 9001
-- **Authentication**: ✅ JWT tokens working
-- **Monitoring**: ✅ Prometheus metrics active
+> **Note:** Service status below represents designed architecture. For current operational state, see [Current Operational State](infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](reference/SERVICE_PORTS.md).
+
+- **Service Health**: ✅ Designed architecture complete
+- **Coordinator API**: Port 8011
+- **Exchange API**: Port 8001
+- **Blockchain RPC**: Port 8006
+- **Marketplace**: Port 8102
+- **Wallet Daemon**: Port 8015
+- **Authentication**: ✅ JWT tokens configured
+- **Monitoring**: ✅ Prometheus metrics configured
 - **Alerting**: ✅ 5 default rules configured
-- **SLA Tracking**: ✅ Compliance monitoring active
+- **SLA Tracking**: ✅ Compliance monitoring configured
 - **Type Safety**: ✅ 90%+ coverage achieved
 
 ### 📊 **Final Statistics**
@@ -335,7 +342,7 @@ Complete documentation for all AITBC applications and services
 - [Blockchain Explorer](apps/blockchain/blockchain-explorer.md) - Blockchain explorer and analytics
 
 **Coordinator**
-- [Agent Coordinator](apps/coordinator/agent-coordinator.md) - Agent coordination and management (Port 9001)
+- [Agent Coordinator](apps/coordinator/agent-coordinator.md) - Agent coordination and management (Port 8011)
 
 **Agents**
 - [Agent Services](apps/agents/agent-services.md) - Agent bridge, compliance, protocols, registry, and trading
@@ -612,8 +619,8 @@ apt update && apt upgrade -y
 
 ---
 
-**Last Updated**: 2026-05-03
-**Documentation Version**: 6.4 (May 3, 2026 Update - documentation consolidation)
+**Last Updated**: 2026-05-28
+**Documentation Version**: 6.6 (May 28, 2026 Update - documentation review and port consistency fixes)
 **Quality Score**: 10/10 (Perfect Documentation)
 **Total Files**: 500+ markdown files with standardized templates
 **Status**: PRODUCTION READY with perfect documentation structure

@@ -2,6 +2,8 @@
 
 This guide provides detailed instructions for deploying the AITBC platform in various scenarios.
 
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
@@ -50,9 +52,11 @@ This guide provides detailed instructions for deploying the AITBC platform in va
 ### Network Requirements
 
 - Public IP address (for blockchain node)
-- Open ports: 8080 (blockchain), 8011 (coordinator), 8071 (wallet), 8102 (marketplace)
+- Open ports: 8006 (blockchain RPC), 7070 (P2P), 8011 (coordinator), 8015 (wallet), 8102 (marketplace)
 - DNS configuration (optional but recommended)
 - Firewall rules configured
+
+> **Port Reference:** For complete port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## System Requirements
 
@@ -161,7 +165,7 @@ python -m apps.marketplace_service.main
 
 ```bash
 # Check service health
-curl http://localhost:8080/health  # Blockchain
+curl http://localhost:8006/health  # Blockchain RPC
 curl http://localhost:8011/health  # Coordinator
 curl http://localhost:8102/health  # Marketplace
 ```
@@ -241,7 +245,7 @@ upstream coordinator {
 }
 
 upstream blockchain {
-    server 127.0.0.1:8080;
+    server 127.0.0.1:8006;
 }
 
 upstream marketplace {
@@ -373,7 +377,7 @@ sudo -u postgres psql -c "CREATE DATABASE aitbc;"
 - Database: RDS PostgreSQL
 
 # Security groups
-- Allow ports 8080, 8011, 8071, 8102
+- Allow ports 8006, 7070, 8011, 8015, 8102
 - Configure VPC and subnets
 ```
 
@@ -435,7 +439,7 @@ services:
   blockchain:
     build: ./apps/blockchain_node
     ports:
-      - "8080:8080"
+      - "8006:8006"
     volumes:
       - blockchain-data:/data
     environment:
@@ -524,13 +528,13 @@ MARKETPLACE_API_KEY=your-api-key
 # /etc/aitbc/config.yaml
 services:
   blockchain:
-    port: 8080
+    port: 8006
     host: 0.0.0.0
     database:
       host: localhost
       port: 5432
       name: aitbc
-  
+
   coordinator:
     port: 8011
     host: 0.0.0.0
@@ -541,7 +545,7 @@ services:
     cache:
       host: localhost
       port: 6379
-  
+
   marketplace:
     port: 8102
     host: 0.0.0.0
@@ -610,7 +614,7 @@ server {
 
 ```bash
 # Blockchain health
-curl http://localhost:8080/health
+curl http://localhost:8006/health
 
 # Coordinator health
 curl http://localhost:8011/health
@@ -625,7 +629,7 @@ curl http://localhost:8102/health
 #!/bin/bash
 # health-check.sh
 
-services=("blockchain:8080" "coordinator:8011" "marketplace:8102")
+services=("blockchain:8006" "coordinator:8011" "marketplace:8102")
 
 for service in "${services[@]}"; do
     name="${service%%:*}"
@@ -667,7 +671,7 @@ WantedBy=multi-user.target
 sudo journalctl -u aitbc-coordinator-api -n 50
 
 # Check port conflicts
-sudo netstat -tulpn | grep -E '8080|8011|8102'
+sudo netstat -tulpn | grep -E '8006|7070|8011|8102'
 
 # Check permissions
 sudo -u aitbc ls -la /opt/aitbc

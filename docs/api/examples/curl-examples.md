@@ -1,5 +1,7 @@
 # cURL Examples
 
+> **Important:** This document provides cURL examples for interacting with the AITBC APIs. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
 This document provides comprehensive cURL examples for interacting with the AITBC APIs.
 
 ## Common Headers
@@ -143,7 +145,7 @@ curl -H "X-Api-Key: $API_KEY" \
 #### Get Head Block
 
 ```bash
-export BLOCKCHAIN_URL="http://localhost:8080"
+export BLOCKCHAIN_URL="http://localhost:8006"
 
 curl $BLOCKCHAIN_URL/v1/blocks/head
 ```
@@ -371,7 +373,7 @@ show-error = true
 # ~/.bashrc or ~/.zshrc
 export AITBC_API_KEY="your-api-key"
 export AITBC_BASE_URL="http://localhost:8011"
-export AITBC_BLOCKCHAIN_URL="http://localhost:8080"
+export AITBC_BLOCKCHAIN_URL="http://localhost:8006"
 ```
 
 ### Shell Functions
