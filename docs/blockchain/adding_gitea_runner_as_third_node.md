@@ -1,5 +1,7 @@
 # Adding gitea-runner as Third Blockchain Node (aitbc2)
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This document describes the experience of adding `gitea-runner` as a third blockchain node (NODE_ID: `aitbc2`) to the existing AITBC network consisting of `aitbc` and `aitbc1`.

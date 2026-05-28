@@ -1,5 +1,7 @@
 # Production Blockchain Setup Guide
 
+**Last Updated:** 2026-05-28
+
 > **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
 
 ## Overview

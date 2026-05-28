@@ -1,5 +1,7 @@
 # AITBC CLI Architecture
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document describes the CLI architecture. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 This document describes the architecture of the AITBC CLI system, including component interactions, data flows, and extension points.

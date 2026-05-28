@@ -3,7 +3,7 @@
 **Level**: Intermediate<br>
 **Prerequisites**: Basic CLI familiarity, shell usage, and AITBC project context<br>
 **Estimated Time**: 10-15 minutes<br>
-**Last Updated**: 2026-04-27<br>
+**Last Updated**: 2026-05-28<br>
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

@@ -1,5 +1,7 @@
 # AITBC Server Deployment Guide
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document describes the designed deployment architecture for the aitbc server. For the current operational state and deployment status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
 > **Note**: This documentation is specific to the aitbc secondary server. For aitbc1 primary server documentation, see [aitbc1.md](./aitbc1.md).
@@ -774,7 +776,7 @@ sudo systemctl start aitbc-*.service
 - **Development Environment**: Safe testing infrastructure
 
 ### 📋 **Port Logic Implementation Status**
-- **Core Services (8000-8003)**: ✅ Coordinator API, Exchange API, Blockchain Node, Blockchain RPC
+- **Core Services (8011-8015)**: ✅ Coordinator API, Exchange API, Wallet Service
 - **Multi-Chain Services (8005-8008)**: ✅ Legacy nodes, Blockchain Service, Network Service
 - **Enhanced Services (8010-8017)**: ✅ AI/ML services, Marketplace Enhanced, Explorer, Load Balancer
 - **Legacy Ports (8080-8089)**: ❌ Deprecated

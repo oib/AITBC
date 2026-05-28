@@ -1,5 +1,7 @@
 # Deployment & Operations
 
+**Last Updated:** 2026-05-28
+
 Deploy, operate, and maintain AITBC infrastructure.
 
 ## Reading Order

@@ -2,6 +2,7 @@
 name: aitbc-basic-operations
 description: Basic AITBC operations including CLI validation, wallet operations, blockchain status, service health checks, and system verification
 category: operations
+last_updated: 2026-05-28
 ---
 
 # AITBC Basic Operations Skill

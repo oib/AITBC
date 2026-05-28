@@ -1,5 +1,7 @@
 # AITBC - AI Training Blockchain
 
+**Last Updated:** 2026-05-28
+
 **Advanced AI Platform with hermes Agent Ecosystem**
 
 [![Documentation](https://img.shields.io/badge/Documentation-10%2F10-brightgreen.svg)](docs/README.md)

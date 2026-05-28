@@ -1,5 +1,7 @@
 # AITBC Mobile Wallet & One-Click Miner
 
+**Last Updated:** 2026-05-28
+
 ## 📱 Mobile Wallet Application
 
 ### Overview

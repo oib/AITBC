@@ -2,6 +2,7 @@
 name: aitbc-blockchain-troubleshooting
 description: Blockchain troubleshooting including sync issues, P2P problems, service failures, data corruption, and blockchain recovery operations
 category: troubleshooting
+last_updated: 2026-05-28
 ---
 
 # AITBC Blockchain Troubleshooting Skill

@@ -1,5 +1,7 @@
 # hermes Agent AITBC Smart Contract Messaging Implementation Guide
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This guide demonstrates how to train hermes agents to use the AITBC blockchain's smart contract messaging system for cross-node agent communication. The system provides forum-like communication with reputation management, moderation, and collaborative features.

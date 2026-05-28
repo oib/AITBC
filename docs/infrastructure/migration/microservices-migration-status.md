@@ -1,5 +1,7 @@
 # AITBC Microservices Migration Status
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document describes the microservices migration. Port 9001 is used for Agent Coordinator. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../CURRENT_OPERATIONAL_STATE.md).
 
 ## Overview

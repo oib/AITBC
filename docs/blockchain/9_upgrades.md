@@ -1,4 +1,7 @@
 # Node Upgrades
+
+**Last Updated:** 2026-05-28
+
 Guide for upgrading your blockchain node.
 
 ## Upgrade Process

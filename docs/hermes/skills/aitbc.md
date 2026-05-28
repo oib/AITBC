@@ -2,6 +2,7 @@
 name: aitbc-operations
 description: AITBC software service operations - marketplace API endpoints, coordinator API, messaging API, cross-node operations, testing patterns. All operational information verified. Ships with AITBC software.
 category: software-development
+last_updated: 2026-05-28
 ---
 
 # AITBC Software Service Operations Skill

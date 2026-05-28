@@ -1,5 +1,7 @@
 # AITBC Runtime Directory Structure
 
+**Last Updated:** 2026-05-28
+
 This document outlines the standard Linux system directories used by AITBC for runtime data.
 
 ## Standard System Directories

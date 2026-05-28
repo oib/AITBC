@@ -1,5 +1,7 @@
 # AITBC Beta Release Plan
 
+**Last Updated:** 2026-05-28
+
 ## Executive Summary
 
 This document outlines the beta release plan for AITBC (AI Trusted Blockchain Computing), a blockchain platform designed for AI workloads. The release follows a phased approach: Alpha → Beta → Release Candidate (RC) → General Availability (GA).

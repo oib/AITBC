@@ -1,5 +1,7 @@
 # AITBC Production Environment
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document describes the designed production architecture following Linux Filesystem Hierarchy Standard (FHS). For the current operational state and deployment status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
 > **Note:** The FHS-compliant structure described below represents the target architecture. Current deployment may use the standard repository layout. Verify actual structure before making changes.

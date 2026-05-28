@@ -1,5 +1,7 @@
 # AITBC1 Server Test Commands
 
+**Last Updated:** 2026-05-28
+
 ## 🚀 **Sync and Test Instructions**
 
 Run these commands on the **aitbc1 server** to test the workflow migration:

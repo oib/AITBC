@@ -1,5 +1,7 @@
 # AITBC CLI Getting Started Guide
 
+**Last Updated:** 2026-05-28
+
 **Complete Command Line Interface Setup and Usage**
 
 > **Note:** This document describes the CLI usage for the AITBC platform. For the current operational state and deployment status, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).

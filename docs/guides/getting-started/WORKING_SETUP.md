@@ -1,5 +1,7 @@
 # Brother Chain Deployment — Working Configuration
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document describes a specific brother chain deployment configuration. For standard AITBC port assignments, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md).
 
 **Agent**: aitbc

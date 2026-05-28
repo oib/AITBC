@@ -2,6 +2,7 @@
 name: aitbc-marketplace
 description: Marketplace operations including listing creation, price optimization, market analysis, trading operations, GPU provider registration, and marketplace status checks
 category: marketplace
+last_updated: 2026-05-28
 ---
 
 # AITBC Marketplace Skill

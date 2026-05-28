@@ -2,6 +2,7 @@
 name: aitbc-cli
 description: Complete guide for using the AITBC CLI tool - wallet management, transactions, blockchain analytics, marketplace, AI jobs, mining, agent operations, simulations
 category: software-development
+last_updated: 2026-05-28
 ---
 
 # AITBC CLI Tool Skill

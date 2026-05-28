@@ -1,8 +1,8 @@
 # AITBC Infrastructure Documentation
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document describes the designed infrastructure architecture. For the current operational state and deployment status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
->
-> Last updated: 2026-03-10 (Updated nginx configuration with new port logic implementation)
 
 ## Overview
 

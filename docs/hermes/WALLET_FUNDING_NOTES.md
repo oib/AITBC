@@ -1,5 +1,7 @@
 # Wallet Funding Notes
 
+**Last Updated:** 2026-05-28
+
 **Date**: April 13, 2026  
 **Purpose**: hermes agent communication testing
 

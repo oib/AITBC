@@ -1,4 +1,7 @@
 # Consensus Mechanism
+
+**Last Updated:** 2026-05-28
+
 Understand AITBC's hybrid Proof-of-Authority/Proof-of-Stake consensus mechanism.
 
 ## Overview

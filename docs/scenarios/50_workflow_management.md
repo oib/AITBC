@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Basic CLI knowledge, AITBC CLI installed, coordinator-api running  
 **Estimated Time**: 20 minutes  
-**Last Updated**: 2026-05-27  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

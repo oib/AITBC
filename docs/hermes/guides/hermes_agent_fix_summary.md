@@ -1,5 +1,7 @@
 # hermes Agent Communication Fix - Summary
 
+**Last Updated:** 2026-05-28
+
 ## Problem Identified
 The hermes agent was failing with the error:
 ```
