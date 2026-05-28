@@ -1,5 +1,7 @@
 # Node Quick Start
 
+**Last Updated:** 2026-05-28
+
 **10 minutes** — Install, configure, and sync a blockchain node.
 
 ## Prerequisites

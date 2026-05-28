@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Basic Trading (Scenario 06), GPU Listing (Scenario 09), Analytics Collection (Scenario 18)  
 **Estimated Time**: 45 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

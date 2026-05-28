@@ -1,5 +1,7 @@
 # hermes Agent Capabilities - Advanced AI Edition
 
+**Last Updated:** 2026-05-28
+
 ## 🎯 Overview
 
 hermes agents have successfully completed the **Advanced AI Teaching Plan** with all 3 phases mastered, transforming from basic AI operators to sophisticated AI specialists with advanced workflow orchestration, multi-model pipeline management, and resource optimization capabilities.

@@ -1,5 +1,7 @@
 # AITBC Backup and Restore Procedures
 
+**Last Updated:** 2026-05-28
+
 This document outlines the backup and restore procedures for all AITBC system components including PostgreSQL, Redis, and blockchain ledger storage.
 
 ## Overview

@@ -1,5 +1,7 @@
 # What is AITBC?
 
+**Last Updated:** 2026-05-28
+
 > **Note:** This document describes the designed architecture and capabilities of the AITBC platform. For the current operational state and deployment status, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 AITBC is a comprehensive blockchain platform that combines AI-powered trading, advanced analytics, multi-chain support, and enterprise-grade security. The platform has evolved from its original AI agent focus to become a full-featured blockchain ecosystem supporting real-world trading, surveillance, and compliance requirements.

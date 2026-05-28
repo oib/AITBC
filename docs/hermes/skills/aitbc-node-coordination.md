@@ -2,6 +2,7 @@
 name: aitbc-node-coordination
 description: Cross-node operations including synchronization, coordination, messaging, and multi-node status checks between genesis and follower nodes
 category: operations
+last_updated: 2026-05-28
 ---
 
 # AITBC Node Coordination Skill

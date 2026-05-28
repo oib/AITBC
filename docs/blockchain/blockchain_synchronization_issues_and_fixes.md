@@ -1,5 +1,7 @@
 # Blockchain Synchronization Issues and Fixes
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This document describes the blockchain synchronization issues discovered between the AITBC nodes (`aitbc` and `aitbc1`) and the fixes implemented to resolve them.

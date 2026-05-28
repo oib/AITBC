@@ -1,4 +1,7 @@
 # Node Monitoring
+
+**Last Updated:** 2026-05-28
+
 Monitor your blockchain node performance and health.
 
 ## Dashboard

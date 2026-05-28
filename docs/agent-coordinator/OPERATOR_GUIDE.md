@@ -1,5 +1,8 @@
 # AITBC Agent Coordinator - Operator Guide
 
+**Last Updated:** 2026-05-28
+**Version:** 1.0
+
 > **Important:** This document describes the Agent Coordinator service. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
 
 This guide provides operators with the knowledge to deploy, configure, monitor, and troubleshoot the AITBC Agent Coordinator service.

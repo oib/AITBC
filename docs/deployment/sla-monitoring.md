@@ -1,5 +1,7 @@
 # SLA Monitoring Guide
 
+**Last Updated:** 2026-05-28
+
 This guide covers SLA (Service Level Agreement) monitoring and billing instrumentation for coordinator/pool hub services in the AITBC ecosystem.
 
 ## Overview

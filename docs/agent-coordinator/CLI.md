@@ -1,5 +1,8 @@
 # AITBC Agent Coordinator - CLI Reference
 
+**Last Updated:** 2026-05-28
+**Version:** 1.0
+
 > **Important:** This document describes the Agent Coordinator CLI. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
 
 The AITBC CLI provides commands for interacting with the Agent Coordinator service for agent management and task distribution.

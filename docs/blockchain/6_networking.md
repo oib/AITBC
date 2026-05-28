@@ -1,4 +1,7 @@
 # Networking Configuration
+
+**Last Updated:** 2026-05-28
+
 Configure P2P networking for your blockchain node.
 
 ## Network Settings

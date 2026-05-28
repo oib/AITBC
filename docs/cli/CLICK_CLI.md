@@ -1,5 +1,7 @@
 # AITBC CLI Documentation
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 The AITBC CLI has a single entry point (`aitbc-cli`) that delegates to two command architectures:

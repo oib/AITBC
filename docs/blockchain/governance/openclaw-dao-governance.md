@@ -1,5 +1,7 @@
 # hermes DAO Governance - Conceptual Framework
 
+**Last Updated:** 2026-05-28
+
 ## 🏛️ Overview
 
 hermes DAO is the decentralized governance mechanism for the AITBC ecosystem, designed to facilitate autonomous decision-making for AI agents, GPU resource allocation, and ecosystem development through token-weighted voting with snapshot security mechanisms.

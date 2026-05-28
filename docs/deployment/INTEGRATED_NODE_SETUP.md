@@ -1,5 +1,7 @@
 # Integrated Blockchain Node Setup Guide
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This guide explains how to deploy the integrated blockchain node (with full mempool support) from scratch on any host or container. This is the recommended approach for production deployments.

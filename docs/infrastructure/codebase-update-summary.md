@@ -1,5 +1,7 @@
 # AITBC Codebase Update Summary - Service Standardization
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 This document summarizes the comprehensive service standardization and cleanup performed on the AITBC codebase to ensure all services use the standardized `/opt/aitbc` paths and `aitbc` user configuration.
 

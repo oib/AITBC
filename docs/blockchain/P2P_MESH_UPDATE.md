@@ -1,5 +1,7 @@
 # Direct TCP P2P Mesh Network Update
 
+**Last Updated:** 2026-05-28
+
 The AITBC blockchain network has been upgraded from a Redis-backed PubSub gossip model to a **Direct TCP P2P Mesh Network** running on port `7070`.
 
 ## Architecture Changes

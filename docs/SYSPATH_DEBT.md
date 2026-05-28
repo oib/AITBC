@@ -1,5 +1,8 @@
 # sys.path Manipulation Debt
 
+**Last Updated:** 2026-05-28
+**Version:** 1.0
+
 ## Overview
 
 The AITBC codebase contains approximately 105 files with `sys.path` manipulation. This is structural debt that requires CLI packaging restructuring to eliminate properly.

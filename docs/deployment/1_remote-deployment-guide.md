@@ -1,5 +1,7 @@
 # AITBC Remote Deployment Guide
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 This deployment strategy builds the blockchain node directly on the redacted-host server to utilize its gigabit connection, avoiding slow uploads from localhost.
 

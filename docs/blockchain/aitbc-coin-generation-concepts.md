@@ -1,6 +1,6 @@
 # 🪙 **AITBC Coin Generation Concepts**
 
-**Last Updated**: 2026-05-07 | **Version**: 2.0 (Hermes Integration Update)
+**Last Updated**: 2026-05-28 | **Version**: 2.0 (Hermes Integration Update)
 
 The AITBC system uses a **multi-layered coin generation system** with several methods beyond just genesis creation:
 

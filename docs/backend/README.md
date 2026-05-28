@@ -1,6 +1,7 @@
 # Backend Documentation
 
-**Generated**: 2026-03-08 13:06:38
+**Last Updated:** 2026-05-28
+**Generated:** 2026-03-08 13:06:38
 **Total Files**: 16
 **Documented Files**: 15
 **Other Files**: 1

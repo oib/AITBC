@@ -1,5 +1,7 @@
 # Logs Directory Organization
 
+**Last Updated:** 2026-05-28
+
 ## Log Files Location
 
 System logs are now properly organized in /var/log/aitbc/:

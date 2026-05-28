@@ -3,7 +3,7 @@
 **Level**: Advanced  
 **Prerequisites**: Blockchain node setup, Redis configuration, Systemd service management  
 **Estimated Time**: 30 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
