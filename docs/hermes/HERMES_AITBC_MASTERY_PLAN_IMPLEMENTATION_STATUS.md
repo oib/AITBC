@@ -44,7 +44,7 @@ The hermes AITBC Mastery Plan has been successfully implemented. All 5 training 
 - Tested node-specific operations on both nodes over port 8006
 - Nodes confirmed synchronized at height 22502
 
-**Log File**: `/var/log/aitbc/training_stage1_foundation.log` (symlink to `/var/lib/aitbc/logs/`)
+**Log File**: `/var/log/aitbc/training_stage1_foundation.log`
 
 ---
 
@@ -87,7 +87,7 @@ The hermes AITBC Mastery Plan has been successfully implemented. All 5 training 
 - Resource allocation and optimization verified
 - Model management operations validated
 
-**Log File**: `/var/log/aitbc/training_stage3.log` (symlink to `/var/lib/aitbc/logs/`)
+**Log File**: `/var/log/aitbc/training_stage3.log`
 
 ---
 

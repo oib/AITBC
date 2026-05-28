@@ -172,7 +172,7 @@ MINER_API_KEY=your-miner-api-key
 COORDINATOR_URL=http://your-coordinator-url:8011
 
 # Optional
-LOG_PATH=/var/log/aitbc/miner.log (symlink to /var/lib/aitbc/logs/)
+LOG_PATH=/var/log/aitbc/miner.log
 HEARTBEAT_INTERVAL=15
 MAX_RETRIES=10
 RETRY_DELAY=30
