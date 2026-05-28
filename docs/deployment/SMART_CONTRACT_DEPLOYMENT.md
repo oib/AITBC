@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Familiarity with Solidity, Hardhat, and CI/CD workflows  
 **Estimated Time**: 30-60 minutes  
-**Last Updated**: 2026-04-29  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

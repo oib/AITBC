@@ -1,5 +1,7 @@
 # CLI File Organization Summary
 
+**Last Updated:** 2026-05-28
+
 ## 📁 Directory Structure
 
 This document summarizes the reorganized CLI file structure for better maintainability and clarity.

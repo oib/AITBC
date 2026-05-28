@@ -2,7 +2,7 @@
 
 > **Important:** This document describes the designed systemd service configuration. For the current operational state and actual service status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
-> **Last Updated**: 2026-03-29
+> **Last Updated**: 2026-05-28
 > **Version**: 3.4 (Debian Root Usage)
 > **Environment**: Debian Linux with root user (no sudo required)
 

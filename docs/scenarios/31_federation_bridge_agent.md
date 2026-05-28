@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Island Creation (Scenario 05), Cross-Chain Transfer (Scenario 20), Messaging Basics (Scenario 04)  
 **Estimated Time**: 45 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

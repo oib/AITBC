@@ -3,7 +3,7 @@
 **Level**: Advanced  
 **Prerequisites**: AI Job Submission (Scenario 07), Security Setup (Scenario 19), IPFS Storage (Scenario 11)  
 **Estimated Time**: 50 minutes  
-**Last Updated**: 2026-05-18  
+**Last Updated**: 2026-05-28  
 **Version**: 1.1
 
 ## 🧭 **Navigation Path:**

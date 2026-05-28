@@ -1,5 +1,7 @@
 # AITBC Community Adoption Strategy
 
+**Last Updated:** 2026-05-28
+
 ## 🎯 Community Goals
 
 - **Developers**: 100+ active contributors within 6 months

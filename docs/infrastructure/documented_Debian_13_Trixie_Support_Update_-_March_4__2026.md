@@ -1,5 +1,7 @@
 # Debian 13 Trixie Support Update - March 4, 2026
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 This document provides comprehensive technical documentation for debian 13 trixie support update - march 4, 2026.
 

@@ -1,6 +1,6 @@
 # Blockchain Router Route Table Snapshot
 
-**Date:** 2026-05-24
+**Date:** 2026-05-28
 **File:** `apps/blockchain-node/src/aitbc_chain/rpc/router.py`
 **Total Routes:** 58
 

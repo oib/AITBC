@@ -2,6 +2,7 @@
 name: aitbc-multi-node-operations
 description: Multi-node operations including git synchronization, service restart across nodes, blockchain state sync, and coordinated actions across the AITBC multi-node deployment
 category: operations
+last_updated: 2026-05-28
 ---
 
 # AITBC Multi-Node Operations Skill

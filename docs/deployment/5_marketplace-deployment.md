@@ -1,5 +1,7 @@
 # Marketplace GPU Endpoints Deployment Summary
 
+**Last Updated:** 2026-05-28
+
 ## ✅ Successfully Deployed to Remote Server (aitbc-cascade)
 
 ### What was deployed:

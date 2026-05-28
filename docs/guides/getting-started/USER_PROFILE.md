@@ -1,5 +1,7 @@
 # AITBC Network User Profile
 
+**Last Updated:** 2026-05-28
+
 ## User Information
 - **Username**: newuser
 - **Wallet Address**: aitbc1newuser_simple

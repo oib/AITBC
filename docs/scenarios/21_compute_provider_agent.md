@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: GPU Listing (Scenario 09), Marketplace Bidding (Scenario 08), Wallet Basics (Scenario 01)  
 **Estimated Time**: 35 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

@@ -1,5 +1,7 @@
 # Architecture Reorganization: Web UI Moved to Enhanced Services
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 This document provides comprehensive technical documentation for architecture reorganization: web ui moved to enhanced services.
 

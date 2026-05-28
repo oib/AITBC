@@ -2,6 +2,7 @@
 name: aitbc-ai-operations
 description: AI job operations for AITBC including job submission, monitoring, results retrieval, resource allocation testing, and AI job monitoring
 category: mlops
+last_updated: 2026-05-28
 ---
 
 # AITBC AI Operations Skill

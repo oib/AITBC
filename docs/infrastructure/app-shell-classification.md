@@ -1,5 +1,7 @@
 # App Shell Classification
 
+**Last Updated:** 2026-05-28
+
 This document classifies app shells and thin services in the AITBC repository.
 
 ## Classification

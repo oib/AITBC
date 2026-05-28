@@ -1,6 +1,6 @@
 # AITBC Central Virtual Environment Guide
 
-**Last Updated**: 2026-03-29  
+**Last Updated**: 2026-05-28  
 **Version**: 3.2 (Virtual Environment Standardization)
 
 ## Overview

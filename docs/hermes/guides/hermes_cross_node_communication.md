@@ -1,5 +1,7 @@
 # hermes Cross-Node Communication Implementation Guide
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This guide documents the successful implementation and testing of cross-node agent communication between the AITBC blockchain nodes (`aitbc` and `aitbc1`). hermes agents can now autonomously communicate across different blockchain nodes by leveraging transaction payloads for message passing.

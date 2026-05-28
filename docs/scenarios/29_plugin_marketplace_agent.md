@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Plugin Development (Scenario 10), Marketplace Bidding (Scenario 08), IPFS Storage (Scenario 11)  
 **Estimated Time**: 40 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

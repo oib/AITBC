@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Basic familiarity with AITBC node operations  
 **Estimated Time**: 10-15 minutes  
-**Last Updated**: 2026-04-27  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

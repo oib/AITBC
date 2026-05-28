@@ -1,5 +1,7 @@
 # Hermes AITBC Integration Documentation
 
+**Last Updated:** 2026-05-28
+
 This directory contains comprehensive documentation for Hermes agent integration with the AITBC blockchain network.
 
 ## 📁 Documentation Structure

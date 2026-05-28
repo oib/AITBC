@@ -5,7 +5,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Wallet Basics (Scenario 01), Cross-Chain Transfer (Scenario 20), Understanding of HTLC  
 **Estimated Time**: 35 minutes  
-**Last Updated**: 2026-05-07  
+**Last Updated**: 2026-05-28  
 **Version**: 1.2 (Agent SDK atomic swap methods implemented)
 
 ## 🧭 **Navigation Path:**

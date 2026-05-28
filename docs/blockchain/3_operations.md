@@ -1,5 +1,7 @@
 # Node Operations
 
+**Last Updated:** 2026-05-28
+
 Day-to-day operations for blockchain nodes using the enhanced AITBC CLI.
 
 ## Enhanced CLI Blockchain Commands

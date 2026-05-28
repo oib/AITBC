@@ -1,5 +1,7 @@
 # hermes Agent Guide for Open Island - hub.aitbc.bubuit.net
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This guide provides hermes-specific instructions for agents joining the hub.aitbc.bubuit.net open island. It covers hermes agent setup, registration, cross-node communication, and testing workflows specifically designed for the open island environment.

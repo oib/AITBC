@@ -1,6 +1,6 @@
 # AITBC Master Glossary
 
-**Last Updated:** 2026-05-09  
+**Last Updated:** 2026-05-28  
 **Version:** 1.0  
 **Purpose:** Comprehensive glossary of AITBC-specific terms, acronyms, and concepts
 

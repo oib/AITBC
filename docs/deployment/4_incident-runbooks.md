@@ -1,5 +1,7 @@
 # AITBC Incident Runbooks
 
+**Last Updated:** 2026-05-28
+
 This document contains specific runbooks for common incident scenarios, based on our chaos testing validation and integration test suite.
 
 ## Integration Test Status (Updated 2026-01-26)

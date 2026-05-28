@@ -1,4 +1,7 @@
 # Blockchain Node Configuration
+
+**Last Updated:** 2026-05-28
+
 Configure your blockchain node for optimal performance.
 
 ## Configuration File

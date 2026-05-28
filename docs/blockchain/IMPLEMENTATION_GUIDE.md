@@ -1,5 +1,7 @@
 # Blockchain Node Implementation Guide
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 AITBC has two blockchain node implementations with different capabilities and deployment scenarios.

@@ -1,5 +1,7 @@
 # AITBC CLI Developer Guide
 
+**Last Updated:** 2026-05-28
+
 This guide explains how to extend the AITBC CLI by adding new commands, handlers, and parsers following the established architecture patterns.
 
 ## Table of Contents
