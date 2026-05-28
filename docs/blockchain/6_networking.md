@@ -7,16 +7,22 @@ Configure P2P networking for your blockchain node.
 
 ```bash
 # Allow P2P port
-sudo ufw allow 8001/tcp
+sudo ufw allow 7070/tcp
 
 # Allow RPC port
 sudo ufw allow 8006/tcp
 
-# Allow Marketplace port
-sudo ufw allow 8007/tcp
+# Allow Coordinator API port
+sudo ufw allow 8011/tcp
 
 # Allow Exchange port
-sudo ufw allow 8008/tcp
+sudo ufw allow 8001/tcp
+
+# Allow Marketplace port
+sudo ufw allow 8102/tcp
+
+# Allow Wallet port
+sudo ufw allow 8015/tcp
 
 # Allow from specific IPs
 sudo ufw allow from 10.0.0.0/8 to any port 8006
@@ -25,10 +31,12 @@ sudo ufw allow from 10.0.0.0/8 to any port 8006
 ### Port Forwarding
 
 If behind a NAT, configure port forwarding:
-- External port 8001 → Internal IP:8001
-- External port 8006 → Internal IP:8006
-- External port 8007 → Internal IP:8007 (Marketplace)
-- External port 8008 → Internal IP:8008 (Exchange)
+- External port 7070 → Internal IP:7070 (P2P)
+- External port 8006 → Internal IP:8006 (RPC)
+- External port 8011 → Internal IP:8011 (Coordinator API)
+- External port 8001 → Internal IP:8001 (Exchange)
+- External port 8102 → Internal IP:8102 (Marketplace)
+- External port 8015 → Internal IP:8015 (Wallet)
 
 ## Federated Mesh Architecture
 

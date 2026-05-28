@@ -196,18 +196,21 @@ sudo journalctl -u aitbc-node.service -f
 ## 🌐 **Network Configuration**
 
 ### **Default Ports**
-- **Node:** 30333 (P2P), 8006 (RPC)
-- **Coordinator:** 8000 (API)
-- **Marketplace:** 8001 (API)
+- **Node:** 7070 (P2P), 8006 (RPC)
+- **Coordinator:** 8011 (API)
+- **Marketplace:** 8102 (API)
 - **Explorer:** 3000 (Web), 3001 (API)
-- **Wallet:** 8002 (API)
-- **Multimodal:** 8003 (API)
+- **Wallet:** 8015 (API)
 
 ### **Firewall Setup**
 ```bash
 # Open required ports
-sudo ufw allow 30333
-sudo ufw allow 8000:8003/tcp
+sudo ufw allow 7070
+sudo ufw allow 8001/tcp
+sudo ufw allow 8006/tcp
+sudo ufw allow 8011/tcp
+sudo ufw allow 8015/tcp
+sudo ufw allow 8102/tcp
 sudo ufw allow 3000:3001/tcp
 ```
 

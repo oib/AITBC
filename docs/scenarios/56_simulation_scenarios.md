@@ -509,7 +509,7 @@ Network error: Failed to connect to coordinator
 **Solution:**
 ```bash
 # Check coordinator-api status
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Use local simulations instead
 aitbc simulate blockchain --blocks 10 --transactions 50
@@ -525,7 +525,7 @@ Error: Simulation sim_1234567890 not found
 **Solution:**
 ```bash
 # List running simulations (if coordinator-api supports it)
-curl http://127.0.0.1:18000/api/v1/simulations
+curl http://127.0.0.1:8011/api/v1/simulations
 
 # Use correct simulation ID
 aitbc simulate status sim_1716789123

@@ -35,7 +35,7 @@ The gateway routes requests to the following services:
 | Agent Service | 8103 | `/agent/*` | Agent operations |
 | Trading Service | 8104 | `/trading/*` | Trading operations |
 | Governance Service | 8105 | `/governance/*` | Governance operations |
-| Coordinator API | 8000 | `/coordinator/*` | Coordinator API (default) |
+| Coordinator API | 8011 | `/coordinator/*` | Coordinator API (default) |
 
 ## Installation
 

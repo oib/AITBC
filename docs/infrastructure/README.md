@@ -1,5 +1,7 @@
 # AITBC Infrastructure Documentation
 
+> **Important:** This document may contain outdated port references. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md).
+
 **Last Updated**: 2026-03-29  
 **Version**: 3.2 (Infrastructure Optimization)
 

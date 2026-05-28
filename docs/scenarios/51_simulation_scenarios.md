@@ -63,7 +63,7 @@ An hermes agent needs to:
 
 ### **System Requirements**
 - AITBC CLI installed
-- coordinator-api running (http://127.0.0.1:18000)
+- coordinator-api running (http://127.0.0.1:8011)
 - Sufficient system resources for simulations
 
 ---
@@ -477,7 +477,7 @@ Error: coordinator-api not available
 **Solution:**
 ```bash
 # Check coordinator-api status
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Start coordinator-api if needed
 systemctl start aitbc-coordinator-api
@@ -491,7 +491,7 @@ Simulation status shows "Running" but not progressing
 **Solution:**
 ```bash
 # Check coordinator-api status
-curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:8011/health
 
 # Review simulation logs
 # (Location depends on implementation)
