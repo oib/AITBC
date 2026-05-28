@@ -171,19 +171,19 @@ On at1, `/opt/aitbc` uses individual symlinks to the Windsurf project directorie
 ```bash
 /opt/aitbc/                          # Service root with selective symlinks
 ├── apps/                            # Symlinked app directories
-│   ├── blockchain-explorer -> /home/oib/windsurf/aitbc/apps/blockchain-explorer/
-│   ├── blockchain-node -> /home/oib/windsurf/aitbc/apps/blockchain-node/
-│   ├── coordinator-api -> /home/oib/windsurf/aitbc/apps/coordinator-api/
-│   ├── marketplace-web -> /home/oib/windsurf/aitbc/apps/marketplace-web/
-│   ├── pool-hub -> /home/oib/windsurf/aitbc/apps/pool-hub/
-│   ├── trade-exchange -> /home/oib/windsurf/aitbc/apps/trade-exchange/
-│   ├── wallet-daemon -> /home/oib/windsurf/aitbc/apps/wallet-daemon/
-│   └── zk-circuits -> /home/oib/windsurf/aitbc/apps/zk-circuits/
+│   ├── blockchain-explorer -> /opt/aitbc/apps/blockchain-explorer/
+│   ├── blockchain-node -> /opt/aitbc/apps/blockchain-node/
+│   ├── coordinator-api -> /opt/aitbc/apps/coordinator-api/
+│   ├── marketplace-web -> /opt/aitbc/apps/marketplace-web/
+│   ├── pool-hub -> /opt/aitbc/apps/pool-hub/
+│   ├── trade-exchange -> /opt/aitbc/apps/trade-exchange/
+│   ├── wallet-daemon -> /opt/aitbc/apps/wallet-daemon/
+│   └── zk-circuits -> /opt/aitbc/apps/zk-circuits/
 ├── data/                            # Local service data
 ├── logs/                            # Local service logs
 ├── models/                          # Local model storage
-├── scripts -> /home/oib/windsurf/aitbc/scripts/  # Shared scripts
-└── systemd -> /home/oib/windsurf/aitbc/systemd/  # Service definitions
+├── scripts -> /opt/aitbc/scripts/  # Shared scripts
+└── systemd -> /opt/aitbc/systemd/  # Service definitions
 ```
 
 **On aitbc/aitbc1 servers**: `/opt/aitbc` is symlinked to the git repo clone (`/opt/aitbc -> /path/to/aitbc-repo`) for complete repository access.
@@ -593,7 +593,7 @@ curl http://aitbc.keisanki.net/rpc/head    # Node 3 RPC (port 8003)
 ## Development Workspace (at1)
 
 ```
-/home/oib/windsurf/aitbc/      # at1 Windsurf development workspace
+/opt/aitbc/      # AITBC deployment directory
 ├── apps/                      # Application source (8 apps)
 ├── cli/                       # CLI tools (12 command groups)
 ├── scripts/                   # Organized scripts (8 subfolders)

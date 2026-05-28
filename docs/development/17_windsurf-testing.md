@@ -200,13 +200,13 @@ Unittest discovery errors when using Windsurf's test runner with the `tests/` fo
 
 ### For test discovery only (Windsurf integration):
 ```bash
-cd /home/oib/windsurf/aitbc
+cd /opt/aitbc
 python -m pytest --collect-only tests/
 ```
 
 ### For running all tests (with full setup):
 ```bash
-cd /home/oib/windsurf/aitbc
+cd /opt/aitbc
 python run_tests.py tests/
 ```
 

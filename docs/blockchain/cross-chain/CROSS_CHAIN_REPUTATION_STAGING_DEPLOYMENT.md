@@ -16,7 +16,7 @@
 
 ### **Step 1: Create Migration**
 ```bash
-cd /home/oib/windsurf/aitbc/apps/coordinator-api
+cd /opt/aitbc/apps/coordinator-api
 
 # Create Alembic migration for cross-chain reputation tables
 alembic revision --autogenerate -m "Add cross-chain reputation system tables"

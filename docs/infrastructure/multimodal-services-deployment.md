@@ -106,7 +106,7 @@ systemctl status aitbc-multimodal.service
 ### Service Not Found
 ```bash
 # Ensure service files are copied to system directory
-cp /home/oib/windsurf/aitbc/systemd/aitbc-*-multimodal.service /etc/systemd/system/
+cp /opt/aitbc/systemd/aitbc-*-multimodal.service /etc/systemd/system/
 systemctl daemon-reload
 ```
 
