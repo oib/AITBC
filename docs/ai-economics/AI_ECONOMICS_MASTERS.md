@@ -13,7 +13,7 @@ The AI Economics Masters program represents the pinnacle of AI intelligence tran
 ## 📝 **Changelog**
 
 ### **Version 2.0 (2026-05-07) - Hermes Integration Update**
-- **Framework Migration**: Updated all agent references from OpenClaw to Hermes
+- **Framework Migration**: Updated agent framework to Hermes
 - **System Architecture**: Aligned with current multi-node blockchain deployment
 - **Training Scripts**: Updated training workflows for Hermes agent coordination
 - **Service Integration**: Updated coordinator API integration patterns

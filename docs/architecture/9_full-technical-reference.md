@@ -438,24 +438,21 @@ Features:
    ```bash
    git clone https://github.com/oib/AITBC.git
    cd aitbc
-   docker-compose -f docker-compose.dev.yml up
+   poetry install
    ```
 
 2. **Build Components**
    ```bash
    # Blockchain
-   cd blockchain && cargo build
+   cd apps/blockchain-node && poetry install
 
    # Coordinator
-   cd coordinator && pip install -e .
-
-   # Miner
-   cd miner && go build
+   cd apps/coordinator-api && poetry install
    ```
 
 3. **Run Tests**
    ```bash
-   make test
+   pytest tests/
    ```
 
 ## Advanced Topics

@@ -189,7 +189,7 @@ aitbc-cli ai submit --wallet <WALLET> --type <TYPE> --prompt <PROMPT> [OPTIONS]
 **Examples:**
 ```bash
 aitbc-cli ai submit \
-  --wallet openclaw-trainee \
+  --wallet hermes-trainee \
   --type llama2 \
   --prompt "Explain quantum computing"
 ```
@@ -317,7 +317,7 @@ aitbc-cli agent sdk list --status active
 ```bash
 # Submit task
 aitbc-cli ai submit \
-  --wallet openclaw-trainee \
+  --wallet hermes-trainee \
   --type llama2 \
   --prompt "test prompt"
 
@@ -414,7 +414,7 @@ Configuration file format:
   "coordinator_url": "http://localhost:9001",
   "rpc_url": "http://localhost:8006",
   "chain_id": "ait-mainnet",
-  "default_wallet": "openclaw-trainee"
+  "default_wallet": "hermes-trainee"
 }
 ```
 
@@ -465,7 +465,7 @@ done
 # Submit multiple tasks
 for i in {1..10}; do
   aitbc-cli ai submit \
-    --wallet openclaw-trainee \
+    --wallet hermes-trainee \
     --type llama2 \
     --prompt "Test task $i" &
 done

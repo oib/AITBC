@@ -13,7 +13,7 @@ Hermes AI Economics Masters represents the transformation of Hermes agents from 
 ## 📝 **Changelog**
 
 ### **Version 2.0 (2026-05-07) - System Integration Update**
-- **Framework Migration**: Completed transition from OpenClaw to Hermes agent framework
+- **Framework Migration**: Completed Hermes agent framework integration
 - **Coordinator Integration**: Updated agent coordination with new API endpoints
 - **Performance**: Enhanced agent communication latency (<100ms)
 - **Architecture**: Multi-node agent deployment and coordination

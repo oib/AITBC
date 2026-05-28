@@ -320,8 +320,7 @@ REDIS_URL=redis://localhost:6379/0
 **Additional Tools:**
 - `httpx` for HTTP client
 - `playwright` for browser automation (if UI testing needed)
-- `docker-compose` for service orchestration
-- `testcontainers` for containerized test dependencies
+- Systemd services for service orchestration
 
 ### Test Structure
 
@@ -685,13 +684,13 @@ jobs:
 ### C. Troubleshooting
 
 **Service Won't Start:**
-- Check logs: `docker-compose logs [service]`
-- Verify configuration: `docker-compose config`
+- Check logs: `sudo journalctl -u [service-name] -f`
+- Verify configuration: `sudo systemctl status [service-name]`
 - Check port conflicts: `netstat -tulpn`
 
 **Test Times Out:**
 - Check service health: `curl http://localhost:[port]/health`
-- Verify service dependencies: `docker-compose ps`
+- Verify service dependencies: `sudo systemctl status [service-name]`
 - Check for resource exhaustion: `htop`
 
 **Test Fails Intermittently:**
