@@ -1,5 +1,7 @@
 # Genesis Block and Wallet Generation Guide
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document uses port 8003 for the wallet service. The correct port is 8015. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md).
 
 This guide explains how to use the unified genesis generation system for AITBC blockchain initialization.

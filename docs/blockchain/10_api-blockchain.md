@@ -1,4 +1,7 @@
 # Blockchain API Reference
+
+**Last Updated:** 2026-05-28
+
 Complete API reference for blockchain node operations.
 
 ## RPC Endpoints

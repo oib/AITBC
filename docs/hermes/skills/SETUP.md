@@ -1,5 +1,7 @@
 # AITBC Skills Setup for Agent Systems
 
+**Last Updated:** 2026-05-28
+
 This document describes how to set up AITBC skills as loadable agent skills in `/root/.hermes/skills/`.
 
 ## Overview

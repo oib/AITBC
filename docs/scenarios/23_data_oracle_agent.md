@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: IPFS Storage (Scenario 11), Messaging Basics (Scenario 04), Transaction Sending (Scenario 02)  
 **Estimated Time**: 35 minutes  
-**Last Updated**: 2026-05-08  
+**Last Updated**: 2026-05-28  
 **Version**: 1.1 (Data oracle CLI commands implemented)
 
 ## 🧭 **Navigation Path:**

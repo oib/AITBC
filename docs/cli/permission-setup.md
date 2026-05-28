@@ -1,5 +1,7 @@
 # AITBC CLI Permission Setup Guide
 
+**Last Updated:** 2026-05-28
+
 **Complete Development Environment Configuration**
 
 ## 🔧 **Overview**

@@ -1,5 +1,7 @@
 # Blockchain Operational Features
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This document describes operational features for managing AITBC blockchain synchronization and data management.

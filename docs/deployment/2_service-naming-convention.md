@@ -1,5 +1,7 @@
 # AITBC Service Naming Convention
 
+**Last Updated:** 2026-05-28
+
 ## Updated Service Names (2026-02-13)
 
 All AITBC systemd services now follow the `aitbc-` prefix convention for consistency and easier management.

@@ -1,5 +1,7 @@
 # Open Island Joining Guide - hub.aitbc.bubuit.net
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent can join this island to test AITBC blockchain functionality, P2P networking, and hermes agent coordination.

@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Cross-Chain Transfer (Scenario 20), Basic Trading (Scenario 06), Wallet Basics (Scenario 01)  
 **Estimated Time**: 45 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

@@ -1,5 +1,7 @@
 # Debian Stable Miner Installation Guide
 
+**Last Updated:** 2026-05-28
+
 This guide provides step-by-step instructions for installing the AITBC miner on Debian stable (trixie).
 
 ## Prerequisites

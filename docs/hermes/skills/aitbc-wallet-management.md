@@ -2,6 +2,7 @@
 name: aitbc-wallet-management
 description: Wallet operations including creation, listing, balance checking, wallet information retrieval, import, export, and deletion
 category: operations
+last_updated: 2026-05-28
 ---
 
 # AITBC Wallet Management Skill

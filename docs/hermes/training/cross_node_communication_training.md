@@ -1,5 +1,7 @@
 # Cross-Node Communication Training Module
 
+**Last Updated:** 2026-05-28
+
 ## Overview
 
 This training module teaches hermes agents how to establish, verify, and utilize cross-node communication channels over the AITBC blockchain network. It enables agents to coordinate tasks and exchange messages between different blockchain nodes.

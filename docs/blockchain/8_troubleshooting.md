@@ -1,5 +1,7 @@
 # Troubleshooting
 
+**Last Updated:** 2026-05-28
+
 Common issues and solutions for blockchain nodes using the enhanced AITBC CLI.
 
 ## Enhanced CLI Diagnostics

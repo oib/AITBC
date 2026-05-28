@@ -1,6 +1,8 @@
 # AITBC Blockchain Node Environment Configuration Guide
 
-> **Important:** This document contains example configurations with outdated port references (8000 for API, 8003 for Wallet). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+**Last Updated:** 2026-05-28
+
+> **Important:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
 
 Complete reference for configuring `node.env` and `blockchain.env` files for AITBC blockchain nodes.
 
@@ -239,11 +241,11 @@ rpc_bind_port=8006
 
 # API Configuration
 api_host=0.0.0.0
-api_port=8000
+api_port=8011
 
 # Wallet Configuration
 wallet_host=0.0.0.0
-wallet_port=8003
+wallet_port=8015
 
 # Exchange Configuration
 exchange_host=0.0.0.0
@@ -308,11 +310,11 @@ rpc_bind_port=8006
 
 # API Configuration
 api_host=0.0.0.0
-api_port=8000
+api_port=8011
 
 # Wallet Configuration
 wallet_host=0.0.0.0
-wallet_port=8003
+wallet_port=8015
 
 # Exchange Configuration
 exchange_host=0.0.0.0

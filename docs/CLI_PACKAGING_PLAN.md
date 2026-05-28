@@ -1,5 +1,8 @@
 # CLI Packaging Restructuring Plan
 
+**Last Updated:** 2026-05-28
+**Version:** 1.0
+
 ## Objective
 
 Restructure the AITBC CLI into a proper installable Python package to eliminate sys.path manipulation debt and improve maintainability.

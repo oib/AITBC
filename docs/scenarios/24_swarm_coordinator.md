@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: Agent Registration (Scenario 16), Messaging Basics (Scenario 04), Island Creation (Scenario 05)  
 **Estimated Time**: 40 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

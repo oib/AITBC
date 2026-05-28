@@ -3,7 +3,7 @@
 **Level**: Intermediate  
 **Prerequisites**: GPU Listing (Scenario 09), Island Creation (Scenario 05), Database Operations (Scenario 12)  
 **Estimated Time**: 40 minutes  
-**Last Updated**: 2026-05-02  
+**Last Updated**: 2026-05-28  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**

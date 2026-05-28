@@ -1,5 +1,7 @@
 # 🚀 Cross-Chain Reputation System - Staging Deployment Guide
 
+**Last Updated:** 2026-05-28
+
 ## 📋 **DEPLOYMENT CHECKLIST**
 
 ### **Pre-Deployment Requirements**

@@ -1,4 +1,7 @@
 # Validator Operations
+
+**Last Updated:** 2026-05-28
+
 Guide for running a validator node in the AITBC network.
 
 ## Becoming a Validator

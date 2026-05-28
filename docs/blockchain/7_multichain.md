@@ -1,4 +1,7 @@
 # Multi-Chain Architecture
+
+**Last Updated:** 2026-05-28
+
 Understanding AITBC's parallel chain management system.
 
 ## Overview

@@ -1,5 +1,7 @@
 # AITBC1 Server Deployment Guide
 
+**Last Updated:** 2026-05-28
+
 > **Important:** This document may contain outdated port references. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md).
 
 ## Overview
@@ -80,9 +82,9 @@ ssh aitbc1 'systemctl status aitbc-blockchain-rpc-dev'
 # NEW SUSTAINABLE PORT LOGIC - NO CONFLICTS
 
 # Core Services (8000-8002):
-- Port 8000: Coordinator API (localhost + containers)
+- Port 8011: Coordinator API (localhost + containers)
 - Port 8001: Exchange API (localhost + containers)  
-- Port 8002: Wallet Service (localhost + containers)
+- Port 8015: Wallet Service (localhost + containers)
 
 # Blockchain Services (8005-8006):
 - Port 8005: Primary Blockchain Node (localhost + containers)
@@ -209,7 +211,7 @@ sudo fuser -k 8010/tcp  # Enhanced services
 
 # Alternative: Use different ports in service files
 # Edit /etc/systemd/system/aitbc-*.service files
-# Change --port 8000 to --port 9000, etc.
+# Change --port 8011 to --port 9000, etc.
 ```
 
 **Port Mapping for aitbc1 (Current Status - March 7, 2026):**
@@ -740,8 +742,8 @@ sudo systemctl restart aitbc-*.service
 
 ### 📋 **Service Configuration on aitbc1**
 ```
-Core Services (8000-8003): ✅ RUNNING
-- Coordinator API (8000): ✅ Active (368M memory)
+Core Services (8011-8015): ✅ RUNNING
+- Coordinator API (8011): ✅ Active (368M memory)
 - Exchange API (8001): ❌ Not shown in status
 - Blockchain Node (8002): ✅ Active (52.2M memory)
 - Blockchain RPC (8003): ✅ Active (54.9M memory)
