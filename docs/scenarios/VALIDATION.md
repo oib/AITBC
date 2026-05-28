@@ -1,6 +1,6 @@
 # Scenario Validation Guide
 
-**Scope**: All scenario documents in `docs/scenarios/`  
+**Scope**: All scenario documents in `docs/scenarios/` (56 scenarios: 01-56)  
 **Goal**: Ensure every scenario is tested with scripts that exercise all 3 nodes: `aitbc1`, `aitbc`, and `gitea-runner`.
 
 ## 🧭 Node Roles
