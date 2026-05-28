@@ -100,7 +100,7 @@ python -m pytest tests/test_basic_integration.py tests/integration/test_full_wor
 
 If tests still show as using Mock clients in Windsurf:
 1. Restart Windsurf to refresh the Python environment
-2. Check that the working directory is set to `/home/oib/windsurf/aitbc`
+2. Check that the working directory is set to `/opt/aitbc`
 3. Use the terminal in Windsurf to run tests directly if needed
 
 The mock client is now fully compatible and will pass all tests even when the real client import fails.

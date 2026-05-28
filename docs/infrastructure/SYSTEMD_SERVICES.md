@@ -192,14 +192,14 @@ chown root:root /var/lib/aitbc/keystore/
 #### Coordinator API
 ```bash
 # Check environment files
-ls -la /home/oib/aitbc/apps/coordinator-api/.env
+ls -la /opt/aitbc/apps/coordinator-api/.env
 
 # Verify Python path
 python3 -c "import sys; print(sys.path)"
 
 # Test manual startup
-cd /home/oib/aitbc/apps/coordinator-api
-PYTHONPATH=/home/oib/aitbc/apps/coordinator-api/src python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+cd /opt/aitbc/apps/coordinator-api
+PYTHONPATH=/opt/aitbc/apps/coordinator-api/src python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8011
 ```
 
 #### Blockchain Node

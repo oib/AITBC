@@ -3,7 +3,7 @@
 **Complete catalog of all documentation files and directories**
 
 **Last Updated**: 2026-05-28
-**Version**: 6.6 (May 28, 2026 Update - documentation review and cleanup)
+**Version**: 6.7 (May 28, 2026 Update - port consistency, path standardization, and documentation review)
 
 ---
 
@@ -197,6 +197,8 @@ The following directories were consolidated to improve documentation organizatio
 9. **clients/ → apps/clients/** - Client documentation moved to apps directory
 10. **archive/** - Historical archive directory removed (cleanup completed)
 11. **reports/** - Historical reports directory removed (cleanup completed)
+
+**Note**: Historical content from archive/ and reports/ directories has been consolidated into relevant topical sections. For historical deployment summaries and test fixes, see docs/reference/ directory.
 
 All cross-references have been updated to reflect these changes.
 

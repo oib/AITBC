@@ -26,7 +26,7 @@
 ### **Phase 1: Merge Attempt**
 ```python
 # Enhanced blockchain-explorer/main.py
-frontend_dist = Path("/home/oib/windsurf/aitbc/apps/explorer/dist")
+frontend_dist = Path("/opt/aitbc/apps/explorer/dist")
 if frontend_dist.exists():
     app.mount("/explorer", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 ```
@@ -39,7 +39,7 @@ if frontend_dist.exists():
 tar -czf explorer_backup_20260306_162316.tar.gz explorer/
 
 # Source deleted
-rm -rf /home/oib/windsurf/aitbc/apps/explorer/
+rm -rf /opt/aitbc/apps/explorer/
 
 # Service cleaned
 # Removed frontend mounting code
@@ -99,7 +99,7 @@ http://localhost:8016/web  # Alternative (same content)
 ### **Restoration Process**
 ```bash
 # If needed in future
-cd /home/oib/windsurf/aitbc/backup
+cd /opt/aitbc/backup
 tar -xzf explorer_backup_20260306_162316.tar.gz
 mv explorer/ ../apps/
 cd ../apps/explorer
