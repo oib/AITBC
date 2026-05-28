@@ -1,8 +1,37 @@
 # AITBC Production Environment
 
+> **Important:** This document describes the designed production architecture following Linux Filesystem Hierarchy Standard (FHS). For the current operational state and deployment status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+>
+> **Note:** The FHS-compliant structure described below represents the target architecture. Current deployment may use the standard repository layout. Verify actual structure before making changes.
+
 ## 🏗️ Proper System Architecture
 
 The AITBC production environment follows Linux Filesystem Hierarchy Standard (FHS) compliance:
+
+### Verification Commands
+
+Before assuming FHS compliance, verify the actual structure:
+
+```bash
+# Check if FHS directories exist
+ls -la /etc/aitbc/
+ls -la /opt/aitbc/services/
+ls -la /var/lib/aitbc/
+ls -la /var/log/aitbc/
+
+# Check if using standard repository layout instead
+ls -la /opt/aitbc/
+ls -la /opt/aitbc/apps/
+ls -la /opt/aitbc/data/
+
+# Check systemd service locations
+ls -la /etc/systemd/system/aitbc-*.service
+ls -la /opt/aitbc/systemd/
+
+# Check where configuration files actually are
+find /opt/aitbc -name ".env" -o -name "*.env"
+find /etc/aitbc -name ".env" -o -name "*.env" 2>/dev/null
+```
 
 ### 📁 System Directory Structure
 

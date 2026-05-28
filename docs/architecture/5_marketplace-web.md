@@ -1,5 +1,7 @@
 # Marketplace Web - AITBC Documentation
 
+> **Important:** This document describes the Marketplace Web architecture. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
 Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
 
 <span class="component-status live">● Live</span>
@@ -64,6 +66,8 @@ VITE_WS_URL=ws://localhost:18000/ws
 VITE_EXPLORER_URL=http://localhost:8009
 VITE_NETWORK=mainnet
 ```
+
+> **Note:** Port 18000 for WebSocket is a designed configuration. Verify actual WebSocket service deployment. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for authoritative port configuration.
 
 ## Architecture
 

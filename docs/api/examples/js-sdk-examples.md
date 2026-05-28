@@ -167,7 +167,7 @@ console.log(`Amount: ${payment.amount}`);
 import { BlockchainClient } from '@aitbc/aitbc-sdk';
 
 const blockchain = new BlockchainClient({
-  baseUrl: 'http://localhost:8080'
+  baseUrl: 'http://localhost:8006'
 });
 ```
 

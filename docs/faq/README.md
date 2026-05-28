@@ -2,6 +2,8 @@
 
 This document provides answers to frequently asked questions about the AITBC platform.
 
+> **Note:** For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
 ## Table of Contents
 
 - [General Questions](#general-questions)
@@ -18,7 +20,7 @@ This document provides answers to frequently asked questions about the AITBC pla
 
 ### What is AITBC?
 
-AITBC (AI Training Blockchain Compute) is a decentralized platform for AI compute resources. It allows GPU owners to rent out their compute power and AI developers to access affordable GPU resources for training and inference.
+AITBC (Advanced Intelligence Training Blockchain Consortium) is a comprehensive blockchain platform that supports multiple use cases including AI compute resource trading, multi-chain blockchain operations, agent coordination, and enterprise-grade security. While GPU compute marketplace is one of its key capabilities, the platform also supports general blockchain operations, smart contracts, and decentralized applications.
 
 ### How does AITBC work?
 
@@ -149,7 +151,8 @@ See the [Deployment Guide](../deployment/comprehensive-guide.md#blockchain-node)
 The blockchain node automatically syncs when started. You can check sync status:
 
 ```bash
-curl http://localhost:8080/v1/network
+curl http://localhost:8006/health
+/opt/aitbc/aitbc-cli chain
 ```
 
 ### What if my node gets out of sync?
