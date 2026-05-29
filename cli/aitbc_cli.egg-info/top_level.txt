@@ -1,7 +1,6 @@
 aitbc_cli
 auth
-config
-core
+config_data
 handlers
 models
 parsers

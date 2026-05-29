@@ -1,2 +1,2 @@
 [console_scripts]
-aitbc = core.main:main
+aitbc = aitbc_cli.core.main:main
