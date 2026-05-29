@@ -126,24 +126,24 @@ register_agent "worker-3" "worker" "inference,training"
 Register agents on multiple nodes for distributed task distribution:
 
 ```bash
-# Register agent on aitbc1
-curl -X POST http://aitbc1:9001/agents/register \
+# Register agent on node1
+curl -X POST http://node1:9001/agents/register \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "aitbc1-worker",
+    "agent_id": "node1-worker",
     "agent_type": "worker",
     "capabilities": ["data-processing"],
-    "endpoints": {"http": "http://aitbc1:9002"}
+    "endpoints": {"http": "http://node1:9002"}
   }'
 
-# Register agent on aitbc2
-curl -X POST http://aitbc2:9001/agents/register \
+# Register agent on node2
+curl -X POST http://node2:9001/agents/register \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "aitbc2-worker",
+    "agent_id": "node2-worker",
     "agent_type": "worker",
     "capabilities": ["inference"],
-    "endpoints": {"http": "http://aitbc2:9002"}
+    "endpoints": {"http": "http://node2:9002"}
   }'
 ```
 

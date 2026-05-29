@@ -64,7 +64,7 @@ See [Development Roadmap](ROADMAP.md) for complete list of remaining tasks.
 
 ### 🚀 **Production Deployment Status**
 
-> **Note:** Service status below represents designed architecture. For current operational state, see [Current Operational State](infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](reference/SERVICE_PORTS.md).
+> **Note:** Service status below represents designed architecture. For authoritative port configuration, see [Service Ports Reference](reference/SERVICE_PORTS.md).
 
 - **Service Health**: ✅ Designed architecture complete
 - **Coordinator API**: Port 8011

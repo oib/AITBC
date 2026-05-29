@@ -78,9 +78,9 @@ grep -r "/var/lib/aitbc/keystore" /etc/systemd/system/aitbc-*.service
 ```bash
 # Ensure repository is clean
 git status  # Should show no runtime files
-ls -la /opt/aitbc/data  # Should not exist
-ls -la /opt/aitbc/config  # Should not exist
-ls -la /opt/aitbc/logs  # Should not exist
+ls -la /opt/aitbc/data  # Should not exist (migrated to /var/lib/aitbc/data)
+ls -la /opt/aitbc/config  # Should not exist (migrated to /etc/aitbc)
+ls -la /opt/aitbc/logs  # Should not exist (migrated to /var/log/aitbc)
 ```
 
 ## Common Tasks

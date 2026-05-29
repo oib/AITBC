@@ -9,7 +9,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 ## Island Configuration
 
 **Hub Node Details:**
-- **Host**: hub.aitbc.bubuit.net (95.216.198.140)
+- **Host**: hub.aitbc.bubuit.net
 - **Chain ID**: `ait-hub.aitbc.bubuit.net`
 - **Island ID**: `ait-hub.aitbc.bubuit.net-island`
 - **P2P Port**: 8001 (open to all)

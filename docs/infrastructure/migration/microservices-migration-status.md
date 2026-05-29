@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Important:** This document describes the microservices migration. Port 9001 is used for Agent Coordinator. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../CURRENT_OPERATIONAL_STATE.md).
+> **Important:** This document describes the microservices migration. Port 9001 is used for Agent Coordinator. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ## Overview
 
@@ -245,7 +245,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 **Coordinator API** (port 8011) - **DISABLED**
    - Previously ran for backward compatibility
    - All functionality has been migrated to dedicated microservices
-   - Service has been stopped and disabled on all nodes (aitbc, aitbc1, gitea-runner)
+   - Service has been stopped and disabled on all nodes
    - Can be safely removed from systemd
 
 ## CLI Configuration
@@ -324,7 +324,7 @@ coordinator_url: str = "http://localhost:8011"  # Deprecated, for backward compa
 - All microservices are operational and tested
 - API Gateway routing is fully configured
 - CLI integration is complete
-- Coordinator API has been disabled on all nodes (aitbc, aitbc1, gitea-runner)
+- Coordinator API has been disabled on all nodes
 
 ## Next Steps
 

@@ -1,6 +1,6 @@
 # AITBC Agent Quick Start Guide
 
-> **Important:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+> **Important:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## Welcome to AITBC Agent Communication!
 

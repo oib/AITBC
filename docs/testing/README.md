@@ -65,8 +65,12 @@ tests/
 │   ├── README.md
 │   ├── USAGE_GUIDE.md
 │   ├── TEST_REFACTORING_COMPLETED.md
+│   ├── TEST_CLEANUP_COMPLETED.md
 │   ├── cli-test-updates-completed.md
-│   └── test-integration-completed.md
+│   ├── test-integration-completed.md
+│   ├── e2e-test-scenarios.md
+│   ├── e2e-test-environment.md
+│   └── e2e-test-execution.md
 ├── archived_phase_tests/          # Archived legacy phase tests
 │   ├── phase3/                    # Decision framework tests
 │   ├── phase4/                    # Autonomous decision making tests

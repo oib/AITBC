@@ -77,10 +77,10 @@ rg "pattern" --glob "*.py" --glob "*.yaml" /opt/aitbc/
 
 ### System Architecture Analysis
 ```bash
-# Find system path references
+# Find system path references (FHS-compliant)
 rg "/var/lib/aitbc|/etc/aitbc|/var/log/aitbc" --type py /opt/aitbc/
 
-# Find incorrect path references
+# Find incorrect path references (legacy - should not exist)
 rg "/opt/aitbc/data|/opt/aitbc/config|/opt/aitbc/logs" --type py /opt/aitbc/
 
 # Find environment file references

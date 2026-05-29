@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Note:** This document describes the installation process for the AITBC platform. For the current operational state and deployment status, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+> **Note:** This document describes the installation process for the AITBC platform. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 # AITBC System Flow: From CLI Prompt to Response
 
-> **Important:** This document describes the designed system flow and port assignments. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the designed system flow and port assignments. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 This document illustrates the complete flow of a job submission through the CLI client, detailing each system component, message, RPC call, and port involved.
 

@@ -1,6 +1,6 @@
 # Marketplace Web - AITBC Documentation
 
-> **Important:** This document describes the Marketplace Web architecture. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the Marketplace Web architecture. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
 
