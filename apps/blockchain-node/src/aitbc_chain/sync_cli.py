@@ -15,6 +15,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from aitbc_chain.config import settings
 from aitbc_chain.database import session_scope
+from aitbc_chain.logger import get_logger
+from aitbc_chain.sync import ChainSync
+
+logger = get_logger(__name__)
 from aitbc_chain.sync import ChainSync
 
 
@@ -33,8 +37,8 @@ async def main() -> None:
         poll_interval=args.poll_interval,
     )
     try:
-        imported = await sync.bulk_import_from(args.source, import_url=args.import_url)
-        logger.info("Bulk sync complete", blocks_imported=imported)
+        imported = await sync.bulk_import_from(args.source)
+        logger.info("Bulk sync complete", extra={"blocks_imported": imported})
     finally:
         await sync.close()
 
