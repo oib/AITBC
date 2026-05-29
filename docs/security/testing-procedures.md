@@ -394,7 +394,7 @@ export DEMO_MODE_ENABLED=false
 export ZK_PROOF_ENABLED=false
 
 # Deploy to staging
-./scripts/deploy/deploy.sh --env staging
+./scripts/deployment/deploy.sh --env staging
 
 # Run health checks
 ./scripts/monitoring/health_check.sh

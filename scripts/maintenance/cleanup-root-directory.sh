@@ -56,8 +56,8 @@ rmdir logs 2>/dev/null || echo "logs directory removed or not empty"
 
 echo "=== Moving Development Scripts ==="
 # Move development scripts to dev/scripts if not already there
-mv auto_review.py dev/scripts/ 2>/dev/null || echo "auto_review.py already in dev/scripts"
-mv run_test.py dev/scripts/ 2>/dev/null || echo "run_test.py already in dev/scripts"
+mv auto_review.py dev/tools/scripts/ 2>/dev/null || echo "auto_review.py already in dev/tools/scripts"
+mv run_test.py dev/tools/scripts/ 2>/dev/null || echo "run_test.py already in dev/tools/scripts"
 
 echo "=== Moving Virtual Environments ==="
 # Move virtual environments to dev directory

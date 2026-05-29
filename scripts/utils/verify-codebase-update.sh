@@ -61,18 +61,18 @@ else
     echo "❌ /opt/aitbc/apps/ directory not found"
 fi
 
-if [[ -d "/home/oib/windsurf/aitbc/dev/scripts" ]]; then
-    script_count=$(find /home/oib/windsurf/aitbc/dev/scripts -name "*.py" | wc -l)
-    echo "✅ /home/oib/windsurf/aitbc/dev/scripts/ exists with $script_count Python scripts"
+if [[ -d "/home/oib/windsurf/aitbc/dev/tools/scripts" ]]; then
+    script_count=$(find /home/oib/windsurf/aitbc/dev/tools/scripts -name "*.py" | wc -l)
+    echo "✅ /home/oib/windsurf/aitbc/dev/tools/scripts/ exists with $script_count Python scripts"
 else
-    echo "❌ /home/oib/windsurf/aitbc/dev/scripts/ directory not found"
+    echo "❌ /home/oib/windsurf/aitbc/dev/tools/scripts/ directory not found"
 fi
 
-if [[ -d "/home/oib/windsurf/aitbc/scripts/deploy" ]]; then
-    deploy_count=$(find /home/oib/windsurf/aitbc/scripts/deploy -name "*.sh" | wc -l)
-    echo "✅ /home/oib/windsurf/aitbc/scripts/deploy/ exists with $deploy_count deployment scripts"
+if [[ -d "/home/oib/windsurf/aitbc/scripts/deployment" ]]; then
+    deploy_count=$(find /home/oib/windsurf/aitbc/scripts/deployment -name "*.sh" | wc -l)
+    echo "✅ /home/oib/windsurf/aitbc/scripts/deployment/ exists with $deploy_count deployment scripts"
 else
-    echo "❌ /home/oib/windsurf/aitbc/scripts/deploy/ directory not found"
+    echo "❌ /home/oib/windsurf/aitbc/scripts/deployment/ directory not found"
 fi
 echo
 

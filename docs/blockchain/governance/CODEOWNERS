@@ -62,7 +62,7 @@ pyproject.toml @aitbc/testing-team
 
 # Scripts and automation
 /scripts/ @aitbc/infra-team
-dev/scripts/ @aitbc/infra-team
+dev/tools/scripts/ @aitbc/infra-team
 
 # Package management
 packages/ @aitbc/core-team

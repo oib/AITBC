@@ -29,7 +29,7 @@ The CLI has multiple entrypoints and command modules that manipulate sys.path to
 - `cli/aitbc_cli/commands/agent_sdk.py` - Agent SDK commands, inserts agent-sdk src
 
 ### Wrapper Scripts (14 files)
-All systemd service wrappers in `scripts/wrappers/` use sys.path.insert to import aitbc constants before setting PYTHONPATH for the child process:
+All systemd service wrappers in their respective app directories use sys.path.insert to import aitbc constants before setting PYTHONPATH for the child process:
 
 - `aitbc-agent-management-wrapper.py`
 - `aitbc-agent-coordinator-wrapper.py`
@@ -74,7 +74,7 @@ Utility scripts in `scripts/` use sys.path for ad-hoc imports:
 - `scripts/utils/encrypt_keystore_password.py`
 - `scripts/utils/cleanup_fake_gpus_db.py`
 - `scripts/utils/verify-production-advanced.sh`
-- `scripts/service/manage-services.sh`
+- `scripts/service-management/manage-services.sh`
 - `scripts/training/scenario_47_sdk_test.py`
 - `scripts/services/*.py` - Various service scripts
 - `scripts/testing/*.py` - Testing scripts
@@ -99,7 +99,7 @@ App-specific scripts and modules use sys.path for local imports:
 Development examples and documentation reference sys.path:
 
 - `dev/examples/*.py` - Example scripts
-- `dev/scripts/blockchain/create_genesis_all.py` - Genesis creation
+- `dev/tools/scripts/blockchain/create_genesis_all.py` - Genesis creation
 - `dev/onboarding/auto-onboard.py` - Auto-onboarding
 - `dev/aitbc-debug` - Debug script
 - `docs/agent-training/ENVIRONMENT_SETUP.md` - Training setup docs

@@ -1,370 +1,433 @@
 #!/bin/bash
 
-# AITBC Automated Deployment Script
-# This script handles automated deployment of AITBC services
+# AITBC Systemd Deployment Script
+# One-command setup for AITBC services using systemd
+# This script handles automated deployment of AITBC services on Linux servers
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/deploy_common.sh"
+
 # Configuration
-ENVIRONMENT=${1:-staging}
-VERSION=${2:-latest}
-REGION=${3:-us-east-1}
-NAMESPACE="aitbc-${ENVIRONMENT}"
 REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
-PYTHON_VENV="${PYTHON_VENV:-$REPO_ROOT/venv}"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Logging function
-log() {
-    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    exit 1
-}
-
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+VENV_DIR="$REPO_ROOT/venv"
+PYTHON_VERSION="3.13"
+BACKUP_DIR="$REPO_ROOT/.backup"
 
 # Check prerequisites
 check_prerequisites() {
-    log "Checking prerequisites..."
+    log "Checking system prerequisites..."
 
-    # Check if required tools are installed
-    command -v kubectl >/dev/null 2>&1 || error "kubectl is not installed"
+    check_root
 
-    # Check if kubectl can connect to cluster
-    kubectl cluster-info >/dev/null 2>&1 || error "Cannot connect to Kubernetes cluster"
+    # Check Linux distribution
+    if [[ ! -f /etc/os-release ]]; then
+        error "Cannot detect Linux distribution"
+    fi
+    source /etc/os-release
+    log "Detected OS: $PRETTY_NAME"
 
-    success "Prerequisites check passed (Docker/Helm not required)"
+    # Check Python version
+    require_command python3
+
+    PYTHON_VER=$(python3 --version | awk '{print $2}')
+    log "Python version: $PYTHON_VER"
+    require_min_version "$PYTHON_VER" "$PYTHON_VERSION" "Python"
+
+    # Check systemd
+    require_command systemctl
+
+    # Check required system tools
+    require_commands git curl jq
+
+    success "Prerequisites check passed"
 }
 
-# Build images (skipped - no Docker support)
-build_images() {
-    log "Skipping Docker image build - Docker not supported in this environment"
-    log "Deployment will use systemd services instead"
-    success "Build step skipped (no Docker support)"
+# Install system dependencies
+install_dependencies() {
+    log "Installing system dependencies..."
+    
+    if [[ "$ID" == "ubuntu" ]] || [[ "$ID" == "debian" ]]; then
+        apt-get update
+        apt-get install -y \
+            python3-venv \
+            python3-dev \
+            build-essential \
+            libssl-dev \
+            libffi-dev \
+            postgresql \
+            postgresql-contrib \
+            redis-server \
+            nginx \
+            jq \
+            curl \
+            git
+    elif [[ "$ID" == "centos" ]] || [[ "$ID" == "rhel" ]] || [[ "$ID" == "fedora" ]]; then
+        dnf install -y \
+            python3-venv \
+            python3-devel \
+            gcc \
+            openssl-devel \
+            libffi-devel \
+            postgresql-server \
+            postgresql-contrib \
+            redis \
+            nginx \
+            jq \
+            curl \
+            git
+    else
+        warning "Unsupported distribution. Please install dependencies manually"
+        return 0
+    fi
+    
+    success "System dependencies installed"
 }
 
-# Run tests
-run_tests() {
-    log "Running tests..."
+# Setup repository
+setup_repository() {
+    log "Setting up repository..."
+    
+    # Create backup of existing deployment
+    if [[ -d "$REPO_ROOT" ]]; then
+        log "Creating backup of existing deployment..."
+        BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        BACKUP_PATH="$BACKUP_DIR/backup_$BACKUP_TIMESTAMP"
+        mkdir -p "$BACKUP_DIR"
+        cp -r "$REPO_ROOT" "$BACKUP_PATH" || warning "Backup failed, continuing anyway"
+        log "Backup created at: $BACKUP_PATH"
+    fi
+    
+    # Clone or update repository
+    if [[ -d "$REPO_ROOT/.git" ]]; then
+        log "Updating existing repository..."
+        cd "$REPO_ROOT"
+        git pull || warning "Git pull failed, continuing with existing code"
+    else
+        log "Cloning repository..."
+        # REPO_URL should be set as environment variable
+        REPO_URL="${REPO_URL:-https://github.com/your-org/aitbc.git}"
+        git clone "$REPO_URL" "$REPO_ROOT"
+    fi
+    
+    success "Repository setup completed"
+}
 
-    PYTEST_CMD=(
-        "$PYTHON_VENV/bin/python" -m pytest
-        -c /dev/null
-        --rootdir "$REPO_ROOT"
-        --import-mode=importlib
+# Create virtual environment
+create_venv() {
+    log "Creating Python virtual environment..."
+    
+    if [[ -d "$VENV_DIR" ]]; then
+        log "Virtual environment already exists, recreating..."
+        rm -rf "$VENV_DIR"
+    fi
+    
+    python3 -m venv "$VENV_DIR"
+    success "Virtual environment created"
+}
+
+# Install Python dependencies
+install_python_dependencies() {
+    log "Installing Python dependencies..."
+    
+    # Activate virtual environment
+    source "$VENV_DIR/bin/activate"
+    
+    # Upgrade pip
+    pip install --upgrade pip setuptools wheel
+    
+    # Install using Poetry
+    if [[ -f "$REPO_ROOT/pyproject.toml" ]]; then
+        pip install poetry
+        cd "$REPO_ROOT" && poetry install
+    else
+        warning "pyproject.toml not found, installing basic dependencies"
+        pip install fastapi uvicorn sqlmodel alembic pydantic httpx requests
+    fi
+    
+    success "Python dependencies installed"
+}
+
+# Configure environment
+configure_environment() {
+    log "Configuring environment variables..."
+    
+    # Create /etc/aitbc directory
+    mkdir -p /etc/aitbc
+    
+    # Setup node.env if it doesn't exist
+    if [[ ! -f /etc/aitbc/node.env ]] && [[ -f "$REPO_ROOT/examples/node.env.example" ]]; then
+        cp "$REPO_ROOT/examples/node.env.example" /etc/aitbc/node.env
+        warning "Created /etc/aitbc/node.env from template. Please edit with node-specific values"
+    fi
+    
+    # Generate unique node IDs if not set
+    if [[ -f /etc/aitbc/node.env ]]; then
+        if grep -q "node-<unique-uuid-here>" /etc/aitbc/node.env; then
+            log "Generating unique node IDs..."
+            UUID=$(uuidgen | tr -d '-')
+            sed -i "s/node-<unique-uuid-here>/node-$UUID/g" /etc/aitbc/node.env
+            sed -i "s/ait1<unique-uuid-here>/ait1$UUID/g" /etc/aitbc/node.env
+            log "Generated node IDs with UUID: $UUID"
+        fi
+    fi
+    
+    # Setup blockchain.env if it doesn't exist
+    if [[ ! -f /etc/aitbc/blockchain.env ]]; then
+        if [[ -f "$REPO_ROOT/examples/env.example" ]]; then
+            # Extract relevant blockchain configuration from examples/env.example
+            grep -E "^(chain_id|CHAIN_ID|rpc_bind_host|rpc_bind_port|p2p_bind_host|p2p_bind_port|enable_block_production|block_time_seconds|proposer_id)" "$REPO_ROOT/examples/env.example" > /etc/aitbc/blockchain.env || true
+        fi
+        
+        # Add defaults if file is empty
+        if [[ ! -s /etc/aitbc/blockchain.env ]]; then
+            cat > /etc/aitbc/blockchain.env << EOF
+# Blockchain Configuration
+chain_id=ait-testnet
+rpc_bind_host=0.0.0.0
+rpc_bind_port=8006
+p2p_bind_host=0.0.0.0
+p2p_bind_port=7070
+enable_block_production=true
+EOF
+        fi
+    fi
+    
+    # Setup secrets directory
+    mkdir -p /run/aitbc/secrets
+    touch /run/aitbc/secrets/.env
+    
+    success "Environment configuration completed"
+}
+
+# Initialize databases
+initialize_databases() {
+    log "Initializing databases..."
+    
+    # Start PostgreSQL if not running
+    if systemctl is-active --quiet postgresql || systemctl is-active --quiet postgresql@13-main; then
+        log "PostgreSQL is already running"
+    else
+        log "Starting PostgreSQL..."
+        systemctl start postgresql || systemctl start postgresql@13-main || warning "Failed to start PostgreSQL"
+    fi
+    
+    # Create databases if they don't exist
+    if command -v psql &> /dev/null; then
+        for db in aitbc aitbc_coordinator aitbc_marketplace; do
+            if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw $db; then
+                log "Creating database: $db"
+                sudo -u postgres createdb $db || warning "Failed to create database $db"
+            fi
+        done
+    fi
+    
+    # Start Redis if not running
+    if systemctl is-active --quiet redis-server || systemctl is-active --quiet redis; then
+        log "Redis is already running"
+    else
+        log "Starting Redis..."
+        systemctl start redis-server || systemctl start redis || warning "Failed to start Redis"
+    fi
+    
+    success "Database initialization completed"
+}
+
+# Setup systemd services
+setup_systemd_services() {
+    log "Setting up systemd services..."
+    
+    # Link systemd service files
+    if [[ -f "$REPO_ROOT/scripts/utils/link-systemd.sh" ]]; then
+        bash "$REPO_ROOT/scripts/utils/link-systemd.sh"
+    else
+        # Manual linking
+        log "Linking systemd service files..."
+        mkdir -p /etc/systemd/system
+        for service in "$REPO_ROOT/systemd"/*.service; do
+            if [[ -f "$service" ]]; then
+                ln -sf "$service" "/etc/systemd/system/$(basename $service)"
+            fi
+        done
+    fi
+    
+    # Reload systemd
+    systemctl daemon-reload
+    
+    success "Systemd services setup completed"
+}
+
+# Start services in dependency order
+start_services() {
+    log "Starting AITBC services..."
+    
+    # Define service startup order
+    SERVICES=(
+        "postgresql"
+        "redis-server"
+        "aitbc-blockchain-p2p"
+        "aitbc-blockchain-node"
+        "aitbc-blockchain-rpc"
+        "aitbc-coordinator-api"
+        "aitbc-exchange-api"
+        "aitbc-wallet"
+        "aitbc-agent-daemon"
+        "aitbc-agent-coordinator"
+        "aitbc-marketplace"
     )
     
-    # Run unit tests
-    log "Running unit tests..."
-    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/unit/" -v --cov=aitbc_cli --cov-report=term || error "Unit tests failed"
-    
-    # Run integration tests
-    log "Running integration tests..."
-    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/integration/" -v || error "Integration tests failed"
-    
-    # Run security tests
-    log "Running security tests..."
-    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/security/" -v || error "Security tests failed"
-    
-    # Run performance tests
-    log "Running performance tests..."
-    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/performance/test_performance_lightweight.py::TestPerformance::test_cli_performance" -v || error "Performance tests failed"
-    
-    success "All tests passed"
-}
-
-# Deploy to Kubernetes
-deploy_kubernetes() {
-    log "Deploying to Kubernetes namespace: ${NAMESPACE}"
-    
-    # Create namespace if it doesn't exist
-    kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-    
-    # Apply secrets
-    log "Applying secrets..."
-    kubectl apply -f k8s/secrets/ -n ${NAMESPACE} || error "Failed to apply secrets"
-    
-    # Apply configmaps
-    log "Applying configmaps..."
-    kubectl apply -f k8s/configmaps/ -n ${NAMESPACE} || error "Failed to apply configmaps"
-    
-    # Deploy database
-    log "Skipping Helm-based database deployment - Helm not supported"
-    log "Database should be deployed via systemd services or external PostgreSQL"
-    log "Use: sudo apt-get install postgresql for local deployment"
-
-    # Deploy Redis
-    log "Skipping Helm-based Redis deployment - Helm not supported"
-    log "Redis should be deployed via systemd service or external Redis"
-    log "Use: sudo apt-get install redis-server for local deployment"
-    
-    # Deploy core services
-    log "Deploying core services..."
-    
-    # Deploy blockchain services
-    for service in blockchain-node consensus-node network-node; do
-        log "Deploying ${service}..."
-        envsubst < k8s/deployments/${service}.yaml | kubectl apply -f - -n ${NAMESPACE} || error "Failed to deploy ${service}"
-        kubectl rollout status deployment/${service} -n ${NAMESPACE} --timeout=300s || error "Failed to rollout ${service}"
-    done
-    
-    # Deploy coordinator
-    log "Deploying coordinator-api..."
-    envsubst < k8s/deployments/coordinator-api.yaml | kubectl apply -f - -n ${NAMESPACE} || error "Failed to deploy coordinator-api"
-    kubectl rollout status deployment/coordinator-api -n ${NAMESPACE} --timeout=300s || error "Failed to rollout coordinator-api"
-    
-    # Deploy production services
-    for service in exchange-integration compliance-service trading-engine; do
-        log "Deploying ${service}..."
-        envsubst < k8s/deployments/${service}.yaml | kubectl apply -f - -n ${NAMESPACE} || error "Failed to deploy ${service}"
-        kubectl rollout status deployment/${service} -n ${NAMESPACE} --timeout=300s || error "Failed to rollout ${service}"
-    done
-    
-    # Deploy plugin ecosystem
-    for service in plugin-registry plugin-marketplace plugin-security plugin-analytics; do
-        log "Deploying ${service}..."
-        envsubst < k8s/deployments/${service}.yaml | kubectl apply -f - -n ${NAMESPACE} || error "Failed to deploy ${service}"
-        kubectl rollout status deployment/${service} -n ${NAMESPACE} --timeout=300s || error "Failed to rollout ${service}"
-    done
-    
-    # Deploy global infrastructure
-    for service in global-infrastructure global-ai-agents multi-region-load-balancer; do
-        log "Deploying ${service}..."
-        envsubst < k8s/deployments/${service}.yaml | kubectl apply -f - -n ${NAMESPACE} || error "Failed to deploy ${service}"
-        kubectl rollout status deployment/${service} -n ${NAMESPACE} --timeout=300s || error "Failed to rollout ${service}"
-    done
-    
-    # Deploy explorer
-    log "Deploying explorer..."
-    envsubst < k8s/deployments/explorer.yaml | kubectl apply -f - -n ${NAMESPACE} || error "Failed to deploy explorer"
-    kubectl rollout status deployment/explorer -n ${NAMESPACE} --timeout=300s || error "Failed to rollout explorer"
-    
-    success "Kubernetes deployment completed"
-}
-
-# Deploy with Docker Compose
-deploy_docker_compose() {
-    log "Deploying with Docker Compose..."
-    
-    # Set environment variables
-    export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-aitbc123}
-    export REDIS_PASSWORD=${REDIS_PASSWORD:-aitbc123}
-    export GRAFANA_PASSWORD=${GRAFANA_PASSWORD:-admin}
-    
-    # Stop existing services
-    log "Stopping existing services..."
-    docker-compose down || true
-    
-    # Start services
-    log "Starting services..."
-    docker-compose up -d || error "Failed to start services"
-    
-    # Wait for services to be healthy
-    log "Waiting for services to be healthy..."
-    sleep 30
-    
-    # Check service health
-    for service in postgres redis blockchain-node coordinator-api exchange-integration; do
-        log "Checking ${service} health..."
-        if ! docker-compose ps ${service} | grep -q "Up"; then
-            error "Service ${service} is not running"
+    for service in "${SERVICES[@]}"; do
+        log "Starting $service..."
+        if systemctl list-unit-files | grep -q "^$service.service"; then
+            systemctl enable "$service" 2>/dev/null || true
+            systemctl start "$service" || warning "Failed to start $service"
+            sleep 2
+        else
+            log "$service not found, skipping"
         fi
     done
     
-    success "Docker Compose deployment completed"
+    success "Services started"
 }
 
 # Run health checks
 run_health_checks() {
     log "Running health checks..."
     
-    if command -v kubectl >/dev/null 2>&1 && kubectl cluster-info >/dev/null 2>&1; then
-        # Kubernetes health checks
-        log "Checking Kubernetes deployment health..."
+    # Wait for services to be ready
+    log "Waiting for services to stabilize..."
+    sleep 10
+    
+    # Check service status
+    FAILED_SERVICES=()
+    for service in aitbc-blockchain-node aitbc-blockchain-rpc aitbc-coordinator-api; do
+        if systemctl is-active --quiet "$service"; then
+            success "$service is running"
+        else
+            error "$service is not running"
+            FAILED_SERVICES+=("$service")
+        fi
+    done
+    
+    # Check API endpoints if available
+    if command -v curl &> /dev/null; then
+        log "Checking API endpoints..."
         
-        # Check pod status
-        kubectl get pods -n ${NAMESPACE} || error "Failed to get pod status"
+        # Check blockchain RPC
+        if curl -sf http://localhost:8006/health > /dev/null 2>&1; then
+            success "Blockchain RPC health check passed"
+        else
+            warning "Blockchain RPC health check failed"
+        fi
         
-        # Check service health
-        services=("coordinator-api" "exchange-integration" "trading-engine" "plugin-registry")
-        for service in "${services[@]}"; do
-            log "Checking ${service} health..."
-            kubectl get pods -n ${NAMESPACE} -l app=${service} -o jsonpath='{.items[0].status.phase}' | grep -q "Running" || error "${service} pods are not running"
-            
-            # Check service endpoint
-            service_url=$(kubectl get svc ${service} -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-            if [ -n "$service_url" ]; then
-                curl -f http://${service_url}/health >/dev/null 2>&1 || error "${service} health check failed"
-            fi
-        done
-        
-    else
-        # Docker Compose health checks
-        log "Checking Docker Compose deployment health..."
-        
-        services=("coordinator-api" "exchange-integration" "trading-engine" "plugin-registry")
-        for service in "${services[@]}"; do
-            log "Checking ${service} health..."
-            if ! docker-compose ps ${service} | grep -q "Up"; then
-                error "Service ${service} is not running"
-            fi
-            
-            # Check health endpoint
-            port=$(docker-compose port ${service} | cut -d: -f2)
-            curl -f http://localhost:${port}/health >/dev/null 2>&1 || error "${service} health check failed"
-        done
+        # Check coordinator API
+        if curl -sf http://localhost:8011/health > /dev/null 2>&1; then
+            success "Coordinator API health check passed"
+        else
+            warning "Coordinator API health check failed"
+        fi
     fi
     
-    success "All health checks passed"
-}
-
-# Run smoke tests
-run_smoke_tests() {
-    log "Running smoke tests..."
+    if [[ ${#FAILED_SERVICES[@]} -gt 0 ]]; then
+        error "Some services failed to start: ${FAILED_SERVICES[*]}"
+    fi
     
-    # Test CLI functionality
-    log "Testing CLI functionality..."
-    docker-compose exec aitbc-cli python -m aitbc_cli.main --help >/dev/null || error "CLI smoke test failed"
-    
-    # Test API endpoints
-    log "Testing API endpoints..."
-    
-    # Test coordinator API
-    coordinator_port=$(docker-compose port coordinator-api | cut -d: -f2)
-    curl -f http://localhost:${coordinator_port}/health >/dev/null || error "Coordinator API smoke test failed"
-    
-    # Test exchange API
-    exchange_port=$(docker-compose port exchange-integration | cut -d: -f2)
-    curl -f http://localhost:${exchange_port}/health >/dev/null || error "Exchange API smoke test failed"
-    
-    # Test plugin registry
-    plugin_port=$(docker-compose port plugin-registry | cut -d: -f2)
-    curl -f http://localhost:${plugin_port}/health >/dev/null || error "Plugin registry smoke test failed"
-    
-    success "Smoke tests passed"
+    success "Health checks completed"
 }
 
 # Rollback deployment
-rollback() {
+rollback_deployment() {
     log "Rolling back deployment..."
     
-    if command -v kubectl >/dev/null 2>&1 && kubectl cluster-info >/dev/null 2>&1; then
-        # Kubernetes rollback
-        log "Rolling back Kubernetes deployment..."
-        
-        services=("coordinator-api" "exchange-integration" "trading-engine" "plugin-registry")
-        for service in "${services[@]}"; do
-            log "Rolling back ${service}..."
-            kubectl rollout undo deployment/${service} -n ${NAMESPACE} || error "Failed to rollback ${service}"
-            kubectl rollout status deployment/${service} -n ${NAMESPACE} --timeout=300s || error "Failed to rollback ${service}"
-        done
-        
-    else
-        # Docker Compose rollback
-        log "Rolling back Docker Compose deployment..."
-        docker-compose down || error "Failed to stop services"
-        
-        # Restart with previous version (assuming it's tagged as 'previous')
-        export VERSION=previous
-        deploy_docker_compose
+    # Find latest backup
+    LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/backup_* 2>/dev/null | head -1)
+    
+    if [[ -z "$LATEST_BACKUP" ]]; then
+        error "No backup found for rollback"
     fi
+    
+    log "Restoring from: $LATEST_BACKUP"
+    
+    # Stop services
+    log "Stopping services..."
+    for service in aitbc-*; do
+        systemctl stop "$service" 2>/dev/null || true
+    done
+    
+    # Restore backup
+    rm -rf "$REPO_ROOT"
+    cp -r "$LATEST_BACKUP" "$REPO_ROOT"
+    
+    # Restart services
+    start_services
     
     success "Rollback completed"
 }
 
-# Cleanup
-cleanup() {
-    log "Cleaning up..."
-    
-    # Remove unused Docker images
-    docker image prune -f || true
-    
-    # Remove unused Docker volumes
-    docker volume prune -f || true
-    
-    success "Cleanup completed"
+# Display deployment status
+display_status() {
+    log "Deployment Status"
+    echo "=================="
+    echo "Repository: $REPO_ROOT"
+    echo "Virtual Environment: $VENV_DIR"
+    echo "Python: $(python3 --version)"
+    echo ""
+    echo "Service Status:"
+    systemctl list-units --type=service --state=running | grep aitbc || echo "No AITBC services running"
+    echo ""
+    echo "Next Steps:"
+    echo "1. Edit /etc/aitbc/blockchain.env with blockchain configuration"
+    echo "2. Edit /etc/aitbc/node.env with node-specific values"
+    echo "3. Restart services: systemctl restart aitbc-*"
+    echo "4. Check logs: journalctl -u aitbc-blockchain-node -f"
+    echo "5. Run health checks: $REPO_ROOT/scripts/monitoring/health_check.sh"
 }
 
 # Main deployment function
 main() {
-    log "Starting AITBC deployment..."
-    log "Environment: ${ENVIRONMENT}"
-    log "Version: ${VERSION}"
-    log "Region: ${REGION}"
+    local COMMAND="${1:-deploy}"
     
-    case "${ENVIRONMENT}" in
-        "local"|"docker")
+    case "$COMMAND" in
+        "deploy")
+            log "Starting AITBC deployment..."
             check_prerequisites
-            build_images
-            run_tests
-            deploy_docker_compose
+            install_dependencies
+            setup_repository
+            create_venv
+            install_python_dependencies
+            configure_environment
+            initialize_databases
+            setup_systemd_services
+            start_services
             run_health_checks
-            run_smoke_tests
-            ;;
-        "staging"|"production")
-            check_prerequisites
-            build_images
-            run_tests
-            deploy_kubernetes
-            run_health_checks
-            run_smoke_tests
+            display_status
+            success "Deployment completed successfully!"
             ;;
         "rollback")
-            rollback
+            rollback_deployment
             ;;
-        "cleanup")
-            cleanup
+        "status")
+            display_status
+            ;;
+        "health-check")
+            run_health_checks
             ;;
         *)
-            error "Unknown environment: ${ENVIRONMENT}. Use 'local', 'docker', 'staging', 'production', 'rollback', or 'cleanup'"
+            echo "Usage: $0 {deploy|rollback|status|health-check}"
+            echo ""
+            echo "Commands:"
+            echo "  deploy         - Full deployment of AITBC services"
+            echo "  rollback       - Rollback to previous deployment"
+            echo "  status         - Display deployment status"
+            echo "  health-check   - Run health checks on services"
+            exit 1
             ;;
     esac
-    
-    success "Deployment completed successfully!"
-    
-    # Display deployment information
-    log "Deployment Information:"
-    log "Environment: ${ENVIRONMENT}"
-    log "Version: ${VERSION}"
-    log "Namespace: ${NAMESPACE}"
-    
-    if [ "${ENVIRONMENT}" = "docker" ]; then
-        log "Services are running on:"
-        log "  Coordinator API: http://localhost:8001"
-        log "  Exchange Integration: http://localhost:8010"
-        log "  Trading Engine: http://localhost:8012"
-        log "  Plugin Registry: http://localhost:8013"
-        log "  Plugin Marketplace: http://localhost:8014"
-        log "  Explorer: http://localhost:8020"
-        log "  Grafana: http://localhost:3000 (admin/admin)"
-        log "  Prometheus: http://localhost:9090"
-    fi
 }
 
 # Handle script interruption
 trap 'error "Script interrupted"' INT TERM
-
-# Export environment variables for envsubst
-export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-aitbc123}
-export REDIS_PASSWORD=${REDIS_PASSWORD:-aitbc123}
-export GRAFANA_PASSWORD=${GRAFANA_PASSWORD:-admin}
-export VERSION=${VERSION}
-export NAMESPACE=${NAMESPACE}
 
 # Run main function
 main "$@"

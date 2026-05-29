@@ -7,7 +7,7 @@ echo "=============================================="
 
 # Copy deployment script to server
 echo "Copying deployment script to ns3..."
-scp scripts/deploy/deploy-blockchain-remote.sh ns3-root:/opt/
+scp scripts/deployment/deploy-blockchain-remote.sh ns3-root:/opt/
 
 # Execute deployment on server
 echo "Executing deployment on ns3 (utilizing gigabit connection)..."
