@@ -51,7 +51,7 @@ A comprehensive blockchain-based marketplace for AI computing services with zero
 ### Testing & CI/CD
 - **Comprehensive test suite** with 50% minimum coverage (Target: 85%)
 - **Standardized venv caching** with corruption detection
-- **Automated CI/CD** with Gitea workflows
+- **Automated CI/CD** with GitHub Actions (public) and Gitea workflows (dev)
 - **Phased quality gates** (50% → 70% → 85%+)
 - **Security scanning** optimized for changed files
 - **Cross-node verification tests**
