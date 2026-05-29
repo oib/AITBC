@@ -25,6 +25,7 @@ from handlers import contract as contract_handlers
 from handlers import workflow as workflow_handlers
 from handlers import performance as performance_handlers
 from handlers import resource as resource_handlers
+from handlers import sync as sync_handlers
 from parser_context import ParserContext
 from parsers import register_all
 
@@ -460,6 +461,9 @@ def run_cli(argv, core):
     def handle_market_list_plugins(args):
         market_handlers.handle_market_list_plugins(args, default_marketplace_url, output_format, render_mapping)
 
+    def handle_sync_bulk(args):
+        sync_handlers.handle_sync_bulk(args, ctx)
+
     def handle_workflow_create(args):
         workflow_handlers.handle_workflow_create(args, render_mapping)
 
@@ -706,6 +710,7 @@ def run_cli(argv, core):
         "handle_market_sell": handle_market_sell,
         "handle_market_orders": handle_market_orders,
         "handle_market_list_plugins": handle_market_list_plugins,
+        "handle_sync_bulk": handle_sync_bulk,
         "handle_workflow_create": handle_workflow_create,
         "handle_workflow_schedule": handle_workflow_schedule,
         "handle_workflow_monitor": handle_workflow_monitor,
