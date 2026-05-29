@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Important:** This document describes the setup process. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the setup process. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## Quick Setup (New Host)
 
@@ -221,19 +221,7 @@ For production deployment:
 
 ## Hermes Skills Integration
 
-AITBC includes documentation skills for Hermes agents. These skills enable automated operations and can be imported by Hermes agents to perform tasks:
-
-- **[Documentation Skills](../skills/)** - Complete skill library for Hermes agents:
-  - [aitbc-basic-operations.md](../skills/aitbc-basic-operations.md) - Basic CLI operations, wallet management, blockchain status
-  - [aitbc-marketplace.md](../skills/aitbc-marketplace.md) - Marketplace operations, GPU provider registration, trading
-  - [aitbc-node-coordination.md](../skills/aitbc-node-coordination.md) - Multi-node coordination, git synchronization, blockchain sync
-  - [aitbc-wallet-management.md](../skills/aitbc-wallet-management.md) - Wallet creation, import/export, balance checks, deletion
-  - [aitbc-ai-operations.md](../skills/aitbc-ai-operations.md) - AI job submission, monitoring, resource allocation, GPU testing
-  - [aitbc-blockchain-troubleshooting.md](../skills/aitbc-blockchain-troubleshooting.md) - Blockchain troubleshooting, sync issues, P2P problems
-  - [aitbc-multi-node-operations.md](../skills/aitbc-multi-node-operations.md) - Multi-node operations, git sync, service restart, blockchain sync
-  - [aitbc-cli.md](../skills/aitbc-cli.md) - CLI tool reference for training agents and workflow operations
-
-These skills are located in `docs/skills/` and follow the YAML frontmatter format required by Hermes for skill loading.
+AITBC includes documentation skills for Hermes agents. These skills enable automated operations and can be imported by Hermes agents to perform tasks. For internal deployment with Hermes agent integration, see the internal documentation.
 
 ## Open Island Testing
 

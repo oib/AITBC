@@ -51,7 +51,7 @@ This guide covers the deployment of AITBC smart contracts to testnet and mainnet
 - Node.js 18+ and npm
 - Hardhat framework
 - Git repository access
-- CI/CD runner access (gitea-runner)
+- CI/CD runner access
 
 ### Required Secrets
 Configure the following secrets in your CI/CD system:

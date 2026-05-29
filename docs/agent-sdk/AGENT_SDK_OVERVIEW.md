@@ -1,6 +1,6 @@
 # AITBC Agent SDK Documentation
 
-> **Important:** This document uses port 8000 for the Coordinator API. The correct port is 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+> **Important:** This document uses port 8000 for the Coordinator API. The correct port is 8011. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## Overview
 

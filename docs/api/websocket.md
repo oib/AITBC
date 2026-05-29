@@ -1,6 +1,6 @@
 # WebSocket API Documentation
 
-> **Important:** This document describes the WebSocket API endpoints. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the WebSocket API endpoints. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 The AITBC platform provides WebSocket endpoints for real-time updates on job status, blockchain events, and marketplace activities.
 

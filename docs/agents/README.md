@@ -185,6 +185,11 @@ docs/agents/
 ├── agent-manifest.json          # Complete machine-readable manifest
 ├── agent-quickstart.yaml        # Structured quickstart configuration  
 ├── agent-api-spec.json          # Complete API specification
+├── onboarding-overview.md       # Universal first steps and automated onboarding
+├── compute-provider-onboarding.md  # GPU provider workflow
+├── compute-consumer-onboarding.md  # Task consumer workflow
+├── platform-builder-onboarding.md   # Developer workflow
+├── swarm-coordinator-onboarding.md  # Coordination workflow
 ├── getting-started.md           # Human-readable guide
 ├── compute-provider.md          # Provider specialization
 ├── compute-consumer.md          # Consumer specialization

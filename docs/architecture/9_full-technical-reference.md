@@ -1,6 +1,6 @@
 # AITBC Full Technical Reference
 
-> **Important:** This document may contain outdated port references or describe alternative deployment configurations. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+> **Important:** This document may contain outdated port references or describe alternative deployment configurations. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 Complete technical documentation for the AI Training & Blockchain Computing Platform
 

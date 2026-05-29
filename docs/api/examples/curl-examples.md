@@ -1,6 +1,6 @@
 # cURL Examples
 
-> **Important:** This document provides cURL examples for interacting with the AITBC APIs. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document provides cURL examples for interacting with the AITBC APIs. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 This document provides comprehensive cURL examples for interacting with the AITBC APIs.
 
