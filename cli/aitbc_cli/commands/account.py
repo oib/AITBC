@@ -51,8 +51,13 @@ def list(ctx, rpc_url, chain_id):
         
         output(accounts, ctx.obj.get('output_format', 'table'), title="Accounts")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort()
+        # Fallback to simulated data if RPC endpoint not available
+        accounts = {
+            "status": "simulated",
+            "accounts": [],
+            "message": "RPC endpoint not available - showing simulated accounts"
+        }
+        output(accounts, ctx.obj.get('output_format', 'table'), title="Accounts (Simulated)")
     except Exception as e:
         error(f"Error listing accounts: {e}")
         raise click.Abort()
