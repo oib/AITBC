@@ -16,8 +16,6 @@ bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deploy
 
 Or clone and run manually:
 
-### For Public Users (GitHub - Recommended)
-
 ```bash
 git clone https://github.com/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
@@ -25,14 +23,7 @@ chmod +x scripts/deployment/setup.sh
 ./scripts/deployment/setup.sh
 ```
 
-### For Internal Users (Gitea - Development Only)
-
-```bash
-git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
-cd /opt/aitbc
-chmod +x scripts/deployment/setup.sh
-./scripts/deployment/setup.sh
-```
+**Note:** GitHub is the public repository. For internal development, use the Gitea repository instead.
 
 ## What `scripts/deployment/setup.sh` Does
 
