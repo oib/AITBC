@@ -53,7 +53,7 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE aitbc TO aitbc;"
 
 ```bash
 # Setup services
-sudo ./scripts/setup.sh
+sudo ./scripts/deployment/setup.sh
 
 # Enable services
 sudo systemctl enable aitbc-blockchain

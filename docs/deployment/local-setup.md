@@ -21,7 +21,7 @@ pip install -e packages/py/aitbc-crypto
 pip install -e packages/py/aitbc-sdk
 
 # Start services
-./scripts/setup.sh
+./scripts/deployment/setup.sh
 ```
 
 ## Service Configuration

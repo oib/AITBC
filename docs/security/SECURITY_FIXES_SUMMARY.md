@@ -105,7 +105,7 @@
   - All *.json files (some were 644)
 
 #### Setup Script Updates
-- **Updated /opt/aitbc/scripts/setup.sh**:
+- **Updated /opt/aitbc/scripts/deployment/setup.sh**:
   - Added credential directory creation
   - Added setup_credentials() function
   - Generates secure secrets during installation
@@ -202,7 +202,7 @@
 - scripts/utils/load-keystore-secrets.sh (new)
 - scripts/utils/setup-credentials.py (new)
 - scripts/utils/setup_production.py (updated)
-- scripts/setup.sh (updated)
+- scripts/deployment/setup.sh (updated)
 
 ### Systemd Services
 - systemd/aitbc-blockchain-node.service (updated)
