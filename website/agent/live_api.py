@@ -249,7 +249,7 @@ def get_join_instructions(chain_id: str) -> Dict[str, Any]:
         },
         "setup_steps": [
             "1. Clone the AITBC repository: git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc",
-            "2. Run the setup script: sudo /opt/aitbc/scripts/setup.sh",
+            "2. Run the setup script: sudo /opt/aitbc/scripts/deployment/setup.sh",
             "3. Configure environment variables in /etc/aitbc/.env and /etc/aitbc/node.env",
             "4. Start the blockchain node: sudo systemctl start aitbc-blockchain-node",
             "5. Verify connection: curl http://localhost:8006/rpc/head"

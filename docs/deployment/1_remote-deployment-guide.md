@@ -5,7 +5,7 @@
 ## Overview
 This deployment strategy builds the blockchain node directly on the redacted-host server to utilize its gigabit connection, avoiding slow uploads from localhost.
 
-For new-host bootstrap, start with `SETUP.md`, which documents the main `scripts/setup.sh` entry point.
+For new-host bootstrap, start with `SETUP.md`, which documents the main `scripts/deployment/setup.sh` entry point.
 
 ## Quick Start
 
