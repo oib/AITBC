@@ -14,70 +14,72 @@ This document outlines the comprehensive disaster recovery procedures for the AI
 ### 1. Database Corruption
 - **Description:** PostgreSQL database corruption due to hardware failure, software bug, or malicious attack
 - **Impact:** Loss of job data, marketplace offers/bids, user sessions, configuration
-- **RTO:** 1 hour
-- **RPO:** 24 hours
+- **RTO:** 1-4 hours (customize based on deployment requirements)
+- **RPO:** 24 hours (customize based on backup frequency)
 - **Recovery Strategy:** Restore from latest PostgreSQL backup
 
 ### 2. Service Failure
 - **Description:** Critical service failure (coordinator-api, blockchain-node, marketplace, exchange)
 - **Impact:** Service unavailability, transaction processing halt
-- **RTO:** 30 minutes
+- **RTO:** 30 minutes (customize based on service criticality)
 - **RPO:** 0 minutes (stateless services)
 - **Recovery Strategy:** Restart services, failover to standby instances
 
 ### 3. Network Partition
 - **Description:** Network connectivity loss between components or regions
 - **Impact:** Distributed system inconsistency, service degradation
-- **RTO:** 2 hours
+- **RTO:** 1-4 hours (customize based on network topology)
 - **RPO:** 0 minutes
 - **Recovery Strategy:** Restore network connectivity, resynchronize state
 
 ### 4. Data Center Outage
 - **Description:** Complete data center failure (power, cooling, network)
 - **Impact:** Complete system unavailability
-- **RTO:** 4 hours
-- **RPO:** 24 hours
+- **RTO:** 4-8 hours (customize based on failover strategy)
+- **RPO:** 24 hours (customize based on backup frequency)
 - **Recovery Strategy:** Failover to alternate data center
 
 ### 5. Security Breach
 - **Description:** Unauthorized access, data breach, ransomware attack
 - **Impact:** Data compromise, service disruption, reputational damage
 - **RTO:** Variable (depends on breach severity)
-- **RPO:** 24 hours
+- **RPO:** 24 hours (customize based on backup frequency)
 - **Recovery Strategy:** Contain breach, restore from pre-breach backup, patch vulnerabilities
 
 ### 6. Ransomware Attack
 - **Description:** Malicious encryption of data/systems
 - **Impact:** Data unavailability, service disruption
-- **RTO:** 8-24 hours
-- **RPO:** 24 hours
+- **RTO:** 8-24 hours (customize based on system complexity)
+- **RPO:** 24 hours (customize based on backup frequency)
 - **Recovery Strategy:** Restore from clean backups, rebuild systems
 
 ## Contact Information
 
-### Primary Contacts
+> **Note:** Customize contact information for your deployment. Define primary and secondary contacts for each role, including names, emails, phone numbers, and timezones.
+
+### Primary Contacts (Template)
 
 | Role | Name | Email | Phone | Timezone |
 |------|------|-------|-------|----------|
-| CTO | | | | UTC |
-| Engineering Lead | | | | UTC |
-| DevOps Lead | | | | UTC |
-| Security Lead | | | | UTC |
-| Operations Manager | | | | UTC |
+| CTO | | | | |
+| Engineering Lead | | | | |
+| DevOps Lead | | | | |
+| Security Lead | | | | |
+| Operations Manager | | | | |
 
-### Secondary Contacts
+### Secondary Contacts (Template)
 
 | Role | Name | Email | Phone | Timezone |
 |------|------|-------|-------|----------|
-| Database Administrator | | | | UTC |
-| Network Engineer | | | | UTC |
-| Security Analyst | | | | UTC |
+| Database Administrator | | | | |
+| Network Engineer | | | | |
+| Security Analyst | | | | |
 
-### External Contacts
+### External Contacts (Template)
 
 | Service | Contact | Email | Phone |
 |---------|---------|-------|-------|
-| Cloud Provider (AWS) | | | |
+| Cloud Provider | | | |
 | DNS Provider | | | |
 | Security Incident Response | | | |
 | Legal Counsel | | | |
@@ -85,44 +87,46 @@ This document outlines the comprehensive disaster recovery procedures for the AI
 
 ## Escalation Procedures
 
-### Severity Levels
+> **Note:** Customize escalation paths and response times based on your team structure and availability.
+
+### Severity Levels (Template)
 
 #### P1 - Critical (System Down)
 - **Definition:** Complete system outage affecting all users
-- **Response Time:** 15 minutes
-- **Escalation Path:** On-call Engineer → Engineering Lead → CTO
+- **Response Time:** 15 minutes (customize)
+- **Escalation Path:** On-call Engineer → Engineering Lead → CTO (customize)
 - **Communication:** Immediate stakeholder notification
 
 #### P2 - Major (Service Degradation)
 - **Definition:** Critical functionality impaired, partial outage
-- **Response Time:** 30 minutes
-- **Escalation Path:** On-call Engineer → Engineering Lead
+- **Response Time:** 30 minutes (customize)
+- **Escalation Path:** On-call Engineer → Engineering Lead (customize)
 - **Communication:** Stakeholder notification within 1 hour
 
 #### P3 - Minor (Limited Impact)
 - **Definition:** Non-critical functionality impaired, limited users affected
-- **Response Time:** 1 hour
-- **Escalation Path:** On-call Engineer
+- **Response Time:** 1 hour (customize)
+- **Escalation Path:** On-call Engineer (customize)
 - **Communication:** Stakeholder notification within 4 hours
 
 #### P4 - Low (Minimal Impact)
 - **Definition:** Cosmetic issues, documentation errors
-- **Response Time:** 4 hours
-- **Escalation Path:** Team Lead
+- **Response Time:** 4 hours (customize)
+- **Escalation Path:** Team Lead (customize)
 - **Communication:** Next business day
 
-### Escalation Flowchart
+### Escalation Flowchart (Template)
 
 ```
 Incident Detected
     ↓
-On-call Engineer (15 min)
+On-call Engineer (customize response time)
     ↓ (if unresolved)
-Engineering Lead (30 min)
+Engineering Lead (customize response time)
     ↓ (if unresolved)
-CTO (1 hour)
+CTO (customize response time)
     ↓ (if unresolved)
-Executive Team (2 hours)
+Executive Team (customize response time)
 ```
 
 ## Recovery Procedures
@@ -368,14 +372,14 @@ kubectl scale deployment --all --replicas=[original-counts]
 ### Internal Communication
 
 #### During Incident
-- **Primary Channel:** Slack #incidents
-- **Backup Channel:** Phone call
-- **Frequency:** Every 15-30 minutes
+- **Primary Channel:** Customize (e.g., Slack #incidents)
+- **Backup Channel:** Customize (e.g., phone call)
+- **Frequency:** Every 15-30 minutes (customize)
 - **Content:** Status updates, ETA, blockers
 
 #### After Incident
-- **Primary Channel:** Email + Slack
-- **Timing:** Within 24 hours
+- **Primary Channel:** Customize (e.g., Email + Slack)
+- **Timing:** Within 24 hours (customize)
 - **Content:** Post-mortem, lessons learned, action items
 
 ### External Communication
@@ -504,10 +508,12 @@ Prevention: [What we're doing to prevent recurrence]
 
 ### Backup Locations
 
-- **Primary:** S3 (us-east-1)
-- **Secondary:** S3 (us-west-2)
-- **Tertiary:** On-premise backup server
-- **Encryption:** Server-side encryption (AES-256)
+> **Note:** Customize backup locations based on your infrastructure and compliance requirements.
+
+- **Primary:** Customize (e.g., S3, GCS, Azure Blob)
+- **Secondary:** Customize (different region or provider)
+- **Tertiary:** Customize (e.g., on-premise backup server)
+- **Encryption:** Server-side encryption (AES-256 or equivalent)
 - **Access:** IAM-restricted, audit-logged
 
 ## Disaster Recovery Drills
@@ -633,6 +639,8 @@ Next Drill: [Date]
 
 ### A. Quick Reference Card
 
+> **Note:** Customize commands and contact information for your deployment.
+
 ```
 EMERGENCY CONTACTS:
 CTO: [Phone]
@@ -640,9 +648,9 @@ Engineering Lead: [Phone]
 On-call: [Phone]
 
 CRITICAL COMMANDS:
-Check status: kubectl get pods -A
-Check logs: kubectl logs -l app=[service]
-Restart: kubectl rollout restart deployment [service]
+Check status: kubectl get pods -A (or systemctl status for systemd)
+Check logs: kubectl logs -l app=[service] (or journalctl for systemd)
+Restart: kubectl rollout restart deployment [service] (or systemctl restart for systemd)
 Scale: kubectl scale deployment [service] --replicas=N
 
 BACKUP RESTORE:
@@ -652,6 +660,7 @@ Ledger: tar -xzf [backup] -C /tmp/ && kubectl cp /tmp/chain/ default/node:/app/d
 
 DNS FAILOVER:
 aws route53 change-resource-record-sets --hosted-zone-id [id] --change-batch [batch]
+(or your DNS provider's equivalent command)
 ```
 
 ### B. Incident Response Checklist
@@ -677,6 +686,8 @@ aws route53 change-resource-record-sets --hosted-zone-id [id] --change-batch [ba
 | 1.0 | 2026-05-11 | Initial creation | |
 
 ## Approval
+
+> **Note:** Customize approval process for your organization.
 
 | Role | Name | Date | Signature |
 |------|------|------|-----------|

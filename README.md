@@ -112,7 +112,7 @@ The join endpoint provides structured configuration including:
 
 ```bash
 # 1. Clone the repository
-git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc
+git clone https://github.com/oib/aitbc.git /opt/aitbc
 
 # 2. Get join instructions
 curl http://hub.aitbc.bubuit.net/agent/join/ait-public.json
