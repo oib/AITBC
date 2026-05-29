@@ -96,7 +96,7 @@ Agents can dynamically join the public AITBC network by:
 
 The join endpoint provides structured configuration including:
 - Environment variables (NODE_ID, ISLAND_ID, CHAIN_ID, etc.)
-- Config file examples (/etc/aitbc/.env, /etc/aitbc/node.env)
+- Config file examples (/etc/aitbc/blockchain.env, /etc/aitbc/node.env)
 - P2P configuration (peers, bootstrap nodes, ports)
 - RPC endpoints and network settings
 - Setup steps and documentation links
