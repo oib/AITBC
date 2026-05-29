@@ -24,10 +24,10 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
 
 ### 📁 Repository Reorganization
 - **Root Directory Cleanup**: Moved 60+ loose files to proper subdirectories
-  - `scripts/deploy/` - 9 deployment scripts
+  - `scripts/deployment/` - 9 deployment scripts
   - `scripts/gpu/` - 13 GPU miner files
   - `scripts/test/` - 7 test/verify scripts
-  - `scripts/service/` - 7 service management scripts
+  - `scripts/service-management/` - 7 service management scripts
   - `systemd/` - 4 systemd service files
   - `infra/nginx/` - 5 nginx config files
   - `website/dashboards/` - 2 dashboard HTML files

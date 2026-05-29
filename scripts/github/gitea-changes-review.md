@@ -46,7 +46,7 @@
   - Performance optimization
 
 ### 5. **Development Tools**
-- **dev/scripts/dev_heartbeat.py**: Enhanced with security vulnerability scanning
+- **dev/tools/scripts/dev_heartbeat.py**: Enhanced with security vulnerability scanning
 - **scripts/claim-task.py**: Improved TTL handling and cleanup
 
 ### 6. **Infrastructure Updates**
@@ -100,7 +100,7 @@
 - .gitignore (production files)
 - apps/blockchain-node/src/aitbc_chain/rpc/router.py
 - apps/coordinator-api/src/app/main.py
-- dev/scripts/dev_heartbeat.py
+- dev/tools/scripts/dev_heartbeat.py
 - scripts/claim-task.py
 - systemd/aitbc-blockchain-rpc.service
 - And 10 others...

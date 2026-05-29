@@ -15,9 +15,9 @@ This document provides the authoritative port configuration for all AITBC servic
 
 | Service | Port | Health Endpoint | Source | Notes |
 |---------|------|----------------|--------|-------|
-| **Blockchain RPC** | 8006 | `http://localhost:8006/health` | `scripts/wrappers/aitbc-blockchain-rpc-wrapper.py` | Main blockchain node RPC |
-| **Blockchain P2P** | 7000 | N/A | `scripts/wrappers/aitbc-blockchain-p2p-wrapper.py` | P2P networking |
-| **Coordinator API** | 8011 | `http://localhost:8011/health` | `scripts/wrappers/aitbc-coordinator-api-wrapper.py` | Agent registry, /v1/* routes |
+| **Blockchain RPC** | 8006 | `http://localhost:8006/health` | `apps/blockchain-node/aitbc-blockchain-rpc-wrapper.py` | Main blockchain node RPC |
+| **Blockchain P2P** | 7000 | N/A | `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` | P2P networking |
+| **Coordinator API** | 8011 | `http://localhost:8011/health` | `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` | Agent registry, /v1/* routes |
 | **Exchange API** | 8001 | `http://localhost:8001/health` | `apps/exchange/multichain_exchange_api.py` | Trading (localhost only) |
 | **Marketplace** | 8102 | `http://localhost:8102/health` | `apps/marketplace-service/src/marketplace_service/main.py` | GPU marketplace |
 | **Wallet Daemon** | 8015 | `http://localhost:8015/health` | `apps/wallet/src/app/main.py` | Wallet management (localhost only) |
@@ -30,15 +30,15 @@ This document provides the authoritative port configuration for all AITBC servic
 | **Learning Service** | 8012 | N/A | `systemd/aitbc-learning.service` | Adaptive learning |
 | **Multimodal Service** | 8020 | N/A | `systemd/aitbc-multimodal.service` | Multimodal processing |
 | **Modality Optimization** | 8021 | N/A | `systemd/aitbc-modality-optimization.service` | Optimization service |
-| **Blockchain Event Bridge** | 8204 | N/A | `scripts/wrappers/aitbc-blockchain-event-bridge-wrapper.py` | Event bridging |
+| **Blockchain Event Bridge** | 8204 | N/A | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge-wrapper.py` | Event bridging |
 
 ## Port Configuration Sources
 
 ### Service Wrapper Scripts
-- **Coordinator API**: `scripts/wrappers/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8011`)
-- **Wallet**: `scripts/wrappers/aitbc-wallet-wrapper.py` (delegates to `apps/wallet/src/app/main.py`)
-- **Blockchain RPC**: `scripts/wrappers/aitbc-blockchain-rpc-wrapper.py` (line 29: `--port 8006`)
-- **Blockchain P2P**: `scripts/wrappers/aitbc-blockchain-p2p-wrapper.py` (line 26: `--port 7000`)
+- **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8011`)
+- **Wallet**: `apps/wallet/aitbc-wallet-wrapper.py` (delegates to `apps/wallet/src/app/main.py`)
+- **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-rpc-wrapper.py` (line 29: `--port 8006`)
+- **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (line 26: `--port 7000`)
 
 ### Application Main Files
 - **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8015`)

@@ -60,15 +60,15 @@ This document summarizes the comprehensive service standardization and cleanup p
 
 ### Scripts Reorganized
 - **App-specific scripts**: Moved from `/scripts/` to `/apps/{app}/scripts/`
-- **Development scripts**: Moved to `/dev/scripts/`
-- **Deployment scripts**: Consolidated in `/scripts/deploy/`
+- **Development scripts**: Moved to `/dev/tools/scripts/`
+- **Deployment scripts**: Consolidated in `/scripts/deployment/`
 - **Global scripts**: Only truly global utilities remain in `/scripts/`
 
 ### Key Moves
 - **`geo_load_balancer.py`** → `/apps/coordinator-api/scripts/`
 - **Blockchain scripts** → `/apps/blockchain-node/scripts/`
 - **Contract scripts** → `/contracts/scripts/`
-- **Development tools** → `/dev/scripts/`
+- **Development tools** → `/dev/tools/scripts/`
 
 ## Deployment Automation
 
@@ -80,7 +80,7 @@ This document summarizes the comprehensive service standardization and cleanup p
 ### Environment Detection
 ```bash
 # AT1 (localhost) - GPU services only
-./scripts/deploy/deploy-multimodal-services.sh at1
+./scripts/deployment/deploy-multimodal-services.sh at1
 
 # Production servers - CPU services only  
 ./scripts/deploy/deploy-multimodal-services.sh server
@@ -202,8 +202,8 @@ grep -r "Python 3.13.5" /etc/systemd/system/aitbc-*.service
 ```bash
 # Check script organization
 ls -la /opt/aitbc/apps/*/scripts/
-ls -la /dev/scripts/
-ls -la /scripts/deploy/
+ls -la /dev/tools/scripts/
+ls -la /scripts/deployment/
 
 # Check for duplicates
 find /etc/systemd/system/ -name "*aitbc*" | sort

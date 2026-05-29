@@ -264,7 +264,7 @@ tests/__pycache__/
 scripts/gpu/*.local.py
 
 # Deployment secrets (CRITICAL SECURITY)
-scripts/deploy/*.secret.*
+scripts/deployment/*.secret.*
 infra/nginx/*.local.conf
 
 # ===================
@@ -291,10 +291,10 @@ apps/coordinator-api/.env
 # ===================
 # Deploy Scripts (hardcoded local paths & IPs)
 # ===================
-scripts/deploy/*
-!scripts/deploy/*.example
-!scripts/deploy/deploy.sh
-!scripts/deploy/validate-env.sh
+scripts/deployment/*
+!scripts/deployment/*.example
+!scripts/deployment/deploy.sh
+!scripts/deployment/validate-env.sh
 scripts/gpu/*
 !scripts/gpu/*.example
 

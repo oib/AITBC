@@ -10,8 +10,8 @@ echo ""
 
 # Copy deployment scripts to server
 echo "Copying deployment scripts to ns3..."
-scp scripts/deploy/deploy-blockchain-remote.sh ns3-root:/opt/
-scp scripts/deploy/deploy-explorer-remote.sh ns3-root:/opt/
+scp scripts/deployment/deploy-blockchain-remote.sh ns3-root:/opt/
+scp scripts/deployment/deploy-explorer-remote.sh ns3-root:/opt/
 
 # Create directories on server first
 echo "Creating directories on ns3..."
