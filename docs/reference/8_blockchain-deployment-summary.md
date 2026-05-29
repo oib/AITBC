@@ -108,12 +108,12 @@ To connect nodes in a production network:
 ### Logs
 ```bash
 # Node logs
-sudo journalctl -u blockchain-node -f
-sudo journalctl -u blockchain-node-2 -f
+journalctl -u blockchain-node -f
+journalctl -u blockchain-node-2 -f
 
 # RPC logs
-sudo journalctl -u blockchain-rpc -f
-sudo journalctl -u blockchain-rpc-2 -f
+journalctl -u blockchain-rpc -f
+journalctl -u blockchain-rpc-2 -f
 ```
 
 ## Next Steps

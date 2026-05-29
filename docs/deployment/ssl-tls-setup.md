@@ -6,25 +6,25 @@ This guide covers SSL/TLS setup for AITBC deployment using Let's Encrypt and man
 
 ```bash
 # Install certbot
-sudo apt install -y certbot python3-certbot-nginx
+apt install -y certbot python3-certbot-nginx
 
 # Obtain certificate
-sudo certbot --nginx -d your-domain.com
+certbot --nginx -d your-domain.com
 
 # Auto-renewal
-sudo certbot renew --dry-run
+certbot renew --dry-run
 ```
 
 ## Manual Certificate
 
 ```bash
 # Generate self-signed certificate
-sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout /etc/ssl/private/aitbc.key \
   -out /etc/ssl/certs/aitbc.crt
 
 # Configure Nginx
-sudo nano /etc/nginx/sites-available/aitbc
+nano /etc/nginx/sites-available/aitbc
 ```
 
 ## Nginx SSL Configuration

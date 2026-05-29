@@ -18,7 +18,7 @@ curl http://localhost:8102/health
 curl http://localhost:8102/v1/offers
 
 # Check matching logs
-sudo journalctl -u aitbc-marketplace -n 50
+journalctl -u aitbc-marketplace -n 50
 ```
 
 **Solutions:**
@@ -30,7 +30,7 @@ curl http://localhost:8102/v1/offers | jq '.[].constraints'
 
 2. Restart matching engine
 ```bash
-sudo systemctl restart aitbc-marketplace
+systemctl restart aitbc-marketplace
 ```
 
 3. Clear offer cache
@@ -39,7 +39,7 @@ sudo systemctl restart aitbc-marketplace
 redis-cli FLUSHALL
 
 # Restart service
-sudo systemctl restart aitbc-marketplace
+systemctl restart aitbc-marketplace
 ```
 
 ## See Also

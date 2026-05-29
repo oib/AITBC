@@ -24,9 +24,6 @@ def generate_api_key():
 ```bash
 # Environment variable
 export AITBC_API_KEY="your-api-key"
-
-# Or use secret management
-aws secretsmanager get-secret-value --secret-id aitbc-api-key
 ```
 
 ## Key Rotation

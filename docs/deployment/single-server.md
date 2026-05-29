@@ -8,18 +8,18 @@ This guide covers deploying AITBC on a single server for production use.
 
 ```bash
 # Update system
-sudo apt update && sudo apt upgrade -y
+apt update && apt upgrade -y
 
 # Create user
-sudo useradd -m -s /bin/bash aitbc
-sudo usermod -aG docker aitbc
+useradd -m -s /bin/bash aitbc
+usermod -aG docker aitbc
 ```
 
 ### 2. Install Dependencies
 
 ```bash
 # Install system dependencies
-sudo apt install -y \
+apt install -y \
     build-essential \
     python3-dev \
     python3-venv \
@@ -36,34 +36,34 @@ sudo apt install -y \
 
 ```bash
 # Clone repository
-sudo -u aitbc git clone https://github.com/oib/AITBC.git /opt/aitbc
+-u aitbc git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
 # Setup virtual environment
-sudo -u aitbc python3 -m venv /opt/aitbc/venv
-sudo -u aitbc /opt/aitbc/venv/bin/pip install -r requirements.txt
+-u aitbc python3 -m venv /opt/aitbc/venv
+-u aitbc /opt/aitbc/venv/bin/pip install -r requirements.txt
 
 # Setup database
-sudo -u postgres psql -c "CREATE DATABASE aitbc;"
-sudo -u postgres psql -c "CREATE USER aitbc WITH PASSWORD 'secure-password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE aitbc TO aitbc;"
+-u postgres psql -c "CREATE DATABASE aitbc;"
+-u postgres psql -c "CREATE USER aitbc WITH PASSWORD 'secure-password';"
+-u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE aitbc TO aitbc;"
 ```
 
 ### 4. Configure Systemd Services
 
 ```bash
 # Setup services
-sudo ./scripts/deployment/setup.sh
+./scripts/deployment/setup.sh
 
 # Enable services
-sudo systemctl enable aitbc-blockchain
-sudo systemctl enable aitbc-coordinator-api
-sudo systemctl enable aitbc-marketplace
+systemctl enable aitbc-blockchain
+systemctl enable aitbc-coordinator-api
+systemctl enable aitbc-marketplace
 
 # Start services
-sudo systemctl start aitbc-blockchain
-sudo systemctl start aitbc-coordinator-api
-sudo systemctl start aitbc-marketplace
+systemctl start aitbc-blockchain
+systemctl start aitbc-coordinator-api
+systemctl start aitbc-marketplace
 ```
 
 ### 5. Configure Nginx

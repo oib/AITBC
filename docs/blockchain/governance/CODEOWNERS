@@ -36,7 +36,7 @@ apps/pool-hub/ @aitbc/frontend-team
 website/ @aitbc/frontend-team
 
 # Infrastructure team
-/infra/ @aitbc/infra-team
+/scripts/deployment/ @aitbc/infra-team
 docker-compose*.yml @aitbc/infra-team
 Dockerfile* @aitbc/infra-team
 .github/workflows/ @aitbc/infra-team

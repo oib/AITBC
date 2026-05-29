@@ -320,14 +320,14 @@ docker run -p 3001:3001 aitbc-explorer
 ### Production Deployment
 ```bash
 # Install with systemd
-sudo cp aitbc-explorer.service /etc/systemd/system/
-sudo systemctl enable aitbc-explorer
-sudo systemctl start aitbc-explorer
+cp aitbc-explorer.service /etc/systemd/system/
+systemctl enable aitbc-explorer
+systemctl start aitbc-explorer
 
 # Configure nginx reverse proxy
-sudo cp nginx.conf /etc/nginx/sites-available/aitbc-explorer
-sudo ln -s /etc/nginx/sites-available/aitbc-explorer /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+cp nginx.conf /etc/nginx/sites-available/aitbc-explorer
+ln -s /etc/nginx/sites-available/aitbc-explorer /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
 ```
 
 ### Environment Configuration

@@ -20,8 +20,8 @@ This guide covers setting up edge GPU optimization for consumer-grade hardware i
 ### 1. Install NVIDIA Drivers
 ```bash
 # Ubuntu/Debian
-sudo apt update
-sudo apt install nvidia-driver-470
+apt update
+apt install nvidia-driver-470
 
 # Verify installation
 nvidia-smi
@@ -31,7 +31,7 @@ nvidia-smi
 ```bash
 # Download and install CUDA
 wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
-sudo sh cuda_11.8.0_520.61.05_linux.run
+sh cuda_11.8.0_520.61.05_linux.run
 
 # Add to PATH
 echo 'export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}' >> ~/.bashrc
@@ -45,8 +45,8 @@ source ~/.bashrc
 curl -fsSL https://ollama.ai/install.sh | sh
 
 # Start Ollama service
-sudo systemctl start ollama
-sudo systemctl enable ollama
+systemctl start ollama
+systemctl enable ollama
 ```
 
 ### 4. Configure GPU Miner
@@ -133,9 +133,9 @@ nvidia-smi
 nvcc --version
 
 # Reinstall drivers if needed
-sudo apt purge nvidia*
-sudo apt autoremove
-sudo apt install nvidia-driver-470
+apt purge nvidia*
+apt autoremove
+apt install nvidia-driver-470
 ```
 
 #### High Latency

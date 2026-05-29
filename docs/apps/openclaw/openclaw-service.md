@@ -81,8 +81,8 @@ python -m hermes_service.main
 
 ### Production (systemd)
 ```bash
-sudo systemctl start hermes-service
-sudo systemctl enable hermes-service
+systemctl start hermes-service
+systemctl enable hermes-service
 ```
 
 ## Endpoints

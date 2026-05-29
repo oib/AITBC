@@ -4,7 +4,7 @@
 >
 > **Last Updated**: 2026-05-28
 > **Version**: 3.4 (Debian Root Usage)
-> **Environment**: Debian Linux with root user (no sudo required)
+> **Environment**: Debian Linux with root user (no required)
 
 ## Overview
 
@@ -60,7 +60,7 @@ ls -la /etc/systemd/system/aitbc-*.service
 systemctl list-units --state=running | grep aitbc
 
 # Check which ports are actually in use by AITBC services
-sudo netstat -tlnp | grep -E ":(8001|8003|8005|8006|8010|8011)"
+netstat -tlnp | grep -E ":(8001|8003|8005|8006|8010|8011)"
 
 # Check service status for specific services
 systemctl status aitbc-coordinator-api.service
@@ -117,7 +117,7 @@ systemctl disable aitbc-coordinator-api.service
 systemctl start aitbc-coordinator-api aitbc-blockchain-node aitbc-exchange-api aitbc-wallet
 
 # Restart all agent services
-sudo systemctl restart aitbc-ai aitbc-edge
+systemctl restart aitbc-ai aitbc-edge
 
 # Check all services status
 systemctl status aitbc-*

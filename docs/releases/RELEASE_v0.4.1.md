@@ -199,14 +199,14 @@ pip install --upgrade -r requirements.txt
 ### Data Directory Migration
 ```bash
 # Create new data directory
-sudo mkdir -p /var/lib/aitbc/data
-sudo chown -R aitbc:aitbc /var/lib/aitbc/data
+mkdir -p /var/lib/aitbc/data
+chown -R aitbc:aitbc /var/lib/aitbc/data
 
 # Copy existing data
-sudo cp -r /opt/aitbc/data/* /var/lib/aitbc/data/
+cp -r /opt/aitbc/data/* /var/lib/aitbc/data/
 
 # Update service files (automatically done by this release)
-sudo systemctl daemon-reload
+systemctl daemon-reload
 ```
 
 ### Edge API Migration
@@ -214,7 +214,7 @@ sudo systemctl daemon-reload
 # Edge API now uses SQLite (no PostgreSQL required)
 # Database location: /var/lib/aitbc/data/edge.db
 # Service automatically uses new configuration
-sudo systemctl restart aitbc-edge-api.service
+systemctl restart aitbc-edge-api.service
 ```
 
 ## 📝 Migration Notes

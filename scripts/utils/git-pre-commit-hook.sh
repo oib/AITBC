@@ -41,7 +41,7 @@ for pattern in "${ROOT_FORBIDDEN_PATTERNS[@]}"; do
                 echo "   → dev/tools/scripts/"
                 ;;
             "MULTI_*.md")
-                echo "   → dev/multi-chain/"
+                echo "   → dev/tools/multi-chain/"
                 ;;
         esac
         
@@ -92,8 +92,8 @@ for file in $NEW_FILES; do
                 echo "💡 Consider: git reset HEAD $filename && mv $filename dev/tools/scripts/ && git add dev/tools/scripts/$filename"
                 ;;
             MULTI_*.md)
-                echo "⚠️  WARNING: Multi-chain file '$filename' should be in dev/multi-chain/"
-                echo "💡 Consider: git reset HEAD $filename && mv $filename dev/multi-chain/ && git add dev/multi-chain/$filename"
+                echo "⚠️  WARNING: Multi-chain file '$filename' should be in dev/tools/multi-chain/"
+                echo "💡 Consider: git reset HEAD $filename && mv $filename dev/tools/multi-chain/ && git add dev/tools/multi-chain/$filename"
                 ;;
             .aitbc.yaml|.aitbc.yaml.example|.env.production|.nvmrc|.lycheeignore)
                 echo "⚠️  WARNING: Configuration file '$filename' should be in config/"

@@ -69,7 +69,7 @@ iperf3 -c localhost
 ethtool eth0
 
 # Adjust network settings
-sudo ethtool -G eth0 rx 4096 tx 4096
+ethtool -G eth0 rx 4096 tx 4096
 ```
 
 2. Use local caching
