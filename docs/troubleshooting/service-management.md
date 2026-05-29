@@ -12,13 +12,13 @@ This guide covers service management issues including service startup, configura
 **Diagnosis:**
 ```bash
 # Check service status
-sudo systemctl status aitbc-coordinator-api
+systemctl status aitbc-coordinator-api
 
 # Check recent logs
-sudo journalctl -u aitbc-coordinator-api -n 50
+journalctl -u aitbc-coordinator-api -n 50
 
 # Check for errors in logs
-sudo journalctl -u aitbc-coordinator-api -f | grep -i error
+journalctl -u aitbc-coordinator-api -f | grep -i error
 ```
 
 **Solutions:**
@@ -31,10 +31,10 @@ python -m apps.coordinator_api.main --validate-config
 2. Check port conflicts
 ```bash
 # Check if port is in use
-sudo netstat -tulpn | grep 8011
+netstat -tulpn | grep 8011
 
 # Kill process using the port
-sudo kill -9 $(sudo lsof -t -i:8011)
+kill -9 $(lsof -t -i:8011)
 ```
 
 3. Check permissions
@@ -43,7 +43,7 @@ sudo kill -9 $(sudo lsof -t -i:8011)
 ls -la /opt/aitbc
 
 # Fix permissions
-sudo chown -R aitbc:aitbc /opt/aitbc
+chown -R aitbc:aitbc /opt/aitbc
 ```
 
 4. Check dependencies
@@ -88,7 +88,7 @@ python -m pstats profile.stats
 2. Check for infinite loops
 ```bash
 # Monitor process strace
-sudo strace -p $(pgrep -f coordinator-api)
+strace -p $(pgrep -f coordinator-api)
 ```
 
 3. Optimize database queries

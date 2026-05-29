@@ -25,13 +25,13 @@ dmesg | grep -i nvidia
 1. Reinstall NVIDIA driver
 ```bash
 # Remove old driver
-sudo apt remove nvidia-* --purge
+apt remove nvidia-* --purge
 
 # Install new driver
-sudo apt install nvidia-driver-535
+apt install nvidia-driver-535
 
 # Reboot
-sudo reboot
+reboot
 ```
 
 2. Check CUDA installation
@@ -40,16 +40,16 @@ sudo reboot
 nvcc --version
 
 # Reinstall CUDA if needed
-sudo apt install nvidia-cuda-toolkit
+apt install nvidia-cuda-toolkit
 ```
 
 3. Check GPU permissions
 ```bash
 # Add user to video group
-sudo usermod -aG video $USER
+usermod -aG video $USER
 
 # Reboot
-sudo reboot
+reboot
 ```
 
 ## GPU Memory Errors
@@ -83,7 +83,7 @@ torch.cuda.empty_cache()
 
 3. Restart mining service
 ```bash
-sudo systemctl restart aitbc-miner
+systemctl restart aitbc-miner
 ```
 
 ## See Also

@@ -57,8 +57,8 @@
    - Should never be in a public repository
 
 2. **Infrastructure secrets files:**
-   - `infra/k8s/sealed-secrets.yaml` - Contains sealed secrets configuration
-   - `infra/terraform/environments/secrets.tf` - References AWS Secrets Manager
+   - `scripts/deployment/k8s/sealed-secrets.yaml` - Contains sealed secrets configuration
+   - `scripts/deployment/terraform/environments/secrets.tf` - References AWS Secrets Manager
 
 ### Files With Hardcoded Credentials (Documentation/Examples)
 
@@ -75,7 +75,7 @@
 git filter-branch --force --index-filter 'git rm -rf --cached --ignore-unmatch .windsurf/' --prune-empty --tag-name-filter cat -- --all
 
 # Remove infrastructure secrets files
-git filter-branch --force --index-filter 'git rm -rf --cached --ignore-unmatch infra/k8s/sealed-secrets.yaml infra/terraform/environments/secrets.tf' --prune-empty --tag-name-filter cat -- --all
+git filter-branch --force --index-filter 'git rm -rf --cached --ignore-unmatch scripts/deployment/k8s/sealed-secrets.yaml scripts/deployment/terraform/environments/secrets.tf' --prune-empty --tag-name-filter cat -- --all
 
 # Clean up
 git for-each-ref --format='delete %(refname)' refs/original | git update-ref --stdin
@@ -100,8 +100,8 @@ Add these lines to `.gitignore`:
 *.p12
 secrets/
 credentials/
-infra/k8s/sealed-secrets.yaml
-infra/terraform/environments/secrets.tf
+scripts/deployment/k8s/sealed-secrets.yaml
+scripts/deployment/terraform/environments/secrets.tf
 ```
 
 ### 3. Replace Hardcoded Examples
@@ -150,8 +150,8 @@ blockchain ai-computing marketplace zero-knowledge-proofs confidential-transacti
 
 ### Before Pushing to GitHub:
 - [ ] Remove `.windsurf/` directory from git history
-- [ ] Remove `infra/k8s/sealed-secrets.yaml` from git history
-- [ ] Remove `infra/terraform/environments/secrets.tf` from git history
+- [ ] Remove `scripts/deployment/k8s/sealed-secrets.yaml` from git history
+- [ ] Remove `scripts/deployment/terraform/environments/secrets.tf` from git history
 - [ ] Update `.gitignore` with all exclusions
 - [ ] Replace hardcoded credentials in documentation
 - [ ] Scan for any remaining sensitive files

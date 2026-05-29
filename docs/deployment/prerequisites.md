@@ -45,8 +45,8 @@ This guide covers software and hardware requirements for deploying the AITBC pla
 
 ```bash
 # System dependencies
-sudo apt update
-sudo apt install -y \
+apt update
+apt install -y \
     build-essential \
     python3-dev \
     python3-venv \
@@ -63,7 +63,7 @@ sudo apt install -y \
     lsb-release
 
 # CUDA dependencies (for GPU support)
-sudo apt install -y \
+apt install -y \
     nvidia-cuda-toolkit \
     nvidia-cudnn \
     libnvidia-common

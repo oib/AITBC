@@ -11,7 +11,7 @@ The main setup script lives at `scripts/deployment/setup.sh`.
 Run this single command on any new host to install AITBC:
 
 ```bash
-sudo bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deployment/setup.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deployment/setup.sh)
 ```
 
 Or clone and run manually:
@@ -19,19 +19,19 @@ Or clone and run manually:
 ### For Public Users (GitHub - Recommended)
 
 ```bash
-sudo git clone https://github.com/oib/aitbc.git /opt/aitbc
+git clone https://github.com/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
-sudo chmod +x scripts/deployment/setup.sh
-sudo ./scripts/deployment/setup.sh
+chmod +x scripts/deployment/setup.sh
+./scripts/deployment/setup.sh
 ```
 
 ### For Internal Users (Gitea - Development Only)
 
 ```bash
-sudo git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
+git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
-sudo chmod +x scripts/deployment/setup.sh
-sudo ./scripts/deployment/setup.sh
+chmod +x scripts/deployment/setup.sh
+./scripts/deployment/setup.sh
 ```
 
 ## What `scripts/deployment/setup.sh` Does
@@ -62,7 +62,7 @@ sudo ./scripts/deployment/setup.sh
    - Creates databases: aitbc_coordinator, aitbc_exchange, aitbc_wallet, aitbc_marketplace, aitbc_governance, aitbc_trading, aitbc_gpu, aitbc_ai, aitbc_mempool
    - Creates dedicated users for each database
    - Grants necessary privileges
-   - Uses centralized script: `/opt/aitbc/infra/scripts/setup_postgresql_databases.sh`
+   - Uses centralized script: `/opt/aitbc/scripts/deployment/setup_postgresql_databases.sh`
 
 6. **Systemd Services**
    - Installs service files to `/etc/systemd/system/`
@@ -204,8 +204,8 @@ Pre-configured example files are available in `/opt/aitbc/examples/` for quick s
 
 **Quick Setup for Open Island:**
 ```bash
-sudo cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
-sudo cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
+cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
+cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 ```
 
 ## Production Considerations

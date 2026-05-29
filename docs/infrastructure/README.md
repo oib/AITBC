@@ -86,15 +86,15 @@ This section documents the AITBC infrastructure components, runtime architecture
 ### Automated Setup
 ```bash
 # Complete infrastructure setup
-sudo bash <(curl -sSL https://raw.githubusercontent.com/oib/aitbc/main/setup.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/oib/aitbc/main/setup.sh)
 ```
 
 ### Manual Setup
 ```bash
 # Clone and setup manually
-sudo git clone https://github.com/aitbc/aitbc.git /opt/aitbc
+git clone https://github.com/aitbc/aitbc.git /opt/aitbc
 cd /opt/aitbc
-sudo ./setup.sh
+./setup.sh
 ```
 
 ## 📊 Service Management

@@ -11,13 +11,13 @@ This guide covers common deployment issues and their solutions.
 **Solutions:**
 ```bash
 # Check service logs
-sudo journalctl -u aitbc-blockchain -n 50
+journalctl -u aitbc-blockchain -n 50
 
 # Check configuration
-sudo systemctl status aitbc-blockchain
+systemctl status aitbc-blockchain
 
 # Restart service
-sudo systemctl restart aitbc-blockchain
+systemctl restart aitbc-blockchain
 ```
 
 ## Database Connection Issues
@@ -29,13 +29,13 @@ sudo systemctl restart aitbc-blockchain
 **Solutions:**
 ```bash
 # Check PostgreSQL status
-sudo systemctl status postgresql
+systemctl status postgresql
 
 # Test connection
 psql -h localhost -U aitbc -d aitbc
 
 # Check firewall
-sudo ufw status | grep 5432
+ufw status | grep 5432
 ```
 
 ## Port Conflicts
@@ -47,10 +47,10 @@ sudo ufw status | grep 5432
 **Solutions:**
 ```bash
 # Check port usage
-sudo netstat -tulpn | grep 8006
+netstat -tulpn | grep 8006
 
 # Kill process using port
-sudo kill -9 $(sudo lsof -t -i:8006)
+kill -9 $(lsof -t -i:8006)
 ```
 
 ## Permission Issues
@@ -62,10 +62,10 @@ sudo kill -9 $(sudo lsof -t -i:8006)
 **Solutions:**
 ```bash
 # Fix ownership
-sudo chown -R aitbc:aitbc /opt/aitbc
+chown -R aitbc:aitbc /opt/aitbc
 
 # Fix permissions
-sudo chmod 600 /etc/aitbc/*.env
+chmod 600 /etc/aitbc/*.env
 ```
 
 ## See Also

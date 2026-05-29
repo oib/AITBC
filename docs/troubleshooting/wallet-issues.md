@@ -12,10 +12,10 @@ This guide covers wallet daemon problems including unresponsive wallet, transact
 **Diagnosis:**
 ```bash
 # Check wallet daemon status
-sudo systemctl status aitbc-wallet
+systemctl status aitbc-wallet
 
 # Check wallet logs
-sudo journalctl -u aitbc-wallet -n 50
+journalctl -u aitbc-wallet -n 50
 
 # Test wallet endpoint
 curl http://localhost:8071/health
@@ -33,7 +33,7 @@ chmod 600 /var/lib/aitbc/wallet/wallet.dat
 
 2. Restart wallet daemon
 ```bash
-sudo systemctl restart aitbc-wallet
+systemctl restart aitbc-wallet
 ```
 
 3. Check key derivation
@@ -55,7 +55,7 @@ python -c "from aitbc_crypto import Wallet; w = Wallet(); print(w.address)"
 curl http://localhost:8071/v1/keys
 
 # Check transaction logs
-sudo journalctl -u aitbc-wallet -n 50 | grep -i transaction
+journalctl -u aitbc-wallet -n 50 | grep -i transaction
 ```
 
 **Solutions:**

@@ -98,10 +98,10 @@ App-specific scripts and modules use sys.path for local imports:
 ### Dev/Docs (~20 files)
 Development examples and documentation reference sys.path:
 
-- `dev/examples/*.py` - Example scripts
+- `dev/tools/examples/*.py` - Example scripts
 - `dev/tools/scripts/blockchain/create_genesis_all.py` - Genesis creation
-- `dev/onboarding/auto-onboard.py` - Auto-onboarding
-- `dev/aitbc-debug` - Debug script
+- `dev/tools/onboarding/auto-onboard.py` - Auto-onboarding
+- `dev/tools/aitbc-debug` - Debug script
 - `docs/agent-training/ENVIRONMENT_SETUP.md` - Training setup docs
 - Various other documentation files
 

@@ -1,12 +1,20 @@
 # AITBC CLI Permission Setup Guide
 
+**⚠️ DEPRECATED: This document describes sudoers configuration for non-root development. Since AITBC services run as root, sudo is not required.**
+
+All AITBC services run as `User=root` in their systemd service files. Operations should be performed directly as root without sudo.
+
+The content below is preserved for reference but is not applicable to the current deployment architecture.
+
+---
+
 **Last Updated:** 2026-05-28
 
 **Complete Development Environment Configuration**
 
 ## 🔧 **Overview**
 
-This guide explains how to set up the AITBC development environment to avoid constant sudo password prompts during development while maintaining proper security separation.
+This guide explains how to set up the AITBC development environment to avoid constant password prompts during development while maintaining proper security separation.
 
 ## 📊 **Current Status: 100% Working**
 
@@ -22,7 +30,7 @@ This guide explains how to set up the AITBC development environment to avoid con
 ### One-Time Setup
 ```bash
 # Execute the permission fix script
-sudo /opt/aitbc/scripts/clean-sudoers-fix.sh
+/opt/aitbc/scripts/clean-permissions-fix.sh
 
 # Test the setup
 /opt/aitbc/scripts/test-permissions.sh
@@ -33,10 +41,10 @@ source /opt/aitbc/.env.dev
 
 ### Verification
 ```bash
-# Test service management (no password)
-sudo systemctl status aitbc-coordinator-api.service
+# Test service management
+systemctl status aitbc-coordinator-api.service
 
-# Test file operations (no sudo)
+# Test file operations
 touch /opt/aitbc/test-file.txt
 rm /opt/aitbc/test-file.txt
 
@@ -49,12 +57,11 @@ git status
 ### User Groups
 ```bash
 # Current setup
-oib : oib cdrom floppy sudo audio dip video plugdev users kvm netdev bluetooth lpadmin scanner ollama incus libvirt aitbc codebase systemd-edit
+oib : oib cdrom floppy audio dip video plugdev users kvm netdev bluetooth lpadmin scanner ollama incus libvirt aitbc codebase systemd-edit
 
 # Key groups for development
 - aitbc: Shared access to AITBC resources
 - codebase: Development access
-- sudo: Administrative privileges
 ```
 
 ### Directory Permissions
@@ -148,17 +155,14 @@ aitbc-fix              # Quick permission reset
 groups | grep aitbc
 
 # If not in aitbc group, add user
-sudo usermod -aG aitbc oib
+usermod -aG aitbc oib
 newgrp aitbc
 ```
 
 #### Sudo Password Prompts
 ```bash
-# Check sudoers syntax
-sudo visudo -c /etc/sudoers.d/aitbc-dev
-
-# Recreate sudoers if needed
-sudo /opt/aitbc/scripts/clean-sudoers-fix.sh
+# Check permissions configuration
+# Note: This document is deprecated as services run as root
 ```
 
 #### File Access Issues
@@ -167,21 +171,21 @@ sudo /opt/aitbc/scripts/clean-sudoers-fix.sh
 ls -la /opt/aitbc
 
 # Fix directory permissions
-sudo find /opt/aitbc -type d -exec chmod 2775 {} \;
+find /opt/aitbc -type d -exec chmod 2775 {} \;
 
 # Fix file permissions
-sudo find /opt/aitbc -type f -exec chmod 664 {} \;
+find /opt/aitbc -type f -exec chmod 664 {} \;
 ```
 
 ### Debug Mode
 ```bash
 # Test specific operations
-sudo systemctl status aitbc-coordinator-api.service
-sudo chown -R oib:aitbc /opt/aitbc
-sudo chmod -R 775 /opt/aitbc
+systemctl status aitbc-coordinator-api.service
+chown -R oib:aitbc /opt/aitbc
+chmod -R 775 /opt/aitbc
 
 # Check service logs
-sudo journalctl -u aitbc-coordinator-api.service -f
+journalctl -u aitbc-coordinator-api.service -f
 ```
 
 ## 🚀 **Development Environment**
@@ -233,7 +237,7 @@ aitbc blockchain status
 - Group permissions provide shared access without compromising security
 
 ### File Management
-- Edit files in Windsurf without sudo prompts
+- Edit files in Windsurf without prompts
 - Use `aitbc-fix` if permission issues arise
 - Test changes with `aitbc-services restart`
 - Monitor with `aitbc-logs`
@@ -272,7 +276,7 @@ aitbc blockchain status
 - **Development**: Use `aitbc-logs` for debugging
 
 ### Updates and Changes
-- **New Services**: Add to sudoers if needed
+- **New Services**: Add to service configuration
 - **New Developers**: Run setup script
 - **Permission Issues**: Use helper scripts
 - **System Updates**: Verify setup after updates

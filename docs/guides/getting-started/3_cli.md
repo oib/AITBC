@@ -11,7 +11,7 @@
 ### Prerequisites
 - Linux system (Debian 13+ recommended)
 - Python 3.13+ installed
-- System access (sudo for initial setup)
+- System access (for initial setup)
 
 ### Installation
 ```bash
@@ -31,7 +31,7 @@ systemctl list-units --state=running | grep aitbc
 ### Permission Configuration
 ```bash
 # Fix permissions (one-time setup)
-sudo /opt/aitbc/scripts/clean-sudoers-fix.sh
+/opt/aitbc/scripts/clean-permissions-fix.sh
 
 # Test permissions
 /opt/aitbc/scripts/test-permissions.sh
@@ -119,7 +119,7 @@ curl -s http://localhost:8011/health
 systemctl list-units --state=running | grep aitbc
 
 # Restart services
-sudo systemctl restart aitbc-blockchain-node.service
+systemctl restart aitbc-blockchain-node.service
 
 # View logs
 journalctl -u aitbc-blockchain-node.service -f

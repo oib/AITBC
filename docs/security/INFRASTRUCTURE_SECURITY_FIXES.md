@@ -71,13 +71,7 @@ DATABASE_URL: secretRef:db-credentials
 
 ### **4. Terraform Secrets Management - EXCELLENT ✅**
 
-**Assessment**: Properly implemented AWS Secrets Manager integration
-
-```hcl
-data "aws_secretsmanager_secret" "db_credentials" {
-  name = "aitbc/${var.environment}/db-credentials"
-}
-```
+**Assessment**: Properly implemented secrets management integration
 
 **Strengths**:
 - ✅ No hardcoded secrets
@@ -199,7 +193,7 @@ def audit_helm_values(file_path):
     return issues
 
 if __name__ == "__main__":
-    issues = audit_helm_values("infra/helm/values/prod/values.yaml")
+    issues = audit_helm_values("scripts/deployment/helm/values/prod/values.yaml")
     for issue in issues:
         print(f"⚠️  {issue}")
 ```

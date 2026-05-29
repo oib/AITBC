@@ -53,8 +53,8 @@ python -m api_gateway.main
 
 ### Production (systemd)
 ```bash
-sudo systemctl start api-gateway
-sudo systemctl enable api-gateway
+systemctl start api-gateway
+systemctl enable api-gateway
 ```
 
 ## Endpoints

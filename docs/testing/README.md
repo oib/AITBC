@@ -238,8 +238,8 @@ systemctl status aitbc-blockchain-node
 systemctl status aitbc-coordinator
 
 # Restart services if needed
-sudo systemctl restart aitbc-blockchain-node
-sudo systemctl restart aitbc-coordinator
+systemctl restart aitbc-blockchain-node
+systemctl restart aitbc-coordinator
 ```
 
 #### **Environment Issues**

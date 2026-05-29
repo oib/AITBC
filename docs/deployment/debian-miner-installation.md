@@ -30,19 +30,19 @@ Other NVIDIA GPUs with CUDA 12.4+ support should work but may not be tested.
 ### 1. Update System
 
 ```bash
-sudo apt update
-sudo apt upgrade -y
-sudo apt autoremove -y
+apt update
+apt upgrade -y
+apt autoremove -y
 ```
 
 ### 2. Install NVIDIA Drivers
 
 ```bash
 # Install NVIDIA driver
-sudo apt install -y nvidia-driver-full
+apt install -y nvidia-driver-full
 
 # Reboot
-sudo reboot
+reboot
 ```
 
 ### 3. Verify GPU
@@ -70,7 +70,7 @@ Expected output:
 
 ```bash
 # Install CUDA Toolkit
-sudo apt install -y nvidia-cuda-toolkit
+apt install -y nvidia-cuda-toolkit
 
 # Verify installation
 nvcc --version
@@ -116,7 +116,7 @@ tar -xzf aitbc-miner-debian-package.tar.gz
 cd aitbc-miner-debian
 
 # Run installation script
-sudo ./install.sh
+./install.sh
 ```
 
 ### Option 2: Manual Installation
@@ -140,28 +140,28 @@ chmod +x aitbc-miner-debian
 #### Step 2: Create User
 
 ```bash
-sudo useradd -m -s /bin/bash aitbc
+useradd -m -s /bin/bash aitbc
 ```
 
 #### Step 3: Create Installation Directory
 
 ```bash
-sudo mkdir -p /opt/aitbc/miner
-sudo chown aitbc:aitbc /opt/aitbc/miner
+mkdir -p /opt/aitbc/miner
+chown aitbc:aitbc /opt/aitbc/miner
 ```
 
 #### Step 4: Copy Binary
 
 ```bash
-sudo cp aitbc-miner-debian /opt/aitbc/miner/
-sudo chmod +x /opt/aitbc/miner/aitbc-miner-debian
-sudo chown aitbc:aitbc /opt/aitbc/miner/aitbc-miner-debian
+cp aitbc-miner-debian /opt/aitbc/miner/
+chmod +x /opt/aitbc/miner/aitbc-miner-debian
+chown aitbc:aitbc /opt/aitbc/miner/aitbc-miner-debian
 ```
 
 #### Step 5: Create Configuration
 
 ```bash
-sudo -u aitbc nano /opt/aitbc/miner/miner.env
+-u aitbc nano /opt/aitbc/miner/miner.env
 ```
 
 Add the following configuration:
@@ -181,14 +181,14 @@ RETRY_DELAY=30
 #### Step 6: Create Log Directory
 
 ```bash
-sudo mkdir -p /var/log/aitbc
-sudo chown aitbc:aitbc /var/log/aitbc
+mkdir -p /var/log/aitbc
+chown aitbc:aitbc /var/log/aitbc
 ```
 
 #### Step 7: Create Systemd Service
 
 ```bash
-sudo nano /etc/systemd/system/aitbc-miner.service
+nano /etc/systemd/system/aitbc-miner.service
 ```
 
 Add the following:
@@ -216,9 +216,9 @@ WantedBy=multi-user.target
 #### Step 8: Enable and Start Service
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable aitbc-miner
-sudo systemctl start aitbc-miner
+systemctl daemon-reload
+systemctl enable aitbc-miner
+systemctl start aitbc-miner
 ```
 
 ## Configuration
@@ -253,7 +253,7 @@ COORDINATOR_URL=http://your-coordinator-url:8011
 
 ```bash
 cd /opt/aitbc/miner
-sudo ./verify-install.sh
+./verify-install.sh
 ```
 
 The script will check:
@@ -267,7 +267,7 @@ The script will check:
 ### Check Service Status
 
 ```bash
-sudo systemctl status aitbc-miner
+systemctl status aitbc-miner
 ```
 
 Expected output:
@@ -285,10 +285,10 @@ Expected output:
 
 ```bash
 # Real-time logs
-sudo journalctl -u aitbc-miner -f
+journalctl -u aitbc-miner -f
 
 # Last 100 lines
-sudo journalctl -u aitbc-miner -n 100
+journalctl -u aitbc-miner -n 100
 ```
 
 Expected log output:
@@ -320,13 +320,13 @@ curl -H "X-Api-Key: your-miner-api-key" \
 nvidia-smi
 
 # Reinstall drivers
-sudo apt install --reinstall nvidia-driver-535
+apt install --reinstall nvidia-driver-535
 
 # Check kernel modules
 lsmod | grep nvidia
 
 # Reboot
-sudo reboot
+reboot
 ```
 
 ### Ollama Not Available
@@ -355,10 +355,10 @@ netstat -tulpn | grep 11434
 curl http://your-coordinator-url:8011/v1/health
 
 # Check firewall
-sudo ufw status
+ufw status
 
 # Allow Coordinator port
-sudo ufw allow 8011/tcp
+ufw allow 8011/tcp
 
 # Check network
 ping your-coordinator-url
@@ -378,7 +378,7 @@ curl -H "X-Api-Key: your-miner-api-key" \
   http://your-coordinator-url:8011/v1/miners/heartbeat
 
 # Check Coordinator logs
-sudo journalctl -u coordinator-api -n 50
+journalctl -u coordinator-api -n 50
 ```
 
 ### Service Won't Start
@@ -388,13 +388,13 @@ sudo journalctl -u coordinator-api -n 50
 **Solution**:
 ```bash
 # Check service logs
-sudo journalctl -u aitbc-miner -n 50
+journalctl -u aitbc-miner -n 50
 
 # Check configuration
-sudo -u aitbc cat /opt/aitbc/miner/miner.env
+-u aitbc cat /opt/aitbc/miner/miner.env
 
 # Test binary manually
-sudo -u aitbc /opt/aitbc/miner/aitbc-miner-debian
+-u aitbc /opt/aitbc/miner/aitbc-miner-debian
 ```
 
 ### Permission Denied
@@ -404,11 +404,11 @@ sudo -u aitbc /opt/aitbc/miner/aitbc-miner-debian
 **Solution**:
 ```bash
 # Fix permissions
-sudo chown -R aitbc:aitbc /opt/aitbc/miner
-sudo chown -R aitbc:aitbc /var/log/aitbc
+chown -R aitbc:aitbc /opt/aitbc/miner
+chown -R aitbc:aitbc /var/log/aitbc
 
 # Fix binary permissions
-sudo chmod +x /opt/aitbc/miner/aitbc-miner-debian
+chmod +x /opt/aitbc/miner/aitbc-miner-debian
 ```
 
 ## Upgrading
@@ -417,10 +417,10 @@ sudo chmod +x /opt/aitbc/miner/aitbc-miner-debian
 
 ```bash
 # Stop service
-sudo systemctl stop aitbc-miner
+systemctl stop aitbc-miner
 
 # Backup current binary
-sudo cp /opt/aitbc/miner/aitbc-miner-debian /opt/aitbc/miner/aitbc-miner-debian.backup
+cp /opt/aitbc/miner/aitbc-miner-debian /opt/aitbc/miner/aitbc-miner-debian.backup
 
 # Download new binary
 cd /tmp
@@ -430,15 +430,15 @@ wget https://github.com/oib/AITBC/releases/download/v0.2.0/aitbc-miner-debian
 sha256sum -c SHA256SUMS
 
 # Replace binary
-sudo cp aitbc-miner-debian /opt/aitbc/miner/
-sudo chmod +x /opt/aitbc/miner/aitbc-miner-debian
-sudo chown aitbc:aitbc /opt/aitbc/miner/aitbc-miner-debian
+cp aitbc-miner-debian /opt/aitbc/miner/
+chmod +x /opt/aitbc/miner/aitbc-miner-debian
+chown aitbc:aitbc /opt/aitbc/miner/aitbc-miner-debian
 
 # Start service
-sudo systemctl start aitbc-miner
+systemctl start aitbc-miner
 
 # Verify
-sudo systemctl status aitbc-miner
+systemctl status aitbc-miner
 ```
 
 ## Uninstallation
@@ -447,21 +447,21 @@ sudo systemctl status aitbc-miner
 
 ```bash
 # Stop service
-sudo systemctl stop aitbc-miner
-sudo systemctl disable aitbc-miner
+systemctl stop aitbc-miner
+systemctl disable aitbc-miner
 
 # Remove files
-sudo rm -rf /opt/aitbc/miner
-sudo rm /etc/systemd/system/aitbc-miner.service
+rm -rf /opt/aitbc/miner
+rm /etc/systemd/system/aitbc-miner.service
 
 # Remove logs (optional)
-sudo rm -rf /var/log/aitbc
+rm -rf /var/log/aitbc
 
 # Remove user (optional)
-sudo userdel aitbc
+userdel aitbc
 
 # Reload systemd
-sudo systemctl daemon-reload
+systemctl daemon-reload
 ```
 
 ## Advanced Configuration
@@ -472,15 +472,15 @@ If you have multiple GPUs, run multiple miner instances:
 
 ```bash
 # Create additional configuration files
-sudo -u aitbc cp /opt/aitbc/miner/miner.env /opt/aitbc/miner/miner-gpu0.env
-sudo -u aitbc cp /opt/aitbc/miner/miner.env /opt/aitbc/miner/miner-gpu1.env
+-u aitbc cp /opt/aitbc/miner/miner.env /opt/aitbc/miner/miner-gpu0.env
+-u aitbc cp /opt/aitbc/miner/miner.env /opt/aitbc/miner/miner-gpu1.env
 
 # Create additional services
-sudo cp /etc/systemd/system/aitbc-miner.service \
+cp /etc/systemd/system/aitbc-miner.service \
   /etc/systemd/system/aitbc-miner-gpu0.service
 
 # Edit service to use different config and GPU
-sudo nano /etc/systemd/system/aitbc-miner-gpu0.service
+nano /etc/systemd/system/aitbc-miner-gpu0.service
 
 # Add CUDA_VISIBLE_DEVICES to specify GPU
 [Service]
@@ -494,14 +494,14 @@ To use a custom log location:
 
 ```bash
 # Edit miner.env
-sudo -u aitbc nano /opt/aitbc/miner/miner.env
+-u aitbc nano /opt/aitbc/miner/miner.env
 
 # Add custom log path
 LOG_PATH=/custom/path/miner.log
 
 # Create directory
-sudo mkdir -p /custom/path
-sudo chown aitbc:aitbc /custom/path
+mkdir -p /custom/path
+chown aitbc:aitbc /custom/path
 ```
 
 ### Performance Tuning
@@ -510,7 +510,7 @@ Adjust heartbeat interval and retry settings:
 
 ```bash
 # Edit miner.env
-sudo -u aitbc nano /opt/aitbc/miner/miner.env
+-u aitbc nano /opt/aitbc/miner/miner.env
 
 # Reduce heartbeat interval (more frequent updates)
 HEARTBEAT_INTERVAL=10
@@ -526,11 +526,11 @@ RETRY_DELAY=30
 
 ```bash
 # Allow outgoing connections
-sudo ufw allow out 8011/tcp
-sudo ufw allow out 11434/tcp
+ufw allow out 8011/tcp
+ufw allow out 11434/tcp
 
 # Allow incoming connections if needed
-sudo ufw allow in 8011/tcp
+ufw allow in 8011/tcp
 ```
 
 ### API Key Security
@@ -544,10 +544,10 @@ sudo ufw allow in 8011/tcp
 
 ```bash
 # Install fail2ban
-sudo apt install -y fail2ban
+apt install -y fail2ban
 
 # Configure fail2ban for AITBC
-sudo nano /etc/fail2ban/jail.local
+nano /etc/fail2ban/jail.local
 ```
 
 ## Monitoring
@@ -563,10 +563,10 @@ watch -n 1 nvidia-smi
 
 ```bash
 # Check service status
-sudo systemctl status aitbc-miner
+systemctl status aitbc-miner
 
 # Monitor logs
-sudo journalctl -u aitbc-miner -f
+journalctl -u aitbc-miner -f
 ```
 
 ### Performance Monitoring
@@ -631,23 +631,23 @@ RETRY_DELAY=30
 
 ```bash
 # Start miner
-sudo systemctl start aitbc-miner
+systemctl start aitbc-miner
 
 # Stop miner
-sudo systemctl stop aitbc-miner
+systemctl stop aitbc-miner
 
 # Restart miner
-sudo systemctl restart aitbc-miner
+systemctl restart aitbc-miner
 
 # View logs
-sudo journalctl -u aitbc-miner -f
+journalctl -u aitbc-miner -f
 
 # Check status
-sudo systemctl status aitbc-miner
+systemctl status aitbc-miner
 
 # Enable auto-start
-sudo systemctl enable aitbc-miner
+systemctl enable aitbc-miner
 
 # Disable auto-start
-sudo systemctl disable aitbc-miner
+systemctl disable aitbc-miner
 ```

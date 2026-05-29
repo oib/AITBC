@@ -17,7 +17,7 @@ POST /v1/jobs
   "model": "gpt2",
   "input": "string or file_id",
   "output_config": {
-    "destination": "local or s3://bucket/path",
+    "destination": "local or /path/to/output",
     "format": "json"
   },
   "requirements": {

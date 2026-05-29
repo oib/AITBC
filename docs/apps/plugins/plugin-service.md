@@ -80,8 +80,8 @@ python -m plugin_service.main
 
 ### Production (systemd)
 ```bash
-sudo systemctl start plugin-service
-sudo systemctl enable plugin-service
+systemctl start plugin-service
+systemctl enable plugin-service
 ```
 
 ## Endpoints
