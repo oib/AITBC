@@ -36,7 +36,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 
 ## Prerequisites
 - SSH access configured between all nodes with key-based authentication
-- Git remote configured: `origin` (Gitea) and `github` (GitHub)
+- Git remote configured: `origin` and `github`
 - All nodes have AITBC repository at `/opt/aitbc`
 - Systemd services operational on all nodes
 
@@ -158,7 +158,7 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 - [ ] RPC endpoints responding (port 8006)
 
 ## Git Remote Strategy
-- **Primary Remote:** `origin` (Gitea at `http://gitea.bubuit.net:3000/oib/aitbc.git`) - Daily development operations
+- **Primary Remote:** `origin` (primary dev repo) - Daily development operations
 - **Secondary Remote:** `github` (GitHub at `https://github.com/oib/AITBC.git`) - Milestone releases only
 
 ## Best Practices
