@@ -198,21 +198,7 @@ curl -s http://localhost:8006/rpc/head
 
 ### Backup Monitoring
 
-Prometheus metrics track backup success/failure:
-
-```yaml
-# AlertManager rules for backups
-- alert: BackupFailed
-  expr: backup_success == 0
-  for: 5m
-  labels:
-    severity: critical
-  annotations:
-    summary: "Backup failed for {{ $labels.component }}"
-    description: "Backup for {{ $labels.component }} has failed for 5 minutes"
-```
-
-### Log Monitoring
+Use systemd journal and log monitoring for backup status:
 
 ```bash
 # View backup logs
@@ -220,15 +206,40 @@ journalctl -u aitbc-backup.service -f
 
 # Monitor backup timer
 systemctl status aitbc-backup.timer
+
+# Check recent backup results
+journalctl -u aitbc-backup.service --since "2 hours ago" | grep -E "(SUCCESS|FAILED)"
+```
+
+### Simple Alert Script
+
+Create a basic alert script using mail:
+
+```bash
+#!/bin/bash
+# /opt/aitbc/scripts/monitor-backups.sh
+
+# Check if backup succeeded in last 24 hours
+if ! journalctl -u aitbc-backup.service --since "24 hours ago" | grep -q "Backup completed successfully"; then
+    echo "AITBC backup failed - check logs" | mail -s "Backup Alert" admin@localhost
+fi
+```
+
+Add to crontab for hourly checks:
+```bash
+0 * * * * /opt/aitbc/scripts/monitor-backups.sh
 ```
 
 ## Best Practices
 
 ### Backup Security
 
-1. **Encryption**: Backups uploaded to S3 use server-side encryption
-2. **Access Control**: IAM policies restrict backup access
-3. **Retention**: Automatic cleanup of old backups
+1. **Encryption**: Use GPG to encrypt local backups
+   ```bash
+   gpg --symmetric --cipher-algo AES256 backup.sql.gz
+   ```
+2. **Access Control**: Use filesystem permissions (chmod/chown)
+3. **Retention**: Use logrotate or systemd timer cleanup
 4. **Validation**: Regular restore testing
 
 ### Performance Considerations
@@ -276,7 +287,7 @@ cat metadata.json | jq '.latest_block_height'
 
 1. Check logs: `journalctl -u aitbc-backup.service`
 2. Verify storage: `df -h` on backup nodes
-3. Check network: Test S3 connectivity
+3. Check network: Test local connectivity
 4. Review events: `journalctl -xe`
 
 ## Configuration
@@ -287,7 +298,7 @@ cat metadata.json | jq '.latest_block_height'
 |------------------------|------------------|---------------------------------|
 | BACKUP_RETENTION_DAYS  | 30               | Days to keep backups            |
 | BACKUP_SCHEDULE        | 0 2 * * *        | Cron schedule for backups       |
-| S3_BUCKET_PREFIX       | aitbc-backups    | S3 bucket name prefix           |
+| BACKUP_PATH            | /var/backups/aitbc | Local backup directory          |
 | COMPRESSION_LEVEL      | 6                | gzip compression level          |
 
 ### Customizing Backup Schedule
