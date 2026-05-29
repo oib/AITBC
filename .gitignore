@@ -294,6 +294,7 @@ apps/coordinator-api/.env
 scripts/deployment/*
 !scripts/deployment/*.example
 !scripts/deployment/deploy.sh
+!scripts/deployment/setup.sh
 !scripts/deployment/validate-env.sh
 scripts/gpu/*
 !scripts/gpu/*.example
