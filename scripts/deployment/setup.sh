@@ -300,11 +300,20 @@ setup_node_identities() {
         fi
     }
 
-    # Generate unique proposer_id if not already set in /etc/aitbc/blockchain.env
-    if [ ! -f "/etc/aitbc/blockchain.env" ]; then
-        log "/etc/aitbc/blockchain.env does not exist, creating with unique IDs..."
-        PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
-        P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
+    # Generate unique IDs
+    PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
+    P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
+
+    # Use pre-configured example if available, otherwise create minimal config
+    if [ -f "/opt/aitbc/examples/blockchain.env.open-island" ]; then
+        log "Using pre-configured open-island example as base..."
+        cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
+        # Override with unique IDs
+        set_env proposer_id "$PROPOSER_ID"
+        set_env p2p_node_id "$P2P_NODE_ID"
+        log "Configured blockchain.env from open-island example with unique IDs"
+    elif [ ! -f "/etc/aitbc/blockchain.env" ]; then
+        log "Creating minimal blockchain.env with unique IDs..."
         cat > /etc/aitbc/blockchain.env << EOF
 # AITBC Blockchain Configuration
 # Auto-generated unique node identities
@@ -316,9 +325,8 @@ default_peer_rpc_url=http://127.0.0.1:8006
 EOF
         log "Created /etc/aitbc/blockchain.env with unique IDs"
     else
-        # Check if proposer_id exists, if not add it
+        # Existing file - ensure proposer_id exists
         if ! grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
-            PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
             set_env proposer_id "$PROPOSER_ID"
             log "Added unique proposer_id to /etc/aitbc/blockchain.env"
         else
@@ -326,14 +334,21 @@ EOF
         fi
     fi
 
-    # Ensure blockchain gossip defaults exist even if the file was created from a minimal template
+    # Ensure blockchain gossip defaults exist
     set_env gossip_backend broadcast
     set_env gossip_broadcast_url redis://localhost:6379
     set_env default_peer_rpc_url http://127.0.0.1:8006
 
-    # Create /etc/aitbc/node.env with unique p2p_node_id if not exists
-    if [ ! -f "/etc/aitbc/node.env" ]; then
-        P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
+    # Use pre-configured node.env example if available
+    if [ -f "/opt/aitbc/examples/node.env.open-island" ]; then
+        log "Using pre-configured open-island node.env example as base..."
+        cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
+        # Override with unique NODE_ID and p2p_node_id
+        sed -i "s|^NODE_ID=.*|NODE_ID=aitbc|" /etc/aitbc/node.env
+        sed -i "s|^p2p_node_id=.*|p2p_node_id=$P2P_NODE_ID|" /etc/aitbc/node.env
+        log "Configured node.env from open-island example with unique IDs"
+    elif [ ! -f "/etc/aitbc/node.env" ]; then
+        log "Creating minimal node.env with unique p2p_node_id..."
         cat > /etc/aitbc/node.env << EOF
 # AITBC Node-Specific Environment Configuration
 # This file contains variables unique to each node - DO NOT share across nodes
@@ -351,9 +366,8 @@ p2p_peers=
 EOF
         log "Created /etc/aitbc/node.env with unique p2p_node_id"
     else
-        # Check if p2p_node_id exists, if not add it
+        # Existing file - ensure p2p_node_id exists
         if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
-            P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
             echo "p2p_node_id=$P2P_NODE_ID" >> /etc/aitbc/node.env
             log "Added unique p2p_node_id to /etc/aitbc/node.env"
         else
