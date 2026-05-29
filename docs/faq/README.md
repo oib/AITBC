@@ -2,7 +2,7 @@
 
 This document provides answers to frequently asked questions about the AITBC platform.
 
-> **Note:** For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## Table of Contents
 

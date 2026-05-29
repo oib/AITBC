@@ -135,8 +135,7 @@ hermes skill load --path /opt/aitbc/docs/hermes/guides/open-island-joining-guide
 hermes skill load --path /opt/aitbc/docs/hermes/guides/hermes_cross_node_communication.md
 
 # Load basic operations skills
-hermes skill load --path /opt/aitbc/docs/skills/aitbc-basic-operations.md
-hermes skill load --path /opt/aitbc/docs/skills/aitbc-node-coordination.md
+# For internal deployment with Hermes agent integration, see internal documentation
 ```
 
 ### Execute hermes Workflows

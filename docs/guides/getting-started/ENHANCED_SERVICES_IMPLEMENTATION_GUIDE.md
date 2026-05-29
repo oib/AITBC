@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **⚠️ Note:** This document describes designed/aspirational enhanced services. For current operational state and actual deployed service ports, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md) and [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+> **⚠️ Note:** This document describes designed/aspirational enhanced services. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ## 🚀 Overview
 

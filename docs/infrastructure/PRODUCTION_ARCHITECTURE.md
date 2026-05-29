@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Important:** This document describes the designed production architecture following Linux Filesystem Hierarchy Standard (FHS). For the current operational state and deployment status, see [Current Operational State](./CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the designed production architecture following Linux Filesystem Hierarchy Standard (FHS). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
 > **Note:** The FHS-compliant structure described below represents the target architecture. Current deployment may use the standard repository layout. Verify actual structure before making changes.
 
@@ -24,7 +24,6 @@ ls -la /var/log/aitbc/
 # Check if using standard repository layout instead
 ls -la /opt/aitbc/
 ls -la /opt/aitbc/apps/
-ls -la /opt/aitbc/data/
 
 # Check systemd service locations
 ls -la /etc/systemd/system/aitbc-*.service

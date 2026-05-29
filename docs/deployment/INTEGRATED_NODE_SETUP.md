@@ -210,7 +210,7 @@ MEMPOOL_BACKEND=database
 ### Configure Cross-Site Sync
 
 ```env
-CROSS_SITE_REMOTE_ENDPOINTS=https://aitbc.bubuit.net/rpc,https://aitbc1.bubuit.net/rpc
+CROSS_SITE_REMOTE_ENDPOINTS=https://node1.example.com/rpc,https://node2.example.com/rpc
 ```
 
 ## Management

@@ -180,5 +180,4 @@
 
 **Related Documentation:**
 - [Agent Training Documentation](agent-training/README.md)
-- [Scenarios Documentation](scenarios/README.md)
 - [Blockchain Documentation](blockchain/README.md)

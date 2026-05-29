@@ -1,0 +1,26 @@
+[Unit]
+Description=AITBC Blockchain RPC API
+After=network.target aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh
+EnvironmentFile=/run/aitbc/secrets/.env
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/node.env
+Environment=AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false
+Environment=enable_block_production=false
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-node/aitbc-blockchain-rpc-wrapper.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=BlockchainRPC
+
+[Install]
+WantedBy=multi-user.target
+

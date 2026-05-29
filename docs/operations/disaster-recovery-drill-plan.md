@@ -484,7 +484,8 @@ Plan → Execute → Review → Improve → Plan
 #### Emergency Drill Termination
 ```bash
 # If drill causes actual incident, terminate immediately
-kubectl scale deployment --all --replicas=[original-counts]
+sudo systemctl start --all
+# (Or start specific services individually)
 # Notify drill coordinator
 # Document termination reason
 # Schedule follow-up review

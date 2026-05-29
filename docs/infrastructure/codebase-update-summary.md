@@ -25,8 +25,8 @@ This document summarizes the comprehensive service standardization and cleanup p
 #### Path Standardization  
 - **Working directories**: All use `/opt/aitbc/apps/{service-name}` structure
 - **Virtual environments**: All use `/opt/aitbc/apps/coordinator-api/.venv/bin/python`
-- **Log directories**: All use `/opt/aitbc/logs/`
-- **Data directories**: All use `/opt/aitbc/data/`
+- **Log directories**: All use `/var/log/aitbc/`
+- **Data directories**: All use `/var/lib/aitbc/data/`
 
 #### Python Version Standardization
 - **Minimum version**: Python 3.13.5+ enforced across all services

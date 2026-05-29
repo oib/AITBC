@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Important:** This document describes the CLI functionality. For the current operational state and deployment status, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the CLI functionality. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
 > **Project Status**: ✅ **100% COMPLETED** (v0.4.0 - April 23, 2026)
 
