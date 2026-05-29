@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from fastapi import HTTPException, Request
+from fastapi import status
 from sqlmodel import select
 
 from ..database import session_scope
