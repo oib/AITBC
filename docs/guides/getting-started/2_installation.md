@@ -101,7 +101,7 @@ aitbc blockchain status
 
 | Problem | Fix |
 |---------|-----|
-| Port in use | `sudo lsof -i :8011` then `kill` the PID |
+| Port in use | `lsof -i :8011` then `kill` the PID |
 | DB corrupt | `rm -f data/coordinator.db && python -m app.storage init` |
 | Module not found | Ensure venv is active: `source .venv/bin/activate` |
 

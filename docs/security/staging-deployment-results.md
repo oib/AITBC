@@ -59,7 +59,7 @@
 
 1. **Restart coordinator-api service** (when maintenance window available)
    ```bash
-   sudo systemctl restart aitbc-coordinator-api
+   systemctl restart aitbc-coordinator-api
    ```
    - Service will pick up security fixes from repository
    - Configure service to use staging environment file

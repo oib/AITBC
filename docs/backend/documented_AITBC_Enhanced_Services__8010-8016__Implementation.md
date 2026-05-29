@@ -70,7 +70,7 @@ curl -s http://localhost:8016/health  ✅ {"status":"ok","service":"web-ui","por
 
 **🎯 Port Usage Verification:**
 ```bash
-sudo netstat -tlnp | grep -E ":(8010|8011|8012|8013|8014|8015|8016)"
+netstat -tlnp | grep -E ":(8010|8011|8012|8013|8014|8015|8016)"
 ✅ tcp 0.0.0.0:8010  (Multimodal GPU)
 ✅ tcp 0.0.0.0:8011  (GPU Multimodal)
 ✅ tcp 0.0.0.0:8012  (Modality Optimization)

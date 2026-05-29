@@ -37,10 +37,10 @@ cat /etc/resolv.conf
 2. Check firewall rules
 ```bash
 # Check UFW status
-sudo ufw status
+ufw status
 
 # Check iptables
-sudo iptables -L -n
+iptables -L -n
 ```
 
 3. Check MTU
@@ -49,7 +49,7 @@ sudo iptables -L -n
 ip link show
 
 # Adjust MTU if needed
-sudo ip link set eth0 mtu 1500
+ip link set eth0 mtu 1500
 ```
 
 ## DNS Issues
@@ -82,10 +82,10 @@ echo "nameserver 8.8.4.4" >> /etc/resolv.conf
 2. Clear DNS cache
 ```bash
 # Clear systemd cache
-sudo systemd-resolve --flush-caches
+systemd-resolve --flush-caches
 
 # Restart DNS service
-sudo systemctl restart systemd-resolved
+systemctl restart systemd-resolved
 ```
 
 ## See Also

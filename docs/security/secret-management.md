@@ -16,7 +16,7 @@ echo "DATABASE_PASSWORD=secure-password" >> .env
 
 ```bash
 # Install Vault
-wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
 
 # Store secrets
 vault kv put secret/aitbc/database password="secure-password"

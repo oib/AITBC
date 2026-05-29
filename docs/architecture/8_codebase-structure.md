@@ -12,7 +12,7 @@ aitbc/
 ├── contracts/               # Solidity smart contracts (standalone)
 ├── docs/                    # Markdown documentation (10 numbered sections)
 ├── extensions/              # Browser extensions (Firefox wallet)
-├── infra/                   # Infrastructure configs (nginx, k8s, terraform, helm)
+├── scripts/deployment/       # Deployment scripts
 ├── packages/                # Shared libraries and SDKs
 ├── plugins/                 # Plugin integrations (Ollama)
 ├── scripts/                 # All scripts, organized by purpose
@@ -202,15 +202,14 @@ scripts/
 
 ---
 
-## infra/ — Infrastructure
+## scripts/deployment/ — Deployment Scripts
 
 ```
-infra/
-├── nginx/                   # Nginx configs (reverse proxy, local, production)
-├── k8s/                     # Kubernetes manifests (backup, cert-manager, network policies, sealed secrets)
-├── helm/                    # Helm charts (coordinator deployment, values per environment)
-├── terraform/               # Terraform modules (Kubernetes cluster, environments: dev/staging/prod)
-└── scripts/                 # Infra scripts (backup, restore, chaos testing)
+scripts/deployment/
+├── deploy/                  # Deployment automation scripts
+├── deploy.sh                # Main deployment script
+├── setup_postgresql_databases.sh  # PostgreSQL setup
+└── backup/restore scripts   # Backup and restore utilities
 ```
 
 ---

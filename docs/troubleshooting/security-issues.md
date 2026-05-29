@@ -12,10 +12,10 @@ This guide covers security problems including unauthorized access, data breaches
 **Diagnosis:**
 ```bash
 # Check authentication logs
-sudo journalctl -u aitbc-coordinator-api | grep -i authentication
+journalctl -u aitbc-coordinator-api | grep -i authentication
 
 # Check access logs
-sudo tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/access.log
 ```
 
 **Solutions:**
@@ -58,17 +58,17 @@ deny all;
 **Diagnosis:**
 ```bash
 # Check for suspicious activity
-sudo journalctl -u aitbc-* | grep -i error
+journalctl -u aitbc-* | grep -i error
 
 # Check access logs
-sudo grep "401\|403" /var/log/nginx/access.log
+grep "401\|403" /var/log/nginx/access.log
 ```
 
 **Solutions:**
 1. Immediate containment
 ```bash
 # Stop all services
-sudo systemctl stop aitbc-*
+systemctl stop aitbc-*
 
 # Change all credentials
 # Rotate API keys
@@ -78,7 +78,7 @@ sudo systemctl stop aitbc-*
 2. Investigate breach
 ```bash
 # Preserve evidence
-sudo journalctl -u aitbc-* > incident-logs.txt
+journalctl -u aitbc-* > incident-logs.txt
 
 # Analyze logs
 grep -i "suspicious\|unauthorized" incident-logs.txt
@@ -90,7 +90,7 @@ grep -i "suspicious\|unauthorized" incident-logs.txt
 psql -d aitbc < backup.sql
 
 # Restart services
-sudo systemctl start aitbc-*
+systemctl start aitbc-*
 ```
 
 ## See Also
@@ -107,9 +107,9 @@ When reporting security issues, collect the following information:
 
 ```bash
 # Service logs
-sudo journalctl -u aitbc-coordinator-api -n 500 > coordinator.log
-sudo journalctl -u aitbc-blockchain -n 500 > blockchain.log
-sudo journalctl -u aitbc-marketplace -n 500 > marketplace.log
+journalctl -u aitbc-coordinator-api -n 500 > coordinator.log
+journalctl -u aitbc-blockchain -n 500 > blockchain.log
+journalctl -u aitbc-marketplace -n 500 > marketplace.log
 
 # System information
 uname -a > system-info.txt
@@ -140,8 +140,8 @@ Enable debug mode for detailed logging:
 echo "DEBUG=true" >> /etc/aitbc/coordinator.env
 
 # Restart service
-sudo systemctl restart aitbc-coordinator-api
+systemctl restart aitbc-coordinator-api
 
 # View debug logs
-sudo journalctl -u aitbc-coordinator-api -f
+journalctl -u aitbc-coordinator-api -f
 ```

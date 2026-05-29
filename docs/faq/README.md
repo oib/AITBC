@@ -77,7 +77,7 @@ cd /opt/aitbc
 git pull origin main
 source venv/bin/activate
 pip install -r requirements.txt
-sudo systemctl restart aitbc-*
+systemctl restart aitbc-*
 ```
 
 ## API Usage
@@ -253,15 +253,15 @@ If a miner fails to complete a job, the payment is refunded and the miner may be
 Check the service status and logs:
 
 ```bash
-sudo systemctl status aitbc-coordinator-api
-sudo journalctl -u aitbc-coordinator-api -n 50
+systemctl status aitbc-coordinator-api
+journalctl -u aitbc-coordinator-api -n 50
 ```
 
 See the [Troubleshooting Guide](../troubleshooting/comprehensive-guide.md) for more details.
 
 ### Database connection failed
 
-1. Check PostgreSQL status: `sudo systemctl status postgresql`
+1. Check PostgreSQL status: `systemctl status postgresql`
 2. Test connection: `psql -h localhost -U aitbc -d aitbc`
 3. Check firewall rules
 

@@ -30,7 +30,7 @@ To enable on a node:
 1. Add `auto_sync_enabled=true` to `/etc/aitbc/blockchain.env`
 2. Restart the blockchain node service:
    ```bash
-   sudo systemctl restart aitbc-blockchain-p2p.service
+   systemctl restart aitbc-blockchain-p2p.service
    ```
 
 ### Sync Triggers

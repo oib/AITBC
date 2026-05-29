@@ -12,7 +12,7 @@ This guide covers Coordinator API problems including 500 errors, job queueing is
 **Diagnosis:**
 ```bash
 # Check API logs
-sudo journalctl -u aitbc-coordinator-api -n 100 | grep -i error
+journalctl -u aitbc-coordinator-api -n 100 | grep -i error
 
 # Check database connection
 psql -d aitbc -c "SELECT 1;"
@@ -28,7 +28,7 @@ curl http://localhost:8011/health
 psql -h localhost -U aitbc -d aitbc
 
 # Restart PostgreSQL
-sudo systemctl restart postgresql
+systemctl restart postgresql
 ```
 
 2. Check Redis connection
@@ -37,7 +37,7 @@ sudo systemctl restart postgresql
 redis-cli ping
 
 # Restart Redis
-sudo systemctl restart redis
+systemctl restart redis
 ```
 
 3. Check datetime handling
@@ -63,7 +63,7 @@ curl -H "X-Api-Key: $API_KEY" \
 curl http://localhost:8011/v1/miners
 
 # Check logs
-sudo journalctl -u aitbc-coordinator-api -n 50
+journalctl -u aitbc-coordinator-api -n 50
 ```
 
 **Solutions:**

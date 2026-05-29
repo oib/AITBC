@@ -18,7 +18,7 @@ curl http://localhost:8080/v1/network
 curl http://localhost:8080/v1/network/peers
 
 # Check blockchain logs
-sudo journalctl -u aitbc-blockchain -n 50
+journalctl -u aitbc-blockchain -n 50
 ```
 
 **Solutions:**
@@ -28,7 +28,7 @@ sudo journalctl -u aitbc-blockchain -n 50
 echo "BOOTSTRAP_PEERS=peer1.example.com:8080,peer2.example.com:8080" >> /etc/aitbc/blockchain.env
 
 # Restart service
-sudo systemctl restart aitbc-blockchain
+systemctl restart aitbc-blockchain
 ```
 
 2. Check network connectivity
@@ -37,19 +37,19 @@ sudo systemctl restart aitbc-blockchain
 telnet peer.example.com 8080
 
 # Check firewall
-sudo ufw status
+ufw status
 ```
 
 3. Reset blockchain state
 ```bash
 # Stop service
-sudo systemctl stop aitbc-blockchain
+systemctl stop aitbc-blockchain
 
 # Backup data
 mv /var/lib/aitbc/blockchain /var/lib/aitbc/blockchain.backup
 
 # Start service
-sudo systemctl start aitbc-blockchain
+systemctl start aitbc-blockchain
 ```
 
 ## Fork Detected
@@ -80,13 +80,13 @@ curl -X POST http://localhost:8080/v1/admin/revert \
 2. Restart with clean state
 ```bash
 # Stop service
-sudo systemctl stop aitbc-blockchain
+systemctl stop aitbc-blockchain
 
 # Clear blockchain data
 rm -rf /var/lib/aitbc/blockchain
 
 # Start service
-sudo systemctl start aitbc-blockchain
+systemctl start aitbc-blockchain
 ```
 
 ## See Also

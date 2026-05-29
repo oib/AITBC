@@ -613,7 +613,7 @@ scp apps/coordinator-api/src/app/routers/marketplace_extensions.py \
   aitbc:/opt/coordinator-api/src/app/routers/
 
 # Restart services
-ssh aitbc "sudo systemctl restart coordinator-api"
+ssh aitbc "systemctl restart coordinator-api"
 ```
 
 ## Best Practices

@@ -12,19 +12,19 @@ This guide covers database problems including connection issues, slow queries, a
 **Diagnosis:**
 ```bash
 # Check PostgreSQL status
-sudo systemctl status postgresql
+systemctl status postgresql
 
 # Test connection
 psql -h localhost -U aitbc -d aitbc
 
 # Check PostgreSQL logs
-sudo tail -f /var/log/postgresql/postgresql-*.log
+tail -f /var/log/postgresql/postgresql-*.log
 ```
 
 **Solutions:**
 1. Restart PostgreSQL
 ```bash
-sudo systemctl restart postgresql
+systemctl restart postgresql
 ```
 
 2. Check connection limits
@@ -39,10 +39,10 @@ psql -d aitbc -c "SELECT count(*) FROM pg_stat_activity;"
 3. Check firewall
 ```bash
 # Check if port 5432 is open
-sudo ufw status | grep 5432
+ufw status | grep 5432
 
 # Allow PostgreSQL
-sudo ufw allow 5432/tcp
+ufw allow 5432/tcp
 ```
 
 ## Slow Queries
@@ -56,7 +56,7 @@ sudo ufw allow 5432/tcp
 ```bash
 # Enable query logging
 psql -d aitbc -c "ALTER SYSTEM SET log_min_duration_statement = 1000;"
-sudo systemctl reload postgresql
+systemctl reload postgresql
 
 # Check slow queries
 psql -d aitbc -c "SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10;"
@@ -80,7 +80,7 @@ EXPLAIN ANALYZE SELECT * FROM job WHERE state = 'QUEUED';
 ```sql
 -- Increase work_mem for complex queries
 ALTER SYSTEM SET work_mem = '256MB';
-sudo systemctl reload postgresql
+systemctl reload postgresql
 ```
 
 ## Database Corruption
@@ -103,13 +103,13 @@ psql -d aitbc -c "SELECT * FROM pg_stat_database;"
 1. Restore from backup
 ```bash
 # Stop PostgreSQL
-sudo systemctl stop postgresql
+systemctl stop postgresql
 
 # Restore from backup
 psql -d aitbc < backup-20260511.sql
 
 # Start PostgreSQL
-sudo systemctl start postgresql
+systemctl start postgresql
 ```
 
 2. Use WAL recovery
@@ -118,7 +118,7 @@ sudo systemctl start postgresql
 echo "restore_command = 'cp /var/lib/postgresql/wal/%f %p'" >> /etc/postgresql/*/main/recovery.conf
 
 # Restart PostgreSQL
-sudo systemctl restart postgresql
+systemctl restart postgresql
 ```
 
 ## See Also

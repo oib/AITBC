@@ -31,10 +31,7 @@ cd /opt/aitbc/apps/global-infrastructure
 ### Configuration
 Set environment variables in `.env`:
 ```bash
-CLOUD_PROVIDER=aws
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_REGION=us-east-1
+CLOUD_PROVIDER=local
 TERRAFORM_PATH=/path/to/terraform
 ```
 
@@ -173,10 +170,7 @@ GET /api/v1/infrastructure/costs/recommendations
 ## Configuration
 
 ### Environment Variables
-- `CLOUD_PROVIDER`: Cloud provider (aws, gcp, azure)
-- `AWS_ACCESS_KEY_ID`: AWS access key
-- `AWS_SECRET_ACCESS_KEY`: AWS secret key
-- `AWS_REGION`: Default AWS region
+- `CLOUD_PROVIDER`: Cloud provider (local)
 - `TERRAFORM_PATH`: Path to Terraform templates
 - `DEPLOYMENT_TIMEOUT`: Deployment timeout in seconds
 

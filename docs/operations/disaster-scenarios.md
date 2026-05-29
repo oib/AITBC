@@ -81,9 +81,9 @@ This document defines disaster scenarios and their corresponding recovery proced
 
 ```bash
 # 1. Stop affected services
-sudo systemctl stop coordinator-api
-sudo systemctl stop marketplace
-sudo systemctl stop exchange
+systemctl stop coordinator-api
+systemctl stop marketplace
+systemctl stop exchange
 
 # 2. Identify latest clean backup
 ls -lt /var/backups/postgresql/ | head -1
@@ -92,15 +92,15 @@ ls -lt /var/backups/postgresql/ | head -1
 cp /var/backups/postgresql/[latest-backup].sql.gz /tmp/
 
 # 4. Restore database
-./infra/scripts/restore_postgresql.sh default /tmp/[latest-backup].sql.gz
+./scripts/deployment/restore_postgresql.sh default /tmp/[latest-backup].sql.gz
 
 # 5. Verify data integrity
-sudo -u postgres psql -U aitbc -d aitbc -c "SELECT COUNT(*) FROM jobs;"
+-u postgres psql -U aitbc -d aitbc -c "SELECT COUNT(*) FROM jobs;"
 
 # 6. Restart services
-sudo systemctl start coordinator-api
-sudo systemctl start marketplace
-sudo systemctl start exchange
+systemctl start coordinator-api
+systemctl start marketplace
+systemctl start exchange
 
 # 7. Verify system health
 curl -s http://localhost:8011/v1/health
@@ -117,17 +117,17 @@ curl -s http://localhost:8011/v1/health
 
 ```bash
 # 1. Check service status
-sudo systemctl status [service-name]
+systemctl status [service-name]
 
 # 2. Check service logs
-sudo journalctl -u [service-name] --tail=100
+journalctl -u [service-name] --tail=100
 
 # 3. Restart affected service
-sudo systemctl restart [service-name]
+systemctl restart [service-name]
 
 # 4. If restart fails, stop and start
-sudo systemctl stop [service-name]
-sudo systemctl start [service-name]
+systemctl stop [service-name]
+systemctl start [service-name]
 
 # 5. Verify service health
 curl -s http://localhost:[port]/v1/health
@@ -147,13 +147,13 @@ ping [target-host]
 traceroute [target-host]
 
 # 2. Check network policies
-sudo iptables -L -n
+iptables -L -n
 
 # 3. Check DNS resolution
 nslookup [service-name]
 
 # 4. Restart affected services if needed
-sudo systemctl restart [service-name]
+systemctl restart [service-name]
 
 # 5. Verify connectivity
 curl -s http://[service-name]:[port]/v1/health
@@ -172,12 +172,12 @@ curl -s http://[service-name]:[port]/v1/health
 # (Update DNS or load balancer to point to alternate site)
 
 # 2. Verify alternate cluster health
-sudo systemctl status postgresql
-sudo systemctl status coordinator-api
+systemctl status postgresql
+systemctl status coordinator-api
 
 # 3. Restore from backup if needed
 cp /var/backups/alt/[latest-backup].sql.gz /tmp/
-./infra/scripts/restore_postgresql.sh alt /tmp/[latest-backup].sql.gz
+./scripts/deployment/restore_postgresql.sh alt /tmp/[latest-backup].sql.gz
 
 # 4. Update DNS to point to alternate data center
 # (Use your DNS provider's API or management console)
@@ -196,26 +196,26 @@ curl -s https://api.aitbc.io/v1/health
 
 ```bash
 # 1. Contain breach
-sudo systemctl stop [affected-service]
+systemctl stop [affected-service]
 iptables -A INPUT -s [attacker-ip] -j DROP
 
 # 2. Preserve forensic evidence
-sudo cp -r /var/log /tmp/forensic-logs
-sudo journalctl -u [affected-service] > /tmp/forensic-logs/service.log
+cp -r /var/log /tmp/forensic-logs
+journalctl -u [affected-service] > /tmp/forensic-logs/service.log
 
 # 3. Identify compromise scope
 grep -r "malicious" /var/log/
 check system logs for suspicious activity
 
 # 4. Patch vulnerabilities
-./infra/scripts/apply-security-patches.sh
+./scripts/deployment/apply-security-patches.sh
 
 # 5. Restore from pre-breach backup
 cp /var/backups/[pre-breach-backup].sql.gz /tmp/
-./infra/scripts/restore_postgresql.sh default /tmp/[pre-breach-backup].sql.gz
+./scripts/deployment/restore_postgresql.sh default /tmp/[pre-breach-backup].sql.gz
 
 # 6. Restart services
-sudo systemctl start [affected-service]
+systemctl start [affected-service]
 
 # 7. Monitor for re-infection
 ./scripts/monitoring/security-monitor.sh
@@ -232,7 +232,7 @@ sudo systemctl start [affected-service]
 
 ```bash
 # 1. Isolate infected systems
-sudo systemctl stop --all
+systemctl stop --all
 # (Or stop specific services individually)
 
 # 2. Identify infection scope
@@ -240,7 +240,7 @@ find /app/data -name "*.encrypted"
 grep -r "ransomware" /var/log/
 
 # 3. Wipe and rebuild systems
-./infra/scripts/rebuild-systems.sh
+./scripts/deployment/rebuild-systems.sh
 
 # 4. Restore from clean backup
 cp /var/backups/[clean-backup].tar.gz /tmp/
@@ -250,11 +250,11 @@ tar -xzf /tmp/[clean-backup].tar.gz -C /app/data/
 ./scripts/security/ransomware-scan.sh
 
 # 6. Restart services
-sudo systemctl start --all
+systemctl start --all
 # (Or start specific services individually)
 
 # 7. Implement additional security measures
-./infra/scripts/harden-security.sh
+./scripts/deployment/harden-security.sh
 ```
 
 **Verification Steps:**

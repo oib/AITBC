@@ -12,7 +12,7 @@ This guide explains how to deploy the integrated blockchain node (with full memp
 
 ```bash
 # Run the deployment script
-sudo bash /opt/aitbc/scripts/deployment/deploy-integrated-blockchain-node.sh
+bash /opt/aitbc/scripts/deployment/deploy-integrated-blockchain-node.sh
 ```
 
 ### Manual Setup
@@ -32,7 +32,7 @@ See the step-by-step instructions below.
 ### 1. Clone Repository
 
 ```bash
-sudo git clone https://github.com/oib/AITBC.git /opt/aitbc
+git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 ```
 
@@ -40,32 +40,32 @@ cd /opt/aitbc
 
 ```bash
 # Create virtual environment
-sudo python3 -m venv /opt/aitbc/venv
+python3 -m venv /opt/aitbc/venv
 
 # Activate and install dependencies
-sudo /opt/aitbc/venv/bin/pip install -r apps/blockchain-node/requirements.txt
+/opt/aitbc/venv/bin/pip install -r apps/blockchain-node/requirements.txt
 ```
 
 ### 3. Create Runtime Directories
 
 ```bash
-sudo mkdir -p /var/lib/aitbc/keystore
-sudo mkdir -p /var/lib/aitbc/data
-sudo mkdir -p /var/lib/aitbc/logs
-sudo mkdir -p /etc/aitbc
+mkdir -p /var/lib/aitbc/keystore
+mkdir -p /var/lib/aitbc/data
+mkdir -p /var/lib/aitbc/logs
+mkdir -p /etc/aitbc
 
 # Set permissions
-sudo chmod 700 /var/lib/aitbc/keystore
-sudo chmod 755 /var/lib/aitbc/data
-sudo chmod 755 /var/lib/aitbc/logs
-sudo chmod 755 /etc/aitbc
+chmod 700 /var/lib/aitbc/keystore
+chmod 755 /var/lib/aitbc/data
+chmod 755 /var/lib/aitbc/logs
+chmod 755 /etc/aitbc
 ```
 
 ### 4. Create Environment Files
 
 **Blockchain Configuration (`/etc/aitbc/blockchain.env`):**
 ```bash
-sudo nano /etc/aitbc/blockchain.env
+nano /etc/aitbc/blockchain.env
 ```
 
 ```env
@@ -82,7 +82,7 @@ CROSS_SITE_REMOTE_ENDPOINTS=
 
 **Node Configuration (`/etc/aitbc/node.env`):**
 ```bash
-sudo nano /etc/aitbc/node.env
+nano /etc/aitbc/node.env
 ```
 
 ```env
@@ -97,7 +97,7 @@ P2P_BIND_PORT=8001
 ### 5. Setup Systemd Service
 
 ```bash
-sudo nano /etc/systemd/system/aitbc-blockchain-node.service
+nano /etc/systemd/system/aitbc-blockchain-node.service
 ```
 
 ```ini
@@ -127,20 +127,20 @@ WantedBy=multi-user.target
 
 ```bash
 # Reload systemd
-sudo systemctl daemon-reload
+systemctl daemon-reload
 
 # Enable service
-sudo systemctl enable aitbc-blockchain-node
+systemctl enable aitbc-blockchain-node
 
 # Start service
-sudo systemctl start aitbc-blockchain-node
+systemctl start aitbc-blockchain-node
 ```
 
 ### 7. Verify Deployment
 
 ```bash
 # Check service status
-sudo systemctl status aitbc-blockchain-node
+systemctl status aitbc-blockchain-node
 
 # Check RPC endpoint
 curl http://localhost:8006/rpc/head
@@ -191,7 +191,7 @@ ENABLE_BLOCK_PRODUCTION=true
 
 Then restart:
 ```bash
-sudo systemctl restart aitbc-blockchain-node
+systemctl restart aitbc-blockchain-node
 ```
 
 ### Configure Mempool Backend
@@ -219,24 +219,24 @@ CROSS_SITE_REMOTE_ENDPOINTS=https://node1.example.com/rpc,https://node2.example.
 
 ```bash
 # Status
-sudo systemctl status aitbc-blockchain-node
+systemctl status aitbc-blockchain-node
 
 # Restart
-sudo systemctl restart aitbc-blockchain-node
+systemctl restart aitbc-blockchain-node
 
 # Stop
-sudo systemctl stop aitbc-blockchain-node
+systemctl stop aitbc-blockchain-node
 
 # Logs
-sudo journalctl -u aitbc-blockchain-node -f
+journalctl -u aitbc-blockchain-node -f
 ```
 
 ### Update Node
 
 ```bash
 cd /opt/aitbc
-sudo git pull origin main
-sudo systemctl restart aitbc-blockchain-node
+git pull origin main
+systemctl restart aitbc-blockchain-node
 ```
 
 ## Troubleshooting
@@ -245,20 +245,20 @@ sudo systemctl restart aitbc-blockchain-node
 
 ```bash
 # Check logs
-sudo journalctl -u aitbc-blockchain-node -n 50 --no-pager
+journalctl -u aitbc-blockchain-node -n 50 --no-pager
 
 # Check configuration
-sudo /opt/aitbc/venv/bin/python -m aitbc_chain.main --check-config
+/opt/aitbc/venv/bin/python -m aitbc_chain.main --check-config
 ```
 
 ### Port Already in Use
 
 ```bash
 # Find process using port
-sudo lsof -i :8006
+lsof -i :8006
 
 # Kill process
-sudo kill -9 <PID>
+kill -9 <PID>
 ```
 
 ### Mempool Endpoint Not Working
@@ -268,7 +268,7 @@ sudo kill -9 <PID>
 grep MEMPOOL_BACKEND /etc/aitbc/blockchain.env
 
 # Verify database connection
-sudo -u postgres psql -d aitbc_mempool -c "SELECT 1"
+-u postgres psql -d aitbc_mempool -c "SELECT 1"
 ```
 
 ## Migration from Standalone Node
@@ -292,6 +292,6 @@ For automated deployment using hermes agents, see the agent workflow in [/.winds
 ## Support
 
 For issues or questions:
-- Check logs: `sudo journalctl -u aitbc-blockchain-node -f`
+- Check logs: `journalctl -u aitbc-blockchain-node -f`
 - Review configuration: `/etc/aitbc/blockchain.env`
 - See [Implementation Guide](../blockchain/IMPLEMENTATION_GUIDE.md)

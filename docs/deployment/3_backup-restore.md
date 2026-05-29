@@ -35,22 +35,20 @@ The AITBC platform implements a comprehensive backup strategy with:
 
 ## Automated Backups
 
-### Kubernetes CronJob
+### Systemd Timer
 
-The automated backup system runs daily at 2:00 AM UTC:
+The automated backup system runs daily at 2:00 AM UTC using systemd timers:
 
 ```bash
-# Deploy the backup CronJob
-kubectl apply -f infra/k8s/backup-cronjob.yaml
+# Enable backup timer
+systemctl enable aitbc-backup.timer
+systemctl start aitbc-backup.timer
 
-# Check CronJob status
-kubectl get cronjob aitbc-backup
-
-# View backup jobs
-kubectl get jobs -l app=aitbc-backup
+# Check timer status
+systemctl status aitbc-backup.timer
 
 # View backup logs
-kubectl logs job/aitbc-backup-<timestamp>
+journalctl -u aitbc-backup.service -f
 ```
 
 ### Backup Schedule
@@ -67,33 +65,30 @@ kubectl logs job/aitbc-backup-<timestamp>
 
 ```bash
 # Create a manual backup
-./infra/scripts/backup_postgresql.sh default my-backup-$(date +%Y%m%d)
+./scripts/deployment/backup_postgresql.sh default my-backup-$(date +%Y%m%d)
 
 # View available backups
 ls -la /tmp/postgresql-backups/
-
-# Upload to S3 manually
-aws s3 cp /tmp/postgresql-backups/my-backup.sql.gz s3://aitbc-backups-default/postgresql/
 ```
 
 ### Redis
 
 ```bash
 # Create a manual backup
-./infra/scripts/backup_redis.sh default my-redis-backup-$(date +%Y%m%d)
+./scripts/deployment/backup_redis.sh default my-redis-backup-$(date +%Y%m%d)
 
 # Force background save before backup
-kubectl exec -n default deployment/redis -- redis-cli BGSAVE
+systemctl redis-cli BGSAVE
 ```
 
 ### Ledger Storage
 
 ```bash
 # Create a full backup
-./infra/scripts/backup_ledger.sh default my-ledger-backup-$(date +%Y%m%d)
+./scripts/deployment/backup_ledger.sh default my-ledger-backup-$(date +%Y%m%d)
 
 # Create incremental backup
-./infra/scripts/backup_ledger.sh default incremental-backup-$(date +%Y%m%d) true
+./scripts/deployment/backup_ledger.sh default incremental-backup-$(date +%Y%m%d) true
 ```
 
 ## Restore Procedures
@@ -102,56 +97,53 @@ kubectl exec -n default deployment/redis -- redis-cli BGSAVE
 
 ```bash
 # List available backups
-aws s3 ls s3://aitbc-backups-default/postgresql/
-
-# Download backup from S3
-aws s3 cp s3://aitbc-backups-default/postgresql/postgresql-backup-20231222_020000.sql.gz /tmp/
+ls -la /tmp/postgresql-backups/
 
 # Restore database
-./infra/scripts/restore_postgresql.sh default /tmp/postgresql-backup-20231222_020000.sql.gz
+./scripts/deployment/restore_postgresql.sh default /tmp/postgresql-backups/my-backup.sql.gz
 
 # Verify restore
-kubectl exec -n default deployment/coordinator-api -- curl -s http://localhost:8011/v1/health
+curl -s http://localhost:8011/v1/health
 ```
 
 ### Redis Restore
 
 ```bash
 # Stop Redis service
-kubectl scale deployment redis --replicas=0 -n default
+systemctl stop redis
 
 # Clear existing data
-kubectl exec -n default deployment/redis -- rm -f /data/dump.rdb /data/appendonly.aof
+rm -f /var/lib/redis/dump.rdb /var/lib/redis/appendonly.aof
 
 # Copy backup file
-kubectl cp /tmp/redis-backup.rdb default/redis-0:/data/dump.rdb
+cp /tmp/redis-backup.rdb /var/lib/redis/dump.rdb
 
 # Start Redis service
-kubectl scale deployment redis --replicas=1 -n default
+systemctl start redis
 
 # Verify restore
-kubectl exec -n default deployment/redis -- redis-cli DBSIZE
+redis-cli DBSIZE
 ```
 
 ### Ledger Restore
 
 ```bash
 # Stop blockchain nodes
-kubectl scale deployment blockchain-node --replicas=0 -n default
+systemctl stop aitbc-blockchain-node
 
 # Extract backup
 tar -xzf /tmp/ledger-backup-20231222_020000.tar.gz -C /tmp/
 
 # Copy ledger data
-kubectl cp /tmp/chain/ default/blockchain-node-0:/app/data/chain/
-kubectl cp /tmp/wallets/ default/blockchain-node-0:/app/data/wallets/
-kubectl cp /tmp/receipts/ default/blockchain-node-0:/app/data/receipts/
+cp -r /tmp/chain/ /var/lib/aitbc/data/
+cp -r /tmp/wallets/ /var/lib/aitbc/data/
+cp -r /tmp/receipts/ /var/lib/aitbc/data/
 
 # Start blockchain nodes
-kubectl scale deployment blockchain-node --replicas=3 -n default
+systemctl start aitbc-blockchain-node
 
 # Verify restore
-kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8080/v1/blocks/head
+curl -s http://localhost:8006/rpc/head
 ```
 
 ## Disaster Recovery
@@ -177,14 +169,13 @@ kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8
 1. **Assess Impact**
    ```bash
    # Check component status
-   kubectl get pods -n default
-   kubectl get events --sort-by=.metadata.creationTimestamp
+   systemctl status aitbc-*
    ```
 
 2. **Restore Critical Services**
    ```bash
    # Restore PostgreSQL first (critical for operations)
-   ./infra/scripts/restore_postgresql.sh default [latest-backup]
+   ./scripts/deployment/restore_postgresql.sh default [latest-backup]
    
    # Restore Redis cache
    ./restore_redis.sh default [latest-backup]
@@ -196,7 +187,7 @@ kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8
 3. **Verify System Health**
    ```bash
    # Check all services
-   kubectl get pods -n default
+   systemctl status aitbc-*
    
    # Verify API endpoints
    curl -s http://coordinator-api:8011/v1/health
@@ -225,10 +216,10 @@ Prometheus metrics track backup success/failure:
 
 ```bash
 # View backup logs
-kubectl logs -l app=aitbc-backup -n default --tail=100
+journalctl -u aitbc-backup.service -f
 
-# Monitor backup CronJob
-kubectl get cronjob aitbc-backup -w
+# Monitor backup timer
+systemctl status aitbc-backup.timer
 ```
 
 ## Best Practices
@@ -260,17 +251,17 @@ kubectl get cronjob aitbc-backup -w
 #### Backup Fails with "Permission Denied"
 ```bash
 # Check service account permissions
-kubectl describe serviceaccount backup-service-account
-kubectl describe role backup-role
+systemctl status aitbc-backup.service
+journalctl -u aitbc-backup.service -n 50
 ```
 
 #### Restore Fails with "Database in Use"
 ```bash
 # Scale down application before restore
-kubectl scale deployment coordinator-api --replicas=0
+systemctl stop coordinator-api
 # Perform restore
 # Scale up after restore
-kubectl scale deployment coordinator-api --replicas=3
+systemctl start coordinator-api
 ```
 
 #### Ledger Restore Incomplete
@@ -283,10 +274,10 @@ cat metadata.json | jq '.latest_block_height'
 
 ### Getting Help
 
-1. Check logs: `kubectl logs -l app=aitbc-backup`
+1. Check logs: `journalctl -u aitbc-backup.service`
 2. Verify storage: `df -h` on backup nodes
 3. Check network: Test S3 connectivity
-4. Review events: `kubectl get events --sort-by=.metadata.creationTimestamp`
+4. Review events: `journalctl -xe`
 
 ## Configuration
 
@@ -301,11 +292,18 @@ cat metadata.json | jq '.latest_block_height'
 
 ### Customizing Backup Schedule
 
-Edit the CronJob schedule in `infra/k8s/backup-cronjob.yaml`:
+Edit the systemd timer configuration:
 
-```yaml
-spec:
-  schedule: "0 3 * * *"  # Change to 3 AM UTC
+```bash
+# Edit the timer unit
+systemctl edit aitbc-backup.timer
+
+# Change the schedule (e.g., to 3 AM UTC)
+# OnCalendar=*-*-* 03:00:00
+
+# Reload systemd
+systemctl daemon-reload
+systemctl restart aitbc-backup.timer
 ```
 
 ### Adjusting Retention

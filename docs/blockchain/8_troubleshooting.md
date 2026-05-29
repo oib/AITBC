@@ -54,8 +54,8 @@ aitbc blockchain diagnose --network
 aitbc blockchain diagnose --network --check-ports
 
 # Kill existing process (if needed)
-sudo lsof -i :8080
-sudo kill $(sudo lsof -t -i :8080)
+lsof -i :8080
+kill $(lsof -t -i :8080)
 
 # Reset database with enhanced CLI
 aitbc blockchain reset --hard

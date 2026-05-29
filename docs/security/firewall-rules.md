@@ -6,20 +6,20 @@ This guide covers UFW and iptables configuration for network access control.
 
 ```bash
 # Default policies
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
+ufw default deny incoming
+ufw default allow outgoing
 
 # Allow SSH
-sudo ufw allow 22/tcp
+ufw allow 22/tcp
 
 # Allow AITBC services
-sudo ufw allow 8080/tcp  # Blockchain
-sudo ufw allow 8011/tcp  # Coordinator
-sudo ufw allow 8071/tcp  # Wallet
-sudo ufw allow 8102/tcp  # Marketplace
+ufw allow 8080/tcp  # Blockchain
+ufw allow 8011/tcp  # Coordinator
+ufw allow 8071/tcp  # Wallet
+ufw allow 8102/tcp  # Marketplace
 
 # Enable firewall
-sudo ufw enable
+ufw enable
 ```
 
 ## iptables Configuration

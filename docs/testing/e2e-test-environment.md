@@ -44,23 +44,23 @@ AITBC uses systemd for service orchestration. Services are managed via systemd u
 
 ```bash
 # Start PostgreSQL
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
+systemctl start postgresql
+systemctl enable postgresql
 
 # Start Redis
-sudo systemctl start redis
-sudo systemctl enable redis
+systemctl start redis
+systemctl enable redis
 
 # Start AITBC services
-sudo systemctl start aitbc-blockchain-node
-sudo systemctl start aitbc-coordinator-api
-sudo systemctl start aitbc-marketplace
-sudo systemctl start aitbc-exchange
+systemctl start aitbc-blockchain-node
+systemctl start aitbc-coordinator-api
+systemctl start aitbc-marketplace
+systemctl start aitbc-exchange
 
 # Check service status
-sudo systemctl status aitbc-blockchain-node
-sudo systemctl status aitbc-coordinator-api
-sudo systemctl status aitbc-marketplace
+systemctl status aitbc-blockchain-node
+systemctl status aitbc-coordinator-api
+systemctl status aitbc-marketplace
 ```
 
 ### Service Health Checks
@@ -184,13 +184,13 @@ REDIS_URL=redis://localhost:6379/0
 ### C. Troubleshooting
 
 **Service Won't Start:**
-- Check logs: `sudo journalctl -u [service-name] -f`
-- Verify configuration: `sudo systemctl status [service-name]`
+- Check logs: `journalctl -u [service-name] -f`
+- Verify configuration: `systemctl status [service-name]`
 - Check port conflicts: `netstat -tulpn`
 
 **Test Times Out:**
 - Check service health: `curl http://localhost:[port]/health`
-- Verify service dependencies: `sudo systemctl status [service-name]`
+- Verify service dependencies: `systemctl status [service-name]`
 - Check for resource exhaustion: `htop`
 
 **Test Fails Intermittently:**

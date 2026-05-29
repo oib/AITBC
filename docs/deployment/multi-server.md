@@ -46,16 +46,16 @@ This guide covers deploying AITBC across multiple servers for high availability 
 
 ```bash
 # On each node, configure network
-sudo apt install -y etcd
-sudo systemctl enable etcd
-sudo systemctl start etcd
+apt install -y etcd
+systemctl enable etcd
+systemctl start etcd
 ```
 
 ### 2. Deploy Blockchain Node
 
 ```bash
 # On blockchain node
-sudo apt install -y nvidia-cuda-toolkit
+apt install -y nvidia-cuda-toolkit
 git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 ./scripts/setup/blockchain.sh
@@ -83,8 +83,8 @@ cd /opt/aitbc
 
 ```bash
 # On database node
-sudo apt install -y postgresql redis-server
-sudo -u postgres psql -c "CREATE DATABASE aitbc;"
+apt install -y postgresql redis-server
+-u postgres psql -c "CREATE DATABASE aitbc;"
 ```
 
 ## See Also

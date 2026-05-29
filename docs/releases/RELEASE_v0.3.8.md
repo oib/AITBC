@@ -29,7 +29,7 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
   - `scripts/test/` - 7 test/verify scripts
   - `scripts/service-management/` - 7 service management scripts
   - `systemd/` - 4 systemd service files
-  - `infra/nginx/` - 5 nginx config files
+  - `scripts/deployment/nginx/` - 5 nginx config files
   - `website/dashboards/` - 2 dashboard HTML files
   - `docs/` - 8 documentation MD files
 - **Website/Docs Folder Structure**: Moved HTML documentation to `/website/docs/`
@@ -74,8 +74,8 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
   - Developer Tutorials (`docs/developer/tutorials/`): 5 files
   - Reference Specs (`docs/reference/specs/`): 4 files
 - **Phase 2: Infrastructure** (8 files created):
-  - Terraform Environments (`infra/terraform/environments/`)
-  - Helm Chart Values (`infra/helm/values/`)
+  - Terraform Environments (`scripts/deployment/terraform/environments/`)
+  - Helm Chart Values (`scripts/deployment/helm/values/`)
 - **Phase 3: Application Components** (13 files created):
   - Pool Hub Service (`apps/pool-hub/src/app/`)
   - Coordinator Migrations (`apps/coordinator-api/migrations/`)

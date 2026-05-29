@@ -31,63 +31,67 @@ This document contains specific runbooks for common incident scenarios, based on
 
 ### Immediate Actions (0-2 minutes)
 ```bash
-# 1. Check pod status
-kubectl get pods -n default -l app.kubernetes.io/name=coordinator
+# 1. Check service status
+systemctl status aitbc-coordinator-api
 
-# 2. Check recent events
-kubectl get events -n default --sort-by=.metadata.creationTimestamp | tail -20
+# 2. Check recent logs
+journalctl -u aitbc-coordinator-api -n 50 --no-pager
 
-# 3. Check if pods are crashlooping
-kubectl describe pod -n default -l app.kubernetes.io/name=coordinator
+# 3. Check if service is crashlooping
+systemctl status aitbc-coordinator-api | grep -i "failed\|crash"
 
 # 4. Quick restart if needed
-kubectl rollout restart deployment/coordinator -n default
+systemctl restart aitbc-coordinator-api
 ```
 
 ### Investigation (2-10 minutes)
 1. **Review Logs**
    ```bash
-   kubectl logs -n default deployment/coordinator --tail=100
+   journalctl -u aitbc-coordinator-api -f
    ```
 
-2. **Check Resource Limits**
+2. **Check Resource Usage**
    ```bash
-   kubectl top pods -n default -l app.kubernetes.io/name=coordinator
+   top -p $(pgrep -f coordinator-api)
    ```
 
 3. **Verify Database Connectivity**
    ```bash
-   kubectl exec -n default deployment/coordinator -- nc -z postgresql 5432
+   psql -U aitbc -d aitbc_coordinator -c "SELECT 1;"
    ```
 
 4. **Check Redis Connection**
    ```bash
-   kubectl exec -n default deployment/coordinator -- redis-cli -h redis ping
+   redis-cli -h localhost ping
    ```
 
 ### Recovery Actions
 1. **Scale Up if Resource Starved**
    ```bash
-   kubectl scale deployment/coordinator --replicas=5 -n default
+   # For systemd, check resource limits in service file
+   systemctl edit aitbc-coordinator-api
    ```
 
-2. **Manual Pod Deletion if Stuck**
+2. **Force Restart if Stuck**
    ```bash
-   kubectl delete pods -n default -l app.kubernetes.io/name=coordinator --force --grace-period=0
+   systemctl stop aitbc-coordinator-api
+   systemctl start aitbc-coordinator-api
    ```
 
 3. **Rollback Deployment**
    ```bash
-   kubectl rollout undo deployment/coordinator -n default
+   cd /opt/aitbc
+   git checkout <previous-commit>
+   systemctl restart aitbc-coordinator-api
    ```
 
 ### Verification
 ```bash
 # Test health endpoint
-curl -f http://127.0.0.2:8011/v1/health
+curl -f http://localhost:8011/v1/health
 
 # Test API with sample request
-curl -X GET http://127.0.0.2:8011/v1/jobs -H "X-API-Key: test-key"
+curl -X GET http://localhost:8011/v1/jobs -H "X-API-Key: test-key"
 ```
 
 ## Runbook: Network Partition
@@ -105,63 +109,62 @@ curl -X GET http://127.0.0.2:8011/v1/jobs -H "X-API-Key: test-key"
 ### Immediate Actions (0-5 minutes)
 ```bash
 # 1. Check peer connectivity
-kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8080/v1/peers | jq
+curl -s http://localhost:8006/rpc/peers | jq
 
 # 2. Check consensus status
-kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8080/v1/consensus | jq
+curl -s http://localhost:8006/rpc/consensus | jq
 
-# 3. Check network policies
-kubectl get networkpolicies -n default
+# 3. Check network connectivity
+ping -c 3 <peer-node-ip>
 ```
 
 ### Investigation (5-15 minutes)
 1. **Identify Partitioned Nodes**
    ```bash
    # Check each node's peer count
-   for pod in $(kubectl get pods -n default -l app.kubernetes.io/name=blockchain-node -o jsonpath='{.items[*].metadata.name}'); do
-     echo "Pod: $pod"
-     kubectl exec -n default $pod -- curl -s http://localhost:8080/v1/peers | jq '. | length'
+   for node in aitbc1 aitbc2 aitbc3; do
+     echo "Node: $node"
+     ssh $node "curl -s http://localhost:8006/rpc/peers | jq '. | length'"
    done
    ```
 
-2. **Check Network Policies**
+2. **Check Firewall Rules**
    ```bash
-   kubectl describe networkpolicy default-deny-all-ingress -n default
-   kubectl describe networkpolicy blockchain-node-netpol -n default
+   iptables -L -n
+   ufw status
    ```
 
 3. **Verify DNS Resolution**
    ```bash
-   kubectl exec -n default deployment/blockchain-node -- nslookup blockchain-node
+   nslookup blockchain-node
    ```
 
 ### Recovery Actions
 1. **Remove Problematic Network Rules**
    ```bash
    # Flush iptables on affected nodes
-   for pod in $(kubectl get pods -n default -l app.kubernetes.io/name=blockchain-node -o jsonpath='{.items[*].metadata.name}'); do
-     kubectl exec -n default $pod -- iptables -F
-   done
+   iptables -F
+   iptables -X
    ```
 
 2. **Restart Network Components**
    ```bash
-   kubectl rollout restart deployment/blockchain-node -n default
+   systemctl restart aitbc-blockchain-p2p
    ```
 
 3. **Force Re-peering**
    ```bash
-   # Delete and recreate pods to force re-peering
-   kubectl delete pods -n default -l app.kubernetes.io/name=blockchain-node
+   # Restart blockchain nodes to force re-peering
+   systemctl restart aitbc-blockchain-node
    ```
 
 ### Verification
 ```bash
 # Wait for consensus to resume
-watch -n 5 'kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8080/v1/consensus | jq .height'
+watch -n 5 'curl -s http://localhost:8006/rpc/consensus | jq .height'
 
 # Verify peer connectivity
-kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8080/v1/peers | jq '. | length'
+curl -s http://localhost:8006/rpc/peers | jq '. | length'
 ```
 
 ## Runbook: Database Failure
@@ -179,56 +182,56 @@ kubectl exec -n default deployment/blockchain-node -- curl -s http://localhost:8
 ### Immediate Actions (0-3 minutes)
 ```bash
 # 1. Check PostgreSQL status
-kubectl exec -n default deployment/postgresql -- pg_isready
+systemctl status postgresql
 
 # 2. Check connection count
-kubectl exec -n default deployment/postgresql -- psql -U aitbc -c "SELECT count(*) FROM pg_stat_activity;"
+-u postgres psql -c "SELECT count(*) FROM pg_stat_activity;"
 
-# 3. Check replica lag
-kubectl exec -n default deployment/postgresql-replica -- psql -U aitbc -c "SELECT pg_last_xact_replay_timestamp();"
+# 3. Check replica lag (if using replication)
+-u postgres psql -c "SELECT pg_last_xact_replay_timestamp();"
 ```
 
 ### Investigation (3-10 minutes)
 1. **Review Database Logs**
    ```bash
-   kubectl logs -n default deployment/postgresql --tail=100
+   tail -100 /var/log/postgresql/postgresql-*.log
    ```
 
 2. **Check Resource Usage**
    ```bash
-   kubectl top pods -n default -l app.kubernetes.io/name=postgresql
    df -h /var/lib/postgresql/data
+   top -p $(pgrep postgres)
    ```
 
 3. **Identify Long-running Queries**
    ```bash
-   kubectl exec -n default deployment/postgresql -- psql -U aitbc -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE state = 'active' AND now() - pg_stat_activity.query_start > interval '5 minutes';"
+   -u postgres psql -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE state = 'active' AND now() - pg_stat_activity.query_start > interval '5 minutes';"
    ```
 
 ### Recovery Actions
 1. **Kill Idle Connections**
    ```bash
-   kubectl exec -n default deployment/postgresql -- psql -U aitbc -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle' AND query_start < now() - interval '1 hour';"
+   -u postgres psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle' AND query_start < now() - interval '1 hour';"
    ```
 
 2. **Restart PostgreSQL**
    ```bash
-   kubectl rollout restart deployment/postgresql -n default
+   systemctl restart postgresql
    ```
 
 3. **Failover to Replica**
    ```bash
    # Promote replica if primary fails
-   kubectl exec -n default deployment/postgresql-replica -- pg_ctl promote -D /var/lib/postgresql/data
+   -u postgres pg_ctl promote -D /var/lib/postgresql/data
    ```
 
 ### Verification
 ```bash
 # Test database connectivity
-kubectl exec -n default deployment/coordinator -- python -c "import psycopg2; conn = psycopg2.connect('postgresql://aitbc:password@postgresql:5432/aitbc'); print('Connected')"
+psql -U aitbc -d aitbc_coordinator -c "SELECT 1;"
 
 # Check application health
-curl -f http://127.0.0.2:8011/v1/health
+curl -f http://localhost:8011/v1/health
 ```
 
 ## Runbook: Redis Failure
@@ -244,61 +247,62 @@ curl -f http://127.0.0.2:8011/v1/health
 ### Immediate Actions (0-2 minutes)
 ```bash
 # 1. Check Redis status
-kubectl exec -n default deployment/redis -- redis-cli ping
+systemctl status redis
 
 # 2. Check memory usage
-kubectl exec -n default deployment/redis -- redis-cli info memory | grep used_memory_human
+redis-cli info memory | grep used_memory_human
 
 # 3. Check connection count
-kubectl exec -n default deployment/redis -- redis-cli info clients | grep connected_clients
+redis-cli info clients | grep connected_clients
 ```
 
 ### Investigation (2-5 minutes)
 1. **Review Redis Logs**
    ```bash
-   kubectl logs -n default deployment/redis --tail=100
+   tail -100 /var/log/redis/redis-server.log
    ```
 
 2. **Check for Eviction**
    ```bash
-   kubectl exec -n default deployment/redis -- redis-cli info stats | grep evicted_keys
+   redis-cli info stats | grep evicted_keys
    ```
 
 3. **Identify Large Keys**
    ```bash
-   kubectl exec -n default deployment/redis -- redis-cli --bigkeys
+   redis-cli --bigkeys
    ```
 
 ### Recovery Actions
 1. **Clear Expired Keys**
    ```bash
-   kubectl exec -n default deployment/redis -- redis-cli --scan --pattern "*:*" | xargs redis-cli del
+   redis-cli --scan --pattern "*:*" | xargs redis-cli del
    ```
 
 2. **Restart Redis**
    ```bash
-   kubectl rollout restart deployment/redis -n default
+   systemctl restart redis
    ```
 
 3. **Scale Redis Cluster**
    ```bash
-   kubectl scale deployment/redis --replicas=3 -n default
+   # For systemd, check Redis configuration
+   systemctl edit redis
    ```
 
 ### Verification
 ```bash
 # Test Redis connectivity
-kubectl exec -n default deployment/coordinator -- redis-cli -h redis ping
+redis-cli ping
 
 # Check application performance
-curl -w "@curl-format.txt" -o /dev/null -s http://127.0.0.2:8011/v1/health
+curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8011/v1/health
 ```
 
 ## Runbook: High CPU/Memory Usage
 
 ### Symptoms
 - Slow response times
-- Pod evictions
+- Service crashes
 - OOM errors
 - System degradation
 
@@ -307,11 +311,12 @@ curl -w "@curl-format.txt" -o /dev/null -s http://127.0.0.2:8011/v1/health
 ### Immediate Actions (0-5 minutes)
 ```bash
 # 1. Check resource usage
-kubectl top pods -n default
-kubectl top nodes
+top
+htop
 
-# 2. Identify resource-hungry pods
-kubectl exec -n default deployment/coordinator -- top
+# 2. Identify resource-hungry processes
+ps aux --sort=-%cpu | head -10
+ps aux --sort=-%mem | head -10
 
 # 3. Check for OOM kills
 dmesg | grep -i "killed process"
@@ -320,46 +325,48 @@ dmesg | grep -i "killed process"
 ### Investigation (5-15 minutes)
 1. **Analyze Resource Usage**
    ```bash
-   # Detailed pod metrics
-   kubectl exec -n default deployment/coordinator -- ps aux --sort=-%cpu | head -10
-   kubectl exec -n default deployment/coordinator -- ps aux --sort=-%mem | head -10
+   # Detailed process metrics
+   top -p $(pgrep -f coordinator-api)
    ```
 
 2. **Check Resource Limits**
    ```bash
-   kubectl describe pod -n default -l app.kubernetes.io/name=coordinator | grep -A 10 Limits
+   # Check systemd service limits
+   systemctl show aitbc-coordinator-api | grep -i "limit"
    ```
 
 3. **Review Application Metrics**
    ```bash
    # Check Prometheus metrics
-   curl http://127.0.0.2:8011/metrics | grep -E "(cpu|memory)"
+   curl http://localhost:8011/metrics | grep -E "(cpu|memory)"
    ```
 
 ### Recovery Actions
-1. **Scale Services**
+1. **Restart Affected Services**
    ```bash
-   kubectl scale deployment/coordinator --replicas=5 -n default
-   kubectl scale deployment/blockchain-node --replicas=3 -n default
+   systemctl restart aitbc-coordinator-api
+   systemctl restart aitbc-blockchain-node
    ```
 
 2. **Increase Resource Limits**
    ```bash
-   kubectl patch deployment coordinator -p '{"spec":{"template":{"spec":{"containers":[{"name":"coordinator","resources":{"limits":{"cpu":"2000m","memory":"4Gi"}}}]}}}}'
+   # Edit service resource limits
+   systemctl edit aitbc-coordinator-api
    ```
 
-3. **Restart Affected Services**
+3. **Optimize Application**
    ```bash
-   kubectl rollout restart deployment/coordinator -n default
+   # Check for memory leaks
+   # Review application logs for patterns
    ```
 
 ### Verification
 ```bash
 # Monitor resource usage
-watch -n 5 'kubectl top pods -n default'
+watch -n 5 'top -b -n 1 | head -20'
 
 # Test service performance
-curl -w "@curl-format.txt" -o /dev/null -s http://127.0.0.2:8011/v1/health
+curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8011/v1/health
 ```
 
 ## Runbook: Storage Issues
@@ -368,7 +375,7 @@ curl -w "@curl-format.txt" -o /dev/null -s http://127.0.0.2:8011/v1/health
 - Disk space warnings
 - Write failures
 - Database errors
-- Pod crashes
+- Service crashes
 
 ### MTTR Target: 10 minutes
 
@@ -376,39 +383,38 @@ curl -w "@curl-format.txt" -o /dev/null -s http://127.0.0.2:8011/v1/health
 ```bash
 # 1. Check disk usage
 df -h
-kubectl exec -n default deployment/postgresql -- df -h
 
 # 2. Identify large files
 find /var/log -name "*.log" -size +100M
-kubectl exec -n default deployment/postgresql -- find /var/lib/postgresql -type f -size +1G
+find /var/lib/postgresql -type f -size +1G
 
 # 3. Clean up logs
-kubectl logs -n default deployment/coordinator --tail=1000 > /tmp/coordinator.log && truncate -s 0 /var/log/containers/coordinator*.log
+journalctl --vacuum-time=7d
 ```
 
 ### Investigation (10-20 minutes)
 1. **Analyze Storage Usage**
    ```bash
    du -sh /var/log/*
-   du -sh /var/lib/docker/*
+   du -sh /var/lib/postgresql/*
    ```
 
-2. **Check PVC Usage**
+2. **Check Database Size**
    ```bash
-   kubectl get pvc -n default
-   kubectl describe pvc postgresql-data -n default
+   -u postgres psql -c "SELECT pg_database.datname, pg_size_pretty(pg_database_size(pg_database.datname)) FROM pg_database;"
    ```
 
 3. **Review Retention Policies**
    ```bash
-   kubectl get cronjobs -n default
-   kubectl describe cronjob log-cleanup -n default
+   # Check log rotation configuration
+   logrotate -d /etc/logrotate.conf
    ```
 
 ### Recovery Actions
 1. **Expand Storage**
    ```bash
-   kubectl patch pvc postgresql-data -p '{"spec":{"resources":{"requests":{"storage":"100Gi"}}}}'
+   # Add disk space or mount additional storage
+   # Update fstab if needed
    ```
 
 2. **Force Cleanup**
@@ -416,13 +422,13 @@ kubectl logs -n default deployment/coordinator --tail=1000 > /tmp/coordinator.lo
    # Clean old logs
    find /var/log -name "*.log" -mtime +7 -delete
    
-   # Clean Docker images
-   docker system prune -a
+   # Clean old backups
+   find /var/backups -mtime +30 -delete
    ```
 
 3. **Restart Services**
    ```bash
-   kubectl rollout restart deployment/postgresql -n default
+   systemctl restart postgresql
    ```
 
 ### Verification
@@ -431,7 +437,7 @@ kubectl logs -n default deployment/coordinator --tail=1000 > /tmp/coordinator.lo
 df -h
 
 # Verify database operations
-kubectl exec -n default deployment/postgresql -- psql -U aitbc -c "SELECT 1;"
+-u postgres psql -c "SELECT 1;"
 ```
 
 ## Emergency Contact Procedures
@@ -444,14 +450,9 @@ kubectl exec -n default deployment/postgresql -- psql -U aitbc -c "SELECT 1;"
 
 ### War Room Activation
 ```bash
-# Create Slack channel
-/slack create-channel #incident-$(date +%Y%m%d-%H%M%S)
-
+# Create communication channel
 # Invite stakeholders
-/slack invite @sre-team @engineering-manager @cto
-
-# Start Zoom meeting
-/zoom start "AITBC Incident War Room"
+# Start meeting
 ```
 
 ### Customer Communication
@@ -498,3 +499,4 @@ kubectl exec -n default deployment/postgresql -- psql -U aitbc -c "SELECT 1;"
 *Version: 1.0*
 *Last Updated: 2024-12-22*
 *Owner: SRE Team*
+
