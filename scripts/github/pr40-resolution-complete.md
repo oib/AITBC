@@ -13,7 +13,7 @@
 
 1. **✅ Identified Conflicts**: 3 files had merge conflicts
    - apps/blockchain-node/src/aitbc_chain/rpc/router.py
-   - dev/scripts/dev_heartbeat.py
+   - dev/tools/scripts/dev_heartbeat.py
    - scripts/claim-task.py
 
 2. **✅ Resolved Conflicts**: Accepted PR branch changes for all conflicts

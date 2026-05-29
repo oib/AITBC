@@ -14,13 +14,13 @@
 - `scripts/testing/run_all_tests.sh` - Main test runner
 - `setup.sh` - Main project setup script
 
-### Development Scripts → `dev/scripts/`
+### Development Scripts → `dev/tools/scripts/`
 ```bash
 # Development fixes and patches
-dev/scripts/fix_*.py
-dev/scripts/fix_*.sh
-dev/scripts/patch_*.py
-dev/scripts/simple_test.py
+dev/tools/scripts/fix_*.py
+dev/tools/scripts/fix_*.sh
+dev/tools/scripts/patch_*.py
+dev/tools/scripts/simple_test.py
 ```
 
 ### Test Files → `dev/tests/`
@@ -74,10 +74,10 @@ dev/cache/.vscode/
 touch dev/tests/test_my_feature.py
 
 # Create a new development script
-touch dev/scripts/fix_my_issue.py
+touch dev/tools/scripts/fix_my_issue.py
 
 # Create a new patch script
-touch dev/scripts/patch_component.py
+touch dev/tools/scripts/patch_component.py
 ```
 
 ### Checking Organization
@@ -100,7 +100,7 @@ git commit -m "My changes"  # Will run pre-commit hooks
 
 ### ❌ Don't create these files at root:
 - `test_*.py` or `test_*.sh` → Use `dev/tests/`
-- `patch_*.py` or `fix_*.py` → Use `dev/scripts/`
+- `patch_*.py` or `fix_*.py` → Use `dev/tools/scripts/`
 - `MULTI_*.md` → Use `dev/multi-chain/`
 - `node_modules/` or `.venv/` → Use `dev/env/`
 - `.pytest_cache/` or `.ruff_cache/` → Use `dev/cache/`
@@ -111,7 +111,7 @@ git commit -m "My changes"  # Will run pre-commit hooks
 touch dev/tests/test_new_feature.py
 
 # Right way to create patch files
-touch dev/scripts/fix_bug.py
+touch dev/tools/scripts/fix_bug.py
 
 # Right way to handle dependencies
 pnpm install  # Use in contracts/ directory for smart contracts development

@@ -127,9 +127,9 @@ sudo journalctl -u blockchain-rpc-2 -f
 ## Files Created/Modified
 
 ### Deployment Scripts
-- `/opt/aitbc/scripts/deploy/deploy-first-node.sh`
-- `/opt/aitbc/scripts/deploy/deploy-second-node.sh`
-- `/opt/aitbc/scripts/deploy/setup-gossip-relay.sh`
+- `/opt/aitbc/scripts/deployment/deploy-first-node.sh`
+- `/opt/aitbc/scripts/deployment/deploy-second-node.sh`
+- `/opt/aitbc/scripts/deployment/setup-gossip-relay.sh`
 
 ### Test Scripts
 - `/opt/aitbc/tests/test_blockchain_nodes.py`

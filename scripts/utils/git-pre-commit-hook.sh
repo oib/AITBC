@@ -38,7 +38,7 @@ for pattern in "${ROOT_FORBIDDEN_PATTERNS[@]}"; do
                 echo "   → dev/tests/"
                 ;;
             "patch_*.py"|"fix_*.py"|"simple_test.py")
-                echo "   → dev/scripts/"
+                echo "   → dev/tools/scripts/"
                 ;;
             "MULTI_*.md")
                 echo "   → dev/multi-chain/"
@@ -88,8 +88,8 @@ for file in $NEW_FILES; do
                 echo "💡 Consider: git reset HEAD $filename && mv $filename dev/tests/ && git add dev/tests/$filename"
                 ;;
             patch_*.py|fix_*.py)
-                echo "⚠️  WARNING: Patch file '$filename' should be in dev/scripts/"
-                echo "💡 Consider: git reset HEAD $filename && mv $filename dev/scripts/ && git add dev/scripts/$filename"
+                echo "⚠️  WARNING: Patch file '$filename' should be in dev/tools/scripts/"
+                echo "💡 Consider: git reset HEAD $filename && mv $filename dev/tools/scripts/ && git add dev/tools/scripts/$filename"
                 ;;
             MULTI_*.md)
                 echo "⚠️  WARNING: Multi-chain file '$filename' should be in dev/multi-chain/"

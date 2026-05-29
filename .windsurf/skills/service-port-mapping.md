@@ -204,7 +204,7 @@ systemctl status aitbc-coordinator-api.service
 grep -r "port" /etc/systemd/system/aitbc-*.service
 
 # Wrapper scripts
-grep -r "port" /opt/aitbc/scripts/wrappers/*.py
+grep -r "port" /opt/aitbc/apps/*/aitbc-*-wrapper.py
 ```
 
 ### Test Service Endpoints
