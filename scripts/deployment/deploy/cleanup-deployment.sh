@@ -21,4 +21,4 @@ ssh ns3-root "systemctl daemon-reload"
 
 echo "✅ Cleanup complete!"
 echo ""
-echo "You can now run: ./scripts/deploy/deploy-all-remote.sh"
+echo "You can now run: ./scripts/deployment/deploy-all-remote.sh"

@@ -11,7 +11,7 @@
    - Preserved all RPC endpoints and functionality
    - Maintained production blockchain features
 
-2. **dev/scripts/dev_heartbeat.py**
+2. **dev/tools/scripts/dev_heartbeat.py**
    - Resolved import conflicts (json module)
    - Kept security vulnerability checking functionality
    - Maintained comprehensive development monitoring
@@ -40,7 +40,7 @@
 
 ### Files Modified:
 - ✅ apps/blockchain-node/src/aitbc_chain/rpc/router.py
-- ✅ dev/scripts/dev_heartbeat.py  
+- ✅ dev/tools/scripts/dev_heartbeat.py  
 - ✅ scripts/claim-task.py
 
 **PR #40 is now ready for final review and merge.**

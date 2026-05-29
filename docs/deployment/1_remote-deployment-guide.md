@@ -11,7 +11,7 @@ For new-host bootstrap, start with `SETUP.md`, which documents the main `scripts
 
 ### 1. Deploy Everything
 ```bash
-./scripts/deploy/deploy-all-remote.sh
+./scripts/deployment/deploy-all-remote.sh
 ```
 
 This will:

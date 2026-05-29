@@ -10,7 +10,7 @@ WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-plugin-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/utils/aitbc-plugin-wrapper.py
 Restart=always
 RestartSec=5
 StandardOutput=journal

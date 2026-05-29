@@ -35,7 +35,7 @@ Environment="AGENT_ID={instance_id}"
 Environment="AGENT_PORT={port}"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-agent-sdk/src:/opt/aitbc"
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-agent-daemon-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-services/aitbc-agent-daemon-wrapper.py
 
 Restart=always
 RestartSec=10
