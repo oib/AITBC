@@ -26,6 +26,12 @@
     "chai": "^4.3.7",
     "mocha": "^10.2.0"
   },
+  "pnpm": {
+    "overrides": {
+      "serialize-javascript": "^6.0.2",
+      "underscore": "^1.13.6"
+    }
+  },
   "keywords": [
     "zero-knowledge",
     "circom",
