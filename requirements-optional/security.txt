@@ -1,5 +1,5 @@
-# AITBC Security & Compliance Module Requirements
-# Specialized dependencies for security, authentication, and compliance
+# AITBC Security & Compliance Optional Dependencies
+# Install with: pip install -r requirements-optional/security.txt
 
 # Authentication & Security
 python-jose[cryptography]>=3.3.0
