@@ -67,7 +67,7 @@ hermes agent --agent GenesisAgent --session-id "my-session" --message "Execute a
 # Setup development environment
 git clone https://github.com/oib/AITBC.git
 cd AITBC
-./scripts/setup.sh
+./scripts/deployment/setup.sh
 
 # Install with dependency profiles
 ./scripts/install-profiles.sh minimal

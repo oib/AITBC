@@ -6,12 +6,12 @@
 
 ## Quick Setup (New Host)
 
-The main setup script lives at `scripts/setup.sh`.
+The main setup script lives at `scripts/deployment/setup.sh`.
 
 Run this single command on any new host to install AITBC:
 
 ```bash
-sudo bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/setup.sh)
+sudo bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deployment/setup.sh)
 ```
 
 Or clone and run manually:
@@ -21,8 +21,8 @@ Or clone and run manually:
 ```bash
 sudo git clone https://github.com/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
-sudo chmod +x scripts/setup.sh
-sudo ./scripts/setup.sh
+sudo chmod +x scripts/deployment/setup.sh
+sudo ./scripts/deployment/setup.sh
 ```
 
 ### For Internal Users (Gitea - Development Only)
@@ -30,11 +30,11 @@ sudo ./scripts/setup.sh
 ```bash
 sudo git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
-sudo chmod +x scripts/setup.sh
-sudo ./scripts/setup.sh
+sudo chmod +x scripts/deployment/setup.sh
+sudo ./scripts/deployment/setup.sh
 ```
 
-## What `scripts/setup.sh` Does
+## What `scripts/deployment/setup.sh` Does
 
 1. **Prerequisites Check**
    - Verifies Python 3.13.5+, pip3, git, systemd
@@ -214,7 +214,7 @@ For production deployment:
 1. Configure `/etc/aitbc/blockchain.env` with proper environment variables
 2. Configure `/etc/aitbc/node.env` with node-specific settings
 3. Set up reverse proxy (nginx)
-4. Configure SSL certificates manually outside `scripts/setup.sh`
+4. Configure SSL certificates manually outside `scripts/deployment/setup.sh`
 5. Set up log rotation
 6. Configure monitoring and alerts
 7. Use proper database setup (PostgreSQL/Redis)
