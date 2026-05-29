@@ -108,11 +108,14 @@ def verify(ctx, chain_id: str):
         error(f"Failed to read genesis config: {e}")
         return
     
-    # Check database
-    db_path = Path("/var/lib/aitbc/data/chain.db")
+    # Check database (chain-specific path)
+    db_path = Path(f"/var/lib/aitbc/data/{chain_id}/chain.db")
     if not db_path.exists():
-        error(f"Database not found: {db_path}")
-        return
+        # Fallback to legacy path
+        db_path = Path("/var/lib/aitbc/data/chain.db")
+        if not db_path.exists():
+            error(f"Database not found at chain-specific or legacy path")
+            return
     
     try:
         conn = sqlite3.connect(str(db_path))
