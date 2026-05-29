@@ -15,9 +15,10 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 - **Total**: 35 vulnerabilities (7 low, 15 moderate, 13 high)
 - **Status**: Accepted as acceptable risk
 - **Rationale**: Most vulnerabilities are in Hardhat/Ethers build tools (transitive dependencies), not production runtime code
+- **Note**: npm audit fix attempted; pnpm workspaces (contracts, aitbc-token, zk-circuits) lack npm lockfiles and use pnpm-specific overrides
 
 #### Breakdown by Package:
-- `/opt/aitbc/packages/js/aitbc-sdk`: 0 vulnerabilities ✓
+- `/opt/aitbc/packages/js/aitbc-sdk`: 0 vulnerabilities ✓ (npm audit fix applied successfully)
 - `/opt/aitbc/contracts`: 14 vulnerabilities (3 low, 7 moderate, 4 high)
 - `/opt/aitbc/packages/solidity/aitbc-token`: 8 vulnerabilities (2 low, 4 moderate, 2 high)
 - `/opt/aitbc/apps/zk-circuits`: 13 vulnerabilities (2 low, 4 moderate, 7 high)
@@ -84,12 +85,25 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 
 #### Quarterly Review
 1. Evaluate major version updates for:
-   - Hardhat (currently v2.28.6, v3.x available)
+   - Hardhat (currently v2.22.0, v3.7.0 available - major breaking changes)
    - Ethers.js (currently v6.16.0)
    - Circom (currently v0.5.46, deprecated)
 
 2. Assess breaking changes vs security benefits
 3. Plan upgrade testing in development environment
+
+### npm Audit Fix Guidance
+
+#### Limitations
+- **pnpm workspaces**: `npm audit fix` requires npm lockfiles; pnpm workspaces (contracts, aitbc-token, zk-circuits) use pnpm-lock.yaml
+- **Overrides**: pnpm-specific overrides in package.json only work with pnpm, not npm or yarn
+- **Transitive dependencies**: Manual overrides may not catch all transitive dependency paths
+
+#### Recommended Approach
+1. **For npm-based packages**: Run `npm audit fix` first to auto-resolve fixable vulnerabilities
+2. **For pnpm workspaces**: Use pnpm overrides in package.json (currently implemented)
+3. **Consider Hardhat upgrade**: Hardhat v3.x may resolve many transitive dependency vulnerabilities but requires testing due to breaking changes
+4. **Monitor**: Track Hardhat v3.x stability and adoption before upgrading
 
 ### Acceptance Criteria
 
