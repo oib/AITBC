@@ -249,13 +249,13 @@ docker run -d \
 
 ```bash
 # Start service
-sudo systemctl start aitbc-coordinator
+systemctl start aitbc-coordinator
 
 # Check status
-sudo systemctl status aitbc-coordinator
+systemctl status aitbc-coordinator
 
 # View logs
-sudo journalctl -u aitbc-coordinator -f
+journalctl -u aitbc-coordinator -f
 ```
 
 ## Interactive API Documentation

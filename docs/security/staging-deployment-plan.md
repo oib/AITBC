@@ -76,15 +76,15 @@ ZK_PROOF_ENABLED=true   # Test ZK proof service
 
 **1. Create staging environment file**
 ```bash
-sudo mkdir -p /etc/aitbc
-sudo cp /opt/aitbc/examples/env.example /etc/aitbc/.env.staging
-sudo vim /etc/aitbc/.env.staging
+mkdir -p /etc/aitbc
+cp /opt/aitbc/examples/env.example /etc/aitbc/.env.staging
+vim /etc/aitbc/.env.staging
 # Update with staging-specific values
 ```
 
 **2. Create staging database**
 ```bash
-sudo -u postgres psql
+-u postgres psql
 CREATE DATABASE aitbc_staging;
 CREATE USER aitbc_staging WITH PASSWORD 'staging_password';
 GRANT ALL PRIVILEGES ON DATABASE aitbc_staging TO aitbc_staging;
@@ -112,7 +112,7 @@ pip install -r requirements.txt
 alembic upgrade head --env-file /etc/aitbc/.env.staging
 
 # Restart service (if using systemd)
-sudo systemctl restart aitbc-coordinator-api
+systemctl restart aitbc-coordinator-api
 ```
 
 **2. Verify ZK proof services**
@@ -222,7 +222,7 @@ cp modular_ml_components_js/ /var/lib/aitbc/circuits_staging/ -r
 **2. Update ZK proof service configuration**
 ```bash
 # Update service config to point to staging circuits
-sudo vim /etc/aitbc/coordinator-api.env
+vim /etc/aitbc/coordinator-api.env
 # Set CIRCUITS_DIR=/var/lib/aitbc/circuits_staging
 ```
 
@@ -239,7 +239,7 @@ curl -X POST http://localhost:8001/zk/verify \
 **2. Test disabled demo endpoints**
 ```bash
 # Set DEMO_MODE_ENABLED=false in staging config
-sudo systemctl restart aitbc-coordinator-api
+systemctl restart aitbc-coordinator-api
 
 # Test that demo endpoints return 503
 curl -X POST http://localhost:8001/zk/membership/verify \
@@ -251,7 +251,7 @@ curl -X POST http://localhost:8001/zk/membership/verify \
 **3. Test enabled demo endpoints**
 ```bash
 # Set DEMO_MODE_ENABLED=true in staging config
-sudo systemctl restart aitbc-coordinator-api
+systemctl restart aitbc-coordinator-api
 
 # Test that demo endpoints work
 curl -X POST http://localhost:8001/zk/membership/verify \
@@ -268,7 +268,7 @@ If deployment fails:
 ```bash
 # Rollback code changes
 git checkout HEAD~1 -- apps/coordinator-api/src/app/services/
-sudo systemctl restart aitbc-coordinator-api
+systemctl restart aitbc-coordinator-api
 ```
 
 **2. Smart Contract**
@@ -304,7 +304,7 @@ cp /var/lib/aitbc/circuits_backup/* /var/lib/aitbc/circuits_staging/ -r
 **1. Monitor staging environment**
 ```bash
 # Check service logs
-sudo journalctl -u aitbc-coordinator-api -f
+journalctl -u aitbc-coordinator-api -f
 
 # Check health endpoints
 curl http://localhost:8001/health

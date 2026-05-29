@@ -98,15 +98,15 @@ Engineering Lead: [Phone]
 On-call: [Phone]
 
 CRITICAL COMMANDS:
-Check status: sudo systemctl status [service] (or systemctl status for systemd)
-Check logs: sudo journalctl -u [service] (or journalctl for systemd)
-Restart: sudo systemctl restart [service] (or systemctl restart for systemd)
+Check status: systemctl status [service] (or systemctl status for systemd)
+Check logs: journalctl -u [service] (or journalctl for systemd)
+Restart: systemctl restart [service] (or systemctl restart for systemd)
 Scale: N/A (systemd doesn't have scaling equivalent)
 
 BACKUP RESTORE:
-PostgreSQL: ./infra/scripts/restore_postgresql.sh default [backup]
-Redis: sudo cp [backup] /var/lib/redis/dump.rdb
-Ledger: tar -xzf [backup] -C /tmp/ && sudo cp -r /tmp/chain/ /app/data/
+PostgreSQL: ./scripts/deployment/restore_postgresql.sh default [backup]
+Redis: cp [backup] /var/lib/redis/dump.rdb
+Ledger: tar -xzf [backup] -C /tmp/ && cp -r /tmp/chain/ /app/data/
 
 DNS FAILOVER:
 # Use your DNS provider's API or management console

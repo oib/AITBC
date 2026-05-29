@@ -1,5 +1,17 @@
 # AITBC Chaos Testing Framework
 
+**⚠️ DEPRECATED: This document describes Kubernetes-based chaos testing which is not supported in the current systemd-based deployment.**
+
+This chaos testing framework is designed for Kubernetes deployments and requires kubectl. For systemd-based deployments, consider using alternative testing approaches such as:
+- Manual service restarts via systemctl
+- Network simulation using iptables/tc
+- Database failure simulation via service stops
+- Load testing tools like locust or pytest
+
+The content below is preserved for reference but is not applicable to the current deployment architecture.
+
+---
+
 This framework implements chaos engineering tests to validate the resilience and recovery capabilities of the AITBC platform.
 
 ## Overview
@@ -39,16 +51,15 @@ The chaos testing framework simulates real-world failure scenarios to:
 ## Prerequisites
 
 - Python 3.8+
-- kubectl configured with cluster access
-- Helm charts deployed in target namespace
-- Administrative privileges for network manipulation
+- Administrative privileges for service and network manipulation
+- **Note: This framework requires Kubernetes and kubectl - not supported in current systemd deployment**
 
 ## Installation
 
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd aitbc/infra/scripts
+cd aitbc/scripts/deployment
 
 # Install dependencies
 pip install aiohttp
@@ -253,7 +264,7 @@ jobs:
           pip install aiohttp
       - name: Run chaos tests
         run: |
-          cd infra/scripts
+          cd scripts/deployment
           python3 chaos_orchestrator.py --namespace staging
       - name: Upload results
         uses: actions/upload-artifact@v2
@@ -263,6 +274,8 @@ jobs:
 ```
 
 ## Troubleshooting
+
+**Note: The following troubleshooting steps assume Kubernetes deployment and are not applicable to systemd-based deployments.**
 
 ### Common Issues
 

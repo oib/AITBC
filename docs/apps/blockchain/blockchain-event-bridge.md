@@ -61,8 +61,8 @@ poetry run uvicorn blockchain_event_bridge.main:app --reload --host 127.0.0.1 --
 ### Production (Systemd)
 
 ```bash
-sudo systemctl start aitbc-blockchain-event-bridge
-sudo systemctl enable aitbc-blockchain-event-bridge
+systemctl start aitbc-blockchain-event-bridge
+systemctl enable aitbc-blockchain-event-bridge
 ```
 
 ## API Endpoints

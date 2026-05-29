@@ -10,25 +10,25 @@ Configure P2P networking for your blockchain node.
 
 ```bash
 # Allow P2P port
-sudo ufw allow 7070/tcp
+ufw allow 7070/tcp
 
 # Allow RPC port
-sudo ufw allow 8006/tcp
+ufw allow 8006/tcp
 
 # Allow Coordinator API port
-sudo ufw allow 8011/tcp
+ufw allow 8011/tcp
 
 # Allow Exchange port
-sudo ufw allow 8001/tcp
+ufw allow 8001/tcp
 
 # Allow Marketplace port
-sudo ufw allow 8102/tcp
+ufw allow 8102/tcp
 
 # Allow Wallet port
-sudo ufw allow 8015/tcp
+ufw allow 8015/tcp
 
 # Allow from specific IPs
-sudo ufw allow from 10.0.0.0/8 to any port 8006
+ufw allow from 10.0.0.0/8 to any port 8006
 ```
 
 ### Port Forwarding

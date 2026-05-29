@@ -20,10 +20,10 @@ This guide provides step-by-step instructions for implementing and deploying the
 ### Dependencies
 ```bash
 # System dependencies
-sudo apt update
-sudo apt install -y python3.13 python3.13-venv python3.13-dev
-sudo apt install -y nginx postgresql redis-server
-sudo apt install -y nvidia-driver-535 nvidia-cuda-toolkit
+apt update
+apt install -y python3.13 python3.13-venv python3.13-dev
+apt install -y nginx postgresql redis-server
+apt install -y nvidia-driver-535 nvidia-cuda-toolkit
 
 # Python dependencies
 python3.13 -m venv /opt/aitbc/.venv
@@ -36,26 +36,26 @@ pip install -r requirements.txt
 ### 1. Create AITBC User and Directories
 ```bash
 # Create AITBC user
-sudo useradd -r -s /bin/false -d /opt/aitbc aitbc
+useradd -r -s /bin/false -d /opt/aitbc aitbc
 
 # Create directories
-sudo mkdir -p /opt/aitbc/{apps,logs,data,models}
-sudo mkdir -p /opt/aitbc/apps/coordinator-api
+mkdir -p /opt/aitbc/{apps,logs,data,models}
+mkdir -p /opt/aitbc/apps/coordinator-api
 
 # Set permissions
-sudo chown -R aitbc:aitbc /opt/aitbc
-sudo chmod 755 /opt/aitbc
+chown -R aitbc:aitbc /opt/aitbc
+chmod 755 /opt/aitbc
 ```
 
 ### 2. Deploy Application Code
 ```bash
 # Copy application files
-sudo cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
-sudo cp systemd/*.service /etc/systemd/system/
+cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
+cp systemd/*.service /etc/systemd/system/
 
 # Set permissions
-sudo chown -R aitbc:aitbc /opt/aitbc
-sudo chmod +x /opt/aitbc/apps/coordinator-api/*.sh
+chown -R aitbc:aitbc /opt/aitbc
+chmod +x /opt/aitbc/apps/coordinator-api/*.sh
 ```
 
 ### 3. Install Python Dependencies
@@ -72,7 +72,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ### 4. Configure Services
 ```bash
 # Create environment file
-sudo tee /opt/aitbc/.env > /dev/null <<EOF
+tee /opt/aitbc/.env > /dev/null <<EOF
 PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
 LOG_LEVEL=INFO
 DATABASE_URL=postgresql://aitbc:password@localhost:5432/aitbc
@@ -82,16 +82,16 @@ CUDA_VISIBLE_DEVICES=0
 EOF
 
 # Set permissions
-sudo chown aitbc:aitbc /opt/aitbc/.env
-sudo chmod 600 /opt/aitbc/.env
+chown aitbc:aitbc /opt/aitbc/.env
+chmod 600 /opt/aitbc/.env
 ```
 
 ### 5. Setup Database
 ```bash
 # Create database user and database
-sudo -u postgres createuser aitbc
-sudo -u postgres createdb aitbc
-sudo -u postgres psql -c "ALTER USER aitbc PASSWORD 'password';"
+-u postgres createuser aitbc
+-u postgres createdb aitbc
+-u postgres psql -c "ALTER USER aitbc PASSWORD 'password';"
 
 # Run migrations
 cd /opt/aitbc/apps/coordinator-api
@@ -237,7 +237,7 @@ df -h
 systemctl status aitbc-multimodal.service
 
 # Audit service logs 
-sudo journalctl -u aitbc-marketplace.service --since "1 hour ago"
+journalctl -u aitbc-marketplace.service --since "1 hour ago"
 
 # Monitor resource usage
 systemctl status aitbc-marketplace.service --no-pager
@@ -253,7 +253,7 @@ systemctl status aitbc-marketplace.service --no-pager
 ./manage_services.sh logs service-name
 
 # Check configuration
-sudo journalctl -u service-name.service -n 50
+journalctl -u service-name.service -n 50
 
 # Verify dependencies
 systemctl status postgresql redis-server
@@ -277,7 +277,7 @@ ls -la /dev/nvidia*
 netstat -tuln | grep :800
 
 # Kill conflicting processes
-sudo fuser -k 8010/tcp
+fuser -k 8010/tcp
 ```
 
 #### 4. Memory Issues
@@ -297,7 +297,7 @@ systemctl edit aitbc-learning.service
 #### 1. GPU Optimization
 ```bash
 # Set GPU performance mode
-sudo nvidia-smi -pm 1
+nvidia-smi -pm 1
 
 # Optimize CUDA memory
 export CUDA_CACHE_DISABLE=1
@@ -339,7 +339,7 @@ nvidia-smi dmon -s u
 ### Service Updates
 ```bash
 # Update application code
-sudo cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
+cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
 
 # Restart services
 ./manage_services.sh restart
@@ -351,14 +351,14 @@ sudo cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
 ### Backup and Recovery
 ```bash
 # Backup configuration
-sudo tar -czf aitbc-backup-$(date +%Y%m%d).tar.gz /opt/aitbc
+tar -czf aitbc-backup-$(date +%Y%m%d).tar.gz /opt/aitbc
 
 # Backup database
-sudo -u postgres pg_dump aitbc > aitbc-db-backup.sql
+-u postgres pg_dump aitbc > aitbc-db-backup.sql
 
 # Restore from backup
-sudo tar -xzf aitbc-backup-YYYYMMDD.tar.gz -C /
-sudo -u postgres psql aitbc < aitbc-db-backup.sql
+tar -xzf aitbc-backup-YYYYMMDD.tar.gz -C /
+-u postgres psql aitbc < aitbc-db-backup.sql
 ```
 
 ## 📞 Support

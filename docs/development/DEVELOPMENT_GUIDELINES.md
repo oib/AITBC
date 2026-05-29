@@ -33,12 +33,12 @@ dev/tests/run_mc_test.sh
 dev/tests/simple_test_results.json
 ```
 
-### Multi-Chain Testing → `dev/multi-chain/`
+### Multi-Chain Testing → `dev/tools/multi-chain/`
 ```bash
 # Multi-chain specific files
-dev/multi-chain/MULTI_*.md
-dev/multi-chain/test_multi_chain*.py
-dev/multi-chain/test_multi_site.py
+dev/tools/multi-chain/MULTI_*.md
+dev/tools/multi-chain/test_multi_chain*.py
+dev/tools/multi-chain/test_multi_site.py
 ```
 
 ### Configuration Files → `config/`
@@ -101,7 +101,7 @@ git commit -m "My changes"  # Will run pre-commit hooks
 ### ❌ Don't create these files at root:
 - `test_*.py` or `test_*.sh` → Use `dev/tests/`
 - `patch_*.py` or `fix_*.py` → Use `dev/tools/scripts/`
-- `MULTI_*.md` → Use `dev/multi-chain/`
+- `MULTI_*.md` → Use `dev/tools/multi-chain/`
 - `node_modules/` or `.venv/` → Use `dev/env/`
 - `.pytest_cache/` or `.ruff_cache/` → Use `dev/cache/`
 

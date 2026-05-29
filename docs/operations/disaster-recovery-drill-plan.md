@@ -484,7 +484,7 @@ Plan → Execute → Review → Improve → Plan
 #### Emergency Drill Termination
 ```bash
 # If drill causes actual incident, terminate immediately
-sudo systemctl start --all
+systemctl start --all
 # (Or start specific services individually)
 # Notify drill coordinator
 # Document termination reason

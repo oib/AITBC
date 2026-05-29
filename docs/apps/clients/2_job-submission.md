@@ -233,12 +233,6 @@ aitbc client submit --model gpt2 --input https://example.com/data.txt
 aitbc client submit --model gpt2 --input data.txt --output ./results
 ```
 
-### S3 Compatible Storage
-
-```bash
-aitbc client submit --model gpt2 --input data.txt --output s3://my-bucket/results
-```
-
 ## Job Priority
 
 | Priority | Speed | Cost |

@@ -115,10 +115,10 @@ PATH=/opt/aitbc/venv/bin:$PATH
 ls -la /opt/aitbc/venv/
 
 # Check service status
-sudo systemctl status aitbc-service-name
+systemctl status aitbc-service-name
 
 # Check logs
-sudo journalctl -u aitbc-service-name -n 20
+journalctl -u aitbc-service-name -n 20
 ```
 
 **Missing Packages**
@@ -127,7 +127,7 @@ sudo journalctl -u aitbc-service-name -n 20
 /opt/aitbc/aitbc-env pip install package-name
 
 # Update all services
-sudo systemctl restart aitbc-*
+systemctl restart aitbc-*
 ```
 
 **Import Errors**
@@ -145,9 +145,9 @@ echo $PYTHONPATH
 cp /opt/aitbc/requirements.txt /tmp/
 
 # Remove and recreate
-sudo rm -rf /opt/aitbc/venv
-sudo python3 -m venv /opt/aitbc/venv
-sudo chown -R root:root /opt/aitbc/venv
+rm -rf /opt/aitbc/venv
+python3 -m venv /opt/aitbc/venv
+chown -R root:root /opt/aitbc/venv
 
 # Install packages
 source /opt/aitbc/venv/bin/activate
@@ -171,13 +171,13 @@ pip install -r /opt/aitbc/requirements.txt
 ### Services
 ```bash
 # Restart all services with venv
-sudo systemctl restart aitbc-wallet aitbc-exchange-api
+systemctl restart aitbc-wallet aitbc-exchange-api
 
 # Check service status
-sudo systemctl status aitbc-*
+systemctl status aitbc-*
 
 # View service logs
-sudo journalctl -u aitbc-service-name -f
+journalctl -u aitbc-service-name -f
 ```
 
 ## 🎯 Best Practices

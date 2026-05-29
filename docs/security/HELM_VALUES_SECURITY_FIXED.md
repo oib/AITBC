@@ -146,10 +146,10 @@ Security Score: A+ ✅
 ```
 
 ### **Validation Coverage**
-- ✅ **Development values**: `/infra/helm/values/dev/values.yaml`
-- ✅ **Production values**: `/infra/helm/values/prod/values.yaml`
-- ✅ **Chart defaults**: `/infra/helm/charts/coordinator/values.yaml`
-- ✅ **Monitoring charts**: `/infra/helm/charts/monitoring/values.yaml`
+- ✅ **Development values**: `/scripts/deployment/helm/values/dev/values.yaml`
+- ✅ **Production values**: `/scripts/deployment/helm/values/prod/values.yaml`
+- ✅ **Chart defaults**: `/scripts/deployment/helm/charts/coordinator/values.yaml`
+- ✅ **Monitoring charts**: `/scripts/deployment/helm/charts/monitoring/values.yaml`
 
 ---
 

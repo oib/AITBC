@@ -55,7 +55,7 @@ dev/cache/logs/
 scripts/training/.training_progress
 scripts/training/.training_state/
 scripts/training/.training_state/certificates/
-dev/config/
+dev/tools/config/
 dev/test-nodes/*/data/
 # Keep coordinator-api data directory (contains application code)
 !apps/coordinator-api/src/app/data/
@@ -265,7 +265,7 @@ scripts/gpu/*.local.py
 
 # Deployment secrets (CRITICAL SECURITY)
 scripts/deployment/*.secret.*
-infra/nginx/*.local.conf
+scripts/deployment/nginx/*.local.conf
 
 # ===================
 # Documentation
@@ -301,9 +301,9 @@ scripts/gpu/*
 # ===================
 # Infra Configs (production IPs & secrets)
 # ===================
-infra/nginx/nginx-aitbc*.conf
-infra/helm/values/prod/
-infra/helm/values/prod.yaml
+scripts/deployment/nginx/nginx-aitbc*.conf
+scripts/deployment/helm/values/prod/
+scripts/deployment/helm/values/prod.yaml
 
 # ===================
 # Coverage reports

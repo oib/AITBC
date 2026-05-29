@@ -22,26 +22,26 @@ curl http://localhost:8071/health
 
 ```bash
 # Check all AITBC services
-sudo systemctl status aitbc-*
+systemctl status aitbc-*
 
 # Check specific service
-sudo systemctl status aitbc-blockchain
+systemctl status aitbc-blockchain
 
 # Enable service auto-start
-sudo systemctl enable aitbc-blockchain
+systemctl enable aitbc-blockchain
 ```
 
 ## Database Health
 
 ```bash
 # Check PostgreSQL status
-sudo systemctl status postgresql
+systemctl status postgresql
 
 # Test database connection
 psql -h localhost -U aitbc -d aitbc -c "SELECT 1;"
 
 # Check Redis status
-sudo systemctl status redis-server
+systemctl status redis-server
 
 # Test Redis connection
 redis-cli ping

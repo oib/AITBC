@@ -142,10 +142,10 @@ The framework includes:
 # Python security tools
 pip install slither-analyzer mythril bandit safety
 
-# Node.js/ZK tools (requires sudo)
-sudo npm install -g circom
+# Node.js/ZK tools
+npm install -g circom
 
 # System security tools
-sudo apt-get install nmap lynis clamav rkhunter auditd
+apt-get install nmap lynis clamav rkhunter auditd
 # Note: openscap may not be available in all distributions
 ```
