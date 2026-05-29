@@ -1,0 +1,33 @@
+[Unit]
+Description=AITBC Wallet Daemon with Multi-Chain Support
+After=network.target aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/aitbc
+ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh
+EnvironmentFile=/run/aitbc/secrets/.env
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/node.env
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/wallet/aitbc-wallet-wrapper.py
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=false
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-wallet-daemon
+
+# Allow database writes for SQLite WAL mode
+ProtectSystem=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 # hermes Service
 
-> **Important:** This document uses port 9001 for the Agent Coordinator service. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+> **Important:** This document uses port 9001 for the Agent Coordinator service. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 **Level**: Advanced<br>
 **Prerequisites**: Familiarity with hermes agent framework<br>

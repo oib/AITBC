@@ -138,7 +138,7 @@ AITBC v0.4.1 is a production hardening release that focuses on security improvem
 ### Remote Configuration
 - **GitHub Remote**: Added GitHub remote for milestone pushes
 - **Gitea Remote**: Renamed to origin (default)
-- **SSH Remotes**: Removed SSH remotes (aitbc1, gitea-runner)
+- **SSH Remotes**: Removed internal SSH remotes
 - **Dual-Remote Strategy**: Gitea for daily ops, GitHub for milestones
 
 ## 📊 Platform Maturity
@@ -172,7 +172,7 @@ AITBC v0.4.1 is a production hardening release that focuses on security improvem
 - **Service Updated**: systemd service updated
 
 ### Git Remotes
-- **SSH Remotes**: Removed (aitbc1, gitea-runner)
+- **SSH Remotes**: Removed internal SSH remotes
 - **GitHub**: Added for milestone pushes
 - **Gitea**: Renamed to origin (default)
 - **Migration Required**: Update any remote references

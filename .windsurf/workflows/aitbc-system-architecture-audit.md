@@ -56,9 +56,9 @@ find /opt/aitbc -name "data" -o -name "config" -o -name "logs" 2>/dev/null || ec
 # Analyze code for incorrect path references using ripgrep
 echo "=== 2. CODE PATH ANALYSIS ==="
 
-# Find repository data references (incorrect paths)
-echo "Repository Data References (incorrect):"
-rg -l "/opt/aitbc/data" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No repository data references"
+# Find repository data references (incorrect paths - legacy, should not exist)
+echo "Repository Data References (legacy - should not exist):"
+rg -l "/opt/aitbc/data" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No legacy data references"
 
 # Find repository config references (incorrect paths)
 echo "Repository Config References (incorrect):"

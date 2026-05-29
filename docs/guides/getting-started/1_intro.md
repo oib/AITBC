@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Note:** This document describes the designed architecture and capabilities of the AITBC platform. For the current operational state and deployment status, see [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md). For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+> **Note:** This document describes the designed architecture and capabilities of the AITBC platform. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 AITBC is a comprehensive blockchain platform that combines AI-powered trading, advanced analytics, multi-chain support, and enterprise-grade security. The platform has evolved from its original AI agent focus to become a full-featured blockchain ecosystem supporting real-world trading, surveillance, and compliance requirements.
 
@@ -81,7 +81,7 @@ The AITBC platform features a complete 7-layer multi-chain architecture:
 
 ## AI-Powered Features
 
-> **Status:** These features represent designed capabilities. Current implementation status varies by component. See [Current Operational State](../../infrastructure/CURRENT_OPERATIONAL_STATE.md) for details.
+> **Status:** These features represent designed capabilities. Current implementation status varies by component.
 
 ### AI Trading Engine (Phase 4.1 - 🟡 Designed)
 - Machine learning-based trading algorithms

@@ -1,0 +1,40 @@
+[Unit]
+Description=AITBC Agent Coordinator Service
+After=network.target redis.service aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/node.env
+
+# Agent coordinator execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+
+# Production reliability
+Restart=always
+RestartSec=5
+
+# Production logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-agent-coordinator
+
+# Production security
+NoNewPrivileges=true
+
+# Production performance
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=2G
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

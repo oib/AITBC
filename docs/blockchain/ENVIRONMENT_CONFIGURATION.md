@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Important:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md). For current operational state, see [Current Operational State](../infrastructure/CURRENT_OPERATIONAL_STATE.md).
+> **Important:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 Complete reference for configuring `node.env` and `blockchain.env` files for AITBC blockchain nodes.
 
@@ -88,7 +88,7 @@ p2p_bind_port=7070
 proposer_id=ait1ytkh0cn8v2a4zjwzyav6854832myf9j7unsse8yntmuwzst4qhtqe9hqdw
 
 # P2P Peers (connect to hub and other nodes)
-p2p_peers=aitbc:7070,aitbc1:7070
+p2p_peers=node1:7070,node2:7070
 
 # Trusted Propers (for follower nodes)
 trusted_proposers=
@@ -218,13 +218,13 @@ JWT_SECRET=production-jwt-secret-32-chars-long-change-me
 # Redis Configuration
 REDIS_URL=redis://localhost:6379/0
 gossip_backend=broadcast
-gossip_broadcast_url=redis://10.1.223.93:6379
-SYNC_REDIS_URL=redis://10.1.223.93:6379
+gossip_broadcast_url=redis://redis.example.com:6379
+SYNC_REDIS_URL=redis://redis.example.com:6379
 
 # Sync Configuration (for ait-testnet following)
-SYNC_SOURCE_HOST=aitbc1
+SYNC_SOURCE_HOST=node1
 SYNC_SOURCE_PORT=8006
-SYNC_LEADER_HOST=aitbc1
+SYNC_LEADER_HOST=node1
 SYNC_IMPORT_HOST=localhost
 SYNC_IMPORT_PORT=8006
 SYNC_CHAIN_ID=ait-testnet
@@ -256,7 +256,7 @@ auto_sync_enabled=true
 island_id=ait-mainnet-island
 supported_chains=ait-mainnet,ait-testnet
 db_encryption_enabled=false
-default_peer_rpc_url=http://aitbc1:8006
+default_peer_rpc_url=http://node1:8006
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
 ENFORCE_STATE_ROOT_VALIDATION=true
 WORKERS=1
@@ -287,8 +287,8 @@ JWT_SECRET=production-jwt-secret-32-chars-long-change-me
 # Redis Configuration
 REDIS_URL=redis://localhost:6379/0
 gossip_backend=broadcast
-gossip_broadcast_url=redis://10.1.223.93:6379
-SYNC_REDIS_URL=redis://10.1.223.93:6379
+gossip_broadcast_url=redis://redis.example.com:6379
+SYNC_REDIS_URL=redis://redis.example.com:6379
 
 # Sync Configuration (following ait-mainnet)
 SYNC_SOURCE_HOST=aitbc
