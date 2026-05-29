@@ -287,6 +287,8 @@ website/aitbc-proxy.conf.example
 # ===================
 .aitbc.yaml
 apps/coordinator-api/.env
+!.pre-commit-config.yaml
+!.yamllint.yaml
 
 # ===================
 # Deploy Scripts (hardcoded local paths & IPs)
@@ -335,6 +337,8 @@ tools/
 api_keys.txt
 *.yaml
 !*.example
+!.pre-commit-config.yaml
+!.yamllint.yaml
 backups/*/config/
 backups/*/logs/
 
