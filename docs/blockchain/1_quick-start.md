@@ -34,7 +34,7 @@ node:
   data_dir: ./data
 rpc:
   bind_host: 0.0.0.0
-  bind_port: 8080
+  bind_port: 8006
 p2p:
   bind_port: 7070
   bootstrap_nodes:
@@ -46,8 +46,10 @@ p2p:
 ```bash
 aitbc-chain start
 aitbc-chain status                    # node info + sync progress
-curl http://localhost:8080/rpc/health # RPC health check
+curl http://localhost:8006/rpc/health # RPC health check
 ```
+
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## Next
 

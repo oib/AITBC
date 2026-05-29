@@ -35,7 +35,7 @@ This guide covers software and hardware requirements for deploying the AITBC pla
 ## Network Requirements
 
 - Public IP address (for blockchain node)
-- Open ports: 8006 (blockchain RPC), 7070 (P2P), 8011 (coordinator), 8015 (wallet), 8102 (marketplace)
+- Open ports: 8006 (blockchain RPC), 7070 (P2P), 8011 (coordinator), 8015 (wallet), 8014 (marketplace)
 - DNS configuration (optional but recommended)
 - Firewall rules configured
 
