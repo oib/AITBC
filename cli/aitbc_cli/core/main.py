@@ -18,7 +18,7 @@ from aitbc_cli.commands.system import system
 from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.chain import chain
 from aitbc_cli.commands.agent_sdk import agent
-# from aitbc_cli.commands.analytics import analytics  # Disabled - imports from non-existent aitbc_cli.core.analytics
+from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
 from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
 # from aitbc_cli.commands.deployment import deployment  # Disabled - missing core.deployment module
 from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependency
@@ -43,6 +43,19 @@ from aitbc_cli.commands.operations import operations
 from aitbc_cli.commands.simulate import simulate
 from aitbc_cli.commands.edge import edge
 from aitbc_cli.commands.sync import sync
+from aitbc_cli.commands.account import account
+from aitbc_cli.commands.messaging import messaging
+from aitbc_cli.commands.network import network
+from aitbc_cli.commands.performance import performance
+from aitbc_cli.commands.pool_hub import pool_hub
+from aitbc_cli.commands.bridge import bridge
+from aitbc_cli.commands.contract import contract
+from aitbc_cli.commands.script import script
+from aitbc_cli.commands.economics import economics
+from aitbc_cli.commands.cluster import cluster
+from aitbc_cli.commands.security import security
+from aitbc_cli.commands.compliance import compliance
+from aitbc_cli.commands.hermes_training import hermes_training
 
 # Force CLI version for user-facing output
 __version__ = "2.1.0"
@@ -131,7 +144,7 @@ cli.add_command(system)
 cli.add_command(marketplace, name="market")
 cli.add_command(chain, name="blockchain")
 cli.add_command(agent, name="ai")
-# cli.add_command(analytics)  # Disabled - imports from non-existent aitbc_cli.core.analytics
+cli.add_command(analytics)  # Re-enabled - core.analytics exists
 cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
 # cli.add_command(deployment)  # Disabled - missing core.deployment module
 cli.add_command(monitor)  # Re-enabled - no core dependency
@@ -156,6 +169,19 @@ cli.add_command(operations)
 cli.add_command(simulate)
 cli.add_command(edge)
 cli.add_command(sync)
+cli.add_command(account)
+cli.add_command(messaging)
+cli.add_command(network)
+cli.add_command(performance)
+cli.add_command(pool_hub)
+cli.add_command(bridge)
+cli.add_command(contract)
+cli.add_command(script)
+cli.add_command(economics)
+cli.add_command(cluster)
+cli.add_command(security)
+cli.add_command(compliance)
+cli.add_command(hermes_training)
 
 def main(argv=None):
     """Entry point for console scripts and compatibility wrappers."""
