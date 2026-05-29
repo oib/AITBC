@@ -300,6 +300,7 @@ scripts/deployment/*
 !scripts/deployment/validate-env.sh
 scripts/gpu/*
 !scripts/gpu/*.example
+!scripts/gpu/README.md
 
 # ===================
 # Infra Configs (production IPs & secrets)
