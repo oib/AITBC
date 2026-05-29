@@ -13,21 +13,15 @@ def read_readme():
 
 # Read requirements from pyproject.toml
 def read_requirements():
-    import tomli
-    try:
-        with open("pyproject.toml", "rb") as f:
-            data = tomli.load(f)
-            return data.get("project", {}).get("dependencies", [])
-    except ImportError:
-        # Fallback to hardcoded list if tomli not available
-        return [
-            "click>=8.0",
-            "rich>=13.0",
-            "PyYAML",
-            "requests",
-            "cryptography",
-            "aitbc>=0.6.0",
-        ]
+    # Fallback to hardcoded list
+    return [
+        "click>=8.0",
+        "rich>=13.0",
+        "PyYAML",
+        "requests",
+        "cryptography",
+        "aitbc>=0.6.0",
+    ]
 
 setup(
     name="aitbc-cli",
@@ -70,7 +64,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "aitbc=core.main:main",
+            "aitbc=aitbc_cli.core.main:main",
         ],
     },
     include_package_data=True,
