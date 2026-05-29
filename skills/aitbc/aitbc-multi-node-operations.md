@@ -163,7 +163,7 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 
 ## Best Practices
 1. Always verify git status on all nodes before major changes
-2. Push to Gitea first, then pull on remote nodes
+2. Push to GitHub first, then pull on remote nodes
 3. Use `--force-with-lease` instead of `--force` when needed
 4. Restart affected services after code sync
 5. Verify service health after sync and restart

@@ -16,19 +16,19 @@ sudo bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/s
 
 Or clone and run manually:
 
-### For Internal Users (Gitea)
+### For Public Users (GitHub - Recommended)
 
 ```bash
-sudo git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
+sudo git clone https://github.com/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
 sudo chmod +x scripts/setup.sh
 sudo ./scripts/setup.sh
 ```
 
-### For External/Public Users (GitHub)
+### For Internal Users (Gitea - Development Only)
 
 ```bash
-sudo git clone https://github.com/oib/AITBC.git /opt/aitbc
+sudo git clone https://gitea.bubuit.net:3000/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
 sudo chmod +x scripts/setup.sh
 sudo ./scripts/setup.sh
