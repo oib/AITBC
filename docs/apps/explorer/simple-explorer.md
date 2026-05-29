@@ -33,8 +33,10 @@ Set environment variables in `.env`:
 ```bash
 BLOCKCHAIN_RPC_URL=http://localhost:8006
 CHAIN_ID=ait-mainnet
-EXPLORER_PORT=8080
+EXPLORER_PORT=8016
 ```
+
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ### Running the Service
 ```bash
@@ -42,7 +44,7 @@ EXPLORER_PORT=8080
 ```
 
 ### Access Explorer
-Open `http://localhost:8080` in a web browser to access the explorer.
+Open `http://localhost:8016` in a web browser to access the explorer.
 
 ## Developer Guide
 

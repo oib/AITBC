@@ -48,13 +48,15 @@ services:
       port: 6379
 
   marketplace:
-    port: 8102
+    port: 8014
     host: 0.0.0.0
     database:
       host: localhost
       port: 5432
       name: aitbc
 ```
+
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## See Also
 

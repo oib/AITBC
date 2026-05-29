@@ -12,9 +12,11 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 - **Host**: hub.aitbc.bubuit.net
 - **Chain ID**: `ait-hub.aitbc.bubuit.net`
 - **Island ID**: `ait-hub.aitbc.bubuit.net-island`
-- **P2P Port**: 8001 (open to all)
+- **P2P Port**: 7070 (open to all)
 - **RPC Port**: 8006 (open to all)
 - **Access**: Open - no authentication required for joining
+
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ## Prerequisites for New Nodes
 
@@ -26,7 +28,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 
 2. **Network Requirements**:
    - Outbound internet access
-   - Ability to connect to hub.aitbc.bubuit.net:8001 (P2P)
+   - Ability to connect to hub.aitbc.bubuit.net:7070 (P2P)
    - Ability to connect to hub.aitbc.bubuit.net:8006 (RPC)
 
 ## Quick Start Setup

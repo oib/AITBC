@@ -24,18 +24,20 @@ This will:
 ### 2. Access Services
 
 **Blockchain Node RPC:**
-- Internal: http://localhost:8082
-- External: http://aitbc.keisanki.net:8082
+- Internal: http://localhost:8006
+- External: http://aitbc.keisanki.net:8006
 
 **Blockchain Explorer:**
 - Internal: http://localhost:3000
 - External: http://aitbc.keisanki.net:3000
 
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+
 ## Architecture
 
 ```
 ns3-root (95.216.198.140)
-├── Blockchain Node (port 8082)
+├── Blockchain Node (port 8006)
 │   ├── Auto-syncs on startup
 │   └── Serves RPC API
 └── Explorer (port 3000)
