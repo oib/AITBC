@@ -24,12 +24,14 @@ node:
 rpc:
   enabled: true
   bind_host: 0.0.0.0
-  bind_port: 8080
+  bind_port: 8006
   cors_origins:
     - http://localhost:8015
     - http://localhost:8011
   rate_limit: 1000  # requests per minute
 ```
+
+> **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## P2P Configuration
 
@@ -79,7 +81,7 @@ validator:
 
 ```bash
 export AITBC_CHAIN_DATA_DIR=/opt/blockchain-node/data
-export AITBC_CHAIN_RPC_PORT=8080
+export AITBC_CHAIN_RPC_PORT=8006
 export AITBC_CHAIN_P2P_PORT=7070
 ```
 
