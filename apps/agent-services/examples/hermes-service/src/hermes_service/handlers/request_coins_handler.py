@@ -44,6 +44,19 @@ class RequestCoinsHandler(BaseHandler):
     
     def parse_request(self, content: str) -> Dict[str, Any]:
         """Parse REQUEST_COINS message to extract amount and wallet address."""
+        # Try JSON format first
+        import json
+        try:
+            data = json.loads(content)
+            if "cmd" in data and data.get("cmd") == "REQUEST_COINS":
+                return {
+                    "amount": int(data.get("amount", 0)),
+                    "wallet_address": data.get("to_address", "")
+                }
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        # Fallback to regex parsing (natural language)
         # Try to extract amount (e.g., "2000 ait coins")
         amount_match = re.search(r'(\d+)\s*(?:ait\s+)?coins?', content, re.IGNORECASE)
         amount = int(amount_match.group(1)) if amount_match else 0
