@@ -212,6 +212,7 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
   --agent <YOUR_AGENT_ID>
 ```
 
+<<<<<<< HEAD
 ### Option 2: Direct API (Coordinator API - Port 8011)
 
 ```bash
@@ -255,9 +256,50 @@ curl -s -X GET "http://localhost:8014/api/v1/messages/<YOUR_AGENT_ID>" \
   -H "Content-Type: application/json"
 ```
 
-## Continuous Polling (Listener)
+## Hermes Polling Daemon
 
-For continuous message monitoring, implement a polling script:
+For automated message processing and auto-responses, use the Hermes Polling Daemon integrated into the `aitbc-agent-daemon` service.
+
+### Enable Hermes Polling
+
+Edit the systemd service or environment file:
+
+```bash
+# Enable Hermes polling in aitbc-agent-daemon.service
+ENABLE_HERMES_POLLING=true
+HERMES_AGENT_IDS=hub-coordinator,aitbc3-agent
+HERMES_COORDINATOR_URL=http://localhost:8011
+```
+
+Then restart the service:
+
+```bash
+systemctl daemon-reload
+systemctl restart aitbc-agent-daemon
+```
+
+### Standalone Usage
+
+For testing or standalone operation, run the daemon directly:
+
+```bash
+/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/scripts/hermes_polling_daemon.py \
+  --coordinator-url http://localhost:8011 \
+  --agent-id your-agent-id \
+  --poll-interval 2 \
+  --log-level INFO
+```
+
+### Built-in Handlers
+
+The daemon includes automatic message handlers:
+
+- **PING/PONG**: Automatically responds to PING messages with PONG
+- **Custom handlers**: Extensible handler system for custom message processing
+
+## Manual Polling (Alternative)
+
+For simple polling without the daemon, use a bash script:
 
 ```bash
 #!/bin/bash
