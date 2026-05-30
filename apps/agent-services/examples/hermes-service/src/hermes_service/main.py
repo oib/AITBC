@@ -9,7 +9,14 @@ from typing import Any
 
 from fastapi import FastAPI
 
+# Configure logging to output to stdout (which systemd captures)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 app = FastAPI(
     title="AITBC Hermes Service",
     description="Agent orchestration and edge computing service",
@@ -35,6 +42,8 @@ async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
     msg_id = message.get("id", "unknown")
     
     logger.info(f"Received message from {sender}: {content} (ID: {msg_id})")
+    logger.info(f"HERMES_AGENT_ID: {HERMES_AGENT_ID}, COORDINATOR_URL: {COORDINATOR_URL}")
+    logger.info(f"Content upper: {content.upper()}, PING in content: {'PING' in content.upper()}")
     
     # Check for PING and respond with PONG
     if "PING" in content.upper():
@@ -50,6 +59,7 @@ async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
                 },
                 timeout=10
             )
+            logger.info(f"PONG response status: {response.status_code}, body: {response.text}")
             if response.status_code == 200:
                 logger.info(f"PONG sent successfully to {sender}")
                 return {"status": "pong_sent", "recipient": sender}
