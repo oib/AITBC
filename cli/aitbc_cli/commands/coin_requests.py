@@ -10,6 +10,7 @@ import requests
 sys.path.insert(0, "/opt/aitbc/apps/agent-services/examples/hermes-service/src")
 
 from hermes_service.storage import get_db_session, CoinRequest, CoinRequestStatus, init_db
+from hermes_service.services import TransactionService
 
 
 def send_hermes_notification(recipient: str, content: str):
@@ -161,22 +162,69 @@ def execute(ctx, request_id):
             click.echo(f"Request {request_id} already executed (tx hash: {req.transaction_hash}).")
             return
         
-        # Check if signed transaction exists
-        if not req.signed_transaction:
-            click.echo(f"No signed transaction found for request {request_id}.")
-            click.echo("Please generate signed transaction first.")
+        # Initialize transaction service
+        tx_service = TransactionService()
+        
+        # Check genesis wallet configuration
+        if not tx_service.genesis_address:
+            click.echo("Error: GENESIS_ADDRESS not configured")
+            return
+        
+        # Check balance before submission
+        balance = tx_service.get_balance(tx_service.genesis_address)
+        total_required = req.amount + 1000  # amount + fee
+        if balance < total_required:
+            click.echo(f"Error: Insufficient balance. Required: {total_required}, Available: {balance}")
+            return
+        
+        click.echo(f"Executing request {request_id}...")
+        click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
+        click.echo(f"Genesis wallet balance: {balance} AIT")
+        
+        # Generate signed transaction
+        signed_tx = tx_service.generate_signed_transaction(
+            to_address=req.wallet_address,
+            amount=req.amount,
+            fee=1000
+        )
+        
+        if not signed_tx:
+            click.echo("Error: Failed to generate signed transaction")
+            # Revert to PENDING for retry
+            req.status = CoinRequestStatus.PENDING
+            req.audit_log += f" | Execution failed: could not generate signed transaction at {datetime.utcnow().isoformat()}"
             return
         
         # Submit transaction to blockchain
-        # This would integrate with the existing wallet transfer logic
-        click.echo(f"Executing request {request_id}...")
-        click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
-        click.echo("Note: Transaction submission requires integration with blockchain RPC.")
-        click.echo("Signed transaction available in database for manual submission.")
-        
-        # For now, just mark as having been attempted
-        # In production, this would call the blockchain RPC
-        click.echo("Transaction execution not yet implemented - requires blockchain RPC integration.")
+        try:
+            from aitbc import AITBCHTTPClient
+            http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
+            result = http_client.post("/rpc/transaction", json=signed_tx)
+            tx_hash = result.get("transaction_hash")
+            
+            if tx_hash:
+                # Update database with transaction hash
+                req.transaction_hash = tx_hash
+                req.signed_transaction = json.dumps(signed_tx)
+                req.audit_log += f" | Transaction executed at {datetime.utcnow().isoformat()} | Hash: {tx_hash}"
+                
+                click.echo(f"Transaction submitted successfully: {tx_hash}")
+                click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
+                
+                # Send notification to sender
+                notification_content = f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {req.amount} AIT."
+                send_hermes_notification(req.sender, notification_content)
+            else:
+                # Revert to PENDING on failure
+                req.status = CoinRequestStatus.PENDING
+                req.audit_log += f" | Execution failed: no transaction hash returned at {datetime.utcnow().isoformat()}"
+                click.echo("Error: Transaction submission failed - no hash returned")
+                
+        except Exception as e:
+            # Revert to PENDING on failure
+            req.status = CoinRequestStatus.PENDING
+            req.audit_log += f" | Execution failed: {str(e)} at {datetime.utcnow().isoformat()}"
+            click.echo(f"Error submitting transaction: {e}")
 
 
 @coin_requests.command()

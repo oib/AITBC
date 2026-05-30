@@ -4,6 +4,7 @@ import os
 import json
 from typing import Dict, Any, Optional
 import logging
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 
 class TransactionService:
@@ -19,6 +20,46 @@ class TransactionService:
         self.genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")
         # Get genesis wallet address
         self.genesis_address = os.getenv("GENESIS_ADDRESS")
+    
+    def get_nonce(self, address: str) -> int:
+        """
+        Get current nonce for an address from blockchain.
+        
+        Args:
+            address: Wallet address
+        
+        Returns:
+            Current nonce
+        """
+        try:
+            from aitbc import AITBCHTTPClient
+            http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
+            account_data = http_client.get(f"/rpc/account/{address}")
+            return account_data.get("nonce", 0)
+        except Exception as e:
+            self.logger.error(f"Error getting nonce: {e}")
+        
+        return 0
+    
+    def get_balance(self, address: str) -> int:
+        """
+        Get current balance for an address from blockchain.
+        
+        Args:
+            address: Wallet address
+        
+        Returns:
+            Current balance
+        """
+        try:
+            from aitbc import AITBCHTTPClient
+            http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
+            account_data = http_client.get(f"/rpc/account/{address}")
+            return account_data.get("balance", 0)
+        except Exception as e:
+            self.logger.error(f"Error getting balance: {e}")
+        
+        return 0
     
     def generate_signed_transaction(
         self,
@@ -46,52 +87,36 @@ class TransactionService:
             return None
         
         try:
-            # Create transaction payload (unsigned for now)
-            # In production, this would use the actual signing mechanism
-            # For now, we create a placeholder transaction structure
+            # Get actual nonce from blockchain
+            actual_nonce = self.get_nonce(self.genesis_address)
+            
+            # Load private key
+            private_key = ed25519.Ed25519PrivateKey.from_private_bytes(
+                bytes.fromhex(self.genesis_private_key)
+            )
+            
+            # Create transaction payload
             transaction = {
                 "type": "TRANSFER",
                 "chain_id": self.chain_id,
                 "from": self.genesis_address,
-                "nonce": 0,  # Will need to get actual nonce from blockchain
+                "nonce": actual_nonce,
                 "fee": fee,
                 "payload": {
                     "recipient": to_address,
                     "amount": amount
-                },
-                "signature": None,  # To be signed by CLI or wallet
-                "unsigned": True
+                }
             }
             
-            self.logger.info(f"Generated unsigned transaction for {amount} to {to_address}")
-            self.logger.info("Note: Transaction signing requires GENESIS_PRIVATE_KEY with compatible crypto library")
+            # Sign transaction
+            message = json.dumps(transaction, sort_keys=True).encode()
+            signature = private_key.sign(message)
+            transaction["signature"] = signature.hex()
+            
+            self.logger.info(f"Generated signed transaction for {amount} to {to_address}")
             
             return transaction
             
         except Exception as e:
             self.logger.error(f"Error generating signed transaction: {e}")
             return None
-    
-    def get_nonce(self, address: str) -> int:
-        """
-        Get current nonce for an address from blockchain.
-        
-        Args:
-            address: Wallet address
-        
-        Returns:
-            Current nonce
-        """
-        try:
-            import requests
-            response = requests.get(
-                f"{self.rpc_url}/rpc/accounts/{address}",
-                timeout=10
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("nonce", 0)
-        except Exception as e:
-            self.logger.error(f"Error getting nonce: {e}")
-        
-        return 0
