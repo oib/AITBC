@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+import click
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
