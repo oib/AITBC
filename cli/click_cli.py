@@ -59,28 +59,28 @@ def aitbc_click():
     pass
 
 # Register command groups
-aitbc_click.add_command(oracle.oracle)
-aitbc_click.add_command(agent.agent)
-aitbc_click.add_command(ipfs.ipfs)
-aitbc_click.add_command(swarm.swarm)
-aitbc_click.add_command(arbitrage.arbitrage)
-aitbc_click.add_command(validator.validator)
-aitbc_click.add_command(plugin.plugin)
-aitbc_click.add_command(database.database)
-aitbc_click.add_command(island.island)
-aitbc_click.add_command(edge.edge)
-aitbc_click.add_command(ai.ai_group)
-aitbc_click.add_command(cross_chain.cross_chain)
+aitbc_click.add_command(oracle)
+aitbc_click.add_command(agent)
+aitbc_click.add_command(ipfs)
+aitbc_click.add_command(swarm)
+aitbc_click.add_command(arbitrage)
+aitbc_click.add_command(validator)
+aitbc_click.add_command(plugin)
+aitbc_click.add_command(database)
+aitbc_click.add_command(island)
+aitbc_click.add_command(edge)
+aitbc_click.add_command(ai)
+aitbc_click.add_command(cross_chain)
 
 # Register commands with dependencies conditionally
 if MONITOR_AVAILABLE:
-    aitbc_click.add_command(monitor.monitor)
+    aitbc_click.add_command(monitor)
 if GOVERNANCE_AVAILABLE:
-    aitbc_click.add_command(governance.governance)
+    aitbc_click.add_command(governance)
 if STAKING_AVAILABLE:
-    aitbc_click.add_command(staking.staking)
+    aitbc_click.add_command(staking)
 if COMPLIANCE_AVAILABLE:
-    aitbc_click.add_command(compliance.compliance)
+    aitbc_click.add_command(compliance)
 
 if __name__ == "__main__":
     aitbc_click()
