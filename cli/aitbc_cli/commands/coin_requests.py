@@ -4,11 +4,36 @@ import click
 from datetime import datetime
 import sys
 import os
+import requests
 
 # Add path to import Hermes storage
 sys.path.insert(0, "/opt/aitbc/apps/agent-services/examples/hermes-service/src")
 
 from hermes_service.storage import get_db_session, CoinRequest, CoinRequestStatus, init_db
+
+
+def send_hermes_notification(recipient: str, content: str):
+    """Send a Hermes message notification via Coordinator API."""
+    coordinator_url = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
+    agent_id = os.getenv("HERMES_AGENT_ID", "cli-admin")
+    
+    try:
+        response = requests.post(
+            f"{coordinator_url}/v1/hermes/messages/send",
+            json={
+                "sender": agent_id,
+                "recipient": recipient,
+                "content": content,
+                "message_type": "direct"
+            },
+            timeout=10
+        )
+        if response.status_code == 200:
+            click.echo(f"Notification sent to {recipient}")
+        else:
+            click.echo(f"Failed to send notification: {response.text}")
+    except Exception as e:
+        click.echo(f"Error sending notification: {e}")
 
 
 @click.group()
@@ -80,6 +105,10 @@ def approve(ctx, request_id, reason):
         
         click.echo(f"Request {request_id} approved successfully.")
         click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
+        
+        # Send notification to sender
+        notification_content = f"Coin request {req.id} APPROVED. Amount: {req.amount} AIT to {req.wallet_address}."
+        send_hermes_notification(req.sender, notification_content)
 
 
 @coin_requests.command()
@@ -106,6 +135,10 @@ def reject(ctx, request_id, reason):
         req.audit_log += f" | CLI rejected at {datetime.utcnow().isoformat()} | Reason: {reason}"
         
         click.echo(f"Request {request_id} rejected successfully.")
+        
+        # Send notification to sender
+        notification_content = f"Coin request {req.id} REJECTED. Reason: {reason}."
+        send_hermes_notification(req.sender, notification_content)
 
 
 @coin_requests.command()
