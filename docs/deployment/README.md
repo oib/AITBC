@@ -1,11 +1,11 @@
 # Deployment Documentation
 
-This directory contains deployment guides and procedures for the AITBC platform.
+This directory contains production deployment guides and procedures for the AITBC platform.
 
-## Deployment Guides
+**Note:** For initial setup and onboarding, see [Getting Started](../getting-started/SETUP.md).
 
-- [Prerequisites](prerequisites.md) - System and software requirements
-- [Local Setup](local-setup.md) - Local development deployment
+## Production Deployment Guides
+
 - [Single Server](single-server.md) - Single server production deployment
 - [Multi Server](multi-server.md) - Multi-server deployment
 - [Cloud Deployment](cloud-deployment.md) - AWS, GCP, Azure deployment
@@ -17,11 +17,11 @@ This directory contains deployment guides and procedures for the AITBC platform.
 
 ## Additional Deployment Documentation
 
-- [SETUP.md](SETUP.md) - Main setup guide with quick start instructions
-- [INTEGRATED_NODE_SETUP.md](INTEGRATED_NODE_SETUP.md) - Integrated node deployment guide
 - [SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md) - Smart contract deployment procedures
+- [5_marketplace-deployment.md](5_marketplace-deployment.md) - Marketplace deployment guide
 
 ## See Also
 
+- [Getting Started](../getting-started/SETUP.md) - Initial setup and onboarding
 - [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration reference
 - [Security Best Practices](../security/) - Security guidelines for deployment
