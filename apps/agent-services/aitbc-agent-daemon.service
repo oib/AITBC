@@ -12,12 +12,6 @@ WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
-# Hermes polling configuration (optional)
-Environment="ENABLE_HERMES_POLLING=true"
-Environment="HERMES_AGENT_IDS=owl-aitbc3"
-Environment="HERMES_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8011"
-Environment="HERMES_SERVICE_URL=http://localhost:8014"
-Environment="HERMES_AGENT_ID=owl-aitbc3"
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-services/aitbc-agent-daemon-wrapper.py
 
 Restart=always
