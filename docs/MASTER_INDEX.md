@@ -2,8 +2,8 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-05-29
-**Version**: 6.9 (May 29, 2026 Update - disaster recovery and E2E test split, backend files moved to internal storage)
+**Last Updated**: 2026-05-30
+**Version**: 7.1 (May 30, 2026 Update - directory consolidation, getting-started optimization, artifact cleanup)
 
 ---
 
@@ -19,18 +19,15 @@
 ├── 🤖 agents/                      # Agent documentation and integration assets
 ├── 📱 apps/                        # Applications documentation (72 items)
 ├── 🏗️ architecture/                # System architecture and design patterns
-├──  backend/                    # Backend system documentation
 ├── ⛓️ blockchain/                  # Blockchain documentation (29 items)
 ├── 💻 cli/                        # Command-line interface documentation (5 items)
 ├── 📜 contracts/                  # Smart contract verification docs (2 items)
 ├── 🚀 deployment/                 # Deployment guides and procedures (24 items)
 ├── 🛠️ development/                 # Development workflow documentation (35 items)
-├── 🏢 enterprise/                  # Enterprise documentation (1 item)
 ├── 🏗️ infrastructure/              # System infrastructure documentation (11 items)
 ├── 🏢 operations/                 # Operations documentation (5 items)
 ├── ⛏️ mining/                     # Mining operations documentation (8 items)
 ├── 🧩 hermes/                   # hermes agent integration documentation (19 items)
-├── 📦 packages/                   # Language-specific packages and SDKs (1 item)
 ├── 📋 project/                    # Project documentation (28 items)
 ├── 📖 reference/                  # Compact lookup and reference docs (22 items)
 ├── 📋 releases/                   # Release notes and version history (7 items)
@@ -45,8 +42,8 @@
 
 ## 📊 Directory Statistics
 
-- **Total Directories**: 26
-- **Total Files**: 498+ markdown files
+- **Total Directories**: 22
+- **Total Files**: 460+ markdown files
 - **Apps Documentation**: 72 items
 - **Release Notes**: 7 items (latest 5 releases retained)
 
@@ -64,6 +61,8 @@ Documentation about the documentation system itself
 - **[Meta Index](meta/README.md)** - Overview of documentation standards hub
 - **[Compliance Audit](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Current remediation checklist
 - **[Template Standard](meta/DOCUMENTATION_TEMPLATE_STANDARD.md)** - Documentation template standard
+- **[Guides](meta/guides.md)** - Documentation guides index
+- **[Documentation Guide](meta/documentation-guide.md)** - Documentation authoring guide
 
 ### 🤖 Agent Documentation
 - **[Agent SDK](agent-sdk/)** - hermes agent communication SDK (10 items)
@@ -196,6 +195,10 @@ Documentation about the documentation system itself
 
 ### 📖 Reference Documentation
 - **[Reference](reference/)** - Compact lookup and reference docs (22 items)
+  - [FAQ](reference/faq.md) - Frequently asked questions
+  - [Backend](reference/backend.md) - Backend system documentation
+  - [Enterprise](reference/enterprise.md) - Enterprise documentation
+  - [Packages](reference/packages.md) - Language-specific packages and SDKs
 
 ### 📋 Releases Documentation
 - **[Releases](releases/)** - Release notes and version history (7 items)
@@ -272,6 +275,15 @@ The following directories were consolidated to improve documentation organizatio
 11. **reports/** - Historical reports directory removed (cleanup completed)
 12. **guides/getting-started/** - Content moved to getting-started/ (May 30, 2026)
 13. **about/** - Renamed to meta/ (May 30, 2026)
+14. **faq/** - Consolidated to reference/faq.md (May 30, 2026)
+15. **backend/** - Consolidated to reference/backend.md (May 30, 2026)
+16. **enterprise/** - Consolidated to reference/enterprise.md (May 30, 2026)
+17. **packages/** - Consolidated to reference/packages.md (May 30, 2026)
+18. **guides/** - Consolidated to meta/ (May 30, 2026)
+19. **ai-economics/** - Moved to project/ai-economics/ (May 30, 2026)
+20. **analysis/** - Empty directory removed (May 30, 2026)
+21. **quality/** - Historical analysis reports removed (May 30, 2026)
+22. **requirements/** - Historical migration reports removed (May 30, 2026)
 
 **Note**: Historical content from archive/ and reports/ directories has been consolidated into relevant topical sections. For historical deployment summaries and test fixes, see docs/reference/ directory.
 
