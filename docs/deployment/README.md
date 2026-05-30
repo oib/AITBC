@@ -2,7 +2,7 @@
 
 This directory contains production deployment guides and procedures for the AITBC platform.
 
-**Note:** For initial setup and onboarding, see [Getting Started](../getting-started/SETUP.md).
+**Note:** For initial setup and onboarding, see [Getting Started](../getting-started/).
 
 ## Production Deployment Guides
 
@@ -24,7 +24,7 @@ This directory contains production deployment guides and procedures for the AITB
 
 ## See Also
 
-- [Getting Started](../getting-started/SETUP.md) - Initial setup and onboarding
-- [Prerequisites](../getting-started/prerequisites.md) - System and software requirements
+- [Getting Started](../getting-started/) - Initial setup and onboarding
+- [Prerequisites](../getting-started/installation/prerequisites.md) - System and software requirements
 - [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration reference
 - [Security Best Practices](../security/) - Security guidelines for deployment

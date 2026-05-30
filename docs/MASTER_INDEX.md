@@ -13,7 +13,8 @@
 📁 docs/
 ├── 🏠 README.md                    # Main documentation entry point
 ├── 🧭 MASTER_INDEX.md              # This file - complete catalog
-├── 📖 about/                       # Documentation standards, audits, and remediation notes
+├── 📖 meta/                        # Documentation standards, audits, and remediation notes
+├── 🚀 getting-started/             # Getting started guides and onboarding
 ├── 🤖 agent-sdk/                   # hermes agent communication SDK documentation
 ├── 🤖 agents/                      # Agent documentation and integration assets
 ├── 📱 apps/                        # Applications documentation (72 items)
@@ -25,7 +26,6 @@
 ├── 🚀 deployment/                 # Deployment guides and procedures (24 items)
 ├── 🛠️ development/                 # Development workflow documentation (35 items)
 ├── 🏢 enterprise/                  # Enterprise documentation (1 item)
-├── 📖 guides/                     # Getting started guides (6 items)
 ├── 🏗️ infrastructure/              # System infrastructure documentation (11 items)
 ├── 🏢 operations/                 # Operations documentation (5 items)
 ├── ⛏️ mining/                     # Mining operations documentation (8 items)
@@ -59,14 +59,11 @@
 - **[MASTER_INDEX.md](MASTER_INDEX.md)** - This file - complete catalog of all documentation
 - **[ROADMAP.md](ROADMAP.md)** - Current open tasks and development roadmap (simplified - only pending items)
 
-### 📖 About Documentation
+### 📖 Meta Documentation
 Documentation about the documentation system itself
-- **[About Index](about/README.md)** - Overview of documentation standards hub
-- **[Compliance Audit](about/DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Current remediation checklist
-- **[Organization Analysis](about/DOCS_ORGANIZATION_ANALYSIS.md)** - Structure analysis and quality assessment
-- **[10/10 Roadmap](about/DOCS_10_10_ROADMAP.md)** - Path to perfect documentation quality
-- **[Centralization Guide](about/CENTRALIZED_DOCS_STRUCTURE.md)** - Documentation centralization process
-- **[Sorting Summary](about/DOCUMENTATION_SORTING_SUMMARY.md)** - Documentation sorting and organization
+- **[Meta Index](meta/README.md)** - Overview of documentation standards hub
+- **[Compliance Audit](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Current remediation checklist
+- **[Template Standard](meta/DOCUMENTATION_TEMPLATE_STANDARD.md)** - Documentation template standard
 
 ### 🤖 Agent Documentation
 - **[Agent SDK](agent-sdk/)** - hermes agent communication SDK (10 items)
@@ -121,8 +118,7 @@ Documentation about the documentation system itself
   - Now a proper directory (previously symlink to /contracts/docs/)
 
 ### 🚀 Deployment Documentation
-- **[Deployment](deployment/)** - Deployment guides and procedures (24 items)
-  - [Prerequisites](deployment/prerequisites.md) - System and software requirements
+- **[Deployment](deployment/)** - Production deployment guides and procedures
   - [Local Setup](deployment/local-setup.md) - Local development deployment
   - [Single Server](deployment/single-server.md) - Single server production deployment
   - [Multi Server](deployment/multi-server.md) - Multi-server deployment
@@ -133,6 +129,7 @@ Documentation about the documentation system itself
   - [Health Checks](deployment/health-checks.md) - Service health monitoring
   - [Deployment Troubleshooting](deployment/deployment-troubleshooting.md) - Common deployment issues
   - Includes content merged from mobile/ and nodes/
+  - Note: For initial setup and onboarding, see [Getting Started](getting-started/)
 
 ### 🛠️ Development Documentation
 - **[Development](development/)** - Development workflow documentation (35 items)
@@ -140,9 +137,33 @@ Documentation about the documentation system itself
 ### 🏢 Enterprise Documentation
 - **[Enterprise](enterprise/)** - Enterprise documentation (1 item)
 
-### 📖 Guides Documentation
-- **[Guides](guides/)** - Getting started guides (6 items)
-  - [getting-started/](guides/getting-started/) - New user starting point
+### 📖 Getting Started Documentation
+- **[Getting Started](getting-started/)** - Getting started guides and onboarding
+  - [README](getting-started/README.md) - Main entry point with user journey paths
+  - [SETUP](getting-started/SETUP.md) - Quick reference guide
+  - [installation/](getting-started/installation/) - Installation guides
+    - [Prerequisites](getting-started/installation/prerequisites.md)
+    - [Quick Start](getting-started/installation/quick-start.md)
+    - [Installation](getting-started/installation/installation.md)
+    - [Requirements Management](getting-started/installation/requirements-management.md)
+  - [node/](getting-started/node/) - Node onboarding
+    - [Blockchain Setup](getting-started/node/blockchain-setup.md)
+    - [Hermes Messaging](getting-started/node/hermes-messaging.md)
+    - [Coin Requests](getting-started/node/coin-requests.md)
+    - [Configuration Guide](getting-started/node/configuration-guide.md)
+  - [mining/](getting-started/mining/) - GPU mining
+    - [Miner Quick Start](getting-started/mining/miner-quick-start.md)
+  - [reference/](getting-started/reference/) - Reference docs
+    - [Service Endpoints](getting-started/reference/service-endpoints.md)
+    - [Management Commands](getting-started/reference/management-commands.md)
+    - [Troubleshooting](getting-started/reference/troubleshooting.md)
+    - [Security Notes](getting-started/reference/security-notes.md)
+    - [Production Deployment](getting-started/reference/production-deployment.md)
+  - [overview/](getting-started/overview/) - Platform overview
+    - [Introduction](getting-started/overview/introduction.md)
+    - [CLI Guide](getting-started/overview/cli-guide.md)
+    - [Enhanced Services](getting-started/overview/enhanced-services.md)
+  - [Open Island](getting-started/open-island.md) - Open island testing
 
 ### 🏗️ Infrastructure Documentation
 - **[Infrastructure](infrastructure/)** - System infrastructure documentation (11 items)
@@ -258,7 +279,7 @@ All cross-references have been updated to reflect these changes.
 
 ## 🧭 Navigation Tips
 
-- **New Users**: Start with [Getting Started Guides](guides/getting-started/)
+- **New Users**: Start with [Getting Started](getting-started/) - User journey paths for different use cases
 - **Developers**: Review [Project Structure](project/) and [Blockchain](blockchain/) documentation
 - **System Administrators**: Check [Deployment](deployment/) and [Security](security/) documentation
 - **hermes Agents**: See [Agent SDK](agent-sdk/) documentation
@@ -275,6 +296,6 @@ All cross-references have been updated to reflect these changes.
 
 ---
 
-**Last Updated**: 2026-05-29
-**Documentation Version**: 6.9
-**Status**: Production Ready with topic-specific documentation structure
+**Last Updated**: 2026-05-30
+**Documentation Version**: 7.0
+**Status**: Production Ready with optimized getting-started structure

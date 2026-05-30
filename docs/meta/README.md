@@ -1,24 +1,20 @@
-# About Documentation
+# Meta Documentation
 
-**Level**: All Levels  
-**Prerequisites**: Familiarity with the AITBC documentation tree  
-**Estimated Time**: 10-20 minutes  
-**Last Updated**: 2026-05-28  
-**Version**: 1.0
+**Level**: All Levels
+**Prerequisites**: Familiarity with the AITBC documentation tree
+**Estimated Time**: 10-20 minutes
+**Last Updated**: 2026-05-30
+**Version**: 2.0
 
 ## 🧭 **Navigation Path:**
-**🏠 [Documentation Home](../README.md)** → **📖 About** → *You are here*
+**🏠 [Documentation Home](../README.md)** → **📖 Meta** → *You are here*
 
-**breadcrumb**: Home → About → Overview
+**breadcrumb**: Home → Meta → Overview
 
 ---
 
 ## 🎯 **See Also:**
 - **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Required structure for priority documents
-- **🎯 [10/10 Roadmap](DOCS_10_10_ROADMAP.md)** - Quality goals and improvement areas
-- **📊 [Organization Analysis](DOCS_ORGANIZATION_ANALYSIS.md)** - Historical structure review
-- **🗂️ [Archive Structure Fix](ARCHIVE_STRUCTURE_FIX.md)** - Archive reorganization notes
-- **📚 [Centralized Docs Structure](CENTRALIZED_DOCS_STRUCTURE.md)** - Central docs layout history
 - **✅ [Documentation Compliance Audit](DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Current remediation checklist
 
 ---
@@ -28,7 +24,6 @@
 This directory contains the meta-documentation for the AITBC docs system:
 
 - standards for writing and organizing documentation
-- structural analyses and remediation notes
 - documentation quality and navigation guidance
 - compliance checks that keep the tree from drifting
 
@@ -42,6 +37,6 @@ This directory contains the meta-documentation for the AITBC docs system:
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-05-30*
+*Version: 2.0*
 *Status: Meta-documentation hub*
