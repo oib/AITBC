@@ -154,8 +154,11 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent create
   --verification full
 ```
 
-### Cross-Node Communication Test
+### Cross-Node Communication
 
+For detailed agent messaging instructions, see [Agent Messaging Guide](./agent-messaging.md).
+
+Quick reference:
 ```bash
 # Send test message to hub
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
