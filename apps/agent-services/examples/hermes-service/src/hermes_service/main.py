@@ -43,7 +43,6 @@ async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
     
     logger.info(f"Received message from {sender}: {content} (ID: {msg_id})")
     logger.info(f"HERMES_AGENT_ID: {HERMES_AGENT_ID}, COORDINATOR_URL: {COORDINATOR_URL}")
-    logger.info(f"Content upper: {content.upper()}, PING in content: {'PING' in content.upper()}")
     
     # Check for PING and respond with PONG
     if "PING" in content.upper():
@@ -68,6 +67,31 @@ async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
                 return {"status": "error", "error": response.text}
         except Exception as e:
             logger.error(f"Error sending PONG: {e}")
+            return {"status": "error", "error": str(e)}
+    
+    # Check for REQUEST_COINS
+    if "REQUEST_COINS" in content.upper() or "request coins" in content.lower():
+        logger.info(f"REQUEST_COINS detected from {sender}")
+        try:
+            response = requests.post(
+                f"{COORDINATOR_URL}/v1/hermes/messages/send",
+                json={
+                    "sender": HERMES_AGENT_ID,
+                    "recipient": sender,
+                    "content": f"Coin request received from {sender}. Request pending approval.",
+                    "message_type": "direct"
+                },
+                timeout=10
+            )
+            logger.info(f"Coin request response status: {response.status_code}, body: {response.text}")
+            if response.status_code == 200:
+                logger.info(f"Coin request acknowledgment sent to {sender}")
+                return {"status": "coin_request_received", "recipient": sender}
+            else:
+                logger.error(f"Failed to send coin request acknowledgment: {response.text}")
+                return {"status": "error", "error": response.text}
+        except Exception as e:
+            logger.error(f"Error sending coin request acknowledgment: {e}")
             return {"status": "error", "error": str(e)}
     
     return {"status": "received", "message_id": msg_id}
