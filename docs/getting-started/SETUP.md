@@ -1,121 +1,31 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-05-30
 
-> **Important:** This document describes the setup process. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document is the main index for AITBC setup and onboarding. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
-## Quick Setup (New Host)
+## Quick Setup
 
-The main setup script lives at `scripts/deployment/setup.sh`.
+The fastest way to install AITBC on a new host:
 
-Run this single command on any new host to install AITBC:
+- **[Quick Start](quick-start.md)** - One-command installation and manual setup
+- **[Prerequisites](prerequisites.md)** - System and software requirements
+- **[Requirements Management](requirements-management.md)** - Dependency installation profiles
 
-```bash
-bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deployment/setup.sh)
-```
+## Node Onboarding
 
-Or clone and run manually:
+For joining the AITBC island as a follower node:
 
-```bash
-git clone https://github.com/oib/aitbc.git /opt/aitbc
-cd /opt/aitbc
-chmod +x scripts/deployment/setup.sh
-./scripts/deployment/setup.sh
-```
+- **[Blockchain Setup](blockchain-setup.md)** - Configure blockchain node and genesis block
+- **[Hermes Messaging](hermes-messaging.md)** - Set up PING/PONG messaging
+- **[Coin Requests](coin-requests.md)** - Request free coins from hub
+- **[Wallet Setup](wallet-setup.md)** - Create and manage wallets
 
-**Note:** GitHub is the public repository. For internal development, use the Gitea repository instead.
+## Reference
 
-## What `scripts/deployment/setup.sh` Does
-
-1. **Prerequisites Check**
-   - Verifies Python 3.13.5+, pip3, git, systemd
-   - Checks for root privileges
-
-2. **Repository Setup**
-   - Clones AITBC repository to `/opt/aitbc`
-   - Handles multiple repository URLs for reliability
-
-3. **Virtual Environments**
-   - Creates Python venvs for each service
-   - Installs dependencies from central requirements system
-   - Uses profile-based installation via `install-profiles.sh`
-
-## Requirements Management
-
-AITBC uses a centralized three-tier requirements management system:
-
-### Tier 1: Core Production Dependencies (`requirements.txt`)
-Essential dependencies for all AITBC services in production:
-- Web framework (FastAPI, uvicorn, gunicorn)
-- Data validation (pydantic)
-- Database (SQLAlchemy, SQLModel, Alembic, aiosqlite, asyncpg)
-- Blockchain & cryptography (cryptography, web3, eth-account)
-- Common utilities (python-dotenv, requests, pyyaml)
-- Caching (redis)
-- Monitoring & logging (structlog, prometheus-client)
-
-### Tier 2: Development Dependencies (`requirements-dev.txt`)
-Development tools, testing frameworks, and code quality utilities:
-- Testing (pytest, pytest-asyncio, pytest-mock, pytest-cov, httpx)
-- Code quality (black, flake8, mypy, pre-commit, ruff)
-- CLI tools (click, rich, typer, tabulate, keyring)
-- Development utilities (tqdm, ipython)
-
-### Tier 3: Optional Modules (`requirements-optional/`)
-Specialized dependency sets for specific use cases:
-- `ai-ml.txt` - AI/ML and translation (torch, transformers, openai, spacy, nltk)
-- `security.txt` - Security and compliance (python-jose, passlib, sentry-sdk)
-- `testing.txt` - Testing and quality (references requirements-dev.txt)
-
-### Installation Profiles
-
-Use the installation profile script for dependency management:
-
-```bash
-# Install core production dependencies
-./scripts/deployment/install-profiles.sh core
-
-# Install development dependencies
-./scripts/deployment/install-profiles.sh dev
-
-# Install all optional modules
-./scripts/deployment/install-profiles.sh optional
-
-# Install specific optional module
-./scripts/deployment/install-profiles.sh ai-ml
-./scripts/deployment/install-profiles.sh security
-./scripts/deployment/install-profiles.sh testing
-
-# Install everything (core + dev + optional)
-./scripts/deployment/install-profiles.sh all
-```
-
-For detailed requirements documentation, see [Requirements Management](../development/REQUIREMENTS.md).
-
-4. **Runtime Directories**
-   - Creates standard Linux directories:
-     - `/var/lib/aitbc/keystore/` - Blockchain keys
-     - `/var/lib/aitbc/data/` - Database files  
-     - `/var/lib/aitbc/logs/` - Application logs
-     - `/etc/aitbc/` - Configuration files
-   - Sets proper permissions and ownership
-
-5. **PostgreSQL Databases**
-   - Installs PostgreSQL if not present
-   - Creates databases: aitbc_coordinator, aitbc_exchange, aitbc_wallet, aitbc_marketplace, aitbc_governance, aitbc_trading, aitbc_gpu, aitbc_ai, aitbc_mempool
-   - Creates dedicated users for each database
-   - Grants necessary privileges
-   - Uses centralized script: `/opt/aitbc/scripts/deployment/setup_postgresql_databases.sh`
-
-6. **Systemd Services**
-   - Installs service files to `/etc/systemd/system/`
-   - Enables auto-start on boot
-   - Provides fallback manual startup
-
-7. **Service Management**
-   - Creates `/opt/aitbc/start-services.sh` for manual control
-   - Uses `/opt/aitbc/scripts/monitoring/health_check.sh` for monitoring
-   - Sets up logging to `/var/log/aitbc-*.log`
+- **[Network Requirements](network-requirements.md)** - Firewall and port configuration
+- **[Troubleshooting](troubleshooting.md)** - Common issues and debugging
+- **[Security Notes](security-notes.md)** - Security best practices
 
 ## Runtime Directories
 
