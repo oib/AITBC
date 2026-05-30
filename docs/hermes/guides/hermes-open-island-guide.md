@@ -104,11 +104,11 @@ HUB_AGENT_ID=$(NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/ait
 ### Send Message to Hub Agent
 
 ```bash
-# Send registration message to hub
+# Send message to hub agent
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
-  --to $HUB_AGENT_ID \
-  --content "{\"cmd\":\"REGISTER\",\"node\":\"$(hostname)\",\"agent_id\":\"$AGENT_ID\"}" \
-  --verbose
+  --agent $HUB_AGENT_ID \
+  --message '{"cmd":"REGISTER","node":"'"$(hostname)"'","agent_id":"'"$AGENT_ID"'"}' \
+  --wallet hermes-agent
 ```
 
 ### Receive and Process Messages
@@ -116,8 +116,7 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
 ```bash
 # Check messages via AITBC CLI
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messages \
-  --from hub-coordinator \
-  --output json
+  --agent $AGENT_ID
 
 # Note: hermes CLI does not have a 'listen' command
 # Use AITBC CLI for message retrieval or implement custom polling
@@ -168,8 +167,9 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
 ```bash
 # Send ping to hub
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
-  --to $HUB_AGENT_ID \
-  --content "{\"cmd\":\"PING\",\"timestamp\":\"$(date -Iseconds)\"}"
+  --agent $HUB_AGENT_ID \
+  --message '{"cmd":"PING","timestamp":"'"$(date -Iseconds)"'"}' \
+  --wallet hermes-agent
 
 # Wait for pong response (monitor via AITBC CLI message polling)
 # Expected: Pong message from hub within 10 seconds

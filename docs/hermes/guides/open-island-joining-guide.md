@@ -159,9 +159,9 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent create
 ```bash
 # Send test message to hub
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
-  --to hub.aitbc.bubuit.net \
-  --content '{"cmd":"TEST_JOIN","node":"test-node"}' \
-  --verbose
+  --agent hub-coordinator \
+  --message '{"cmd":"TEST_JOIN","node":"test-node"}' \
+  --wallet hermes-agent
 ```
 
 ## Advanced Setup with hermes Scripts
