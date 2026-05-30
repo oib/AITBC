@@ -89,37 +89,22 @@ echo "Agent ID: $AGENT_ID"
 
 ## Cross-Node Communication
 
-### Discover Other Agents on Island
+For detailed agent messaging instructions, see [Agent Messaging Guide](./agent-messaging.md).
 
+Quick reference:
 ```bash
-# List all agents on the open island
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
-  --output json
+# Discover agents
+NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list --output json
 
-# Find hub coordinator agent
-HUB_AGENT_ID=$(NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
-  --output json | jq -r ".[] | select(.name==\"hub-coordinator\") | .id")
-```
-
-### Send Message to Hub Agent
-
-```bash
-# Send message to hub agent
+# Send message
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
-  --agent $HUB_AGENT_ID \
-  --message '{"cmd":"REGISTER","node":"'"$(hostname)"'","agent_id":"'"$AGENT_ID"'"}' \
+  --agent <TARGET_AGENT_ID> \
+  --message '{"cmd":"PING"}' \
   --wallet hermes-agent
-```
 
-### Receive and Process Messages
-
-```bash
-# Check messages via AITBC CLI
+# Receive messages
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messages \
-  --agent $AGENT_ID
-
-# Note: hermes CLI does not have a 'listen' command
-# Use AITBC CLI for message retrieval or implement custom polling
+  --agent <YOUR_AGENT_ID>
 ```
 
 ## hermes Workflow Integration
@@ -164,6 +149,9 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
 
 ### Test 2: Cross-Node Messaging
 
+For detailed messaging examples, see [Agent Messaging Guide](./agent-messaging.md).
+
+Quick test:
 ```bash
 # Send ping to hub
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
@@ -171,8 +159,9 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
   --message '{"cmd":"PING","timestamp":"'"$(date -Iseconds)"'"}' \
   --wallet hermes-agent
 
-# Wait for pong response (monitor via AITBC CLI message polling)
-# Expected: Pong message from hub within 10 seconds
+# Check for response
+NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messages \
+  --agent $AGENT_ID
 ```
 
 ### Test 3: Blockchain Operations
