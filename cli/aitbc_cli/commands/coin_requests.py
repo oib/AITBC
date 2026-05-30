@@ -5,12 +5,23 @@ from datetime import datetime
 import sys
 import os
 import requests
+import json
 
 # Add path to import Hermes storage
 sys.path.insert(0, "/opt/aitbc/apps/agent-services/examples/hermes-service/src")
 
 from hermes_service.storage import get_db_session, CoinRequest, CoinRequestStatus, init_db
 from hermes_service.services import TransactionService
+
+# Load environment variables from node.env
+node_env_path = "/etc/aitbc/node.env"
+if os.path.exists(node_env_path):
+    with open(node_env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ[key.strip()] = value.strip()
 
 
 def send_hermes_notification(recipient: str, content: str):
