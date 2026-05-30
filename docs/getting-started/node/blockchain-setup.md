@@ -2,12 +2,61 @@
 
 This guide covers configuring the AITBC blockchain node for follower nodes on the island.
 
+## Quick Start (10 minutes)
+
+For a faster setup using the CLI:
+
+```bash
+cd /opt/aitbc
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+
+aitbc-chain init --name my-node --network ait-devnet
+```
+
+Edit `~/.aitbc/chain.yaml`:
+```yaml
+node:
+  name: my-node
+  data_dir: ./data
+rpc:
+  bind_host: 0.0.0.0
+  bind_port: 8006
+p2p:
+  bind_port: 7070
+  bootstrap_nodes:
+    - /dns4/node-1.aitbc.com/tcp/7070/p2p/...
+```
+
+```bash
+aitbc-chain start
+aitbc-chain status
+curl http://localhost:8006/rpc/health
+```
+
 ## Prerequisites
 
 - Ubuntu Linux system
 - Python 3.13+
 - Network access to hub.aitbc.bubuit.net
 - AITBC codebase installed
+
+**Hardware Requirements:**
+
+AITBC runs from small VPS up, depending on your goal:
+
+| Use Case | CPU | RAM | Storage | Network | GPU |
+|----------|-----|-----|---------|---------|-----|
+| **Hub Node (run island)** | 2 cores | 2 GB | 50 GB SSD | 50 Mbps | Not required |
+| **Follower Node** | 2 cores | 2 GB | 50 GB SSD | 50 Mbps | Not required |
+| **With Hermes + Ollama (cloud AI)** | 4 cores | 4 GB | 100 GB SSD | 100 Mbps | Not required |
+| **Earning Coins (mining)** | 8+ cores | 16+ GB | 500 GB SSD | 1 Gbps | GPU with 16GB+ VRAM (minimum) |
+| **Production Hub** | 8+ cores | 16+ GB | 1 TB SSD | 1 Gbps | Optional |
+
+**Notes:**
+- For Hermes and Ollama, consider using cloud AI models to reduce local hardware requirements
+- For earning coins, GPU with 16GB+ VRAM is minimum to load AI models
+- Hub nodes can run on minimal hardware for basic island operation
 
 ## 1. Install AITBC Blockchain Node
 
@@ -147,6 +196,6 @@ curl -s http://localhost:8006/rpc/blocks/0
 
 ## See Also
 
-- [Hermes Messaging Setup](hermes-messaging.md)
-- [Troubleshooting](troubleshooting.md)
-- [Network Requirements](network-requirements.md)
+- [Hermes Messaging](hermes-messaging.md)
+- [Configuration Guide](configuration-guide.md)
+- [Troubleshooting](../reference/troubleshooting.md)

@@ -2,78 +2,55 @@
 
 **Last Updated:** 2026-05-30
 
-> **Important:** This document is the main index for AITBC setup and onboarding. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+Quick reference guide for AITBC setup and onboarding.
 
-## Quick Setup
+## 5-Minute Quick Start
 
-The fastest way to install AITBC on a new host:
+```bash
+# One-command installation
+bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deployment/setup.sh)
 
-- **[Quick Start](quick-start.md)** - One-command installation and manual setup
-- **[Prerequisites](prerequisites.md)** - System and software requirements
-- **[Requirements Management](requirements-management.md)** - Dependency installation profiles
-- **[Installation](installation.md)** - Monorepo installation and verification
-- **[CLI Guide](cli-guide.md)** - Complete CLI setup and usage
-
-## Platform Overview
-
-- **[Introduction](introduction.md)** - What is AITBC and key components
-- **[Enhanced Services](enhanced-services.md)** - Enhanced services implementation guide
-
-## Node Onboarding
-
-For joining the AITBC island as a follower node:
-
-- **[Blockchain Setup](blockchain-setup.md)** - Configure blockchain node and genesis block
-- **[Blockchain Node Quick Start](blockchain-node-quick-start.md)** - Quick blockchain node setup
-- **[Hermes Messaging](hermes-messaging.md)** - Set up PING/PONG messaging
-- **[Coin Requests](coin-requests.md)** - Request free coins from hub
-- **[Wallet Setup](wallet-setup.md)** - Create and manage wallets
-
-## Mining
-
-- **[Miner Quick Start](miner-quick-start.md)** - Register GPU and start earning tokens
-
-## Reference
-
-- **[Network Requirements](network-requirements.md)** - Firewall and port configuration
-- **[Troubleshooting](troubleshooting.md)** - Common issues and debugging
-- **[Security Notes](security-notes.md)** - Security best practices
-
-## Runtime Directories
-
-AITBC uses standard Linux system directories for runtime data:
-
-```
-/var/lib/aitbc/
-├── keystore/     # Blockchain private keys (700 permissions)
-├── data/         # Database files (.db, .sqlite)
-└── logs/         # Application logs
-
-/etc/aitbc/       # Configuration files
-/var/log/aitbc/   # System logging
+# Or manual installation
+git clone https://github.com/oib/aitbc.git /opt/aitbc
+cd /opt/aitbc
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Security Notes
-- **Keystore**: Restricted to root/aitbc user only
-- **Data**: Writable by services, readable by admin
-- **Logs**: Rotated automatically by logrotate
+## Essential Links
 
-## Service Endpoints
+### Installation
+- [Prerequisites](installation/prerequisites.md) - System and software requirements
+- [Quick Start](installation/quick-start.md) - One-command installation
+- [Installation](installation/installation.md) - Monorepo installation
+- [Requirements Management](installation/requirements-management.md) - Dependency profiles
 
-For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+### Node Onboarding
+- [Blockchain Setup](node/blockchain-setup.md) - Configure blockchain node
+- [Hermes Messaging](node/hermes-messaging.md) - PING/PONG messaging
+- [Coin Requests](node/coin-requests.md) - Request free coins from hub
+- [Configuration Guide](node/configuration-guide.md) - Configuration files
 
-**Quick Reference:**
-| Service | Port | Health Endpoint |
-|---------|------|----------------|
-| Wallet API | 8015 | `http://localhost:8015/health` |
-| Exchange API | 8010 | `http://localhost:8010/health` |
-| Coordinator API | 8011 | `http://localhost:8011/health` |
-| Blockchain RPC | 8006 | `http://localhost:8006/health` |
-| Marketplace | 8102 | `http://localhost:8102/health` |
+### Mining
+- [Miner Quick Start](mining/miner-quick-start.md) - Register GPU and earn tokens
 
-**Note:** Port configurations are defined in service wrapper scripts and application main.py files. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for complete details and source references.
+### Platform Overview
+- [Introduction](overview/introduction.md) - What is AITBC
+- [CLI Guide](overview/cli-guide.md) - CLI setup and usage
+- [Enhanced Services](overview/enhanced-services.md) - Enhanced services guide
 
-## Management Commands
+### Reference
+- [Service Endpoints](reference/service-endpoints.md) - Port configuration
+- [Management Commands](reference/management-commands.md) - Service control
+- [Troubleshooting](reference/troubleshooting.md) - Common issues
+- [Security Notes](reference/security-notes.md) - Security best practices
+- [Production Deployment](reference/production-deployment.md) - Production checklist
+
+### Open Island
+- [Open Island Testing](open-island.md) - Join hub.aitbc.bubuit.net
+
+## Common Commands
 
 ```bash
 # Check service health
@@ -82,162 +59,39 @@ For authoritative port configuration, see [Service Ports Reference](../reference
 # Restart all services
 /opt/aitbc/start-services.sh
 
-# View logs (new standard locations)
-tail -f /var/lib/aitbc/logs/aitbc-wallet.log
-tail -f /var/lib/aitbc/logs/aitbc-coordinator.log
-tail -f /var/lib/aitbc/logs/aitbc-exchange.log
-
-# Check keystore
-ls -la /var/lib/aitbc/keystore/
+# View logs
+tail -f /var/lib/aitbc/logs/aitbc-*.log
 
 # Systemd control
-systemctl status aitbc-wallet
+systemctl status aitbc-blockchain-node
 systemctl restart aitbc-coordinator-api
-systemctl stop aitbc-exchange-api
 ```
-
-## Troubleshooting
-
-### Services Not Starting
-1. Check logs: `tail -f /var/lib/aitbc/logs/aitbc-*.log`
-2. Verify ports: `netstat -tlnp | grep ':800'`
-3. Check processes: `ps aux | grep python`
-4. Verify runtime directories: `ls -la /var/lib/aitbc/`
-
-### Missing Dependencies
-If services report missing dependencies, use the installation profile script:
-
-```bash
-# Install core dependencies
-./scripts/deployment/install-profiles.sh core
-
-# Install development dependencies
-./scripts/deployment/install-profiles.sh dev
-
-# Install optional modules if needed
-./scripts/deployment/install-profiles.sh ai-ml
-./scripts/deployment/install-profiles.sh security
-./scripts/deployment/install-profiles.sh testing
-
-# Install everything
-./scripts/deployment/install-profiles.sh all
-```
-
-For detailed requirements documentation, see [Requirements Management](../development/REQUIREMENTS.md).
-
-### Port Conflicts
-Services use these default ports. If conflicts exist:
-1. Kill conflicting processes: `kill <pid>`
-2. Modify service files to use different ports
-3. Restart services
 
 ## Development Mode
 
-For development with manual control:
-
 ```bash
-cd /opt/aitbc/apps/wallet
-source .venv/bin/activate
-python simple_daemon.py
-
-cd /opt/aitbc/apps/exchange
-source .venv/bin/activate
-python simple_exchange_api.py
-
 cd /opt/aitbc/apps/coordinator-api/src
 source ../.venv/bin/activate
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
 ```
 
-## Configuration Files
+## Runtime Directories
 
-AITBC uses two main configuration files located in `/etc/aitbc/`:
+```
+/var/lib/aitbc/
+├── keystore/     # Blockchain private keys
+├── data/         # Database files
+└── logs/         # Application logs
 
-### /etc/aitbc/blockchain.env
-Contains blockchain-specific environment variables:
-- Chain ID and network configuration
-- RPC and P2P binding settings
-- Database and Redis connections
-- Block production settings
-- Gossip and sync configuration
-
-### /etc/aitbc/node.env
-Contains node-specific environment variables:
-- Node ID and island ID
-- Node role (genesis/follower)
-- P2P port configuration
-- Node-specific settings
-
-**Note**: AITBC does NOT use `/etc/aitbc/.env`. All configuration should be in `blockchain.env` and `node.env`.
-
-### Configuration Examples
-
-Pre-configured example files are available in `/opt/aitbc/examples/` for quick setup:
-
-- **[Examples README](../../examples/README.md)** - Complete guide to all configuration examples
-- **[blockchain.env.open-island](../../examples/blockchain.env.open-island)** - Pre-configured for hub.aitbc.bubuit.net open island
-- **[node.env.open-island](../../examples/node.env.open-island)** - Node-specific configuration for open island
-- **[blockchain.env.example](../../examples/blockchain.env.example)** - General blockchain configuration template
-- **[node.env.example](../../examples/node.env.example)** - General node configuration template
-
-**Quick Setup for Open Island:**
-```bash
-cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
-cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
+/etc/aitbc/       # Configuration files
 ```
 
-## Production Considerations
+## Scenarios
 
-For production deployment:
-1. Configure `/etc/aitbc/blockchain.env` with proper environment variables
-2. Configure `/etc/aitbc/node.env` with node-specific settings
-3. Set up reverse proxy (nginx)
-4. Configure SSL certificates manually outside `scripts/deployment/setup.sh`
-5. Set up log rotation
-6. Configure monitoring and alerts
-7. Use proper database setup (PostgreSQL/Redis)
+For comprehensive AITBC capabilities and use cases, see [Scenarios Documentation](../scenarios/).
 
-## Hermes Skills Integration
+## See Also
 
-AITBC includes documentation skills for Hermes agents. These skills enable automated operations and can be imported by Hermes agents to perform tasks. For internal deployment with Hermes agent integration, see the internal documentation.
-
-## Open Island Testing
-
-AITBC provides an open test island for software testing and agent coordination:
-
-- **[Open Island Joining Guide](../hermes/guides/open-island-joining-guide.md)** - Complete guide for joining the hub.aitbc.bubuit.net open island:
-  - Quick start setup for new nodes
-  - P2P and RPC connectivity to the hub
-  - hermes agent registration and cross-node communication
-  - Blockchain synchronization with the open island
-  - Troubleshooting and security guidelines
-
-- **[hermes Agent Guide for Open Island](../hermes/guides/hermes-open-island-guide.md)** - hermes-specific instructions for agents joining the open island:
-  - hermes agent initialization and configuration
-  - Agent wallet creation and registration
-  - Cross-node communication patterns
-  - hermes workflow integration
-  - Testing procedures and best practices
-
-The open island allows any agent to test AITBC software functionality without authentication requirements.
-
-## AITBC Software Capabilities (Scenarios)
-
-AITBC provides comprehensive scenario documentation that demonstrates the full range of software capabilities and use cases. These scenarios help hermes agents and developers understand what AITBC is built for and how to use it effectively.
-
-- **[Scenarios Documentation](../scenarios/)** - Complete library of AITBC software scenarios:
-  - [Scenarios README](../scenarios/README.md) - Overview of all available scenarios and how to use them
-  - [Validation Guide](../scenarios/VALIDATION.md) - Standardized testing procedures for scenario validation
-  - [Validation Guide (Detailed)](../scenarios/VALIDATION_GUIDE.md) - Comprehensive validation with multi-node testing
-  - [Troubleshooting Guide](../scenarios/TROUBLESHOOTING_GUIDE.md) - Common issues and solutions for scenario execution
-
-**Core Capabilities Covered:**
-- **Blockchain Operations** (scenarios 01-05): Wallet basics, transactions, genesis deployment, messaging, island creation
-- **Trading & Marketplace** (scenarios 06-10): Basic trading, AI job submission, marketplace bidding, GPU listing, plugin development
-- **Database & Infrastructure** (scenarios 11-13): IPFS storage, database operations, mining setup
-- **Staking & Governance** (scenarios 14-18): Staking basics, blockchain monitoring, agent registration, governance voting, analytics
-- **Security & Cross-Chain** (scenarios 19-20): Security setup, cross-chain transfers
-- **Advanced Agents** (scenarios 21-40): Compute provider, AI training, data oracle, swarm coordinator, marketplace arbitrage, staking validator, cross-chain trader, monitoring agent, plugin marketplace, database service, federation bridge, AI power advertiser, multi-chain validator, compliance agent, edge compute, autonomous compute provider, distributed AI training, cross-chain market maker, federated learning coordinator, enterprise AI agent
-- **Advanced Features** (scenarios 41-47): Bounty system, portfolio management, knowledge graph market, dispute resolution, zero-knowledge proofs, multi-chain island architecture, cross-chain atomic swap
-
-These scenarios are located in `docs/scenarios/` and provide practical examples of AITBC's capabilities for both automated agent operations and human understanding of the system's purpose.
+- [README](../README.md) - Main documentation index
+- [Deployment](../deployment/) - Production deployment guides
+- [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration
