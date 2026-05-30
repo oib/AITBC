@@ -11,15 +11,27 @@ The fastest way to install AITBC on a new host:
 - **[Quick Start](quick-start.md)** - One-command installation and manual setup
 - **[Prerequisites](prerequisites.md)** - System and software requirements
 - **[Requirements Management](requirements-management.md)** - Dependency installation profiles
+- **[Installation](installation.md)** - Monorepo installation and verification
+- **[CLI Guide](cli-guide.md)** - Complete CLI setup and usage
+
+## Platform Overview
+
+- **[Introduction](introduction.md)** - What is AITBC and key components
+- **[Enhanced Services](enhanced-services.md)** - Enhanced services implementation guide
 
 ## Node Onboarding
 
 For joining the AITBC island as a follower node:
 
 - **[Blockchain Setup](blockchain-setup.md)** - Configure blockchain node and genesis block
+- **[Blockchain Node Quick Start](blockchain-node-quick-start.md)** - Quick blockchain node setup
 - **[Hermes Messaging](hermes-messaging.md)** - Set up PING/PONG messaging
 - **[Coin Requests](coin-requests.md)** - Request free coins from hub
 - **[Wallet Setup](wallet-setup.md)** - Create and manage wallets
+
+## Mining
+
+- **[Miner Quick Start](miner-quick-start.md)** - Register GPU and start earning tokens
 
 ## Reference
 

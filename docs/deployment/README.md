@@ -19,9 +19,12 @@ This directory contains production deployment guides and procedures for the AITB
 
 - [SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md) - Smart contract deployment procedures
 - [5_marketplace-deployment.md](5_marketplace-deployment.md) - Marketplace deployment guide
+- [debian-miner-installation.md](debian-miner-installation.md) - Debian-specific miner installation
+- [mobile-wallet-miner.md](mobile-wallet-miner.md) - Mobile wallet miner setup
 
 ## See Also
 
 - [Getting Started](../getting-started/SETUP.md) - Initial setup and onboarding
+- [Prerequisites](../getting-started/prerequisites.md) - System and software requirements
 - [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration reference
 - [Security Best Practices](../security/) - Security guidelines for deployment
