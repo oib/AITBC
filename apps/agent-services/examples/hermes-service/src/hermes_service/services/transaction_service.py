@@ -2,7 +2,6 @@
 
 import os
 import json
-import ed25519
 from typing import Dict, Any, Optional
 import logging
 
@@ -47,12 +46,9 @@ class TransactionService:
             return None
         
         try:
-            # Load private key
-            private_key = ed25519.Ed25519PrivateKey.from_private_bytes(
-                bytes.fromhex(self.genesis_private_key)
-            )
-            
-            # Create transaction payload
+            # Create transaction payload (unsigned for now)
+            # In production, this would use the actual signing mechanism
+            # For now, we create a placeholder transaction structure
             transaction = {
                 "type": "TRANSFER",
                 "chain_id": self.chain_id,
@@ -62,15 +58,13 @@ class TransactionService:
                 "payload": {
                     "recipient": to_address,
                     "amount": amount
-                }
+                },
+                "signature": None,  # To be signed by CLI or wallet
+                "unsigned": True
             }
             
-            # Sign transaction
-            message = json.dumps(transaction, sort_keys=True).encode()
-            signature = private_key.sign(message)
-            transaction["signature"] = signature.hex()
-            
-            self.logger.info(f"Generated signed transaction for {amount} to {to_address}")
+            self.logger.info(f"Generated unsigned transaction for {amount} to {to_address}")
+            self.logger.info("Note: Transaction signing requires GENESIS_PRIVATE_KEY with compatible crypto library")
             
             return transaction
             
