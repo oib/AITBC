@@ -26,13 +26,15 @@ class HermesPollingDaemon:
         coordinator_url: str,
         agent_id: str,
         poll_interval: int,
-        log_level: str
+        log_level: str,
+        hermes_service_url: str = "http://localhost:8014"
     ):
         self.coordinator_url = coordinator_url.rstrip("/")
         self.agent_id = agent_id
         self.poll_interval = poll_interval
         self.processed_messages: Set[str] = set()
         self.message_handlers: Dict[str, Callable] = {}
+        self.hermes_service_url = hermes_service_url.rstrip("/")
         self.running = True
 
         # Setup logging
@@ -47,17 +49,8 @@ class HermesPollingDaemon:
 
     def _register_default_handlers(self):
         """Register built-in message handlers"""
-        self.message_handlers["PING"] = self._handle_ping
-        self.message_handlers["ping"] = self._handle_ping
-
-    def _handle_ping(self, message: dict):
-        """Handle PING messages by sending PONG"""
-        self.logger.info(f"Received PING from {message['sender']}, sending PONG")
-        self.send_message(
-            sender=self.agent_id,
-            recipient=message["sender"],
-            content=f"PONG from {self.agent_id}"
-        )
+        # No automatic handlers - let Hermes handle all messages
+        pass
 
     def register_handler(self, trigger: str, handler: Callable):
         """Register a custom message handler"""
@@ -103,19 +96,25 @@ class HermesPollingDaemon:
             return []
 
     def process_message(self, message: dict):
-        """Process a single message"""
+        """Process a single message by forwarding to Hermes service"""
         content = message.get("content", "")
         sender = message.get("sender", "unknown")
 
-        self.logger.info(f"Processing message from {sender}: {content}")
+        self.logger.info(f"Forwarding message from {sender} to Hermes service: {content}")
 
-        # Check for registered handlers
-        for trigger, handler in self.message_handlers.items():
-            if trigger in content:
-                try:
-                    handler(message)
-                except Exception as e:
-                    self.logger.error(f"Handler error for trigger '{trigger}': {e}")
+        # Forward message to Hermes service
+        try:
+            response = requests.post(
+                f"{self.hermes_service_url}/message",
+                json=message,
+                timeout=10
+            )
+            if response.status_code == 200:
+                self.logger.info(f"Message forwarded successfully to Hermes service")
+            else:
+                self.logger.error(f"Failed to forward message to Hermes service: {response.text}")
+        except requests.RequestException as e:
+            self.logger.error(f"Network error forwarding to Hermes service: {e}")
 
     def run(self):
         """Main polling loop"""
@@ -174,6 +173,11 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help=f"Logging level (default: {DEFAULT_LOG_LEVEL})"
     )
+    parser.add_argument(
+        "--hermes-service-url",
+        default="http://localhost:8014",
+        help="Hermes service URL for message forwarding (default: http://localhost:8014)"
+    )
 
     args = parser.parse_args()
 
@@ -182,7 +186,8 @@ def main():
         coordinator_url=args.coordinator_url,
         agent_id=args.agent_id,
         poll_interval=args.poll_interval,
-        log_level=args.log_level
+        log_level=args.log_level,
+        hermes_service_url=args.hermes_service_url
     )
 
     daemon.run()
