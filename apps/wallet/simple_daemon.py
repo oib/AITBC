@@ -22,7 +22,7 @@ from aitbc.constants import KEYSTORE_DIR
 sys.path.insert(0, '/opt/aitbc/cli')
 
 # Create FastAPI app
-app = FastAPI(title="AITBC Wallet Daemon", debug=False)
+wallet_app = FastAPI(title="AITBC Wallet Daemon", debug=False)
 
 # Configuration
 KEYSTORE_PATH = KEYSTORE_DIR
@@ -48,7 +48,7 @@ chains_data = {
     "active_chains": 1
 }
 
-@app.get("/health")
+@wallet_app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return JSONResponse({
@@ -101,7 +101,7 @@ async def get_blockchain_balance(address: str) -> int:
         pass
     return 0
 
-@app.get("/v1/chains")
+@wallet_app.get("/v1/chains")
 async def list_chains():
     """List all blockchain chains"""
     # Update wallet count dynamically
@@ -109,12 +109,12 @@ async def list_chains():
     chains_data["chains"][0]["updated_at"] = datetime.now().isoformat()
     return JSONResponse(chains_data)
 
-@app.post("/v1/chains")
+@wallet_app.post("/v1/chains")
 async def create_chain():
     """Create a new blockchain chain"""
     raise HTTPException(status_code=501, detail="Chain creation not implemented")
 
-@app.get("/v1/chains/{chain_id}/wallets/{wallet_id}/balance")
+@wallet_app.get("/v1/chains/{chain_id}/wallets/{wallet_id}/balance")
 async def get_wallet_balance(chain_id: str, wallet_id: str):
     """Get wallet balance for a specific chain"""
     # Find wallet in keystore
@@ -138,7 +138,7 @@ async def get_wallet_balance(chain_id: str, wallet_id: str):
         "mode": "daemon"
     })
 
-@app.get("/v1/chains/{chain_id}/wallets")
+@wallet_app.get("/v1/chains/{chain_id}/wallets")
 async def list_chain_wallets(chain_id: str):
     """List wallets for a specific chain"""
     wallets = get_wallet_list()
@@ -161,7 +161,7 @@ async def list_chain_wallets(chain_id: str):
         "total": len(wallet_list)
     })
 
-@app.post("/v1/chains/{chain_id}/wallets")
+@wallet_app.post("/v1/chains/{chain_id}/wallets")
 async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
     """Create a wallet in a specific chain"""
     if request is None:
@@ -245,7 +245,7 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create wallet: {str(e)}")
 
-@app.get("/v1/chains/{chain_id}/wallets/{wallet_id}")
+@wallet_app.get("/v1/chains/{chain_id}/wallets/{wallet_id}")
 async def get_chain_wallet_info(chain_id: str, wallet_id: str):
     """Get wallet information from a specific chain"""
     wallets = get_wallet_list()
@@ -273,7 +273,7 @@ async def get_chain_wallet_info(chain_id: str, wallet_id: str):
     }
     return JSONResponse(wallet_data)
 
-@app.post("/v1/chains/{chain_id}/wallets/{wallet_id}/unlock")
+@wallet_app.post("/v1/chains/{chain_id}/wallets/{wallet_id}/unlock")
 async def unlock_chain_wallet(chain_id: str, wallet_id: str):
     """Unlock a wallet in a specific chain"""
     wallets = get_wallet_list()
@@ -289,7 +289,7 @@ async def unlock_chain_wallet(chain_id: str, wallet_id: str):
         "unlocked": True
     })
 
-@app.post("/v1/chains/{chain_id}/wallets/{wallet_id}/sign")
+@wallet_app.post("/v1/chains/{chain_id}/wallets/{wallet_id}/sign")
 async def sign_chain_message(chain_id: str, wallet_id: str):
     """Sign a message with a wallet in a specific chain"""
     wallets = get_wallet_list()
@@ -305,7 +305,7 @@ async def sign_chain_message(chain_id: str, wallet_id: str):
         "signature_base64": "dGVzdC1zaWduYXR1cmE="
     })
 
-@app.post("/v1/wallets/migrate")
+@wallet_app.post("/v1/wallets/migrate")
 async def migrate_wallet():
     """Migrate a wallet from one chain to another"""
     return JSONResponse({
@@ -326,13 +326,13 @@ async def migrate_wallet():
     })
 
 # Wallet endpoints
-@app.get("/v1/wallets")
+@wallet_app.get("/v1/wallets")
 async def list_wallets():
     """List all wallets"""
     wallets = get_wallet_list()
     return JSONResponse({"items": wallets, "total": len(wallets)})
 
-@app.post("/v1/wallets")
+@wallet_app.post("/v1/wallets")
 async def create_wallet(request: dict[str, Any] = None):
     """Create a wallet"""
     if request is None:
@@ -375,7 +375,7 @@ async def create_wallet(request: dict[str, Any] = None):
             "created_at": datetime.now().isoformat(), "mode": "daemon"
         })
 
-@app.post("/v1/wallets/{wallet_id}/unlock")
+@wallet_app.post("/v1/wallets/{wallet_id}/unlock")
 async def unlock_wallet(wallet_id: str):
     """Unlock a wallet"""
     wallets = get_wallet_list()
@@ -386,7 +386,7 @@ async def unlock_wallet(wallet_id: str):
     
     return JSONResponse({"wallet_id": wallet_id, "address": wallet["address"], "unlocked": True})
 
-@app.post("/v1/wallets/{wallet_id}/sign")
+@wallet_app.post("/v1/wallets/{wallet_id}/sign")
 async def sign_wallet(wallet_id: str):
     """Sign a message"""
     wallets = get_wallet_list()
@@ -411,4 +411,4 @@ if __name__ == "__main__":
     print("  POST /v1/wallets/{wallet_id}/unlock")
     print("  POST /v1/wallets/{wallet_id}/sign")
     
-    uvicorn.run(app, host="0.0.0.0", port=8003, log_level="info")  # nosec B104
+    uvicorn.run(wallet_app, host="0.0.0.0", port=8003, log_level="info")  # nosec B104
