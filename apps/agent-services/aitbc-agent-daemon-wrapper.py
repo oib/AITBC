@@ -33,6 +33,7 @@ processes = []
 # Spawn Hermes polling daemons if enabled
 if enable_hermes and hermes_agent_ids:
     hermes_daemon_script = f"{REPO_DIR}/apps/agent-coordinator/scripts/hermes_polling_daemon.py"
+    hermes_service_url = os.getenv("HERMES_SERVICE_URL", "http://localhost:8014")
     agent_ids = [aid.strip() for aid in hermes_agent_ids.split(",")]
     
     for agent_id in agent_ids:
@@ -42,7 +43,8 @@ if enable_hermes and hermes_agent_ids:
             "--coordinator-url", hermes_coordinator_url,
             "--agent-id", agent_id,
             "--poll-interval", "2",
-            "--log-level", "INFO"
+            "--log-level", "INFO",
+            "--hermes-service-url", hermes_service_url
         ]
         print(f"Starting Hermes polling daemon for agent: {agent_id}")
         proc = subprocess.Popen(cmd)

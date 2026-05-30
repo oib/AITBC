@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import logging
+import requests
 from typing import Any
 
 from fastapi import FastAPI
@@ -15,11 +16,51 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Coordinator URL for sending responses
+COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
+HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")
+
 
 @app.get("/health")
 async def health():
     """Health check endpoint."""
     return {"status": "healthy", "service": "hermes-service"}
+
+
+@app.post("/message")
+async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
+    """Receive message from polling daemon and process it."""
+    content = message.get("content", "")
+    sender = message.get("sender", "unknown")
+    msg_id = message.get("id", "unknown")
+    
+    logger.info(f"Received message from {sender}: {content} (ID: {msg_id})")
+    
+    # Check for PING and respond with PONG
+    if "PING" in content.upper():
+        logger.info(f"PING detected from {sender}, sending PONG")
+        try:
+            response = requests.post(
+                f"{COORDINATOR_URL}/v1/hermes/messages/send",
+                json={
+                    "sender": HERMES_AGENT_ID,
+                    "recipient": sender,
+                    "content": f"PONG from {HERMES_AGENT_ID}",
+                    "message_type": "direct"
+                },
+                timeout=10
+            )
+            if response.status_code == 200:
+                logger.info(f"PONG sent successfully to {sender}")
+                return {"status": "pong_sent", "recipient": sender}
+            else:
+                logger.error(f"Failed to send PONG: {response.text}")
+                return {"status": "error", "error": response.text}
+        except Exception as e:
+            logger.error(f"Error sending PONG: {e}")
+            return {"status": "error", "error": str(e)}
+    
+    return {"status": "received", "message_id": msg_id}
 
 
 @app.get("/")
