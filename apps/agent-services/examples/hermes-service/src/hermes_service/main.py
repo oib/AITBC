@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import os
 import logging
-import requests
 from typing import Any
 
 from fastapi import FastAPI
+from .handlers import HandlerRegistry
 
 # Configure logging to output to stdout (which systemd captures)
 logging.basicConfig(
@@ -27,6 +27,10 @@ app = FastAPI(
 COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
 HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")
 
+# Initialize handler registry
+handler_registry = HandlerRegistry(COORDINATOR_URL, HERMES_AGENT_ID)
+handler_registry.load_all_handlers()
+
 
 @app.get("/health")
 async def health():
@@ -36,65 +40,15 @@ async def health():
 
 @app.post("/message")
 async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
-    """Receive message from polling daemon and process it."""
+    """Receive message from polling daemon and process it via handler registry."""
     content = message.get("content", "")
     sender = message.get("sender", "unknown")
     msg_id = message.get("id", "unknown")
     
     logger.info(f"Received message from {sender}: {content} (ID: {msg_id})")
-    logger.info(f"HERMES_AGENT_ID: {HERMES_AGENT_ID}, COORDINATOR_URL: {COORDINATOR_URL}")
     
-    # Check for PING and respond with PONG
-    if "PING" in content.upper():
-        logger.info(f"PING detected from {sender}, sending PONG")
-        try:
-            response = requests.post(
-                f"{COORDINATOR_URL}/v1/hermes/messages/send",
-                json={
-                    "sender": HERMES_AGENT_ID,
-                    "recipient": sender,
-                    "content": f"PONG from {HERMES_AGENT_ID}",
-                    "message_type": "direct"
-                },
-                timeout=10
-            )
-            logger.info(f"PONG response status: {response.status_code}, body: {response.text}")
-            if response.status_code == 200:
-                logger.info(f"PONG sent successfully to {sender}")
-                return {"status": "pong_sent", "recipient": sender}
-            else:
-                logger.error(f"Failed to send PONG: {response.text}")
-                return {"status": "error", "error": response.text}
-        except Exception as e:
-            logger.error(f"Error sending PONG: {e}")
-            return {"status": "error", "error": str(e)}
-    
-    # Check for REQUEST_COINS
-    if "REQUEST_COINS" in content.upper() or "request coins" in content.lower():
-        logger.info(f"REQUEST_COINS detected from {sender}")
-        try:
-            response = requests.post(
-                f"{COORDINATOR_URL}/v1/hermes/messages/send",
-                json={
-                    "sender": HERMES_AGENT_ID,
-                    "recipient": sender,
-                    "content": f"Coin request received from {sender}. Request pending approval.",
-                    "message_type": "direct"
-                },
-                timeout=10
-            )
-            logger.info(f"Coin request response status: {response.status_code}, body: {response.text}")
-            if response.status_code == 200:
-                logger.info(f"Coin request acknowledgment sent to {sender}")
-                return {"status": "coin_request_received", "recipient": sender}
-            else:
-                logger.error(f"Failed to send coin request acknowledgment: {response.text}")
-                return {"status": "error", "error": response.text}
-        except Exception as e:
-            logger.error(f"Error sending coin request acknowledgment: {e}")
-            return {"status": "error", "error": str(e)}
-    
-    return {"status": "received", "message_id": msg_id}
+    # Process message through handler registry
+    return await handler_registry.process_message(message)
 
 
 @app.get("/")
