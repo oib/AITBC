@@ -34,7 +34,6 @@
 ├── 🔒 security/                   # Security documentation (34 items)
 ├── 🧪 testing/                    # Test suite documentation (10 items)
 ├── 🔧 troubleshooting/            # Troubleshooting guides (10 items)
-├── 🌐 website                     # Symlink to /website/docs/
 └── 🔄 workflows/                  # Documentation workflow outcomes (9 items)
 ```
 
@@ -42,7 +41,7 @@
 
 ## 📊 Directory Statistics
 
-- **Total Directories**: 22
+- **Total Directories**: 21
 - **Total Files**: 460+ markdown files
 - **Apps Documentation**: 72 items
 - **Release Notes**: 7 items (latest 5 releases retained)
