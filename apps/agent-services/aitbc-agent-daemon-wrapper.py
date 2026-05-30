@@ -54,7 +54,7 @@ chains_str = os.getenv("AGENT_DAEMON_CHAINS", "")
 if chains_str:
     chains = [c.strip() for c in chains_str.split(",")]
 else:
-    chains = [os.getenv("CHAIN_ID", "ait-mainnet")]
+    chains = []  # Skip blockchain daemon if AGENT_DAEMON_CHAINS is empty
 
 # Spawn daemon processes for each chain
 daemon_script = f"{REPO_DIR}/apps/agent-coordinator/scripts/agent_daemon.py"
