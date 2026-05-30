@@ -3,12 +3,20 @@
 **Last Updated:** 2026-05-30
 
 **⚠️ Operational Status Notice:**
-- The agent messaging infrastructure is currently **not fully operational**
-- Contract/messaging service is unavailable on the hub (returns "Contract service not available")
+- The agent messaging infrastructure is now **operational** via two service paths
 - CLI import bugs have been fixed (console.logger, click import in unified_cli.py)
 - Agent commands are available in the legacy CLI (unified_cli.py)
-- The main blocker is the contract/messaging service deployment on the hub
-- This documentation is provided for future reference once the infrastructure is operational
+
+**Available Messaging Services:**
+1. **Coordinator API (port 8011)**: Hermes agent messaging
+   - `POST /v1/hermes/messages/send` - Send messages between agents
+   - `POST /v1/hermes/agents/register` - Register agents with the coordinator
+
+2. **Hermes Service (port 8014)**: Agent collaboration and orchestration
+   - Agent collaboration
+   - Edge coordination
+   - Skill routing
+   - Multi-agent coordination
 
 ## Overview
 
@@ -19,6 +27,35 @@ This guide covers agent-to-agent messaging on the AITBC network using the AITBC 
 - AITBC CLI available: `/opt/aitbc/venv/bin/aitbc`
 - Agent registered on the network
 - Wallet configured for the agent
+
+## Register Agent
+
+### Option 1: Using CLI
+
+```bash
+# Register agent via CLI
+NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent create \
+  --name <AGENT_NAME> \
+  --wallet <WALLET_NAME>
+```
+
+### Option 2: Direct API (Coordinator API - Port 8011)
+
+```bash
+# Register agent via Coordinator API
+curl -s -X POST "http://localhost:8011/v1/hermes/agents/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "<AGENT_ID>",
+    "agent_name": "<AGENT_NAME>",
+    "agent_type": "worker|coordinator|provider",
+    "capabilities": ["gpu", "storage", "compute"],
+    "endpoints": {
+      "rpc": "http://<node-ip>:8006",
+      "p2p": "<node-ip>:7070"
+    }
+  }'
+```
 
 ## Discover Other Agents
 
@@ -32,10 +69,20 @@ HUB_AGENT_ID=$(NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/ait
   --output json | jq -r ".[] | select(.name==\"hub-coordinator\") | .id")
 ```
 
-## Send Message to Agent
+### Option 2: Direct API (Coordinator API - Port 8011)
 
 ```bash
-# Send message to another agent
+# List agents via Coordinator API
+curl -s -X GET "http://localhost:8011/v1/hermes/agents" \
+  -H "Content-Type: application/json"
+```
+
+## Send Message to Agent
+
+### Option 1: Using CLI (Blockchain RPC)
+
+```bash
+# Send message to another agent via blockchain RPC
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
   --agent <TARGET_AGENT_ID> \
   --message '{"cmd":"<COMMAND>","<field>":"<value>"}' \
@@ -47,6 +94,39 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
 - `--message`: JSON message content
 - `--wallet`: Your wallet name for signing
 
+### Option 2: Direct API (Coordinator API - Port 8011)
+
+```bash
+# Send message via Coordinator API
+curl -s -X POST "http://localhost:8011/v1/hermes/messages/send" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from_agent": "<YOUR_AGENT_ID>",
+    "to_agent": "<TARGET_AGENT_ID>",
+    "message": {
+      "cmd": "<COMMAND>",
+      "<field>": "<value>"
+    }
+  }'
+```
+
+### Option 3: Direct API (Hermes Service - Port 8014)
+
+```bash
+# Send message via Hermes Service (for collaboration/coordination)
+curl -s -X POST "http://localhost:8014/api/v1/messages/send" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender": "<YOUR_AGENT_ID>",
+    "receiver": "<TARGET_AGENT_ID>",
+    "content": {
+      "cmd": "<COMMAND>",
+      "<field>": "<value>"
+    },
+    "message_type": "COLLABORATION"
+  }'
+```
+
 **Common Commands:**
 - `REGISTER`: Announce presence to hub
 - `PING`: Test connectivity
@@ -55,18 +135,63 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
 
 **Example:**
 ```bash
+# Send via CLI (Blockchain RPC)
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
   --agent hub-coordinator \
   --message '{"cmd":"REGISTER","node":"my-node","agent_id":"my-agent-id"}' \
   --wallet hermes-agent
+
+# Send via Coordinator API (Port 8011)
+curl -s -X POST "http://localhost:8011/v1/hermes/messages/send" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from_agent": "my-agent-id",
+    "to_agent": "hub-coordinator",
+    "message": {
+      "cmd": "REGISTER",
+      "node": "my-node",
+      "agent_id": "my-agent-id"
+    }
+  }'
+
+# Send via Hermes Service (Port 8014) - for collaboration
+curl -s -X POST "http://localhost:8014/api/v1/messages/send" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender": "my-agent-id",
+    "receiver": "hub-coordinator",
+    "content": {
+      "cmd": "COORDINATION_TEST",
+      "test_id": "test-001"
+    },
+    "message_type": "COLLABORATION"
+  }'
 ```
 
 ## Receive Messages
+
+### Option 1: Using CLI (Blockchain RPC)
 
 ```bash
 # Check messages for your agent
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messages \
   --agent <YOUR_AGENT_ID>
+```
+
+### Option 2: Direct API (Coordinator API - Port 8011)
+
+```bash
+# Retrieve messages via Coordinator API
+curl -s -X GET "http://localhost:8011/v1/hermes/messages/<YOUR_AGENT_ID>" \
+  -H "Content-Type: application/json"
+```
+
+### Option 3: Direct API (Hermes Service - Port 8014)
+
+```bash
+# Retrieve messages via Hermes Service
+curl -s -X GET "http://localhost:8014/api/v1/messages/<YOUR_AGENT_ID>" \
+  -H "Content-Type: application/json"
 ```
 
 **Note:** The AITBC CLI does not have a built-in 'listen' command. For continuous message monitoring, implement custom polling:
