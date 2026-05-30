@@ -17,8 +17,8 @@
 ---
 
 ## 🎯 **See Also:**
-- **📖 [About Documentation](about/README.md)** - Standards, remediation notes, and audit checklist
-- **📚 [Getting Started Guides](guides/getting-started/)** - New user starting point
+- **📖 [Meta Documentation](meta/README.md)** - Standards, remediation notes, and audit checklist
+- **📚 [Getting Started](getting-started/)** - New user starting point with user journey paths
 - **🚀 [Blockchain Documentation](blockchain/) - Deep technical topics
 - **📁 [Project Documentation](project/README.md)** - Project-level guides and completion tracking
 - **🧭 [Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation

@@ -270,6 +270,8 @@ The following directories were consolidated to improve documentation organizatio
 9. **clients/ → apps/clients/** - Client documentation moved to apps directory
 10. **archive/** - Historical archive directory removed (cleanup completed)
 11. **reports/** - Historical reports directory removed (cleanup completed)
+12. **guides/getting-started/** - Content moved to getting-started/ (May 30, 2026)
+13. **about/** - Renamed to meta/ (May 30, 2026)
 
 **Note**: Historical content from archive/ and reports/ directories has been consolidated into relevant topical sections. For historical deployment summaries and test fixes, see docs/reference/ directory.
 
