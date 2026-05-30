@@ -236,16 +236,16 @@ def output(data: Any, format_type: str = "table", title: str = None):
 
 def error(message: str):
     """Print error message"""
-    console.logger.error(Panel(f"[red]Error: {message}[/red]", title="❌"))
+    console.print(Panel(f"[red]Error: {message}[/red]", title="❌"))
 def success(message: str):
     """Print success message"""
-    console.logger.info(Panel(f"[green]{message}[/green]", title="✅"))
+    console.print(Panel(f"[green]{message}[/green]", title="✅"))
 def info(message: str):
     """Print informational message"""
-    console.logger.info(Panel(f"[cyan]{message}[/cyan]", title="ℹ️"))
+    console.print(Panel(f"[cyan]{message}[/cyan]", title="ℹ️"))
 def warning(message: str):
     """Print warning message"""
-    console.logger.info(Panel(f"[yellow]{message}[/yellow]", title="⚠️"))
+    console.print(Panel(f"[yellow]{message}[/yellow]", title="⚠️"))
 def retry_with_backoff(
     func,
     max_retries: int = 3,
