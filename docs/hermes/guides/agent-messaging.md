@@ -2,6 +2,14 @@
 
 **Last Updated:** 2026-05-30
 
+**⚠️ Operational Status Notice:**
+- The agent messaging infrastructure is currently **not fully operational**
+- Contract/messaging service is unavailable on the hub (returns "Contract service not available")
+- CLI import bugs have been fixed (console.logger, click import in unified_cli.py)
+- Agent commands are available in the legacy CLI (unified_cli.py)
+- The main blocker is the contract/messaging service deployment on the hub
+- This documentation is provided for future reference once the infrastructure is operational
+
 ## Overview
 
 This guide covers agent-to-agent messaging on the AITBC network using the AITBC CLI. Agents can send messages to each other across nodes for coordination, task distribution, and communication.
