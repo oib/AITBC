@@ -114,13 +114,13 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
 ### Receive and Process Messages
 
 ```bash
-# Start hermes message listener
-hermes listen --agent-id $AGENT_ID --island ait-hub.aitbc.bubuit.net-island
-
-# Or check messages manually
+# Check messages via AITBC CLI
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messages \
   --from hub-coordinator \
   --output json
+
+# Note: hermes CLI does not have a 'listen' command
+# Use AITBC CLI for message retrieval or implement custom polling
 ```
 
 ## hermes Workflow Integration
@@ -171,7 +171,7 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
   --to $HUB_AGENT_ID \
   --content "{\"cmd\":\"PING\",\"timestamp\":\"$(date -Iseconds)\"}"
 
-# Wait for pong response (monitor via hermes listen)
+# Wait for pong response (monitor via AITBC CLI message polling)
 # Expected: Pong message from hub within 10 seconds
 ```
 
