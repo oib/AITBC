@@ -54,13 +54,14 @@ chains_str = os.getenv("AGENT_DAEMON_CHAINS", "")
 if chains_str:
     chains = [c.strip() for c in chains_str.split(",")]
 else:
-    chains = []  # Skip blockchain daemon if AGENT_DAEMON_CHAINS is empty
+    # Default to empty if not set - only run Hermes polling if no chains configured
+    chains = []
 
 # Spawn daemon processes for each chain
 daemon_script = f"{REPO_DIR}/apps/agent-coordinator/scripts/agent_daemon.py"
 base_args = [
-    "--wallet", "temp-agent",
-    "--address", "ait1d18e286fc0c12888aca94732b5507c8787af71a5",
+    "--wallet", "my-agent-wallet",
+    "--address", "aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f",
     "--password-file", str(KEYSTORE_DIR / ".agent_daemon_password"),
     "--keystore-dir", str(KEYSTORE_DIR),
     "--rpc-url", "http://localhost:8006",
@@ -69,7 +70,7 @@ base_args = [
     "--trigger-message", "ping"
 ]
 
-# If we have Hermes daemons running, we must use subprocess mode
+# If we have Hermes daemons running or multiple chains, use subprocess mode
 if processes or len(chains) > 1:
     # Spawn blockchain daemons as subprocesses
     for chain_id in chains:
@@ -95,7 +96,7 @@ if processes or len(chains) > 1:
             proc.terminate()
         for proc in processes:
             proc.wait()
-else:
+elif len(chains) == 1:
     # Single chain with no Hermes: exec directly (replaces wrapper process)
     chain_id = chains[0]
     db_path = f"/var/lib/aitbc/data/{chain_id}/chain.db"
@@ -107,3 +108,15 @@ else:
         "--chain-id", chain_id
     ]
     os.execvp(exec_cmd[0], exec_cmd)
+else:
+    # No chains configured, only Hermes daemons running
+    print("No blockchain chains configured, only Hermes polling active")
+    try:
+        for proc in processes:
+            proc.wait()
+    except KeyboardInterrupt:
+        print("Shutting down Hermes daemons...")
+        for proc in processes:
+            proc.terminate()
+        for proc in processes:
+            proc.wait()
