@@ -4,6 +4,12 @@
 
 AGENT_ID="owl-aitbc3"
 HUB_COORDINATOR_URL="http://hub.aitbc.bubuit.net:8011"
+PROCESSED_IDS_FILE="/tmp/hub_listener_processed_ids.txt"
+
+# Initialize processed IDs file if it doesn't exist
+if [ ! -f "$PROCESSED_IDS_FILE" ]; then
+  touch "$PROCESSED_IDS_FILE"
+fi
 
 echo "Starting hub coordinator listener for aitbc3..."
 echo "Agent ID: $AGENT_ID"
@@ -35,6 +41,14 @@ while true; do
     MSG_ID=$(echo "$msg" | jq -r '.id')
     CONTENT=$(echo "$msg" | jq -r '.content')
     MSG_TYPE=$(echo "$msg" | jq -r '.message_type')
+    
+    # Check if we've already processed this message
+    if grep -q "^${MSG_ID}$" "$PROCESSED_IDS_FILE" 2>/dev/null; then
+      continue
+    fi
+    
+    # Mark this message as processed
+    echo "$MSG_ID" >> "$PROCESSED_IDS_FILE"
     
     echo "[$(date -Iseconds)] New message from $SENDER (ID: $MSG_ID)"
     echo "  Type: $MSG_TYPE"
