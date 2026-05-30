@@ -18,7 +18,7 @@ class KnowledgeGraphCreateRequest(BaseModel):
     """Request model for creating a knowledge graph"""
     name: str = Field(..., min_length=1, max_length=100)
     description: str = Field(..., min_length=1, max_length=500)
-    schema: str = Field(default=None)  # type: ignore[assignment]
+    graph_schema: str = Field(default=None)
 
 
 class KnowledgeGraphResponse(BaseModel):
@@ -26,7 +26,7 @@ class KnowledgeGraphResponse(BaseModel):
     id: str
     name: str
     description: str
-    schema: Optional[str]  # type: ignore[assignment]
+    graph_schema: Optional[str]
     owner: str
     created_at: str
     node_count: int
@@ -67,7 +67,7 @@ async def create_knowledge_graph(
             id=graph_id,
             name=graph_request.name,
             description=graph_request.description,
-            schema=graph_request.schema,
+            graph_schema=graph_request.graph_schema,
             owner="test_user",
             created_at="2026-05-19T00:00:00Z",
             node_count=0,
@@ -107,7 +107,7 @@ async def get_knowledge_graph(
             id=graph_id,
             name="Test Graph",
             description="Test knowledge graph",
-            schema=None,
+            graph_schema=None,
             owner="test_user",
             created_at="2026-05-19T00:00:00Z",
             node_count=0,
