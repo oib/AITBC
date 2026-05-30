@@ -107,6 +107,6 @@ aitbc blockchain status
 
 ## Next Steps
 
-- [3_cli.md](./3_cli.md) — CLI usage guide
-- [../2_clients/1_quick-start.md](../2_clients/1_quick-start.md) — Client quick start
-- [../3_miners/1_quick-start.md](../3_miners/1_quick-start.md) — Miner quick start
+- [CLI Guide](cli-guide.md) — CLI usage guide
+- [Miner Quick Start](miner-quick-start.md) — Miner quick start
+- [Blockchain Node Quick Start](blockchain-node-quick-start.md) — Blockchain node quick start
