@@ -56,6 +56,7 @@ from aitbc_cli.commands.cluster import cluster
 from aitbc_cli.commands.security import security
 from aitbc_cli.commands.compliance import compliance
 from aitbc_cli.commands.hermes_training import hermes_training
+from aitbc_cli.commands.coin_requests import coin_requests
 
 # Force CLI version for user-facing output
 __version__ = "2.1.0"
@@ -182,6 +183,7 @@ cli.add_command(cluster)
 cli.add_command(security)
 cli.add_command(compliance)
 cli.add_command(hermes_training)
+cli.add_command(coin_requests)
 
 def main(argv=None):
     """Entry point for console scripts and compatibility wrappers."""

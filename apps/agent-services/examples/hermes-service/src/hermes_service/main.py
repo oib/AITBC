@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import os
 import logging
+import asyncio
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import FastAPI
 from .handlers import HandlerRegistry
+from .storage import get_db_session, CoinRequest, CoinRequestStatus, init_db
 
 # Configure logging to output to stdout (which systemd captures)
 logging.basicConfig(
@@ -30,6 +33,41 @@ HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")
 # Initialize handler registry
 handler_registry = HandlerRegistry(COORDINATOR_URL, HERMES_AGENT_ID)
 handler_registry.load_all_handlers()
+
+# Initialize database
+init_db()
+
+
+async def expire_old_requests():
+    """Background task to expire requests older than 1 month."""
+    while True:
+        try:
+            with get_db_session() as session:
+                cutoff = datetime.utcnow() - timedelta(days=30)
+                expired_requests = session.query(CoinRequest).filter(
+                    CoinRequest.status == CoinRequestStatus.PENDING,
+                    CoinRequest.expires_at < cutoff
+                ).all()
+                
+                for req in expired_requests:
+                    req.status = CoinRequestStatus.EXPIRED
+                    req.audit_log += f" | Auto-expired at {datetime.utcnow().isoformat()}"
+                    logger.info(f"Expired request {req.id} from {req.sender}")
+                
+                if expired_requests:
+                    logger.info(f"Expired {len(expired_requests)} old coin requests")
+        
+        except Exception as e:
+            logger.error(f"Error expiring old requests: {e}")
+        
+        # Run every hour
+        await asyncio.sleep(3600)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background tasks on startup."""
+    asyncio.create_task(expire_old_requests())
 
 
 @app.get("/health")
