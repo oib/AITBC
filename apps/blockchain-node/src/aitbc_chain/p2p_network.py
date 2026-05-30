@@ -336,11 +336,24 @@ class P2PNetworkService:
             peer_island_name = message.get('island_name', '')
             peer_is_hub = message.get('is_hub', False)
             peer_island_chain_id = message.get('island_chain_id', '')
+            peer_chain_id = message.get('chain_id', '')
             peer_public_address = message.get('public_address')
             peer_public_port = message.get('public_port')
-            
+
             if not peer_node_id or peer_node_id == self.node_id:
                 logger.warning(f"Peer {addr} provided invalid or self node_id: {peer_node_id}")
+                writer.close()
+                return
+
+            # Validate chain_id matches
+            if peer_chain_id and self.chain_id and peer_chain_id != self.chain_id:
+                logger.warning(f"Peer {addr} chain_id mismatch: {peer_chain_id} != {self.chain_id}. Rejecting connection.")
+                writer.close()
+                return
+
+            # Validate island_id matches (unless one of us is a hub - hubs can connect to any island)
+            if peer_island_id and self.island_id and peer_island_id != self.island_id and not peer_is_hub and not self.is_hub:
+                logger.warning(f"Peer {addr} island_id mismatch: {peer_island_id} != {self.island_id}. Rejecting connection (neither is hub).")
                 writer.close()
                 return
             
@@ -430,9 +443,15 @@ class P2PNetworkService:
                             peer_id = message.get('node_id')
                             peer_island_id = message.get('island_id', '')
                             peer_is_hub = message.get('is_hub', False)
+                            peer_chain_id = message.get('chain_id', '')
 
                             if not peer_id or peer_id == self.node_id:
                                 logger.warning(f"Invalid handshake reply from {addr}. Closing.")
+                                break
+
+                            # Validate chain_id matches
+                            if peer_chain_id and self.chain_id and peer_chain_id != self.chain_id:
+                                logger.warning(f"Peer {addr} chain_id mismatch: {peer_chain_id} != {self.chain_id}. Closing connection.")
                                 break
 
                             if peer_id in self.active_connections:
