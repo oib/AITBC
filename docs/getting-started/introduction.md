@@ -113,7 +113,7 @@ Tokens are chain-specific and non-transferable between chains, providing complet
 
 ## Next Steps
 
-- [CLI Documentation](../05_cli/README.md) — Complete command reference (50+ command groups)
+- [CLI Documentation](../cli/README.md) — Complete command reference (50+ command groups)
 - [Multi-Chain Operations](../blockchain/cross-chain/) — Cross-chain functionality
 - [AI Trading](../agents/) — AI-powered trading engine
 - [Security & Compliance](../security/) — Security framework and compliance

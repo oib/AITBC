@@ -163,10 +163,10 @@ systemctl status aitbc-coordinator-api.service
 4. **Development**: Build custom tools and integrations
 
 ### Documentation
-- [Complete CLI Reference](../23_cli/README.md)
-- [Testing Procedures](../23_cli/testing.md)
-- [Permission Setup](../23_cli/permission-setup.md)
-- [Exchange Integration](../19_marketplace/exchange_integration.md)
+- [Complete CLI Reference](../cli/README.md)
+- [Testing Procedures](../cli/testing.md)
+- [Permission Setup](../cli/permission-setup.md)
+- [Exchange Integration](../apps/marketplace/exchange_integration.md)
 
 ## 🎯 **Tips and Best Practices**
 
