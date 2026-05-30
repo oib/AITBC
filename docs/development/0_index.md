@@ -28,6 +28,7 @@ Build on the AITBC platform: APIs, SDKs, and contribution guides.
 
 ## Related
 
-- [Architecture](../6_architecture/) — System design docs
-- [Deployment](../7_deployment/) — Production deployment guides
-- [CLI Reference](../5_reference/1_cli-reference.md) — Full CLI docs
+- [Architecture](../architecture/) — System design docs
+- [Deployment](../deployment/) — Production deployment guides
+- [Getting Started](../getting-started/) — Installation and onboarding guides
+- [CLI Reference](../cli/README.md) — Full CLI docs

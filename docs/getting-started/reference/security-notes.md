@@ -46,5 +46,5 @@ This guide covers security best practices for AITBC nodes.
 
 ## See Also
 
-- [Wallet Setup](wallet-setup.md)
-- [Network Requirements](network-requirements.md)
+- [Coin Requests](../node/coin-requests.md) - Wallet management included
+- [Prerequisites](../installation/prerequisites.md) - Network requirements included
