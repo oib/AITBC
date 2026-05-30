@@ -66,4 +66,4 @@ curl -s http://hub.aitbc.bubuit.net:8011/health
 
 - [Blockchain Setup](blockchain-setup.md)
 - [Coin Requests](coin-requests.md)
-- [Troubleshooting](troubleshooting.md)
+- [Troubleshooting](../reference/troubleshooting.md)

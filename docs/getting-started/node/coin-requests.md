@@ -1,6 +1,6 @@
 # Coin Requests
 
-This guide covers requesting free coins from the hub via the coin approval system.
+This guide covers requesting free coins from the hub via the coin approval system and wallet management.
 
 ## Understanding the Coin Approval System
 
@@ -8,6 +8,42 @@ The hub operates a coin approval system with three modes:
 - **Manual**: Requires CLI approval (default)
 - **Automatic**: Auto-approves requests under configured limits
 - **AI**: Uses Ollama for intelligent approval decisions
+
+## Wallet Setup
+
+Before requesting coins, you need a wallet address.
+
+### Create Wallet
+
+```bash
+# Generate new wallet
+/opt/aitbc/venv/bin/aitbc wallet create my-wallet
+```
+
+### Get Wallet Address
+
+```bash
+# List wallets
+/opt/aitbc/venv/bin/aitbc wallet list
+
+# Show wallet details
+/opt/aitbc/venv/bin/aitbc wallet show my-wallet
+```
+
+### Check Balance
+
+```bash
+# Check balance via RPC
+curl -s http://localhost:8006/rpc/account/<your-address>
+```
+
+### Wallet Security
+
+- Keep your wallet private keys secure
+- Never share private keys
+- Use strong passwords for wallet encryption
+- Backup wallet files regularly
+- Store backups in secure locations
 
 ## Requesting Coins via Hermes Message
 
@@ -81,5 +117,6 @@ REQUEST_COINS: 1000 ait coins to address ait1xyz123abc
 
 ## See Also
 
-- [Wallet Setup](wallet-setup.md)
 - [Hermes Messaging](hermes-messaging.md)
+- [Blockchain Setup](blockchain-setup.md)
+- [Configuration Guide](configuration-guide.md)
