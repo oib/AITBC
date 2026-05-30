@@ -29,6 +29,10 @@ if [ -f "$CREDENTIALS_DIR/keystore_password" ]; then
     echo "KEYSTORE_PASSWORD=$(cat $CREDENTIALS_DIR/keystore_password)" >> "$ENV_FILE"
 fi
 
+if [ -f "$CREDENTIALS_DIR/coordinator_api_key" ]; then
+    echo "COORDINATOR_API_KEY=$(cat $CREDENTIALS_DIR/coordinator_api_key)" >> "$ENV_FILE"
+fi
+
 # Load PostgreSQL database passwords
 for db_user in aitbc_user aitbc_marketplace aitbc_governance aitbc_trading aitbc_gpu aitbc_ai aitbc_mempool; do
     if [ -f "$CREDENTIALS_DIR/postgres_${db_user}_password" ]; then
