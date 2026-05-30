@@ -32,7 +32,9 @@ source_host = os.getenv("SYNC_SOURCE_HOST", "127.0.0.1")
 source_port = os.getenv("SYNC_SOURCE_PORT", "8006")
 import_host = os.getenv("SYNC_IMPORT_HOST", "127.0.0.1")
 import_port = os.getenv("SYNC_IMPORT_PORT", "8006")
-chain_id = os.getenv("SYNC_CHAIN_ID", "ait-testnet")
+chain_id = os.getenv("SYNC_CHAIN_ID") or os.getenv("CHAIN_ID")
+if not chain_id:
+    raise ValueError("SYNC_CHAIN_ID or CHAIN_ID environment variable is required")
 
 # Execute the actual service
 exec_cmd = [
