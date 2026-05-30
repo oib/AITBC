@@ -95,17 +95,14 @@ class TransactionService:
                 bytes.fromhex(self.genesis_private_key)
             )
             
-            # Create transaction payload
+            # Create transaction in format expected by blockchain RPC
             transaction = {
-                "type": "TRANSFER",
-                "chain_id": self.chain_id,
                 "from": self.genesis_address,
+                "to": to_address,
+                "amount": amount,
                 "nonce": actual_nonce,
                 "fee": fee,
-                "payload": {
-                    "recipient": to_address,
-                    "amount": amount
-                }
+                "chain_id": self.chain_id
             }
             
             # Sign transaction
