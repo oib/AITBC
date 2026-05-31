@@ -1,7 +1,7 @@
 """Monitor router for AITBC Coordinator API."""
 
+
 from fastapi import APIRouter, Request
-from typing import List, Dict
 
 from aitbc.rate_limiting import rate_limit
 
@@ -40,21 +40,21 @@ async def get_status(request: Request) -> None:
     }
 
 
-@router.get("/miners", response_model=List[Dict])
+@router.get("/miners", response_model=list[dict])
 @rate_limit(rate=50, per=60)
 async def get_miners(request: Request) -> None:
     """Get miners list."""
     return []  # type: ignore[return-value]
 
 
-@router.get("/dashboard", response_model=List[Dict])
+@router.get("/dashboard", response_model=list[dict])
 @rate_limit(rate=50, per=60)
 async def get_history_dashboard(request: Request) -> None:
     """Get historical dashboard data."""
     return []  # type: ignore[return-value]
 
 
-@router.get("/jobs", response_model=List[Dict])
+@router.get("/jobs", response_model=list[dict])
 @rate_limit(rate=50, per=60)
 async def get_jobs(request: Request) -> None:
     """Get jobs list for history and metrics commands."""

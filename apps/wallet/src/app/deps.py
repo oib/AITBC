@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from functools import lru_cache
-
 from fastapi import Depends
 
-from .keystore.service import KeystoreService
-from .ledger_mock import SQLiteLedgerAdapter
 from .keystore.persistent_service import PersistentKeystoreService
+from .ledger_mock import SQLiteLedgerAdapter
 from .receipts.service import ReceiptVerifierService
 from .settings import Settings, settings
+
 # Temporarily disable multi-chain imports to test basic functionality
 # from .chain.manager import ChainManager, chain_manager
 # from .chain.multichain_ledger import MultiChainLedgerAdapter

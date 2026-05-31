@@ -3,15 +3,16 @@ Performance profiling utilities for AITBC
 Provides profiling hooks for performance bottleneck identification
 """
 
-import time
-import functools
 import cProfile
-import pstats
+import functools
 import io
-from typing import Callable, Optional, Any, Dict
+import pstats
+import time
+from collections import defaultdict
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from collections import defaultdict
+from typing import Any
 
 from .aitbc_logging import get_logger
 
@@ -34,22 +35,22 @@ class PerformanceProfiler:
     Performance profiler for function execution time tracking.
     Tracks execution statistics for function calls.
     """
-    
+
     def __init__(self):
         """Initialize performance profiler"""
-        self._stats: Dict[str, list] = defaultdict(list)
+        self._stats: dict[str, list] = defaultdict(list)
         self._enabled = True
-    
+
     def enable(self) -> None:
         """Enable profiling"""
         self._enabled = True
         logger.info("Performance profiling enabled")
-    
+
     def disable(self) -> None:
         """Disable profiling"""
         self._enabled = False
         logger.info("Performance profiling disabled")
-    
+
     def record(self, function_name: str, execution_time: float) -> None:
         """
         Record execution time for a function
@@ -60,8 +61,8 @@ class PerformanceProfiler:
         """
         if self._enabled:
             self._stats[function_name].append(execution_time)
-    
-    def get_stats(self, function_name: Optional[str] = None) -> ProfilingResult | Dict[str, ProfilingResult]:
+
+    def get_stats(self, function_name: str | None = None) -> ProfilingResult | dict[str, ProfilingResult]:
         """
         Get profiling statistics for a function or all functions
         
@@ -95,13 +96,13 @@ class PerformanceProfiler:
                 name: self.get_stats(name)
                 for name in self._stats.keys()
             }
-    
+
     def clear_stats(self) -> None:
         """Clear all profiling statistics"""
         self._stats.clear()
         logger.info("Profiling statistics cleared")
-    
-    def print_stats(self, function_name: Optional[str] = None) -> None:
+
+    def print_stats(self, function_name: str | None = None) -> None:
         """
         Print profiling statistics to console
         
@@ -109,14 +110,14 @@ class PerformanceProfiler:
             function_name: Specific function name, or None for all functions
         """
         stats = self.get_stats(function_name)
-        
+
         if function_name:
             self._print_single_stat(stats)
         else:
             for name, stat in stats.items():
                 logger.info(f"--- {name} ---")
                 self._print_single_stat(stat)
-    
+
     def _print_single_stat(self, stat: ProfilingResult) -> None:
         """Print single profiling result"""
         logger.info(f"  Total time: {stat.total_time:.4f}s")
@@ -130,7 +131,7 @@ class PerformanceProfiler:
 _global_profiler = PerformanceProfiler()
 
 
-def profile_function(profiler: Optional[PerformanceProfiler] = None):
+def profile_function(profiler: PerformanceProfiler | None = None):
     """
     Decorator to profile function execution time
     
@@ -150,16 +151,16 @@ def profile_function(profiler: Optional[PerformanceProfiler] = None):
             finally:
                 end_time = time.perf_counter()
                 execution_time = end_time - start_time
-                
+
                 target_profiler = profiler or _global_profiler
                 target_profiler.record(func.__name__, execution_time)
-        
+
         return wrapper
     return decorator
 
 
 @contextmanager
-def profile_context(name: str, profiler: Optional[PerformanceProfiler] = None):
+def profile_context(name: str, profiler: PerformanceProfiler | None = None):
     """
     Context manager for profiling code blocks
     
@@ -199,13 +200,13 @@ def profile_cprofile(func: Callable) -> Callable:
             return result
         finally:
             profiler.disable()
-            
+
             # Print statistics
             s = io.StringIO()
             ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
             ps.print_stats(10)  # Print top 10 functions
             logger.info(f"Profile for {func.__name__}:\n{s.getvalue()}")
-    
+
     return wrapper
 
 
@@ -229,7 +230,7 @@ def disable_global_profiling() -> None:
     _global_profiler.disable()
 
 
-def get_profiling_summary() -> Dict[str, ProfilingResult]:
+def get_profiling_summary() -> dict[str, ProfilingResult]:
     """
     Get summary of all profiling data
     

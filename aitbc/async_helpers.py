@@ -4,8 +4,9 @@ Async utilities for AITBC applications
 """
 
 import asyncio
-from typing import Coroutine, Any, List, TypeVar, Callable
+from collections.abc import Callable, Coroutine
 from functools import wraps
+from typing import Any, TypeVar
 
 T = TypeVar('T')
 
@@ -24,9 +25,9 @@ async def run_sync(coro: Coroutine[Any, Any, T]) -> T:
 
 
 async def gather_with_concurrency(
-    coros: List[Coroutine[Any, Any, T]],
+    coros: list[Coroutine[Any, Any, T]],
     limit: int = 10
-) -> List[T]:
+) -> list[T]:
     """
     Gather coroutines with concurrency limit.
     
@@ -38,11 +39,11 @@ async def gather_with_concurrency(
         List of results from all coroutines
     """
     semaphore = asyncio.Semaphore(limit)
-    
+
     async def limited_coro(coro: Coroutine[Any, Any, T]) -> T:
         async with semaphore:
             return await coro
-    
+
     limited_coros = [limited_coro(coro) for coro in coros]
     return await asyncio.gather(*limited_coros)
 
@@ -65,16 +66,16 @@ async def run_with_timeout(
     """
     try:
         return await asyncio.wait_for(coro, timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return default
 
 
 async def batch_process(
-    items: List[Any],
+    items: list[Any],
     process_func: Callable[[Any], Coroutine[Any, Any, T]],
     batch_size: int = 10,
     delay: float = 0.1
-) -> List[T]:
+) -> list[T]:
     """
     Process items in batches with delay between batches.
     
@@ -92,10 +93,10 @@ async def batch_process(
         batch = items[i:i + batch_size]
         batch_results = await asyncio.gather(*[process_func(item) for item in batch])
         results.extend(batch_results)
-        
+
         if i + batch_size < len(items):
             await asyncio.sleep(delay)
-    
+
     return results
 
 
@@ -151,7 +152,7 @@ async def retry_async(
     """
     last_exception = None
     current_delay = delay
-    
+
     for attempt in range(max_attempts):
         try:
             return await coro_func()
@@ -160,7 +161,7 @@ async def retry_async(
             if attempt < max_attempts - 1:
                 await asyncio.sleep(current_delay)
                 current_delay *= backoff
-    
+
     raise last_exception
 
 
@@ -181,10 +182,10 @@ async def wait_for_condition(
         True if condition became true, False if timeout
     """
     start_time = asyncio.get_event_loop().time()
-    
+
     while asyncio.get_event_loop().time() - start_time < timeout:
         if await condition():
             return True
         await asyncio.sleep(check_interval)
-    
+
     return False

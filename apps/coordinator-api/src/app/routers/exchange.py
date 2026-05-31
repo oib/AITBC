@@ -4,7 +4,7 @@ Bitcoin Exchange Router for AITBC
 
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -14,6 +14,7 @@ from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
+from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
 from ..schemas import (
     ExchangePaymentRequest,
     ExchangePaymentResponse,
@@ -23,7 +24,6 @@ from ..schemas import (
     WalletBalanceResponse,
     WalletInfoResponse,
 )
-from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
 from ..utils.cache import cached, get_cache_config
 
 router = APIRouter(tags=["exchange"])
@@ -231,7 +231,7 @@ async def test_agent_endpoint(
     request: Request
 ) -> dict[str, str]:
     """Test endpoint to verify agent routes are working"""
-    return {"message": "Agent routes are working", "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {"message": "Agent routes are working", "timestamp": datetime.now(UTC).isoformat()}
 
 
 # NOTE: create_agent_network and get_execution_receipt endpoints removed

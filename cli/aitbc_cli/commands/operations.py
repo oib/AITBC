@@ -3,19 +3,16 @@ General operations commands for AITBC CLI (marketplace, AI, agents)
 """
 
 import json
-import time
-import hashlib
-from pathlib import Path
-from typing import Optional
 
 import click
-
-from ..utils import error, success, output
-from ..utils.wallet import decrypt_private_key
-from ..config import get_config
-from aitbc import AITBCHTTPClient, NetworkError, KEYSTORE_DIR, get_logger
-from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
+from aitbc import KEYSTORE_DIR, AITBCHTTPClient, NetworkError, get_logger
+
+from ..config import get_config
+from ..utils import error, output, success
+from ..utils.wallet import decrypt_private_key
 
 logger = get_logger(__name__)
 
@@ -60,7 +57,7 @@ def list_listings(format: str):
 @click.argument('listing_id')
 @click.option('--quantity', type=int, default=1, help='Quantity to purchase')
 @click.option('--wallet', help='Wallet name for payment')
-def purchase(listing_id: str, quantity: int, wallet: Optional[str]):
+def purchase(listing_id: str, quantity: int, wallet: str | None):
     """Purchase from marketplace listing"""
     success(f"Purchase {quantity} of listing {listing_id}")
     # TODO: Implement actual purchase logic with wallet signing
@@ -71,7 +68,7 @@ def purchase(listing_id: str, quantity: int, wallet: Optional[str]):
 @click.option('--item-type', required=True, help='Type of item')
 @click.option('--price', type=float, required=True, help='Listing price')
 @click.option('--description', help='Item description')
-def create_listing(wallet_name: str, item_type: str, price: float, description: Optional[str]):
+def create_listing(wallet_name: str, item_type: str, price: float, description: str | None):
     """Create a marketplace listing"""
     try:
         # Get wallet address
@@ -79,11 +76,11 @@ def create_listing(wallet_name: str, item_type: str, price: float, description: 
         if not keystore_path.exists():
             error(f"Wallet '{wallet_name}' not found")
             return None
-        
+
         with open(keystore_path) as f:
             wallet_data = json.load(f)
         address = wallet_data['address']
-        
+
         # Create listing via RPC
         listing_config = {
             "seller_address": address,
@@ -91,11 +88,11 @@ def create_listing(wallet_name: str, item_type: str, price: float, description: 
             "price": price,
             "description": description or ""
         }
-        
+
         try:
             http_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=30)
             result = http_client.post("/rpc/marketplace/create", json=listing_config)
-            success(f"Listing created successfully")
+            success("Listing created successfully")
             click.echo(f"Item: {item_type}")
             click.echo(f"Price: {price} AIT")
             click.echo(f"Listing ID: {result.get('listing_id', 'unknown')}")
@@ -123,7 +120,7 @@ def ai():
 @click.option('--prompt', required=True, help='AI prompt')
 @click.option('--payment', type=float, required=True, help='Payment amount')
 @click.option('--model', help='AI model to use')
-def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, model: Optional[str]):
+def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, model: str | None):
     """Submit an AI job"""
     try:
         # Get wallet address
@@ -131,11 +128,11 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, mod
         if not keystore_path.exists():
             error(f"Wallet '{wallet_name}' not found")
             return None
-        
+
         with open(keystore_path) as f:
             wallet_data = json.load(f)
         address = wallet_data['address']
-        
+
         # Submit job via coordinator API
         job_config = {
             "client_address": address,
@@ -144,11 +141,11 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, mod
             "payment": payment,
             "model": model or "default"
         }
-        
+
         try:
             http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
             result = http_client.post("/v1/jobs", json=job_config)
-            success(f"AI job submitted successfully")
+            success("AI job submitted successfully")
             click.echo(f"Job ID: {result.get('job_id', 'unknown')}")
             click.echo(f"Type: {job_type}")
             click.echo(f"Payment: {payment} AIT")
@@ -166,7 +163,7 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, mod
 @ai.command()
 @click.option('--job-id', help='Specific job ID')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
-def status(job_id: Optional[str], format: str):
+def status(job_id: str | None, format: str):
     """Get AI job status"""
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
@@ -175,8 +172,8 @@ def status(job_id: Optional[str], format: str):
             success(f"Job status for {job_id}")
         else:
             result = http_client.get("/v1/jobs")
-            success(f"All jobs status")
-        
+            success("All jobs status")
+
         if format == 'json':
             click.echo(json.dumps(result, indent=2))
         else:
@@ -194,12 +191,12 @@ def status(job_id: Optional[str], format: str):
 
 @ai.command()
 @click.option('--job-id', help='Specific job ID')
-def cancel(job_id: Optional[str]):
+def cancel(job_id: str | None):
     """Cancel an AI job"""
     if not job_id:
         error("Job ID is required")
         return
-    
+
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
         result = http_client.post(f"/v1/jobs/{job_id}/cancel")
@@ -227,7 +224,7 @@ def register(agent_id: str, status: str):
             "agent_id": agent_id,
             "status": status
         }
-        
+
         http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
         result = http_client.post("/v1/agents/register", json=agent_config)
         success(f"Agent {agent_id} registered with status {status}")
@@ -240,18 +237,18 @@ def register(agent_id: str, status: str):
 @agent.command()
 @click.option('--status', help='Filter by status')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
-def list(status: Optional[str], format: str):
+def list(status: str | None, format: str):
     """List registered agents"""
     try:
         import requests
         coordinator_url = "http://localhost:9001"
-        
+
         query = {}
         if status:
             query["status"] = status
-        
+
         response = requests.post(f"{coordinator_url}/v1/agents/discover", json=query, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             agents = data.get("agents", [])
@@ -288,11 +285,11 @@ def deregister(agent_id: str):
 @click.option('--password', help='Wallet password')
 @click.option('--password-file', help='File containing wallet password')
 @click.option('--rpc-url', help='Blockchain RPC URL')
-def message(agent: str, message: str, wallet: str, password: Optional[str], password_file: Optional[str], rpc_url: Optional[str]):
+def message(agent: str, message: str, wallet: str, password: str | None, password_file: str | None, rpc_url: str | None):
     """Send message to agent via blockchain transaction"""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
-    
+
     # Get password
     if password_file:
         with open(password_file) as f:
@@ -300,29 +297,29 @@ def message(agent: str, message: str, wallet: str, password: Optional[str], pass
     elif not password:
         import getpass
         password = getpass.getpass("Enter wallet password: ")
-    
+
     try:
         # Decrypt wallet
         keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
         private_key_hex = decrypt_private_key(keystore_path, password)
         private_key_bytes = bytes.fromhex(private_key_hex)
-        
+
         # Get sender address
         with open(keystore_path) as f:
             keystore_data = json.load(f)
         sender_address = keystore_data['address']
-        
+
         # Create transaction with message as payload
         priv_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
         pub_hex = priv_key.public_key().public_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw
         ).hex()
-        
+
         # Get chain_id
         from ..utils.chain_id import get_chain_id
         chain_id = get_chain_id(rpc_url)
-        
+
         # Get actual nonce
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
@@ -330,7 +327,7 @@ def message(agent: str, message: str, wallet: str, password: Optional[str], pass
             actual_nonce = account_data.get("nonce", 0)
         except Exception:
             actual_nonce = 0
-        
+
         tx = {
             "type": "TRANSFER",
             "chain_id": chain_id,
@@ -343,16 +340,16 @@ def message(agent: str, message: str, wallet: str, password: Optional[str], pass
                 "message": message
             }
         }
-        
+
         # Sign transaction
         tx_string = json.dumps(tx, sort_keys=True)
         tx["signature"] = priv_key.sign(tx_string.encode()).hex()
         tx["public_key"] = pub_hex
-        
+
         # Submit transaction
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=tx)
-        success(f"Message sent successfully")
+        success("Message sent successfully")
         click.echo(f"From: {sender_address}")
         click.echo(f"To: {agent}")
         click.echo(f"Content: {message}")
@@ -376,7 +373,7 @@ def governance():
 def vote(ctx, proposal_id: str, vote: str, wallet: str):
     """Vote on a governance proposal"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
         vote_data = {
@@ -402,7 +399,7 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str):
 def proposal(ctx, title: str, description: str, type: str, wallet: str):
     """Create a governance proposal"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
         proposal_data = {
@@ -428,7 +425,7 @@ def proposal(ctx, title: str, description: str, type: str, wallet: str):
 def delegate(ctx, to_address: str, amount: float, wallet: str):
     """Delegate voting power to another address"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
         delegate_data = {

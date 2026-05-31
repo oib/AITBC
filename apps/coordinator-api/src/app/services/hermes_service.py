@@ -11,16 +11,12 @@ Provides:
 
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from sqlmodel import Session
-
 
 logger = get_logger(__name__)
 
@@ -48,20 +44,20 @@ class AgentMessage:
     """Agent message structure"""
     id: str
     sender: str
-    recipient: Optional[str]  # None for broadcasts
+    recipient: str | None  # None for broadcasts
     message_type: MessageType
     content: str
     encrypted: bool
     timestamp: datetime
     status: MessageStatus
-    
+
     # Optional fields
-    reply_to: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    delivered_at: Optional[datetime] = None
-    read_at: Optional[datetime] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    reply_to: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    delivered_at: datetime | None = None
+    read_at: datetime | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "sender": self.sender,
@@ -83,10 +79,10 @@ class AgentProfile:
     """Agent communication profile"""
     agent_id: str
     public_key: str
-    capabilities: List[str]
+    capabilities: list[str]
     last_seen: datetime
     online: bool
-    message_queue: List[str] = field(default_factory=list)
+    message_queue: list[str] = field(default_factory=list)
 
 
 class HermesService:
@@ -99,36 +95,36 @@ class HermesService:
     - Message queuing for offline agents
     - Delivery tracking
     """
-    
+
     def __init__(self) -> None:
-        self._messages: Dict[str, AgentMessage] = {}
-        self._agent_profiles: Dict[str, AgentProfile] = {}
-        self._message_queues: Dict[str, List[str]] = {}  # agent_id -> message_ids
+        self._messages: dict[str, AgentMessage] = {}
+        self._agent_profiles: dict[str, AgentProfile] = {}
+        self._message_queues: dict[str, list[str]] = {}  # agent_id -> message_ids
         self._message_counter = 0
-    
+
     def register_agent(
         self,
         agent_id: str,
         public_key: str,
-        capabilities: Optional[List[str]] = None
+        capabilities: list[str] | None = None
     ) -> AgentProfile:
         """Register an agent for communication"""
         profile = AgentProfile(
             agent_id=agent_id,
             public_key=public_key,
             capabilities=capabilities or [],
-            last_seen=datetime.now(timezone.utc),
+            last_seen=datetime.now(UTC),
             online=True,
             message_queue=[]
         )
-        
+
         self._agent_profiles[agent_id] = profile
         self._message_queues[agent_id] = []
-        
+
         logger.info(f"Agent registered with Hermes: {agent_id}")
-        
+
         return profile
-    
+
     def send_message(
         self,
         sender: str,
@@ -136,8 +132,8 @@ class HermesService:
         content: str,
         message_type: str = "direct",
         encrypted: bool = False,
-        reply_to: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        reply_to: str | None = None,
+        metadata: dict[str, Any] | None = None
     ) -> AgentMessage:
         """
         Send a message from one agent to another.
@@ -157,21 +153,21 @@ class HermesService:
         # Verify sender exists
         if sender not in self._agent_profiles:
             raise ValueError(f"Sender agent not registered: {sender}")
-        
+
         # Verify recipient exists (for direct messages)
         if recipient and recipient not in self._agent_profiles:
             raise ValueError(f"Recipient agent not found: {recipient}")
-        
+
         # Generate message ID
         self._message_counter += 1
         msg_id = f"MSG-{self._message_counter:08d}"
-        
+
         # Parse message type
         try:
             msg_type = MessageType(message_type)
         except ValueError:
             msg_type = MessageType.direct
-        
+
         # Create message
         message = AgentMessage(
             id=msg_id,
@@ -180,14 +176,14 @@ class HermesService:
             message_type=msg_type,
             content=content,
             encrypted=encrypted,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             status=MessageStatus.sent,
             reply_to=reply_to,
             metadata=metadata or {}
         )
-        
+
         self._messages[msg_id] = message
-        
+
         # Queue for recipient if offline
         if recipient and recipient in self._message_queues:
             recipient_profile = self._agent_profiles[recipient]
@@ -197,19 +193,19 @@ class HermesService:
             else:
                 # Mark as delivered immediately if online
                 message.status = MessageStatus.delivered
-                message.delivered_at = datetime.now(timezone.utc)
-        
+                message.delivered_at = datetime.now(UTC)
+
         logger.info(f"Message sent: {msg_id} from {sender} to {recipient}")
-        
+
         return message
-    
+
     def broadcast(
         self,
         sender: str,
         content: str,
         encrypted: bool = False,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> List[AgentMessage]:
+        metadata: dict[str, Any] | None = None
+    ) -> list[AgentMessage]:
         """
         Broadcast a message to all registered agents.
         
@@ -223,7 +219,7 @@ class HermesService:
             List of created messages
         """
         messages = []
-        
+
         for agent_id in self._agent_profiles:
             if agent_id != sender:  # Don't send to self
                 try:
@@ -238,18 +234,18 @@ class HermesService:
                     messages.append(msg)
                 except Exception as e:
                     logger.warning(f"Broadcast to {agent_id} failed: {e}")
-        
+
         logger.info(f"Broadcast sent by {sender} to {len(messages)} agents")
-        
+
         return messages
-    
+
     def get_messages(
         self,
         agent_id: str,
-        since: Optional[datetime] = None,
-        message_type: Optional[str] = None,
+        since: datetime | None = None,
+        message_type: str | None = None,
         unread_only: bool = False
-    ) -> List[AgentMessage]:
+    ) -> list[AgentMessage]:
         """
         Get messages for an agent.
         
@@ -264,103 +260,103 @@ class HermesService:
         """
         if agent_id not in self._agent_profiles:
             raise ValueError(f"Agent not found: {agent_id}")
-        
+
         # Update agent status
         profile = self._agent_profiles[agent_id]
-        profile.last_seen = datetime.now(timezone.utc)
+        profile.last_seen = datetime.now(UTC)
         profile.online = True
-        
+
         # Get queued messages first
         queued_ids = self._message_queues.get(agent_id, [])
         messages = []
-        
+
         for msg_id in queued_ids:
             if msg_id in self._messages:
                 msg = self._messages[msg_id]
                 # Mark as delivered
                 if msg.status == MessageStatus.pending:
                     msg.status = MessageStatus.delivered
-                    msg.delivered_at = datetime.now(timezone.utc)
+                    msg.delivered_at = datetime.now(UTC)
                 messages.append(msg)
-        
+
         # Clear queue
         self._message_queues[agent_id] = []
-        
+
         # Get all messages for this agent
         for msg in self._messages.values():
             if msg.recipient == agent_id and msg.id not in [m.id for m in messages]:
                 messages.append(msg)
-        
+
         # Apply filters
         if since:
             messages = [m for m in messages if m.timestamp >= since]
-        
+
         if message_type:
             messages = [m for m in messages if m.message_type.value == message_type]
-        
+
         if unread_only:
             messages = [m for m in messages if m.status != MessageStatus.read]
-        
+
         # Sort by timestamp
         messages.sort(key=lambda m: m.timestamp, reverse=True)
-        
+
         return messages
-    
+
     def mark_read(self, agent_id: str, message_id: str) -> bool:
         """Mark a message as read"""
         if message_id not in self._messages:
             return False
-        
+
         message = self._messages[message_id]
-        
+
         # Verify agent is recipient
         if message.recipient != agent_id:
             return False
-        
+
         message.status = MessageStatus.read
-        message.read_at = datetime.now(timezone.utc)
-        
+        message.read_at = datetime.now(UTC)
+
         logger.info(f"Message {message_id} marked as read by {agent_id}")
-        
+
         return True
-    
-    def get_agent_profile(self, agent_id: str) -> Optional[AgentProfile]:
+
+    def get_agent_profile(self, agent_id: str) -> AgentProfile | None:
         """Get agent profile"""
         return self._agent_profiles.get(agent_id)
-    
-    def list_agents(self, online_only: bool = False) -> List[AgentProfile]:
+
+    def list_agents(self, online_only: bool = False) -> list[AgentProfile]:
         """List registered agents"""
         agents = list(self._agent_profiles.values())
-        
+
         if online_only:
             agents = [a for a in agents if a.online]
-        
+
         return agents
-    
+
     def update_agent_status(self, agent_id: str, online: bool) -> bool:
         """Update agent online status"""
         if agent_id not in self._agent_profiles:
             return False
-        
+
         profile = self._agent_profiles[agent_id]
         profile.online = online
-        profile.last_seen = datetime.now(timezone.utc)
-        
+        profile.last_seen = datetime.now(UTC)
+
         return True
-    
-    def get_message(self, message_id: str) -> Optional[AgentMessage]:
+
+    def get_message(self, message_id: str) -> AgentMessage | None:
         """Get a specific message"""
         return self._messages.get(message_id)
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get messaging statistics"""
         total_messages = len(self._messages)
         pending = len([m for m in self._messages.values() if m.status == MessageStatus.pending])
         delivered = len([m for m in self._messages.values() if m.status == MessageStatus.delivered])
         read = len([m for m in self._messages.values() if m.status == MessageStatus.read])
-        
+
         online_agents = len([a for a in self._agent_profiles.values() if a.online])
-        
+
         return {
             "total_messages": total_messages,
             "by_status": {
@@ -374,7 +370,7 @@ class HermesService:
         }
 
 # Global instance
-_hermes_service: Optional[HermesService] = None
+_hermes_service: HermesService | None = None
 
 
 def get_hermes_service() -> HermesService:

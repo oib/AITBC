@@ -1,10 +1,10 @@
 """Schemas for Edge API Service"""
 
-from .island import IslandMembership, BridgeRequest
-from .gpu import GPUListing
 from .database import EdgeDatabase
-from .serve import ComputeRequest, ComputeResult
+from .gpu import GPUListing
+from .island import BridgeRequest, IslandMembership
 from .metrics import EdgeMetrics
+from .serve import ComputeRequest, ComputeResult
 
 __all__ = [
     "IslandMembership",

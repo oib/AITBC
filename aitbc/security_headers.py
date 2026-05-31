@@ -3,7 +3,6 @@ Security headers and CORS utilities for AITBC web services
 Provides security headers and CORS policies configuration
 """
 
-from typing import Dict, List, Optional, Set
 from dataclasses import dataclass
 
 from .aitbc_logging import get_logger
@@ -28,11 +27,11 @@ class SecurityHeaders:
 @dataclass
 class CORSConfig:
     """CORS configuration"""
-    allow_origins: List[str]
-    allow_methods: List[str]
-    allow_headers: List[str]
+    allow_origins: list[str]
+    allow_methods: list[str]
+    allow_headers: list[str]
     allow_credentials: bool = False
-    expose_headers: List[str] = None
+    expose_headers: list[str] = None
     max_age: int = 3600
 
 
@@ -41,8 +40,8 @@ class SecurityHeadersMiddleware:
     Security headers middleware for web services.
     Adds security headers to HTTP responses.
     """
-    
-    def __init__(self, headers: Optional[SecurityHeaders] = None):
+
+    def __init__(self, headers: SecurityHeaders | None = None):
         """
         Initialize security headers middleware
         
@@ -50,8 +49,8 @@ class SecurityHeadersMiddleware:
             headers: Security headers configuration
         """
         self.headers = headers or SecurityHeaders()
-    
-    def get_headers(self) -> Dict[str, str]:
+
+    def get_headers(self) -> dict[str, str]:
         """
         Get security headers dictionary
         
@@ -69,8 +68,8 @@ class SecurityHeadersMiddleware:
             "Cache-Control": self.headers.Cache_Control,
             "Pragma": self.headers.Pragma
         }
-    
-    def apply_to_response(self, response_headers: Dict[str, str]) -> Dict[str, str]:
+
+    def apply_to_response(self, response_headers: dict[str, str]) -> dict[str, str]:
         """
         Apply security headers to response
         
@@ -90,7 +89,7 @@ class CORSMiddleware:
     CORS middleware for web services.
     Handles Cross-Origin Resource Sharing policies.
     """
-    
+
     def __init__(self, config: CORSConfig):
         """
         Initialize CORS middleware
@@ -99,8 +98,8 @@ class CORSMiddleware:
             config: CORS configuration
         """
         self.config = config
-    
-    def get_cors_headers(self, origin: str) -> Dict[str, str]:
+
+    def get_cors_headers(self, origin: str) -> dict[str, str]:
         """
         Get CORS headers for a request
         
@@ -111,24 +110,24 @@ class CORSMiddleware:
             Dictionary of CORS headers
         """
         headers = {}
-        
+
         # Check if origin is allowed
         if self._is_origin_allowed(origin):
             headers["Access-Control-Allow-Origin"] = origin
-            
+
             if self.config.allow_credentials:
                 headers["Access-Control-Allow-Credentials"] = "true"
-            
+
             headers["Access-Control-Allow-Methods"] = ", ".join(self.config.allow_methods)
             headers["Access-Control-Allow-Headers"] = ", ".join(self.config.allow_headers)
-            
+
             if self.config.expose_headers:
                 headers["Access-Control-Expose-Headers"] = ", ".join(self.config.expose_headers)
-            
+
             headers["Access-Control-Max-Age"] = str(self.config.max_age)
-        
+
         return headers
-    
+
     def _is_origin_allowed(self, origin: str) -> bool:
         """
         Check if origin is allowed based on CORS policy
@@ -141,9 +140,9 @@ class CORSMiddleware:
         """
         if "*" in self.config.allow_origins:
             return True
-        
+
         return origin in self.config.allow_origins
-    
+
     def is_preflight_request(self, method: str) -> bool:
         """
         Check if request is a CORS preflight request
@@ -197,7 +196,7 @@ def create_development_security_headers() -> SecurityHeaders:
     )
 
 
-def create_strict_cors_config(allowed_origins: List[str]) -> CORSConfig:
+def create_strict_cors_config(allowed_origins: list[str]) -> CORSConfig:
     """
     Create strict CORS configuration
     

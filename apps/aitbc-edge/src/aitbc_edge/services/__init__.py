@@ -1,10 +1,10 @@
 """Services for Edge API Service"""
 
-from .island_service import IslandService
-from .gpu_service import GPUService
 from .database_service import DatabaseService
-from .serve_service import ServeService
+from .gpu_service import GPUService
+from .island_service import IslandService
 from .metrics_service import MetricsService
+from .serve_service import ServeService
 
 __all__ = [
     "IslandService",

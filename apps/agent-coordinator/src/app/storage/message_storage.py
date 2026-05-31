@@ -3,8 +3,8 @@ Message storage layer for persisting agent communication messages in Redis
 """
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aitbc import get_logger
 
@@ -18,7 +18,7 @@ class MessageStorage:
         """Initialize message storage with Redis connection"""
         import redis.asyncio as redis
         self.redis_url = redis_url
-        self.redis: Optional[redis.Redis] = None
+        self.redis: redis.Redis | None = None
 
     async def start(self):
         """Connect to Redis"""
@@ -32,7 +32,7 @@ class MessageStorage:
             await self.redis.close()
             logger.info("Message storage disconnected from Redis")
 
-    async def store_message(self, message_id: str, message_data: Dict[str, Any]) -> bool:
+    async def store_message(self, message_id: str, message_data: dict[str, Any]) -> bool:
         """Store a message in Redis"""
         try:
             # Store message data
@@ -49,7 +49,7 @@ class MessageStorage:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
 
             # Index by timestamp (for time-based queries)
-            timestamp_str = message_data.get("timestamp", datetime.now(timezone.utc).isoformat())
+            timestamp_str = message_data.get("timestamp", datetime.now(UTC).isoformat())
             # Convert to float for sorted set
             try:
                 # Try to parse ISO format
@@ -58,7 +58,7 @@ class MessageStorage:
             except Exception:
                 # Already a float or int
                 timestamp_float = float(timestamp_str)
-            await self.redis.zadd(f"messages:timestamp", {message_id: timestamp_float})
+            await self.redis.zadd("messages:timestamp", {message_id: timestamp_float})
 
             logger.debug(f"Stored message {message_id} in Redis")
             return True
@@ -74,8 +74,8 @@ class MessageStorage:
         except Exception as e:
             logger.error(f"Error getting message count: {e}")
             return 0
-    
-    async def get_message(self, message_id: str) -> Optional[Dict[str, Any]]:
+
+    async def get_message(self, message_id: str) -> dict[str, Any] | None:
         """Retrieve a specific message by ID"""
         try:
             message_data = await self.redis.hgetall(f"message:{message_id}")
@@ -95,7 +95,7 @@ class MessageStorage:
         sender_id: str,
         limit: int = 100,
         offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         try:
             # Get message IDs for sender
@@ -123,7 +123,7 @@ class MessageStorage:
         receiver_id: str,
         limit: int = 100,
         offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         try:
             # Get message IDs for receiver
@@ -150,11 +150,11 @@ class MessageStorage:
         self,
         limit: int = 100,
         offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all messages with pagination"""
         try:
             # Get message IDs by timestamp (most recent first)
-            message_ids = await self.redis.zrevrange(f"messages:timestamp", offset, offset + limit - 1)
+            message_ids = await self.redis.zrevrange("messages:timestamp", offset, offset + limit - 1)
 
             # Retrieve messages
             messages = []
@@ -187,7 +187,7 @@ class MessageStorage:
                 await self.redis.srem(f"messages:receiver:{receiver_id}", message_id)
 
             # Remove from timestamp index
-            await self.redis.zrem(f"messages:timestamp", message_id)
+            await self.redis.zrem("messages:timestamp", message_id)
 
             # Delete message data
             await self.redis.delete(f"message:{message_id}")
@@ -207,7 +207,7 @@ class PeerStorage:
         """Initialize peer storage with Redis connection"""
         import redis.asyncio as redis
         self.redis_url = redis_url
-        self.redis: Optional[redis.Redis] = None
+        self.redis: redis.Redis | None = None
 
     async def start(self):
         """Connect to Redis"""
@@ -221,7 +221,7 @@ class PeerStorage:
             await self.redis.close()
             logger.info("Peer storage disconnected from Redis")
 
-    async def add_peer(self, agent_id: str, peer_id: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
+    async def add_peer(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
         """Add a peer connection for an agent"""
         try:
             # Add peer to agent's peer set
@@ -254,7 +254,7 @@ class PeerStorage:
             logger.error(f"Error removing peer {peer_id} for agent {agent_id}: {e}")
             return False
 
-    async def get_agent_peers(self, agent_id: str) -> List[str]:
+    async def get_agent_peers(self, agent_id: str) -> list[str]:
         """Get all peers for a specific agent"""
         try:
             peer_ids = await self.redis.smembers(f"peers:{agent_id}")
@@ -264,7 +264,7 @@ class PeerStorage:
             logger.error(f"Error retrieving peers for agent {agent_id}: {e}")
             return []
 
-    async def get_peer_metadata(self, agent_id: str, peer_id: str) -> Optional[Dict[str, Any]]:
+    async def get_peer_metadata(self, agent_id: str, peer_id: str) -> dict[str, Any] | None:
         """Get metadata for a specific peer connection"""
         try:
             metadata = await self.redis.hgetall(f"peer_connection:{agent_id}:{peer_id}")
@@ -274,7 +274,7 @@ class PeerStorage:
             logger.error(f"Error retrieving peer metadata for {agent_id}:{peer_id}: {e}")
             return None
 
-    async def get_all_peer_connections(self) -> Dict[str, List[str]]:
+    async def get_all_peer_connections(self) -> dict[str, list[str]]:
         """Get all peer connections in the system"""
         try:
             # Get all peer set keys

@@ -3,15 +3,18 @@
 Test the BlockImportRequest model
 """
 
+from typing import Any
+
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional
+
 from aitbc import validate_address, validate_hash
+
 
 class TransactionData(BaseModel):
     tx_hash: str
     sender: str
     recipient: str
-    payload: Dict[str, Any] = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 class BlockImportRequest(BaseModel):
     height: int = Field(gt=0)
@@ -20,8 +23,8 @@ class BlockImportRequest(BaseModel):
     proposer: str
     timestamp: str
     tx_count: int = Field(ge=0)
-    state_root: Optional[str] = None
-    transactions: List[TransactionData] = Field(default_factory=list)
+    state_root: str | None = None
+    transactions: list[TransactionData] = Field(default_factory=list)
 
 # Test creating the request
 test_data = {
@@ -56,7 +59,7 @@ try:
     print(f"Transactions count: {len(request.transactions)}")
     if request.transactions:
         tx = request.transactions[0]
-        print(f"First transaction:")
+        print("First transaction:")
         print(f"  tx_hash: {tx.tx_hash}")
         print(f"  sender: {tx.sender}")
         print(f"  recipient: {tx.recipient}")

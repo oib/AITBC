@@ -5,7 +5,6 @@ import subprocess
 import time
 from pathlib import Path
 
-
 PROJECT_ROOT = Path("/opt/aitbc")
 CLI_BIN = PROJECT_ROOT / "aitbc-cli"
 

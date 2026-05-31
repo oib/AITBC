@@ -4,15 +4,13 @@ Certification System - Agent certification framework and verification system
 
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-
-from sqlmodel import Session, and_, select
 
 from app.domain.certification import (
     AgentCertification,
@@ -21,6 +19,7 @@ from app.domain.certification import (
     VerificationType,
 )
 from app.domain.reputation import AgentReputation
+from sqlmodel import Session, and_, select
 
 
 class CertificationSystem:
@@ -103,7 +102,7 @@ class CertificationSystem:
         certification_id = f"cert_{uuid4().hex[:8]}"
         verification_hash = self.generate_verification_hash(agent_id, level, certification_id)
 
-        expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])  # type: ignore[arg-type]
+        expires_at = datetime.now(UTC) + timedelta(days=level_config["validity_days"])  # type: ignore[arg-type]
 
         certification = AgentCertification(
             certification_id=certification_id,
@@ -122,7 +121,7 @@ class CertificationSystem:
             audit_log=[
                 {
                     "action": "issued",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "performed_by": issued_by,
                     "details": f"Certification issued at {level.value} level",
                 }
@@ -192,7 +191,7 @@ class CertificationSystem:
                     AgentCertification.agent_id == agent_id,
                     AgentCertification.certification_level == target_level,
                     AgentCertification.status == CertificationStatus.ACTIVE,
-                    AgentCertification.expires_at > datetime.now(timezone.utc),
+                    AgentCertification.expires_at > datetime.now(UTC),
                 )
             )
         ).first()
@@ -504,7 +503,7 @@ class CertificationSystem:
             "agent_id": agent_id,
             "level": level.value,
             "certification_id": certification_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "nonce": uuid4().hex,
         }
 
@@ -559,9 +558,9 @@ class CertificationSystem:
             return False, f"Renewal requirements not met: {'; '.join(errors)}"
 
         # Update certification
-        certification.expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])  # type: ignore[arg-type]
+        certification.expires_at = datetime.now(UTC) + timedelta(days=level_config["validity_days"])  # type: ignore[arg-type]
         certification.renewal_count += 1
-        certification.last_renewed_at = datetime.now(timezone.utc)
+        certification.last_renewed_at = datetime.now(UTC)
         certification.verification_hash = self.generate_verification_hash(
             certification.agent_id, certification.certification_level, certification.certification_id
         )
@@ -570,7 +569,7 @@ class CertificationSystem:
         certification.audit_log.append(
             {
                 "action": "renewed",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "performed_by": renewed_by,
                 "details": f"Certification renewed for {level_config['validity_days']} days",
             }

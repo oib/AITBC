@@ -1,9 +1,10 @@
 """Blockchain event bridge handlers."""
 
+import logging
 import subprocess
 
 from aitbc import AITBCHTTPClient, NetworkError
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,17 +14,17 @@ def handle_bridge_health(args):
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
-        
+
         if args.test_mode:
             logger.info("🏥 Blockchain Event Bridge Health (test mode):")
             logger.info("✅ Status: healthy")
             logger.info("📦 Service: blockchain-event-bridge")
             return
-        
+
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         health = http_client.get("/health")
-        
+
         logger.info("🏥 Blockchain Event Bridge Health:")
         for key, value in health.items():
             logger.info(f"  {key}: {value}")
@@ -36,17 +37,17 @@ def handle_bridge_metrics(args):
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
-        
+
         if args.test_mode:
             logger.info("📊 Prometheus Metrics (test mode):")
             logger.info("  bridge_events_total: 103691")
             logger.info("  bridge_events_processed_total: 103691")
             return
-        
+
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         metrics = http_client.get("/metrics", return_response=True)
-        
+
         logger.info("📊 Prometheus Metrics:")
         logger.info(metrics.text)
     except NetworkError as e:
@@ -58,17 +59,17 @@ def handle_bridge_status(args):
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
-        
+
         if args.test_mode:
             logger.info("📊 Blockchain Event Bridge Status (test mode):")
             logger.info("✅ Status: running")
             logger.info("🔔 Subscriptions: blocks, transactions, contract_events")
             return
-        
+
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         status = http_client.get("/")
-        
+
         logger.info("📊 Blockchain Event Bridge Status:")
         for key, value in status.items():
             logger.info(f"  {key}: {value}")
@@ -81,17 +82,17 @@ def handle_bridge_config(args):
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
-        
+
         if args.test_mode:
             logger.info("⚙️  Blockchain Event Bridge Configuration (test mode):")
             logger.info("🔗 Blockchain RPC URL: http://localhost:8006")
             logger.info("💬 Gossip Backend: redis")
             return
-        
+
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
         http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
         service_config = http_client.get("/config")
-        
+
         logger.info("⚙️  Blockchain Event Bridge Configuration:")
         for key, value in service_config.items():
             logger.info(f"  {key}: {value}")
@@ -106,14 +107,14 @@ def handle_bridge_restart(args):
             logger.info("🔄 Blockchain event bridge restart triggered (test mode)")
             logger.info("✅ Restart completed successfully")
             return
-        
+
         result = subprocess.run(
             ["sudo", "systemctl", "restart", "aitbc-blockchain-event-bridge"],
             capture_output=True,
             text=True,
             timeout=30
         )
-        
+
         if result.returncode == 0:
             logger.info("🔄 Blockchain event bridge restart triggered")
             logger.info("✅ Restart completed successfully")

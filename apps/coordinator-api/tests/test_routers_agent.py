@@ -2,8 +2,9 @@
 Tests for agent router
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -26,13 +27,13 @@ class TestAgentRouter:
         }
 
         # Import and test
-        from app.routers.agent_router import router
         from app.main import create_app
-        
+        from app.routers.agent_router import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/agents")
         assert response.status_code == 200
         data = response.json()
@@ -52,13 +53,13 @@ class TestAgentRouter:
         }
 
         # Import and test
-        from app.routers.agent_router import router
         from app.main import create_app
-        
+        from app.routers.agent_router import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.post("/agents", json={
             "name": "Agent 3",
             "type": "compute",
@@ -84,13 +85,13 @@ class TestAgentRouter:
         }
 
         # Import and test
-        from app.routers.agent_router import router
         from app.main import create_app
-        
+        from app.routers.agent_router import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/agents/agent1/status")
         assert response.status_code == 200
         data = response.json()

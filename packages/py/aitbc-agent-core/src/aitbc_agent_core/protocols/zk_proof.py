@@ -9,7 +9,7 @@ from typing import Any
 
 class IZKProofService(ABC):
     """Protocol for ZK proof generation and verification"""
-    
+
     @abstractmethod
     async def generate_zk_proof(
         self,
@@ -27,7 +27,7 @@ class IZKProofService(ABC):
             Proof metadata including proof_id, size, generation_time
         """
         ...
-    
+
     @abstractmethod
     async def verify_proof(
         self,

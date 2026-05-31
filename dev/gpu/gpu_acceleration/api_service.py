@@ -4,12 +4,12 @@ Refactored FastAPI GPU Acceleration Service
 Uses the new abstraction layer for backend-agnostic GPU acceleration.
 """
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Dict, List, Optional
 import logging
 
-from .gpu_manager import GPUAccelerationManager, create_gpu_manager
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+from .gpu_manager import create_gpu_manager
 
 app = FastAPI(title="AITBC GPU Acceleration API")
 logger = logging.getLogger(__name__)
@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 gpu_manager = create_gpu_manager()
 
 class FieldOperation(BaseModel):
-    a: List[int]
-    b: List[int]
+    a: list[int]
+    b: list[int]
 
 class MultiScalarOperation(BaseModel):
-    scalars: List[List[int]]
-    points: List[List[int]]
+    scalars: list[list[int]]
+    points: list[list[int]]
 
 @app.post("/field/add")
 async def field_add(op: FieldOperation):

@@ -3,12 +3,13 @@
 AITBC CLI Setup Script
 """
 
-from setuptools import setup, find_packages
-import os
+
+from setuptools import find_packages, setup
+
 
 # Read README file
 def read_readme():
-    with open("docs/README.md", "r", encoding="utf-8") as fh:
+    with open("docs/README.md", encoding="utf-8") as fh:
         return fh.read()
 
 # Read requirements from pyproject.toml

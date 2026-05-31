@@ -6,15 +6,15 @@ Provides health monitoring for specialized modality optimization strategies
 """
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from aitbc.rate_limiting import rate_limit
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -41,7 +41,7 @@ async def modality_optimization_health(
             "status": "healthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -94,7 +94,7 @@ async def modality_optimization_health(
             "status": "unhealthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -119,7 +119,7 @@ async def modality_optimization_deep_health(
                 "speedup": "180x",
                 "accuracy_retention": "97%",
             }
-        except Exception as e:
+        except Exception:
             optimization_tests["text"] = {"status": "fail", "error": "Test failed"}
 
         # Test image optimization
@@ -130,7 +130,7 @@ async def modality_optimization_deep_health(
                 "speedup": "165x",
                 "accuracy_retention": "94%",
             }
-        except Exception as e:
+        except Exception:
             optimization_tests["image"] = {"status": "fail", "error": "Test failed"}
 
         # Test audio optimization
@@ -141,7 +141,7 @@ async def modality_optimization_deep_health(
                 "speedup": "175x",
                 "accuracy_retention": "96%",
             }
-        except Exception as e:
+        except Exception:
             optimization_tests["audio"] = {"status": "fail", "error": "Test failed"}
 
         # Test video optimization
@@ -152,14 +152,14 @@ async def modality_optimization_deep_health(
                 "speedup": "220x",
                 "accuracy_retention": "93%",
             }
-        except Exception as e:
+        except Exception:
             optimization_tests["video"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "optimization_tests": optimization_tests,
             "overall_health": (
                 "pass" if all(test.get("status") == "pass" for test in optimization_tests.values()) else "degraded"
@@ -172,6 +172,6 @@ async def modality_optimization_deep_health(
             "status": "unhealthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Deep health check failed",
         }

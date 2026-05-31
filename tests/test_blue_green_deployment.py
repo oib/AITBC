@@ -2,16 +2,15 @@
 Tests for blue-green deployment utilities
 """
 
-import pytest
 import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from aitbc.blue_green_deployment import (
-    DeploymentStatus,
-    DeploymentConfig,
-    DeploymentResult,
     BlueGreenDeployer,
     CanaryDeployer,
+    DeploymentConfig,
+    DeploymentResult,
+    DeploymentStatus,
 )
 
 
@@ -102,7 +101,7 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         assert deployer.config == config
         assert deployer._current_version == "v1.0"
         assert deployer._new_version == "v2.0"
@@ -116,7 +115,7 @@ class TestBlueGreenDeployer:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -127,9 +126,9 @@ class TestBlueGreenDeployer:
             health_check_interval=1
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer.deploy()
-        
+
         assert result.status == DeploymentStatus.COMPLETED
         assert result.version == "v2.0"
         assert deployer._current_version == "v2.0"
@@ -141,7 +140,7 @@ class TestBlueGreenDeployer:
     def test_deploy_health_check_failure_with_rollback(self, mock_logger, mock_get, mock_sleep):
         """Test deployment rollback on health check failure"""
         mock_get.side_effect = Exception("Health check failed")
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -153,9 +152,9 @@ class TestBlueGreenDeployer:
             rollback_on_failure=True
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer.deploy()
-        
+
         assert result.status == DeploymentStatus.ROLLED_BACK
         assert result.version == "v1.0"
 
@@ -165,7 +164,7 @@ class TestBlueGreenDeployer:
     def test_deploy_health_check_failure_no_rollback(self, mock_logger, mock_get, mock_sleep):
         """Test deployment without rollback on health check failure"""
         mock_get.side_effect = Exception("Health check failed")
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -177,9 +176,9 @@ class TestBlueGreenDeployer:
             rollback_on_failure=False
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer.deploy()
-        
+
         assert result.status == DeploymentStatus.FAILED
         assert result.version == "v2.0"
 
@@ -189,7 +188,7 @@ class TestBlueGreenDeployer:
     def test_deploy_exception_with_rollback(self, mock_logger, mock_get, mock_sleep):
         """Test deployment exception in _deploy_to_green returns FAILED"""
         mock_sleep.side_effect = Exception("Deployment error")
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -199,9 +198,9 @@ class TestBlueGreenDeployer:
             rollback_on_failure=True
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer.deploy()
-        
+
         # Exception in _deploy_to_green is caught and returns FAILED, no rollback
         assert result.status == DeploymentStatus.FAILED
         assert result.error is not None
@@ -218,9 +217,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._deploy_to_green()
-        
+
         assert result.status == DeploymentStatus.DEPLOYING
         assert result.version == "v2.0"
 
@@ -229,7 +228,7 @@ class TestBlueGreenDeployer:
     def test_deploy_to_green_failure(self, mock_logger, mock_sleep):
         """Test _deploy_to_green failure"""
         mock_sleep.side_effect = Exception("Deploy failed")
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -238,9 +237,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._deploy_to_green()
-        
+
         assert result.status == DeploymentStatus.FAILED
         assert result.error is not None
 
@@ -252,7 +251,7 @@ class TestBlueGreenDeployer:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -263,9 +262,9 @@ class TestBlueGreenDeployer:
             health_check_interval=1
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._health_check_green()
-        
+
         assert result.status == DeploymentStatus.HEALTH_CHECKING
         assert result.message == "Health check passed"
 
@@ -277,7 +276,7 @@ class TestBlueGreenDeployer:
         mock_response = Mock()
         mock_response.status_code = 500  # Non-200 status
         mock_get.return_value = mock_response
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -288,9 +287,9 @@ class TestBlueGreenDeployer:
             health_check_interval=1
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._health_check_green()
-        
+
         assert result.status == DeploymentStatus.FAILED
         assert "timeout" in result.message.lower()
 
@@ -306,9 +305,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._switch_traffic()
-        
+
         assert result.status == DeploymentStatus.SWITCHING_TRAFFIC
         assert result.message == "Traffic switched to green"
 
@@ -317,7 +316,7 @@ class TestBlueGreenDeployer:
     def test_switch_traffic_failure(self, mock_logger, mock_sleep):
         """Test _switch_traffic failure"""
         mock_sleep.side_effect = Exception("Switch failed")
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -326,9 +325,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._switch_traffic()
-        
+
         assert result.status == DeploymentStatus.FAILED
         assert result.error is not None
 
@@ -344,9 +343,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._rollback()
-        
+
         assert result.status == DeploymentStatus.ROLLED_BACK
         assert result.version == "v1.0"
 
@@ -355,7 +354,7 @@ class TestBlueGreenDeployer:
     def test_rollback_failure(self, mock_logger, mock_sleep):
         """Test _rollback failure"""
         mock_sleep.side_effect = Exception("Rollback failed")
-        
+
         config = DeploymentConfig(
             environment="production",
             service_name="service",
@@ -364,9 +363,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = deployer._rollback()
-        
+
         assert result.status == DeploymentStatus.FAILED
 
     @patch('aitbc.blue_green_deployment.logger')
@@ -380,9 +379,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         deployer._cleanup()
-        
+
         # Should not raise any exception
         assert True
 
@@ -396,7 +395,7 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         result = DeploymentResult(
             status=DeploymentStatus.COMPLETED,
             version="v2.0",
@@ -404,9 +403,9 @@ class TestBlueGreenDeployer:
             start_time=time.time()
         )
         deployer._deployment_history.append(result)
-        
+
         history = deployer.get_deployment_history()
-        
+
         assert len(history) == 1
         assert history[0] == result
 
@@ -420,9 +419,9 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = BlueGreenDeployer(config)
-        
+
         version = deployer.get_current_version()
-        
+
         assert version == "v1.0"
 
 
@@ -439,7 +438,7 @@ class TestCanaryDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = CanaryDeployer(config, canary_percentage=20.0)
-        
+
         assert deployer.config == config
         assert deployer.canary_percentage == 20.0
         assert deployer._current_percentage == 0.0
@@ -454,7 +453,7 @@ class TestCanaryDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = CanaryDeployer(config)
-        
+
         assert deployer.canary_percentage == 10.0
 
     @patch('aitbc.blue_green_deployment.logger')
@@ -468,9 +467,9 @@ class TestCanaryDeployer:
             health_check_url="http://localhost/health"
         )
         deployer = CanaryDeployer(config, canary_percentage=15.0)
-        
+
         result = deployer.deploy_canary()
-        
+
         assert result.status == DeploymentStatus.COMPLETED
         assert result.version == "v2.0"
         assert result.message == "Canary deployment completed"

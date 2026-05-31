@@ -4,9 +4,9 @@ Build script for AITBC Trade Exchange
 Combines CSS and HTML for production deployment
 """
 
+import logging
 import os
 import shutil
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,11 @@ def build_html():
         logger.info("Backed up original index.html to index.dev.html")
 
     # Read the template
-    with open("index.template.html", "r") as f:
+    with open("index.template.html") as f:
         template = f.read()
 
     # Read CSS
-    with open(css_path, "r") as f:
+    with open(css_path) as f:
         css_content = f.read()
 
     # Replace placeholder with CSS
@@ -57,7 +57,7 @@ def create_template():
     <!-- Body content will be added here -->
 </body>
 </html>"""
-    
+
     with open("index.template.html", "w") as f:
         f.write(template)
 
@@ -66,5 +66,5 @@ def create_template():
 if __name__ == "__main__":
     if not os.path.exists("index.template.html"):
         create_template()
-    
+
     build_html()

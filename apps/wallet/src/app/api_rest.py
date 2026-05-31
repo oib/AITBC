@@ -2,45 +2,37 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from datetime import datetime
-from typing import Any, Dict, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from .deps import get_keystore, get_ledger, get_receipt_service
+from .keystore.persistent_service import PersistentKeystoreService
+from .ledger_mock import SQLiteLedgerAdapter
 
-from .deps import get_receipt_service, get_keystore, get_ledger
 # Temporarily disable multi-chain imports
 # from .chain.manager import ChainManager, chain_manager
 # from .chain.multichain_ledger import MultiChainLedgerAdapter
 # from .chain.chain_aware_wallet_service import ChainAwareWalletService
 from .models import (
     ReceiptVerificationListResponse,
-    ReceiptVerificationModel,
     ReceiptVerifyResponse,
-    SignatureValidationModel,
     WalletCreateRequest,
     WalletCreateResponse,
+    WalletDescriptor,
     WalletListResponse,
-    WalletUnlockRequest,
-    WalletUnlockResponse,
     WalletSignRequest,
     WalletSignResponse,
-    WalletDescriptor,
-    ChainInfo,
-    ChainListResponse,
-    ChainCreateRequest,
-    ChainCreateResponse,
-    WalletMigrationRequest,
-    WalletMigrationResponse,
     WalletTransactionRequest,
     WalletTransactionResponse,
+    WalletUnlockRequest,
+    WalletUnlockResponse,
     from_validation_result,
 )
-from .keystore.persistent_service import PersistentKeystoreService
-from .ledger_mock import SQLiteLedgerAdapter
 from .receipts.service import ReceiptValidationResult, ReceiptVerifierService
+
 # Temporarily disable multi-chain imports to match deps.py
 # from .chain.manager import ChainManager, chain_manager
 # from .chain.multichain_ledger import MultiChainLedgerAdapter
@@ -235,7 +227,7 @@ def send_transaction(
     """
     try:
         ip_address = request.client.host if request.client else "unknown"
-        
+
         # Call the keystore to sign and submit
         result = keystore.sign_and_submit_transaction(
             wallet_id=wallet_id,
@@ -248,7 +240,7 @@ def send_transaction(
             payload=tx_request.payload,
             ip_address=ip_address
         )
-        
+
         if not result.get("success"):
             error_msg = result.get("error", "Transaction failed")
             logger.warning("Transaction submission failed", extra={
@@ -256,13 +248,13 @@ def send_transaction(
                 "error": error_msg
             })
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
-        
+
         logger.info("Transaction submitted successfully", extra={
             "wallet_id": wallet_id,
             "tx_hash": result.get("tx_hash"),
             "recipient": result.get("recipient")
         })
-        
+
         return WalletTransactionResponse(
             success=True,
             tx_hash=result.get("tx_hash", ""),
@@ -273,7 +265,7 @@ def send_transaction(
             fee=result.get("fee", 0),
             nonce=result.get("nonce", 0)
         )
-        
+
     except HTTPException:
         raise
     except Exception as exc:
@@ -299,18 +291,19 @@ async def faucet_request(
     """
     try:
         ip_address = request.client.host if request.client else "unknown"
-        
+
         # Get wallet public key
         record = keystore.get_wallet(wallet_id)
         if not record:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wallet not found")
-        
+
         address = record.public_key
-        
+
         # Call blockchain faucet
         import httpx
+
         from .settings import settings
-        
+
         rpc_url = settings.blockchain_rpc_url
         response = httpx.post(
             f"{rpc_url}/rpc/faucet",
@@ -319,19 +312,19 @@ async def faucet_request(
         )
         response.raise_for_status()
         result = response.json()
-        
+
         if not result.get("success"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=result.get("message", "Faucet request failed")
             )
-        
+
         logger.info("Faucet funding successful", extra={
             "wallet_id": wallet_id,
             "address": address,
             "amount": result.get("amount", 0)
         })
-        
+
         return WalletTransactionResponse(
             success=True,
             tx_hash=result.get("tx_hash", ""),
@@ -342,7 +335,7 @@ async def faucet_request(
             fee=0,
             nonce=0
         )
-        
+
     except HTTPException:
         raise
     except Exception as exc:
@@ -366,10 +359,10 @@ async def faucet_request(
 #     """List all blockchain chains with their statistics"""
 #     chains = []
 #     active_chains = chain_manager.get_active_chains()
-#     
+#
 #     for chain in chain_manager.list_chains():
 #         stats = multichain_ledger.get_chain_stats(chain.chain_id)
-#         
+#
 #         chain_info = ChainInfo(
 #             chain_id=chain.chain_id,
 #             name=chain.name,
@@ -381,7 +374,7 @@ async def faucet_request(
 #             recent_activity=stats.get("recent_activity", 0)
 #         )
 #         chains.append(chain_info)
-#     
+#
 #     return ChainListResponse(
 #         chains=chains,
 #         total_chains=len(chains),
@@ -398,7 +391,7 @@ async def faucet_request(
 # ) -> ChainCreateResponse:
 #     """Create a new blockchain chain configuration"""
 #     from .chain.manager import ChainConfig
-#     
+#
 #     chain_config = ChainConfig(
 #         chain_id=chain_request.chain_id,
 #         name=chain_request.name,
@@ -406,14 +399,14 @@ async def faucet_request(
 #         coordinator_api_key=chain_request.coordinator_api_key,
 #         metadata=chain_request.metadata
 #     )
-#     
+#
 #     success = chain_manager.add_chain(chain_config)
 #     if not success:
 #         raise HTTPException(
 #             status_code=status.HTTP_400_BAD_REQUEST,
 #             detail=f"Chain {chain_request.chain_id} already exists"
 #         )
-#     
+#
 #     chain_info = ChainInfo(
 #         chain_id=chain_config.chain_id,
 #         name=chain_config.name,
@@ -436,7 +429,7 @@ async def faucet_request(
 # ) -> WalletListResponse:
 #     """List wallets in a specific blockchain chain"""
 #     wallets = wallet_service.list_wallets(chain_id)
-#     
+#
 #     descriptors = []
 #     for wallet in wallets:
 #         descriptor = WalletDescriptor(
@@ -447,7 +440,7 @@ async def faucet_request(
 #             metadata=wallet.metadata
 #         )
 #         descriptors.append(descriptor)
-#     
+#
 #     return WalletListResponse(
 #         chain_id=chain_id,
 #         wallets=descriptors,
@@ -467,15 +460,15 @@ async def faucet_request(
 #     # Validate chain_id to prevent path traversal
 #     import re
 #     CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
-#     
+#
 #     if not CHAIN_ID_PATTERN.match(chain_id):
 #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
-#     
+#
 #     try:
 #         secret = base64.b64decode(wallet_request.secret_key) if wallet_request.secret_key else None
 #     except Exception as exc:
 #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 secret") from exc
-#     
+#
 #     wallet_metadata = wallet_service.create_wallet(
 #         chain_id=chain_id,
 #         wallet_id=wallet_request.wallet_id,
@@ -483,13 +476,13 @@ async def faucet_request(
 #         secret_key=secret,
 #         metadata=wallet_request.metadata
 #     )
-#     
+#
 #     if not wallet_metadata:
 #         raise HTTPException(
 #             status_code=status.HTTP_400_BAD_REQUEST,
 #             detail="Failed to create wallet in chain"
 #         )
-#     
+#
 #     wallet = WalletDescriptor(
 #         wallet_id=wallet_metadata.wallet_id,
 #         chain_id=wallet_metadata.chain_id,
@@ -497,7 +490,7 @@ async def faucet_request(
 #         address=wallet_metadata.address,
 #         metadata=wallet_metadata.metadata
 #     )
-#     
+#
 #     return WalletCreateResponse(wallet=wallet)
 
 
@@ -514,14 +507,14 @@ async def faucet_request(
 #     # Validate chain_id to prevent path traversal
 #     import re
 #     CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
-#     
+#
 #     if not CHAIN_ID_PATTERN.match(chain_id):
 #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
-#     
+#
 #     success = wallet_service.unlock_wallet(chain_id, wallet_id, unlock_request.password)
 #     if not success:
 #         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
-#     
+#
 #     return WalletUnlockResponse(wallet_id=wallet_id, chain_id=chain_id, unlocked=True)
 
 
@@ -538,21 +531,21 @@ async def faucet_request(
 #     # Validate chain_id to prevent path traversal
 #     import re
 #     CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
-#     
+#
 #     if not CHAIN_ID_PATTERN.match(chain_id):
 #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
-#     
+#
 #     try:
 #         message = base64.b64decode(sign_request.message_base64)
 #     except Exception as exc:
 #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 message") from exc
-#     
+#
 #     ip_address = request.client.host if request.client else "unknown"
 #     signature = wallet_service.sign_message(chain_id, wallet_id, sign_request.password, message, ip_address)
-#     
+#
 #     if not signature:
 #         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
-#     
+#
 #     return WalletSignResponse(
 #         wallet_id=wallet_id,
 #         chain_id=chain_id,
@@ -571,10 +564,10 @@ async def faucet_request(
 #     # Validate chain_ids to prevent path traversal
 #     import re
 #     CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
-#     
+#
 #     if not CHAIN_ID_PATTERN.match(migration_request.source_chain_id) or not CHAIN_ID_PATTERN.match(migration_request.target_chain_id):
 #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
-#     
+#
 #     success = wallet_service.migrate_wallet_between_chains(
 #         source_chain_id=migration_request.source_chain_id,
 #         target_chain_id=migration_request.target_chain_id,
@@ -582,23 +575,23 @@ async def faucet_request(
 #         password=migration_request.password,
 #         new_password=migration_request.new_password
 #     )
-#     
+#
 #     if not success:
 #         raise HTTPException(
 #             status_code=status.HTTP_400_BAD_REQUEST,
 #             detail="Failed to migrate wallet"
 #         )
-#     
+#
 #     # Get both wallet descriptors
 #     source_wallet = wallet_service.get_wallet(migration_request.source_chain_id, migration_request.wallet_id)
 #     target_wallet = wallet_service.get_wallet(migration_request.target_chain_id, migration_request.wallet_id)
-#     
+#
 #     if not source_wallet or not target_wallet:
 #         raise HTTPException(
 #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
 #             detail="Migration completed but wallet retrieval failed"
 #         )
-#     
+#
 #     source_descriptor = WalletDescriptor(
 #         wallet_id=source_wallet.wallet_id,
 #         chain_id=source_wallet.chain_id,
@@ -606,7 +599,7 @@ async def faucet_request(
 #         address=source_wallet.address,
 #         metadata=source_wallet.metadata
 #     )
-#     
+#
 #     target_descriptor = WalletDescriptor(
 #         wallet_id=target_wallet.wallet_id,
 #         chain_id=target_wallet.chain_id,
@@ -614,7 +607,7 @@ async def faucet_request(
 #         address=target_wallet.address,
 #         metadata=target_wallet.metadata
 #     )
-#     
+#
 #     return WalletMigrationResponse(
 #         success=True,
 #         source_wallet=source_descriptor,

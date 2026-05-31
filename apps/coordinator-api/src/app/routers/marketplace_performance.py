@@ -4,8 +4,6 @@ REST API for managing distributed processing, GPU optimization, caching, and sca
 """
 
 import time
-import os
-import sys
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -16,12 +14,12 @@ from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-from app.services.marketplace_gpu_optimizer import MarketplaceGPUOptimizer
 from app.services.distributed_framework import (
     DistributedProcessingCoordinator,
     DistributedTask,
 )
 from app.services.marketplace_cache_optimizer import MarketplaceDataOptimizer
+from app.services.marketplace_gpu_optimizer import MarketplaceGPUOptimizer
 from app.services.marketplace_monitor import monitor as marketplace_monitor
 from app.services.marketplace_scaler import ResourceScaler
 

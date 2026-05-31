@@ -1,13 +1,19 @@
 """Edge case and error handling tests for agent marketplace service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
+from agent_marketplace import (
+    DealConfirmation,
+    DealRequest,
+    GPUOffering,
+    MinerRegistration,
+    app,
+    chain_offerings,
+    gpu_offerings,
+    marketplace_deals,
+    miner_registrations,
+)
 from fastapi.testclient import TestClient
-
-
-from agent_marketplace import app, GPUOffering, DealRequest, DealConfirmation, MinerRegistration, gpu_offerings, marketplace_deals, miner_registrations, chain_offerings
 
 
 @pytest.fixture(autouse=True)
@@ -148,10 +154,10 @@ def test_request_deal_offering_not_available():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     # Mark as occupied
     gpu_offerings[offering_id]["status"] = "occupied"
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -179,7 +185,7 @@ def test_confirm_deal_already_confirmed():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -188,7 +194,7 @@ def test_confirm_deal_already_confirmed():
     )
     deal_response = client.post("/api/v1/deals/request", json=deal_request.model_dump())
     deal_id = deal_response.json()["deal_id"]
-    
+
     # Confirm the deal
     confirmation = DealConfirmation(
         deal_id=deal_id,
@@ -196,7 +202,7 @@ def test_confirm_deal_already_confirmed():
         chain="ait-devnet"
     )
     client.post(f"/api/v1/deals/{deal_id}/confirm", json=confirmation.model_dump())
-    
+
     # Try to confirm again
     response = client.post(f"/api/v1/deals/{deal_id}/confirm", json=confirmation.model_dump())
     assert response.status_code == 400
@@ -219,7 +225,7 @@ def test_confirm_deal_chain_mismatch():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -228,7 +234,7 @@ def test_confirm_deal_chain_mismatch():
     )
     deal_response = client.post("/api/v1/deals/request", json=deal_request.model_dump())
     deal_id = deal_response.json()["deal_id"]
-    
+
     # Confirm with wrong chain
     confirmation = DealConfirmation(
         deal_id=deal_id,

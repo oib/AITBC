@@ -1,14 +1,20 @@
 """Integration tests for plugin analytics service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, PluginUsage, PluginPerformance, PluginRating, PluginEvent, plugin_usage_data, plugin_performance_data, plugin_ratings, plugin_events
+from main import (
+    PluginEvent,
+    PluginPerformance,
+    PluginRating,
+    PluginUsage,
+    app,
+    plugin_events,
+    plugin_performance_data,
+    plugin_ratings,
+    plugin_usage_data,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -56,7 +62,7 @@ def test_record_plugin_usage():
         plugin_id="plugin_123",
         user_id="user_123",
         action="install",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
     assert response.status_code == 200
@@ -77,7 +83,7 @@ def test_record_plugin_performance():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/analytics/performance", json=perf.model_dump(mode='json'))
     assert response.status_code == 200
@@ -95,7 +101,7 @@ def test_record_plugin_rating():
         user_id="user_123",
         rating=5,
         review="Great plugin!",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/analytics/rating", json=rating.model_dump(mode='json'))
     assert response.status_code == 200
@@ -113,7 +119,7 @@ def test_record_plugin_event():
         plugin_id="plugin_123",
         user_id="user_123",
         data={"error": "timeout"},
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/analytics/event", json=event.model_dump(mode='json'))
     assert response.status_code == 200
@@ -131,10 +137,10 @@ def test_get_plugin_usage():
         plugin_id="plugin_123",
         user_id="user_123",
         action="install",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/analytics/usage/plugin_123")
     assert response.status_code == 200
     data = response.json()
@@ -155,10 +161,10 @@ def test_get_plugin_performance():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/analytics/performance", json=perf.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/analytics/performance/plugin_123")
     assert response.status_code == 200
     data = response.json()
@@ -175,10 +181,10 @@ def test_get_plugin_ratings():
         plugin_id="plugin_123",
         user_id="user_123",
         rating=5,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/analytics/rating", json=rating.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/analytics/ratings/plugin_123")
     assert response.status_code == 200
     data = response.json()

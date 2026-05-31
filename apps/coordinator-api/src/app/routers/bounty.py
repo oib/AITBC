@@ -12,14 +12,13 @@ Provides endpoints for:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ..services.bounty_service import BountyService, BountyStatus
-
+from ..services.bounty_service import BountyService
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +32,9 @@ class CreateBountyRequest(BaseModel):
     description: str = Field(..., min_length=10)
     creator: str
     reward: int = Field(..., gt=0)
-    deadline: Optional[str] = None
-    requirements: List[str] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
+    deadline: str | None = None
+    requirements: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class ClaimBountyRequest(BaseModel):
@@ -49,7 +48,7 @@ class SubmitSolutionRequest(BaseModel):
     bounty_id: str
     hunter: str
     solution_url: str
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class VerifySolutionRequest(BaseModel):
@@ -57,11 +56,11 @@ class VerifySolutionRequest(BaseModel):
     bounty_id: str
     verifier: str
     approved: bool
-    feedback: Optional[str] = None
+    feedback: str | None = None
 
 
 # Initialize service
-_bounty_service: Optional[BountyService] = None
+_bounty_service: BountyService | None = None
 
 
 def get_bounty_service() -> BountyService:
@@ -79,12 +78,12 @@ def _create_sample_bounties():  # type: ignore[no-untyped-def]
     service = _bounty_service
     if not service:
         return
-    
+
     # Only create if no bounties exist
     existing = service.list_bounties()  # type: ignore[attr-defined]
     if existing:
         return
-    
+
     sample_bounties = [
         {
             "title": "Implement Discord Bot Integration",
@@ -127,7 +126,7 @@ def _create_sample_bounties():  # type: ignore[no-untyped-def]
             "requirements": ["Blockchain expertise", "Error handling", "Testing"]
         }
     ]
-    
+
     for bounty_data in sample_bounties:
         try:
             service.create_bounty(  # type: ignore[call-arg,unused-coroutine]
@@ -146,7 +145,7 @@ def _create_sample_bounties():  # type: ignore[no-untyped-def]
 async def create_bounty(
     request: Request,
     req: CreateBountyRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a new bounty task"""
     return {
         "bounty_id": "bounty-001",
@@ -155,16 +154,16 @@ async def create_bounty(
         "creator": req.creator,
         "reward": req.reward,
         "status": "open",
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": datetime.now(UTC).isoformat()
     }
 
 
 @router.get("/list", summary="List available bounties")
 async def list_bounties(
     request: Request,
-    status: Optional[str] = None,
-    tag: Optional[str] = None
-) -> Dict[str, Any]:
+    status: str | None = None,
+    tag: str | None = None
+) -> dict[str, Any]:
     """List all bounties with optional filtering"""
     return {
         "bounties": [],
@@ -180,7 +179,7 @@ async def list_bounties(
 async def get_bounty(
     request: Request,
     bounty_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get detailed information about a specific bounty"""
     if bounty_id == "not-found":
         raise HTTPException(status_code=404, detail="Bounty not found")
@@ -198,7 +197,7 @@ async def get_bounty(
 async def claim_bounty(
     request: Request,
     req: ClaimBountyRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Claim an open bounty for work"""
     return {
         "success": True,
@@ -212,7 +211,7 @@ async def claim_bounty(
 async def submit_solution(
     request: Request,
     req: SubmitSolutionRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Submit a solution for a claimed bounty"""
     return {
         "success": True,
@@ -226,7 +225,7 @@ async def submit_solution(
 async def verify_solution(
     request: Request,
     req: VerifySolutionRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Verify and approve/reject a submitted solution"""
     return {
         "success": True,
@@ -237,7 +236,7 @@ async def verify_solution(
 
 
 @router.get("/stats", summary="Get bounty statistics")
-async def get_stats(request: Request) -> Dict[str, Any]:
+async def get_stats(request: Request) -> dict[str, Any]:
     """Get platform-wide bounty statistics"""
     return {
         "total_bounties": 0,

@@ -19,17 +19,16 @@ Usage:
 """
 
 # Public API
-from .gpu_manager import (
-    GPUAccelerationManager,
-    GPUAccelerationContext,
-    create_gpu_manager,
-    get_available_backends,
-    auto_detect_best_backend,
-    ZKOperationConfig
-)
-
 # Backend enumeration
 from .compute_provider import ComputeBackend, ComputeDevice
+from .gpu_manager import (
+    GPUAccelerationContext,
+    GPUAccelerationManager,
+    ZKOperationConfig,
+    auto_detect_best_backend,
+    create_gpu_manager,
+    get_available_backends,
+)
 
 # Version information
 __version__ = "1.0.0"
@@ -38,13 +37,14 @@ __email__ = "dev@aitbc.dev"
 
 # Initialize logging
 import logging
+
 logger = logging.getLogger(__name__)
 
 # Auto-detect available backends on import
 try:
     AVAILABLE_BACKENDS = get_available_backends()
     BEST_BACKEND = auto_detect_best_backend()
-    logger.info(f"GPU Acceleration Module loaded")
+    logger.info("GPU Acceleration Module loaded")
     logger.info(f"Available backends: {AVAILABLE_BACKENDS}")
     logger.info(f"Best backend: {BEST_BACKEND}")
 except Exception as e:
@@ -78,23 +78,23 @@ __all__ = [
     # Main classes
     "GPUAccelerationManager",
     "GPUAccelerationContext",
-    
+
     # Factory functions
     "create_gpu_manager",
     "get_available_backends",
     "auto_detect_best_backend",
-    
+
     # Configuration
     "ZKOperationConfig",
     "ComputeBackend",
     "ComputeDevice",
-    
+
     # Quick functions
     "quick_field_add",
     "quick_field_mul",
     "quick_field_inverse",
     "quick_multi_scalar_mul",
-    
+
     # Module info
     "__version__",
     "AVAILABLE_BACKENDS",

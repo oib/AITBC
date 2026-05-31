@@ -4,7 +4,7 @@ Defines various pricing strategies and their configurations for dynamic pricing
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -92,7 +92,7 @@ class StrategyRule:
     action: str  # Action to take when condition is met
     priority: StrategyPriority
     enabled: bool = True
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     # Rule execution tracking
     execution_count: int = 0
@@ -124,8 +124,8 @@ class PricingStrategyConfig:
     regions: list[str] = field(default_factory=list)
 
     # Performance tracking
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     last_applied: datetime | None = None
 
     # Strategy effectiveness metrics
@@ -515,7 +515,7 @@ class StrategyOptimizer:
         if strategy_id not in self.performance_history:
             self.performance_history[strategy_id] = []
 
-        self.performance_history[strategy_id].append({"timestamp": datetime.now(timezone.utc), "performance": performance_data})
+        self.performance_history[strategy_id].append({"timestamp": datetime.now(UTC), "performance": performance_data})
 
         # Apply optimization rules
         optimized_config = self._apply_optimization_rules(strategy_config, performance_data)

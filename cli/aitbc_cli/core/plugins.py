@@ -3,10 +3,9 @@
 import importlib
 import importlib.util
 import json
-import click
 from pathlib import Path
-from typing import Optional
 
+import click
 
 PLUGIN_DIR = Path.home() / ".aitbc" / "plugins"
 
@@ -87,7 +86,8 @@ def list_plugins(ctx):
 def install(ctx, name: str, file_path: str, description: str):
     """Install a plugin from a Python file"""
     import shutil
-    from .utils import output, error, success
+
+    from .utils import output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
@@ -123,7 +123,7 @@ def install(ctx, name: str, file_path: str, description: str):
 @click.pass_context
 def uninstall(ctx, name: str):
     """Uninstall a plugin"""
-    from .utils import output, error, success
+    from .utils import error, output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
@@ -220,10 +220,10 @@ def hello():
 @click.pass_context
 def package(ctx, name: str, output: str):
     """Package a plugin for distribution"""
-    from .utils import output, success, error
-    import shutil
-    from pathlib import Path
     import tarfile
+    from pathlib import Path
+
+    from .utils import error, output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
@@ -276,7 +276,7 @@ def package(ctx, name: str, output: str):
 @click.pass_context
 def toggle(ctx, name: str, state: str):
     """Enable or disable a plugin"""
-    from .utils import output, error, success
+    from .utils import error, output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"

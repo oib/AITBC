@@ -1,9 +1,10 @@
 """Miner Registry Implementation"""
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
-from dataclasses import dataclass, field
 import asyncio
+import builtins
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass
@@ -12,9 +13,9 @@ class MinerInfo:
 
     miner_id: str
     pool_id: str
-    capabilities: List[str]
-    gpu_info: Dict[str, Any]
-    endpoint: Optional[str]
+    capabilities: list[str]
+    gpu_info: dict[str, Any]
+    endpoint: str | None
     max_concurrent_jobs: int
     status: str = "available"
     current_jobs: int = 0
@@ -22,8 +23,8 @@ class MinerInfo:
     jobs_completed: int = 0
     jobs_failed: int = 0
     uptime_percent: float = 100.0
-    registered_at: datetime = field(default_factory=datetime.now(timezone.utc))
-    last_heartbeat: datetime = field(default_factory=datetime.now(timezone.utc))
+    registered_at: datetime = field(default_factory=datetime.now(UTC))
+    last_heartbeat: datetime = field(default_factory=datetime.now(UTC))
     gpu_utilization: float = 0.0
     memory_used_gb: float = 0.0
 
@@ -34,7 +35,7 @@ class PoolInfo:
 
     pool_id: str
     name: str
-    description: Optional[str]
+    description: str | None
     operator: str
     fee_percent: float
     min_payout: float
@@ -43,7 +44,7 @@ class PoolInfo:
     total_hashrate: float = 0.0
     jobs_completed_24h: int = 0
     earnings_24h: float = 0.0
-    created_at: datetime = field(default_factory=datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=datetime.now(UTC))
 
 
 @dataclass
@@ -55,27 +56,27 @@ class JobAssignment:
     pool_id: str
     model: str
     status: str = "assigned"
-    assigned_at: datetime = field(default_factory=datetime.now(timezone.utc))
-    deadline: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    assigned_at: datetime = field(default_factory=datetime.now(UTC))
+    deadline: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class MinerRegistry:
     """Registry for managing miners and pools"""
 
     def __init__(self):
-        self._miners: Dict[str, MinerInfo] = {}
-        self._pools: Dict[str, PoolInfo] = {}
-        self._jobs: Dict[str, JobAssignment] = {}
+        self._miners: dict[str, MinerInfo] = {}
+        self._pools: dict[str, PoolInfo] = {}
+        self._jobs: dict[str, JobAssignment] = {}
         self._lock = asyncio.Lock()
 
     async def register(
         self,
         miner_id: str,
         pool_id: str,
-        capabilities: List[str],
-        gpu_info: Dict[str, Any],
-        endpoint: Optional[str] = None,
+        capabilities: list[str],
+        gpu_info: dict[str, Any],
+        endpoint: str | None = None,
         max_concurrent_jobs: int = 1,
     ) -> MinerInfo:
         """Register a new miner."""
@@ -100,18 +101,18 @@ class MinerRegistry:
 
             return miner
 
-    async def get(self, miner_id: str) -> Optional[MinerInfo]:
+    async def get(self, miner_id: str) -> MinerInfo | None:
         """Get miner by ID."""
         return self._miners.get(miner_id)
 
     async def list(
         self,
-        pool_id: Optional[str] = None,
-        status: Optional[str] = None,
-        capability: Optional[str] = None,
-        exclude_miner: Optional[str] = None,
+        pool_id: str | None = None,
+        status: str | None = None,
+        capability: str | None = None,
+        exclude_miner: str | None = None,
         limit: int = 50,
-    ) -> List[MinerInfo]:
+    ) -> list[MinerInfo]:
         """List miners with filters."""
         miners = list(self._miners.values())
 
@@ -142,9 +143,9 @@ class MinerRegistry:
                 miner.current_jobs = current_jobs
                 miner.gpu_utilization = gpu_utilization
                 miner.memory_used_gb = memory_used_gb
-                miner.last_heartbeat = datetime.now(timezone.utc)
+                miner.last_heartbeat = datetime.now(UTC)
 
-    async def update_capabilities(self, miner_id: str, capabilities: List[str]):
+    async def update_capabilities(self, miner_id: str, capabilities: builtins.list[str]):
         """Update miner capabilities."""
         async with self._lock:
             if miner_id in self._miners:
@@ -165,7 +166,7 @@ class MinerRegistry:
         pool_id: str,
         name: str,
         operator: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         fee_percent: float = 1.0,
         min_payout: float = 10.0,
         payout_schedule: str = "daily",
@@ -188,16 +189,16 @@ class MinerRegistry:
             self._pools[pool_id] = pool
             return pool
 
-    async def get_pool(self, pool_id: str) -> Optional[PoolInfo]:
+    async def get_pool(self, pool_id: str) -> PoolInfo | None:
         """Get pool by ID."""
         return self._pools.get(pool_id)
 
-    async def list_pools(self, limit: int = 50, offset: int = 0) -> List[PoolInfo]:
+    async def list_pools(self, limit: int = 50, offset: int = 0) -> builtins.list[PoolInfo]:
         """List all pools."""
         pools = list(self._pools.values())
         return pools[offset : offset + limit]
 
-    async def get_pool_stats(self, pool_id: str) -> Dict[str, Any]:
+    async def get_pool_stats(self, pool_id: str) -> dict[str, Any]:
         """Get pool statistics."""
         pool = self._pools.get(pool_id)
         if not pool:
@@ -222,7 +223,7 @@ class MinerRegistry:
             / max(len(miners), 1),
         }
 
-    async def update_pool(self, pool_id: str, updates: Dict[str, Any]):
+    async def update_pool(self, pool_id: str, updates: dict[str, Any]):
         """Update pool settings."""
         async with self._lock:
             if pool_id in self._pools:
@@ -239,7 +240,7 @@ class MinerRegistry:
 
     # Job management
     async def assign_job(
-        self, job_id: str, miner_id: str, deadline: Optional[datetime] = None
+        self, job_id: str, miner_id: str, deadline: datetime | None = None
     ) -> JobAssignment:
         """Assign a job to a miner."""
         async with self._lock:
@@ -264,14 +265,14 @@ class MinerRegistry:
             return assignment
 
     async def complete_job(
-        self, job_id: str, miner_id: str, status: str, metrics: Dict[str, Any] = None
+        self, job_id: str, miner_id: str, status: str, metrics: dict[str, Any] = None
     ):
         """Mark a job as complete."""
         async with self._lock:
             if job_id in self._jobs:
                 job = self._jobs[job_id]
                 job.status = status
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
 
             if miner_id in self._miners:
                 miner = self._miners[miner_id]
@@ -285,13 +286,13 @@ class MinerRegistry:
                 if miner.current_jobs < miner.max_concurrent_jobs:
                     miner.status = "available"
 
-    async def get_job(self, job_id: str) -> Optional[JobAssignment]:
+    async def get_job(self, job_id: str) -> JobAssignment | None:
         """Get job assignment."""
         return self._jobs.get(job_id)
 
     async def get_pending_jobs(
-        self, pool_id: Optional[str] = None, limit: int = 50
-    ) -> List[JobAssignment]:
+        self, pool_id: str | None = None, limit: int = 50
+    ) -> builtins.list[JobAssignment]:
         """Get pending jobs."""
         jobs = [j for j in self._jobs.values() if j.status == "assigned"]
         if pool_id:
@@ -314,7 +315,7 @@ class MinerRegistry:
             # Update job
             job.miner_id = new_miner_id
             job.status = "assigned"
-            job.assigned_at = datetime.now(timezone.utc)
+            job.assigned_at = datetime.now(UTC)
 
             # Update new miner
             if new_miner_id in self._miners:

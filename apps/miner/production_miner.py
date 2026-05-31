@@ -3,16 +3,14 @@
 Real GPU Miner Client for AITBC - runs on host with actual GPU
 """
 
-import json
-import time
-import sys
-import subprocess
-import os
 import logging
-from datetime import datetime, timezone
-from typing import Dict, Optional
+import os
+import subprocess
+import sys
+import time
+from datetime import UTC, datetime
 
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
 # Configuration
 COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8011")
@@ -80,7 +78,7 @@ def classify_architecture(name: str) -> str:
     return "unknown"
 
 
-def detect_cuda_version() -> Optional[str]:
+def detect_cuda_version() -> str | None:
     try:
         result = subprocess.run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
                                 capture_output=True, text=True, timeout=5)
@@ -91,7 +89,7 @@ def detect_cuda_version() -> Optional[str]:
     return None
 
 
-def build_gpu_capabilities() -> Dict:
+def build_gpu_capabilities() -> dict:
     gpu_info = get_gpu_info()
     cuda_version = detect_cuda_version() or "unknown"
     model = gpu_info["name"] if gpu_info else "Unknown GPU"
@@ -137,8 +135,8 @@ def measure_coordinator_latency() -> float:
 def get_gpu_info():
     """Get real GPU information"""
     try:
-        result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,memory.used,utilization.gpu', 
-                               '--format=csv,noheader,nounits'], 
+        result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,memory.used,utilization.gpu',
+                               '--format=csv,noheader,nounits'],
                               capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             info = result.stdout.strip().split(', ')
@@ -226,7 +224,7 @@ def send_heartbeat():
         heartbeat_data = {
             "status": "active",
             "current_jobs": 0,
-            "last_seen": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": gpu_info["utilization"],
             "memory_used": gpu_info["memory_used"],
             "memory_total": gpu_info["memory_total"],
@@ -238,7 +236,7 @@ def send_heartbeat():
         heartbeat_data = {
             "status": "active",
             "current_jobs": 0,
-            "last_seen": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": 0,
             "memory_used": 0,
             "memory_total": 0,
@@ -269,20 +267,20 @@ def execute_job(job, available_models):
     """Execute a job using real GPU resources"""
     job_id = job.get('job_id')
     payload = job.get('payload', {})
-    
+
     logger.info(f"Executing job {job_id}: {payload}")
-    
+
     try:
         # Infer job type from payload if not explicitly set
         job_type = payload.get('type')
         if job_type is None and 'model' in payload and 'prompt' in payload:
             job_type = 'inference'
-        
+
         if job_type == 'inference':
             # Get the prompt and model
             prompt = payload.get('prompt', '')
             model = payload.get('model', 'llama3.2:latest')
-            
+
             # Check if model is available
             if model not in available_models:
                 # Use first available model
@@ -291,7 +289,7 @@ def execute_job(job, available_models):
                     logger.info(f"Using available model: {model}")
                 else:
                     raise Exception("No models available in Ollama")
-            
+
             # Call Ollama API for real GPU inference
             logger.info(f"Running inference on GPU with model: {model}")
             start_time = time.time()
@@ -310,10 +308,10 @@ def execute_job(job, available_models):
                 result = ollama_response
                 output = result.get('response', '')
                 execution_time = time.time() - start_time
-                
+
                 # Get GPU stats after execution
                 gpu_after = get_gpu_info()
-                
+
                 # Submit result back to coordinator
                 submit_result(job_id, {
                     "result": {
@@ -330,7 +328,7 @@ def execute_job(job, available_models):
                         "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048)
                     }
                 })
-                
+
                 logger.info(f"Job {job_id} completed in {execution_time:.2f}s")
                 return True
             else:
@@ -352,7 +350,7 @@ def execute_job(job, available_models):
                 }
             })
             return False
-            
+
     except Exception as e:
         logger.error(f"Job execution error: {e}")
         submit_result(job_id, {
@@ -400,14 +398,14 @@ def poll_for_jobs():
         import requests
         url = f"{COORDINATOR_URL}/v1/miners/poll"
         response = requests.post(url, json=poll_data, headers=headers, timeout=10)
-        
+
         if response.status_code == 204:
             # No jobs available
             return None
-        
+
         response.raise_for_status()
         job = response.json()
-        
+
         if job and job.get("job_id"):
             logger.info(f"Received job: {job}")
             return job
@@ -427,7 +425,7 @@ def poll_for_jobs():
 def main():
     """Main miner loop"""
     logger.info("Starting Real GPU Miner Client on Host...")
-    
+
     # Check GPU availability
     gpu_info = get_gpu_info()
     if not gpu_info:
@@ -440,7 +438,7 @@ def main():
         }
     else:
         logger.info(f"GPU detected: {gpu_info['name']} ({gpu_info['memory_total']}MB)")
-    
+
     # Check Ollama
     ollama_available, models = check_ollama()
     if not ollama_available:
@@ -448,33 +446,33 @@ def main():
         models = []
     else:
         logger.info(f"Ollama models available: {', '.join(models)}")
-    
+
     # Wait for coordinator
     if not wait_for_coordinator():
         logger.error("Coordinator not available")
         return
-    
+
     # Register with coordinator
     session_token = register_miner()
     if not session_token:
         logger.error("Failed to register, exiting")
         return
-    
+
     logger.info("Miner registered successfully, starting main loop...")
-    
+
     # Main loop
     last_heartbeat = 0
     last_poll = 0
-    
+
     try:
         while True:
             current_time = time.time()
-            
+
             # Send heartbeat
             if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
                 send_heartbeat()
                 last_heartbeat = current_time
-            
+
             # Poll for jobs
             if current_time - last_poll >= 3:
                 job = poll_for_jobs()
@@ -482,9 +480,9 @@ def main():
                     # Execute the job with real GPU
                     execute_job(job, models)
                 last_poll = current_time
-            
+
             time.sleep(1)
-            
+
     except KeyboardInterrupt:
         logger.info("Shutting down miner...")
     except Exception as e:

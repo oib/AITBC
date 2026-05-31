@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import datetime as dt
+from datetime import timezone
 import json
-from aitbc.logging import get_logger
-from typing import Iterable, List, Optional
-from uuid import UUID
 
+from aitbc.logging import get_logger
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,9 +28,9 @@ class FeedbackRepository:
         job_id: str,
         miner_id: str,
         outcome: str,
-        latency_ms: Optional[int] = None,
-        fail_code: Optional[str] = None,
-        tokens_spent: Optional[float] = None,
+        latency_ms: int | None = None,
+        fail_code: str | None = None,
+        tokens_spent: float | None = None,
     ) -> Feedback:
         feedback = Feedback(
             job_id=job_id,
@@ -60,7 +59,7 @@ class FeedbackRepository:
             logger.warning("Failed to publish feedback event for job %s: %s", job_id, exc)
         return feedback
 
-    async def list_feedback_for_miner(self, miner_id: str, limit: int = 50) -> List[Feedback]:
+    async def list_feedback_for_miner(self, miner_id: str, limit: int = 50) -> list[Feedback]:
         stmt = (
             select(Feedback)
             .where(Feedback.miner_id == miner_id)
@@ -70,7 +69,7 @@ class FeedbackRepository:
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
-    async def list_feedback_for_job(self, job_id: str, limit: int = 50) -> List[Feedback]:
+    async def list_feedback_for_job(self, job_id: str, limit: int = 50) -> list[Feedback]:
         stmt = (
             select(Feedback)
             .where(Feedback.job_id == job_id)

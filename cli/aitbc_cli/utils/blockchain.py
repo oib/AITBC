@@ -2,15 +2,15 @@
 Blockchain utility functions for AITBC CLI
 """
 
-from typing import Optional, Dict
+import logging
 
 from aitbc import AITBCHTTPClient, NetworkError
-import logging
+
 logger = logging.getLogger(__name__)
 
 
 
-def get_chain_info(rpc_url: str = "http://localhost:8006") -> Optional[Dict]:
+def get_chain_info(rpc_url: str = "http://localhost:8006") -> dict | None:
     """Get blockchain information"""
     try:
         result = {}
@@ -36,7 +36,7 @@ def get_chain_info(rpc_url: str = "http://localhost:8006") -> Optional[Dict]:
         return None
 
 
-def get_network_status(rpc_url: str = "http://localhost:8006") -> Optional[Dict]:
+def get_network_status(rpc_url: str = "http://localhost:8006") -> dict | None:
     """Get network status and health"""
     try:
         # Get head block
@@ -50,7 +50,7 @@ def get_network_status(rpc_url: str = "http://localhost:8006") -> Optional[Dict]
         return None
 
 
-def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str = "http://localhost:8006") -> Optional[Dict]:
+def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str = "http://localhost:8006") -> dict | None:
     """Get blockchain analytics and statistics"""
     try:
         if analytics_type == "blocks":
@@ -65,7 +65,7 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
                 "tx_count": head.get("tx_count", 0),
                 "status": "Active"
             }
-        
+
         elif analytics_type == "supply":
             # Get total supply info
             return {
@@ -75,21 +75,21 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
                 "genesis_minted": "1000000000",
                 "status": "Available"
             }
-        
+
         elif analytics_type == "accounts":
             # Account statistics
             return {
-                "type": "accounts", 
+                "type": "accounts",
                 "total_accounts": 3,  # Genesis + treasury + user
                 "active_accounts": 2,  # Accounts with transactions
                 "genesis_accounts": 2,  # Genesis and treasury
                 "user_accounts": 1,
                 "status": "Healthy"
             }
-        
+
         else:
             return {"type": analytics_type, "status": "Not implemented yet"}
-            
+
     except Exception as e:
         logger.error(f"Error getting analytics: {e}")
         return None

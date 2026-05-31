@@ -1,26 +1,14 @@
-from datetime import datetime, timezone
 import uuid
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse
 
 from .. import state
-from ..auth.jwt_handler import api_key_manager, jwt_handler
-from ..auth.middleware import get_current_user, require_role
-from ..auth.permissions import Permission, Role, permission_manager
-from ..ai.advanced_ai import ai_integration
-from ..ai.realtime_learning import learning_system
-from ..consensus.distributed_consensus import distributed_consensus
-from ..models import AgentRegistrationRequest, AgentStatusUpdate, MessageRequest, TaskSubmission
-from ..monitoring.alerting import alert_manager
-from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
-from ..protocols.communication import MessageType, create_protocol
-from ..protocols.message_types import create_task_message
-from ..routing.agent_discovery import create_agent_info
-from ..routing.load_balancer import LoadBalancingStrategy, TaskPriority
+from ..models import TaskSubmission
+from ..routing.load_balancer import TaskPriority
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -35,28 +23,28 @@ async def submit_task(
     try:
         if not state.task_distributor:
             raise HTTPException(status_code=503, detail="Task distributor not available")
-        
+
         # Convert priority string to enum
         try:
             priority = TaskPriority(request.priority.lower())
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid priority: {request.priority}")
-        
+
         # Submit task
         await state.task_distributor.submit_task(
             request.task_data,
             priority,
             request.requirements
         )
-        
+
         return {
             "status": "success",
             "message": "Task submitted successfully",
             "task_id": request.task_data.get("task_id", str(uuid.uuid4())),
             "priority": request.priority,
-            "submitted_at": datetime.now(timezone.utc).isoformat()
+            "submitted_at": datetime.now(UTC).isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -73,15 +61,15 @@ async def get_task_status(
     try:
         if not state.task_distributor:
             raise HTTPException(status_code=503, detail="Task distributor not available")
-        
+
         stats = state.task_distributor.get_distribution_stats()
-        
+
         return {
             "status": "success",
             "stats": stats,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting task status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,15 +84,15 @@ async def get_queue_sizes(
     try:
         if not state.task_distributor:
             raise HTTPException(status_code=503, detail="Task distributor not available")
-        
+
         queue_sizes = state.task_distributor.get_queue_sizes()
-        
+
         return {
             "status": "success",
             "queue_sizes": queue_sizes,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -120,24 +108,24 @@ async def clear_queue(
     try:
         if not state.task_distributor:
             raise HTTPException(status_code=503, detail="Task distributor not available")
-        
+
         from ..routing.load_balancer import TaskPriority
-        
+
         try:
             priority_enum = TaskPriority(priority)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
-        
+
         cleared_count = await state.task_distributor.clear_queue(priority_enum)
-        
+
         return {
             "status": "success",
             "message": f"Cleared {cleared_count} tasks from {priority} queue",
             "priority": priority,
             "cleared_count": cleared_count,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -153,17 +141,17 @@ async def get_queue_stats(
     try:
         if not state.task_distributor:
             raise HTTPException(status_code=503, detail="Task distributor not available")
-        
+
         queue_sizes = state.task_distributor.get_queue_sizes()
         distribution_stats = state.task_distributor.get_distribution_stats()
-        
+
         return {
             "status": "success",
             "queue_sizes": queue_sizes,
             "distribution_stats": distribution_stats,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

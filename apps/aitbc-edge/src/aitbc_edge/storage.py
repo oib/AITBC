@@ -1,8 +1,8 @@
 """Database session management for Edge API Service"""
 
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
@@ -35,15 +35,10 @@ engine = create_async_engine(
 
 async def init_db() -> None:
     """Initialize database tables"""
-    from .schemas.island import IslandMembership, BridgeRequest
-    from .schemas.gpu import GPUListing
-    from .schemas.database import EdgeDatabase
-    from .schemas.serve import ComputeRequest, ComputeResult
-    from .schemas.metrics import EdgeMetrics
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    
+
     logger.info("Edge API database initialized")
 
 

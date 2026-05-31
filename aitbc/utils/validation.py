@@ -4,7 +4,8 @@ Common validators for AITBC applications
 """
 
 import re
-from typing import Any, Optional
+from typing import Any
+
 from ..exceptions import ValidationError
 
 
@@ -23,12 +24,12 @@ def validate_address(address: str) -> bool:
     """
     if not address:
         raise ValidationError("Address cannot be empty")
-    
+
     # AITBC addresses typically start with 'ait' and are alphanumeric (variable length)
     pattern = r'^ait[a-z0-9]+$'
     if not re.match(pattern, address):
         raise ValidationError(f"Invalid address format: {address}")
-    
+
     return True
 
 
@@ -47,12 +48,12 @@ def validate_hash(hash_str: str) -> bool:
     """
     if not hash_str:
         raise ValidationError("Hash cannot be empty")
-    
+
     # Hashes are typically 64-character hex strings
     pattern = r'^[a-f0-9]{64}$'
     if not re.match(pattern, hash_str):
         raise ValidationError(f"Invalid hash format: {hash_str}")
-    
+
     return True
 
 
@@ -71,11 +72,11 @@ def validate_url(url: str) -> bool:
     """
     if not url:
         raise ValidationError("URL cannot be empty")
-    
+
     pattern = r'^https?://[^\s/$.?#].[^\s]*$'
     if not re.match(pattern, url):
         raise ValidationError(f"Invalid URL format: {url}")
-    
+
     return True
 
 
@@ -94,10 +95,10 @@ def validate_port(port: int) -> bool:
     """
     if not isinstance(port, int):
         raise ValidationError(f"Port must be an integer, got {type(port)}")
-    
+
     if port < 1 or port > 65535:
         raise ValidationError(f"Port must be between 1 and 65535, got {port}")
-    
+
     return True
 
 
@@ -116,11 +117,11 @@ def validate_email(email: str) -> bool:
     """
     if not email:
         raise ValidationError("Email cannot be empty")
-    
+
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(pattern, email):
         raise ValidationError(f"Invalid email format: {email}")
-    
+
     return True
 
 
@@ -140,13 +141,13 @@ def validate_non_empty(value: Any, field_name: str = "value") -> bool:
     """
     if value is None:
         raise ValidationError(f"{field_name} cannot be None")
-    
+
     if isinstance(value, str) and not value.strip():
         raise ValidationError(f"{field_name} cannot be empty string")
-    
+
     if isinstance(value, (list, dict)) and len(value) == 0:
         raise ValidationError(f"{field_name} cannot be empty")
-    
+
     return True
 
 
@@ -166,10 +167,10 @@ def validate_positive_number(value: Any, field_name: str = "value") -> bool:
     """
     if not isinstance(value, (int, float)):
         raise ValidationError(f"{field_name} must be a number, got {type(value)}")
-    
+
     if value <= 0:
         raise ValidationError(f"{field_name} must be positive, got {value}")
-    
+
     return True
 
 
@@ -191,10 +192,10 @@ def validate_range(value: Any, min_val: float, max_val: float, field_name: str =
     """
     if not isinstance(value, (int, float)):
         raise ValidationError(f"{field_name} must be a number, got {type(value)}")
-    
+
     if value < min_val or value > max_val:
         raise ValidationError(f"{field_name} must be between {min_val} and {max_val}, got {value}")
-    
+
     return True
 
 
@@ -213,12 +214,12 @@ def validate_chain_id(chain_id: str) -> bool:
     """
     if not chain_id:
         raise ValidationError("Chain ID cannot be empty")
-    
+
     # Chain IDs are typically alphanumeric with hyphens
     pattern = r'^[a-z0-9\-]+$'
     if not re.match(pattern, chain_id):
         raise ValidationError(f"Invalid chain ID format: {chain_id}")
-    
+
     return True
 
 
@@ -237,9 +238,9 @@ def validate_uuid(uuid_str: str) -> bool:
     """
     if not uuid_str:
         raise ValidationError("UUID cannot be empty")
-    
+
     pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     if not re.match(pattern, uuid_str.lower()):
         raise ValidationError(f"Invalid UUID format: {uuid_str}")
-    
+
     return True

@@ -3,11 +3,11 @@ Database service layer for AITBC
 Provides high-level database interaction services with connection pooling
 """
 
-from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List
-from contextlib import contextmanager
 import sqlite3
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
@@ -18,7 +18,7 @@ class DatabaseService(ABC):
     """Abstract base class for database service implementations"""
 
     @abstractmethod
-    def execute_query(self, query: str, params: tuple = ()) -> List[Dict[str, Any]]:
+    def execute_query(self, query: str, params: tuple = ()) -> list[dict[str, Any]]:
         """Execute a SELECT query"""
         pass
 
@@ -28,7 +28,7 @@ class DatabaseService(ABC):
         pass
 
     @abstractmethod
-    def execute_transaction(self, queries: List[tuple]) -> bool:
+    def execute_transaction(self, queries: list[tuple]) -> bool:
         """Execute multiple queries in a transaction"""
         pass
 
@@ -46,12 +46,12 @@ class SQLiteDatabaseService(DatabaseService):
         """
         self.db_path = db_path
         self.pool_size = pool_size
-        self._connections: List[sqlite3.Connection] = []
+        self._connections: list[sqlite3.Connection] = []
         self._current_connection_index = 0
-        
+
         # Ensure database exists
         self._ensure_database()
-        
+
         logger.info(f"Initialized SQLite database service for {db_path}")
 
     def _ensure_database(self) -> None:
@@ -66,7 +66,7 @@ class SQLiteDatabaseService(DatabaseService):
             conn = self._connections[self._current_connection_index]
             self._current_connection_index = (self._current_connection_index + 1) % len(self._connections)
             return conn
-        
+
         # Create new connection if pool is empty
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -85,7 +85,7 @@ class SQLiteDatabaseService(DatabaseService):
             logger.error(f"Database error: {e}")
             raise
 
-    def execute_query(self, query: str, params: tuple = ()) -> List[Dict[str, Any]]:
+    def execute_query(self, query: str, params: tuple = ()) -> list[dict[str, Any]]:
         """
         Execute a SELECT query
         
@@ -117,7 +117,7 @@ class SQLiteDatabaseService(DatabaseService):
             cursor.execute(query, params)
             return cursor.rowcount
 
-    def execute_transaction(self, queries: List[tuple]) -> bool:
+    def execute_transaction(self, queries: list[tuple]) -> bool:
         """
         Execute multiple queries in a transaction
         

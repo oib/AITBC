@@ -1,17 +1,18 @@
 """Dispute operations using CLI commands"""
 
-from .command_executor import CommandExecutor
 from aitbc.aitbc_logging import get_logger
+
+from .command_executor import CommandExecutor
 
 logger = get_logger(__name__)
 
 
 class DisputeOperations:
     """Dispute operations via CLI"""
-    
+
     def __init__(self, cli_path: str = "/opt/aitbc/aitbc-click"):
         self.executor = CommandExecutor(cli_path)
-    
+
     def file_dispute(self, title: str, description: str, evidence: str) -> str:
         """File dispute"""
         try:
@@ -25,7 +26,7 @@ class DisputeOperations:
         except Exception as e:
             logger.error(f"file_dispute failed: {e}")
             raise
-    
+
     def register_arbitrator(self, arbitrator_id: str) -> bool:
         """Register as arbitrator"""
         try:
@@ -39,7 +40,7 @@ class DisputeOperations:
         except Exception as e:
             logger.error(f"register_arbitrator failed: {e}")
             raise
-    
+
     def submit_dispute_evidence(self, dispute_id: str, evidence: str) -> bool:
         """Submit dispute evidence"""
         try:
@@ -53,7 +54,7 @@ class DisputeOperations:
         except Exception as e:
             logger.error(f"submit_dispute_evidence failed: {e}")
             raise
-    
+
     def vote_dispute(self, dispute_id: str, vote: bool, reason: str = "") -> bool:
         """Vote on dispute"""
         try:

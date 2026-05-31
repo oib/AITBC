@@ -1,6 +1,6 @@
 """Swarm coordination router for AITBC Agent Coordinator."""
 
-from typing import List, Optional
+
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
@@ -23,7 +23,7 @@ class JoinRequest(BaseModel):
     role: str
     capability: str
     priority: str
-    region: Optional[str] = None
+    region: str | None = None
 
 
 class CoordinateRequest(BaseModel):
@@ -48,12 +48,12 @@ class ConsensusRequest(BaseModel):
     consensus_threshold: float
 
 
-@router.get("/list", response_model=List[SwarmInfo])
+@router.get("/list", response_model=list[SwarmInfo])
 @rate_limit(rate=200, per=60)
 async def list_swarms(
     request: Request,
-    swarm_id: Optional[str] = Query(None, description="Filter by swarm ID"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    swarm_id: str | None = Query(None, description="Filter by swarm ID"),
+    status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(20, description="Number of swarms to list")
 ):
     """List active swarms."""

@@ -5,7 +5,7 @@ HSM-backed key management for production use
 import json
 import os
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
@@ -214,7 +214,7 @@ class HSMKeyManager:
         """Generate key pair in HSM"""
         try:
             # Generate key in HSM
-            hsm_key_id = f"aitbc-{participant_id}-{datetime.now(timezone.utc).timestamp()}"
+            hsm_key_id = f"aitbc-{participant_id}-{datetime.now(UTC).timestamp()}"
             public_key_bytes, key_handle = await self.hsm.generate_key(hsm_key_id)
 
             # Create key pair record
@@ -223,7 +223,7 @@ class HSMKeyManager:
                 private_key=key_handle,  # Store HSM handle, not actual private key
                 public_key=public_key_bytes,
                 algorithm="X25519",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 version=1,
             )
 
@@ -253,7 +253,7 @@ class HSMKeyManager:
             participant_id=participant_id,
             old_version=current_key.version,
             new_version=new_key_pair.version,
-            rotated_at=datetime.now(timezone.utc),
+            rotated_at=datetime.now(UTC),
             reason="scheduled_rotation",
         )
 
@@ -312,8 +312,8 @@ class HSMKeyManager:
             "issuer": issuer,
             "subject": "audit_access",
             "purpose": purpose,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=expires_in_hours)).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "expires_at": (datetime.now(UTC) + timedelta(hours=expires_in_hours)).isoformat(),
         }
 
         # Sign with audit key
@@ -338,7 +338,7 @@ class HSMKeyManager:
 
             # Check expiration
             expires_at = datetime.fromisoformat(auth_json["expires_at"])
-            if datetime.now(timezone.utc) > expires_at:
+            if datetime.now(UTC) > expires_at:
                 return False
 
             # Verify signature with audit public key
@@ -354,7 +354,7 @@ class HSMKeyManager:
     async def _get_session(self) -> None:
         """Get database session"""
         # In production, inject via dependency injection
-        async for session in get_async_session():  # type: ignore[name-defined]
+        async for session in get_async_session():  # type: ignore[name-defined]  # noqa: F821
             return session  # type: ignore[no-any-return]
 
 

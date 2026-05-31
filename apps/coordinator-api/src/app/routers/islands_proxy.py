@@ -1,8 +1,9 @@
 """Islands proxy router - forwards requests to edge-api service"""
 
-import httpx
-from fastapi import APIRouter, Request, HTTPException
 from typing import Any
+
+import httpx
+from fastapi import APIRouter, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 

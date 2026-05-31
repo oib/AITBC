@@ -14,14 +14,14 @@ import asyncio
 import hashlib
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable
-from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 import httpx
-from aitbc.aitbc_logging import get_logger
 
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 class GPUCapabilities:
     """GPU provider capabilities"""
     gpu_available: bool
-    models: List[str]
+    models: list[str]
     max_concurrency: int
     memory_gb: int
     compute_units: int
@@ -42,11 +42,11 @@ class GPUCapabilities:
 class JobExecutionResult:
     """Result of job execution"""
     success: bool
-    output: Dict[str, Any]
+    output: dict[str, Any]
     execution_time_ms: int
     gpu_utilization: float
-    receipt: Dict[str, Any]
-    error: Optional[str] = None
+    receipt: dict[str, Any]
+    error: str | None = None
 
 
 class OllamaClient:
@@ -56,12 +56,12 @@ class OllamaClient:
     Connects to local or remote Ollama instances to run
     AI inference on assigned workloads.
     """
-    
+
     def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = base_url.rstrip("/")
         self.client = httpx.AsyncClient(timeout=300.0)
-    
-    async def list_models(self) -> List[str]:
+
+    async def list_models(self) -> list[str]:
         """List available models from Ollama"""
         try:
             response = await self.client.get(f"{self.base_url}/api/tags")
@@ -71,13 +71,13 @@ class OllamaClient:
         except Exception as e:
             logger.warning(f"Failed to list Ollama models: {e}")
             return []
-    
+
     async def generate(
         self,
         model: str,
         prompt: str,
-        options: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        options: dict | None = None
+    ) -> dict[str, Any]:
         """
         Generate text using Ollama.
         
@@ -91,25 +91,25 @@ class OllamaClient:
         """
         try:
             start_time = time.time()
-            
+
             request_data = {
                 "model": model,
                 "prompt": prompt,
                 "stream": False
             }
-            
+
             if options:
                 request_data["options"] = options
-            
+
             response = await self.client.post(
                 f"{self.base_url}/api/generate",
                 json=request_data
             )
             response.raise_for_status()
-            
+
             result = response.json()
             execution_time = int((time.time() - start_time) * 1000)
-            
+
             return {
                 "success": True,
                 "output": result.get("response", ""),
@@ -119,7 +119,7 @@ class OllamaClient:
                 "execution_time_ms": execution_time,
                 "done": result.get("done", False)
             }
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"Ollama HTTP error: {e.response.status_code} - {e.response.text}")
             return {
@@ -132,7 +132,7 @@ class OllamaClient:
                 "success": False,
                 "error": str(e)
             }
-    
+
     async def health_check(self) -> bool:
         """Check if Ollama is accessible"""
         try:
@@ -149,7 +149,7 @@ class GPUWorker:
     This class manages GPU resources and executes assigned
     AI workloads through Ollama or other inference backends.
     """
-    
+
     def __init__(
         self,
         worker_id: str,
@@ -163,22 +163,22 @@ class GPUWorker:
         self.coordinator_url = coordinator_url
         self._running = False
         self._executor = ThreadPoolExecutor(max_workers=max_concurrent)
-        self._capabilities: Optional[GPUCapabilities] = None
+        self._capabilities: GPUCapabilities | None = None
         self._http_client = httpx.AsyncClient(timeout=60.0)
         self._processed_count = 0
-    
+
     async def initialize(self) -> bool:
         """Initialize GPU worker and detect capabilities"""
         logger.info(f"Initializing GPU worker {self.worker_id}")
-        
+
         # Check Ollama health
         ollama_healthy = await self.ollama.health_check()
         if not ollama_healthy:
             logger.warning("Ollama not accessible, running in mock mode")
-        
+
         # Detect available models
         models = await self.ollama.list_models() if ollama_healthy else ["gpt2", "llama2"]
-        
+
         self._capabilities = GPUCapabilities(
             gpu_available=ollama_healthy,
             models=models,
@@ -188,16 +188,16 @@ class GPUWorker:
             architecture="cuda" if ollama_healthy else "cpu",
             edge_optimized=False
         )
-        
+
         logger.info(f"GPU worker initialized with {len(models)} models: {models}")
         return True
-    
+
     async def register_with_coordinator(self, api_key: str) -> bool:
         """Register this worker with the coordinator API"""
         try:
             if not self._capabilities:
                 await self.initialize()
-            
+
             register_data = {
                 "capabilities": {
                     "gpu": self._capabilities.gpu_available,  # type: ignore[union-attr]
@@ -210,7 +210,7 @@ class GPUWorker:
                 "concurrency": self._capabilities.max_concurrency,  # type: ignore[union-attr]
                 "region": "local"
             }
-            
+
             response = await self._http_client.post(
                 f"{self.coordinator_url}/miners/register",
                 headers={
@@ -219,37 +219,37 @@ class GPUWorker:
                 },
                 json=register_data
             )
-            
+
             if response.status_code in (200, 201):
                 logger.info(f"Worker {self.worker_id} registered with coordinator")
                 return True
             else:
                 logger.error(f"Registration failed: {response.status_code}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Failed to register worker: {e}")
             return False
-    
+
     async def start(self, api_key: str) -> None:
         """Start the worker loop - poll for and execute jobs"""
         self._running = True
         logger.info(f"GPU worker {self.worker_id} started")
-        
+
         while self._running:
             try:
                 await self._poll_and_execute(api_key)
             except Exception as e:
                 logger.error(f"Error in worker loop: {e}")
-            
+
             await asyncio.sleep(1.0)  # Poll interval
-    
+
     def stop(self) -> None:
         """Stop the worker"""
         self._running = False
         self._executor.shutdown(wait=False)
         logger.info(f"GPU worker {self.worker_id} stopped")
-    
+
     async def _poll_and_execute(self, api_key: str) -> None:
         """Poll for jobs and execute them"""
         try:
@@ -262,41 +262,41 @@ class GPUWorker:
                 },
                 params={"max_wait_seconds": 5}
             )
-            
+
             if response.status_code == 204:
                 return  # No job available
-            
+
             if response.status_code != 200:
                 return
-            
+
             job = response.json()
             job_id = job.get("job_id")
-            
+
             if not job_id:
                 return
-            
+
             logger.info(f"Executing job {job_id}")
-            
+
             # Execute the job
             result = await self._execute_job(job)
-            
+
             # Submit result
             await self._submit_result(job_id, result, api_key)
-            
+
         except Exception as e:
             logger.error(f"Error polling/executing: {e}")
-    
-    async def _execute_job(self, job: Dict[str, Any]) -> JobExecutionResult:
+
+    async def _execute_job(self, job: dict[str, Any]) -> JobExecutionResult:
         """Execute a single AI job"""
         start_time = time.time()
-        
+
         try:
             # Extract job parameters
             payload = job.get("payload", {})
             model = payload.get("model", "gpt2")
             prompt = payload.get("prompt", "")
             max_tokens = payload.get("max_tokens", 100)
-            
+
             # Check if model is available
             if model not in (self._capabilities.models if self._capabilities else []):
                 return JobExecutionResult(
@@ -307,7 +307,7 @@ class GPUWorker:
                     receipt={},
                     error=f"Model {model} not available"
                 )
-            
+
             # Execute through Ollama
             if self._capabilities and self._capabilities.gpu_available:
                 inference_result = await self.ollama.generate(
@@ -327,9 +327,9 @@ class GPUWorker:
                     "execution_time_ms": 100,
                     "done": True
                 }
-            
+
             execution_time = int((time.time() - start_time) * 1000)
-            
+
             if not inference_result.get("success"):
                 return JobExecutionResult(
                     success=False,
@@ -339,12 +339,12 @@ class GPUWorker:
                     receipt={},
                     error=inference_result.get("error", "Inference failed")
                 )
-            
+
             # Generate receipt
             receipt = self._generate_receipt(job.get("job_id"), inference_result, execution_time)  # type: ignore[arg-type]
-            
+
             self._processed_count += 1
-            
+
             return JobExecutionResult(
                 success=True,
                 output=inference_result,
@@ -352,7 +352,7 @@ class GPUWorker:
                 gpu_utilization=0.85,  # Placeholder
                 receipt=receipt
             )
-            
+
         except Exception as e:
             execution_time = int((time.time() - start_time) * 1000)
             return JobExecutionResult(
@@ -363,7 +363,7 @@ class GPUWorker:
                 receipt={},
                 error=str(e)
             )
-    
+
     async def _submit_result(self, job_id: str, result: JobExecutionResult, api_key: str) -> None:
         """Submit job result to coordinator"""
         try:
@@ -378,24 +378,24 @@ class GPUWorker:
                     "receipt": result.receipt
                 }
             )
-            
+
             if response.status_code == 200:
                 logger.info(f"Job {job_id} result submitted successfully")
             else:
                 logger.error(f"Failed to submit result: {response.status_code}")
-                
+
         except Exception as e:
             logger.error(f"Error submitting result: {e}")
-    
+
     def _generate_receipt(
         self,
         job_id: str,
-        inference_result: Dict[str, Any],
+        inference_result: dict[str, Any],
         execution_time_ms: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate execution receipt"""
         timestamp = datetime.now().isoformat()
-        
+
         # Create verification hash
         verification_data = {
             "job_id": job_id,
@@ -405,11 +405,11 @@ class GPUWorker:
             "execution_time_ms": execution_time_ms,
             "timestamp": timestamp
         }
-        
+
         hash_value = hashlib.sha256(
             json.dumps(verification_data, sort_keys=True).encode()
         ).hexdigest()
-        
+
         return {
             "hash": hash_value,
             "worker_id": self.worker_id,
@@ -426,17 +426,17 @@ async def run_worker(worker_id: str, api_key: str, coordinator_url: str = "http:
         worker_id=worker_id,
         coordinator_url=coordinator_url
     )
-    
+
     # Initialize
     if not await worker.initialize():
         logger.error("Failed to initialize worker")
         return
-    
+
     # Register
     if not await worker.register_with_coordinator(api_key):
         logger.error("Failed to register with coordinator")
         return
-    
+
     # Start processing
     try:
         await worker.start(api_key)
@@ -447,13 +447,13 @@ async def run_worker(worker_id: str, api_key: str, coordinator_url: str = "http:
 
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) < 3:
         logger.error("Usage: python gpu_worker.py <worker_id> <api_key> [coordinator_url]")
         sys.exit(1)
-    
+
     worker_id = sys.argv[1]
     api_key = sys.argv[2]
     coordinator_url = sys.argv[3] if len(sys.argv) > 3 else "http://localhost:8011"
-    
+
     asyncio.run(run_worker(worker_id, api_key, coordinator_url))

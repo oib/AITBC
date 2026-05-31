@@ -1,15 +1,19 @@
 """Edge case and error handling tests for compliance service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, KYCRequest, ComplianceReport, TransactionMonitoring, kyc_records, compliance_reports, suspicious_transactions, compliance_rules
+from main import (
+    ComplianceReport,
+    KYCRequest,
+    TransactionMonitoring,
+    app,
+    compliance_reports,
+    compliance_rules,
+    kyc_records,
+    suspicious_transactions,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +66,7 @@ def test_transaction_monitoring_zero_amount():
         amount=0.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert tx.amount == 0.0
 
@@ -76,7 +80,7 @@ def test_transaction_monitoring_negative_amount():
         amount=-1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert tx.amount == -1000.0
 
@@ -173,7 +177,7 @@ def test_monitor_transaction_with_past_timestamp():
 def test_kyc_list_with_multiple_records():
     """Test listing KYC with multiple records"""
     client = TestClient(app)
-    
+
     # Create multiple KYC records
     for i in range(5):
         kyc = KYCRequest(
@@ -185,7 +189,7 @@ def test_kyc_list_with_multiple_records():
             address={"city": "New York"}
         )
         client.post("/api/v1/kyc/submit", json=kyc.model_dump())
-    
+
     response = client.get("/api/v1/kyc")
     assert response.status_code == 200
     data = response.json()

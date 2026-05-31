@@ -8,7 +8,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-from .aitbc_logging import get_logger, setup_logger, configure_logging
+from ._version import __version__
+from .aitbc_logging import configure_logging, get_logger, setup_logger
 from .constants import (
     AGENT_COORDINATOR_PORT,
     BLOCKCHAIN_DATA_DIR,
@@ -21,18 +22,9 @@ from .constants import (
     LOG_DIR,
     MARKETPLACE_DATA_DIR,
     MARKETPLACE_PORT,
-    PACKAGE_VERSION,
     NODE_ENV_FILE,
+    PACKAGE_VERSION,
     REPO_DIR,
-)
-from ._version import __version__
-from .utils.env import (
-    get_bool_env_var,
-    get_env_var,
-    get_float_env_var,
-    get_int_env_var,
-    get_list_env_var,
-    get_required_env_var,
 )
 from .exceptions import (
     AITBCError,
@@ -48,10 +40,18 @@ from .exceptions import (
     ValidationError,
 )
 from .middleware import (
-    RequestIDMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestValidationMiddleware,
     ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
+)
+from .utils.env import (
+    get_bool_env_var,
+    get_env_var,
+    get_float_env_var,
+    get_int_env_var,
+    get_list_env_var,
+    get_required_env_var,
 )
 from .utils.paths import (
     ensure_dir,
@@ -65,6 +65,7 @@ from .utils.paths import (
     get_repo_path,
     resolve_path,
 )
+
 try:
     from .network.web3_utils import Web3Client, create_web3_client
     _WEB3_AVAILABLE = True

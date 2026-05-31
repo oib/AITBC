@@ -1,7 +1,7 @@
 """Dispute-related Pydantic models for RPC endpoints."""
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
-from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel
 
 
 class FileDisputeRequest(BaseModel):
@@ -69,8 +69,8 @@ class GetDisputeResponse(BaseModel):
     reason: str
     status: str
     created_at: str
-    evidence: List[Dict[str, Any]] = []
-    votes: List[Dict[str, Any]] = []
+    evidence: list[dict[str, Any]] = []
+    votes: list[dict[str, Any]] = []
 
 
 class GetEvidenceResponse(BaseModel):
@@ -86,4 +86,4 @@ class GetEvidenceResponse(BaseModel):
 
 class GetArbitrationVotesResponse(BaseModel):
     dispute_id: int
-    votes: List[Dict[str, Any]] = []
+    votes: list[dict[str, Any]] = []

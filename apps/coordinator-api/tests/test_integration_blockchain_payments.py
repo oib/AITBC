@@ -2,8 +2,9 @@
 Integration tests for blockchain and payments interaction
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -34,15 +35,15 @@ class TestBlockchainPaymentsIntegration:
         }
 
         # Import and test
+        from app.main import create_app
         from app.routers.blockchain import router as blockchain_router
         from app.routers.payments import router as payments_router
-        from app.main import create_app
-        
+
         app = create_app()
         app.include_router(blockchain_router)
         app.include_router(payments_router)
         client = TestClient(app)
-        
+
         # Create payment
         response = client.post("/payments", json={
             "amount": 100.0,
@@ -52,7 +53,7 @@ class TestBlockchainPaymentsIntegration:
         assert response.status_code == 200
         payment_data = response.json()
         assert payment_data["transaction_hash"] == "0xdef456"
-        
+
         # Verify blockchain is accessible
         response = client.get("/blockchain/status")
         assert response.status_code == 200

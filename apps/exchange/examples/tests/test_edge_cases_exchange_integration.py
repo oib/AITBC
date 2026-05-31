@@ -1,17 +1,15 @@
 """Edge case and error handling tests for exchange integration service"""
 
-import pytest
 import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
-from fastapi.testclient import TestClient
+from unittest.mock import Mock
 
+import pytest
+from fastapi.testclient import TestClient
 
 # Mock aiohttp before importing
 sys.modules['aiohttp'] = Mock()
 
-from main import app, ExchangeRegistration, TradingPair, OrderRequest, exchanges, trading_pairs, orders
+from main import ExchangeRegistration, OrderRequest, TradingPair, app, exchanges, orders, trading_pairs
 
 
 @pytest.fixture(autouse=True)
@@ -104,7 +102,7 @@ def test_order_request_negative_quantity():
 def test_order_request_invalid_side():
     """Test OrderRequest with invalid side"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC/BTC",
@@ -115,7 +113,7 @@ def test_order_request_invalid_side():
         quantity_precision=6
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
-    
+
     # Create order with invalid side (API doesn't validate, but test the behavior)
     order = OrderRequest(
         symbol="AITBC/BTC",
@@ -133,7 +131,7 @@ def test_order_request_invalid_side():
 def test_order_request_invalid_type():
     """Test OrderRequest with invalid type"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC/BTC",
@@ -144,7 +142,7 @@ def test_order_request_invalid_type():
         quantity_precision=6
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
-    
+
     # Create order with invalid type (API doesn't validate, but test the behavior)
     order = OrderRequest(
         symbol="AITBC/BTC",
@@ -166,13 +164,13 @@ def test_connect_already_connected_exchange():
         name="TestExchange",
         api_key="test_key_123"
     )
-    
+
     # Register exchange
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
-    
+
     # Connect first time
     client.post("/api/v1/exchanges/testexchange/connect")
-    
+
     # Connect second time should return already_connected
     response = client.post("/api/v1/exchanges/testexchange/connect")
     assert response.status_code == 200
@@ -184,7 +182,7 @@ def test_connect_already_connected_exchange():
 def test_update_market_price_missing_fields():
     """Test updating market price with missing fields"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC-BTC",
@@ -196,7 +194,7 @@ def test_update_market_price_missing_fields():
     )
     create_response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert create_response.status_code == 200
-    
+
     # Update with missing price
     price_data = {"volume": 50000.0}
     response = client.post("/api/v1/market-data/aitbc-btc/price", json=price_data)
@@ -210,7 +208,7 @@ def test_update_market_price_missing_fields():
 def test_update_market_price_zero_price():
     """Test updating market price with zero price"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC-BTC",
@@ -222,7 +220,7 @@ def test_update_market_price_zero_price():
     )
     create_response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert create_response.status_code == 200
-    
+
     # Update with zero price
     price_data = {"price": 0.0}
     response = client.post("/api/v1/market-data/aitbc-btc/price", json=price_data)
@@ -235,7 +233,7 @@ def test_update_market_price_zero_price():
 def test_update_market_price_negative_price():
     """Test updating market price with negative price"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC-BTC",
@@ -247,7 +245,7 @@ def test_update_market_price_negative_price():
     )
     create_response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert create_response.status_code == 200
-    
+
     # Update with negative price
     price_data = {"price": -0.00001}
     response = client.post("/api/v1/market-data/aitbc-btc/price", json=price_data)

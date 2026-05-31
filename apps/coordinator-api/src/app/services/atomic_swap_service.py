@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
+
+from aitbc import get_logger
 
 from ..blockchain.contract_interactions import ContractInteractionService
 from ..domain.atomic_swap import AtomicSwapOrder, SwapStatus
@@ -44,7 +45,7 @@ class AtomicSwapService:
         # Standard HTLC uses SHA256 of the secret
         hashlock = "0x" + hashlib.sha256(secret.encode()).hexdigest()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         source_timelock = int((now + timedelta(hours=request.source_timelock_hours)).timestamp())
         target_timelock = int((now + timedelta(hours=request.target_timelock_hours)).timestamp())
 
@@ -97,7 +98,7 @@ class AtomicSwapService:
 
         order.status = SwapStatus.INITIATED
         order.source_initiate_tx = request.tx_hash
-        order.updated_at = datetime.now(timezone.utc)
+        order.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(order)
@@ -116,7 +117,7 @@ class AtomicSwapService:
 
         order.status = SwapStatus.PARTICIPATING
         order.target_participate_tx = request.tx_hash
-        order.updated_at = datetime.now(timezone.utc)
+        order.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(order)
@@ -141,7 +142,7 @@ class AtomicSwapService:
         order.status = SwapStatus.COMPLETED
         order.target_complete_tx = request.tx_hash
         # Secret is now publicly known on the blockchain
-        order.updated_at = datetime.now(timezone.utc)
+        order.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(order)
@@ -155,7 +156,7 @@ class AtomicSwapService:
         if not order:
             raise HTTPException(status_code=404, detail="Swap order not found")
 
-        now = int(datetime.now(timezone.utc).timestamp())
+        now = int(datetime.now(UTC).timestamp())
 
         if order.status == SwapStatus.INITIATED and now < order.source_timelock:
             raise HTTPException(status_code=400, detail="Source timelock has not expired yet")
@@ -165,7 +166,7 @@ class AtomicSwapService:
 
         order.status = SwapStatus.REFUNDED
         order.refund_tx = request.tx_hash
-        order.updated_at = datetime.now(timezone.utc)
+        order.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(order)

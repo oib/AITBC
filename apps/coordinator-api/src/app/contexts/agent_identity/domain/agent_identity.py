@@ -3,12 +3,11 @@ Agent Identity Domain Models for Cross-Chain Agent Identity Management
 Implements SQLModel definitions for unified agent identity across multiple blockchains
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Index
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -81,8 +80,8 @@ class AgentIdentity(SQLModel, table=True):
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class CrossChainMapping(SQLModel, table=True):
@@ -115,8 +114,8 @@ class CrossChainMapping(SQLModel, table=True):
     transaction_count: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Unique constraint
     __table_args__ = {
@@ -155,8 +154,8 @@ class IdentityVerification(SQLModel, table=True):
     verification_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Indexes
     __table_args__ = {
@@ -201,8 +200,8 @@ class AgentWallet(SQLModel, table=True):
     transaction_count: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Indexes
     __table_args__ = {

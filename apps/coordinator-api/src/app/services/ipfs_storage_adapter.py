@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import hashlib
 
-from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
+
+from aitbc import get_logger
 
 from ..blockchain.contract_interactions import ContractInteractionService
 from ..domain.decentralized_memory import AgentMemoryNode, MemoryType, StorageStatus

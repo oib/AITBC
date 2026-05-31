@@ -1,13 +1,9 @@
 """Integration tests for blockchain explorer service"""
 
+from unittest.mock import patch
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
-
-
 from main import app
 
 

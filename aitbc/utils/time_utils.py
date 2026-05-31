@@ -3,14 +3,13 @@ Time utilities for AITBC
 Provides timestamp helpers, duration helpers, timezone handling, and deadline calculations
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Union
 import time
+from datetime import UTC, datetime, timedelta
 
 
 def get_utc_now() -> datetime:
     """Get current UTC datetime"""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def get_timestamp_utc() -> float:
@@ -18,12 +17,12 @@ def get_timestamp_utc() -> float:
     return time.time()
 
 
-def format_iso8601(dt: Optional[datetime] = None) -> str:
+def format_iso8601(dt: datetime | None = None) -> str:
     """Format datetime as ISO 8601 string in UTC"""
     if dt is None:
         dt = get_utc_now()
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.isoformat()
 
 
@@ -31,13 +30,13 @@ def parse_iso8601(iso_string: str) -> datetime:
     """Parse ISO 8601 string to datetime"""
     dt = datetime.fromisoformat(iso_string)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
 def timestamp_to_iso(timestamp: float) -> str:
     """Convert timestamp to ISO 8601 string"""
-    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+    return datetime.fromtimestamp(timestamp, UTC).isoformat()
 
 
 def iso_to_timestamp(iso_string: str) -> float:
@@ -46,7 +45,7 @@ def iso_to_timestamp(iso_string: str) -> float:
     return dt.timestamp()
 
 
-def format_duration(seconds: Union[int, float]) -> str:
+def format_duration(seconds: int | float) -> str:
     """Format duration in seconds to human-readable string"""
     if seconds < 60:
         return f"{int(seconds)}s"
@@ -61,13 +60,13 @@ def format_duration(seconds: Union[int, float]) -> str:
         return f"{days}d"
 
 
-def format_duration_precise(seconds: Union[int, float]) -> str:
+def format_duration_precise(seconds: int | float) -> str:
     """Format duration with precise breakdown"""
     days = int(seconds // 86400)
     hours = int((seconds % 86400) // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = int(seconds % 60)
-    
+
     parts = []
     if days > 0:
         parts.append(f"{days}d")
@@ -77,14 +76,14 @@ def format_duration_precise(seconds: Union[int, float]) -> str:
         parts.append(f"{minutes}m")
     if secs > 0 or not parts:
         parts.append(f"{secs}s")
-    
+
     return " ".join(parts)
 
 
 def parse_duration(duration_str: str) -> float:
     """Parse duration string to seconds"""
     duration_str = duration_str.strip().lower()
-    
+
     if duration_str.endswith('s'):
         return float(duration_str[:-1])
     elif duration_str.endswith('m'):
@@ -97,14 +96,14 @@ def parse_duration(duration_str: str) -> float:
         return float(duration_str)
 
 
-def add_duration(dt: datetime, duration: Union[str, timedelta]) -> datetime:
+def add_duration(dt: datetime, duration: str | timedelta) -> datetime:
     """Add duration to datetime"""
     if isinstance(duration, str):
         duration = timedelta(seconds=parse_duration(duration))
     return dt + duration
 
 
-def subtract_duration(dt: datetime, duration: Union[str, timedelta]) -> datetime:
+def subtract_duration(dt: datetime, duration: str | timedelta) -> datetime:
     """Subtract duration from datetime"""
     if isinstance(duration, str):
         duration = timedelta(seconds=parse_duration(duration))
@@ -123,7 +122,7 @@ def get_time_since(dt: datetime) -> timedelta:
     return now - dt
 
 
-def calculate_deadline(duration: Union[str, timedelta], from_dt: Optional[datetime] = None) -> datetime:
+def calculate_deadline(duration: str | timedelta, from_dt: datetime | None = None) -> datetime:
     """Calculate deadline from duration"""
     if from_dt is None:
         from_dt = get_utc_now()
@@ -145,7 +144,7 @@ def format_time_ago(dt: datetime) -> str:
     """Format datetime as "time ago" string"""
     delta = get_time_since(dt)
     seconds = delta.total_seconds()
-    
+
     if seconds < 60:
         return "just now"
     elif seconds < 3600:
@@ -166,10 +165,10 @@ def format_time_in(dt: datetime) -> str:
     """Format datetime as "time in" string"""
     delta = get_time_until(dt)
     seconds = delta.total_seconds()
-    
+
     if seconds < 0:
         return format_time_ago(dt)
-    
+
     if seconds < 60:
         return "in a moment"
     elif seconds < 3600:
@@ -192,7 +191,7 @@ def to_timezone(dt: datetime, tz_name: str) -> datetime:
         import pytz
         tz = pytz.timezone(tz_name)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.astimezone(tz)
     except ImportError:
         raise ImportError("pytz is required for timezone conversion. Install with: pip install pytz")
@@ -205,18 +204,18 @@ def get_timezone_offset(tz_name: str) -> timedelta:
     try:
         import pytz
         tz = pytz.timezone(tz_name)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         offset = tz.utcoffset(now)
         return offset if offset else timedelta(0)
     except ImportError:
         raise ImportError("pytz is required for timezone operations. Install with: pip install pytz")
 
 
-def is_business_hours(dt: Optional[datetime] = None, start_hour: int = 9, end_hour: int = 17, timezone: str = "UTC") -> bool:
+def is_business_hours(dt: datetime | None = None, start_hour: int = 9, end_hour: int = 17, timezone: str = "UTC") -> bool:
     """Check if datetime is within business hours"""
     if dt is None:
         dt = get_utc_now()
-    
+
     try:
         import pytz
         tz = pytz.timezone(timezone)
@@ -226,42 +225,42 @@ def is_business_hours(dt: Optional[datetime] = None, start_hour: int = 9, end_ho
         raise ImportError("pytz is required for business hours check. Install with: pip install pytz")
 
 
-def get_start_of_day(dt: Optional[datetime] = None) -> datetime:
+def get_start_of_day(dt: datetime | None = None) -> datetime:
     """Get start of day (00:00:00) for given datetime"""
     if dt is None:
         dt = get_utc_now()
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def get_end_of_day(dt: Optional[datetime] = None) -> datetime:
+def get_end_of_day(dt: datetime | None = None) -> datetime:
     """Get end of day (23:59:59) for given datetime"""
     if dt is None:
         dt = get_utc_now()
     return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
-def get_start_of_week(dt: Optional[datetime] = None) -> datetime:
+def get_start_of_week(dt: datetime | None = None) -> datetime:
     """Get start of week (Monday) for given datetime"""
     if dt is None:
         dt = get_utc_now()
     return dt - timedelta(days=dt.weekday())
 
 
-def get_end_of_week(dt: Optional[datetime] = None) -> datetime:
+def get_end_of_week(dt: datetime | None = None) -> datetime:
     """Get end of week (Sunday) for given datetime"""
     if dt is None:
         dt = get_utc_now()
     return dt + timedelta(days=(6 - dt.weekday()))
 
 
-def get_start_of_month(dt: Optional[datetime] = None) -> datetime:
+def get_start_of_month(dt: datetime | None = None) -> datetime:
     """Get start of month for given datetime"""
     if dt is None:
         dt = get_utc_now()
     return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-def get_end_of_month(dt: Optional[datetime] = None) -> datetime:
+def get_end_of_month(dt: datetime | None = None) -> datetime:
     """Get end of month for given datetime"""
     if dt is None:
         dt = get_utc_now()
@@ -295,24 +294,24 @@ def retry_until_deadline(func, deadline: datetime, interval: float = 1.0) -> boo
 
 class Timer:
     """Simple timer context manager for measuring execution time"""
-    
+
     def __init__(self):
         """Initialize timer"""
         self.start_time = None
         self.end_time = None
         self.elapsed = None
-    
+
     def __enter__(self):
         """Start timer"""
         self.start_time = time.time()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Stop timer"""
         self.end_time = time.time()
         self.elapsed = self.end_time - self.start_time
-    
-    def get_elapsed(self) -> Optional[float]:
+
+    def get_elapsed(self) -> float | None:
         """Get elapsed time in seconds"""
         if self.elapsed is not None:
             return self.elapsed

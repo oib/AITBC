@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
+
 from ....deps import require_admin_key
 from ....schemas.hermes_enhanced import (
     AgentCollaborationRequest,
@@ -31,8 +32,8 @@ from ....schemas.hermes_enhanced import (
     SkillRoutingRequest,
     SkillRoutingResponse,
 )
-from ..services.hermes_enhanced import hermesEnhancedService
 from ....storage import get_session
+from ..services.hermes_enhanced import hermesEnhancedService
 
 router = APIRouter(prefix="/hermes/enhanced", tags=["hermes Enhanced"])
 

@@ -4,26 +4,24 @@ GPU Benchmark Report Generator
 Generates HTML reports from benchmark results
 """
 
-import json
 import argparse
+import json
 from datetime import datetime
-from typing import Dict, List, Any
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-def load_benchmark_results(filename: str) -> Dict:
+
+def load_benchmark_results(filename: str) -> dict:
     """Load benchmark results from JSON file"""
-    with open(filename, 'r') as f:
+    with open(filename) as f:
         return json.load(f)
 
-def generate_html_report(results: Dict, output_file: str):
+def generate_html_report(results: dict, output_file: str):
     """Generate HTML benchmark report"""
-    
+
     # Extract data
     timestamp = datetime.fromtimestamp(results['timestamp'])
     gpu_info = results['gpu_info']
     benchmarks = results['benchmarks']
-    
+
     # Create HTML content
     html_content = f"""
 <!DOCTYPE html>
@@ -215,11 +213,11 @@ def generate_html_report(results: Dict, output_file: str):
     with open(output_file, 'w') as f:
         f.write(html_content)
 
-def calculate_performance_score(benchmarks: Dict) -> float:
+def calculate_performance_score(benchmarks: dict) -> float:
     """Calculate overall performance score (0-100)"""
     if not benchmarks:
         return 0.0
-    
+
     # Weight different benchmark types
     weights = {
         'pytorch_matmul': 0.2,
@@ -228,17 +226,17 @@ def calculate_performance_score(benchmarks: Dict) -> float:
         'pow_simulation': 0.25,
         'neural_forward': 0.1
     }
-    
+
     total_score = 0.0
     total_weight = 0.0
-    
+
     for name, data in benchmarks.items():
         weight = weights.get(name, 0.1)
         # Normalize ops/sec to 0-100 scale (arbitrary baseline)
         normalized_score = min(100, data['ops_per_sec'] / 100)  # 100 ops/sec = 100 points
         total_score += normalized_score * weight
         total_weight += weight
-    
+
     return total_score / total_weight if total_weight > 0 else 0.0
 
 def get_performance_status(ops_per_sec: float) -> str:
@@ -254,41 +252,41 @@ def format_benchmark_name(name: str) -> str:
     """Format benchmark name for display"""
     return name.replace('_', ' ').title()
 
-def compare_with_history(current_results: Dict, history_file: str) -> Dict:
+def compare_with_history(current_results: dict, history_file: str) -> dict:
     """Compare current results with historical data"""
     try:
-        with open(history_file, 'r') as f:
+        with open(history_file) as f:
             history = json.load(f)
     except FileNotFoundError:
         return {"status": "no_history"}
-    
+
     # Get most recent historical data
     if not history.get('results'):
         return {"status": "no_history"}
-    
+
     latest_history = history['results'][-1]
     current_benchmarks = current_results['benchmarks']
     history_benchmarks = latest_history['benchmarks']
-    
+
     comparison = {
         "status": "comparison_available",
         "timestamp_diff": current_results['timestamp'] - latest_history['timestamp'],
         "changes": {}
     }
-    
+
     for name, current_data in current_benchmarks.items():
         if name in history_benchmarks:
             history_data = history_benchmarks[name]
-            change_percent = ((current_data['ops_per_sec'] - history_data['ops_per_sec']) / 
+            change_percent = ((current_data['ops_per_sec'] - history_data['ops_per_sec']) /
                              history_data['ops_per_sec']) * 100
-            
+
             comparison['changes'][name] = {
                 'current_ops': current_data['ops_per_sec'],
                 'history_ops': history_data['ops_per_sec'],
                 'change_percent': change_percent,
                 'status': 'improved' if change_percent > 5 else 'degraded' if change_percent < -5 else 'stable'
             }
-    
+
     return comparison
 
 def main():
@@ -296,24 +294,24 @@ def main():
     parser.add_argument('--input', required=True, help='Input JSON file with benchmark results')
     parser.add_argument('--output', required=True, help='Output HTML file')
     parser.add_argument('--history-file', help='Historical benchmark data file')
-    
+
     args = parser.parse_args()
-    
+
     # Load benchmark results
     results = load_benchmark_results(args.input)
-    
+
     # Generate HTML report
     generate_html_report(results, args.output)
-    
+
     # Compare with history if available
     if args.history_file:
         comparison = compare_with_history(results, args.history_file)
         print(f"Performance comparison: {comparison['status']}")
-        
+
         if comparison['status'] == 'comparison_available':
             for name, change in comparison['changes'].items():
                 print(f"{name}: {change['change_percent']:+.2f}% ({change['status']})")
-    
+
     print(f"✅ Benchmark report generated: {args.output}")
 
 if __name__ == "__main__":

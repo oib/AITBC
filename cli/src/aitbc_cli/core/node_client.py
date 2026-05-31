@@ -2,27 +2,27 @@
 Node client for multi-chain operations
 """
 
-import asyncio
-import httpx
-import json
-import os
 import logging
-from typing import Dict, List, Optional, Any
+import os
+from typing import Any
+
+import httpx
+from aitbc.models.chain import ChainInfo, ChainStatus, ChainType, ConsensusAlgorithm
+
 from .config import NodeConfig
-from aitbc.models.chain import ChainInfo, ChainType, ChainStatus, ConsensusAlgorithm
 
 logger = logging.getLogger(__name__)
 
 class NodeClient:
     """Client for communicating with AITBC nodes"""
-    
+
     def __init__(self, node_config: NodeConfig):
         self.config = node_config
-        self._client: Optional[httpx.AsyncClient] = None
-        self._session_id: Optional[str] = None
+        self._client: httpx.AsyncClient | None = None
+        self._session_id: str | None = None
         self._mock_fallback_count = 0
         self._dev_mocks_enabled = os.getenv("DEV_MOCKS_ENABLED", "false").lower() == "true"
-    
+
     async def __aenter__(self):
         """Async context manager entry"""
         self._client = httpx.AsyncClient(
@@ -31,12 +31,12 @@ class NodeClient:
         )
         await self._authenticate()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
         if self._client:
             await self._client.aclose()
-    
+
     async def _authenticate(self):
         """Authenticate with the node"""
         try:
@@ -56,8 +56,8 @@ class NodeClient:
             else:
                 logger.error(f"Authentication failed for node {self.config.id}: {e}")
                 raise
-    
-    async def get_node_info(self) -> Dict[str, Any]:
+
+    async def get_node_info(self) -> dict[str, Any]:
         """Get node information"""
         try:
             response = await self._client.get(f"{self.config.endpoint}/api/node/info")
@@ -74,19 +74,19 @@ class NodeClient:
             else:
                 logger.error(f"Failed to get node info for {self.config.id}: {e}")
                 raise
-    
-    async def get_hosted_chains(self) -> List[ChainInfo]:
+
+    async def get_hosted_chains(self) -> list[ChainInfo]:
         """Get all chains hosted by this node"""
         try:
             health_url = f"{self.config.endpoint}/health"
             if "/rpc" in self.config.endpoint:
                 health_url = self.config.endpoint.replace("/rpc", "/health")
-            
+
             response = await self._client.get(health_url)
             if response.status_code == 200:
                 health_data = response.json()
                 chains = health_data.get("supported_chains", ["ait-devnet"])
-                
+
                 result = []
                 for cid in chains:
                     # Try to fetch real block height
@@ -101,7 +101,7 @@ class NodeClient:
                             block_height = head_data.get("height", 0)
                     except Exception:
                         pass
-                        
+
                     result.append(self._parse_chain_info({
                         "id": cid,
                         "name": f"AITBC {cid.split('-')[-1].capitalize()} Chain",
@@ -119,17 +119,17 @@ class NodeClient:
                 return result
             else:
                 return self._get_mock_chains()
-        except Exception as e:
+        except Exception:
             return self._get_mock_chains()
 
-    async def get_chain_info(self, chain_id: str) -> Optional[ChainInfo]:
+    async def get_chain_info(self, chain_id: str) -> ChainInfo | None:
         """Get specific chain information"""
         try:
             # Re-use the health endpoint logic
             health_url = f"{self.config.endpoint}/health"
             if "/rpc" in self.config.endpoint:
                 health_url = self.config.endpoint.replace("/rpc", "/health")
-                
+
             response = await self._client.get(health_url)
             if response.status_code == 200:
                 health_data = response.json()
@@ -146,7 +146,7 @@ class NodeClient:
                             block_height = head_data.get("height", 0)
                     except Exception:
                         pass
-                        
+
                     return self._parse_chain_info({
                         "id": chain_id,
                         "name": f"AITBC {chain_id.split('-')[-1].capitalize()} Chain",
@@ -162,7 +162,7 @@ class NodeClient:
                         "privacy": {"visibility": "public"}
                     })
             return None
-        except Exception as e:
+        except Exception:
             # Fallback to pure mock
             chains = self._get_mock_chains()
             for chain in chains:
@@ -170,7 +170,7 @@ class NodeClient:
                     return chain
             return None
 
-    async def create_chain(self, genesis_block: Dict[str, Any]) -> str:
+    async def create_chain(self, genesis_block: dict[str, Any]) -> str:
         """Create a new chain on this node"""
         try:
             response = await self._client.post(
@@ -182,12 +182,12 @@ class NodeClient:
                 return data["chain_id"]
             else:
                 raise Exception(f"Chain creation failed: {response.status_code}")
-        except Exception as e:
+        except Exception:
             # Mock chain creation for development
             chain_id = genesis_block.get("chain_id", f"MOCK-CHAIN-{hash(str(genesis_block)) % 10000}")
             logger.info(f"Mock created chain {chain_id} on node {self.config.id}")
             return chain_id
-    
+
     async def delete_chain(self, chain_id: str) -> bool:
         """Delete a chain from this node"""
         try:
@@ -196,12 +196,12 @@ class NodeClient:
                 return True
             else:
                 raise Exception(f"Chain deletion failed: {response.status_code}")
-        except Exception as e:
+        except Exception:
             # Mock chain deletion for development
             logger.info(f"Mock deleted chain {chain_id} from node {self.config.id}")
             return True
-    
-    async def get_chain_stats(self, chain_id: str) -> Dict[str, Any]:
+
+    async def get_chain_stats(self, chain_id: str) -> dict[str, Any]:
         """Get chain statistics"""
         try:
             response = await self._client.get(f"{self.config.endpoint}/api/chains/{chain_id}/stats")
@@ -209,11 +209,11 @@ class NodeClient:
                 return response.json()
             else:
                 raise Exception(f"Chain stats request failed: {response.status_code}")
-        except Exception as e:
+        except Exception:
             # Return mock stats for development
             return self._get_mock_chain_stats(chain_id)
-    
-    async def backup_chain(self, chain_id: str, backup_path: str) -> Dict[str, Any]:
+
+    async def backup_chain(self, chain_id: str, backup_path: str) -> dict[str, Any]:
         """Backup a chain"""
         try:
             response = await self._client.post(
@@ -224,7 +224,7 @@ class NodeClient:
                 return response.json()
             else:
                 raise Exception(f"Chain backup failed: {response.status_code}")
-        except Exception as e:
+        except Exception:
             # Mock backup for development
             backup_info = {
                 "chain_id": chain_id,
@@ -235,8 +235,8 @@ class NodeClient:
             }
             logger.info(f"Mock backed up chain {chain_id} to {backup_info['backup_file']}")
             return backup_info
-    
-    async def restore_chain(self, backup_file: str, chain_id: Optional[str] = None) -> Dict[str, Any]:
+
+    async def restore_chain(self, backup_file: str, chain_id: str | None = None) -> dict[str, Any]:
         """Restore a chain from backup"""
         try:
             response = await self._client.post(
@@ -247,7 +247,7 @@ class NodeClient:
                 return response.json()
             else:
                 raise Exception(f"Chain restore failed: {response.status_code}")
-        except Exception as e:
+        except Exception:
             # Mock restore for development
             restore_info = {
                 "chain_id": chain_id or "RESTORED-MOCK-CHAIN",
@@ -256,12 +256,13 @@ class NodeClient:
             }
             logger.info(f"Mock restored chain from {backup_file}")
             return restore_info
-    
-    def _parse_chain_info(self, chain_data: Dict[str, Any]) -> ChainInfo:
+
+    def _parse_chain_info(self, chain_data: dict[str, Any]) -> ChainInfo:
         """Parse chain data from node response"""
         from datetime import datetime
+
         from models.chain import PrivacyConfig
-        
+
         return ChainInfo(
             id=chain_data.get("chain_id", chain_data.get("id", "unknown")),
             type=ChainType(chain_data.get("chain_type", "topic")),
@@ -292,8 +293,8 @@ class NodeClient:
                 access_control=chain_data.get("privacy", {}).get("access_control", "open")
             )
         )
-    
-    def _get_mock_node_info(self) -> Dict[str, Any]:
+
+    def _get_mock_node_info(self) -> dict[str, Any]:
         """Get mock node information for development"""
         return {
             "node_id": self.config.id,
@@ -309,12 +310,13 @@ class NodeClient:
             "network_in_mb": 10.5,
             "network_out_mb": 8.2
         }
-    
-    def _get_mock_chains(self) -> List[ChainInfo]:
+
+    def _get_mock_chains(self) -> list[ChainInfo]:
         """Get mock chains for development"""
         from datetime import datetime
+
         from models.chain import PrivacyConfig
-        
+
         return [
             ChainInfo(
                 id="AITBC-TOPIC-HEALTHCARE-001",
@@ -371,8 +373,8 @@ class NodeClient:
                 privacy=PrivacyConfig(visibility="private", access_control="invite_only")
             )
         ]
-    
-    def _get_mock_chain_stats(self, chain_id: str) -> Dict[str, Any]:
+
+    def _get_mock_chain_stats(self, chain_id: str) -> dict[str, Any]:
         """Get mock chain statistics for development"""
         return {
             "chain_id": chain_id,

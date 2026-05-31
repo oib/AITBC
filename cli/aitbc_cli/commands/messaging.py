@@ -1,8 +1,10 @@
 """Messaging commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
 from aitbc import AITBCHTTPClient, NetworkError
+
+from ..utils import error, output
 
 
 @click.group()
@@ -25,7 +27,7 @@ def send(ctx, recipient, message, rpc_url):
             "message": message
         })
         output(result, ctx.obj.get('output_format', 'table'), title="Message Sent")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         result = {
             "status": "simulated",
@@ -49,7 +51,7 @@ def list(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         messages = http_client.get("/rpc/messaging/list")
         output(messages, ctx.obj.get('output_format', 'table'), title="Messages")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         messages = {
             "status": "simulated",

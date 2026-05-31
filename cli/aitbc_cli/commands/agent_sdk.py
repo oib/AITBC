@@ -4,13 +4,12 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Add Agent SDK to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent.parent / "packages" / "py" / "aitbc-agent-sdk" / "src"))
 
 try:
-    from aitbc_agent import Agent, ComputeProvider, ComputeConsumer, AITBCAgent
+    from aitbc_agent import Agent, AITBCAgent, ComputeConsumer, ComputeProvider
     from aitbc_agent.agent import AgentCapabilities
 except ImportError:
     # Fallback if Agent SDK is not installed
@@ -19,9 +18,10 @@ except ImportError:
     ComputeConsumer = None
     AITBCAgent = None
 
-from ..utils import output, error, success
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 from ..config import get_config
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from ..utils import error, output, success
 
 logger = get_logger(__name__)
 
@@ -33,11 +33,12 @@ def get_agent_config_dir() -> Path:
     return config_dir
 
 
-def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url: Optional[str] = None) -> dict:
+def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url: str | None = None) -> dict:
     """Create a new agent using the Agent SDK"""
     if Agent is None:
         return {"error": "Agent SDK not available. Install from packages/py/aitbc-agent-sdk"}
-    
+
+    config = get_config()
     try:
         if agent_type == "provider":
             agent = ComputeProvider.create_provider(
@@ -57,26 +58,26 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
                 agent_type=agent_type,
                 capabilities=capabilities
             )
-        
+
         if coordinator_url:
             agent.coordinator_url = coordinator_url
-        
+
         # Save agent configuration
         config_dir = get_agent_config_dir()
         config_file = config_dir / f"{name}.json"
-        
+
         agent_config = {
             "agent_id": agent.identity.id,
             "name": agent.identity.name,
             "address": agent.identity.address,
             "agent_type": agent_type,
             "capabilities": capabilities,
-            "coordinator_url": coordinator_url or config.coordinator_url
+            "coordinator_url": coordinator_url or (config.coordinator_url if config else "")
         }
-        
+
         with open(config_file, 'w') as f:
             json.dump(agent_config, f, indent=2)
-        
+
         return {
             "success": True,
             "agent_id": agent.identity.id,
@@ -97,7 +98,7 @@ async def register_agent(agent_id: str, coordinator_url: str = None) -> dict:
         coordinator_url = config.coordinator_url
     if Agent is None:
         return {"error": "Agent SDK not available"}
-    
+
     try:
         # For now, return a simulated registration response
         # In a real implementation, this would load the agent from storage and call register()
@@ -116,18 +117,18 @@ def get_agent_capabilities() -> dict:
     """Get auto-detected system capabilities for creating a provider"""
     if ComputeProvider is None:
         return {"error": "Agent SDK not available"}
-    
+
     try:
         return ComputeProvider.assess_capabilities()
     except Exception as e:
         return {"error": str(e)}
 
 
-def list_local_agents(agent_dir: Optional[Path] = None) -> list:
+def list_local_agents(agent_dir: Path | None = None) -> list:
     """List locally stored agent configurations"""
     if agent_dir is None:
         agent_dir = get_agent_config_dir()
-    
+
     agents = []
     if agent_dir.exists():
         for agent_file in agent_dir.glob("*.json"):
@@ -141,7 +142,7 @@ def list_local_agents(agent_dir: Optional[Path] = None) -> list:
                 })
             except Exception:
                 pass
-    
+
     return agents
 
 
@@ -164,24 +165,24 @@ def set_agent_config(name: str, key: str, value: str) -> dict:
     try:
         config_dir = get_agent_config_dir()
         config_file = config_dir / f"{name}.json"
-        
+
         if not config_file.exists():
             return {"error": f"Agent configuration not found: {name}"}
-        
+
         with open(config_file) as f:
             config = json.load(f)
-        
+
         # Parse value (handle JSON for complex values)
         try:
             parsed_value = json.loads(value)
         except json.JSONDecodeError:
             parsed_value = value
-        
+
         config[key] = parsed_value
-        
+
         with open(config_file, 'w') as f:
             json.dump(config, f, indent=2)
-        
+
         return {
             "success": True,
             "name": name,
@@ -192,18 +193,18 @@ def set_agent_config(name: str, key: str, value: str) -> dict:
         return {"error": str(e)}
 
 
-def get_agent_config(name: str, key: Optional[str] = None) -> dict:
+def get_agent_config(name: str, key: str | None = None) -> dict:
     """Get configuration value(s) for an agent"""
     try:
         config_dir = get_agent_config_dir()
         config_file = config_dir / f"{name}.json"
-        
+
         if not config_file.exists():
             return {"error": f"Agent configuration not found: {name}"}
-        
+
         with open(config_file) as f:
             config = json.load(f)
-        
+
         if key:
             if key not in config:
                 return {"error": f"Configuration key not found: {key}"}
@@ -228,23 +229,23 @@ def validate_agent_config(name: str) -> dict:
     try:
         config_dir = get_agent_config_dir()
         config_file = config_dir / f"{name}.json"
-        
+
         if not config_file.exists():
             return {"error": f"Agent configuration not found: {name}"}
-        
+
         with open(config_file) as f:
             config = json.load(f)
-        
+
         # Validate required fields
         required_fields = ["agent_id", "name", "address", "agent_type", "capabilities"]
         missing_fields = [field for field in required_fields if field not in config]
-        
+
         if missing_fields:
             return {
                 "valid": False,
                 "error": f"Missing required fields: {', '.join(missing_fields)}"
             }
-        
+
         # Validate capabilities structure
         capabilities = config.get("capabilities", {})
         if "compute_type" not in capabilities:
@@ -252,7 +253,7 @@ def validate_agent_config(name: str) -> dict:
                 "valid": False,
                 "error": "Missing compute_type in capabilities"
             }
-        
+
         return {
             "valid": True,
             "name": name,
@@ -262,27 +263,27 @@ def validate_agent_config(name: str) -> dict:
         return {"valid": False, "error": str(e)}
 
 
-def import_agent_config(file_path: str, name: Optional[str] = None) -> dict:
+def import_agent_config(file_path: str, name: str | None = None) -> dict:
     """Import agent configuration from file"""
     try:
         import_file = Path(file_path)
         if not import_file.exists():
             return {"error": f"File not found: {file_path}"}
-        
+
         with open(import_file) as f:
             config = json.load(f)
-        
+
         # Use name from file or override
         agent_name = name or config.get("name", import_file.stem)
         config["name"] = agent_name
-        
+
         # Save to agent config directory
         config_dir = get_agent_config_dir()
         config_file = config_dir / f"{agent_name}.json"
-        
+
         with open(config_file, 'w') as f:
             json.dump(config, f, indent=2)
-        
+
         return {
             "success": True,
             "name": agent_name,
@@ -298,19 +299,19 @@ def export_agent_config(name: str, output_path: str) -> dict:
     try:
         config_dir = get_agent_config_dir()
         config_file = config_dir / f"{name}.json"
-        
+
         if not config_file.exists():
             return {"error": f"Agent configuration not found: {name}"}
-        
+
         with open(config_file) as f:
             config = json.load(f)
-        
+
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(output_file, 'w') as f:
             json.dump(config, f, indent=2)
-        
+
         return {
             "success": True,
             "name": name,
@@ -323,13 +324,14 @@ def export_agent_config(name: str, output_path: str) -> dict:
 # CLI command handlers using Click
 try:
     import click
-    from ..utils import output, error, success
-    
+
+    from ..utils import error, output, success
+
     @click.group()
     def agent():
         """Agent SDK management commands"""
         pass
-    
+
     @agent.command()
     @click.argument('name')
     @click.option('--type', 'agent_type', default='provider', type=click.Choice(['provider', 'consumer', 'general']), help='Agent type')
@@ -358,25 +360,25 @@ try:
                     "performance_score": performance,
                     "max_concurrent_jobs": max_jobs
                 }
-                
+
                 if gpu_memory:
                     capabilities["gpu_memory"] = gpu_memory
-                
+
                 if models:
                     capabilities["supported_models"] = [m.strip() for m in models.split(',')]
-                
+
                 if specialization:
                     capabilities["specialization"] = specialization
-            
+
             # Create agent
             result = create_agent(name, agent_type, capabilities, coordinator_url)
-            
+
             if "error" in result:
                 error(f"Failed to create agent: {result['error']}")
                 raise click.Abort()
-            
-            success(f"Agent created successfully!")
-            
+
+            success("Agent created successfully!")
+
             agent_data = [
                 {"Field": "Agent ID", "Value": result["agent_id"]},
                 {"Field": "Name", "Value": result["name"]},
@@ -388,13 +390,13 @@ try:
                 {"Field": "Max Jobs", "Value": capabilities.get("max_concurrent_jobs", "N/A")},
                 {"Field": "Config File", "Value": result.get("config_file", "N/A")}
             ]
-            
+
             output(agent_data, ctx.obj.get('output_format', format), title="Agent Created")
-            
+
         except Exception as e:
             error(f"Error creating agent: {str(e)}")
             raise click.Abort()
-    
+
     @agent.command()
     @click.argument('agent_id')
     @click.option('--coordinator-url', default='http://localhost:9001', help='Coordinator URL')
@@ -404,26 +406,26 @@ try:
         """Register an agent with the coordinator"""
         try:
             result = asyncio.run(register_agent(agent_id, coordinator_url))
-            
+
             if "error" in result:
                 error(f"Failed to register agent: {result['error']}")
                 raise click.Abort()
-            
+
             success(f"Agent {agent_id} registered successfully!")
-            
+
             reg_data = [
                 {"Field": "Agent ID", "Value": result["agent_id"]},
                 {"Field": "Registered", "Value": str(result["registered"])},
                 {"Field": "Coordinator URL", "Value": result["coordinator_url"]},
                 {"Field": "Message", "Value": result["message"]}
             ]
-            
+
             output(reg_data, ctx.obj.get('output_format', format), title="Agent Registration")
-            
+
         except Exception as e:
             error(f"Error registering agent: {str(e)}")
             raise click.Abort()
-    
+
     @agent.command()
     @click.option('--agent-dir', type=click.Path(), help='Agent directory path')
     @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
@@ -432,11 +434,11 @@ try:
         """List local agents"""
         try:
             agents = list_local_agents(Path(agent_dir) if agent_dir else None)
-            
+
             if not agents:
                 output("No local agents found", ctx.obj.get('output_format', format))
                 return
-            
+
             agent_list = [
                 {
                     "Name": agent["name"],
@@ -446,13 +448,13 @@ try:
                 }
                 for agent in agents
             ]
-            
+
             output(agent_list, ctx.obj.get('output_format', format), title="Local Agents")
-            
+
         except Exception as e:
             error(f"Error listing agents: {str(e)}")
             raise click.Abort()
-    
+
     @agent.command()
     @click.argument('agent_id')
     @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
@@ -461,7 +463,7 @@ try:
         """Get agent status"""
         try:
             status_data = get_agent_status(agent_id)
-            
+
             status_list = [
                 {"Field": "Agent ID", "Value": status_data["agent_id"]},
                 {"Field": "Status", "Value": status_data["status"]},
@@ -470,13 +472,13 @@ try:
                 {"Field": "Last Seen", "Value": status_data["last_seen"]},
                 {"Field": "Message", "Value": status_data["message"]}
             ]
-            
+
             output(status_list, ctx.obj.get('output_format', format), title=f"Agent Status: {agent_id}")
-            
+
         except Exception as e:
             error(f"Error getting agent status: {str(e)}")
             raise click.Abort()
-    
+
     @agent.command()
     @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
     @click.pass_context
@@ -484,11 +486,11 @@ try:
         """Show auto-detected system capabilities"""
         try:
             caps = get_agent_capabilities()
-            
+
             if "error" in caps:
                 error(f"Failed to detect capabilities: {caps['error']}")
                 raise click.Abort()
-            
+
             caps_list = [
                 {"Field": "GPU Memory", "Value": f"{caps['gpu_memory']} MiB"},
                 {"Field": "GPU Count", "Value": str(caps.get('gpu_count', 0))},
@@ -497,9 +499,9 @@ try:
                 {"Field": "Max Concurrent Jobs", "Value": str(caps['max_concurrent_jobs'])},
                 {"Field": "Supported Models", "Value": ", ".join(caps.get('supported_models', []))}
             ]
-            
+
             output(caps_list, ctx.obj.get('output_format', format), title="System Capabilities")
-            
+
         except Exception as e:
             error(f"Error detecting capabilities: {str(e)}")
             raise click.Abort()
@@ -513,13 +515,13 @@ try:
         """Set a configuration value for an agent"""
         try:
             result = set_agent_config(name, key, value)
-            
+
             if "error" in result:
                 error(f"Failed to set configuration: {result['error']}")
                 raise click.Abort()
-            
+
             success(f"Configuration set: {name}.{key} = {result['value']}")
-            
+
         except Exception as e:
             error(f"Error setting configuration: {str(e)}")
             raise click.Abort()
@@ -533,11 +535,11 @@ try:
         """Get configuration value(s) for an agent"""
         try:
             result = get_agent_config(name, key)
-            
+
             if "error" in result:
                 error(f"Failed to get configuration: {result['error']}")
                 raise click.Abort()
-            
+
             if key:
                 config_data = [
                     {"Field": "Name", "Value": result["name"]},
@@ -547,7 +549,7 @@ try:
                 output(config_data, ctx.obj.get('output_format', format), title=f"Agent Config: {name}.{key}")
             else:
                 output(result["config"], ctx.obj.get('output_format', format), title=f"Agent Config: {name}")
-            
+
         except Exception as e:
             error(f"Error getting configuration: {str(e)}")
             raise click.Abort()
@@ -559,13 +561,13 @@ try:
         """Validate agent configuration"""
         try:
             result = validate_agent_config(name)
-            
+
             if result.get("valid"):
                 success(f"Configuration is valid: {name}")
             else:
                 error(f"Configuration validation failed: {result.get('error')}")
                 raise click.Abort()
-            
+
         except Exception as e:
             error(f"Error validating configuration: {str(e)}")
             raise click.Abort()
@@ -578,13 +580,13 @@ try:
         """Import agent configuration from file"""
         try:
             result = import_agent_config(file_path, name)
-            
+
             if "error" in result:
                 error(f"Failed to import configuration: {result['error']}")
                 raise click.Abort()
-            
+
             success(f"Configuration imported: {result['name']} -> {result['config_file']}")
-            
+
         except Exception as e:
             error(f"Error importing configuration: {str(e)}")
             raise click.Abort()
@@ -597,13 +599,13 @@ try:
         """Export agent configuration to file"""
         try:
             result = export_agent_config(name, output_path)
-            
+
             if "error" in result:
                 error(f"Failed to export configuration: {result['error']}")
                 raise click.Abort()
-            
+
             success(f"Configuration exported: {name} -> {result['exported_to']}")
-            
+
         except Exception as e:
             error(f"Error exporting configuration: {str(e)}")
             raise click.Abort()
@@ -614,7 +616,7 @@ try:
     def job(ctx, job_id: str):
         """Get specific AI job details from coordinator-api"""
         config = get_config()
-        
+
         try:
             http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
             job_data = http_client.get(f"/api/v1/jobs/{job_id}")
@@ -629,16 +631,16 @@ try:
     @click.option('--status', help='Filter by job status')
     @click.option('--limit', type=int, default=20, help='Number of jobs to return')
     @click.pass_context
-    def jobs(ctx, status: Optional[str], limit: int):
+    def jobs(ctx, status: str | None, limit: int):
         """List AI jobs from coordinator-api"""
         config = get_config()
-        
+
         try:
             http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
             params = {"limit": limit}
             if status:
                 params["status"] = status
-            
+
             jobs_data = http_client.get("/api/v1/jobs", params=params)
             success("Jobs:")
             output(jobs_data, ctx.obj.get("output_format", "table"))
@@ -652,10 +654,10 @@ try:
     @click.option('--model', help='AI model to use')
     @click.option('--priority', default='normal', help='Job priority')
     @click.pass_context
-    def submit(ctx, task: str, model: Optional[str], priority: str):
+    def submit(ctx, task: str, model: str | None, priority: str):
         """Submit an AI job to coordinator-api"""
         config = get_config()
-        
+
         try:
             http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
             job_data = {
@@ -664,7 +666,7 @@ try:
             }
             if model:
                 job_data["model"] = model
-            
+
             result = http_client.post("/api/v1/jobs", json=job_data)
             success(f"Job submitted: {result.get('job_id')}")
             output(result, ctx.obj.get("output_format", "table"))
@@ -679,7 +681,7 @@ try:
     def cancel(ctx, job_id: str):
         """Cancel an AI job via coordinator-api"""
         config = get_config()
-        
+
         try:
             http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
             result = http_client.delete(f"/api/v1/jobs/{job_id}")

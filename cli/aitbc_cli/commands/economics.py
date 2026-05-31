@@ -1,7 +1,8 @@
 """Economics commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
+from ..utils import error, output
 
 
 @click.group()

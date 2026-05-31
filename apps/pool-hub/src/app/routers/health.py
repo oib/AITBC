@@ -1,8 +1,8 @@
 """Health check routes for Pool Hub"""
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Request
-from datetime import datetime, timezone
-from sqlalchemy import text
 
 from aitbc.rate_limiting import rate_limit
 
@@ -16,7 +16,7 @@ async def health_check(request: Request):
     return {
         "status": "ok",
         "service": "pool-hub",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -32,7 +32,7 @@ async def readiness_check(request: Request):
     return {
         "ready": all_ready,
         "checks": checks,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -46,8 +46,9 @@ async def liveness_check(request: Request):
 async def check_database() -> bool:
     """Check database connectivity."""
     try:
-        from ..database import get_engine
         from sqlalchemy import text
+
+        from ..database import get_engine
 
         engine = get_engine()
         async with engine.connect() as conn:

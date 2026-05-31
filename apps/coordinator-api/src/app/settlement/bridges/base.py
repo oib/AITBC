@@ -5,7 +5,7 @@ Base interfaces for cross-chain settlement bridges
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -51,7 +51,7 @@ class SettlementMessage:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.now(timezone.utc)
+            self.created_at = datetime.now(UTC)
 
 
 @dataclass
@@ -69,7 +69,7 @@ class SettlementResult:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.now(timezone.utc)
+            self.created_at = datetime.now(UTC)
 
 
 class BridgeAdapter(ABC):
@@ -183,13 +183,13 @@ class BridgeMessageTooLargeError(BridgeError):
 
 class EthereumBridge(BridgeAdapter):
     """Ethereum settlement bridge implementation"""
-    
+
     def __init__(self, config: BridgeConfig, rpc_url: str = "http://localhost:8006"):
         super().__init__(config)
         self.rpc_url = rpc_url
         self._web3_client = None
         self._chain_id = 1  # Ethereum mainnet chain ID
-    
+
     async def initialize(self) -> None:
         """Initialize Ethereum bridge with Web3 client"""
         try:
@@ -199,19 +199,19 @@ class EthereumBridge(BridgeAdapter):
             self._web3_client.get_eth_balance("0x0000000000000000000000000000000000000000")
         except Exception as e:
             raise BridgeError(f"Failed to initialize Ethereum bridge: {e}")
-    
+
     async def send_message(self, message: SettlementMessage) -> SettlementResult:
         """Send message to Ethereum chain"""
         try:
             # Validate message
             await self.validate_message(message)
-            
+
             # Encode payload for Ethereum
             payload = self._encode_payload(message)
-            
+
             # Get gas estimate
             gas_estimate = await self._get_gas_estimate(message)
-            
+
             # In production, would send transaction to Ethereum bridge contract
             # For now, return mock result
             result = SettlementResult(
@@ -220,24 +220,24 @@ class EthereumBridge(BridgeAdapter):
                 transaction_hash="0x" + "0" * 64,  # Mock hash
                 gas_used=gas_estimate,
                 fee_paid=int(self.config.default_fee),
-                completed_at=datetime.now(timezone.utc)
+                completed_at=datetime.now(UTC)
             )
-            
+
             return result
-            
+
         except Exception as e:
             return SettlementResult(
                 message_id=f"{message.job_id}_{message.nonce}",
                 status=BridgeStatus.FAILED,
                 error_message=str(e)
             )
-    
+
     async def verify_delivery(self, message_id: str) -> bool:
         """Verify message was delivered on Ethereum"""
         # In production, would query bridge contract
         # For now, return True
         return True
-    
+
     async def get_message_status(self, message_id: str) -> SettlementResult:
         """Get current status of message"""
         # In production, would query bridge contract
@@ -247,19 +247,19 @@ class EthereumBridge(BridgeAdapter):
                 status=BridgeStatus.COMPLETED,
                 transaction_hash="0x" + "0" * 64
             )
-    
+
     async def estimate_cost(self, message: SettlementMessage) -> dict[str, int]:
         """Estimate bridge fees for Ethereum"""
         gas_estimate = await self._get_gas_estimate(message)
         gas_price = self._web3_client.get_gas_price() if self._web3_client else 20000000000  # 20 Gwei
-        
+
         return {
             "gas_estimate": gas_estimate,
             "gas_price": gas_price,
             "total_fee": gas_estimate * gas_price,
             "bridge_fee": int(self.config.default_fee)
         }
-    
+
     async def refund_failed_message(self, message_id: str) -> SettlementResult:
         """Refund failed message on Ethereum"""
         # In production, would execute refund transaction
@@ -269,7 +269,7 @@ class EthereumBridge(BridgeAdapter):
             status=BridgeStatus.REFUNDED,
             transaction_hash="0x" + "0" * 64
         )
-    
+
     def _encode_payload(self, message: SettlementMessage) -> bytes:
         """Encode message payload for Ethereum using RLP encoding"""
         try:
@@ -283,21 +283,21 @@ class EthereumBridge(BridgeAdapter):
                 'data': self._encode_proof_data(message.proof_data),
                 'chainId': self._chain_id
             }
-            
+
             # RLP encode the transaction
             # In production, use actual RLP encoding library
             # For now, return JSON-encoded bytes
             import json
             return json.dumps(tx_dict).encode('utf-8')
-            
+
         except Exception as e:
             raise BridgeError(f"Failed to encode Ethereum payload: {e}")
-    
+
     def _encode_proof_data(self, proof_data: dict[str, Any]) -> str:
         """Encode proof data for Ethereum transaction data field"""
         import json
         return json.dumps(proof_data)
-    
+
     async def _get_gas_estimate(self, message: SettlementMessage) -> int:
         """Get gas estimate for Ethereum transaction"""
         try:
@@ -313,7 +313,7 @@ class EthereumBridge(BridgeAdapter):
             else:
                 # Default gas estimate for bridge transaction
                 return 100000  # 100k gas units
-                
-        except Exception as e:
+
+        except Exception:
             # Fallback to default estimate
             return 100000

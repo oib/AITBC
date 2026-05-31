@@ -1,11 +1,12 @@
 """Pool management routes for Pool Hub"""
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
-from typing import List, Optional
 from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
+
 from ..registry import MinerRegistry
 
 router = APIRouter(prefix="/pools", tags=["pools"])
@@ -15,7 +16,7 @@ class PoolCreate(BaseModel):
     """Pool creation request"""
     pool_id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     operator: str
     fee_percent: float = 1.0
     min_payout: float = 10.0
@@ -26,7 +27,7 @@ class PoolInfo(BaseModel):
     """Pool information response"""
     pool_id: str
     name: str
-    description: Optional[str]
+    description: str | None
     operator: str
     fee_percent: float
     min_payout: float
@@ -92,7 +93,7 @@ async def get_pool(
     return pool
 
 
-@router.get("/", response_model=List[PoolInfo])
+@router.get("/", response_model=list[PoolInfo])
 @rate_limit(rate=200, per=60)
 async def list_pools(
     request: Request,
@@ -115,7 +116,7 @@ async def get_pool_stats(
     pool = await registry.get_pool(pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
-    
+
     return await registry.get_pool_stats(pool_id)
 
 
@@ -124,7 +125,7 @@ async def get_pool_stats(
 async def get_pool_miners(
     request: Request,
     pool_id: str,
-    status: Optional[str] = Query(None),
+    status: str | None = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -132,7 +133,7 @@ async def get_pool_miners(
     pool = await registry.get_pool(pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
-    
+
     return await registry.list(pool_id=pool_id, status=status, limit=limit)
 
 
@@ -148,10 +149,10 @@ async def update_pool(
     pool = await registry.get_pool(pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
-    
+
     allowed_fields = ["name", "description", "fee_percent", "min_payout", "payout_schedule"]
     filtered = {k: v for k, v in updates.items() if k in allowed_fields}
-    
+
     await registry.update_pool(pool_id, filtered)
     return {"status": "updated"}
 
@@ -167,13 +168,13 @@ async def delete_pool(
     pool = await registry.get_pool(pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
-    
+
     miners = await registry.list(pool_id=pool_id, limit=1)
     if miners:
         raise HTTPException(
             status_code=409,
             detail="Cannot delete pool with active miners"
         )
-    
+
     await registry.delete_pool(pool_id)
     return {"status": "deleted"}

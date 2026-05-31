@@ -7,9 +7,10 @@ swapped seamlessly without changing business logic.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 import numpy as np
 
 
@@ -30,10 +31,10 @@ class ComputeDevice:
     backend: ComputeBackend
     memory_total: int  # in bytes
     memory_available: int  # in bytes
-    compute_capability: Optional[str] = None
+    compute_capability: str | None = None
     is_available: bool = True
-    temperature: Optional[float] = None  # in Celsius
-    utilization: Optional[float] = None  # percentage
+    temperature: float | None = None  # in Celsius
+    utilization: float | None = None  # percentage
 
 
 @dataclass
@@ -42,9 +43,9 @@ class ComputeTask:
     task_id: str
     operation: str
     data: Any
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     priority: int = 0
-    timeout: Optional[float] = None
+    timeout: float | None = None
 
 
 @dataclass
@@ -53,7 +54,7 @@ class ComputeResult:
     task_id: str
     success: bool
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     execution_time: float = 0.0
     memory_used: int = 0  # in bytes
 
@@ -65,7 +66,7 @@ class ComputeProvider(ABC):
     This interface defines the contract that all GPU compute providers
     must implement, allowing for seamless backend swapping.
     """
-    
+
     @abstractmethod
     def initialize(self) -> bool:
         """
@@ -75,14 +76,14 @@ class ComputeProvider(ABC):
             bool: True if initialization successful, False otherwise
         """
         pass
-    
+
     @abstractmethod
     def shutdown(self) -> None:
         """Shutdown the compute provider and clean up resources."""
         pass
-    
+
     @abstractmethod
-    def get_available_devices(self) -> List[ComputeDevice]:
+    def get_available_devices(self) -> list[ComputeDevice]:
         """
         Get list of available compute devices.
         
@@ -90,7 +91,7 @@ class ComputeProvider(ABC):
             List[ComputeDevice]: Available compute devices
         """
         pass
-    
+
     @abstractmethod
     def get_device_count(self) -> int:
         """
@@ -100,7 +101,7 @@ class ComputeProvider(ABC):
             int: Number of available devices
         """
         pass
-    
+
     @abstractmethod
     def set_device(self, device_id: int) -> bool:
         """
@@ -113,9 +114,9 @@ class ComputeProvider(ABC):
             bool: True if device set successfully, False otherwise
         """
         pass
-    
+
     @abstractmethod
-    def get_device_info(self, device_id: int) -> Optional[ComputeDevice]:
+    def get_device_info(self, device_id: int) -> ComputeDevice | None:
         """
         Get information about a specific device.
         
@@ -126,9 +127,9 @@ class ComputeProvider(ABC):
             Optional[ComputeDevice]: Device information or None if not found
         """
         pass
-    
+
     @abstractmethod
-    def allocate_memory(self, size: int, device_id: Optional[int] = None) -> Any:
+    def allocate_memory(self, size: int, device_id: int | None = None) -> Any:
         """
         Allocate memory on the compute device.
         
@@ -140,7 +141,7 @@ class ComputeProvider(ABC):
             Any: Memory handle or pointer
         """
         pass
-    
+
     @abstractmethod
     def free_memory(self, memory_handle: Any) -> None:
         """
@@ -150,7 +151,7 @@ class ComputeProvider(ABC):
             memory_handle: Memory handle to free
         """
         pass
-    
+
     @abstractmethod
     def copy_to_device(self, host_data: Any, device_data: Any) -> None:
         """
@@ -161,7 +162,7 @@ class ComputeProvider(ABC):
             device_data: Device memory destination
         """
         pass
-    
+
     @abstractmethod
     def copy_to_host(self, device_data: Any, host_data: Any) -> None:
         """
@@ -172,14 +173,14 @@ class ComputeProvider(ABC):
             host_data: Host memory destination
         """
         pass
-    
+
     @abstractmethod
     def execute_kernel(
         self,
         kernel_name: str,
-        grid_size: Tuple[int, int, int],
-        block_size: Tuple[int, int, int],
-        args: List[Any],
+        grid_size: tuple[int, int, int],
+        block_size: tuple[int, int, int],
+        args: list[Any],
         shared_memory: int = 0
     ) -> bool:
         """
@@ -196,14 +197,14 @@ class ComputeProvider(ABC):
             bool: True if execution successful, False otherwise
         """
         pass
-    
+
     @abstractmethod
     def synchronize(self) -> None:
         """Synchronize device operations."""
         pass
-    
+
     @abstractmethod
-    def get_memory_info(self, device_id: Optional[int] = None) -> Tuple[int, int]:
+    def get_memory_info(self, device_id: int | None = None) -> tuple[int, int]:
         """
         Get memory information for a device.
         
@@ -214,9 +215,9 @@ class ComputeProvider(ABC):
             Tuple[int, int]: (free_memory, total_memory) in bytes
         """
         pass
-    
+
     @abstractmethod
-    def get_utilization(self, device_id: Optional[int] = None) -> float:
+    def get_utilization(self, device_id: int | None = None) -> float:
         """
         Get device utilization percentage.
         
@@ -227,9 +228,9 @@ class ComputeProvider(ABC):
             float: Utilization percentage (0-100)
         """
         pass
-    
+
     @abstractmethod
-    def get_temperature(self, device_id: Optional[int] = None) -> Optional[float]:
+    def get_temperature(self, device_id: int | None = None) -> float | None:
         """
         Get device temperature.
         
@@ -240,9 +241,9 @@ class ComputeProvider(ABC):
             Optional[float]: Temperature in Celsius or None if unavailable
         """
         pass
-    
+
     # ZK-specific operations (can be implemented by specialized providers)
-    
+
     @abstractmethod
     def zk_field_add(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """
@@ -257,7 +258,7 @@ class ComputeProvider(ABC):
             bool: True if operation successful
         """
         pass
-    
+
     @abstractmethod
     def zk_field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """
@@ -272,7 +273,7 @@ class ComputeProvider(ABC):
             bool: True if operation successful
         """
         pass
-    
+
     @abstractmethod
     def zk_field_inverse(self, a: np.ndarray, result: np.ndarray) -> bool:
         """
@@ -286,12 +287,12 @@ class ComputeProvider(ABC):
             bool: True if operation successful
         """
         pass
-    
+
     @abstractmethod
     def zk_multi_scalar_mul(
         self,
-        scalars: List[np.ndarray],
-        points: List[np.ndarray],
+        scalars: list[np.ndarray],
+        points: list[np.ndarray],
         result: np.ndarray
     ) -> bool:
         """
@@ -306,7 +307,7 @@ class ComputeProvider(ABC):
             bool: True if operation successful
         """
         pass
-    
+
     @abstractmethod
     def zk_pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray) -> bool:
         """
@@ -321,11 +322,11 @@ class ComputeProvider(ABC):
             bool: True if operation successful
         """
         pass
-    
+
     # Performance and monitoring
-    
+
     @abstractmethod
-    def benchmark_operation(self, operation: str, iterations: int = 100) -> Dict[str, float]:
+    def benchmark_operation(self, operation: str, iterations: int = 100) -> dict[str, float]:
         """
         Benchmark a specific operation.
         
@@ -337,9 +338,9 @@ class ComputeProvider(ABC):
             Dict[str, float]: Performance metrics
         """
         pass
-    
+
     @abstractmethod
-    def get_performance_metrics(self) -> Dict[str, Any]:
+    def get_performance_metrics(self) -> dict[str, Any]:
         """
         Get performance metrics for the provider.
         
@@ -351,14 +352,14 @@ class ComputeProvider(ABC):
 
 class ComputeProviderFactory:
     """Factory for creating compute providers."""
-    
+
     _providers = {}
-    
+
     @classmethod
     def register_provider(cls, backend: ComputeBackend, provider_class):
         """Register a compute provider class."""
         cls._providers[backend] = provider_class
-    
+
     @classmethod
     def create_provider(cls, backend: ComputeBackend, **kwargs) -> ComputeProvider:
         """
@@ -376,15 +377,15 @@ class ComputeProviderFactory:
         """
         if backend not in cls._providers:
             raise ValueError(f"Unsupported compute backend: {backend}")
-        
+
         provider_class = cls._providers[backend]
         return provider_class(**kwargs)
-    
+
     @classmethod
-    def get_available_backends(cls) -> List[ComputeBackend]:
+    def get_available_backends(cls) -> list[ComputeBackend]:
         """Get list of available backends."""
         return list(cls._providers.keys())
-    
+
     @classmethod
     def auto_detect_backend(cls) -> ComputeBackend:
         """
@@ -401,7 +402,7 @@ class ComputeProviderFactory:
             ComputeBackend.OPENCL,
             ComputeBackend.CPU
         ]
-        
+
         for backend in preference_order:
             if backend in cls._providers:
                 try:
@@ -411,15 +412,15 @@ class ComputeProviderFactory:
                         return backend
                 except Exception:
                     continue
-        
+
         # Fallback to CPU
         return ComputeBackend.CPU
 
 
 class ComputeManager:
     """High-level manager for compute operations."""
-    
-    def __init__(self, backend: Optional[ComputeBackend] = None):
+
+    def __init__(self, backend: ComputeBackend | None = None):
         """
         Initialize the compute manager.
         
@@ -429,7 +430,7 @@ class ComputeManager:
         self.backend = backend or ComputeProviderFactory.auto_detect_backend()
         self.provider = ComputeProviderFactory.create_provider(self.backend)
         self.initialized = False
-        
+
     def initialize(self) -> bool:
         """Initialize the compute manager."""
         try:
@@ -442,19 +443,19 @@ class ComputeManager:
         except Exception as e:
             print(f"❌ Compute Manager initialization failed: {e}")
             return False
-    
+
     def shutdown(self) -> None:
         """Shutdown the compute manager."""
         if self.initialized:
             self.provider.shutdown()
             self.initialized = False
             print(f"🔄 Compute Manager shutdown ({self.backend.value})")
-    
+
     def get_provider(self) -> ComputeProvider:
         """Get the underlying compute provider."""
         return self.provider
-    
-    def get_backend_info(self) -> Dict[str, Any]:
+
+    def get_backend_info(self) -> dict[str, Any]:
         """Get information about the current backend."""
         return {
             "backend": self.backend.value,

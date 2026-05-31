@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
-from argon2.low_level import Type as Argon2Type, hash_secret_raw
+from argon2.low_level import Type as Argon2Type
+from argon2.low_level import hash_secret_raw
 from nacl.bindings import (
     crypto_aead_xchacha20poly1305_ietf_decrypt,
     crypto_aead_xchacha20poly1305_ietf_encrypt,

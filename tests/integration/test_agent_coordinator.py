@@ -1,10 +1,12 @@
 """Integration tests for AITBC Agent Coordinator service."""
 
-import pytest
-from typing import Dict, Any, Generator
-from starlette.testclient import TestClient
 import sys
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
+
+import pytest
+from starlette.testclient import TestClient
 
 # Add the agent-coordinator source to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "apps" / "agent-coordinator" / "src"))
@@ -13,7 +15,7 @@ from app.main import create_app
 
 
 @pytest.fixture
-def coordinator_client() -> Generator[TestClient, None, None]:
+def coordinator_client() -> Generator[TestClient]:
     """Create a test client for coordinator API."""
     app = create_app()
     with TestClient(app) as client:
@@ -21,7 +23,7 @@ def coordinator_client() -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture
-def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient, None, None]:
+def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient]:
     """Create an authenticated test client with admin token."""
     import os
     # Login to get a token
@@ -31,7 +33,7 @@ def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient
     login_data = {"username": "admin", "password": admin_password}
     login_response = coordinator_client.post("/auth/login", json=login_data)
     token = login_response.json()["access_token"]
-    
+
     # Return client with authentication header
     app = create_app()
     with TestClient(app) as client:
@@ -40,7 +42,7 @@ def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient
 
 
 @pytest.fixture
-def sample_agent_data() -> Dict[str, Any]:
+def sample_agent_data() -> dict[str, Any]:
     """Sample agent registration data."""
     return {
         "agent_id": "test-integration-agent",
@@ -53,7 +55,7 @@ def sample_agent_data() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sample_task_data() -> Dict[str, Any]:
+def sample_task_data() -> dict[str, Any]:
     """Sample task submission data."""
     return {
         "task_data": {
@@ -68,7 +70,7 @@ def sample_task_data() -> Dict[str, Any]:
 class TestAgentRegistration:
     """Test agent registration endpoints."""
 
-    def test_register_agent_success(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_register_agent_success(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test successful agent registration."""
         response = coordinator_client.post("/agents/register", json=sample_agent_data)
         assert response.status_code in (200, 201)
@@ -76,7 +78,7 @@ class TestAgentRegistration:
         assert data["status"] == "success"
         assert data["agent_id"] == sample_agent_data["agent_id"]
 
-    def test_register_agent_duplicate(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_register_agent_duplicate(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test registering duplicate agent."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         response = coordinator_client.post("/agents/register", json=sample_agent_data)
@@ -98,7 +100,7 @@ class TestAgentRegistration:
 class TestAgentDiscovery:
     """Test agent discovery endpoints."""
 
-    def test_discover_all_agents(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_discover_all_agents(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test discovering all agents."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         response = coordinator_client.post("/agents/discover", json={})
@@ -106,13 +108,13 @@ class TestAgentDiscovery:
         data = response.json()
         assert "agents" in data
 
-    def test_discover_by_status(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_discover_by_status(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test discovering agents by status."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         response = coordinator_client.post("/agents/discover", json={"status": "active"})
         assert response.status_code == 200
 
-    def test_discover_by_type(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_discover_by_type(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test discovering agents by type."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         response = coordinator_client.post("/agents/discover", json={"agent_type": "worker"})
@@ -129,7 +131,7 @@ class TestAgentDiscovery:
 class TestAgentStatus:
     """Test agent status endpoints."""
 
-    def test_get_agent_info(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_get_agent_info(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test getting agent information."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         response = coordinator_client.get(f"/agents/{sample_agent_data['agent_id']}")
@@ -143,13 +145,13 @@ class TestAgentStatus:
         response = coordinator_client.get("/agents/nonexistent-agent")
         assert response.status_code == 404
 
-    def test_update_agent_status(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_update_agent_status(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test updating agent status."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         response = coordinator_client.put(f"/agents/{sample_agent_data['agent_id']}/status", json={"status": "inactive"})
         assert response.status_code == 200
 
-    def test_update_agent_status_invalid(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_update_agent_status_invalid(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test updating agent status with invalid data."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         response = coordinator_client.put(f"/agents/{sample_agent_data['agent_id']}/status", json={"status": "invalid"})
@@ -160,7 +162,7 @@ class TestAgentStatus:
 class TestTaskDistribution:
     """Test task distribution endpoints."""
 
-    def test_submit_task_success(self, coordinator_client: TestClient, sample_task_data: Dict[str, Any]):
+    def test_submit_task_success(self, coordinator_client: TestClient, sample_task_data: dict[str, Any]):
         """Test successful task submission."""
         response = coordinator_client.post("/tasks/submit", json=sample_task_data)
         assert response.status_code in (200, 201)
@@ -189,7 +191,7 @@ class TestTaskDistribution:
         assert "load_balancer_stats" in data["stats"]
         assert "active_agents" in data["stats"]["load_balancer_stats"]
 
-    def test_task_assignment_with_active_agent(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any], sample_task_data: Dict[str, Any]):
+    def test_task_assignment_with_active_agent(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any], sample_task_data: dict[str, Any]):
         """Test task assignment with active agent."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         coordinator_client.put(f"/agents/{sample_agent_data['agent_id']}/status", json={"status": "active"})
@@ -224,7 +226,7 @@ class TestLoadBalancing:
         response = coordinator_client.post("/tasks/submit", json=task_data)
         assert response.status_code in (200, 201)
 
-    def test_no_eligible_agents(self, coordinator_client: TestClient, sample_task_data: Dict[str, Any]):
+    def test_no_eligible_agents(self, coordinator_client: TestClient, sample_task_data: dict[str, Any]):
         """Test task submission with no eligible agents."""
         response = coordinator_client.post("/tasks/submit", json=sample_task_data)
         assert response.status_code in (200, 201, 503)
@@ -244,7 +246,7 @@ class TestQueueManagement:
         assert data["status"] == "success"
         assert "queue_sizes" in data
 
-    def test_clear_queue(self, coordinator_client: TestClient, sample_task_data: Dict[str, Any]):
+    def test_clear_queue(self, coordinator_client: TestClient, sample_task_data: dict[str, Any]):
         """Test clearing a queue."""
         # First submit a task to have something in the queue
         coordinator_client.post("/tasks/submit", json=sample_task_data)
@@ -273,7 +275,7 @@ class TestQueueManagement:
 class TestHeartbeat:
     """Test agent heartbeat endpoint."""
 
-    def test_agent_heartbeat(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_agent_heartbeat(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test agent heartbeat."""
         # Register agent first
         coordinator_client.post("/agents/register", json=sample_agent_data)
@@ -843,7 +845,7 @@ class TestLoadBalancer:
 
     def test_set_load_balancing_strategies(self, coordinator_client: TestClient):
         """Test setting all load balancing strategies."""
-        strategies = ["round_robin", "least_connections", "least_response_time", 
+        strategies = ["round_robin", "least_connections", "least_response_time",
                      "weighted_round_robin", "resource_based", "capability_based"]
         for strategy in strategies:
             response = coordinator_client.put("/load-balancer/strategy", params={"strategy": strategy})
@@ -857,7 +859,7 @@ class TestLoadBalancer:
             assert "stats" in data
             assert data["status"] == "success"
 
-    def test_task_distribution_with_strategies(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_task_distribution_with_strategies(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test task distribution with different strategies."""
         # Register agents first
         for i in range(3):
@@ -1189,7 +1191,7 @@ class TestEdgeCases:
             response = coordinator_client.post("/tasks/submit", json=task_data)
             assert response.status_code in (200, 201, 503)
 
-    def test_agent_status_updates(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_agent_status_updates(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test various agent status updates."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
         statuses = ["active", "inactive", "maintenance", "degraded"]
@@ -1197,10 +1199,10 @@ class TestEdgeCases:
             response = coordinator_client.put(f"/agents/{sample_agent_data['agent_id']}/status", json={"status": status})
             assert response.status_code in (200, 500)
 
-    def test_agent_discovery_various_filters(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+    def test_agent_discovery_various_filters(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test agent discovery with various filters."""
         coordinator_client.post("/agents/register", json=sample_agent_data)
-        
+
         filters = [
             {},
             {"status": "active"},
@@ -1548,7 +1550,7 @@ class TestAgentsAdvanced:
                     "agent_type": agent_type,
                     "capabilities": ["data-processing", "analysis"],
                     "services": ["task-execution"],
-                    "endpoints": {"http": f"http://localhost:9001"}
+                    "endpoints": {"http": "http://localhost:9001"}
                 }
                 coordinator_client.post("/agents/register", json=agent_data)
                 coordinator_client.put(f"/agents/agent-{agent_type}-{status}/status", json={"status": status})
@@ -1798,7 +1800,7 @@ class TestErrorHandling:
             "agent_type": "worker",
             "capabilities": [long_string[:50]],
             "services": [long_string[:50]],
-            "endpoints": {"http": f"http://localhost:9001"}
+            "endpoints": {"http": "http://localhost:9001"}
         }
         response = coordinator_client.post("/agents/register", json=agent_data)
         assert response.status_code in (200, 201, 400, 422, 503)
@@ -3033,8 +3035,8 @@ class TestLowCoverageModules:
             coordinator_client.put(f"/agents/lb-recovery-agent-{i}/status", json={"status": "active"})
 
         # Simulate agent failure
-        coordinator_client.put(f"/agents/lb-recovery-agent-0/status", json={"status": "inactive"})
-        coordinator_client.put(f"/agents/lb-recovery-agent-1/status", json={"status": "maintenance"})
+        coordinator_client.put("/agents/lb-recovery-agent-0/status", json={"status": "inactive"})
+        coordinator_client.put("/agents/lb-recovery-agent-1/status", json={"status": "maintenance"})
 
         # Submit tasks - should route to remaining active agent
         for _ in range(5):
@@ -3042,8 +3044,8 @@ class TestLowCoverageModules:
             coordinator_client.post("/tasks/submit", json=task_data)
 
         # Recover agents
-        coordinator_client.put(f"/agents/lb-recovery-agent-0/status", json={"status": "active"})
-        coordinator_client.put(f"/agents/lb-recovery-agent-1/status", json={"status": "active"})
+        coordinator_client.put("/agents/lb-recovery-agent-0/status", json={"status": "active"})
+        coordinator_client.put("/agents/lb-recovery-agent-1/status", json={"status": "active"})
 
         # Submit tasks again
         for _ in range(3):

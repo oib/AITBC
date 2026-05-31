@@ -3,41 +3,41 @@ Tests for AITBC utility modules
 """
 
 import os
-import pytest
 from pathlib import Path
-from unittest.mock import patch, Mock
 
-from aitbc.utils.paths import (
-    get_data_path,
-    get_config_path,
-    get_log_path,
-    get_repo_path,
-    ensure_dir,
-    ensure_file_dir,
-    resolve_path,
-    get_keystore_path,
-    get_blockchain_data_path,
-    get_marketplace_data_path,
-)
+import pytest
+
+from aitbc.exceptions import ConfigurationError
 from aitbc.utils.env import (
-    get_env_var,
-    get_required_env_var,
     get_bool_env_var,
-    get_int_env_var,
+    get_env_var,
     get_float_env_var,
+    get_int_env_var,
     get_list_env_var,
+    get_required_env_var,
 )
 from aitbc.utils.json_utils import (
-    load_json,
-    save_json,
-    merge_json,
-    json_to_string,
-    string_to_json,
-    get_nested_value,
-    set_nested_value,
     flatten_json,
+    get_nested_value,
+    json_to_string,
+    load_json,
+    merge_json,
+    save_json,
+    set_nested_value,
+    string_to_json,
 )
-from aitbc.exceptions import ConfigurationError
+from aitbc.utils.paths import (
+    ensure_dir,
+    ensure_file_dir,
+    get_blockchain_data_path,
+    get_config_path,
+    get_data_path,
+    get_keystore_path,
+    get_log_path,
+    get_marketplace_data_path,
+    get_repo_path,
+    resolve_path,
+)
 
 
 class TestPaths:

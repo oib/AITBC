@@ -12,7 +12,7 @@ import hashlib
 import json
 import os
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from cryptography.fernet import Fernet
@@ -55,7 +55,7 @@ def create_keystore(address: str, password: str, keystore_dir: Path | str = "/va
     keystore = {
         "address": address,
         "crypto": encrypted,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": datetime.now(UTC).isoformat() + "Z",
     }
 
     out_file.write_text(json.dumps(keystore, indent=2))
@@ -100,13 +100,13 @@ def main() -> None:
     keystore = {
         "address": args.address,
         "crypto": encrypted,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": datetime.now(UTC).isoformat() + "Z",
     }
 
     out_file.write_text(json.dumps(keystore, indent=2))
     os.chmod(out_file, 0o600)
     print(f"[+] Keystore written to {out_file}")
-    print(f"[!] Keep the password safe. Without it, the private key cannot be recovered.")
+    print("[!] Keep the password safe. Without it, the private key cannot be recovered.")
 
 
 if __name__ == "__main__":

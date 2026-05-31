@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
+
 from ....services.fhe_service import FHEService
 from ....services.zk_proofs import ZKProofService
 
@@ -117,7 +118,7 @@ async def fhe_ml_inference(request: Request, fhe_request: dict) -> dict[str, Any
     """Perform ML inference on encrypted data"""
     try:
         fhe_service = get_fhe_service()
-        
+
         # Setup FHE context
         context = fhe_service.generate_fhe_context(
             scheme=fhe_request.get("scheme", "ckks"), provider=fhe_request.get("provider", "tenseal")
@@ -139,7 +140,7 @@ async def fhe_ml_inference(request: Request, fhe_request: dict) -> dict[str, Any
                 "weights": [random.uniform(-0.5, 0.5) for _ in range(input_size)],
                 "biases": [random.uniform(-0.1, 0.1) for _ in range(input_size)]
             }
-        
+
         encrypted_result = fhe_service.encrypted_inference(
             model=model, encrypted_input=encrypted_input, provider=fhe_request.get("provider")
         )

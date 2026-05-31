@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
+from ..contexts.payments.services.payments import PaymentService
 from ..custom_types import JobState
 from ..deps import require_client_key
 from ..schemas import JobCreate, JobPaymentCreate, JobResult, JobView
 from ..services import JobService
-from ..contexts.payments.services.payments import PaymentService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
 
@@ -215,7 +214,7 @@ async def get_job_history(
             "from_time": from_time,
             "to_time": to_time,
         }
-    except Exception as e:
+    except Exception:
         # Return empty result if no jobs found
         return {
             "items": [],
@@ -260,7 +259,7 @@ async def get_blocks(
                 "offset": offset,
                 "error": "Failed to fetch blocks",
             }
-    except Exception as e:
+    except Exception:
         return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": "Failed to fetch blocks"}
 
 

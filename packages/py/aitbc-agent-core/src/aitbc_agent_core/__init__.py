@@ -7,19 +7,19 @@ using protocol-based dependency injection to avoid coupling to app-specific impl
 
 __version__ = "0.1.0"
 
+from .integration import AgentIntegrationService
 from .protocols import (
     AgentStatus,
-    VerificationLevel,
-    StepType,
     IAgentExecution,
-    IAgentStepExecution,
-    ISecurityManager,
-    IAuditor,
     IAgentOrchestrator,
-    IZKProofService,
+    IAgentStepExecution,
+    IAuditor,
+    ISecurityManager,
     ISessionProvider,
+    IZKProofService,
+    StepType,
+    VerificationLevel,
 )
-from .integration import AgentIntegrationService
 
 __all__ = [
     # Version

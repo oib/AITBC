@@ -11,7 +11,6 @@ Validates that stage JSON files follow dependency rules:
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Set
 
 # Parameters that indicate wallet+password operations
 WALLET_PASSWORD_PARAMS = {"wallet", "password"}
@@ -77,29 +76,29 @@ class StageValidator:
     def validate(self) -> bool:
         """Run all validation checks."""
         operations = self.stage_data.get("training_data", {}).get("operations", [])
-        
+
         self._validate_wallet_balance_checks(operations)
         self._validate_currency_fields(operations)
         self._validate_resource_dependencies(operations)
-        
+
         return len(self.errors) == 0
 
-    def _validate_wallet_balance_checks(self, operations: List[Dict]):
+    def _validate_wallet_balance_checks(self, operations: list[dict]):
         """Ensure operations with wallet+password have wallet_balance check before them."""
         wallet_balance_found = False
-        
+
         for i, op in enumerate(operations):
             op_name = op.get("operation", "")
             params = op.get("parameters", {})
-            
+
             if op_name == "wallet_balance":
                 wallet_balance_found = True
                 continue
-            
+
             # Check if operation requires wallet+password
             has_wallet = "wallet" in params
             has_password = "password" in params
-            
+
             if has_wallet and has_password:
                 if not wallet_balance_found:
                     self.errors.append(
@@ -107,32 +106,32 @@ class StageValidator:
                         f"but no wallet_balance check before it"
                     )
 
-    def _validate_currency_fields(self, operations: List[Dict]):
+    def _validate_currency_fields(self, operations: list[dict]):
         """Ensure operations with amount/price parameters have currency field."""
         for i, op in enumerate(operations):
             op_name = op.get("operation", "")
             params = op.get("parameters", {})
-            
+
             # Check if operation requires currency
             requires_currency = any(
                 param in CURRENCY_REQUIRED_PARAMS for param in params.keys()
             )
-            
+
             if requires_currency and "currency" not in params:
                 self.errors.append(
                     f"Operation '{op_name}' (index {i}) has {CURRENCY_REQUIRED_PARAMS} parameter(s) "
                     f"but missing 'currency' field"
                 )
 
-    def _validate_resource_dependencies(self, operations: List[Dict]):
+    def _validate_resource_dependencies(self, operations: list[dict]):
         """Ensure operations that require resources have corresponding create operations."""
-        created_resources: Dict[str, Set[str]] = {}  # resource_type -> set of patterns
-        required_resources: List[tuple] = []  # (index, op_name, resource_type, pattern)
-        
+        created_resources: dict[str, set[str]] = {}  # resource_type -> set of patterns
+        required_resources: list[tuple] = []  # (index, op_name, resource_type, pattern)
+
         for i, op in enumerate(operations):
             op_name = op.get("operation", "")
             params = op.get("parameters", {})
-            
+
             # Track resources created
             if op_name in RESOURCE_CREATORS:
                 resource_types = RESOURCE_CREATORS[op_name]
@@ -142,13 +141,13 @@ class StageValidator:
                     if resource_type not in created_resources:
                         created_resources[resource_type] = set()
                     created_resources[resource_type].add(RESOURCE_PATTERNS.get(resource_type, f"{resource_type}_*"))
-            
+
             # Track resources required
             for param_name, param_value in params.items():
                 for resource_type, pattern in RESOURCE_PATTERNS.items():
                     if param_name == resource_type or (isinstance(param_value, str) and pattern in param_value):
                         required_resources.append((i, op_name, resource_type, pattern))
-        
+
         # Validate that required resources have corresponding create operations
         for index, op_name, resource_type, pattern in required_resources:
             if resource_type not in created_resources:
@@ -160,14 +159,14 @@ class StageValidator:
     def report(self):
         """Print validation report."""
         stage_name = self.stage_data.get("stage", self.stage_file.name)
-        
+
         if self.errors:
             print(f"❌ {stage_name}: {len(self.errors)} error(s)")
             for error in self.errors:
                 print(f"   - {error}")
         else:
             print(f"✅ {stage_name}: No errors")
-        
+
         if self.warnings:
             print(f"⚠️  {stage_name}: {len(self.warnings)} warning(s)")
             for warning in self.warnings:
@@ -178,7 +177,7 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: validate_stage_dependencies.py <stage_file.json> [stage_file2.json ...]")
         sys.exit(1)
-    
+
     all_valid = True
     for stage_path in sys.argv[1:]:
         stage_file = Path(stage_path)
@@ -186,12 +185,12 @@ def main():
             print(f"❌ File not found: {stage_file}")
             all_valid = False
             continue
-        
+
         validator = StageValidator(stage_file)
         if not validator.validate():
             all_valid = False
         validator.report()
-    
+
     sys.exit(0 if all_valid else 1)
 
 

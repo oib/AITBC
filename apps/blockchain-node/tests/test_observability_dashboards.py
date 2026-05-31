@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import sys
 import json
 from pathlib import Path
 
-from aitbc_chain.observability.dashboards import generate_default_dashboards
 from aitbc_chain.observability import exporters
+from aitbc_chain.observability.dashboards import generate_default_dashboards
 
 
 def test_generate_default_dashboards_creates_files(tmp_path: Path) -> None:

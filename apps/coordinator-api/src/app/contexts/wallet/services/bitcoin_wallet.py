@@ -4,10 +4,9 @@ Bitcoin Wallet Integration for AITBC Exchange
 Uses RPC to connect to Bitcoin Core (or alternative like Block.io)
 """
 
-import json
 import os
 
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, get_logger
 
 logger = get_logger(__name__)
 

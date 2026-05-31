@@ -2,18 +2,17 @@
 Compute Consumer Agent - for agents that consume computational resources
 """
 
-import asyncio
-import httpx
 import uuid
-from typing import Dict, List, Optional, Any
-from datetime import datetime
 from dataclasses import dataclass
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
+from typing import Any
+
+import httpx
 from cryptography.hazmat.primitives import serialization
-from .agent import Agent, AgentCapabilities, AgentIdentity
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from aitbc.aitbc_logging import get_logger
+
+from .agent import Agent, AgentCapabilities, AgentIdentity
 
 logger = get_logger(__name__)
 
@@ -24,12 +23,12 @@ class JobRequest:
 
     consumer_id: str
     job_type: str
-    model_id: Optional[str] = None
-    input_data: Optional[Dict[str, Any]] = None
-    requirements: Optional[Dict[str, Any]] = None
+    model_id: str | None = None
+    input_data: dict[str, Any] | None = None
+    requirements: dict[str, Any] | None = None
     max_price_per_hour: float = 0.0
     priority: str = "normal"
-    deadline: Optional[str] = None
+    deadline: str | None = None
 
 
 @dataclass
@@ -39,10 +38,10 @@ class JobResult:
     job_id: str
     provider_id: str
     status: str  # "completed", "failed", "timeout"
-    output: Optional[Dict[str, Any]] = None
+    output: dict[str, Any] | None = None
     execution_time: float = 0.0
     cost: float = 0.0
-    quality_score: Optional[float] = None
+    quality_score: float | None = None
 
 
 class ComputeConsumer(Agent):
@@ -52,15 +51,15 @@ class ComputeConsumer(Agent):
         self,
         identity: AgentIdentity,
         capabilities: AgentCapabilities,
-        coordinator_url: Optional[str] = None,
+        coordinator_url: str | None = None,
     ) -> None:
         super().__init__(identity, capabilities, coordinator_url)
-        self.pending_jobs: List[JobRequest] = []
-        self.completed_jobs: List[JobResult] = []
+        self.pending_jobs: list[JobRequest] = []
+        self.completed_jobs: list[JobResult] = []
         self.total_spent: float = 0.0
 
     @classmethod
-    def create(cls, name: str, agent_type: str, capabilities: Dict[str, Any]) -> "ComputeConsumer":
+    def create(cls, name: str, agent_type: str, capabilities: dict[str, Any]) -> "ComputeConsumer":
         """Create a new ComputeConsumer agent"""
         # Generate cryptographic keys
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -101,8 +100,8 @@ class ComputeConsumer(Agent):
     async def submit_job(
         self,
         job_type: str,
-        input_data: Dict[str, Any],
-        requirements: Optional[Dict[str, Any]] = None,
+        input_data: dict[str, Any],
+        requirements: dict[str, Any] | None = None,
         max_price: float = 0.0,
     ) -> str:
         """Submit a compute job to the network via coordinator API"""
@@ -115,7 +114,7 @@ class ComputeConsumer(Agent):
         )
         self.pending_jobs.append(job)
         logger.info(f"Job submitted: {job_type} by {self.identity.id}")
-        
+
         # Submit to coordinator for matching
         try:
             async with httpx.AsyncClient() as client:
@@ -141,7 +140,7 @@ class ComputeConsumer(Agent):
             logger.error(f"Error submitting job to coordinator: {e}")
             return f"job_{self.identity.id}_{len(self.pending_jobs)}"
 
-    async def get_job_status(self, job_id: str) -> Dict[str, Any]:
+    async def get_job_status(self, job_id: str) -> dict[str, Any]:
         """Query coordinator for job status"""
         try:
             async with httpx.AsyncClient() as client:
@@ -162,7 +161,7 @@ class ComputeConsumer(Agent):
         logger.info(f"Job cancelled: {job_id}")
         return True
 
-    def get_spending_summary(self) -> Dict[str, Any]:
+    def get_spending_summary(self) -> dict[str, Any]:
         """Get spending summary"""
         return {
             "total_spent": self.total_spent,
@@ -180,7 +179,7 @@ class ComputeConsumer(Agent):
         # Cancel any pending jobs
         for job in self.pending_jobs[:]:
             await self.cancel_job(job.job_id if hasattr(job, 'job_id') else str(job))
-        
+
         if exc_type is not None:
             logger.error(f"Consumer {self.identity.id} exiting with exception: {exc_val}")
         else:

@@ -3,11 +3,10 @@
 Test suite runner for AITBC
 """
 
-import sys
 import argparse
 import subprocess
+import sys
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -25,15 +24,15 @@ def run_command(cmd, description):
     print(f"Running: {description}")
     print(f"Command: {' '.join(cmd)}")
     print('='*60)
-    
+
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
-    
+
     if result.stdout:
         print(result.stdout)
-    
+
     if result.stderr:
         print("STDERR:", result.stderr)
-    
+
     return result.returncode == 0
 
 
@@ -68,9 +67,9 @@ def main():
         "--file",
         help="Run specific test file"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Base pytest command
     pytest_cmd = [
         sys.executable,
@@ -82,11 +81,11 @@ def main():
         str(REPO_ROOT),
         "--import-mode=importlib",
     ]
-    
+
     # Add verbosity
     if args.verbose:
         pytest_cmd.append("-v")
-    
+
     # Add coverage if requested
     if args.coverage:
         pytest_cmd.extend([
@@ -94,14 +93,14 @@ def main():
             "--cov-report=html:htmlcov",
             "--cov-report=term-missing"
         ])
-    
+
     # Add parallel execution if requested
     if args.parallel:
         pytest_cmd.extend(["-n", "auto"])
-    
+
     # Determine which tests to run
     test_paths = []
-    
+
     if args.file:
         test_paths.append(resolve_test_path(args.file))
     elif args.marker:
@@ -118,44 +117,44 @@ def main():
         pytest_cmd.extend(["-m", "security"])
     else:  # all
         test_paths.append(resolve_test_path("tests/"))
-    
+
     # Add test paths to command
     pytest_cmd.extend(test_paths)
-    
+
     # Add pytest configuration
     pytest_cmd.extend([
         "--tb=short",
         "--strict-markers",
         "--disable-warnings"
     ])
-    
+
     # Run the tests
     success = run_command(pytest_cmd, f"{args.suite.title()} Test Suite")
-    
+
     if success:
         print(f"\n✅ {args.suite.title()} tests passed!")
-        
+
         if args.coverage:
             print("\n📊 Coverage report generated in htmlcov/index.html")
     else:
         print(f"\n❌ {args.suite.title()} tests failed!")
         sys.exit(1)
-    
+
     # Additional checks
     if args.suite in ["all", "integration"]:
         print("\n🔍 Running integration test checks...")
         # Add any integration-specific checks here
-    
+
     if args.suite in ["all", "e2e"]:
         print("\n🌐 Running E2E test checks...")
         # Add any E2E-specific checks here
-    
+
     if args.suite in ["all", "security"]:
         print("\n🔒 Running security scan...")
         # Run security scan
         security_cmd = ["bandit", "-r", "apps/"]
         run_command(security_cmd, "Security Scan")
-        
+
         # Run dependency check
         deps_cmd = ["safety", "check"]
         run_command(deps_cmd, "Dependency Security Check")

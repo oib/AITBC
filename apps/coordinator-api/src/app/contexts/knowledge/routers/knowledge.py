@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ....storage import get_session
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
@@ -26,7 +27,7 @@ class KnowledgeGraphResponse(BaseModel):
     id: str
     name: str
     description: str
-    graph_schema: Optional[str]
+    graph_schema: str | None
     owner: str
     created_at: str
     node_count: int
@@ -37,8 +38,8 @@ class KnowledgeNodeRequest(BaseModel):
     """Request model for contributing knowledge"""
     graph_id: str = Field(..., min_length=1)
     node_type: str = Field(..., min_length=1)
-    data: Dict[str, Any] = Field(default_factory=dict)
-    relationships: List[Dict[str, Any]] = Field(default_factory=list)
+    data: dict[str, Any] = Field(default_factory=dict)
+    relationships: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class KnowledgeNodeResponse(BaseModel):
@@ -46,8 +47,8 @@ class KnowledgeNodeResponse(BaseModel):
     id: str
     graph_id: str
     node_type: str
-    data: Dict[str, Any]
-    relationships: List[Dict[str, Any]]
+    data: dict[str, Any]
+    relationships: list[dict[str, Any]]
     created_at: str
 
 
@@ -78,12 +79,12 @@ async def create_knowledge_graph(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/graphs", response_model=List[KnowledgeGraphResponse])
+@router.get("/graphs", response_model=list[KnowledgeGraphResponse])
 @rate_limit(rate=200, per=60)
 async def list_knowledge_graphs(
     request: Request,
     session: Session = Depends(get_session)
-) -> List[KnowledgeGraphResponse]:
+) -> list[KnowledgeGraphResponse]:
     """List all available knowledge graphs"""
     try:
         # Simplified implementation - return empty list
@@ -143,15 +144,15 @@ async def contribute_knowledge(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/graphs/{graph_id}/query", response_model=List[KnowledgeNodeResponse])
+@router.get("/graphs/{graph_id}/query", response_model=list[KnowledgeNodeResponse])
 @rate_limit(rate=200, per=60)
 async def query_knowledge_graph(
     request: Request,
     graph_id: str,
-    node_type: Optional[str] = Query(default=None),
-    filters: Optional[str] = Query(default=None),
+    node_type: str | None = Query(default=None),
+    filters: str | None = Query(default=None),
     session: Session = Depends(get_session)
-) -> List[KnowledgeNodeResponse]:
+) -> list[KnowledgeNodeResponse]:
     """Query knowledge from a graph"""
     try:
         # Simplified implementation - return empty list
@@ -167,7 +168,7 @@ async def join_knowledge_graph(
     request: Request,
     graph_id: str,
     session: Session = Depends(get_session)
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Join an existing knowledge graph"""
     try:
         # Simplified implementation - return success

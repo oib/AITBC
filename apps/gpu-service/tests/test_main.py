@@ -4,7 +4,6 @@ Test GPU service main application
 
 import pytest
 from fastapi.testclient import TestClient
-
 from gpu_service.main import app
 
 

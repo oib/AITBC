@@ -6,7 +6,7 @@ Uses existing AITBC patterns and integrates with pytest fixtures.
 """
 
 from .environment import TrainingEnvironment
-from .exceptions import TrainingSetupError, FundingError, MessagingError
+from .exceptions import FundingError, MessagingError, TrainingSetupError
 
 __all__ = [
     'TrainingEnvironment',

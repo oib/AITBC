@@ -8,8 +8,9 @@ Tests hierarchical, peer-to-peer, and broadcast protocols with metrics collectio
 import asyncio
 import json
 import time
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
+
 import aiohttp
 
 
@@ -36,10 +37,10 @@ class CommunicationTrainingStage:
         self,
         receiver_id: str,
         message_type: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         protocol: str = "hierarchical",
         priority: str = "normal"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send a message via coordinator API"""
         start_time = time.time()
 
@@ -98,11 +99,11 @@ class CommunicationTrainingStage:
     async def broadcast_message(
         self,
         message_type: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         agent_type: str = None,
-        capabilities: List[str] = None,
+        capabilities: list[str] = None,
         priority: str = "normal"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Broadcast a message to multiple agents"""
         start_time = time.time()
 
@@ -149,7 +150,7 @@ class CommunicationTrainingStage:
         sender_id: str = None,
         receiver_id: str = None,
         limit: int = 100
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Retrieve message history"""
         try:
             async with aiohttp.ClientSession() as session:
@@ -173,7 +174,7 @@ class CommunicationTrainingStage:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def add_peer(self, agent_id: str, peer_id: str) -> Dict[str, Any]:
+    async def add_peer(self, agent_id: str, peer_id: str) -> dict[str, Any]:
         """Add a peer connection"""
         try:
             async with aiohttp.ClientSession() as session:
@@ -191,7 +192,7 @@ class CommunicationTrainingStage:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def get_peers(self, agent_id: str = None) -> Dict[str, Any]:
+    async def get_peers(self, agent_id: str = None) -> dict[str, Any]:
         """Get peer connections"""
         try:
             async with aiohttp.ClientSession() as session:
@@ -211,7 +212,7 @@ class CommunicationTrainingStage:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def calculate_metrics(self) -> Dict[str, Any]:
+    def calculate_metrics(self) -> dict[str, Any]:
         """Calculate final metrics"""
         if self.metrics["latency_samples"]:
             self.metrics["avg_latency_ms"] = sum(self.metrics["latency_samples"]) / len(self.metrics["latency_samples"])
@@ -329,7 +330,7 @@ async def main():
     print("=" * 60)
     print("Agent Communication Training Stage")
     print("=" * 60)
-    print(f"Started at: {datetime.now(timezone.utc).isoformat()}")
+    print(f"Started at: {datetime.now(UTC).isoformat()}")
 
     trainer = CommunicationTrainingStage(coordinator_url="http://aitbc1:9001")
 
@@ -363,7 +364,7 @@ async def main():
     final_metrics = trainer.calculate_metrics()
     print(json.dumps(final_metrics, indent=2))
 
-    print(f"\nCompleted at: {datetime.now(timezone.utc).isoformat()}")
+    print(f"\nCompleted at: {datetime.now(UTC).isoformat()}")
 
 
 if __name__ == "__main__":

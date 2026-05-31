@@ -3,19 +3,18 @@
 Simple gossip relay service for blockchain nodes
 Uses Starlette Broadcast to share messages between nodes
 """
+import logging
 
 import argparse
-import asyncio
-from aitbc.logging import get_logger
-from typing import Any, Dict
 
+import uvicorn
+from aitbc.logging import get_logger
 from starlette.applications import Starlette
 from starlette.broadcast import Broadcast
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
-import uvicorn
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -31,11 +30,11 @@ async def gossip_endpoint(request):
         data = await request.json()
         channel = data.get("channel", "blockchain")
         message = data.get("message")
-        
+
         if message:
             await broadcast.publish(channel, message)
             logger.info(f"Published to {channel}: {str(message)[:50]}...")
-            
+
             return {"status": "published", "channel": channel}
         else:
             return {"status": "error", "message": "No message provided"}
@@ -47,11 +46,11 @@ async def gossip_endpoint(request):
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time gossip"""
     await websocket.accept()
-    
+
     # Get channel from query params
     channel = websocket.query_params.get("channel", "blockchain")
     logger.info(f"WebSocket connected to channel: {channel}")
-    
+
     try:
         async with broadcast.subscribe(channel) as subscriber:
             async for message in subscriber:
@@ -68,10 +67,10 @@ def create_app() -> Starlette:
         Route("/gossip", gossip_endpoint, methods=["POST"]),
         WebSocketRoute("/ws", websocket_endpoint),
     ]
-    
+
     middleware = [
         Middleware(
-            CORSMiddleware, 
+            CORSMiddleware,
             allow_origins=[
                 "http://localhost:8011",  # Coordinator API
                 "http://localhost:8001",  # Exchange API
@@ -84,11 +83,11 @@ def create_app() -> Starlette:
                 "http://localhost:8014",  # Marketplace Enhanced
                 "http://localhost:8015",  # hermes Enhanced
                 "http://localhost:8016",  # Web UI
-            ], 
+            ],
             allow_methods=["POST", "GET", "OPTIONS"]
         )
     ]
-    
+
     return Starlette(routes=routes, middleware=middleware)
 
 
@@ -97,11 +96,11 @@ def main():
     parser.add_argument("--host", default="127.0.0.1", help="Bind host")
     parser.add_argument("--port", type=int, default=7070, help="Bind port")
     parser.add_argument("--log-level", default="info", help="Log level")
-    
+
     args = parser.parse_args()
-    
+
     logger.info(f"Starting gossip relay on {args.host}:{args.port}")
-    
+
     app = create_app()
     uvicorn.run(
         app,

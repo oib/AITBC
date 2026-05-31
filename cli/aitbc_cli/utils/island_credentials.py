@@ -4,15 +4,12 @@ Provides functions to load and validate island credentials from the local filesy
 """
 
 import json
-import os
-from typing import Dict, Optional
 from pathlib import Path
-
 
 CREDENTIALS_PATH = '/var/lib/aitbc/island_credentials.json'
 
 
-def load_island_credentials() -> Dict:
+def load_island_credentials() -> dict:
     """
     Load island credentials from the local filesystem
 
@@ -32,7 +29,7 @@ def load_island_credentials() -> Dict:
             f"Run 'aitbc node island join' to join an island first."
         )
 
-    with open(credentials_path, 'r') as f:
+    with open(credentials_path) as f:
         credentials = json.load(f)
 
     # Validate required fields
@@ -124,7 +121,7 @@ def get_island_name() -> str:
     return island_name
 
 
-def get_genesis_block_hash() -> Optional[str]:
+def get_genesis_block_hash() -> str | None:
     """
     Get the genesis block hash from island credentials
 
@@ -138,7 +135,7 @@ def get_genesis_block_hash() -> Optional[str]:
         return None
 
 
-def get_genesis_address() -> Optional[str]:
+def get_genesis_address() -> str | None:
     """
     Get the genesis address from island credentials
 
@@ -167,7 +164,7 @@ def validate_credentials() -> bool:
         return False
 
 
-def get_p2p_port() -> Optional[int]:
+def get_p2p_port() -> int | None:
     """
     Get the P2P port from island credentials
 

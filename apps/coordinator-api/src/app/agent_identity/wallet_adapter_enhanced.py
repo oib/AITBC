@@ -7,12 +7,20 @@ import hashlib
 import json
 import secrets
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from aitbc import get_logger, derive_ethereum_address, sign_transaction_hash, verify_signature, encrypt_private_key, Web3Client, AITBCHTTPClient
+from aitbc import (
+    AITBCHTTPClient,
+    Web3Client,
+    derive_ethereum_address,
+    encrypt_private_key,
+    get_logger,
+    sign_transaction_hash,
+    verify_signature,
+)
 
 logger = get_logger(__name__)
 
@@ -124,7 +132,7 @@ class EnhancedWalletAdapter(ABC):
         """Securely sign a message"""
         try:
             # Add timestamp and nonce for replay protection
-            timestamp = str(int(datetime.now(timezone.utc).timestamp()))
+            timestamp = str(int(datetime.now(UTC).timestamp()))
             nonce = secrets.token_hex(16)
 
             message_to_sign = f"{message}:{timestamp}:{nonce}"
@@ -194,7 +202,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "chain_type": self.chain_type.value,
                 "owner_address": owner_address,
                 "security_level": self.security_level.value,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "status": WalletStatus.ACTIVE.value,
                 "security_config": security_config,
                 "nonce": 0,
@@ -227,7 +235,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "chain_id": self.chain_id,
                 "eth_balance": eth_balance,
                 "token_balances": {},
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
 
             # Get token balances if specified
@@ -304,7 +312,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "gas_limit": gas_limit,
                 "gas_price": gas_price,
                 "status": TransactionStatus.PENDING.value,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
 
             logger.info(f"Executed Ethereum transaction {tx_hash} from {from_address} to {to_address}")
@@ -331,7 +339,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                     "gas_used": None,
                     "effective_gas_price": None,
                     "logs": [],
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(UTC).isoformat(),
                 }
 
             # Get transaction details
@@ -348,7 +356,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "from": tx_data.get("from"),
                 "to": tx_data.get("to"),
                 "value": int(tx_data.get("value", "0x0"), 16),
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
 
             return result
@@ -536,9 +544,9 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             # Remove 0x prefix if present
             if from_address.startswith("0x"):
                 from_address = from_address[2:]
-            
+
             account = Account.from_key(from_address)
-            
+
             # Build transaction dict for signing
             tx_dict = {
                 'nonce': int(transaction_data.get('nonce', 0), 16),
@@ -549,7 +557,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 'data': transaction_data.get('data', '0x'),
                 'chainId': transaction_data.get('chainId', 1)
             }
-            
+
             signed_tx = account.sign_transaction(tx_dict)
             return signed_tx.raw_transaction.hex()
         except ImportError:
@@ -683,7 +691,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "aitbc_chain_id": self.aitbc_chain_id,
                 "owner_address": owner_address,
                 "security_level": self.security_level.value,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "status": WalletStatus.ACTIVE.value,
                 "security_config": security_config,
                 "nonce": 0,
@@ -715,7 +723,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "balance": balance,
                 "nonce": nonce,
                 "token_balances": {},
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error getting balance for {wallet_address}: {e}")
@@ -744,7 +752,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "from": from_address, "to": to_address, "amount": str(amount),
                 "fee": transaction_data["fee"], "nonce": transaction_data["nonce"],
                 "status": TransactionStatus.PENDING.value,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
             logger.info(f"Executed AITBC transaction {result['transaction_hash']}")
             return result

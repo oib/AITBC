@@ -8,6 +8,7 @@ from eth_utils import to_checksum_address
 from web3 import Web3
 from web3.contract import Contract
 
+from .base import BridgeNotSupportedError
 from .base import (
     BridgeAdapter,
     BridgeConfig,

@@ -4,14 +4,14 @@ Wrapper script for aitbc-coordinator-api service
 Uses centralized aitbc utilities for path configuration
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add aitbc package to path (parent directory of aitbc package)
 sys.path.insert(0, str(Path("/opt/aitbc")))
 
-from aitbc import ENV_FILE, NODE_ENV_FILE, REPO_DIR, DATA_DIR, LOG_DIR
+from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE, REPO_DIR
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)

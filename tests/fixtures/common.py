@@ -3,11 +3,12 @@ Common test fixtures for AITBC tests
 Provides shared fixtures used across multiple test domains
 """
 
-import sys
-import pytest
 import os
+import sys
 from pathlib import Path
 from unittest.mock import Mock
+
+import pytest
 
 # Configure Python path for test discovery
 project_root = Path(__file__).parent.parent.parent
@@ -17,7 +18,7 @@ sys.path.insert(0, str(project_root))
 
 # Import aitbc utilities
 from aitbc.constants import DATA_DIR, LOG_DIR
-from aitbc.testing import MockFactory, TestDataGenerator, MockResponse, MockDatabase, MockCache
+from aitbc.testing import MockCache, MockDatabase, MockFactory, TestDataGenerator
 
 
 @pytest.fixture(autouse=True)
@@ -48,30 +49,30 @@ def mock_aitbc_crypto():
     except ImportError:
         # Create mock
         mock_crypto = Mock()
-        
+
         def mock_encrypt_data(data, key):
             return f"encrypted_{data}"
-        
+
         def mock_decrypt_data(data, key):
             return data.replace("encrypted_", "")
-        
+
         def mock_generate_viewing_key():
             return "test_viewing_key"
-        
+
         mock_crypto.encrypt_data = mock_encrypt_data
         mock_crypto.decrypt_data = mock_decrypt_data
         mock_crypto.generate_viewing_key = mock_generate_viewing_key
-        
+
         # Add signing submodule
         signing_mod = Mock()
-        
+
         class _ReceiptSigner:
             def verify_receipt(self, payload, signature):
                 return True
-        
+
         signing_mod.ReceiptSigner = _ReceiptSigner
         mock_crypto.signing = signing_mod
-        
+
         return mock_crypto
 
 

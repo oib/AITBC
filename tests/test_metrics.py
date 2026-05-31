@@ -2,35 +2,35 @@
 Tests for AITBC metrics module
 """
 
+from unittest.mock import Mock
+
 import pytest
-import asyncio
-from unittest.mock import patch, Mock
 
 from aitbc.metrics import (
-    service_info,
-    block_processing_duration,
     block_height,
-    block_validation_duration,
+    block_processing_duration,
     block_propagation_duration,
-    job_submission_duration,
+    block_validation_duration,
+    http_request_duration,
+    http_requests_total,
+    increment_service_restarts,
+    job_execution_duration,
     job_processing_duration,
     job_queue_duration,
-    job_execution_duration,
-    jobs_total,
+    job_submission_duration,
     jobs_failed_total,
     jobs_in_queue,
-    http_requests_total,
-    http_request_duration,
-    service_uptime_seconds,
+    jobs_total,
+    metrics_app,
+    service_info,
     service_restart_count,
+    service_uptime_seconds,
+    setup_service_info,
     track_block_processing,
-    track_job_processing,
     track_http_request,
+    track_job_processing,
     update_block_height,
     update_jobs_in_queue,
-    increment_service_restarts,
-    metrics_app,
-    setup_service_info,
 )
 
 
@@ -159,7 +159,7 @@ class TestDecorators:
         @track_block_processing
         async def process_block():
             return "block_processed"
-        
+
         result = await process_block()
         assert result == "block_processed"
         # Decorator should have observed the duration
@@ -171,7 +171,7 @@ class TestDecorators:
         @track_block_processing
         async def process_block():
             raise ValueError("block error")
-        
+
         with pytest.raises(ValueError):
             await process_block()
         # Decorator should have observed the duration even on failure
@@ -183,7 +183,7 @@ class TestDecorators:
         @track_job_processing
         async def process_job():
             return "job_completed"
-        
+
         result = await process_job()
         assert result == "job_completed"
         # Decorator should have observed duration and incremented jobs_total
@@ -195,7 +195,7 @@ class TestDecorators:
         @track_job_processing
         async def process_job():
             raise ValueError("job error")
-        
+
         with pytest.raises(ValueError):
             await process_job()
         # Decorator should have observed duration and incremented failure counters
@@ -206,11 +206,11 @@ class TestDecorators:
         """Test track_http_request decorator on successful execution"""
         mock_response = Mock()
         mock_response.status_code = 200
-        
+
         @track_http_request
         async def handle_request():
             return mock_response
-        
+
         result = await handle_request()
         assert result.status_code == 200
         # Decorator should have observed duration and incremented http_requests_total
@@ -222,7 +222,7 @@ class TestDecorators:
         @track_http_request
         async def handle_request():
             raise ValueError("request error")
-        
+
         with pytest.raises(ValueError):
             await handle_request()
         # Decorator should have observed duration and incremented http_requests_total with 500
@@ -234,7 +234,7 @@ class TestDecorators:
         @track_http_request
         async def handle_request():
             return "success"  # No status_code attribute
-        
+
         result = await handle_request()
         assert result == "success"
         # Decorator should have observed duration but not incremented http_requests_total

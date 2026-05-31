@@ -4,11 +4,12 @@ Test script for host GPU miner
 """
 
 import subprocess
+
 import httpx
 
 # Test GPU
 print("Testing GPU access...")
-result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader,nounits'], 
+result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader,nounits'],
                        capture_output=True, text=True)
 if result.returncode == 0:
     print(f"✅ GPU detected: {result.stdout.strip()}")

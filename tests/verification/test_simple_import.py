@@ -3,10 +3,11 @@
 Simple test for block import endpoint without transactions
 """
 
-import json
 import hashlib
+
 import requests
-from aitbc import AITBCHTTPClient, NetworkError
+
+from aitbc import AITBCHTTPClient
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
@@ -18,26 +19,26 @@ def compute_block_hash(height, parent_hash, timestamp):
 
 def test_simple_block_import():
     """Test importing a simple block without transactions"""
-    
+
     print("Testing Simple Block Import")
     print("=" * 40)
-    
+
     # Get current head
     client = AITBCHTTPClient()
     head = client.get(f"{BASE_URL}/head")
     print(f"Current head: height={head['height']}, hash={head['hash']}")
-    
+
     # Create a new block
     height = head["height"] + 1
     parent_hash = head["hash"]
     timestamp = "2026-01-29T10:20:00"
     block_hash = compute_block_hash(height, parent_hash, timestamp)
-    
-    print(f"\nCreating test block:")
+
+    print("\nCreating test block:")
     print(f"  height: {height}")
     print(f"  parent_hash: {parent_hash}")
     print(f"  hash: {block_hash}")
-    
+
     # Import the block
     response = requests.post(
         f"{BASE_URL}/importBlock",
@@ -51,19 +52,19 @@ def test_simple_block_import():
             "chain_id": CHAIN_ID
         }
     )
-    
-    print(f"\nImport response:")
+
+    print("\nImport response:")
     print(f"  Status: {response.status_code}")
     print(f"  Body: {response.json()}")
-    
+
     if response.status_code == 200:
         print("\n✅ Block imported successfully!")
-        
+
         # Verify the block was imported
         response = requests.get(f"{BASE_URL}/blocks/{height}")
         if response.status_code == 200:
             imported = response.json()
-            print(f"\n✅ Verified imported block:")
+            print("\n✅ Verified imported block:")
             print(f"  height: {imported['height']}")
             print(f"  hash: {imported['hash']}")
             print(f"  proposer: {imported['proposer']}")

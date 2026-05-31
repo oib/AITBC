@@ -2,17 +2,17 @@
 Protocol definitions for agent service dependency injection.
 """
 
+from .database import ISessionProvider
 from .domain import (
     AgentStatus,
-    VerificationLevel,
-    StepType,
     IAgentExecution,
     IAgentStepExecution,
+    StepType,
+    VerificationLevel,
 )
-from .security import ISecurityManager, IAuditor
 from .orchestrator import IAgentOrchestrator
+from .security import IAuditor, ISecurityManager
 from .zk_proof import IZKProofService
-from .database import ISessionProvider
 
 __all__ = [
     # Domain protocols

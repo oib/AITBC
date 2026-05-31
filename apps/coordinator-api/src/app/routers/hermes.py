@@ -10,20 +10,17 @@ Provides:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-
-from ..services.hermes_service import get_hermes_service, MessageType
-
 
 router = APIRouter(prefix="/hermes", tags=["hermes"])
 
 # In-memory state for mock data
-_mock_agents: Dict[str, Dict[str, Any]] = {}
-_mock_messages: Dict[str, List[Dict[str, Any]]] = {}
+_mock_agents: dict[str, dict[str, Any]] = {}
+_mock_messages: dict[str, list[dict[str, Any]]] = {}
 _message_counter = 0
 
 
@@ -31,7 +28,7 @@ class RegisterAgentRequest(BaseModel):
     """Request to register agent"""
     agent_id: str
     public_key: str
-    capabilities: List[str] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
 
 
 class SendMessageRequest(BaseModel):
@@ -41,8 +38,8 @@ class SendMessageRequest(BaseModel):
     content: str
     message_type: str = "direct"
     encrypted: bool = False
-    reply_to: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    reply_to: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class BroadcastRequest(BaseModel):
@@ -62,7 +59,7 @@ class MarkReadRequest(BaseModel):
 async def register_agent(
     request: Request,
     req: RegisterAgentRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Register an agent for messaging"""
     _mock_agents[req.agent_id] = {
         "id": req.agent_id,
@@ -82,29 +79,29 @@ async def register_agent(
 async def send_message(
     request: Request,
     req: SendMessageRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Send a direct message to another agent"""
     if req.sender == "unregistered-agent":
         raise HTTPException(status_code=400, detail="Sender not registered")
-    
+
     global _message_counter
     _message_counter += 1
     message_id = f"msg-{_message_counter:03d}"
-    
+
     message = {
         "id": message_id,
         "sender": req.sender,
         "recipient": req.recipient,
         "content": req.content,
         "message_type": req.message_type,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(UTC).isoformat()
     }
-    
+
     # Add message to recipient's inbox
     if req.recipient not in _mock_messages:
         _mock_messages[req.recipient] = []
     _mock_messages[req.recipient].append(message)
-    
+
     return {
         "success": True,
         "message": message
@@ -115,7 +112,7 @@ async def send_message(
 async def broadcast(
     request: Request,
     req: BroadcastRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Broadcast a message to all agents"""
     return {
         "success": True,
@@ -127,7 +124,7 @@ async def broadcast(
 async def get_messages(
     request: Request,
     agent_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get messages for an agent"""
     messages = _mock_messages.get(agent_id, [])
     return {
@@ -141,7 +138,7 @@ async def get_messages(
 async def mark_read(
     request: Request,
     req: MarkReadRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Mark a message as read"""
     return {
         "agent_id": req.agent_id,
@@ -154,7 +151,7 @@ async def mark_read(
 async def get_agent_profile(
     request: Request,
     agent_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get agent communication profile"""
     return {
         "agent_id": agent_id,
@@ -166,7 +163,7 @@ async def get_agent_profile(
 async def list_agents(
     request: Request,
     online_only: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """List registered agents"""
     return {
         "agents": [],
@@ -178,7 +175,7 @@ async def list_agents(
 async def heartbeat(
     request: Request,
     agent_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Send heartbeat from an agent"""
     return {
         "success": True
@@ -190,7 +187,7 @@ async def update_status(
     request: Request,
     agent_id: str,
     online: bool
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Update agent online status"""
     return {
         "success": True
@@ -198,7 +195,7 @@ async def update_status(
 
 
 @router.get("/stats", summary="Get statistics")
-async def get_stats(request: Request) -> Dict[str, Any]:
+async def get_stats(request: Request) -> dict[str, Any]:
     """Get messaging statistics"""
     return {
         "total_messages": 0,
@@ -208,7 +205,7 @@ async def get_stats(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/health", summary="Health check")
-async def hermes_health(request: Request) -> Dict[str, Any]:
+async def hermes_health(request: Request) -> dict[str, Any]:
     """Check Hermes service health"""
     return {
         "status": "healthy",

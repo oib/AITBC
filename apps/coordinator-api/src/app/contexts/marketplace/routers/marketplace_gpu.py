@@ -1,11 +1,11 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
 """
 GPU marketplace endpoints backed by persistent SQLModel tables.
 """
 
 import statistics
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -16,15 +16,11 @@ from sqlalchemy.orm import Session
 from sqlmodel import col, func, select
 
 from aitbc import get_logger
-from ....custom_types import Constraints
-from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
-from ....domain.job import Job
-from ....schemas import JobCreate, JobPaymentCreate
-from ...trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PricingStrategy, ResourceType
-from ....services.jobs import JobService
+
 from ....services.market_data_collector import MarketDataCollector
-from ....contexts.payments.services.payments import PaymentService
 from ....storage.db import get_session
+from ...trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PricingStrategy, ResourceType
+from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
 
 logger = get_logger(__name__)
 
@@ -97,7 +93,7 @@ class GPUSellRequest(BaseModel):
     seller_id: str
     gpu_id: str
     listing_price: float
-    description: Optional[str] = ""
+    description: str | None = ""
 
 
 class PaymentRequest(BaseModel):
@@ -157,17 +153,17 @@ async def register_gpu(request: dict[str, Any], session: Annotated[Session, Depe
 
     # Create GPU registry record
     import uuid
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     gpu_id = f"gpu_{uuid.uuid4().hex[:8]}"
-    
+
     # Ensure miner_id is always provided
     miner_id = gpu_specs.get("miner_id") or gpu_specs.get("miner") or "default_miner"
-    
+
     # Map compute capability to cuda_version field
     compute_capability = gpu_specs.get("compute_capability", "")
     cuda_version = compute_capability if compute_capability else ""
-    
+
     gpu_record = GPURegistry(
         id=gpu_id,
         miner_id=miner_id,
@@ -180,9 +176,9 @@ async def register_gpu(request: dict[str, Any], session: Annotated[Session, Depe
         capabilities=[],
         average_rating=0.0,
         total_reviews=0,
-        created_at=datetime.now(timezone.utc)
+        created_at=datetime.now(UTC)
     )
-    
+
     session.add(gpu_record)
     session.commit()
     session.refresh(gpu_record)
@@ -259,11 +255,11 @@ async def buy_gpu(
         )
 
     # Create booking for the purchase
-    from datetime import datetime, timezone, timedelta
-    
-    start_time = datetime.now(timezone.utc)
+    from datetime import datetime, timedelta
+
+    start_time = datetime.now(UTC)
     end_time = start_time + timedelta(hours=request.duration_hours)
-    
+
     # Calculate total cost
     try:
         dynamic_result = await engine.calculate_price(  # type: ignore[attr-defined]
@@ -290,10 +286,10 @@ async def buy_gpu(
         end_time=end_time,
         status="active",
     )
-    
+
     # Update GPU status to booked
     gpu.status = "booked"
-    
+
     session.add(booking)
     session.add(gpu)
     session.commit()
@@ -306,16 +302,16 @@ async def buy_gpu(
     payment_status = None
     try:
         # Lazy import to avoid blocking startup
+        from sqlmodel import Session as SQLModelSession
+
+        from ....contexts.payments.services.payments import PaymentService
         from ....custom_types import Constraints
-        from ....domain.job import Job
         from ....schemas import JobCreate, JobPaymentCreate
         from ....services.jobs import JobService
-        from ....contexts.payments.services.payments import PaymentService
-        from sqlmodel import Session as SQLModelSession
-        
+
         # Create a new session for job creation to ensure it persists
         job_session = SQLModelSession(bind=session.bind)
-        
+
         # Create AI job for GPU compute
         job_service = JobService(job_session)
         job_create = JobCreate(
@@ -338,7 +334,7 @@ async def buy_gpu(
         job = job_service.create_job(client_id=request.buyer_id, req=job_create)
         job_id = job.id
         job_session.close()
-        
+
         logger.info(f"Created job {job.id} for GPU purchase {booking_id}")
 
         # Create payment for the job (separate transaction)
@@ -356,7 +352,7 @@ async def buy_gpu(
             payment_id = payment.id
             payment_status = payment.status
             payment_session.close()
-            
+
             logger.info(f"Created payment {payment.id} for job {job.id}")
         except Exception as e:
             logger.error(f"Failed to create payment for job {job.id}: {e}")
@@ -367,7 +363,7 @@ async def buy_gpu(
         booking.job_id = job.id
         session.add(booking)
         session.commit()
-        
+
         logger.info(f"Successfully created job {job.id} and payment {payment.id} for GPU purchase {booking_id}")
     except Exception as e:
         logger.error(f"Failed to create job/payment for GPU purchase: {e}")
@@ -401,7 +397,7 @@ async def sell_gpu(
     # Update GPU listing
     gpu.price_per_hour = request.listing_price
     gpu.status = "available"
-    
+
     session.commit()
     session.refresh(gpu)
 
@@ -411,7 +407,7 @@ async def sell_gpu(
         "listing_price": request.listing_price,
         "status": "listed",
         "description": request.description,
-        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        "timestamp": datetime.now(UTC).isoformat() + "Z",
     }
 
 
@@ -442,7 +438,7 @@ async def book_gpu(
             status_code=http_status.HTTP_400_BAD_REQUEST, detail="Booking duration cannot exceed 8760 hours (1 year)"
         )
 
-    start_time = datetime.now(timezone.utc)
+    start_time = datetime.now(UTC)
     end_time = start_time + timedelta(hours=request.duration_hours)
 
     # Validate booking end time is in the future
@@ -593,7 +589,7 @@ async def submit_ollama_task(
         )
 
     task_id = f"task_{uuid4().hex[:10]}"
-    submitted_at = datetime.now(timezone.utc).isoformat() + "Z"
+    submitted_at = datetime.now(UTC).isoformat() + "Z"
 
     return {
         "task_id": task_id,
@@ -619,7 +615,7 @@ async def send_payment(
         )
 
     tx_id = f"tx_{uuid4().hex[:10]}"
-    processed_at = datetime.now(timezone.utc).isoformat() + "Z"
+    processed_at = datetime.now(UTC).isoformat() + "Z"
 
     return {
         "tx_id": tx_id,
@@ -920,7 +916,7 @@ async def get_pricing(
         },
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,
-        "pricing_timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        "pricing_timestamp": datetime.now(UTC).isoformat() + "Z",
     }
 
 
@@ -935,5 +931,5 @@ async def bid_gpu(request: dict[str, Any], session: Session = Depends(get_sessio
         "gpu_id": request.get("gpu_id"),
         "bid_amount": request.get("bid_amount"),
         "duration_hours": request.get("duration_hours"),
-        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        "timestamp": datetime.now(UTC).isoformat() + "Z",
     }

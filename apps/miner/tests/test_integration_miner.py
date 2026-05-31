@@ -1,14 +1,9 @@
 """Integration tests for miner service"""
 
-import pytest
-import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
-
+from unittest.mock import Mock, patch
 
 import production_miner
+import pytest
 
 
 @pytest.mark.integration
@@ -111,7 +106,7 @@ def test_send_heartbeat_with_gpu(mock_latency, mock_arch, mock_gpu, mock_post):
     mock_arch.return_value = "ada_lovelace"
     mock_latency.return_value = 50.0
     mock_post.return_value = Mock(status_code=200)
-    
+
     production_miner.send_heartbeat()
     assert mock_post.called
 
@@ -125,7 +120,7 @@ def test_send_heartbeat_without_gpu(mock_latency, mock_arch, mock_gpu, mock_post
     """Test sending heartbeat without GPU info"""
     mock_gpu.return_value = None
     mock_post.return_value = Mock(status_code=200)
-    
+
     production_miner.send_heartbeat()
     assert mock_post.called
 
@@ -190,7 +185,7 @@ def test_execute_job_inference_success(mock_gpu, mock_post, mock_submit):
         status_code=200,
         json=lambda: {"response": "Test output", "eval_count": 100}
     )
-    
+
     job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "llama3.2:latest"}}
     result = production_miner.execute_job(job, ["llama3.2:latest"])
     assert result is True
@@ -224,7 +219,7 @@ def test_execute_job_unsupported_type(mock_submit):
 def test_execute_job_ollama_error(mock_post, mock_submit):
     """Test executing job when Ollama returns error"""
     mock_post.return_value = Mock(status_code=500, text="Ollama error")
-    
+
     job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "llama3.2:latest"}}
     result = production_miner.execute_job(job, ["llama3.2:latest"])
     assert result is False

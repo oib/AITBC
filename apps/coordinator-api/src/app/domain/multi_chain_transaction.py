@@ -6,7 +6,7 @@ Domain models for multi-chain transaction management.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -77,7 +77,7 @@ class MultiChainTransaction(SQLModel, table=True):
     gas_price: int | None = Field(default=None)
     max_fee_per_gas: int | None = Field(default=None)
     status: TransactionStatus = Field(default=TransactionStatus.QUEUED, index=True)
-    deadline: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(minutes=30), index=True)
+    deadline: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(minutes=30), index=True)
     meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     retry_count: int = Field(default=0)
     submit_attempts: int = Field(default=0)
@@ -88,7 +88,7 @@ class MultiChainTransaction(SQLModel, table=True):
     confirmations: int = Field(default=0)
     error_message: str | None = Field(default=None)
     processing_time: float | None = Field(default=None)  # Processing time in seconds
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     cancelled_at: datetime | None = Field(default=None)
     cancellation_reason: str | None = Field(default=None)

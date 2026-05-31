@@ -6,20 +6,20 @@ Provides health monitoring for multi-modal processing capabilities
 """
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from aitbc.rate_limiting import rate_limit
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-from ..services.multimodal_agent import MultiModalAgentService
 from ....storage import get_session
+from ..services.multimodal_agent import MultiModalAgentService
 
 router = APIRouter()
 
@@ -44,7 +44,7 @@ async def multimodal_health(request: Request, session: Annotated[Session, Depend
             "status": "healthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -87,7 +87,7 @@ async def multimodal_health(request: Request, session: Annotated[Session, Depend
             "status": "unhealthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -108,35 +108,35 @@ async def multimodal_deep_health(request: Request, session: Annotated[Session, D
         try:
             # Mock text processing test
             modality_tests["text"] = {"status": "pass", "processing_time": "0.02s", "accuracy": "92%"}
-        except Exception as e:
+        except Exception:
             modality_tests["text"] = {"status": "fail", "error": "Test failed"}
 
         # Test image processing
         try:
             # Mock image processing test
             modality_tests["image"] = {"status": "pass", "processing_time": "0.15s", "accuracy": "87%"}
-        except Exception as e:
+        except Exception:
             modality_tests["image"] = {"status": "fail", "error": "Test failed"}
 
         # Test audio processing
         try:
             # Mock audio processing test
             modality_tests["audio"] = {"status": "pass", "processing_time": "0.22s", "accuracy": "89%"}
-        except Exception as e:
+        except Exception:
             modality_tests["audio"] = {"status": "fail", "error": "Test failed"}
 
         # Test video processing
         try:
             # Mock video processing test
             modality_tests["video"] = {"status": "pass", "processing_time": "0.35s", "accuracy": "85%"}
-        except Exception as e:
+        except Exception:
             modality_tests["video"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "modality_tests": modality_tests,
             "overall_health": "pass" if all(test.get("status") == "pass" for test in modality_tests.values()) else "degraded",
         }
@@ -147,6 +147,6 @@ async def multimodal_deep_health(request: Request, session: Annotated[Session, D
             "status": "unhealthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Deep health check failed",
         }

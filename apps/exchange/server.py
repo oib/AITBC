@@ -3,10 +3,13 @@
 Simple HTTP server for the AITBC Trade Exchange
 """
 
-import os
-import sys
-from http.server import HTTPServer, SimpleHTTPRequestHandler
 import argparse
+import os
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -23,12 +26,12 @@ def run_server(port=3002, directory=None):
     """Run the HTTP server"""
     if directory:
         os.chdir(directory)
-    
+
     server_address = ('', port)
     httpd = HTTPServer(server_address, CORSHTTPRequestHandler)
-    
+
     logger.info("AITBC Trade Exchange Server started", port=port, url=f"http://localhost:{port}")
-    
+
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -39,6 +42,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run the AITBC Trade Exchange server')
     parser.add_argument('--port', type=int, default=3002, help='Port to run the server on')
     parser.add_argument('--dir', type=str, default='.', help='Directory to serve from')
-    
+
     args = parser.parse_args()
     run_server(port=args.port, directory=args.dir)

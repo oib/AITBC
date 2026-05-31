@@ -3,11 +3,12 @@ Community and Developer Ecosystem Services
 Services for managing hermes developer tools, SDKs, and third-party solutions
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from aitbc import get_logger
 from sqlmodel import Session, select
+
+from aitbc import get_logger
 
 logger = get_logger(__name__)
 from uuid import uuid4
@@ -19,6 +20,7 @@ from ..domain.community import (
     DeveloperTier,
     Hackathon,
     InnovationLab,
+    HackathonStatus,
     LabStatus,
     SolutionStatus,
 )
@@ -49,7 +51,7 @@ class DeveloperEcosystemService:
         # Mocking SDK release data
         return {
             "latest_version": "v1.2.0",
-            "release_date": datetime.now(timezone.utc).isoformat(),
+            "release_date": datetime.now(UTC).isoformat(),
             "supported_languages": ["python", "typescript", "rust"],
             "download_urls": {"python": "pip install aitbc-agent-sdk", "typescript": "npm install @aitbc/agent-sdk"},
             "features": [
@@ -106,7 +108,7 @@ class ThirdPartySolutionService:
         # Auto-publish if free, otherwise manual review required
         if solution.price_model == "free":
             solution.status = SolutionStatus.PUBLISHED
-            solution.published_at = datetime.now(timezone.utc)
+            solution.published_at = datetime.now(UTC)
 
         self.session.add(solution)
         self.session.commit()
@@ -278,7 +280,7 @@ class CommunityPlatformService:
             theme=data.get("theme", ""),
             sponsor=data.get("sponsor", "AITBC Foundation"),
             prize_pool=data.get("prize_pool", 0.0),
-            registration_start=datetime.fromisoformat(data.get("registration_start", datetime.now(timezone.utc).isoformat())),
+            registration_start=datetime.fromisoformat(data.get("registration_start", datetime.now(UTC).isoformat())),
             registration_end=datetime.fromisoformat(data.get("registration_end")),  # type: ignore[arg-type]
             event_start=datetime.fromisoformat(data.get("event_start")),  # type: ignore[arg-type]
             event_end=datetime.fromisoformat(data.get("event_end")),  # type: ignore[arg-type]

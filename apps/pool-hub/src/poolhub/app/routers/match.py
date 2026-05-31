@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from poolhub.repositories.match_repository import MatchRepository
+from poolhub.repositories.miner_repository import MinerRepository
 
 from ..deps import db_session_dep, redis_dep
 from ..prometheus import (
@@ -14,18 +17,16 @@ from ..prometheus import (
     match_latency_seconds,
     match_requests_total,
 )
-from poolhub.repositories.match_repository import MatchRepository
-from poolhub.repositories.miner_repository import MinerRepository
 from ..schemas import MatchCandidate, MatchRequestPayload, MatchResponse
 
 router = APIRouter(tags=["match"])
 
 
-def _normalize_requirements(requirements: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_requirements(requirements: dict[str, Any]) -> dict[str, Any]:
     return requirements or {}
 
 
-def _candidate_from_payload(payload: Dict[str, Any]) -> MatchCandidate:
+def _candidate_from_payload(payload: dict[str, Any]) -> MatchCandidate:
     return MatchCandidate(**payload)
 
 
@@ -74,17 +75,17 @@ async def match_endpoint(
 
 
 def _select_candidates(
-    requirements: Dict[str, Any],
-    hints: Dict[str, Any],
-    active_miners: List[tuple],
+    requirements: dict[str, Any],
+    hints: dict[str, Any],
+    active_miners: list[tuple],
     top_k: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     min_vram = float(requirements.get("min_vram_gb", 0))
     min_ram = float(requirements.get("min_ram_gb", 0))
     capabilities_required = set(requirements.get("capabilities_any", []))
     region_hint = hints.get("region")
 
-    ranked: List[Dict[str, Any]] = []
+    ranked: list[dict[str, Any]] = []
     for miner, status, score in active_miners:
         if miner.gpu_vram_gb and miner.gpu_vram_gb < min_vram:
             continue

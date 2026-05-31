@@ -1,7 +1,7 @@
 """Metrics operations router for Edge API Service"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ..services.metrics_service import MetricsService
 

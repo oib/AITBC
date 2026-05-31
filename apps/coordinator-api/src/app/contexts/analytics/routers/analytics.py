@@ -1,17 +1,16 @@
-from typing import Annotated
 from uuid import uuid4
 
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 from sqlmodel import select
-from sqlalchemy import and_
 
 """
 Marketplace Analytics API Endpoints
 REST API for analytics, insights, reporting, and dashboards
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -25,10 +24,8 @@ from ....domain.analytics import (
     AnalyticsPeriod,
     AnalyticsReport,
     DashboardConfig,
-    InsightType,
     MarketInsight,
     MarketMetric,
-    MetricType,
     ReportType,
 )
 from ....services.agent_coordination.marketplace import AgentServiceMarketplace
@@ -44,15 +41,15 @@ class MetricResponse(BaseModel):
     metric_type: str
     period_type: str
     value: float
-    previous_value: Optional[float]
-    change_percentage: Optional[float]
+    previous_value: float | None
+    change_percentage: float | None
     unit: str
     category: str
     recorded_at: str
     period_start: str
     period_end: str
-    breakdown: Dict[str, Any]
-    comparisons: Dict[str, Any]
+    breakdown: dict[str, Any]
+    comparisons: dict[str, Any]
 
 
 class InsightResponse(BaseModel):
@@ -63,13 +60,13 @@ class InsightResponse(BaseModel):
     description: str
     confidence_score: float
     impact_level: str
-    related_metrics: List[str]
+    related_metrics: list[str]
     time_horizon: str
-    recommendations: List[str]
-    suggested_actions: List[Dict[str, Any]]
+    recommendations: list[str]
+    suggested_actions: list[dict[str, Any]]
     created_at: str
-    expires_at: Optional[str]
-    insight_data: Dict[str, Any]
+    expires_at: str | None
+    insight_data: dict[str, Any]
 
 
 class DashboardResponse(BaseModel):
@@ -78,9 +75,9 @@ class DashboardResponse(BaseModel):
     name: str
     description: str
     dashboard_type: str
-    layout: Dict[str, Any]
-    widgets: List[Dict[str, Any]]
-    filters: List[Dict[str, Any]]
+    layout: dict[str, Any]
+    widgets: list[dict[str, Any]]
+    filters: list[dict[str, Any]]
     refresh_interval: int
     auto_refresh: bool
     owner_id: str
@@ -95,7 +92,7 @@ class ReportRequest(BaseModel):
     period_type: AnalyticsPeriod
     start_date: str
     end_date: str
-    filters: Dict[str, Any] = Field(default_factory=dict)
+    filters: dict[str, Any] = Field(default_factory=dict)
     include_charts: bool = Field(default=True)
     format: str = Field(default="json")
 
@@ -104,10 +101,10 @@ class MarketOverviewResponse(BaseModel):
     """Response model for market overview"""
     timestamp: str
     period: str
-    metrics: Dict[str, Any]
-    insights: List[Dict[str, Any]]
-    alerts: List[Dict[str, Any]]
-    summary: Dict[str, Any]
+    metrics: dict[str, Any]
+    insights: list[dict[str, Any]]
+    alerts: list[dict[str, Any]]
+    summary: dict[str, Any]
 
 
 class AnalyticsSummaryResponse(BaseModel):
@@ -117,7 +114,7 @@ class AnalyticsSummaryResponse(BaseModel):
     end_time: str
     metrics_collected: int
     insights_generated: int
-    market_data: Dict[str, Any]
+    market_data: dict[str, Any]
 
 
 # API Endpoints
@@ -130,36 +127,36 @@ async def collect_market_data(
     session: Session = Depends(get_session),
 ) -> AnalyticsSummaryResponse:
     """Collect market data for analytics"""
-    
+
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
-    
+
     try:
         result = await analytics_service.collect_market_data(period_type)  # type: ignore[attr-defined]
-        
+
         return AnalyticsSummaryResponse(**result)
-        
+
     except Exception as e:
         logger.error(f"Error collecting market data: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/insights", response_model=Dict[str, Any])
+@router.get("/insights", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_market_insights(
     request: Request,
     time_period: str = Query(default="daily", description="Time period: daily, weekly, monthly"),
-    insight_type: Optional[str] = Query(default=None, description="Filter by insight type"),
-    impact_level: Optional[str] = Query(default=None, description="Filter by impact level"),
+    insight_type: str | None = Query(default=None, description="Filter by insight type"),
+    impact_level: str | None = Query(default=None, description="Filter by impact level"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get market insights and analysis"""
-    
+
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
-    
+
     try:
         result = await analytics_service.generate_insights(time_period)  # type: ignore[attr-defined]
-        
+
         # Apply filters if provided
         if insight_type or impact_level:
             filtered_insights = {}
@@ -171,44 +168,44 @@ async def get_market_insights(
                     filtered = [i for i in filtered if i["impact"] == impact_level]
                 if filtered:
                     filtered_insights[type_name] = filtered[:limit]
-            
+
             result["insight_groups"] = filtered_insights
             result["total_insights"] = sum(len(insights) for insights in filtered_insights.values())
-        
+
         return result  # type: ignore[no-any-return]
-        
+
     except Exception as e:
         logger.error(f"Error getting market insights: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/metrics", response_model=List[MetricResponse])
+@router.get("/metrics", response_model=list[MetricResponse])
 @rate_limit(rate=200, per=60)
 async def get_market_metrics(
     request: Request,
     period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Period type"),
-    metric_name: Optional[str] = Query(default=None, description="Filter by metric name"),
-    category: Optional[str] = Query(default=None, description="Filter by category"),
-    geographic_region: Optional[str] = Query(default=None, description="Filter by region"),
+    metric_name: str | None = Query(default=None, description="Filter by metric name"),
+    category: str | None = Query(default=None, description="Filter by category"),
+    geographic_region: str | None = Query(default=None, description="Filter by region"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[MetricResponse]:
+) -> list[MetricResponse]:
     """Get market metrics with filters"""
-    
+
     try:
         query = select(MarketMetric).where(MarketMetric.period_type == period_type)
-        
+
         if metric_name:
             query = query.where(MarketMetric.metric_name == metric_name)
         if category:
             query = query.where(MarketMetric.category == category)
         if geographic_region:
             query = query.where(MarketMetric.geographic_region == geographic_region)
-        
+
         metrics = session.execute(
             query.order_by(MarketMetric.recorded_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             MetricResponse(
                 metric_name=metric.metric_name,
@@ -227,7 +224,7 @@ async def get_market_metrics(
             )
             for metric in metrics
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting market metrics: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -239,14 +236,14 @@ async def get_market_overview(
     request: Request, session: Session = Depends(get_session)
 ) -> MarketOverviewResponse:
     """Get comprehensive market overview"""
-    
+
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
-    
+
     try:
         overview = await analytics_service.get_market_overview()  # type: ignore[attr-defined]
-        
+
         return MarketOverviewResponse(**overview)
-        
+
     except Exception as e:
         logger.error(f"Error getting market overview: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -258,24 +255,24 @@ async def create_dashboard(
     request: Request,
     owner_id: str,
     dashboard_type: str = Query(default="default", description="Dashboard type: default, executive"),
-    name: Optional[str] = Query(default=None, description="Custom dashboard name"),
+    name: str | None = Query(default=None, description="Custom dashboard name"),
     session: Session = Depends(get_session)
 ) -> DashboardResponse:
     """Create analytics dashboard"""
-    
+
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
-    
+
     try:
         result = await analytics_service.create_dashboard(owner_id, dashboard_type)  # type: ignore[attr-defined]
-        
+
         # Get the created dashboard details
         dashboard = session.execute(
             select(DashboardConfig).where(DashboardConfig.dashboard_id == result["dashboard_id"])
         ).first()
-        
+
         if not dashboard:
             raise HTTPException(status_code=404, detail="Dashboard not found after creation")
-        
+
         return DashboardResponse(
             dashboard_id=dashboard.dashboard_id,
             name=dashboard.name,
@@ -291,7 +288,7 @@ async def create_dashboard(
             created_at=dashboard.created_at.isoformat(),
             updated_at=dashboard.updated_at.isoformat()
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating dashboard: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -305,15 +302,15 @@ async def get_dashboard(
     session: Session = Depends(get_session)
 ) -> DashboardResponse:
     """Get dashboard configuration"""
-    
+
     try:
         dashboard = session.execute(
             select(DashboardConfig).where(DashboardConfig.dashboard_id == dashboard_id)
         ).first()
-        
+
         if not dashboard:
             raise HTTPException(status_code=404, detail="Dashboard not found")
-        
+
         return DashboardResponse(
             dashboard_id=dashboard.dashboard_id,
             name=dashboard.name,
@@ -329,7 +326,7 @@ async def get_dashboard(
             created_at=dashboard.created_at.isoformat(),
             updated_at=dashboard.updated_at.isoformat()
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -341,28 +338,28 @@ async def get_dashboard(
 @rate_limit(rate=200, per=60)
 async def list_dashboards(
     request: Request,
-    owner_id: Optional[str] = Query(default=None, description="Filter by owner ID"),
-    dashboard_type: Optional[str] = Query(default=None, description="Filter by dashboard type"),
-    status: Optional[str] = Query(default=None, description="Filter by status"),
+    owner_id: str | None = Query(default=None, description="Filter by owner ID"),
+    dashboard_type: str | None = Query(default=None, description="Filter by dashboard type"),
+    status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[DashboardResponse]:
+) -> list[DashboardResponse]:
     """List analytics dashboards with filters"""
-    
+
     try:
         query = select(DashboardConfig)
-        
+
         if owner_id:
             query = query.where(DashboardConfig.owner_id == owner_id)
         if dashboard_type:
             query = query.where(DashboardConfig.dashboard_type == dashboard_type)
         if status:
             query = query.where(DashboardConfig.status == status)
-        
+
         dashboards = session.execute(
             query.order_by(DashboardConfig.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             DashboardResponse(
                 dashboard_id=dashboard.dashboard_id,
@@ -381,26 +378,26 @@ async def list_dashboards(
             )
             for dashboard in dashboards
         ]
-        
+
     except Exception as e:
         logger.error(f"Error listing dashboards: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/reports", response_model=Dict[str, Any])
+@router.post("/reports", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
 async def generate_report(
     request: Request,
     report_request: ReportRequest,
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate analytics report"""
-    
+
     try:
         # Parse dates
         start_date = datetime.fromisoformat(report_request.start_date)
         end_date = datetime.fromisoformat(report_request.end_date)
-        
+
         # Create report record
         report = AnalyticsReport(
             report_id=f"report_{uuid4().hex[:8]}",
@@ -414,11 +411,11 @@ async def generate_report(
             generated_by="api",
             status="generated"
         )
-        
+
         session.add(report)
         session.commit()
         session.refresh(report)
-        
+
         # Generate report content based on type
         if report_request.report_type == ReportType.MARKET_OVERVIEW:
             content = await generate_market_overview_report(
@@ -434,7 +431,7 @@ async def generate_report(
             )
         else:
             content = {"error": "Report type not implemented yet"}
-        
+
         # Update report with content
         report.summary = content.get("summary", "")
         report.key_findings = content.get("key_findings", [])
@@ -442,9 +439,9 @@ async def generate_report(
         report.data_sections = content.get("data_sections", [])
         report.charts = content.get("charts", []) if report_request.include_charts else []
         report.tables = content.get("tables", [])
-        
+
         session.commit()
-        
+
         return {
             "report_id": report.report_id,
             "report_type": report.report_type.value,
@@ -456,7 +453,7 @@ async def generate_report(
             "generated_at": report.generated_at.isoformat(),
             "format": report_request.format
         }
-        
+
     except Exception as e:
         logger.error(f"Error generating report: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -469,17 +466,17 @@ async def get_report(
     report_id: str,
     format: str = Query(default="json", description="Response format: json, csv, pdf"),
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get generated analytics report"""
-    
+
     try:
         report = session.execute(
             select(AnalyticsReport).where(AnalyticsReport.report_id == report_id)
         ).first()
-        
+
         if not report:
             raise HTTPException(status_code=404, detail="Report not found")
-        
+
         response_data = {
             "report_id": report.report_id,
             "report_type": report.report_type.value,
@@ -497,19 +494,19 @@ async def get_report(
             "generated_at": report.generated_at.isoformat(),
             "status": report.status
         }
-        
+
         # Format response based on requested format
         if format == "json":
             return response_data
         elif format == "csv":
             # Convert to CSV format (simplified)
-            return {"csv_data": self.convert_to_csv(response_data)}  # type: ignore[name-defined]
+            return {"csv_data": convert_to_csv(response_data)}  # type: ignore[name-defined]
         elif format == "pdf":
             # Convert to PDF format (simplified)
             return {"pdf_url": f"/api/v1/analytics/reports/{report_id}/pdf"}
         else:
             return response_data
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -521,27 +518,27 @@ async def get_report(
 @rate_limit(rate=200, per=60)
 async def get_analytics_alerts(
     request: Request,
-    severity: Optional[str] = Query(default=None, description="Filter by severity level"),
-    status: Optional[str] = Query(default="active", description="Filter by status"),
+    severity: str | None = Query(default=None, description="Filter by severity level"),
+    status: str | None = Query(default="active", description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get analytics alerts"""
-    
+
     try:
         from ..domain.analytics import AnalyticsAlert
-        
+
         query = select(AnalyticsAlert)
-        
+
         if severity:
             query = query.where(AnalyticsAlert.severity == severity)
         if status:
             query = query.where(AnalyticsAlert.status == status)
-        
+
         alerts = session.execute(
             query.order_by(AnalyticsAlert.created_at.desc()).limit(limit)
         ).all()
-        
+
         return [
             {
                 "alert_id": alert.alert_id,
@@ -560,7 +557,7 @@ async def get_analytics_alerts(
             }
             for alert in alerts
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting analytics alerts: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -572,13 +569,13 @@ async def get_key_performance_indicators(
     request: Request,
     period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Period type"),
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get key performance indicators"""
-    
+
     try:
         # Get latest metrics for KPIs
-        end_time = datetime.now(timezone.utc)
-        
+        end_time = datetime.now(UTC)
+
         if period_type == AnalyticsPeriod.DAILY:
             start_time = end_time - timedelta(days=1)
         elif period_type == AnalyticsPeriod.WEEKLY:
@@ -587,7 +584,7 @@ async def get_key_performance_indicators(
             start_time = end_time - timedelta(days=30)
         else:
             start_time = end_time - timedelta(hours=1)
-        
+
         metrics = session.execute(
             select(MarketMetric).where(
                 and_(
@@ -597,10 +594,10 @@ async def get_key_performance_indicators(
                 )
             ).order_by(MarketMetric.recorded_at.desc())  # type: ignore[attr-defined]
         ).all()
-        
+
         # Calculate KPIs
         kpis = {}
-        
+
         for metric in metrics:
             if metric.metric_name in ["transaction_volume", "active_agents", "average_price", "success_rate"]:
                 kpis[metric.metric_name] = {
@@ -610,7 +607,7 @@ async def get_key_performance_indicators(
                     "trend": "up" if metric.change_percentage and metric.change_percentage > 0 else "down",
                     "status": get_kpi_status(metric.metric_name, metric.value, metric.change_percentage)
                 }
-        
+
         return {
             "period_type": period_type.value,
             "start_time": start_time.isoformat(),
@@ -618,7 +615,7 @@ async def get_key_performance_indicators(
             "kpis": kpis,
             "overall_health": calculate_overall_health(kpis)
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting KPIs: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -630,10 +627,10 @@ async def generate_market_overview_report(
     period_type: AnalyticsPeriod,
     start_date: datetime,
     end_date: datetime,
-    filters: Dict[str, Any]
-) -> Dict[str, Any]:
+    filters: dict[str, Any]
+) -> dict[str, Any]:
     """Generate market overview report content"""
-    
+
     # Get metrics for the period
     metrics = session.execute(
         select(MarketMetric).where(
@@ -644,7 +641,7 @@ async def generate_market_overview_report(
             )
         ).order_by(MarketMetric.recorded_at.desc())  # type: ignore[attr-defined]
     ).all()
-    
+
     # Get insights for the period
     insights = session.execute(
         select(MarketInsight).where(
@@ -654,7 +651,7 @@ async def generate_market_overview_report(
             )
         ).order_by(MarketInsight.created_at.desc())  # type: ignore[attr-defined]
     ).all()
-    
+
     return {
         "summary": f"Market overview for {period_type.value} period from {start_date.date()} to {end_date.date()}",
         "key_findings": [
@@ -706,10 +703,10 @@ async def generate_agent_performance_report(
     period_type: AnalyticsPeriod,
     start_date: datetime,
     end_date: datetime,
-    filters: Dict[str, Any]
-) -> Dict[str, Any]:
+    filters: dict[str, Any]
+) -> dict[str, Any]:
     """Generate agent performance report content"""
-    
+
     # Mock implementation - would query actual agent performance data
     return {
         "summary": f"Agent performance report for {period_type.value} period",
@@ -741,10 +738,10 @@ async def generate_economic_analysis_report(
     period_type: AnalyticsPeriod,
     start_date: datetime,
     end_date: datetime,
-    filters: Dict[str, Any]
-) -> Dict[str, Any]:
+    filters: dict[str, Any]
+) -> dict[str, Any]:
     """Generate economic analysis report content"""
-    
+
     # Mock implementation - would query actual economic data
     return {
         "summary": f"Economic analysis for {period_type.value} period",
@@ -771,9 +768,9 @@ async def generate_economic_analysis_report(
     }
 
 
-def get_kpi_status(metric_name: str, value: float, change_percentage: Optional[float]) -> str:
+def get_kpi_status(metric_name: str, value: float, change_percentage: float | None) -> str:
     """Get KPI status based on value and change"""
-    
+
     if metric_name == "success_rate":
         if value >= 90:
             return "excellent"
@@ -796,20 +793,20 @@ def get_kpi_status(metric_name: str, value: float, change_percentage: Optional[f
         return "good"
 
 
-def calculate_overall_health(kpis: Dict[str, Any]) -> str:
+def calculate_overall_health(kpis: dict[str, Any]) -> str:
     """Calculate overall market health"""
-    
+
     if not kpis:
         return "unknown"
-    
+
     # Count KPIs by status
     status_counts = {}  # type: ignore[var-annotated]
     for kpi_data in kpis.values():
         status = kpi_data.get("status", "fair")
         status_counts[status] = status_counts.get(status, 0) + 1
-    
+
     total_kpis = len(kpis)
-    
+
     # Determine overall health
     if status_counts.get("excellent", 0) >= total_kpis * 0.6:
         return "excellent"
@@ -821,14 +818,14 @@ def calculate_overall_health(kpis: Dict[str, Any]) -> str:
         return "fair"
 
 
-def convert_to_csv(data: Dict[str, Any]) -> str:
+def convert_to_csv(data: dict[str, Any]) -> str:
     """Convert report data to CSV format (simplified)"""
-    
+
     csv_lines = []
-    
+
     # Add header
     csv_lines.append("Metric,Value,Unit,Change,Trend,Status")
-    
+
     # Add KPI data if available
     if "kpis" in data:
         for metric_name, kpi_data in data["kpis"].items():
@@ -837,5 +834,5 @@ def convert_to_csv(data: Dict[str, Any]) -> str:
                 f"{kpi_data.get('change_percentage', '')}%,{kpi_data.get('trend', '')},"
                 f"{kpi_data.get('status', '')}"
             )
-    
+
     return "\n".join(csv_lines)

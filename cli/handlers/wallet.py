@@ -1,10 +1,13 @@
 """Wallet command handlers."""
 
 import json
-import requests
-import sys
-from aitbc.utils.paths import get_data_path
 import logging
+import sys
+
+import requests
+
+from aitbc.utils.paths import get_data_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -71,43 +74,44 @@ def handle_wallet_transactions(args, get_transactions, output_format, first):
 
 def handle_wallet_send(args, send_transaction, read_password, first):
     """Handle wallet send command."""
-    from pathlib import Path
     import json
+    from pathlib import Path
+
     from cryptography.hazmat.primitives.asymmetric import ed25519
-    
+
     from_wallet = first(getattr(args, "from_wallet_arg", None), getattr(args, "from_wallet", None))
     to_address = first(getattr(args, "to_address_arg", None), getattr(args, "to_address", None))
     amount_value = first(getattr(args, "amount_arg", None), getattr(args, "amount", None))
-    
+
     # Password is now required for signing
     password = read_password(args, "wallet_password")
-    
+
     if not from_wallet or not to_address or amount_value is None:
         logger.error("Error: From wallet, destination, and amount are required")
         sys.exit(1)
-    
+
     if not password:
         logger.error("Error: Password is required for signing transaction")
         sys.exit(1)
-    
+
     # Use default fee if not specified
     fee = getattr(args, "fee", 10)
     if fee is None:
         fee = 10
-    
+
     # Use direct RPC call with decrypted private key
     keystore_dir = Path("/var/lib/aitbc/keystore")
     sender_keystore = keystore_dir / f"{from_wallet}.json"
-    
+
     if not sender_keystore.exists():
         logger.error(f"Error: Wallet '{from_wallet}' not found")
         sys.exit(1)
-    
+
     with open(sender_keystore) as f:
         sender_data = json.load(f)
-    
+
     sender_address = sender_data['address']
-    
+
     # Decrypt private key for signing
     try:
         sys.path.insert(0, "/opt/aitbc/cli")
@@ -120,10 +124,10 @@ def handle_wallet_send(args, send_transaction, read_password, first):
     except Exception as e:
         logger.error(f"Error decrypting wallet: {e}")
         sys.exit(1)
-    
+
     # Get RPC URL
     rpc_url = getattr(args, "rpc_url", "http://localhost:8006")
-    
+
     # Get chain_id
     try:
         from sys.path import insert
@@ -132,7 +136,7 @@ def handle_wallet_send(args, send_transaction, read_password, first):
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
         chain_id = "ait-testnet"
-    
+
     # Get actual nonce from blockchain
     actual_nonce = 0
     try:
@@ -140,7 +144,7 @@ def handle_wallet_send(args, send_transaction, read_password, first):
         actual_nonce = account_data.get("nonce", 0)
     except Exception:
         actual_nonce = 0
-    
+
     # Build transaction with modern payload format
     transaction_payload = {
         "type": "TRANSFER",
@@ -155,18 +159,18 @@ def handle_wallet_send(args, send_transaction, read_password, first):
         },
         "chain_id": chain_id
     }
-    
+
     # Sign transaction
     message = json.dumps(transaction_payload, sort_keys=True).encode()
     signature = private_key.sign(message)
     signature_hex = signature.hex()
-    
+
     transaction_payload["signature"] = signature_hex
-    
+
     # Submit transaction
     try:
         response = requests.post(f"{rpc_url}/rpc/transaction", json=transaction_payload, timeout=30)
-        
+
         if response.status_code == 200:
             result = response.json()
             if result.get("success"):

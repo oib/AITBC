@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
 import json
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from sqlmodel import Session, select
 
+from .base_models import Account, Block
+from .base_models import Transaction as ChainTransaction
 from .config import settings
-from .metrics import metrics_registry
-from .base_models import Block, Transaction as ChainTransaction, Account
 from .logger import get_logger
+from .metrics import metrics_registry
 from .state.merkle_patricia_trie import StateManager
 from .state.state_transition import get_state_transition
 
@@ -37,7 +36,7 @@ class ImportResult:
 class ProposerSignatureValidator:
     """Validates proposer signatures on imported blocks."""
 
-    def __init__(self, trusted_proposers: Optional[List[str]] = None) -> None:
+    def __init__(self, trusted_proposers: list[str] | None = None) -> None:
         self._trusted = set(trusted_proposers or [])
 
     @property
@@ -50,7 +49,7 @@ class ProposerSignatureValidator:
     def remove_trusted(self, proposer_id: str) -> None:
         self._trusted.discard(proposer_id)
 
-    def validate_block_signature(self, block_data: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_block_signature(self, block_data: dict[str, Any]) -> tuple[bool, str]:
         """Validate that a block was produced by a trusted proposer.
 
         Returns (is_valid, reason).
@@ -98,7 +97,7 @@ class ChainSync:
         *,
         chain_id: str = "",
         max_reorg_depth: int = 10,
-        validator: Optional[ProposerSignatureValidator] = None,
+        validator: ProposerSignatureValidator | None = None,
         validate_signatures: bool = True,
         batch_size: int = 50,
         poll_interval: float = 5.0,
@@ -115,13 +114,13 @@ class ChainSync:
         self._last_bulk_sync_time = 0
         self._min_bulk_sync_interval = getattr(settings, 'min_bulk_sync_interval', 60)
         # Re-sync rejection counter for Phase 1.3
-        self._rejection_counts: Dict[str, int] = {}
+        self._rejection_counts: dict[str, int] = {}
 
     async def close(self) -> None:
         """Close HTTP client."""
         await self._client.aclose()
 
-    def _validate_genesis_metadata(self, block_data: Dict[str, Any], session: Session) -> Tuple[bool, str]:
+    def _validate_genesis_metadata(self, block_data: dict[str, Any], session: Session) -> tuple[bool, str]:
         """Validate genesis block metadata by computing expected state root from allocations.
 
         Args:
@@ -303,7 +302,7 @@ class ChainSync:
         else:
             return "steady_state"
 
-    async def fetch_blocks_range(self, start: int, end: int, source_url: str) -> List[Dict[str, Any]]:
+    async def fetch_blocks_range(self, start: int, end: int, source_url: str) -> list[dict[str, Any]]:
         """Fetch a range of blocks from a source RPC."""
         try:
             resp = await self._client.get(f"{source_url}/rpc/blocks-range", params={"start": start, "end": end})
@@ -323,12 +322,12 @@ class ChainSync:
     async def bulk_import_from(self, source_url: str) -> int:
         """Import blocks from a remote source via RPC."""
         self._logger.info(f"Starting bulk import from source: {source_url}")
-        
+
         # Ensure URL has protocol
         if source_url and not source_url.startswith("http://") and not source_url.startswith("https://"):
             source_url = f"http://{source_url}"
             self._logger.info(f"Added http:// prefix to source URL: {source_url}")
-        
+
         if not source_url:
             self._logger.error("Source URL is empty or None")
             return 0
@@ -428,7 +427,7 @@ class ChainSync:
 
         return imported
 
-    def import_block(self, block_data: Dict[str, Any], transactions: Optional[List[Dict[str, Any]]] = None,
+    def import_block(self, block_data: dict[str, Any], transactions: list[dict[str, Any]] | None = None,
                     skip_state_root_validation: bool = False) -> ImportResult:
         """Import a block from a remote peer.
 
@@ -468,7 +467,7 @@ class ChainSync:
                     metrics_registry.increment("sync_state_root_rejected_total")
                     logger.error(f"Genesis block metadata validation failed: {reason}", extra={"height": height, "hash": block_hash})
                     return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
-            
+
             # Check for duplicate
             existing = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)
@@ -483,7 +482,7 @@ class ChainSync:
                 select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)
             ).first()
             our_height = our_head.height if our_head else -1
-            
+
             logger.info(f"Import block check: height={height}, our_height={our_height}, parent_hash={parent_hash}, block_hash={block_hash}")
 
             # Case 1: Block extends our chain directly
@@ -519,8 +518,8 @@ class ChainSync:
         return ImportResult(accepted=False, height=height, block_hash=block_hash,
                             reason="Unhandled import case")
 
-    def _append_block(self, session: Session, block_data: Dict[str, Any],
-                      transactions: Optional[List[Dict[str, Any]]] = None,
+    def _append_block(self, session: Session, block_data: dict[str, Any],
+                      transactions: list[dict[str, Any]] | None = None,
                       skip_state_root_validation: bool = False) -> ImportResult:
         """Append a block to the chain tip.
         
@@ -533,9 +532,9 @@ class ChainSync:
         block_hash = block_data["hash"]
         timestamp_str = block_data.get("timestamp", "")
         try:
-            timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(timezone.utc)
+            timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(UTC)
         except (ValueError, TypeError):
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         tx_count = block_data.get("tx_count", 0)
         if transactions:
@@ -580,7 +579,7 @@ class ChainSync:
                 success, error_msg = state_transition.apply_transaction(
                     session, self._chain_id, tx_data, tx_hash
                 )
-                
+
                 if not success:
                     logger.warning(f"[SYNC] Failed to apply transaction {tx_hash}: {error_msg}")
                     # For now, log warning but continue (to be enforced in production)
@@ -591,7 +590,7 @@ class ChainSync:
                     tx_type = tx_type.upper()
                 else:
                     tx_type = "TRANSFER"
-                
+
                 tx = ChainTransaction(
                     chain_id=self._chain_id,
                     tx_hash=tx_hash,
@@ -611,13 +610,13 @@ class ChainSync:
                 select(Account).where(Account.chain_id == self._chain_id)
             ).all()
             account_dict = {acc.address: acc for acc in accounts}
-            
+
             computed_root = state_manager.compute_state_root(account_dict)
             try:
                 expected_root = bytes.fromhex(str(block_data.get("state_root")).replace("0x", ""))
             except ValueError:
                 expected_root = None
-            
+
             if expected_root is None or len(expected_root) != 32:
                 metrics_registry.increment("sync_state_root_rejected_total")
                 session.rollback()
@@ -670,8 +669,8 @@ class ChainSync:
             block_hash=block_data["hash"], reason="Appended to chain"
         )
 
-    def _resolve_fork(self, session: Session, block_data: Dict[str, Any],
-                      transactions: Optional[List[Dict[str, Any]]],
+    def _resolve_fork(self, session: Session, block_data: dict[str, Any],
+                      transactions: list[dict[str, Any]] | None,
                       our_head: Block) -> ImportResult:
         """Resolve a fork using longest-chain rule.
 
@@ -752,7 +751,7 @@ class ChainSync:
         result.reorg_depth = removed_count
         return result
 
-    def get_sync_status(self) -> Dict[str, Any]:
+    def get_sync_status(self) -> dict[str, Any]:
         """Get current sync status and metrics."""
         with self._session_factory() as session:
             head = session.exec(

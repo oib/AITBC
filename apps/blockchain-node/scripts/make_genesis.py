@@ -12,7 +12,7 @@ import argparse
 import json
 import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 
 # Chain parameters - these are on-chain economic settings
 CHAIN_PARAMS = {
@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_allocations(path: Path) -> List[Dict[str, Any]]:
+def load_allocations(path: Path) -> list[dict[str, Any]]:
     """Load address allocations from a JSON file.
     Expected format:
     [
@@ -73,7 +73,7 @@ def load_allocations(path: Path) -> List[Dict[str, Any]]:
     return data
 
 
-def build_genesis(chain_id: str, allocations: List[Dict[str, Any]], authorities: List[str]) -> dict:
+def build_genesis(chain_id: str, allocations: list[dict[str, Any]], authorities: list[str]) -> dict:
     """Construct the genesis block specification."""
     timestamp = int(time.time())
     return {

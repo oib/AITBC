@@ -8,15 +8,15 @@ Provides:
 - Upload tracking
 """
 
+import json
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
-from fastapi import APIRouter, File, Request, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 
 from ..services.ipfs_service import get_ipfs_service
-
 
 router = APIRouter(prefix="/ipfs", tags=["ipfs"])
 
@@ -24,14 +24,14 @@ router = APIRouter(prefix="/ipfs", tags=["ipfs"])
 class UploadTextRequest(BaseModel):
     """Request to upload text content"""
     content: str
-    filename: Optional[str] = None
+    filename: str | None = None
     pin: bool = True
 
 
 class PinCIDRequest(BaseModel):
     """Request to pin a CID"""
     cid: str
-    name: Optional[str] = None
+    name: str | None = None
 
 
 @router.post("/upload", summary="Upload file to IPFS")
@@ -39,7 +39,7 @@ async def upload_file(
     request: Request,
     file: UploadFile = File(...),
     pin: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Upload a file to IPFS.
     
@@ -51,17 +51,17 @@ async def upload_file(
     """
     try:
         service = get_ipfs_service()
-        
+
         # Read file content
         content = await file.read()
-        
+
         # Upload to IPFS
         result = await service.client.upload_file(
             data=content,
             filename=file.filename or "upload",
             pin=pin
         )
-        
+
         return {
             "success": True,
             "cid": result.cid,
@@ -71,7 +71,7 @@ async def upload_file(
             "pinned": result.pinned,
             "timestamp": result.timestamp.isoformat()
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -83,17 +83,17 @@ async def upload_file(
 async def upload_text(
     request: Request,
     req: UploadTextRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Upload text content to IPFS"""
     try:
         service = get_ipfs_service()
-        
+
         result = await service.client.upload_file(
             data=req.content,
             filename=req.filename or "content.txt",
             pin=req.pin
         )
-        
+
         return {
             "success": True,
             "cid": result.cid,
@@ -103,7 +103,7 @@ async def upload_text(
             "pinned": result.pinned,
             "timestamp": result.timestamp.isoformat()
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -115,7 +115,7 @@ async def upload_text(
 async def get_content(
     request: Request,
     cid: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Retrieve content from IPFS by CID.
     
@@ -124,15 +124,15 @@ async def get_content(
     """
     try:
         service = get_ipfs_service()
-        
+
         content = await service.client.get_content(cid)
-        
+
         if content is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Content not found for CID: {cid}"
             )
-        
+
         # Try to parse as JSON
         try:
             data = json.loads(content.decode('utf-8'))  # type: ignore[name-defined]
@@ -153,7 +153,7 @@ async def get_content(
                 "data": base64.b64encode(content).decode('utf-8'),
                 "size": len(content)
             }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -167,19 +167,19 @@ async def get_content(
 async def pin_cid(
     request: Request,
     req: PinCIDRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Pin an existing CID to the local IPFS node"""
     try:
         service = get_ipfs_service()
-        
+
         success = await service.client.pin_cid(req.cid, req.name or "")
-        
+
         return {
             "success": success,
             "cid": req.cid,
             "message": "Pinned successfully" if success else "Failed to pin"
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -191,19 +191,19 @@ async def pin_cid(
 async def unpin_cid(
     request: Request,
     cid: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Unpin a CID from the local IPFS node"""
     try:
         service = get_ipfs_service()
-        
+
         success = await service.client.unpin_cid(cid)
-        
+
         return {
             "success": success,
             "cid": cid,
             "message": "Unpinned successfully" if success else "Failed to unpin"
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -212,7 +212,7 @@ async def unpin_cid(
 
 
 @router.get("/health", summary="Health check")
-async def ipfs_health(request: Request) -> Dict[str, Any]:
+async def ipfs_health(request: Request) -> dict[str, Any]:
     """Check IPFS service health"""
     return {
         "status": "healthy",
@@ -222,13 +222,13 @@ async def ipfs_health(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/pins", summary="List pinned CIDs")
-async def list_pins(request: Request) -> Dict[str, Any]:
+async def list_pins(request: Request) -> dict[str, Any]:
     """List all CIDs pinned to the local node"""
     try:
         service = get_ipfs_service()
-        
+
         pins = await service.client.list_pins()
-        
+
         return {
             "pins": [
                 {
@@ -241,7 +241,7 @@ async def list_pins(request: Request) -> Dict[str, Any]:
             ],
             "count": len(pins)
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -253,12 +253,12 @@ async def list_pins(request: Request) -> Dict[str, Any]:
 async def get_gateway_url(
     request: Request,
     cid: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get the HTTP gateway URL for a CID"""
     service = get_ipfs_service()
-    
+
     gateway = service.client.gateway_url
-    
+
     return {
         "cid": cid,
         "gateway_url": f"{gateway}/ipfs/{cid}",
@@ -267,7 +267,7 @@ async def get_gateway_url(
 
 
 @router.get("/health", summary="IPFS service health")
-async def health_check(request: Request) -> Dict[str, Any]:
+async def health_check(request: Request) -> dict[str, Any]:
     """Check IPFS service health"""
     try:
         service = get_ipfs_service()

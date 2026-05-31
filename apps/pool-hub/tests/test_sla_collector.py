@@ -2,14 +2,12 @@
 Tests for SLA Collector Service
 """
 
-import sys
-import pytest
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
 
-from poolhub.models import Miner, MinerStatus, SLAMetric, SLAViolation, Feedback, MatchResult
+import pytest
+from poolhub.models import Miner, MinerStatus
 from poolhub.services.sla_collector import SLACollector
+from sqlalchemy.orm import Session
 
 
 @pytest.fixture
@@ -48,7 +46,7 @@ def sample_miner_status(db_session: Session, sample_miner: Miner) -> MinerStatus
         avg_latency_ms=150,
         temp_c=65,
         mem_free_gb=32.0,
-        last_heartbeat_at=datetime.now(timezone.utc),
+        last_heartbeat_at=datetime.now(UTC),
     )
     db_session.add(status)
     db_session.commit()

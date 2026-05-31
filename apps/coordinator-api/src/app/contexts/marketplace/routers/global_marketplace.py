@@ -3,13 +3,14 @@ Global Marketplace API Router
 REST API endpoints for global marketplace operations, multi-region support, and cross-chain integration
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
 from ....agent_identity.manager import AgentIdentityManager
+from ....storage.db import get_session
 from ..domain.global_marketplace import (
     GlobalMarketplaceConfig,
     GlobalMarketplaceOffer,
@@ -19,7 +20,6 @@ from ..domain.global_marketplace import (
     RegionStatus,
 )
 from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
-from ....storage.db import get_session
 
 router = APIRouter(prefix="/global-marketplace", tags=["Global Marketplace"])
 
@@ -94,9 +94,9 @@ async def create_global_offer(
             "created_at": offer.created_at.isoformat(),
         }
 
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Bad request")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating global offer")
 
 
@@ -153,7 +153,7 @@ async def get_global_offers(
 
         return response_offers
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting global offers")
 
 
@@ -199,7 +199,7 @@ async def get_global_offer(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting global offer")
 
 
@@ -265,9 +265,9 @@ async def create_global_transaction(
             "created_at": transaction.created_at.isoformat(),
         }
 
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Bad request")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating global transaction")
 
 
@@ -320,7 +320,7 @@ async def get_global_transactions(
 
         return response_transactions
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting global transactions")
 
 
@@ -370,7 +370,7 @@ async def get_global_transaction(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting global transaction")
 
 
@@ -421,7 +421,7 @@ async def get_regions(
 
         return response_regions
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting regions")
 
 
@@ -437,7 +437,7 @@ async def get_region_health(
         health_data = await marketplace_service.get_region_health(region_code)
         return health_data
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting region health")
 
 
@@ -462,7 +462,7 @@ async def update_region_health(
             "updated_at": region.updated_at.isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error updating region health")
 
 
@@ -516,7 +516,7 @@ async def get_marketplace_analytics(
             "generated_at": analytics.created_at.isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting marketplace analytics")
 
 
@@ -549,7 +549,7 @@ async def get_global_marketplace_config(
 
         return config_dict
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting configuration")
 
 
@@ -585,7 +585,7 @@ async def get_global_marketplace_health(
         recent_transactions = (
             session.execute(
                 select(func.count(GlobalMarketplaceTransaction.id)).where(  # type: ignore[arg-type]
-                    GlobalMarketplaceTransaction.created_at >= datetime.now(timezone.utc) - timedelta(hours=24)
+                    GlobalMarketplaceTransaction.created_at >= datetime.now(UTC) - timedelta(hours=24)
                 )
             ).scalar()
             or 0
@@ -608,8 +608,8 @@ async def get_global_marketplace_health(
                 "recent_24h": recent_transactions,
                 "activity_rate": transaction_activity,
             },
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting health status")

@@ -1,15 +1,19 @@
 """Integration tests for compliance service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, KYCRequest, ComplianceReport, TransactionMonitoring, kyc_records, compliance_reports, suspicious_transactions, compliance_rules
+from main import (
+    ComplianceReport,
+    KYCRequest,
+    TransactionMonitoring,
+    app,
+    compliance_reports,
+    compliance_rules,
+    kyc_records,
+    suspicious_transactions,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -81,10 +85,10 @@ def test_submit_duplicate_kyc():
         document_number="ABC123",
         address={"street": "123 Main St", "city": "New York", "country": "USA"}
     )
-    
+
     # First submission
     client.post("/api/v1/kyc/submit", json=kyc.model_dump())
-    
+
     # Second submission should fail
     response = client.post("/api/v1/kyc/submit", json=kyc.model_dump())
     assert response.status_code == 400
@@ -102,10 +106,10 @@ def test_get_kyc_status():
         document_number="ABC123",
         address={"street": "123 Main St", "city": "New York", "country": "USA"}
     )
-    
+
     # Submit KYC first
     client.post("/api/v1/kyc/submit", json=kyc.model_dump())
-    
+
     # Get KYC status
     response = client.get("/api/v1/kyc/user123")
     assert response.status_code == 200
@@ -171,7 +175,7 @@ def test_monitor_transaction():
         amount=1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
     assert response.status_code == 200
@@ -190,7 +194,7 @@ def test_monitor_suspicious_transaction():
         amount=100000.0,
         currency="BTC",
         counterparty="high_risk_entity_1",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
     assert response.status_code == 200

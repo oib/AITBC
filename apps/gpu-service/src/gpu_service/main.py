@@ -3,25 +3,25 @@ GPU Service main application
 Manages GPU resource operations
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
     configure_logging,
     get_logger,
-    RequestIDMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestValidationMiddleware,
-    ErrorHandlerMiddleware,
 )
 
-from .storage import init_db, get_session
 from .services.edge_gpu_service import EdgeGPUService
+from .storage import get_session, init_db
 
 # Configure structured logging
 configure_logging(level="INFO")
@@ -115,7 +115,7 @@ async def get_consumer_gpu_profiles(
 ):
     """Get consumer GPU profiles"""
     from .domain.gpu_marketplace import GPUArchitecture
-    
+
     arch = GPUArchitecture(architecture) if architecture else None
     return await svc.list_profiles(architecture=arch, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
 
@@ -161,14 +161,14 @@ async def optimize_inference(
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit GPU marketplace transaction"""
     from .domain.gpu_marketplace import GPURegistry
-    
+
     # Validate transaction type
     transaction_type = transaction_data.get('type')
     action = transaction_data.get('action')
-    
+
     if transaction_type != 'gpu_marketplace':
         return {"error": "Invalid transaction type for GPU service"}, 400
-    
+
     try:
         if action == 'offer':
             # Map offer data to GPURegistry
@@ -186,7 +186,7 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
             session.add(gpu)
         else:
             return {"error": f"Invalid action: {action}. Only 'offer' is currently supported"}, 400
-        
+
         await session.commit()
         return {"status": "success", "transaction_id": transaction_data.get('offer_id')}
     except Exception as e:
@@ -204,16 +204,17 @@ async def get_transactions(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Query GPU marketplace transactions"""
-    from .domain.gpu_marketplace import GPURegistry
     from sqlalchemy import select
-    
+
+    from .domain.gpu_marketplace import GPURegistry
+
     try:
         transactions = []
-        
+
         # Query GPU registry for offers
         result = await session.execute(select(GPURegistry))
         gpus = result.scalars().all()
-        
+
         # Map to transaction format
         for gpu in gpus:
             transactions.append({
@@ -227,13 +228,13 @@ async def get_transactions(
                 "miner_id": gpu.miner_id,
                 "created_at": gpu.created_at.isoformat() if gpu.created_at else None
             })
-        
+
         # Apply filters
         if status:
             transactions = [t for t in transactions if t.get('status') == status]
         if island_id:
             transactions = [t for t in transactions if t.get('miner_id') == island_id]
-        
+
         return transactions
     except Exception as e:
         logger.error(f"Transaction query error: {e}")
@@ -246,25 +247,27 @@ async def register_miner(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Register or update a miner"""
-    from .domain.gpu_marketplace import GPURegistry
     from uuid import uuid4
+
     from sqlalchemy import select
-    
+
+    from .domain.gpu_marketplace import GPURegistry
+
     try:
         miner_id = miner_data.get('miner_id', f"miner_{uuid4().hex[:8]}")
         session_token = f"token_{uuid4().hex[:16]}"
-        
+
         # Check if miner already has GPUs registered
         result = await session.execute(
             select(GPURegistry).where(GPURegistry.miner_id == miner_id)
         )
         existing_gpus = result.scalars().all()
-        
+
         if existing_gpus:
             # Update existing GPUs
             for gpu in existing_gpus:
                 gpu.status = "online"
-        
+
         return {
             "status": "ok",
             "miner_id": miner_id,
@@ -282,12 +285,13 @@ async def miner_heartbeat(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Send miner heartbeat"""
+    from sqlalchemy import update
+
     from .domain.gpu_marketplace import GPURegistry
-    from sqlalchemy import select, update
-    
+
     try:
         miner_id = heartbeat_data.get('miner_id')
-        
+
         # Update miner's GPUs to online status
         stmt = (
             update(GPURegistry)
@@ -296,7 +300,7 @@ async def miner_heartbeat(
         )
         await session.execute(stmt)
         await session.commit()
-        
+
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Heartbeat error: {e}")
@@ -309,15 +313,16 @@ async def get_miner_gpus(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Get GPUs registered by a miner"""
-    from .domain.gpu_marketplace import GPURegistry
     from sqlalchemy import select
-    
+
+    from .domain.gpu_marketplace import GPURegistry
+
     try:
         result = await session.execute(
             select(GPURegistry).where(GPURegistry.miner_id == miner_id)
         )
         gpus = result.scalars().all()
-        
+
         return [
             {
                 "id": gpu.id,
@@ -343,7 +348,7 @@ async def poll_jobs(
     """Poll for next job"""
     miner_id = poll_data.get('miner_id')
     max_wait = poll_data.get('max_wait_seconds', 5)
-    
+
     # Placeholder implementation - job scheduling would be added here
     # For now, return no jobs available
     return None
@@ -359,7 +364,7 @@ async def submit_job_result(
     miner_id = result_data.get('miner_id')
     result = result_data.get('result')
     metrics = result_data.get('metrics', {})
-    
+
     # Placeholder implementation - job result processing would be added here
     return {
         "status": "ok",
@@ -377,7 +382,7 @@ async def submit_job_failure(
     """Submit job failure"""
     miner_id = fail_data.get('miner_id')
     error = fail_data.get('error')
-    
+
     # Placeholder implementation - job failure processing would be added here
     return {
         "status": "ok",
@@ -409,7 +414,7 @@ async def update_miner_capabilities(
 ):
     """Update miner capabilities"""
     capabilities = capabilities_data.get('capabilities', {})
-    
+
     # Placeholder implementation - capability update would be added here
     return {
         "status": "ok",
@@ -424,9 +429,10 @@ async def deregister_miner(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Deregister miner"""
+    from sqlalchemy import update
+
     from .domain.gpu_marketplace import GPURegistry
-    from sqlalchemy import select, update
-    
+
     try:
         # Set miner's GPUs to offline status
         stmt = (
@@ -436,7 +442,7 @@ async def deregister_miner(
         )
         await session.execute(stmt)
         await session.commit()
-        
+
         return {
             "status": "ok",
             "miner_id": miner_id,

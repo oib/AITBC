@@ -6,15 +6,15 @@ Real implementation connecting to AITBC wallet keystore and blockchain RPC.
 """
 
 import json
-import uvicorn
-import httpx
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse, Response
-from typing import Dict, Any, List, Optional
+import sys
 from datetime import datetime
 from pathlib import Path
-import os
-import sys
+from typing import Any
+
+import httpx
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 
 from aitbc.constants import KEYSTORE_DIR
 
@@ -69,13 +69,13 @@ async def check_blockchain_health() -> bool:
     except (httpx.RequestError, httpx.TimeoutException, Exception):
         return False
 
-def get_wallet_list() -> List[Dict[str, Any]]:
+def get_wallet_list() -> list[dict[str, Any]]:
     """Get list of wallets from keystore"""
     wallets = []
     if KEYSTORE_PATH.exists():
         for wallet_file in KEYSTORE_PATH.glob("*.json"):
             try:
-                with open(wallet_file, 'r') as f:
+                with open(wallet_file) as f:
                     wallet_data = json.load(f)
                     wallet_name = wallet_file.stem
                     wallets.append({
@@ -120,13 +120,13 @@ async def get_wallet_balance(chain_id: str, wallet_id: str):
     # Find wallet in keystore
     wallets = get_wallet_list()
     wallet = next((w for w in wallets if w["wallet_name"] == wallet_id), None)
-    
+
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
-    
+
     # Get real balance from blockchain
     balance = await get_blockchain_balance(wallet["address"])
-    
+
     return JSONResponse({
         "wallet_id": wallet_id,
         "wallet_name": wallet_id,
@@ -142,7 +142,7 @@ async def get_wallet_balance(chain_id: str, wallet_id: str):
 async def list_chain_wallets(chain_id: str):
     """List wallets for a specific chain"""
     wallets = get_wallet_list()
-    
+
     wallet_list = []
     for wallet in wallets:
         balance = await get_blockchain_balance(wallet["address"])
@@ -154,7 +154,7 @@ async def list_chain_wallets(chain_id: str):
             "balance": balance,
             "chain_id": chain_id
         })
-    
+
     return JSONResponse({
         "chain_id": chain_id,
         "wallets": wallet_list,
@@ -166,26 +166,27 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
     """Create a wallet in a specific chain"""
     if request is None:
         request = {}
-    
+
     wallet_name = request.get("wallet_name", f"{chain_id}-wallet-{datetime.now().timestamp()}")
     password = request.get("password", "")
-    
+
     # Import wallet creation from CLI
     try:
-        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
         import io
         import sys
-        
+
+        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
+
         # Capture stdout to avoid printing to console
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
-        
+
         # Create wallet using CLI function
         result = cli_create_wallet(wallet_name, password)
-        
+
         # Restore stdout
         sys.stdout = old_stdout
-        
+
         # Save wallet data to keystore for persistence
         wallet_data = {
             "address": result.get("address", ""),
@@ -195,12 +196,12 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
             "chain_id": chain_id,
             "wallet_name": wallet_name
         }
-        
+
         KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
         wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
         with open(wallet_file, 'w') as f:
             json.dump(wallet_data, f)
-        
+
         return JSONResponse({
             "wallet_name": wallet_name,
             "chain_id": chain_id,
@@ -212,13 +213,14 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
         })
     except ImportError:
         # Fallback: create a simple wallet if CLI not available
-        from aitbc import derive_ethereum_address
         import secrets
-        
+
+        from aitbc import derive_ethereum_address
+
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)
         address = f"ait1{public_key[2:]}"
-        
+
         # Save to keystore
         wallet_data = {
             "address": address,
@@ -227,12 +229,12 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
             "encrypted": False,
             "chain_id": chain_id
         }
-        
+
         KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
         wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
         with open(wallet_file, 'w') as f:
             json.dump(wallet_data, f)
-        
+
         return JSONResponse({
             "wallet_name": wallet_name,
             "chain_id": chain_id,
@@ -250,12 +252,12 @@ async def get_chain_wallet_info(chain_id: str, wallet_id: str):
     """Get wallet information from a specific chain"""
     wallets = get_wallet_list()
     wallet = next((w for w in wallets if w["wallet_name"] == wallet_id), None)
-    
+
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
-    
+
     balance = await get_blockchain_balance(wallet["address"])
-    
+
     wallet_data = {
         "mode": "daemon",
         "chain_id": chain_id,
@@ -278,10 +280,10 @@ async def unlock_chain_wallet(chain_id: str, wallet_id: str):
     """Unlock a wallet in a specific chain"""
     wallets = get_wallet_list()
     wallet = next((w for w in wallets if w["wallet_name"] == wallet_id), None)
-    
+
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
-    
+
     return JSONResponse({
         "wallet_id": wallet_id,
         "chain_id": chain_id,
@@ -294,10 +296,10 @@ async def sign_chain_message(chain_id: str, wallet_id: str):
     """Sign a message with a wallet in a specific chain"""
     wallets = get_wallet_list()
     wallet = next((w for w in wallets if w["wallet_name"] == wallet_id), None)
-    
+
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
-    
+
     return JSONResponse({
         "wallet_id": wallet_id,
         "chain_id": chain_id,
@@ -337,14 +339,16 @@ async def create_wallet(request: dict[str, Any] = None):
     """Create a wallet"""
     if request is None:
         request = {}
-    
+
     wallet_name = request.get("wallet_name", request.get("name", f"wallet-{datetime.now().timestamp()}"))
     password = request.get("password", "")
     chain_id = request.get("chain_id", "ait-mainnet")
-    
+
     try:
+        import io
+        import sys
+
         from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
-        import io, sys
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
         result = cli_create_wallet(wallet_name, password)
@@ -360,8 +364,9 @@ async def create_wallet(request: dict[str, Any] = None):
         })
     except Exception:
         # Fallback: create a simple wallet
-        from aitbc import derive_ethereum_address
         import secrets
+
+        from aitbc import derive_ethereum_address
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)
         address = f"ait1{public_key[2:]}"
@@ -380,10 +385,10 @@ async def unlock_wallet(wallet_id: str):
     """Unlock a wallet"""
     wallets = get_wallet_list()
     wallet = next((w for w in wallets if w["wallet_name"] == wallet_id), None)
-    
+
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
-    
+
     return JSONResponse({"wallet_id": wallet_id, "address": wallet["address"], "unlocked": True})
 
 @wallet_app.post("/v1/wallets/{wallet_id}/sign")
@@ -391,10 +396,10 @@ async def sign_wallet(wallet_id: str):
     """Sign a message"""
     wallets = get_wallet_list()
     wallet = next((w for w in wallets if w["wallet_id"] == wallet_id), None)
-    
+
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
-    
+
     return JSONResponse({"wallet_id": wallet_id, "address": wallet["address"], "signature_base64": "dGVzdC1zaWduYXR1cmE="})
 
 if __name__ == "__main__":
@@ -410,5 +415,5 @@ if __name__ == "__main__":
     print("  GET  /v1/wallets")
     print("  POST /v1/wallets/{wallet_id}/unlock")
     print("  POST /v1/wallets/{wallet_id}/sign")
-    
+
     uvicorn.run(wallet_app, host="0.0.0.0", port=8003, log_level="info")  # nosec B104

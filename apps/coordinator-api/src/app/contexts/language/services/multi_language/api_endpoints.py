@@ -4,13 +4,14 @@ REST API endpoints for translation and language detection services
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from aitbc import get_logger
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
+
+from aitbc import get_logger
 
 from .language_detector import DetectionMethod, LanguageDetector
 from .quality_assurance import TranslationQualityChecker
@@ -454,11 +455,11 @@ async def health_check(  # type: ignore[no-untyped-def]
         all_healthy = all(services.values())
         status = "healthy" if all_healthy else "degraded" if any(services.values()) else "unhealthy"
 
-        return HealthResponse(status=status, services=services, timestamp=datetime.now(timezone.utc))
+        return HealthResponse(status=status, services=services, timestamp=datetime.now(UTC))
 
     except Exception as e:
         logger.error(f"Health check error: {e}")
-        return HealthResponse(status="unhealthy", services={"error": str(e)}, timestamp=datetime.now(timezone.utc))
+        return HealthResponse(status="unhealthy", services={"error": str(e)}, timestamp=datetime.now(UTC))
 
 
 @router.get("/cache/top-translations")

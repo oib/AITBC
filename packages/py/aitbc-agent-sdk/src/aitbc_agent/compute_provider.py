@@ -3,18 +3,18 @@ Compute Provider Agent - for agents that provide computational resources
 """
 
 import asyncio
-import httpx
 import uuid
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone, timedelta
-from dataclasses import dataclass, asdict
-from cryptography.hazmat.primitives.asymmetric import rsa
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from cryptography.hazmat.primitives import serialization
-from .agent import Agent, AgentCapabilities, AgentIdentity
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+
+from .agent import Agent, AgentCapabilities, AgentIdentity
 
 logger = get_logger(__name__)
 
@@ -26,9 +26,9 @@ class ResourceOffer:
     provider_id: str
     compute_type: str
     gpu_memory: int
-    supported_models: List[str]
+    supported_models: list[str]
     price_per_hour: float
-    availability_schedule: Dict[str, Any]
+    availability_schedule: dict[str, Any]
     max_concurrent_jobs: int
     quality_guarantee: float = 0.95
 
@@ -41,9 +41,9 @@ class JobExecution:
     consumer_id: str
     start_time: datetime
     expected_duration: timedelta
-    actual_duration: Optional[timedelta] = None
+    actual_duration: timedelta | None = None
     status: str = "running"  # running, completed, failed
-    quality_score: Optional[float] = None
+    quality_score: float | None = None
 
 
 class ComputeProvider(Agent):
@@ -53,19 +53,19 @@ class ComputeProvider(Agent):
         self,
         identity: AgentIdentity,
         capabilities: AgentCapabilities,
-        coordinator_url: Optional[str] = None,
+        coordinator_url: str | None = None,
     ) -> None:
         super().__init__(identity, capabilities, coordinator_url)
-        self.current_offers: List[ResourceOffer] = []
-        self.active_jobs: List[JobExecution] = []
+        self.current_offers: list[ResourceOffer] = []
+        self.active_jobs: list[JobExecution] = []
         self.earnings: float = 0.0
         self.utilization_rate: float = 0.0
-        self.pricing_model: Dict[str, Any] = {}
-        self.dynamic_pricing: Dict[str, Any] = {}
+        self.pricing_model: dict[str, Any] = {}
+        self.dynamic_pricing: dict[str, Any] = {}
 
     @classmethod
     def create_provider(
-        cls, name: str, capabilities: Dict[str, Any], pricing_model: Dict[str, Any]
+        cls, name: str, capabilities: dict[str, Any], pricing_model: dict[str, Any]
     ) -> "ComputeProvider":
         """Create and register a compute provider"""
         # Generate cryptographic keys
@@ -109,7 +109,7 @@ class ComputeProvider(Agent):
     async def offer_resources(
         self,
         price_per_hour: float,
-        availability_schedule: Dict[str, Any],
+        availability_schedule: dict[str, Any],
         max_concurrent_jobs: int = 3,
     ) -> bool:
         """Offer computational resources on the marketplace"""
@@ -135,7 +135,7 @@ class ComputeProvider(Agent):
             logger.error(f"Failed to offer resources: {e}")
             return False
 
-    async def set_availability(self, schedule: Dict[str, Any]) -> bool:
+    async def set_availability(self, schedule: dict[str, Any]) -> bool:
         """Set availability schedule for resource offerings"""
         try:
             # Update all current offers with new schedule
@@ -222,7 +222,7 @@ class ComputeProvider(Agent):
             # Wait for next adjustment
             await asyncio.sleep(900)  # 15 minutes
 
-    async def accept_job(self, job_request: Dict[str, Any]) -> bool:
+    async def accept_job(self, job_request: dict[str, Any]) -> bool:
         """Accept and execute a computational job"""
         try:
             # Check capacity
@@ -233,7 +233,7 @@ class ComputeProvider(Agent):
             job = JobExecution(
                 job_id=job_request["job_id"],
                 consumer_id=job_request["consumer_id"],
-                start_time=datetime.now(timezone.utc),
+                start_time=datetime.now(UTC),
                 expected_duration=timedelta(hours=job_request["estimated_hours"]),
             )
 
@@ -251,7 +251,7 @@ class ComputeProvider(Agent):
             return False
 
     async def _execute_job(
-        self, job: JobExecution, job_request: Dict[str, Any]
+        self, job: JobExecution, job_request: dict[str, Any]
     ) -> None:
         """Execute a computational job"""
         try:
@@ -286,7 +286,7 @@ class ComputeProvider(Agent):
         notification = {
             "job_id": job.job_id,
             "status": job.status,
-            "completion_time": datetime.now(timezone.utc).isoformat(),
+            "completion_time": datetime.now(UTC).isoformat(),
             "duration_hours": (
                 job.actual_duration.total_seconds() / 3600
                 if job.actual_duration
@@ -304,7 +304,7 @@ class ComputeProvider(Agent):
             len(self.active_jobs) / self.capabilities.max_concurrent_jobs
         )
 
-    async def get_performance_metrics(self) -> Dict[str, Any]:
+    async def get_performance_metrics(self) -> dict[str, Any]:
         """Get provider performance metrics"""
         completed_jobs = [j for j in self.active_jobs if j.status == "completed"]
 
@@ -348,12 +348,12 @@ class ComputeProvider(Agent):
                 "max_concurrent_jobs": offer.max_concurrent_jobs,
                 "quality_guarantee": offer.quality_guarantee,
             }
-            
+
             response = await self.http_client.post(
                 "/v1/marketplace/offers",
                 json=offer_data
             )
-            
+
             if response.status_code == 201:
                 result = response.json()
                 offer_id = result.get("offer_id")
@@ -381,12 +381,12 @@ class ComputeProvider(Agent):
                 "max_concurrent_jobs": offer.max_concurrent_jobs,
                 "quality_guarantee": offer.quality_guarantee,
             }
-            
+
             response = await self.http_client.put(
                 f"/v1/marketplace/offers/{offer.provider_id}",
                 json=offer_data
             )
-            
+
             if response.status_code == 200:
                 logger.info(f"Offer updated successfully: {offer.provider_id}")
             else:
@@ -399,11 +399,11 @@ class ComputeProvider(Agent):
             raise
 
     @classmethod
-    def assess_capabilities(cls) -> Dict[str, Any]:
+    def assess_capabilities(cls) -> dict[str, Any]:
         """Assess available computational capabilities"""
-        import subprocess
         import re
-        
+        import subprocess
+
         capabilities = {
             "gpu_memory": 0,
             "supported_models": [],
@@ -412,7 +412,7 @@ class ComputeProvider(Agent):
             "gpu_count": 0,
             "compute_capability": "unknown",
         }
-        
+
         try:
             # Try to detect GPU using nvidia-smi
             result = subprocess.run(
@@ -421,11 +421,11 @@ class ComputeProvider(Agent):
                 text=True,
                 timeout=5
             )
-            
+
             if result.returncode == 0:
                 gpu_lines = result.stdout.strip().split("\n")
                 capabilities["gpu_count"] = len(gpu_lines)
-                
+
                 total_memory = 0
                 for line in gpu_lines:
                     parts = line.split(", ")
@@ -435,13 +435,13 @@ class ComputeProvider(Agent):
                         memory_match = re.search(r'(\d+)', memory_str)
                         if memory_match:
                             total_memory += int(memory_match.group(1))
-                        
+
                         # Get compute capability
                         capabilities["compute_capability"] = parts[2].strip()
-                
+
                 capabilities["gpu_memory"] = total_memory
                 capabilities["max_concurrent_jobs"] = min(len(gpu_lines), 4)
-                
+
                 # Estimate performance score based on GPU memory and compute capability
                 if total_memory >= 24000:
                     capabilities["performance_score"] = 0.95
@@ -451,7 +451,7 @@ class ComputeProvider(Agent):
                     capabilities["performance_score"] = 0.75
                 else:
                     capabilities["performance_score"] = 0.65
-                
+
                 # Determine supported models based on GPU memory
                 if total_memory >= 24000:
                     capabilities["supported_models"] = ["llama3.2", "mistral", "deepseek", "gpt-j", "bloom"]
@@ -461,14 +461,14 @@ class ComputeProvider(Agent):
                     capabilities["supported_models"] = ["llama3.2", "mistral"]
                 else:
                     capabilities["supported_models"] = ["llama3.2"]
-                
+
                 logger.info(f"GPU capabilities detected: {capabilities}")
             else:
                 logger.warning("nvidia-smi not available, using CPU-only capabilities")
                 capabilities["supported_models"] = ["llama3.2-quantized"]
                 capabilities["performance_score"] = 0.3
                 capabilities["max_concurrent_jobs"] = 1
-                
+
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             logger.warning(f"GPU detection failed: {e}, using CPU-only capabilities")
             capabilities["supported_models"] = ["llama3.2-quantized"]
@@ -479,7 +479,7 @@ class ComputeProvider(Agent):
             capabilities["supported_models"] = ["llama3.2-quantized"]
             capabilities["performance_score"] = 0.3
             capabilities["max_concurrent_jobs"] = 1
-        
+
         return capabilities
 
     async def __aenter__(self) -> "ComputeProvider":
@@ -495,17 +495,17 @@ class ComputeProvider(Agent):
         # Stop dynamic pricing
         if hasattr(self, 'dynamic_pricing'):
             self.dynamic_pricing["enabled"] = False
-        
+
         # Complete any remaining jobs
         for job in self.active_jobs[:]:
             if job.status == "running":
                 job.status = "failed"
                 logger.warning(f"Job {job.job_id} marked as failed due to provider shutdown")
-        
+
         # Call parent cleanup
         if hasattr(super(), '__aexit__'):
             await super().__aexit__(exc_type, exc_val, exc_tb)
-        
+
         if exc_type is not None:
             logger.error(f"Provider {self.identity.id} exiting with exception: {exc_val}")
         else:

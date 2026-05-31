@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     coordinator_base_url: str = Field(default="http://localhost:8011", alias="COORDINATOR_BASE_URL")
     coordinator_api_key: str = Field(..., alias="COORDINATOR_API_KEY")
-    
+
     # Blockchain RPC configuration for on-chain operations
     blockchain_rpc_url: str = Field(default="http://localhost:8006", alias="BLOCKCHAIN_RPC_URL")
 

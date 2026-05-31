@@ -3,9 +3,8 @@ Test API Gateway routing
 """
 
 import pytest
-from fastapi.testclient import TestClient
-
 from api_gateway.main import app
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture

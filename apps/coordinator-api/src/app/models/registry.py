@@ -2,7 +2,7 @@
 Dynamic service registry models for AITBC
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -123,7 +123,7 @@ class ServiceRegistry(BaseModel):
     """Service registry containing all available services"""
 
     version: str = Field("1.0.0", description="Registry version")
-    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Last update time")
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Last update time")
     services: dict[str, ServiceDefinition] = Field(..., description="Service definitions by ID")
 
     def get_service(self, service_id: str) -> ServiceDefinition | None:

@@ -1,10 +1,11 @@
 """Messaging contract handlers."""
 
 import json
+import logging
 import sys
 
 import requests
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,13 +14,13 @@ def handle_messaging_deploy(args, default_rpc_url, render_mapping):
     """Handle messaging contract deployment."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     logger.info(f"Deploying messaging contract to {rpc_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.post(f"{rpc_url}/rpc/contracts/deploy/messaging", json={}, params=params, timeout=30)
         if response.status_code == 200:
             result = response.json()
@@ -38,13 +39,13 @@ def handle_messaging_state(args, default_rpc_url, output_format, render_mapping)
     """Handle messaging contract state query."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     logger.info(f"Getting messaging contract state from {rpc_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{rpc_url}/rpc/contracts/messaging/state", params=params, timeout=10)
         if response.status_code == 200:
             state = response.json()
@@ -65,13 +66,13 @@ def handle_messaging_topics(args, default_rpc_url, output_format, render_mapping
     """Handle forum topics query."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     logger.info(f"Getting forum topics from {rpc_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{rpc_url}/rpc/messaging/topics", params=params, timeout=10)
         if response.status_code == 200:
             topics = response.json()
@@ -97,25 +98,25 @@ def handle_messaging_create_topic(args, default_rpc_url, read_password, render_m
     """Handle forum topic creation."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.title or not args.content:
         logger.error("Error: --title and --content are required")
         sys.exit(1)
-    
+
     # Get auth headers if wallet provided
     headers = {}
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
         headers = get_auth_headers(args.wallet, password, args.password_file)
-    
+
     topic_data = {
         "title": args.title,
         "content": args.content,
     }
     if chain_id:
         topic_data["chain_id"] = chain_id
-    
+
     logger.info(f"Creating forum topic on {rpc_url}...")
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/topics/create", json=topic_data, headers=headers, timeout=30)
@@ -136,17 +137,17 @@ def handle_messaging_messages(args, default_rpc_url, output_format, render_mappi
     """Handle messages query for a topic."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.topic_id:
         logger.error("Error: --topic-id is required")
         sys.exit(1)
-    
+
     logger.info(f"Getting messages for topic {args.topic_id} from {rpc_url}...")
     try:
         params = {"topic_id": args.topic_id}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{rpc_url}/rpc/messaging/topics/{args.topic_id}/messages", params=params, timeout=10)
         if response.status_code == 200:
             messages = response.json()
@@ -172,25 +173,25 @@ def handle_messaging_post(args, default_rpc_url, read_password, render_mapping):
     """Handle message posting to a topic."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.topic_id or not args.content:
         logger.error("Error: --topic-id and --content are required")
         sys.exit(1)
-    
+
     # Get auth headers if wallet provided
     headers = {}
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
         headers = get_auth_headers(args.wallet, password, args.password_file)
-    
+
     message_data = {
         "topic_id": args.topic_id,
         "content": args.content,
     }
     if chain_id:
         message_data["chain_id"] = chain_id
-    
+
     logger.info(f"Posting message to topic {args.topic_id} on {rpc_url}...")
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/messages/post", json=message_data, headers=headers, timeout=30)
@@ -211,25 +212,25 @@ def handle_messaging_vote(args, default_rpc_url, read_password, render_mapping):
     """Handle voting on a message."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.message_id or not args.vote:
         logger.error("Error: --message-id and --vote are required")
         sys.exit(1)
-    
+
     # Get auth headers if wallet provided
     headers = {}
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
         headers = get_auth_headers(args.wallet, password, args.password_file)
-    
+
     vote_data = {
         "message_id": args.message_id,
         "vote": args.vote,
     }
     if chain_id:
         vote_data["chain_id"] = chain_id
-    
+
     logger.info(f"Voting on message {args.message_id} on {rpc_url}...")
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/vote", json=vote_data, headers=headers, timeout=30)
@@ -250,17 +251,17 @@ def handle_messaging_search(args, default_rpc_url, output_format, render_mapping
     """Handle message search."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.query:
         logger.error("Error: --query is required")
         sys.exit(1)
-    
+
     logger.info(f"Searching messages for '{args.query}' on {rpc_url}...")
     try:
         params = {"query": args.query}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{rpc_url}/rpc/messaging/messages/search", params=params, timeout=30)
         if response.status_code == 200:
             results = response.json()
@@ -286,17 +287,17 @@ def handle_messaging_reputation(args, default_rpc_url, output_format, render_map
     """Handle agent reputation query."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.agent_id:
         logger.error("Error: --agent-id is required")
         sys.exit(1)
-    
+
     logger.info(f"Getting reputation for agent {args.agent_id} from {rpc_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{rpc_url}/rpc/messaging/agents/{args.agent_id}/reputation", params=params, timeout=10)
         if response.status_code == 200:
             reputation = response.json()
@@ -317,25 +318,25 @@ def handle_messaging_moderate(args, default_rpc_url, read_password, render_mappi
     """Handle message moderation."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.message_id or not args.action:
         logger.error("Error: --message-id and --action are required")
         sys.exit(1)
-    
+
     # Get auth headers if wallet provided
     headers = {}
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
         headers = get_auth_headers(args.wallet, password, args.password_file)
-    
+
     moderation_data = {
         "message_id": args.message_id,
         "action": args.action,
     }
     if chain_id:
         moderation_data["chain_id"] = chain_id
-    
+
     logger.info(f"Moderating message {args.message_id} on {rpc_url}...")
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/moderate", json=moderation_data, headers=headers, timeout=30)

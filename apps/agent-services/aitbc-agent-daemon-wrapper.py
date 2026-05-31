@@ -5,16 +5,16 @@ Supports multichain by spawning daemon instances for each configured chain
 Also supports Hermes API polling for agent messaging
 """
 
-import sys
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 # Add aitbc to path
 sys.path.insert(0, str(Path("/opt/aitbc")))
 sys.path.insert(0, str(Path("/opt/aitbc/aitbc")))
 
-from aitbc import ENV_FILE, NODE_ENV_FILE, REPO_DIR, DATA_DIR, LOG_DIR, KEYSTORE_DIR
+from aitbc import DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, REPO_DIR
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
@@ -35,7 +35,7 @@ if enable_hermes and hermes_agent_ids:
     hermes_daemon_script = f"{REPO_DIR}/apps/agent-coordinator/scripts/hermes_polling_daemon.py"
     hermes_service_url = os.getenv("HERMES_SERVICE_URL", "http://localhost:8014")
     agent_ids = [aid.strip() for aid in hermes_agent_ids.split(",")]
-    
+
     for agent_id in agent_ids:
         cmd = [
             "/opt/aitbc/venv/bin/python",
@@ -87,7 +87,7 @@ if processes or len(chains) > 1:
         print(f"Starting blockchain agent daemon for chain: {chain_id}")
         proc = subprocess.Popen(cmd)
         processes.append(proc)
-    
+
     # Wait for all processes
     try:
         for proc in processes:

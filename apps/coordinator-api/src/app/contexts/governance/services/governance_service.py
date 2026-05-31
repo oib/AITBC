@@ -5,11 +5,12 @@ Enhanced with multi-jurisdictional support and regional governance
 """
 
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from aitbc import get_logger
 from sqlmodel import Session, select
+
+from aitbc import get_logger
 
 logger = get_logger(__name__)
 
@@ -82,7 +83,7 @@ class GovernanceService:
         if total_power < 100.0:  # Arbitrary minimum threshold for example
             raise ValueError("Insufficient voting power to submit a proposal")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         voting_starts = data.get("voting_starts", now + timedelta(days=1))
         if isinstance(voting_starts, str):
             voting_starts = datetime.fromisoformat(voting_starts.replace('Z', '+00:00'))
@@ -123,7 +124,7 @@ class GovernanceService:
         if not proposal or not voter:
             raise ValueError("Proposal or Voter not found")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if proposal.status != ProposalStatus.ACTIVE or now < proposal.voting_starts or now > proposal.voting_ends:
             raise ValueError("Proposal is not currently active for voting")
 
@@ -170,7 +171,7 @@ class GovernanceService:
         if not proposal:
             raise ValueError("Proposal not found")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Draft -> Active
         if proposal.status == ProposalStatus.DRAFT and now >= proposal.voting_starts:
@@ -238,7 +239,7 @@ class GovernanceService:
                     raise ValueError("Insufficient funds in DAO Treasury for execution")
 
         proposal.status = ProposalStatus.EXECUTED
-        proposal.executed_at = datetime.now(timezone.utc)
+        proposal.executed_at = datetime.now(UTC)
 
         self.session.add(proposal)
         self.session.commit()
@@ -298,7 +299,7 @@ class GovernanceService:
             "reputation_multiplier": reputation_multiplier,
             "total_staked": 0.0,
             "stakers_count": 0,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
         return pool
 
@@ -343,7 +344,7 @@ class GovernanceService:
             "pool_id": pool_id,
             "total_distributed": 75000.0,
             "stakers_rewarded": 500,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     # Regional Council Methods
@@ -360,7 +361,7 @@ class GovernanceService:
             "council_members": council_members,
             "budget_allocation": budget_allocation,
             "budget_spent": 0.0,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
         return council
 
@@ -402,7 +403,7 @@ class GovernanceService:
             "amount_requested": amount_requested,
             "proposer_address": proposer_address,
             "status": "pending",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
         return proposal
 
@@ -415,7 +416,7 @@ class GovernanceService:
             "voter_address": voter_address,
             "vote_type": vote_type.value,
             "voting_power": voting_power,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     # Treasury Methods
@@ -442,7 +443,7 @@ class GovernanceService:
             "recipient_address": recipient_address,
             "approver_address": approver_address,
             "status": "approved",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     async def get_treasury_transactions(
@@ -456,7 +457,7 @@ class GovernanceService:
                 "type": "allocation",
                 "amount": 10000.0,
                 "recipient": f"council_{i}",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
             for i in range(min(limit, 10))
         ]
@@ -512,5 +513,5 @@ class GovernanceService:
             "proposals_passed": 10,
             "voting_participation": 85.0,
             "treasury_balance": 1000000.0,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }

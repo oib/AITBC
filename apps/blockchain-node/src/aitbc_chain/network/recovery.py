@@ -5,13 +5,28 @@ Implements automatic network healing and recovery procedures
 
 import asyncio
 import time
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
 from .discovery import P2PDiscovery, PeerNode
 from .health import PeerHealthMonitor
 from .partition import NetworkPartitionManager, PartitionState
+import logging
+
+logger = logging.getLogger(__name__)
+
+def log_info(msg: str):
+    logger.info(msg)
+
+def log_error(msg: str):
+    logger.error(msg)
+
+def log_warn(msg: str):
+    logger.warning(msg)
+
+def log_debug(msg: str):
+    logger.debug(msg)
 
 class RecoveryStrategy(Enum):
     AGGRESSIVE = "aggressive"

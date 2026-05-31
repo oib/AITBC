@@ -1,12 +1,11 @@
 import sys
 from pathlib import Path
-import json
 
 # Setup sys.path
 sys.path.insert(0, str(Path('/opt/aitbc/apps/blockchain-node/src')))
 
 from aitbc_chain.config import settings
-from aitbc_chain.mempool import init_mempool, get_mempool
+from aitbc_chain.mempool import get_mempool, init_mempool
 
 # Use development mempool backend configuration exactly like main node
 init_mempool(

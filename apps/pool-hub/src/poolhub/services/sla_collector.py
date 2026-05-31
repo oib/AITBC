@@ -4,23 +4,22 @@ Collects and tracks SLA metrics for miners including uptime, response time, job 
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
-from typing import Dict, List, Optional, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from aitbc import get_logger
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
+
 from ..models import (
+    CapacitySnapshot,
+    Feedback,
+    MatchResult,
     Miner,
     MinerStatus,
     SLAMetric,
     SLAViolation,
-    Feedback,
-    MatchRequest,
-    MatchResult,
-    CapacitySnapshot,
 )
 
 logger = get_logger(__name__)
@@ -43,7 +42,7 @@ class SLACollector:
         miner_id: str,
         metric_type: str,
         metric_value: float,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: dict[str, str] | None = None,
     ) -> SLAMetric:
         """Record an SLA metric for a miner"""
 
@@ -57,7 +56,7 @@ class SLACollector:
             metric_value=metric_value,
             threshold=threshold,
             is_violation=is_violation,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             meta_data=metadata or {},
         )
 
@@ -90,7 +89,7 @@ class SLACollector:
         # Calculate uptime based on last heartbeat
         if miner_status.last_heartbeat_at:
             time_since_heartbeat = (
-                datetime.now(timezone.utc) - miner_status.last_heartbeat_at
+                datetime.now(UTC) - miner_status.last_heartbeat_at
             ).total_seconds()
 
             # Consider miner down if no heartbeat for 5 minutes
@@ -113,7 +112,7 @@ class SLACollector:
 
         return uptime_pct
 
-    async def collect_response_time(self, miner_id: str) -> Optional[float]:
+    async def collect_response_time(self, miner_id: str) -> float | None:
         """Calculate average response time for a miner from match results"""
 
         # Get recent match results for this miner
@@ -146,14 +145,14 @@ class SLACollector:
 
         return avg_response_time
 
-    async def collect_completion_rate(self, miner_id: str) -> Optional[float]:
+    async def collect_completion_rate(self, miner_id: str) -> float | None:
         """Calculate job completion rate for a miner from feedback"""
 
         # Get recent feedback for this miner
         stmt = (
             select(Feedback)
             .where(Feedback.miner_id == miner_id)
-            .where(Feedback.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
+            .where(Feedback.created_at >= datetime.now(UTC) - timedelta(days=7))
             .order_by(Feedback.created_at.desc())
             .limit(100)
         )
@@ -176,7 +175,7 @@ class SLACollector:
 
         return completion_rate
 
-    async def collect_capacity_availability(self) -> Dict[str, Any]:
+    async def collect_capacity_availability(self) -> dict[str, Any]:
         """Collect capacity availability metrics across all miners"""
 
         # Get all miner statuses
@@ -206,7 +205,7 @@ class SLACollector:
             forecast_capacity=total_miners,  # Would be calculated from forecasting
             recommended_scaling="stable",
             scaling_reason="Capacity within normal range",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             meta_data={"method": "real_time_collection"},
         )
 
@@ -224,7 +223,7 @@ class SLACollector:
             "capacity_availability_pct": capacity_availability_pct,
         }
 
-    async def collect_all_miner_metrics(self) -> Dict[str, Any]:
+    async def collect_all_miner_metrics(self) -> dict[str, Any]:
         """Collect all SLA metrics for all miners"""
 
         # Get all miners
@@ -266,7 +265,7 @@ class SLACollector:
         stmt = (
             select(func.count(SLAViolation.id))
             .where(SLAViolation.resolved_at.is_(None))
-            .where(SLAViolation.created_at >= datetime.now(timezone.utc) - timedelta(hours=1))
+            .where(SLAViolation.created_at >= datetime.now(UTC) - timedelta(hours=1))
         )
         results["violations_detected"] = self.db.execute(stmt).scalar() or 0
 
@@ -278,11 +277,11 @@ class SLACollector:
         return results
 
     async def get_sla_metrics(
-        self, miner_id: Optional[str] = None, hours: int = 24
-    ) -> List[SLAMetric]:
+        self, miner_id: str | None = None, hours: int = 24
+    ) -> list[SLAMetric]:
         """Get SLA metrics for a miner or all miners"""
 
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
         stmt = select(SLAMetric).where(SLAMetric.timestamp >= cutoff)
 
@@ -294,8 +293,8 @@ class SLACollector:
         return (await self.db.execute(stmt)).scalars().all()
 
     async def get_sla_violations(
-        self, miner_id: Optional[str] = None, resolved: bool = False
-    ) -> List[SLAViolation]:
+        self, miner_id: str | None = None, resolved: bool = False
+    ) -> list[SLAViolation]:
         """Get SLA violations for a miner or all miners"""
 
         stmt = select(SLAViolation)
@@ -330,7 +329,7 @@ class SLACollector:
         metric_type: str,
         metric_value: float,
         threshold: float,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: dict[str, str] | None = None,
     ) -> SLAViolation:
         """Record an SLA violation"""
 
@@ -349,7 +348,7 @@ class SLACollector:
             metric_value=metric_value,
             threshold=threshold,
             violation_duration_ms=None,  # Will be updated when resolved
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             meta_data=metadata or {},
         )
 

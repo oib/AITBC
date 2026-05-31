@@ -3,8 +3,10 @@
 Quick Performance Test
 """
 
-import requests
 import time
+
+import requests
+
 
 def test_endpoint(url, headers=None):
     start = time.time()

@@ -2,15 +2,14 @@
 Tests for Billing Integration Service
 """
 
-import sys
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
-from sqlalchemy.orm import Session
 
-from poolhub.models import Miner, MatchRequest, MatchResult
+import pytest
+from poolhub.models import Miner
 from poolhub.services.billing_integration import BillingIntegration
+from sqlalchemy.orm import Session
 
 
 @pytest.fixture
@@ -47,9 +46,9 @@ async def test_record_usage(billing_integration: BillingIntegration):
         mock_response = AsyncMock()
         mock_response.json.return_value = {"status": "success", "id": "usage_123"}
         mock_response.raise_for_status = AsyncMock()
-        
+
         mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-        
+
         result = await billing_integration.record_usage(
             tenant_id="tenant_001",
             resource_type="gpu_hours",
@@ -57,7 +56,7 @@ async def test_record_usage(billing_integration: BillingIntegration):
             unit_price=Decimal("0.50"),
             job_id="job_123",
         )
-        
+
         assert result["status"] == "success"
 
 
@@ -68,38 +67,38 @@ async def test_record_usage_with_fallback_pricing(billing_integration: BillingIn
         mock_response = AsyncMock()
         mock_response.json.return_value = {"status": "success", "id": "usage_123"}
         mock_response.raise_for_status = AsyncMock()
-        
+
         mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-        
+
         result = await billing_integration.record_usage(
             tenant_id="tenant_001",
             resource_type="gpu_hours",
             quantity=Decimal("10.5"),
             # unit_price not provided
         )
-        
+
         assert result["status"] == "success"
 
 
 @pytest.mark.asyncio
 async def test_sync_miner_usage(billing_integration: BillingIntegration, sample_miner: Miner):
     """Test syncing usage for a specific miner"""
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(hours=24)
-    
+
     with patch("poolhub.services.billing_integration.httpx.AsyncClient") as mock_client:
         mock_response = AsyncMock()
         mock_response.json.return_value = {"status": "success", "id": "usage_123"}
         mock_response.raise_for_status = AsyncMock()
-        
+
         mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-        
+
         result = await billing_integration.sync_miner_usage(
             miner_id=sample_miner.miner_id,
             start_date=start_date,
             end_date=end_date,
         )
-        
+
         assert result["miner_id"] == sample_miner.miner_id
         assert result["tenant_id"] == sample_miner.miner_id
         assert "usage_records" in result
@@ -112,26 +111,26 @@ async def test_sync_all_miners_usage(billing_integration: BillingIntegration, sa
         mock_response = AsyncMock()
         mock_response.json.return_value = {"status": "success", "id": "usage_123"}
         mock_response.raise_for_status = AsyncMock()
-        
+
         mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-        
+
         result = await billing_integration.sync_all_miners_usage(hours_back=24)
-        
+
         assert result["miners_processed"] >= 1
         assert "total_usage_records" in result
 
 
 def test_collect_miner_usage(billing_integration: BillingIntegration, sample_miner: Miner):
     """Test collecting usage data for a miner"""
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(hours=24)
-    
+
     usage_data = billing_integration.db.run_sync(
         lambda sess: billing_integration._collect_miner_usage(
             sample_miner.miner_id, start_date, end_date
         )
     )
-    
+
     assert "gpu_hours" in usage_data
     assert "api_calls" in usage_data
     assert "compute_hours" in usage_data
@@ -147,11 +146,11 @@ async def test_get_billing_metrics(billing_integration: BillingIntegration):
             "by_resource": {"gpu_hours": {"cost": 50.0}},
         }
         mock_response.raise_for_status = AsyncMock()
-        
+
         mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-        
+
         metrics = await billing_integration.get_billing_metrics(hours=24)
-        
+
         assert "totals" in metrics
 
 
@@ -166,18 +165,18 @@ async def test_trigger_invoice_generation(billing_integration: BillingIntegratio
             "total_amount": 100.0,
         }
         mock_response.raise_for_status = AsyncMock()
-        
+
         mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-        
-        end_date = datetime.now(timezone.utc)
+
+        end_date = datetime.now(UTC)
         start_date = end_date - timedelta(days=30)
-        
+
         result = await billing_integration.trigger_invoice_generation(
             tenant_id="tenant_001",
             period_start=start_date,
             period_end=end_date,
         )
-        
+
         assert result["invoice_number"] == "INV-001"
 
 

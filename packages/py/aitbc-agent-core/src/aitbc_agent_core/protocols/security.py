@@ -9,7 +9,7 @@ from typing import Any
 
 class ISecurityManager(ABC):
     """Protocol for agent security management"""
-    
+
     @abstractmethod
     async def validate_operation(
         self,
@@ -27,7 +27,7 @@ class ISecurityManager(ABC):
             True if operation is authorized, False otherwise
         """
         ...
-    
+
     @abstractmethod
     async def audit_event(
         self,
@@ -46,7 +46,7 @@ class ISecurityManager(ABC):
 
 class IAuditor(ABC):
     """Protocol for agent auditing"""
-    
+
     @abstractmethod
     async def log_audit(
         self,

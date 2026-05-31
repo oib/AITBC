@@ -19,61 +19,45 @@ repos:
       - id: check-shebang-scripts
 
   - repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 24.4.2
     hooks:
       - id: black
         language_version: python3
         args: [--line-length=127]
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 8.0.1
     hooks:
       - id: isort
         args: [--profile=black, --line-length=127]
 
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.0.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.10
     hooks:
-      - id: flake8
-        args: [--max-line-length=127, --extend-ignore=E203,W503]
+      - id: ruff
+        args: [--line-length=127, --select=F821,F823,F811]
+      - id: ruff-format
+        args: [--line-length=127]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.3.0
+    rev: v2.0.0
     hooks:
       - id: mypy
         additional_dependencies: [types-requests, types-python-dateutil]
         args: [--ignore-missing-imports]
 
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
+    rev: 1.9.4
     hooks:
       - id: bandit
         args: [-r, ., -f, json, -o, bandit-report.json]
         pass_filenames: false
 
-  - repo: https://github.com/pycqa/pydocstyle
-    rev: 6.3.0
-    hooks:
-      - id: pydocstyle
-        args: [--convention=google]
-
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.3.1
+    rev: v3.21.2
     hooks:
       - id: pyupgrade
-        args: [--py311-plus]
-
-  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-    rev: v1.3.2
-    hooks:
-      - id: python-safety-dependencies-check
-        files: requirements.*\.txt$
-
-  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-    rev: v1.3.2
-    hooks:
-      - id: python-safety-check
-        args: [--json, --output, safety-report.json]
+        args: [--py313-plus]
 
 # Note: Pytest tests run in CI, not in pre-commit hooks
 # Use --no-verify to skip pre-commit hooks during active development

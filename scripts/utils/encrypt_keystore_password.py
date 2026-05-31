@@ -4,15 +4,17 @@ Encrypt keystore password file using AES-GCM encryption
 Uses the existing encryption suite from the wallet service
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add wallet service to path
 sys.path.insert(0, '/opt/aitbc/apps/wallet/src')
 
-from app.crypto.encryption import EncryptionSuite
 from secrets import token_bytes
+
+from app.crypto.encryption import EncryptionSuite
+
 
 def main():
     keystore_dir = Path('/var/lib/aitbc/keystore')
@@ -24,7 +26,7 @@ def main():
 
     # Read existing password if it exists
     if password_file.exists():
-        with open(password_file, 'r') as f:
+        with open(password_file) as f:
             password = f.read().strip()
     else:
         # Generate new secure password if none exists
@@ -56,7 +58,7 @@ def main():
 
     print(f"Encrypted keystore password saved to: {encrypted_file}")
     print(f"Original password file: {password_file} (will be removed)")
-    print(f"WARNING: Keep KEYSTORE_ENCRYPTION_PASSWORD secure - it's needed to decrypt")
+    print("WARNING: Keep KEYSTORE_ENCRYPTION_PASSWORD secure - it's needed to decrypt")
 
     # Remove clear text password file
     if password_file.exists():

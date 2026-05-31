@@ -1,13 +1,9 @@
 """Integration tests for agent registry service"""
 
-import pytest
-import sys
-import sys
 from pathlib import Path
-from fastapi.testclient import TestClient
-import os
-import tempfile
 
+import pytest
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
@@ -18,10 +14,10 @@ def reset_db():
     db_path = Path("agent_registry.db")
     if db_path.exists():
         db_path.unlink()
-    
+
     app.init_db()
     yield
-    
+
     # Clean up after test
     if db_path.exists():
         db_path.unlink()
@@ -82,7 +78,7 @@ def test_list_agents():
     """Test listing all agents"""
     import app
     client = TestClient(app.app)
-    
+
     # Register an agent first
     registration = app.AgentRegistration(
         name="Test Agent",
@@ -92,7 +88,7 @@ def test_list_agents():
         endpoint="http://localhost:8000"
     )
     client.post("/api/agents/register", json=registration.model_dump())
-    
+
     response = client.get("/api/agents")
     assert response.status_code == 200
     data = response.json()
@@ -104,7 +100,7 @@ def test_list_agents_with_type_filter():
     """Test listing agents filtered by type"""
     import app
     client = TestClient(app.app)
-    
+
     # Register agents
     registration1 = app.AgentRegistration(
         name="Trading Agent",
@@ -122,7 +118,7 @@ def test_list_agents_with_type_filter():
     )
     client.post("/api/agents/register", json=registration1.model_dump())
     client.post("/api/agents/register", json=registration2.model_dump())
-    
+
     response = client.get("/api/agents?agent_type=trading")
     assert response.status_code == 200
     data = response.json()
@@ -134,7 +130,7 @@ def test_list_agents_with_chain_filter():
     """Test listing agents filtered by chain"""
     import app
     client = TestClient(app.app)
-    
+
     # Register agents
     registration1 = app.AgentRegistration(
         name="Devnet Agent",
@@ -152,7 +148,7 @@ def test_list_agents_with_chain_filter():
     )
     client.post("/api/agents/register", json=registration1.model_dump())
     client.post("/api/agents/register", json=registration2.model_dump())
-    
+
     response = client.get("/api/agents?chain_id=ait-devnet")
     assert response.status_code == 200
     data = response.json()
@@ -164,7 +160,7 @@ def test_list_agents_with_capability_filter():
     """Test listing agents filtered by capability"""
     import app
     client = TestClient(app.app)
-    
+
     # Register agents
     registration = app.AgentRegistration(
         name="Trading Agent",
@@ -174,7 +170,7 @@ def test_list_agents_with_capability_filter():
         endpoint="http://localhost:8000"
     )
     client.post("/api/agents/register", json=registration.model_dump())
-    
+
     response = client.get("/api/agents?capability=trading")
     assert response.status_code == 200
     data = response.json()
@@ -186,7 +182,7 @@ def test_list_agents_empty():
     """Test listing agents when none exist"""
     import app
     client = TestClient(app.app)
-    
+
     response = client.get("/api/agents")
     assert response.status_code == 200
     data = response.json()

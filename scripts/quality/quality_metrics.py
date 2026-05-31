@@ -5,12 +5,11 @@ Tracks bug escape rate, test flakiness, and code review coverage
 """
 
 import json
-import subprocess
-import os
-import click
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
+
+import click
 
 
 class QualityMetricsTracker:
@@ -20,10 +19,10 @@ class QualityMetricsTracker:
         self.metrics_file = Path(metrics_file)
         self.metrics = self._load_metrics()
 
-    def _load_metrics(self) -> Dict[str, Any]:
+    def _load_metrics(self) -> dict[str, Any]:
         """Load existing metrics from file"""
         if self.metrics_file.exists():
-            with open(self.metrics_file, 'r') as f:
+            with open(self.metrics_file) as f:
                 return json.load(f)
         return {
             "bug_escape_rate": {"total_bugs": 0, "escaped_bugs": 0, "rate": 0.0},
@@ -84,7 +83,7 @@ class QualityMetricsTracker:
         if total > 0:
             self.metrics["code_review_coverage"]["rate"] = (reviewed / total) * 100
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current metrics"""
         return self.metrics
 
@@ -115,33 +114,33 @@ class QualityMetricsTracker:
 def main():
     """Main function for CLI usage"""
     import sys
-    
+
     tracker = QualityMetricsTracker()
-    
+
     if len(sys.argv) < 2:
         tracker.print_report()
         return
-    
+
     command = sys.argv[1]
-    
+
     if command == "bug":
         escaped = "--escaped" in sys.argv
         tracker.record_bug(escaped=escaped)
         click.echo(f"Recorded bug (escaped={escaped})")
-    
+
     elif command == "test":
         flaky = "--flaky" in sys.argv
         tracker.record_test_run(flaky=flaky)
         click.echo(f"Recorded test run (flaky={flaky})")
-    
+
     elif command == "pr":
         reviewed = "--reviewed" in sys.argv
         tracker.record_pr(reviewed=reviewed)
         click.echo(f"Recorded PR (reviewed={reviewed})")
-    
+
     elif command == "report":
         tracker.print_report()
-    
+
     else:
         click.echo(f"Unknown command: {command}")
         click.echo("Available commands: bug, test, pr, report")

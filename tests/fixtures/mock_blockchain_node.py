@@ -4,14 +4,12 @@ Mock blockchain node server for testing purposes.
 Implements the minimal API endpoints required by the test suite.
 """
 
-import json
-import threading
 import time
-from typing import Dict, Any
+from typing import Any
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-import uvicorn
 
 # Create FastAPI app
 app = FastAPI(title="Mock Blockchain Node", version="0.1.0")
@@ -52,24 +50,24 @@ async def get_balance(address: str):
     return JSONResponse({"balance": balance})
 
 @app.post("/rpc/admin/mintFaucet")
-async def mint_faucet(request: Dict[str, Any]):
+async def mint_faucet(request: dict[str, Any]):
     """Mint tokens to an address (devnet only)"""
     address = request.get("address")
     amount = request.get("amount", 0)
-    
+
     if address in mock_chain_state["balances"]:
         mock_chain_state["balances"][address] += amount
     else:
         mock_chain_state["balances"][address] = amount
-    
+
     return JSONResponse({"success": True, "new_balance": mock_chain_state["balances"][address]})
 
 @app.post("/rpc/sendTx")
-async def send_transaction(request: Dict[str, Any]):
+async def send_transaction(request: dict[str, Any]):
     """Send a transaction"""
     # Generate mock transaction hash
     tx_hash = f"0x{hash(str(request)) % 1000000000000000000000000000000000000000000000000000000000000000:x}"
-    
+
     # Add to transactions list
     mock_chain_state["transactions"].append({
         "hash": tx_hash,
@@ -77,7 +75,7 @@ async def send_transaction(request: Dict[str, Any]):
         "sender": request.get("sender"),
         "timestamp": time.time()
     })
-    
+
     return JSONResponse({"tx_hash": tx_hash, "status": "pending"})
 
 @app.get("/health")

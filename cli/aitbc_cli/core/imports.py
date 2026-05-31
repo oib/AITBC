@@ -3,6 +3,7 @@
 import sys
 from pathlib import Path
 
+
 def ensure_coordinator_api_imports():
     """Ensure coordinator-api src directory is on sys.path."""
     _src_path = Path(__file__).resolve().parent.parent.parent / 'apps' / 'coordinator-api' / 'src'

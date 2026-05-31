@@ -3,14 +3,14 @@ Governance Service domain models
 """
 
 from .governance import (
-    ProposalStatus,
-    VoteType,
-    GovernanceRole,
-    GovernanceProfile,
-    Proposal,
-    Vote,
     DaoTreasury,
+    GovernanceProfile,
+    GovernanceRole,
+    Proposal,
+    ProposalStatus,
     TransparencyReport,
+    Vote,
+    VoteType,
 )
 
 __all__ = [

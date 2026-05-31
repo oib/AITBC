@@ -5,6 +5,7 @@ AITBC CLI System Architect Command
 
 import click
 
+
 @click.group()
 def system_architect():
     """System architecture analysis and FHS compliance management"""

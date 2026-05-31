@@ -6,18 +6,18 @@ Provides health monitoring for reinforcement learning frameworks
 """
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from aitbc import get_logger
-from ...ai_analytics.services.ai_analytics.adaptive_learning import AdaptiveLearningService
 from ....storage import get_session
+from ...ai_analytics.services.ai_analytics.adaptive_learning import AdaptiveLearningService
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,7 @@ async def adaptive_learning_health(request: Request, session: Annotated[Session,
             "status": "healthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -100,7 +100,7 @@ async def adaptive_learning_health(request: Request, session: Annotated[Session,
             "status": "unhealthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -181,7 +181,7 @@ async def adaptive_learning_deep_health(request: Request, session: Annotated[Ses
             "status": "healthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "algorithm_tests": algorithm_tests,
             "safety_tests": safety_tests,
             "overall_health": (
@@ -200,6 +200,6 @@ async def adaptive_learning_deep_health(request: Request, session: Annotated[Ses
             "status": "unhealthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Deep health check failed",
         }

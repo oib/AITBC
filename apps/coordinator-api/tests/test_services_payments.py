@@ -2,8 +2,9 @@
 Tests for payments service
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 @pytest.mark.unit
@@ -24,7 +25,7 @@ class TestPaymentsService:
 
         # Import and test
         from app.services.payments import create_payment
-        
+
         result = create_payment({"amount": 100.0, "recipient": "wallet123"})
         assert result["id"] == "payment1"
         assert result["status"] == "pending"
@@ -43,6 +44,6 @@ class TestPaymentsService:
 
         # Import and test
         from app.services.payments import get_payment_status
-        
+
         result = get_payment_status("payment1")
         assert result["status"] == "completed"

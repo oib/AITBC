@@ -1,9 +1,10 @@
 """Coordinator API action handler for triggering hermes agent actions."""
 
-from typing import Any, Dict, List, Optional
-from aitbc.network.http_client import AsyncAITBCHTTPClient
+from typing import Any
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 
 logger = get_logger(__name__)
 
@@ -11,13 +12,13 @@ logger = get_logger(__name__)
 class CoordinatorAPIHandler:
     """Handles actions that trigger coordinator API endpoints."""
 
-    def __init__(self, base_url: str, api_key: Optional[str] = None) -> None:
+    def __init__(self, base_url: str, api_key: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        self._client: Optional[AsyncAITBCHTTPClient] = None
+        self._client: AsyncAITBCHTTPClient | None = None
         self._headers = headers
 
     async def _get_client(self) -> AsyncAITBCHTTPClient:
@@ -34,7 +35,7 @@ class CoordinatorAPIHandler:
         """Close HTTP client."""
         self._client = None
 
-    async def handle_block(self, block_data: Dict[str, Any], transactions: List[Dict[str, Any]]) -> None:
+    async def handle_block(self, block_data: dict[str, Any], transactions: list[dict[str, Any]]) -> None:
         """Handle a new block by triggering coordinator API actions."""
         logger.info(f"Handling block {block_data.get('height')} with {len(transactions)} transactions")
 
@@ -42,7 +43,7 @@ class CoordinatorAPIHandler:
         for tx in transactions:
             await self.handle_transaction(tx)
 
-    async def handle_transaction(self, tx_data: Dict[str, Any]) -> None:
+    async def handle_transaction(self, tx_data: dict[str, Any]) -> None:
         """Handle a single transaction."""
         tx_type = tx_data.get("type", "unknown")
         tx_hash = tx_data.get("hash", "unknown")
@@ -57,7 +58,7 @@ class CoordinatorAPIHandler:
         elif tx_type == "marketplace":
             await self._trigger_marketplace_update(tx_data)
 
-    async def _trigger_ai_job_processing(self, tx_data: Dict[str, Any]) -> None:
+    async def _trigger_ai_job_processing(self, tx_data: dict[str, Any]) -> None:
         """Trigger AI job processing via coordinator API."""
         try:
             client = await self._get_client()
@@ -76,7 +77,7 @@ class CoordinatorAPIHandler:
         except Exception as e:
             logger.error(f"Error triggering AI job processing: {e}", exc_info=True)
 
-    async def _trigger_agent_message_processing(self, tx_data: Dict[str, Any]) -> None:
+    async def _trigger_agent_message_processing(self, tx_data: dict[str, Any]) -> None:
         """Trigger agent message processing via coordinator API."""
         try:
             client = await self._get_client()
@@ -98,7 +99,7 @@ class CoordinatorAPIHandler:
         except Exception as e:
             logger.error(f"Error triggering agent message processing: {e}", exc_info=True)
 
-    async def _trigger_marketplace_update(self, tx_data: Dict[str, Any]) -> None:
+    async def _trigger_marketplace_update(self, tx_data: dict[str, Any]) -> None:
         """Trigger marketplace state update via coordinator API."""
         try:
             client = await self._get_client()

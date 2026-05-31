@@ -6,10 +6,11 @@ Test if transactions are displaying on the explorer
 import requests
 from bs4 import BeautifulSoup
 
+
 def main():
     print("🔍 Testing Transaction Display on Explorer")
     print("=" * 60)
-    
+
     # Check API has transactions
     print("\n1. Checking API for transactions...")
     try:
@@ -17,10 +18,10 @@ def main():
         if response.status_code == 200:
             data = response.json()
             print(f"✅ API has {len(data['items'])} transactions")
-            
+
             if data['items']:
                 first_tx = data['items'][0]
-                print(f"\n   First transaction:")
+                print("\n   First transaction:")
                 print(f"   Hash: {first_tx['hash']}")
                 print(f"   From: {first_tx['from']}")
                 print(f"   To: {first_tx.get('to', 'null')}")
@@ -32,20 +33,20 @@ def main():
     except Exception as e:
         print(f"❌ Error: {e}")
         return
-    
+
     # Check explorer page
     print("\n2. Checking explorer page...")
     try:
         response = requests.get("https://aitbc.bubuit.net/explorer/#/transactions")
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            
+
             # Check if it says "mock data"
             if "mock data" in soup.text.lower():
                 print("❌ Page still shows 'mock data' message")
             else:
                 print("✅ No 'mock data' message found")
-            
+
             # Check for transactions table
             table = soup.find('tbody', {'id': 'transactions-table-body'})
             if table:
@@ -65,7 +66,7 @@ def main():
             print(f"❌ Failed to load page: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     print("\n" + "=" * 60)
     print("\n💡 If transactions aren't showing, it might be because:")
     print("   1. JavaScript is still loading")

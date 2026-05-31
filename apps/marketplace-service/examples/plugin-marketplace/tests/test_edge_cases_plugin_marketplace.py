@@ -1,13 +1,9 @@
 """Edge case and error handling tests for plugin marketplace service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-
-
-from main import app, MarketplaceReview, PluginPurchase, DeveloperApplication, reviews, purchases, developer_applications
+from main import DeveloperApplication, MarketplaceReview, PluginPurchase, app, developer_applications, purchases, reviews
 
 
 @pytest.fixture(autouse=True)
@@ -124,7 +120,7 @@ def test_get_recent_plugins_with_limit():
 def test_create_multiple_reviews():
     """Test creating multiple reviews for same plugin"""
     client = TestClient(app)
-    
+
     for i in range(3):
         review = MarketplaceReview(
             plugin_id="plugin_123",
@@ -134,7 +130,7 @@ def test_create_multiple_reviews():
             content="Excellent"
         )
         client.post("/api/v1/reviews", json=review.model_dump())
-    
+
     response = client.get("/api/v1/reviews/plugin_123")
     assert response.status_code == 200
     data = response.json()
@@ -145,7 +141,7 @@ def test_create_multiple_reviews():
 def test_create_multiple_purchases():
     """Test creating multiple purchases for same plugin"""
     client = TestClient(app)
-    
+
     for i in range(3):
         purchase = PluginPurchase(
             plugin_id="plugin_123",
@@ -154,7 +150,7 @@ def test_create_multiple_purchases():
             payment_method="credit_card"
         )
         client.post("/api/v1/purchases", json=purchase.model_dump())
-    
+
     response = client.get("/api/v1/revenue/revenue_sharing")
     assert response.status_code == 200
 

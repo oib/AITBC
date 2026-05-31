@@ -3,17 +3,16 @@ Regression tests for agent_communication.py
 These tests capture current behavior before extracting shared logic.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
 
+import pytest
 from app.services.agent_communication import (
-    MessageType,
     ChannelType,
-    MessageStatus,
+    CommunicationChannel,
     EncryptionType,
     Message,
-    CommunicationChannel,
+    MessageStatus,
+    MessageType,
 )
 
 
@@ -86,9 +85,9 @@ class TestMessage:
             encryption_key=b"key",
             encryption_type=EncryptionType.AES256,
             size=12,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(UTC)
         )
-        
+
         assert msg.id == "msg_123"
         assert msg.sender == "agent1"
         assert msg.recipient == "agent2"
@@ -109,7 +108,7 @@ class TestMessage:
 
     def test_message_with_optional_fields(self):
         """Test creating a message with optional fields set"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         msg = Message(
             id="msg_456",
             sender="agent1",
@@ -130,7 +129,7 @@ class TestMessage:
             reply_to="msg_123",
             thread_id="thread_1"
         )
-        
+
         assert msg.delivery_timestamp is not None
         assert msg.read_timestamp is not None
         assert msg.status == MessageStatus.READ
@@ -148,7 +147,7 @@ class TestCommunicationChannel:
 
     def test_channel_creation(self):
         """Test creating a communication channel with default values"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         channel = CommunicationChannel(
             id="channel_123",
             agent1="agent1",
@@ -159,7 +158,7 @@ class TestCommunicationChannel:
             last_activity=now,
             message_count=0
         )
-        
+
         assert channel.id == "channel_123"
         assert channel.agent1 == "agent1"
         assert channel.agent2 == "agent2"
@@ -171,7 +170,7 @@ class TestCommunicationChannel:
 
     def test_channel_with_optional_fields(self):
         """Test creating a channel with optional fields set"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         channel = CommunicationChannel(
             id="channel_456",
             agent1="agent1",
@@ -184,7 +183,7 @@ class TestCommunicationChannel:
             participants=["agent1", "agent2", "agent3"],
             encryption_enabled=False
         )
-        
+
         assert channel.channel_type == ChannelType.GROUP
         assert channel.message_count == 10
         assert channel.participants == ["agent1", "agent2", "agent3"]

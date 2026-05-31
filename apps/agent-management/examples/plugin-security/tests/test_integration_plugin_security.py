@@ -1,14 +1,9 @@
 """Integration tests for plugin security service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
-
-
-from main import app, SecurityScan, scan_reports, security_policies, scan_queue, vulnerability_database
+from main import SecurityScan, app, scan_queue, scan_reports, security_policies, vulnerability_database
 
 
 @pytest.fixture(autouse=True)
@@ -80,7 +75,7 @@ def test_get_scan_status_queued():
     )
     scan_response = client.post("/api/v1/security/scan", json=scan.model_dump())
     scan_id = scan_response.json()["scan_id"]
-    
+
     response = client.get(f"/api/v1/security/scan/{scan_id}")
     assert response.status_code == 200
     data = response.json()
@@ -189,7 +184,7 @@ def test_get_security_dashboard():
 def test_scan_priority_queueing():
     """Test that scans are queued by priority"""
     client = TestClient(app)
-    
+
     # Add low priority scan
     scan_low = SecurityScan(
         plugin_id="plugin_low",
@@ -199,7 +194,7 @@ def test_scan_priority_queueing():
         priority="low"
     )
     client.post("/api/v1/security/scan", json=scan_low.model_dump())
-    
+
     # Add critical priority scan
     scan_critical = SecurityScan(
         plugin_id="plugin_critical",
@@ -210,7 +205,7 @@ def test_scan_priority_queueing():
     )
     response = client.post("/api/v1/security/scan", json=scan_critical.model_dump())
     scan_id = response.json()["scan_id"]
-    
+
     # Critical scan should be at position 1
     response = client.get(f"/api/v1/security/scan/{scan_id}")
     data = response.json()

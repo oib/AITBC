@@ -6,19 +6,14 @@ that automatically selects the best available backend and provides
 a unified API for ZK operations.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Any, Tuple, Union
 import logging
 import time
 from dataclasses import dataclass
+from typing import Any
 
-from .compute_provider import (
-    ComputeManager, ComputeBackend, ComputeDevice, 
-    ComputeTask, ComputeResult
-)
-from .cuda_provider import CUDAComputeProvider
-from .cpu_provider import CPUComputeProvider
-from .apple_silicon_provider import AppleSiliconComputeProvider
+import numpy as np
+
+from .compute_provider import ComputeBackend, ComputeDevice, ComputeManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -31,7 +26,7 @@ class ZKOperationConfig:
     use_gpu: bool = True
     fallback_to_cpu: bool = True
     timeout: float = 30.0
-    memory_limit: Optional[int] = None  # in bytes
+    memory_limit: int | None = None  # in bytes
 
 
 class GPUAccelerationManager:
@@ -41,8 +36,8 @@ class GPUAccelerationManager:
     This class provides a clean interface for ZK operations that automatically
     selects the best available compute backend (CUDA, Apple Silicon, CPU).
     """
-    
-    def __init__(self, backend: Optional[ComputeBackend] = None, config: Optional[ZKOperationConfig] = None):
+
+    def __init__(self, backend: ComputeBackend | None = None, config: ZKOperationConfig | None = None):
         """
         Initialize the GPU acceleration manager.
         
@@ -54,7 +49,7 @@ class GPUAccelerationManager:
         self.compute_manager = ComputeManager(backend)
         self.initialized = False
         self.backend_info = {}
-        
+
         # Performance tracking
         self.operation_stats = {
             "field_add": {"count": 0, "total_time": 0.0, "errors": 0},
@@ -63,7 +58,7 @@ class GPUAccelerationManager:
             "multi_scalar_mul": {"count": 0, "total_time": 0.0, "errors": 0},
             "pairing": {"count": 0, "total_time": 0.0, "errors": 0}
         }
-    
+
     def initialize(self) -> bool:
         """Initialize the GPU acceleration manager."""
         try:
@@ -72,21 +67,21 @@ class GPUAccelerationManager:
                 self.initialized = True
                 self.backend_info = self.compute_manager.get_backend_info()
                 logger.info(f"GPU Acceleration Manager initialized with {self.backend_info['backend']} backend")
-                
+
                 # Log device information
                 devices = self.compute_manager.get_provider().get_available_devices()
                 for device in devices:
                     logger.info(f"  Device {device.device_id}: {device.name} ({device.backend.value})")
-                
+
                 return True
             else:
                 logger.error("Failed to initialize GPU acceleration manager")
                 return False
-                
+
         except Exception as e:
             logger.error(f"GPU acceleration manager initialization failed: {e}")
             return False
-    
+
     def shutdown(self) -> None:
         """Shutdown the GPU acceleration manager."""
         try:
@@ -95,28 +90,28 @@ class GPUAccelerationManager:
             logger.info("GPU Acceleration Manager shutdown complete")
         except Exception as e:
             logger.error(f"GPU acceleration manager shutdown failed: {e}")
-    
-    def get_backend_info(self) -> Dict[str, Any]:
+
+    def get_backend_info(self) -> dict[str, Any]:
         """Get information about the current backend."""
         if self.initialized:
             return self.backend_info
         return {"error": "Manager not initialized"}
-    
-    def get_available_devices(self) -> List[ComputeDevice]:
+
+    def get_available_devices(self) -> list[ComputeDevice]:
         """Get list of available compute devices."""
         if self.initialized:
             return self.compute_manager.get_provider().get_available_devices()
         return []
-    
+
     def set_device(self, device_id: int) -> bool:
         """Set the active compute device."""
         if self.initialized:
             return self.compute_manager.get_provider().set_device(device_id)
         return False
-    
+
     # High-level ZK operations with automatic fallback
-    
-    def field_add(self, a: np.ndarray, b: np.ndarray, result: Optional[np.ndarray] = None) -> np.ndarray:
+
+    def field_add(self, a: np.ndarray, b: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform field addition with automatic backend selection.
         
@@ -130,36 +125,36 @@ class GPUAccelerationManager:
         """
         if not self.initialized:
             raise RuntimeError("GPU acceleration manager not initialized")
-        
+
         if result is None:
             result = np.zeros_like(a)
-        
+
         start_time = time.time()
         operation = "field_add"
-        
+
         try:
             provider = self.compute_manager.get_provider()
             success = provider.zk_field_add(a, b, result)
-            
+
             if not success and self.config.fallback_to_cpu:
                 # Fallback to CPU operations
                 logger.warning("GPU field add failed, falling back to CPU")
                 np.add(a, b, out=result, dtype=result.dtype)
                 success = True
-            
+
             if success:
                 self._update_stats(operation, time.time() - start_time, False)
                 return result
             else:
                 self._update_stats(operation, time.time() - start_time, True)
                 raise RuntimeError("Field addition failed")
-                
+
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
             logger.error(f"Field addition failed: {e}")
             raise
-    
-    def field_mul(self, a: np.ndarray, b: np.ndarray, result: Optional[np.ndarray] = None) -> np.ndarray:
+
+    def field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform field multiplication with automatic backend selection.
         
@@ -173,36 +168,36 @@ class GPUAccelerationManager:
         """
         if not self.initialized:
             raise RuntimeError("GPU acceleration manager not initialized")
-        
+
         if result is None:
             result = np.zeros_like(a)
-        
+
         start_time = time.time()
         operation = "field_mul"
-        
+
         try:
             provider = self.compute_manager.get_provider()
             success = provider.zk_field_mul(a, b, result)
-            
+
             if not success and self.config.fallback_to_cpu:
                 # Fallback to CPU operations
                 logger.warning("GPU field mul failed, falling back to CPU")
                 np.multiply(a, b, out=result, dtype=result.dtype)
                 success = True
-            
+
             if success:
                 self._update_stats(operation, time.time() - start_time, False)
                 return result
             else:
                 self._update_stats(operation, time.time() - start_time, True)
                 raise RuntimeError("Field multiplication failed")
-                
+
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
             logger.error(f"Field multiplication failed: {e}")
             raise
-    
-    def field_inverse(self, a: np.ndarray, result: Optional[np.ndarray] = None) -> np.ndarray:
+
+    def field_inverse(self, a: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform field inversion with automatic backend selection.
         
@@ -215,17 +210,17 @@ class GPUAccelerationManager:
         """
         if not self.initialized:
             raise RuntimeError("GPU acceleration manager not initialized")
-        
+
         if result is None:
             result = np.zeros_like(a)
-        
+
         start_time = time.time()
         operation = "field_inverse"
-        
+
         try:
             provider = self.compute_manager.get_provider()
             success = provider.zk_field_inverse(a, result)
-            
+
             if not success and self.config.fallback_to_cpu:
                 # Fallback to CPU operations
                 logger.warning("GPU field inverse failed, falling back to CPU")
@@ -235,24 +230,24 @@ class GPUAccelerationManager:
                     else:
                         result[i] = 0
                 success = True
-            
+
             if success:
                 self._update_stats(operation, time.time() - start_time, False)
                 return result
             else:
                 self._update_stats(operation, time.time() - start_time, True)
                 raise RuntimeError("Field inversion failed")
-                
+
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
             logger.error(f"Field inversion failed: {e}")
             raise
-    
+
     def multi_scalar_mul(
         self,
-        scalars: List[np.ndarray],
-        points: List[np.ndarray],
-        result: Optional[np.ndarray] = None
+        scalars: list[np.ndarray],
+        points: list[np.ndarray],
+        result: np.ndarray | None = None
     ) -> np.ndarray:
         """
         Perform multi-scalar multiplication with automatic backend selection.
@@ -267,20 +262,20 @@ class GPUAccelerationManager:
         """
         if not self.initialized:
             raise RuntimeError("GPU acceleration manager not initialized")
-        
+
         if len(scalars) != len(points):
             raise ValueError("Number of scalars must match number of points")
-        
+
         if result is None:
             result = np.zeros_like(points[0])
-        
+
         start_time = time.time()
         operation = "multi_scalar_mul"
-        
+
         try:
             provider = self.compute_manager.get_provider()
             success = provider.zk_multi_scalar_mul(scalars, points, result)
-            
+
             if not success and self.config.fallback_to_cpu:
                 # Fallback to CPU operations
                 logger.warning("GPU multi-scalar mul failed, falling back to CPU")
@@ -289,20 +284,20 @@ class GPUAccelerationManager:
                     temp = np.multiply(scalar, point, dtype=result.dtype)
                     np.add(result, temp, out=result, dtype=result.dtype)
                 success = True
-            
+
             if success:
                 self._update_stats(operation, time.time() - start_time, False)
                 return result
             else:
                 self._update_stats(operation, time.time() - start_time, True)
                 raise RuntimeError("Multi-scalar multiplication failed")
-                
+
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
             logger.error(f"Multi-scalar multiplication failed: {e}")
             raise
-    
-    def pairing(self, p1: np.ndarray, p2: np.ndarray, result: Optional[np.ndarray] = None) -> np.ndarray:
+
+    def pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform pairing operation with automatic backend selection.
         
@@ -316,38 +311,38 @@ class GPUAccelerationManager:
         """
         if not self.initialized:
             raise RuntimeError("GPU acceleration manager not initialized")
-        
+
         if result is None:
             result = np.zeros_like(p1)
-        
+
         start_time = time.time()
         operation = "pairing"
-        
+
         try:
             provider = self.compute_manager.get_provider()
             success = provider.zk_pairing(p1, p2, result)
-            
+
             if not success and self.config.fallback_to_cpu:
                 # Fallback to CPU operations
                 logger.warning("GPU pairing failed, falling back to CPU")
                 np.multiply(p1, p2, out=result, dtype=result.dtype)
                 success = True
-            
+
             if success:
                 self._update_stats(operation, time.time() - start_time, False)
                 return result
             else:
                 self._update_stats(operation, time.time() - start_time, True)
                 raise RuntimeError("Pairing operation failed")
-                
+
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
             logger.error(f"Pairing operation failed: {e}")
             raise
-    
+
     # Batch operations
-    
-    def batch_field_add(self, operands: List[Tuple[np.ndarray, np.ndarray]]) -> List[np.ndarray]:
+
+    def batch_field_add(self, operands: list[tuple[np.ndarray, np.ndarray]]) -> list[np.ndarray]:
         """
         Perform batch field addition.
         
@@ -362,8 +357,8 @@ class GPUAccelerationManager:
             result = self.field_add(a, b)
             results.append(result)
         return results
-    
-    def batch_field_mul(self, operands: List[Tuple[np.ndarray, np.ndarray]]) -> List[np.ndarray]:
+
+    def batch_field_mul(self, operands: list[tuple[np.ndarray, np.ndarray]]) -> list[np.ndarray]:
         """
         Perform batch field multiplication.
         
@@ -378,34 +373,34 @@ class GPUAccelerationManager:
             result = self.field_mul(a, b)
             results.append(result)
         return results
-    
+
     # Performance and monitoring
-    
-    def benchmark_all_operations(self, iterations: int = 100) -> Dict[str, Dict[str, float]]:
+
+    def benchmark_all_operations(self, iterations: int = 100) -> dict[str, dict[str, float]]:
         """Benchmark all supported operations."""
         if not self.initialized:
             return {"error": "Manager not initialized"}
-        
+
         results = {}
         provider = self.compute_manager.get_provider()
-        
+
         operations = ["add", "mul", "inverse", "multi_scalar_mul", "pairing"]
         for op in operations:
             try:
                 results[op] = provider.benchmark_operation(op, iterations)
             except Exception as e:
                 results[op] = {"error": str(e)}
-        
+
         return results
-    
-    def get_performance_metrics(self) -> Dict[str, Any]:
+
+    def get_performance_metrics(self) -> dict[str, Any]:
         """Get comprehensive performance metrics."""
         if not self.initialized:
             return {"error": "Manager not initialized"}
-        
+
         # Get provider metrics
         provider_metrics = self.compute_manager.get_provider().get_performance_metrics()
-        
+
         # Add operation statistics
         operation_stats = {}
         for op, stats in self.operation_stats.items():
@@ -417,7 +412,7 @@ class GPUAccelerationManager:
                     "error_rate": stats["errors"] / stats["count"],
                     "operations_per_second": stats["count"] / stats["total_time"] if stats["total_time"] > 0 else 0
                 }
-        
+
         return {
             "backend": provider_metrics,
             "operations": operation_stats,
@@ -431,7 +426,7 @@ class GPUAccelerationManager:
                 }
             }
         }
-    
+
     def _update_stats(self, operation: str, execution_time: float, error: bool):
         """Update operation statistics."""
         if operation in self.operation_stats:
@@ -439,7 +434,7 @@ class GPUAccelerationManager:
             self.operation_stats[operation]["total_time"] += execution_time
             if error:
                 self.operation_stats[operation]["errors"] += 1
-    
+
     def reset_stats(self):
         """Reset operation statistics."""
         for stats in self.operation_stats.values():
@@ -450,7 +445,7 @@ class GPUAccelerationManager:
 
 # Convenience functions for easy usage
 
-def create_gpu_manager(backend: Optional[str] = None, **config_kwargs) -> GPUAccelerationManager:
+def create_gpu_manager(backend: str | None = None, **config_kwargs) -> GPUAccelerationManager:
     """
     Create a GPU acceleration manager with optional backend specification.
     
@@ -467,17 +462,17 @@ def create_gpu_manager(backend: Optional[str] = None, **config_kwargs) -> GPUAcc
             backend_enum = ComputeBackend(backend)
         except ValueError:
             logger.warning(f"Unknown backend '{backend}', using auto-detection")
-    
+
     config = ZKOperationConfig(**config_kwargs)
     manager = GPUAccelerationManager(backend_enum, config)
-    
+
     if not manager.initialize():
         raise RuntimeError("Failed to initialize GPU acceleration manager")
-    
+
     return manager
 
 
-def get_available_backends() -> List[str]:
+def get_available_backends() -> list[str]:
     """Get list of available compute backends."""
     from .compute_provider import ComputeProviderFactory
     backends = ComputeProviderFactory.get_available_backends()
@@ -495,16 +490,16 @@ def auto_detect_best_backend() -> str:
 
 class GPUAccelerationContext:
     """Context manager for GPU acceleration."""
-    
-    def __init__(self, backend: Optional[str] = None, **config_kwargs):
+
+    def __init__(self, backend: str | None = None, **config_kwargs):
         self.backend = backend
         self.config_kwargs = config_kwargs
         self.manager = None
-    
+
     def __enter__(self) -> GPUAccelerationManager:
         self.manager = create_gpu_manager(self.backend, **self.config_kwargs)
         return self.manager
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.manager:
             self.manager.shutdown()

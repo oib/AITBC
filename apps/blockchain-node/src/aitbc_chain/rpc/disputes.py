@@ -2,7 +2,8 @@
 Dispute-related RPC endpoints.
 """
 
-from typing import Any, Dict, List
+from typing import Any
+
 from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -12,22 +13,22 @@ from .auth import get_authenticated_address
 _logger = get_logger(__name__)
 
 # Import dispute resolution service and models
-from ..rpc.dispute_resolution_service import dispute_resolution_service
 from ..models.dispute import (
+    AuthorizeArbitratorRequest,
+    AuthorizeArbitratorResponse,
     FileDisputeRequest,
     FileDisputeResponse,
+    GetArbitrationVotesResponse,
+    GetDisputeResponse,
+    GetEvidenceResponse,
+    SubmitArbitrationVoteRequest,
+    SubmitArbitrationVoteResponse,
     SubmitEvidenceRequest,
     SubmitEvidenceResponse,
     VerifyEvidenceRequest,
     VerifyEvidenceResponse,
-    SubmitArbitrationVoteRequest,
-    SubmitArbitrationVoteResponse,
-    AuthorizeArbitratorRequest,
-    AuthorizeArbitratorResponse,
-    GetDisputeResponse,
-    GetEvidenceResponse,
-    GetArbitrationVotesResponse,
 )
+from ..rpc.dispute_resolution_service import dispute_resolution_service
 
 
 async def file_dispute(
@@ -41,7 +42,7 @@ async def file_dispute(
     """
     try:
         sender_address = get_authenticated_address(http_request, credentials)
-        
+
         result = dispute_resolution_service.file_dispute(
             agreement_id=request.agreement_id,
             respondent=request.respondent,
@@ -50,10 +51,10 @@ async def file_dispute(
             evidence_hash=request.evidence_hash,
             sender_address=sender_address
         )
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to file dispute"))
-        
+
         return FileDisputeResponse(
             success=True,
             dispute_id=result["dispute_id"],
@@ -78,17 +79,17 @@ async def submit_evidence(
     """
     try:
         submitter_address = get_authenticated_address(http_request, credentials)
-        
+
         result = dispute_resolution_service.submit_evidence(
             dispute_id=request.dispute_id,
             evidence_type=request.evidence_type,
             evidence_data=request.evidence_data,
             submitter_address=submitter_address
         )
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to submit evidence"))
-        
+
         return SubmitEvidenceResponse(
             success=True,
             evidence_id=result["evidence_id"],
@@ -113,7 +114,7 @@ async def verify_evidence(
     """
     try:
         arbitrator_address = get_authenticated_address(http_request, credentials)
-        
+
         result = dispute_resolution_service.verify_evidence(
             dispute_id=request.dispute_id,
             evidence_id=request.evidence_id,
@@ -121,10 +122,10 @@ async def verify_evidence(
             verification_score=request.verification_score,
             arbitrator_address=arbitrator_address
         )
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to verify evidence"))
-        
+
         return VerifyEvidenceResponse(
             success=True,
             status=result["status"],
@@ -180,16 +181,16 @@ async def authorize_arbitrator(
     """
     try:
         owner_address = get_authenticated_address(http_request, credentials)
-        
+
         result = dispute_resolution_service.authorize_arbitrator(
             arbitrator_address=request.arbitrator,
             reputation_score=request.reputation_score,
             owner_address=owner_address
         )
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to authorize arbitrator"))
-        
+
         return AuthorizeArbitratorResponse(
             success=True,
             status=result["status"],
@@ -202,17 +203,17 @@ async def authorize_arbitrator(
         raise HTTPException(status_code=500, detail=f"Failed to authorize arbitrator: {str(e)}")
 
 
-async def get_active_disputes() -> Dict[str, Any]:
+async def get_active_disputes() -> dict[str, Any]:
     """
     Get all active disputes.
     This retrieves information from the DisputeResolution smart contract.
     """
     try:
         result = dispute_resolution_service.get_active_disputes()
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to get active disputes"))
-        
+
         return result
     except HTTPException:
         raise
@@ -221,17 +222,17 @@ async def get_active_disputes() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to get active disputes: {str(e)}")
 
 
-async def get_authorized_arbitrators() -> Dict[str, Any]:
+async def get_authorized_arbitrators() -> dict[str, Any]:
     """
     Get all authorized arbitrators.
     This retrieves information from the DisputeResolution smart contract.
     """
     try:
         result = dispute_resolution_service.get_authorized_arbitrators()
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to get authorized arbitrators"))
-        
+
         return result
     except HTTPException:
         raise
@@ -240,17 +241,17 @@ async def get_authorized_arbitrators() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to get authorized arbitrators: {str(e)}")
 
 
-async def get_arbitrator_disputes(arbitrator_address: str) -> Dict[str, Any]:
+async def get_arbitrator_disputes(arbitrator_address: str) -> dict[str, Any]:
     """
     Get all disputes assigned to an arbitrator.
     This retrieves information from the DisputeResolution smart contract.
     """
     try:
         result = dispute_resolution_service.get_arbitrator_disputes(arbitrator_address)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to get arbitrator disputes"))
-        
+
         return result
     except HTTPException:
         raise
@@ -259,17 +260,17 @@ async def get_arbitrator_disputes(arbitrator_address: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to get arbitrator disputes: {str(e)}")
 
 
-async def get_user_disputes(user_address: str) -> Dict[str, Any]:
+async def get_user_disputes(user_address: str) -> dict[str, Any]:
     """
     Get all disputes for a specific user.
     This retrieves information from the DisputeResolution smart contract.
     """
     try:
         result = dispute_resolution_service.get_user_disputes(user_address)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to get user disputes"))
-        
+
         return result
     except HTTPException:
         raise
@@ -285,10 +286,10 @@ async def get_dispute(dispute_id: int) -> GetDisputeResponse:
     """
     try:
         result = dispute_resolution_service.get_dispute(dispute_id)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=404, detail=result.get("error", "Dispute not found"))
-        
+
         dispute_data = result["dispute"]
         return GetDisputeResponse(**dispute_data)
     except HTTPException:
@@ -298,17 +299,17 @@ async def get_dispute(dispute_id: int) -> GetDisputeResponse:
         raise HTTPException(status_code=500, detail=f"Failed to get dispute: {str(e)}")
 
 
-async def get_dispute_evidence(dispute_id: int) -> List[GetEvidenceResponse]:
+async def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
     """
     Get all evidence submitted for a dispute.
     This retrieves information from the DisputeResolution smart contract.
     """
     try:
         result = dispute_resolution_service.get_dispute_evidence(dispute_id)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to get dispute evidence"))
-        
+
         return [GetEvidenceResponse(**e) for e in result["evidence"]]
     except HTTPException:
         raise
@@ -317,17 +318,17 @@ async def get_dispute_evidence(dispute_id: int) -> List[GetEvidenceResponse]:
         raise HTTPException(status_code=500, detail=f"Failed to get dispute evidence: {str(e)}")
 
 
-async def get_arbitration_votes(dispute_id: int) -> List[GetArbitrationVotesResponse]:
+async def get_arbitration_votes(dispute_id: int) -> list[GetArbitrationVotesResponse]:
     """
     Get all arbitration votes for a dispute.
     This retrieves information from the DisputeResolution smart contract.
     """
     try:
         result = dispute_resolution_service.get_arbitration_votes(dispute_id)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to get arbitration votes"))
-        
+
         return [GetArbitrationVotesResponse(**v) for v in result["votes"]]
     except HTTPException:
         raise

@@ -1,5 +1,6 @@
-from typing import Annotated
 
+from sqlalchemy import or_
+from uuid import uuid4
 from sqlalchemy.orm import Session
 
 """
@@ -7,32 +8,26 @@ P2P Trading Protocol API Endpoints
 REST API for agent-to-agent trading, matching, negotiation, and settlement
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from sqlmodel import select
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from sqlmodel import select
-
 logger = get_logger(__name__)
 
 from ....domain.trading import (
-    NegotiationStatus,
-    SettlementType,
-    TradeAgreement,
     TradeMatch,
     TradeNegotiation,
     TradeRequest,
-    TradeSettlement,
-    TradeStatus,
     TradeType,
 )
-from ..services.trading_marketplace.trading import P2PTradingProtocol
 from ....storage import get_session
+from ..services.trading_marketplace.trading import P2PTradingProtocol
 
 router = APIRouter(prefix="/trading", tags=["trading"])
 
@@ -44,17 +39,17 @@ class TradeRequestRequest(BaseModel):
     trade_type: TradeType
     title: str = Field(..., max_length=200)
     description: str = Field(default="", max_length=1000)
-    requirements: Dict[str, Any] = Field(..., description="Trade requirements and specifications")
-    budget_range: Dict[str, float] = Field(..., description="Budget range with min and max")
-    start_time: Optional[str] = Field(default=None, description="Start time (ISO format)")
-    end_time: Optional[str] = Field(default=None, description="End time (ISO format)")
-    duration_hours: Optional[int] = Field(default=None, description="Duration in hours")
+    requirements: dict[str, Any] = Field(..., description="Trade requirements and specifications")
+    budget_range: dict[str, float] = Field(..., description="Budget range with min and max")
+    start_time: str | None = Field(default=None, description="Start time (ISO format)")
+    end_time: str | None = Field(default=None, description="End time (ISO format)")
+    duration_hours: int | None = Field(default=None, description="Duration in hours")
     urgency_level: str = Field(default="normal", description="urgency level")
-    preferred_regions: List[str] = Field(default_factory=list, description="Preferred regions")
-    excluded_regions: List[str] = Field(default_factory=list, description="Excluded regions")
+    preferred_regions: list[str] = Field(default_factory=list, description="Preferred regions")
+    excluded_regions: list[str] = Field(default_factory=list, description="Excluded regions")
     service_level_required: str = Field(default="standard", description="Service level required")
-    tags: List[str] = Field(default_factory=list, description="Trade tags")
-    expires_at: Optional[str] = Field(default=None, description="Expiration time (ISO format)")
+    tags: list[str] = Field(default_factory=list, description="Trade tags")
+    expires_at: str | None = Field(default=None, description="Expiration time (ISO format)")
 
 
 class TradeRequestResponse(BaseModel):
@@ -64,14 +59,14 @@ class TradeRequestResponse(BaseModel):
     trade_type: str
     title: str
     description: str
-    requirements: Dict[str, Any]
-    budget_range: Dict[str, float]
+    requirements: dict[str, Any]
+    budget_range: dict[str, float]
     status: str
     match_count: int
     best_match_score: float
     created_at: str
     updated_at: str
-    expires_at: Optional[str]
+    expires_at: str | None
 
 
 class TradeMatchResponse(BaseModel):
@@ -87,11 +82,11 @@ class TradeMatchResponse(BaseModel):
     timing_compatibility: float
     reputation_compatibility: float
     geographic_compatibility: float
-    seller_offer: Dict[str, Any]
-    proposed_terms: Dict[str, Any]
+    seller_offer: dict[str, Any]
+    proposed_terms: dict[str, Any]
     status: str
     created_at: str
-    expires_at: Optional[str]
+    expires_at: str | None
 
 
 class NegotiationRequest(BaseModel):
@@ -109,12 +104,12 @@ class NegotiationResponse(BaseModel):
     seller_agent_id: str
     status: str
     negotiation_round: int
-    current_terms: Dict[str, Any]
+    current_terms: dict[str, Any]
     negotiation_strategy: str
     auto_accept_threshold: float
     created_at: str
-    started_at: Optional[str]
-    expires_at: Optional[str]
+    started_at: str | None
+    expires_at: str | None
 
 
 class AgreementResponse(BaseModel):
@@ -125,14 +120,14 @@ class AgreementResponse(BaseModel):
     seller_agent_id: str
     trade_type: str
     title: str
-    agreed_terms: Dict[str, Any]
+    agreed_terms: dict[str, Any]
     total_price: float
     settlement_type: str
     status: str
     created_at: str
     signed_at: str
-    starts_at: Optional[str]
-    ends_at: Optional[str]
+    starts_at: str | None
+    ends_at: str | None
 
 
 class SettlementResponse(BaseModel):
@@ -143,13 +138,13 @@ class SettlementResponse(BaseModel):
     total_amount: float
     currency: str
     payment_status: str
-    transaction_id: Optional[str]
+    transaction_id: str | None
     platform_fee: float
     net_amount_seller: float
     status: str
     initiated_at: str
-    processed_at: Optional[str]
-    completed_at: Optional[str]
+    processed_at: str | None
+    completed_at: str | None
 
 
 class TradingSummaryResponse(BaseModel):
@@ -162,7 +157,7 @@ class TradingSummaryResponse(BaseModel):
     success_rate: float
     average_match_score: float
     total_trade_volume: float
-    recent_activity: Dict[str, Any]
+    recent_activity: dict[str, Any]
 
 
 # API Endpoints
@@ -175,22 +170,22 @@ async def create_trade_request(
     session: Session = Depends(get_session)
 ) -> TradeRequestResponse:
     """Create a new trade request"""
-    
+
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
-    
+
     try:
         # Parse optional datetime fields
         start_time = None
         end_time = None
         expires_at = None
-        
+
         if request_data.start_time:
             start_time = datetime.fromisoformat(request_data.start_time)
         if request_data.end_time:
             end_time = datetime.fromisoformat(request_data.end_time)
         if request_data.expires_at:
             expires_at = datetime.fromisoformat(request_data.expires_at)
-        
+
         # Create trade request
         trade_request = await trading_protocol.create_trade_request(
             buyer_agent_id=request_data.buyer_agent_id,
@@ -209,7 +204,7 @@ async def create_trade_request(
             tags=request_data.tags,
             expires_at=expires_at
         )
-        
+
         return TradeRequestResponse(
             request_id=trade_request.request_id,
             buyer_agent_id=trade_request.buyer_agent_id,
@@ -225,7 +220,7 @@ async def create_trade_request(
             updated_at=trade_request.updated_at.isoformat(),
             expires_at=trade_request.expires_at.isoformat() if trade_request.expires_at else None
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating trade request: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -239,15 +234,15 @@ async def get_trade_request(
     session: Session = Depends(get_session)
 ) -> TradeRequestResponse:
     """Get trade request details"""
-    
+
     try:
         trade_request = session.execute(
             select(TradeRequest).where(TradeRequest.request_id == request_id)
         ).first()
-        
+
         if not trade_request:
             raise HTTPException(status_code=404, detail="Trade request not found")
-        
+
         return TradeRequestResponse(
             request_id=trade_request.request_id,
             buyer_agent_id=trade_request.buyer_agent_id,
@@ -263,7 +258,7 @@ async def get_trade_request(
             updated_at=trade_request.updated_at.isoformat(),
             expires_at=trade_request.expires_at.isoformat() if trade_request.expires_at else None
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -277,15 +272,15 @@ async def find_matches(
     request: Request,
     request_id: str,
     session: Session = Depends(get_session)
-) -> List[str]:
+) -> list[str]:
     """Find matching sellers for a trade request"""
-    
+
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
-    
+
     try:
         matches = await trading_protocol.find_matches(request_id)
         return matches  # type: ignore[return-value]
-        
+
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -299,15 +294,15 @@ async def get_trade_matches(
     request: Request,
     request_id: str,
     session: Session = Depends(get_session)
-) -> List[TradeMatchResponse]:
+) -> list[TradeMatchResponse]:
     """Get trade matches for a request"""
-    
+
     try:
         matches = session.execute(
             select(TradeMatch).where(TradeMatch.request_id == request_id)
             .order_by(TradeMatch.match_score.desc())  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             TradeMatchResponse(
                 match_id=match.match_id,
@@ -329,7 +324,7 @@ async def get_trade_matches(
             )
             for match in matches
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting trade matches for request {request_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -343,16 +338,16 @@ async def initiate_negotiation(
     session: Session = Depends(get_session)
 ) -> NegotiationResponse:
     """Initiate negotiation between buyer and seller"""
-    
+
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
-    
+
     try:
         negotiation = await trading_protocol.initiate_negotiation(
             match_id=negotiation_data.match_id,
             initiator=negotiation_data.initiator,
             strategy=negotiation_data.strategy
         )
-        
+
         return NegotiationResponse(
             negotiation_id=negotiation.negotiation_id,
             match_id=negotiation.match_id,
@@ -367,7 +362,7 @@ async def initiate_negotiation(
             started_at=negotiation.started_at.isoformat() if negotiation.started_at else None,
             expires_at=negotiation.expires_at.isoformat() if negotiation.expires_at else None
         )
-        
+
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -383,15 +378,15 @@ async def get_negotiation(
     session: Session = Depends(get_session)
 ) -> NegotiationResponse:
     """Get negotiation details"""
-    
+
     try:
         negotiation = session.execute(
             select(TradeNegotiation).where(TradeNegotiation.negotiation_id == negotiation_id)
         ).first()
-        
+
         if not negotiation:
             raise HTTPException(status_code=404, detail="Negotiation not found")
-        
+
         return NegotiationResponse(
             negotiation_id=negotiation.negotiation_id,
             match_id=negotiation.match_id,
@@ -406,7 +401,7 @@ async def get_negotiation(
             started_at=negotiation.started_at.isoformat() if negotiation.started_at else None,
             expires_at=negotiation.expires_at.isoformat() if negotiation.expires_at else None
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -422,15 +417,15 @@ async def get_trade_match(
     session: Session = Depends(get_session)
 ) -> TradeMatchResponse:
     """Get trade match details"""
-    
+
     try:
         match = session.execute(
             select(TradeMatch).where(TradeMatch.match_id == match_id)
         ).first()
-        
+
         if not match:
             raise HTTPException(status_code=404, detail="Trade match not found")
-        
+
         return TradeMatchResponse(
             match_id=match.match_id,
             request_id=match.request_id,
@@ -449,7 +444,7 @@ async def get_trade_match(
             created_at=match.created_at.isoformat(),
             expires_at=match.expires_at.isoformat() if match.expires_at else None
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -465,14 +460,14 @@ async def get_trading_summary(
     session: Session = Depends(get_session)
 ) -> TradingSummaryResponse:
     """Get comprehensive trading summary for an agent"""
-    
+
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
-    
+
     try:
         summary = await trading_protocol.get_trading_summary(agent_id)
-        
+
         return TradingSummaryResponse(**summary)
-        
+
     except Exception as e:
         logger.error(f"Error getting trading summary for {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -482,28 +477,28 @@ async def get_trading_summary(
 @rate_limit(rate=200, per=60)
 async def list_trade_requests(
     request: Request,
-    agent_id: Optional[str] = Query(default=None, description="Filter by agent ID"),
-    trade_type: Optional[str] = Query(default=None, description="Filter by trade type"),
-    status: Optional[str] = Query(default=None, description="Filter by status"),
+    agent_id: str | None = Query(default=None, description="Filter by agent ID"),
+    trade_type: str | None = Query(default=None, description="Filter by trade type"),
+    status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session),
-) -> List[TradeRequestResponse]:
+) -> list[TradeRequestResponse]:
     """List trade requests with filters"""
-    
+
     try:
         query = select(TradeRequest)
-        
+
         if agent_id:
             query = query.where(TradeRequest.buyer_agent_id == agent_id)
         if trade_type:
             query = query.where(TradeRequest.trade_type == trade_type)
         if status:
             query = query.where(TradeRequest.status == status)
-        
+
         requests = session.execute(
             query.order_by(TradeRequest.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             TradeRequestResponse(
                 request_id=request.request_id,
@@ -522,7 +517,7 @@ async def list_trade_requests(
             )
             for request in requests
         ]
-        
+
     except Exception as e:
         logger.error(f"Error listing trade requests: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -532,17 +527,17 @@ async def list_trade_requests(
 @rate_limit(rate=200, per=60)
 async def list_trade_matches(
     request: Request,
-    agent_id: Optional[str] = Query(default=None, description="Filter by agent ID"),
-    min_score: Optional[float] = Query(default=None, description="Minimum match score"),
-    status: Optional[str] = Query(default=None, description="Filter by status"),
+    agent_id: str | None = Query(default=None, description="Filter by agent ID"),
+    min_score: float | None = Query(default=None, description="Minimum match score"),
+    status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[TradeMatchResponse]:
+) -> list[TradeMatchResponse]:
     """List trade matches with filters"""
-    
+
     try:
         query = select(TradeMatch)
-        
+
         if agent_id:
             query = query.where(
                 or_(  # type: ignore[name-defined]
@@ -554,11 +549,11 @@ async def list_trade_matches(
             query = query.where(TradeMatch.match_score >= min_score)
         if status:
             query = query.where(TradeMatch.status == status)
-        
+
         matches = session.execute(
             query.order_by(TradeMatch.match_score.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             TradeMatchResponse(
                 match_id=match.match_id,
@@ -580,7 +575,7 @@ async def list_trade_matches(
             )
             for match in matches
         ]
-        
+
     except Exception as e:
         logger.error(f"Error listing trade matches: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -590,17 +585,17 @@ async def list_trade_matches(
 @rate_limit(rate=200, per=60)
 async def list_negotiations(
     request: Request,
-    agent_id: Optional[str] = Query(default=None, description="Filter by agent ID"),
-    status: Optional[str] = Query(default=None, description="Filter by status"),
-    strategy: Optional[str] = Query(default=None, description="Filter by strategy"),
+    agent_id: str | None = Query(default=None, description="Filter by agent ID"),
+    status: str | None = Query(default=None, description="Filter by status"),
+    strategy: str | None = Query(default=None, description="Filter by strategy"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[NegotiationResponse]:
+) -> list[NegotiationResponse]:
     """List negotiations with filters"""
-    
+
     try:
         query = select(TradeNegotiation)
-        
+
         if agent_id:
             query = query.where(
                 or_(  # type: ignore[name-defined]
@@ -612,11 +607,11 @@ async def list_negotiations(
             query = query.where(TradeNegotiation.status == status)
         if strategy:
             query = query.where(TradeNegotiation.negotiation_strategy == strategy)
-        
+
         negotiations = session.execute(
             query.order_by(TradeNegotiation.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             NegotiationResponse(
                 negotiation_id=negotiation.negotiation_id,
@@ -634,7 +629,7 @@ async def list_negotiations(
             )
             for negotiation in negotiations
         ]
-        
+
     except Exception as e:
         logger.error(f"Error listing negotiations: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -645,12 +640,12 @@ async def list_negotiations(
 async def get_trading_analytics(
     request: Request,
     period_type: str = Query(default="daily", description="Period type: daily, weekly, monthly"),
-    start_date: Optional[str] = Query(default=None, description="Start date (ISO format)"),
-    end_date: Optional[str] = Query(default=None, description="End date (ISO format)"),
+    start_date: str | None = Query(default=None, description="Start date (ISO format)"),
+    end_date: str | None = Query(default=None, description="End date (ISO format)"),
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get P2P trading analytics"""
-    
+
     try:
         # Parse dates if provided
         start_dt = None
@@ -659,15 +654,15 @@ async def get_trading_analytics(
             start_dt = datetime.fromisoformat(start_date)
         if end_date:
             end_dt = datetime.fromisoformat(end_date)
-        
+
         if not start_dt:
-            start_dt = datetime.now(timezone.utc) - timedelta(days=30)
+            start_dt = datetime.now(UTC) - timedelta(days=30)
         if not end_dt:
-            end_dt = datetime.now(timezone.utc)
-        
+            end_dt = datetime.now(UTC)
+
         # Get analytics data (mock implementation)
         # In real implementation, this would query TradingAnalytics table
-        
+
         analytics = {
             "period_type": period_type,
             "start_date": start_dt.isoformat(),
@@ -700,9 +695,9 @@ async def get_trading_analytics(
                 "ap-northeast": 15
             }
         }
-        
+
         return analytics
-        
+
     except Exception as e:
         logger.error(f"Error getting trading analytics: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -714,11 +709,11 @@ async def simulate_trade_matching(
     request: Request,
     request_data: TradeRequestRequest,
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Simulate trade matching without creating actual request"""
-    
+
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
-    
+
     try:
         # Create temporary trade request for simulation
         temp_request = TradeRequest(
@@ -734,18 +729,18 @@ async def simulate_trade_matching(
             excluded_regions=request_data.excluded_regions,
             service_level_required=request_data.service_level_required
         )
-        
+
         # Get available sellers
         seller_offers = await trading_protocol.get_available_sellers(temp_request)
         seller_reputations = await trading_protocol.get_seller_reputations(
             [offer['agent_id'] for offer in seller_offers]
         )
-        
+
         # Find matches
         matches = trading_protocol.matching_engine.find_matches(
             temp_request, seller_offers, seller_reputations
         )
-        
+
         return {
             "simulation": True,
             "request_details": {
@@ -758,7 +753,7 @@ async def simulate_trade_matching(
             "best_matches": matches[:5],  # Top 5 matches
             "average_match_score": sum(m['match_score'] for m in matches) / len(matches) if matches else 0.0
         }
-        
+
     except Exception as e:
         logger.error(f"Error simulating trade matching: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")

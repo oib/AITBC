@@ -1,10 +1,7 @@
 """Shared configuration base for all AITBC services."""
 
-from pydantic import Field, field_validator
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional
-import os
-from pathlib import Path
 
 from aitbc.constants import DATA_DIR, LOG_DIR
 
@@ -13,7 +10,7 @@ class DatabaseConfig(BaseSettings):
     """Database configuration with adapter selection."""
 
     adapter: str = "sqlite"  # sqlite, postgresql
-    url: Optional[str] = None
+    url: str | None = None
     pool_size: int = 10
     max_overflow: int = 20
     pool_pre_ping: bool = True

@@ -8,12 +8,9 @@ import logging
 from click import echo, secho
 
 # Import new utility modules
-from . import wallet
-from . import blockchain
-from . import chain_id
-from . import island_credentials
+from . import blockchain, chain_id, island_credentials, wallet
+from .blockchain import get_blockchain_analytics, get_chain_info, get_network_status
 from .wallet import decrypt_private_key
-from .blockchain import get_chain_info, get_network_status, get_blockchain_analytics
 
 
 def output(message, format=None, title=None, **kwargs):

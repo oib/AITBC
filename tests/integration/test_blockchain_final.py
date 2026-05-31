@@ -3,8 +3,8 @@
 Final test and summary for blockchain nodes
 """
 
+
 import httpx
-import json
 
 # Node URLs
 NODES = {
@@ -16,12 +16,12 @@ def test_nodes():
     """Test both nodes"""
     print("🔗 AITBC Blockchain Node Test Summary")
     print("=" * 60)
-    
+
     results = []
-    
+
     for node_id, node in NODES.items():
         print(f"\n{node['name']}:")
-        
+
         # Test RPC API
         try:
             response = httpx.get(f"{node['url']}/openapi.json", timeout=5)
@@ -29,8 +29,8 @@ def test_nodes():
             print(f"  RPC API: {'✅' if api_ok else '❌'}")
         except Exception:
             api_ok = False
-            print(f"  RPC API: ❌")
-        
+            print("  RPC API: ❌")
+
         # Test chain head
         try:
             response = httpx.get(f"{node['url']}/rpc/head", timeout=5)
@@ -38,7 +38,7 @@ def test_nodes():
                 head = response.json()
                 height = head.get('height', 0)
                 print(f"  Chain Height: {height}")
-                
+
                 # Test faucet
                 try:
                     response = httpx.post(
@@ -50,8 +50,8 @@ def test_nodes():
                     print(f"  Faucet: {'✅' if faucet_ok else '❌'}")
                 except Exception:
                     faucet_ok = False
-                    print(f"  Faucet: ❌")
-                
+                    print("  Faucet: ❌")
+
                 results.append({
                     'node': node['name'],
                     'api': api_ok,
@@ -59,21 +59,21 @@ def test_nodes():
                     'faucet': faucet_ok
                 })
             else:
-                print(f"  Chain Head: ❌")
+                print("  Chain Head: ❌")
         except Exception:
-            print(f"  Chain Head: ❌")
-    
+            print("  Chain Head: ❌")
+
     # Summary
     print("\n\n📊 Test Results Summary")
     print("=" * 60)
-    
+
     for result in results:
         status = "✅ OPERATIONAL" if result['api'] and result['faucet'] else "⚠️  PARTIAL"
         print(f"{result['node']:.<20} {status}")
         print(f"  - RPC API: {'✅' if result['api'] else '❌'}")
         print(f"  - Height: {result['height']}")
         print(f"  - Faucet: {'✅' if result['faucet'] else '❌'}")
-    
+
     print("\n\n📝 Notes:")
     print("- Both nodes are running independently")
     print("- Each node maintains its own chain")
@@ -83,7 +83,7 @@ def test_nodes():
     print("  2. Use Redis for gossip backend")
     print("  3. Configure P2P peer discovery")
     print("  4. Ensure network connectivity")
-    
+
     print("\n✅ Test completed successfully!")
 
 if __name__ == "__main__":

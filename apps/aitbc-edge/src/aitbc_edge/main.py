@@ -1,6 +1,7 @@
 """Main FastAPI application for Edge API Service"""
 
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,8 +9,12 @@ from fastapi.responses import JSONResponse
 from aitbc import get_logger
 
 from .config import settings
+from .routers import database_router as database
+from .routers import gpu_router as gpu
+from .routers import islands_router as islands
+from .routers import metrics_router as metrics
+from .routers import serve_router as serve
 from .storage import init_db
-from .routers import islands_router as islands, gpu_router as gpu, database_router as database, serve_router as serve, metrics_router as metrics
 
 logger = get_logger(__name__)
 
@@ -21,9 +26,9 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Edge API Service")
     await init_db()
     logger.info("Database initialized")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Edge API Service")
 

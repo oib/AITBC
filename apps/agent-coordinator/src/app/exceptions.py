@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from fastapi.responses import JSONResponse
 
 from aitbc import get_logger
-from fastapi.responses import JSONResponse
 
 logger = get_logger(__name__)
 
@@ -14,7 +15,7 @@ def register_exception_handlers(app):
             content={
                 "status": "error",
                 "message": "Resource not found",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -26,6 +27,6 @@ def register_exception_handlers(app):
             content={
                 "status": "error",
                 "message": "Internal server error",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )

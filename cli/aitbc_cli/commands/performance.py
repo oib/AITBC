@@ -1,7 +1,8 @@
 """Performance commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
+from ..utils import error, output
 
 
 @click.group()
@@ -20,7 +21,7 @@ def benchmark(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/performance/benchmark")
         output(result, ctx.obj.get('output_format', 'table'), title="Performance Benchmark")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         result = {
             "status": "simulated",
@@ -44,11 +45,11 @@ def optimize(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/performance/optimize")
         output(result, ctx.obj.get('output_format', 'table'), title="Performance Optimization")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         result = {
             "status": "simulated",
-            "optimization_applied": false,
+            "optimization_applied": False,
             "message": "RPC endpoint not available - showing simulated optimization"
         }
         output(result, ctx.obj.get('output_format', 'table'), title="Performance Optimization (Simulated)")
@@ -67,7 +68,7 @@ def tune(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/performance/tune")
         output(result, ctx.obj.get('output_format', 'table'), title="System Tuning")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         result = {
             "status": "simulated",

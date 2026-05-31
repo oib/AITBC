@@ -9,7 +9,7 @@ Global Marketplace Services
 Core services for global marketplace operations, multi-region support, and cross-chain integration
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
+from ....reputation.engine import CrossChainReputationEngine
 from ...agent_identity.domain.agent_identity import AgentIdentity
 from ..domain.global_marketplace import (
     GlobalMarketplaceAnalytics,
@@ -28,7 +29,6 @@ from ..domain.global_marketplace import (
     MarketplaceStatus,
     RegionStatus,
 )
-from ....reputation.engine import CrossChainReputationEngine
 
 
 class GlobalMarketplaceService:
@@ -126,7 +126,7 @@ class GlobalMarketplaceService:
             offers = self.session.execute(stmt).all()
 
             # Filter out expired offers
-            current_time = datetime.now(timezone.utc)
+            current_time = datetime.now(UTC)
             valid_offers = []
 
             for offer in offers:
@@ -203,7 +203,7 @@ class GlobalMarketplaceService:
             # Update offer capacity
             offer.available_capacity -= request.quantity
             offer.total_transactions += 1
-            offer.updated_at = datetime.now(timezone.utc)
+            offer.updated_at = datetime.now(UTC)
 
             self.session.add(transaction)
             self.session.commit()
@@ -382,7 +382,7 @@ class GlobalMarketplaceService:
         """Get recent analytics for a region"""
 
         try:
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
 
             stmt = (
                 select(GlobalMarketplaceAnalytics)
@@ -460,7 +460,7 @@ class RegionManager:
             region.average_response_time = health_metrics.get("average_response_time", 0.0)
             region.request_rate = health_metrics.get("request_rate", 0.0)
             region.error_rate = health_metrics.get("error_rate", 0.0)
-            region.last_health_check = datetime.now(timezone.utc)
+            region.last_health_check = datetime.now(UTC)
 
             # Update status based on health score
             if region.health_score < 0.5:

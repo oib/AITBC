@@ -4,12 +4,12 @@ AITBC Ollama Miner Plugin - Mines AITBC by processing LLM inference jobs
 """
 
 import asyncio
-import httpx
 import logging
-import json
 import time
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
+
+import httpx
 
 # Import the Ollama service
 from service import ollama_service
@@ -20,21 +20,21 @@ logger = logging.getLogger(__name__)
 
 class OllamaMiner:
     """Miner plugin that processes LLM jobs using Ollama"""
-    
+
     def __init__(self, coordinator_url: str, api_key: str, miner_id: str):
         self.coordinator_url = coordinator_url
         self.api_key = api_key
         self.miner_id = miner_id
         self.client = httpx.Client()
         self.running = False
-        
+
     async def register(self):
         """Register the miner with Ollama capabilities"""
-        
+
         # Get available models
         models = await ollama_service.get_models()
         model_list = [m["name"] for m in models]
-        
+
         capabilities = {
             "service": "ollama",
             "gpu": {
@@ -55,7 +55,7 @@ class OllamaMiner:
                 "max_concurrent_jobs": 2
             }
         }
-        
+
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/register?miner_id={self.miner_id}",
@@ -65,27 +65,27 @@ class OllamaMiner:
                 },
                 json={"capabilities": capabilities}
             )
-            
+
             if response.status_code == 200:
                 logger.info(f"✅ Registered Ollama miner with {len(model_list)} models")
                 return True
             else:
                 logger.error(f"❌ Registration failed: {response.status_code}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"❌ Registration error: {e}")
             return False
-    
-    async def process_job(self, job: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def process_job(self, job: dict[str, Any]) -> dict[str, Any]:
         """Process an LLM inference job"""
-        
+
         payload = job.get("payload", {})
         job_type = payload.get("type", "generate")
         model = payload.get("model", "llama3.2:latest")
-        
+
         logger.info(f"Processing {job_type} job with model: {model}")
-        
+
         try:
             if job_type == "generate":
                 result = await ollama_service.generate(
@@ -107,22 +107,22 @@ class OllamaMiner:
                     "success": False,
                     "error": f"Unknown job type: {job_type}"
                 }
-            
+
             if result["success"]:
                 # Add job metadata
                 result["job_id"] = job["job_id"]
                 result["processed_at"] = datetime.now().isoformat()
                 result["miner_id"] = self.miner_id
-                
+
                 # Calculate earnings (cost + markup)
                 cost = result.get("cost", 0.001)
                 earnings = cost * 1.5  # 50% markup
                 result["aitbc_earned"] = earnings
-                
+
                 logger.info(f"✅ Job completed - Earned: {earnings} AITBC")
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"❌ Job processing failed: {e}")
             return {
@@ -130,10 +130,10 @@ class OllamaMiner:
                 "error": str(e),
                 "job_id": job["job_id"]
             }
-    
-    async def submit_result(self, job_id: str, result: Dict[str, Any]) -> bool:
+
+    async def submit_result(self, job_id: str, result: dict[str, Any]) -> bool:
         """Submit job result to coordinator"""
-        
+
         payload = {
             "result": {
                 "status": "completed" if result["success"] else "failed",
@@ -150,7 +150,7 @@ class OllamaMiner:
                 "aitbc_earned": result.get("aitbc_earned", 0)
             }
         }
-        
+
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/{job_id}/result",
@@ -160,16 +160,16 @@ class OllamaMiner:
                 },
                 json=payload
             )
-            
+
             return response.status_code == 200
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to submit result: {e}")
             return False
-    
+
     async def send_heartbeat(self):
         """Send heartbeat with GPU stats"""
-        
+
         # Get GPU utilization (simplified)
         heartbeat_data = {
             "status": "ONLINE",
@@ -183,7 +183,7 @@ class OllamaMiner:
                 "service": "ollama"
             }
         }
-        
+
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/heartbeat?miner_id={self.miner_id}",
@@ -193,35 +193,35 @@ class OllamaMiner:
                 },
                 json=heartbeat_data
             )
-            
+
             return response.status_code == 200
-            
+
         except Exception as e:
             logger.error(f"❌ Heartbeat failed: {e}")
             return False
-    
-    async def mine(self, max_jobs: Optional[int] = None):
+
+    async def mine(self, max_jobs: int | None = None):
         """Main mining loop"""
-        
+
         logger.info("🚀 Starting Ollama miner...")
-        
+
         # Register
         if not await self.register():
             return
-        
+
         jobs_completed = 0
         last_heartbeat = time.time()
-        
+
         self.running = True
-        
+
         try:
             while self.running and (max_jobs is None or jobs_completed < max_jobs):
-                
+
                 # Send heartbeat every 30 seconds
                 if time.time() - last_heartbeat > 30:
                     await self.send_heartbeat()
                     last_heartbeat = time.time()
-                
+
                 # Poll for jobs
                 response = self.client.post(
                     f"{self.coordinator_url}/v1/miners/poll",
@@ -231,30 +231,30 @@ class OllamaMiner:
                     },
                     json={"max_wait_seconds": 5}
                 )
-                
+
                 if response.status_code == 200:
                     job = response.json()
                     logger.info(f"📋 Got job: {job['job_id']}")
-                    
+
                     # Process job
                     result = await self.process_job(job)
-                    
+
                     # Submit result
                     if await self.submit_result(job['job_id'], result):
                         jobs_completed += 1
                         total_earned = sum(r.get("aitbc_earned", 0) for r in [result])
                         logger.info(f"💰 Total earned: {total_earned} AITBC")
-                
+
                 elif response.status_code == 204:
                     logger.debug("💤 No jobs available")
                     await asyncio.sleep(3)
                 else:
                     logger.error(f"❌ Poll failed: {response.status_code}")
                     await asyncio.sleep(5)
-                
+
         except KeyboardInterrupt:
             logger.info("⏹️  Mining stopped by user")
-        
+
         finally:
             self.running = False
             logger.info(f"✅ Mining complete - Jobs processed: {jobs_completed}")
@@ -262,13 +262,13 @@ class OllamaMiner:
 # Main execution
 if __name__ == "__main__":
     import sys
-    
+
     coordinator_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8001"
     api_key = sys.argv[2] if len(sys.argv) > 2 else "${MINER_API_KEY}"
     miner_id = sys.argv[3] if len(sys.argv) > 3 else "ollama-miner"
-    
+
     # Create and run miner
     miner = OllamaMiner(coordinator_url, api_key, miner_id)
-    
+
     # Run the miner
     asyncio.run(miner.mine())

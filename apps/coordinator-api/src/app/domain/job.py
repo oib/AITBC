@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, ForeignKey, String
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -16,8 +16,8 @@ class Job(SQLModel, table=True):
     client_id: str = Field(index=True)
 
     state: str = Field(default="QUEUED", max_length=20)
-    payload: Dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
-    constraints: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    payload: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    constraints: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
     ttl_seconds: int = Field(default=900)
     requested_at: datetime = Field(default_factory=datetime.now)
@@ -25,8 +25,8 @@ class Job(SQLModel, table=True):
 
     assigned_miner_id: str | None = Field(default=None, index=True)
 
-    result: Dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
-    receipt: Dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    receipt: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     receipt_id: str | None = Field(default=None, index=True)
     error: str | None = None
 

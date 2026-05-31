@@ -1,14 +1,14 @@
 """Cross-chain trading commands for AITBC CLI"""
 
+
 import click
-import json
-from typing import Optional
 from tabulate import tabulate
-from ..config import get_config
-from ..utils import success, error, output
+import requests
 
 # Import shared modules
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, get_logger
+
+from ..utils import error, output, success
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -26,11 +26,11 @@ def cross_chain():
 @click.option("--from-token", help="Source token symbol")
 @click.option("--to-token", help="Target token symbol")
 @click.pass_context
-def rates(ctx, from_chain: Optional[str], to_chain: Optional[str], 
-          from_token: Optional[str], to_token: Optional[str]):
+def rates(ctx, from_chain: str | None, to_chain: str | None,
+          from_token: str | None, to_token: str | None):
     """Get cross-chain exchange rates"""
     config = ctx.obj['config']
-    
+
     try:
         with AITBCHTTPClient() as client:
             # Get rates from cross-chain exchange
@@ -38,11 +38,11 @@ def rates(ctx, from_chain: Optional[str], to_chain: Optional[str],
                 f"{config.exchange_service_url}/cross-chain/rates",
                 timeout=10
             )
-            
+
             if response.status_code == 200:
                 rates_data = response.json()
                 rates = rates_data.get('rates', {})
-                
+
                 if from_chain and to_chain:
                     # Get specific rate
                     pair_key = f"{from_chain}-{to_chain}"
@@ -57,7 +57,7 @@ def rates(ctx, from_chain: Optional[str], to_chain: Optional[str],
                     for pair, rate in rates.items():
                         chains = pair.split('-')
                         rate_table.append([chains[0], chains[1], f"{rate:.6f}"])
-                    
+
                     if rate_table:
                         headers = ["From Chain", "To Chain", "Rate"]
                         click.echo(tabulate(rate_table, headers=headers, tablefmt="grid"))
@@ -80,23 +80,23 @@ def rates(ctx, from_chain: Optional[str], to_chain: Optional[str],
 @click.option("--address", help="User wallet address")
 @click.pass_context
 def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
-         amount: float, min_amount: Optional[float], slippage: float, address: Optional[str]):
+         amount: float, min_amount: float | None, slippage: float, address: str | None):
     """Create cross-chain swap"""
     config = ctx.obj['config']
-    
+
     # Validate inputs
     if from_chain == to_chain:
         error("Source and target chains must be different")
         return
-    
+
     if amount <= 0:
         error("Amount must be greater than 0")
         return
-    
+
     # Use default address if not provided
     if not address:
         address = config.get('default_address', '0x1234567890123456789012345678901234567890')
-    
+
     # Calculate minimum amount if not provided
     if not min_amount:
         # Get rate first
@@ -115,7 +115,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
                     min_amount = amount * 0.95  # Conservative fallback
         except (requests.RequestException, KeyError, ValueError):
             min_amount = amount * 0.95
-    
+
     swap_data = {
         "from_chain": from_chain,
         "to_chain": to_chain,
@@ -126,7 +126,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
         "user_address": address,
         "slippage_tolerance": slippage
     }
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=30)
         swap_result = http_client.post("/swap", json=swap_data)
@@ -141,7 +141,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
             "Total Fees": swap_result.get('total_fees'),
             "Status": swap_result.get('status')
         }, ctx.obj['output_format'])
-        
+
         # Show swap ID for tracking
         success(f"Track swap with: aitbc cross-chain status {swap_result.get('swap_id')}")
     except Exception as e:
@@ -153,11 +153,12 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
 @click.pass_context
 def status(ctx, swap_id: str):
     """Check cross-chain swap status"""
+    config = ctx.obj['config']
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         swap_data = http_client.get(f"/cross-chain/swap/{swap_id}")
         success(f"Swap Status: {swap_data.get('status', 'unknown')}")
-        
+
         # Display swap details
         details = {
             "Swap ID": swap_data.get('swap_id'),
@@ -175,9 +176,9 @@ def status(ctx, swap_id: str):
             "From Tx Hash": swap_data.get('from_tx_hash'),
             "To Tx Hash": swap_data.get('to_tx_hash')
         }
-        
+
         output(details, ctx.obj['output_format'])
-        
+
         # Show additional status info
         if swap_data.get('status') == 'completed':
             success("✅ Swap completed successfully!")
@@ -200,22 +201,23 @@ def status(ctx, swap_id: str):
 @click.option("--status", help="Filter by status")
 @click.option("--limit", type=int, default=10, help="Number of swaps to show")
 @click.pass_context
-def swaps(ctx, user_address: Optional[str], status: Optional[str], limit: int):
+def swaps(ctx, user_address: str | None, status: str | None, limit: int):
     """List cross-chain swaps"""
+    config = ctx.obj['config']
     params = {}
     if user_address:
         params['user_address'] = user_address
     if status:
         params['status'] = status
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         swaps_data = http_client.get("/cross-chain/swaps", params=params)
         swaps = swaps_data.get('swaps', [])
-        
+
         if swaps:
             success(f"Found {len(swaps)} cross-chain swaps:")
-            
+
             # Create table
             swap_table = []
             for swap in swaps[:limit]:
@@ -227,9 +229,9 @@ def swaps(ctx, user_address: Optional[str], status: Optional[str], limit: int):
                     swap.get('status', ''),
                     swap.get('created_at', '')[:19]
                 ])
-            
-            table(["ID", "From", "To", "Amount", "Status", "Created"], swap_table)
-            
+
+            click.echo(tabulate(swap_table, headers=["ID", "From", "To", "Amount", "Status", "Created"], tablefmt="grid"))
+
             if len(swaps) > limit:
                 success(f"Showing {limit} of {len(swaps)} total swaps")
         else:
@@ -245,24 +247,24 @@ def swaps(ctx, user_address: Optional[str], status: Optional[str], limit: int):
 @click.option("--amount", type=float, required=True, help="Amount to bridge")
 @click.option("--recipient", help="Recipient address")
 @click.pass_context
-def bridge(ctx, source_chain: str, target_chain: str, token: str, 
-           amount: float, recipient: Optional[str]):
+def bridge(ctx, source_chain: str, target_chain: str, token: str,
+           amount: float, recipient: str | None):
     """Create cross-chain bridge transaction"""
     config = ctx.obj['config']
-    
+
     # Validate inputs
     if source_chain == target_chain:
         error("Source and target chains must be different")
         return
-    
+
     if amount <= 0:
         error("Amount must be greater than 0")
         return
-    
+
     # Use default recipient if not provided
     if not recipient:
         recipient = config.get('default_address', '0x1234567890123456789012345678901234567890')
-    
+
     bridge_data = {
         "source_chain": source_chain,
         "target_chain": target_chain,
@@ -270,7 +272,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
         "amount": amount,
         "recipient_address": recipient
     }
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=30)
         bridge_result = http_client.post("/cross-chain/bridge", json=bridge_data)
@@ -284,7 +286,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
             "Bridge Fee": bridge_result.get('bridge_fee'),
             "Status": bridge_result.get('status')
         }, ctx.obj['output_format'])
-        
+
         # Show bridge ID for tracking
         success(f"Track bridge with: aitbc cross-chain bridge-status {bridge_result.get('bridge_id')}")
     except Exception as e:
@@ -296,6 +298,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
 @click.pass_context
 def bridge_status(ctx, bridge_id: str):
     """Check cross-chain bridge status"""
+    config = ctx.obj['config']
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         bridge_data = http_client.get(f"/cross-chain/bridge/{bridge_id}")
@@ -339,21 +342,22 @@ def bridge_status(ctx, bridge_id: str):
 @cross_chain.command()
 @click.pass_context
 def pools(ctx):
+    config = ctx.obj['config']
     """Show cross-chain liquidity pools"""
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         response = http_client.get(
-            f"/cross-chain/pools",
+            "/cross-chain/pools",
             timeout=10
         )
-        
+
         if response.status_code == 200:
             pools_data = response.json()
             pools = pools_data.get('pools', [])
-            
+
             if pools:
                 success(f"Found {len(pools)} cross-chain liquidity pools:")
-                
+
                 # Create table
                 pool_table = []
                 for pool in pools:
@@ -368,9 +372,8 @@ def pools(ctx):
                         f"{pool.get('total_liquidity', 0):.2f}",
                         f"{pool.get('apr', 0):.2%}"
                     ])
-                
-                table(["Pool ID", "Token A", "Token B", "Chain A", "Chain B", 
-                      "Reserve A", "Reserve B", "Liquidity", "APR"], pool_table)
+
+                click.echo(tabulate(pool_table, headers=["Pool ID", "Token A", "Token B", "Chain A", "Chain B", "Reserve A", "Reserve B", "Liquidity", "APR"], tablefmt="grid"))
             else:
                 success("No cross-chain liquidity pools found")
         else:
@@ -382,19 +385,20 @@ def pools(ctx):
 @cross_chain.command()
 @click.pass_context
 def stats(ctx):
+    config = ctx.obj['config']
     """Show cross-chain trading statistics"""
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         response = http_client.get(
-            f"/cross-chain/stats",
+            "/cross-chain/stats",
             timeout=10
         )
-        
+
         if response.status_code == 200:
             stats_data = response.json()
-            
+
             success("Cross-Chain Trading Statistics:")
-            
+
             # Show swap stats
             swap_stats = stats_data.get('swap_stats', [])
             if swap_stats:
@@ -406,8 +410,8 @@ def stats(ctx):
                         stat.get('count', 0),
                         f"{stat.get('volume', 0):.2f}"
                     ])
-                table(["Status", "Count", "Volume"], swap_table)
-            
+                click.echo(tabulate(swap_table, headers=["Status", "Count", "Volume"], tablefmt="grid"))
+
             # Show bridge stats
             bridge_stats = stats_data.get('bridge_stats', [])
             if bridge_stats:
@@ -419,8 +423,8 @@ def stats(ctx):
                         stat.get('count', 0),
                         f"{stat.get('volume', 0):.2f}"
                     ])
-                table(["Status", "Count", "Volume"], bridge_table)
-            
+                click.echo(tabulate(bridge_table, headers=["Status", "Count", "Volume"], tablefmt="grid"))
+
             # Show overall stats
             success("Overall Statistics:")
             output({

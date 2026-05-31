@@ -1,8 +1,10 @@
 """Pool hub commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
 from aitbc import AITBCHTTPClient, NetworkError
+
+from ..utils import error, output
 
 
 @click.group()
@@ -20,7 +22,7 @@ def status(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         status = http_client.get("/rpc/pool_hub/status")
         output(status, ctx.obj.get('output_format', 'table'), title="Pool Hub Status")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         status = {
             "status": "simulated",
@@ -47,7 +49,7 @@ def sla(ctx, pool_id, rpc_url):
             params["pool_id"] = pool_id
         sla_data = http_client.get("/rpc/pool_hub/sla", params=params)
         output(sla_data, ctx.obj.get('output_format', 'table'), title="SLA Monitor")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         sla_data = {
             "status": "simulated",

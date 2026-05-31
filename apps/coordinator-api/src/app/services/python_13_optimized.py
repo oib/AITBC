@@ -13,6 +13,7 @@ from typing import Any, TypeVar, override
 from sqlmodel import Session, select
 
 from aitbc import get_logger
+
 from ..domain import Job, Miner
 
 logger = get_logger(__name__)
@@ -322,4 +323,4 @@ def demo_optimized_services() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(demonstrate_optimized_services())  # type: ignore[name-defined]
+    asyncio.run(demo_optimized_services())  # type: ignore[name-defined]
