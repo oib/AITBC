@@ -186,10 +186,17 @@ class BlockchainNode:
                     while True:
                         try:
                             block_data = await block_sub_param.queue.get()
-                            logger.info(f"Received block from gossip for chain {chain_id_param}")
                             if isinstance(block_data, str):
                                 import json
                                 block_data = json.loads(block_data)
+
+                            # Skip self-proposed blocks (hub node doesn't need to import its own blocks)
+                            block_proposer = block_data.get("proposer", "")
+                            if block_proposer and block_proposer == settings.proposer_id:
+                                logger.debug(f"Skipping self-proposed block {block_data.get('height')} from gossip")
+                                continue
+
+                            logger.info(f"Received block from gossip for chain {chain_id_param}")
                             logger.info(f"Importing block for chain {chain_id_param}: {block_data.get('height')}")
                             sync = ChainSync(session_factory=lambda cid=chain_id_param: session_scope(cid), chain_id=chain_id_param)
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
