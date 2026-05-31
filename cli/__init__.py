@@ -4,9 +4,9 @@ AITBC CLI - Main entry point for CLI
 Redirects to the core main module
 """
 
+import importlib.util
 import sys
 from pathlib import Path
-import importlib.util
 
 # Add CLI directory to Python path
 CLI_DIR = Path(__file__).parent

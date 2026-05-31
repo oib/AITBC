@@ -4,7 +4,7 @@ Provides compliance engine and audit logging services.
 """
 
 from .audit import AuditLogger
-from .compliance import EnterpriseComplianceEngine, GDPRCompliance, SOC2Compliance, AMLKYCCompliance
+from .compliance import AMLKYCCompliance, EnterpriseComplianceEngine, GDPRCompliance, SOC2Compliance
 
 __all__ = [
     "AuditLogger",

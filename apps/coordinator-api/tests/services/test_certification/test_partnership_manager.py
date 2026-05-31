@@ -2,9 +2,10 @@
 Tests for partnership manager
 """
 
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timezone
 
 
 @pytest.mark.unit
@@ -16,19 +17,19 @@ class TestPartnershipManager:
         from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
-        
+
         assert manager.partnership_types is not None
         assert len(manager.partnership_types) > 0
 
     @patch('app.services.certification.partnership_manager.Session')
     async def test_check_technical_capability(self, mock_session):
         """Test technical capability check"""
-        from app.services.certification.partnership_manager import PartnershipManager
         from app.domain.reputation import AgentReputation
+        from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()
-        
+
         # Mock reputation data
         mock_reputation = AgentReputation(
             agent_id="agent123",
@@ -45,13 +46,13 @@ class TestPartnershipManager:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=10,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
-        
+
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
-        
+
         result = await manager.check_technical_capability(mock_session_instance, "agent123")
-        
+
         assert "eligible" in result
         assert "score" in result
         assert "details" in result
@@ -59,12 +60,12 @@ class TestPartnershipManager:
     @patch('app.services.certification.partnership_manager.Session')
     async def test_check_service_quality(self, mock_session):
         """Test service quality check"""
-        from app.services.certification.partnership_manager import PartnershipManager
         from app.domain.reputation import AgentReputation
+        from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()
-        
+
         # Mock reputation data
         mock_reputation = AgentReputation(
             agent_id="agent123",
@@ -81,25 +82,25 @@ class TestPartnershipManager:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=10,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
-        
+
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
-        
+
         result = await manager.check_service_quality(mock_session_instance, "agent123")
-        
+
         assert "eligible" in result
         assert "score" in result
 
     @patch('app.services.certification.partnership_manager.Session')
     async def test_create_partnership_program(self, mock_session):
         """Test partnership program creation"""
-        from app.services.certification.partnership_manager import PartnershipManager
         from app.domain.certification import PartnershipProgram
+        from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()
-        
+
         mock_program = PartnershipProgram(
             program_id="prog_abc123",
             program_name="Test Program",
@@ -118,13 +119,13 @@ class TestPartnershipManager:
             commission_structure={"type": "revenue_share", "rate": 0.15},
             performance_metrics=["sales_volume", "customer_satisfaction"],
             max_participants=100,
-            launched_at=datetime.now(timezone.utc)
+            launched_at=datetime.now(UTC)
         )
-        
+
         mock_session_instance.add.return_value = None
         mock_session_instance.commit.return_value = None
         mock_session_instance.refresh.return_value = mock_program
-        
+
         result = await manager.create_partnership_program(
             mock_session_instance,
             program_name="Test Program",
@@ -132,19 +133,19 @@ class TestPartnershipManager:
             description="Test description",
             created_by="system"
         )
-        
+
         assert result.program_id is not None
         assert result.program_name == "Test Program"
 
     @patch('app.services.certification.partnership_manager.Session')
     async def test_apply_for_partnership(self, mock_session):
         """Test partnership application"""
+        from app.domain.certification import AgentPartnership, PartnershipProgram
         from app.services.certification.partnership_manager import PartnershipManager
-        from app.domain.certification import PartnershipProgram, AgentPartnership
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()
-        
+
         # Mock program
         mock_program = PartnershipProgram(
             program_id="prog_abc123",
@@ -164,16 +165,16 @@ class TestPartnershipManager:
             commission_structure={},
             performance_metrics=[],
             max_participants=100,
-            launched_at=datetime.now(timezone.utc)
+            launched_at=datetime.now(UTC)
         )
-        
+
         # Mock reputation
         mock_reputation = MagicMock()
         mock_reputation.trust_score = 750.0
         mock_reputation.specialization_tags = ["compute", "storage"]
-        
+
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
-        
+
         # Mock partnership
         mock_partnership = AgentPartnership(
             partnership_id="agent_partner_abc123",
@@ -181,20 +182,20 @@ class TestPartnershipManager:
             program_id="prog_abc123",
             partnership_type="technology",
             current_tier="basic",
-            applied_at=datetime.now(timezone.utc),
+            applied_at=datetime.now(UTC),
             status="pending_approval"
         )
-        
+
         mock_session_instance.add.return_value = None
         mock_session_instance.commit.return_value = None
         mock_session_instance.refresh.return_value = mock_partnership
-        
+
         result = await manager.apply_for_partnership(
             mock_session_instance,
             agent_id="agent123",
             program_id="prog_abc123",
             application_data={"reason": "Test application"}
         )
-        
+
         assert result[0] == True  # Success
         assert result[1] is not None  # Partnership object

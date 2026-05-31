@@ -3,16 +3,16 @@ Trading Service domain models
 """
 
 from .trading import (
-    TradeStatus,
-    TradeType,
     NegotiationStatus,
     SettlementType,
-    TradeRequest,
+    TradeAgreement,
+    TradeFeedback,
     TradeMatch,
     TradeNegotiation,
-    TradeAgreement,
+    TradeRequest,
     TradeSettlement,
-    TradeFeedback,
+    TradeStatus,
+    TradeType,
     TradingAnalytics,
 )
 

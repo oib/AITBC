@@ -4,15 +4,16 @@ These tests require coordinator-api running and validate workflow execution,
 status tracking, and API interactions with actual service calls.
 """
 
-import pytest
 import json
 import time
+from unittest.mock import MagicMock, Mock, patch
+
 import httpx
-from pathlib import Path
-from click.testing import CliRunner
-from unittest.mock import Mock, patch, MagicMock
+import pytest
 from aitbc_cli.commands.workflow import workflow
-from aitbc import AITBCHTTPClient, NetworkError
+from click.testing import CliRunner
+
+from aitbc import AITBCHTTPClient
 
 
 @pytest.fixture
@@ -55,7 +56,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'run', 'test_workflow'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
         assert 'Running' in result.output
@@ -64,12 +65,12 @@ class TestWorkflowCommands:
         """Test running workflow with config file"""
         config_file = tmp_path / "workflow_config.yaml"
         config_file.write_text("param1: value1\nparam2: value2")
-        
+
         result = runner.invoke(workflow, [
             'run', 'test_workflow',
             '--config', str(config_file)
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
         assert str(config_file) in result.output
@@ -80,7 +81,7 @@ class TestWorkflowCommands:
             'run', 'test_workflow',
             '--dry-run'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'Dry run' in result.output
         assert 'without making changes' in result.output
@@ -90,7 +91,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'list'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert isinstance(data, list)
@@ -104,7 +105,7 @@ class TestWorkflowCommands:
             'list',
             '--format', 'table'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'Available workflows' in result.output
 
@@ -113,7 +114,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'status', 'test_workflow'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
         assert 'Status' in result.output
@@ -123,7 +124,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'stop', 'test_workflow'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'test_workflow' in result.output
         assert 'Stop' in result.output
@@ -140,22 +141,22 @@ class TestWorkflowCommands:
         result1 = runner.invoke(workflow, [
             'run', 'test_workflow'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         time.sleep(1)  # Delay to ensure different timestamp
-        
+
         result2 = runner.invoke(workflow, [
             'run', 'test_workflow'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result1.exit_code == 0
         assert result2.exit_code == 0
-        
+
         # Extract execution IDs from output
         import re
         id_pattern = r'wf_exec_\d+'
         ids1 = re.findall(id_pattern, result1.output)
         ids2 = re.findall(id_pattern, result2.output)
-        
+
         if ids1 and ids2:
             assert ids1[0] != ids2[0], "Execution IDs should be unique"
 
@@ -164,7 +165,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'status', 'nonexistent_workflow_xyz'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         # Should return status even for non-existent workflows
         assert 'nonexistent_workflow_xyz' in result.output
@@ -174,7 +175,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'stop', 'nonexistent_workflow_xyz'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         # Should attempt to stop even if not running
         assert 'nonexistent_workflow_xyz' in result.output
@@ -187,12 +188,12 @@ class TestWorkflowCommands:
             'workflow.with.dots',
             'WorkflowWithCamelCase'
         ]
-        
+
         for name in special_names:
             result = runner.invoke(workflow, [
                 'run', name
             ], obj={'config': mock_config, 'output': 'table'})
-            
+
             assert result.exit_code == 0
             assert name in result.output
 
@@ -201,10 +202,10 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'list'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
-        
+
         # Verify expected workflow types are present
         assert isinstance(data, list)
         workflow_names = [w['name'] for w in data]
@@ -221,14 +222,14 @@ class TestWorkflowCommands:
         result_table = runner.invoke(workflow, [
             'status', 'test_workflow'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result_table.exit_code == 0
-        
+
         # JSON format
         result_json = runner.invoke(workflow, [
             'status', 'test_workflow'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result_json.exit_code == 0
         # Should be parseable as JSON or contain status info
 
@@ -238,7 +239,7 @@ class TestWorkflowCommands:
             'run', 'test_integration_workflow',
             '--async'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'workflow_id' in data or 'execution_id' in data
@@ -249,11 +250,11 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, [
             'list'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert isinstance(data, list)
-        
+
         # Validate workflow structure
         for workflow in data:
             assert 'name' in workflow
@@ -265,17 +266,17 @@ class TestWorkflowCommands:
         run_result = runner.invoke(workflow, [
             'run', 'status_test_workflow'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
         workflow_id = run_data.get('workflow_id') or run_data.get('execution_id')
-        
+
         if workflow_id:
             # Get status
             status_result = runner.invoke(workflow, [
                 'status', workflow_id
             ], obj={'config': mock_config, 'output': 'json'})
-            
+
             assert status_result.exit_code == 0
             status_data = json.loads(status_result.output)
             assert 'status' in status_data
@@ -287,17 +288,17 @@ class TestWorkflowCommands:
         run_result = runner.invoke(workflow, [
             'run', 'stop_test_workflow'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
         workflow_id = run_data.get('workflow_id') or run_data.get('execution_id')
-        
+
         if workflow_id:
             # Stop the workflow
             stop_result = runner.invoke(workflow, [
                 'stop', workflow_id
             ], obj={'config': mock_config, 'output': 'json'})
-            
+
             assert stop_result.exit_code == 0
             stop_data = json.loads(stop_result.output)
             assert stop_data.get('status') in ['stopped', 'stopping', 'cancelled']
@@ -309,7 +310,7 @@ class TestWorkflowCommands:
             '--param', 'gpu_count=4',
             '--param', 'timeout=300'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'workflow_id' in data or 'execution_id' in data
@@ -320,26 +321,26 @@ class TestWorkflowCommands:
         run_result = runner.invoke(workflow, [
             'run', 'tracking_test_workflow'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
         workflow_id = run_data.get('workflow_id') or run_data.get('execution_id')
-        
+
         if workflow_id:
             # Check status immediately
             status1 = runner.invoke(workflow, [
                 'status', workflow_id
             ], obj={'config': mock_config, 'output': 'json'})
-            
+
             assert status1.exit_code == 0
-            
+
             # Wait and check status again
             time.sleep(1)
-            
+
             status2 = runner.invoke(workflow, [
                 'status', workflow_id
             ], obj={'config': mock_config, 'output': 'json'})
-            
+
             assert status2.exit_code == 0
             status2_data = json.loads(status2.output)
             assert 'status' in status2_data
@@ -348,11 +349,11 @@ class TestWorkflowCommands:
         """Test workflow command handles coordinator-api errors gracefully"""
         # Use invalid coordinator URL to trigger error
         mock_config.coordinator_url = "http://invalid:9999"
-        
+
         result = runner.invoke(workflow, [
             'run', 'error_test_workflow'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should either fail gracefully or skip with appropriate message
         # The exact behavior depends on implementation
         assert result.exit_code != 0 or 'error' in result.output.lower() or 'unavailable' in result.output.lower()

@@ -1,10 +1,10 @@
 """Shared database utilities for AITBC services."""
 
+from collections.abc import AsyncGenerator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from typing import AsyncGenerator
-import os
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from .config import DatabaseConfig
 
@@ -59,7 +59,7 @@ def get_async_engine(config: DatabaseConfig):
         )
 
 
-async def get_async_session(engine) -> AsyncGenerator[AsyncSession, None]:
+async def get_async_session(engine) -> AsyncGenerator[AsyncSession]:
     """Dependency for FastAPI async endpoints."""
     async_session = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False

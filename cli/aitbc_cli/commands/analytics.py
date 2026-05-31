@@ -1,12 +1,14 @@
 """Analytics and monitoring commands for AITBC CLI"""
 
-import click
 import asyncio
 from datetime import datetime, timedelta
-from typing import Optional
-from ..core.config import load_multichain_config
+
+import click
+
 from ..core.analytics import ChainAnalytics
-from ..utils import output, error, success
+from ..core.config import load_multichain_config
+from ..utils import error, output, success
+
 
 @click.group()
 def analytics():
@@ -23,14 +25,14 @@ def summary(ctx, chain_id, hours, format):
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
-        
+
         if chain_id:
             # Single chain summary
             summary = analytics.get_chain_performance_summary(chain_id, hours)
             if not summary:
                 error(f"No data available for chain {chain_id}")
                 raise click.Abort()
-            
+
             # Format summary for display
             summary_data = [
                 {"Metric": "Chain ID", "Value": summary["chain_id"]},
@@ -42,16 +44,16 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Avg Block Time", "Value": f"{summary['statistics']['block_time']['avg']:.2f}s"},
                 {"Metric": "Avg Gas Price", "Value": f"{summary['statistics']['gas_price']['avg']:,} wei"}
             ]
-            
+
             output(summary_data, ctx.obj.get('output_format', format), title=f"Chain Summary: {chain_id}")
         else:
             # Cross-chain analysis
             analysis = analytics.get_cross_chain_analysis()
-            
+
             if not analysis:
                 error("No analytics data available")
                 raise click.Abort()
-            
+
             # Overview data
             overview_data = [
                 {"Metric": "Total Chains", "Value": analysis["total_chains"]},
@@ -63,9 +65,9 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Total Clients", "Value": analysis["resource_usage"]["total_clients"]},
                 {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]}
             ]
-            
+
             output(overview_data, ctx.obj.get('output_format', format), title="Cross-Chain Analysis Overview")
-            
+
             # Performance comparison
             if analysis["performance_comparison"]:
                 comparison_data = [
@@ -77,9 +79,9 @@ def summary(ctx, chain_id, hours, format):
                     }
                     for chain_id, data in analysis["performance_comparison"].items()
                 ]
-                
+
                 output(comparison_data, ctx.obj.get('output_format', format), title="Chain Performance Comparison")
-        
+
     except Exception as e:
         error(f"Error getting analytics summary: {str(e)}")
         raise click.Abort()
@@ -94,28 +96,29 @@ def monitor(ctx, realtime, interval, chain_id):
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
-        
+
         if realtime:
             # Real-time monitoring
+            import time
+
             from rich.console import Console
             from rich.live import Live
             from rich.table import Table
-            import time
-            
+
             console = Console()
-            
+
             def generate_monitor_table():
                 try:
                     # Collect latest metrics
                     asyncio.run(analytics.collect_all_metrics())
-                    
+
                     table = Table(title=f"Chain Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                     table.add_column("Chain ID", style="cyan")
                     table.add_column("TPS", style="green")
                     table.add_column("Block Time", style="yellow")
                     table.add_column("Health", style="red")
                     table.add_column("Alerts", style="magenta")
-                    
+
                     if chain_id:
                         # Single chain monitoring
                         summary = analytics.get_chain_performance_summary(chain_id, 1)
@@ -140,11 +143,11 @@ def monitor(ctx, realtime, interval, chain_id):
                                 f"[{health_color}]{data['health_score']:.1f}[/{health_color}]",
                                 str(len([a for a in analytics.alerts if a.chain_id == chain_id]))
                             )
-                    
+
                     return table
                 except Exception as e:
                     return f"Error collecting metrics: {e}"
-            
+
             with Live(generate_monitor_table(), refresh_per_second=1) as live:
                 try:
                     while True:
@@ -155,13 +158,13 @@ def monitor(ctx, realtime, interval, chain_id):
         else:
             # Single snapshot
             asyncio.run(analytics.collect_all_metrics())
-            
+
             if chain_id:
                 summary = analytics.get_chain_performance_summary(chain_id, 1)
                 if not summary:
                     error(f"No data available for chain {chain_id}")
                     raise click.Abort()
-                
+
                 monitor_data = [
                     {"Metric": "Chain ID", "Value": summary["chain_id"]},
                     {"Metric": "Current TPS", "Value": f"{summary['statistics']['tps']['avg']:.2f}"},
@@ -174,11 +177,11 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Client Count", "Value": summary["latest_metrics"]["client_count"]},
                     {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]}
                 ]
-                
+
                 output(monitor_data, ctx.obj.get('output_format', 'table'), title=f"Chain Monitor: {chain_id}")
             else:
                 analysis = analytics.get_cross_chain_analysis()
-                
+
                 monitor_data = [
                     {"Metric": "Total Chains", "Value": analysis["total_chains"]},
                     {"Metric": "Active Chains", "Value": analysis["active_chains"]},
@@ -189,9 +192,9 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Total Alerts", "Value": analysis["alerts_summary"]["total_alerts"]},
                     {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]}
                 ]
-                
+
                 output(monitor_data, ctx.obj.get('output_format', 'table'), title="System Monitor")
-        
+
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort()
@@ -206,18 +209,18 @@ def predict(ctx, chain_id, hours, format):
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
-        
+
         # Collect current metrics first
         asyncio.run(analytics.collect_all_metrics())
-        
+
         if chain_id:
             # Single chain prediction
             predictions = asyncio.run(analytics.predict_chain_performance(chain_id, hours))
-            
+
             if not predictions:
                 error(f"No prediction data available for chain {chain_id}")
                 raise click.Abort()
-            
+
             prediction_data = [
                 {
                     "Metric": pred.metric,
@@ -227,22 +230,22 @@ def predict(ctx, chain_id, hours, format):
                 }
                 for pred in predictions
             ]
-            
+
             output(prediction_data, ctx.obj.get('output_format', format), title=f"Performance Predictions: {chain_id}")
         else:
             # All chains prediction
             analysis = analytics.get_cross_chain_analysis()
             all_predictions = {}
-            
+
             for chain_id in analysis["performance_comparison"].keys():
                 predictions = asyncio.run(analytics.predict_chain_performance(chain_id, hours))
                 if predictions:
                     all_predictions[chain_id] = predictions
-            
+
             if not all_predictions:
                 error("No prediction data available")
                 raise click.Abort()
-            
+
             # Format predictions for display
             prediction_data = []
             for chain_id, predictions in all_predictions.items():
@@ -254,9 +257,9 @@ def predict(ctx, chain_id, hours, format):
                         "Confidence": f"{pred.confidence:.1%}",
                         "Time Horizon": f"{pred.time_horizon_hours}h"
                     })
-            
+
             output(prediction_data, ctx.obj.get('output_format', format), title="Chain Performance Predictions")
-        
+
     except Exception as e:
         error(f"Error generating predictions: {str(e)}")
         raise click.Abort()
@@ -270,18 +273,18 @@ def optimize(ctx, chain_id, format):
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
-        
+
         # Collect current metrics first
         asyncio.run(analytics.collect_all_metrics())
-        
+
         if chain_id:
             # Single chain recommendations
             recommendations = analytics.get_optimization_recommendations(chain_id)
-            
+
             if not recommendations:
                 success(f"No optimization recommendations for chain {chain_id}")
                 return
-            
+
             recommendation_data = [
                 {
                     "Type": rec["type"],
@@ -293,22 +296,22 @@ def optimize(ctx, chain_id, format):
                 }
                 for rec in recommendations
             ]
-            
+
             output(recommendation_data, ctx.obj.get('output_format', format), title=f"Optimization Recommendations: {chain_id}")
         else:
             # All chains recommendations
             analysis = analytics.get_cross_chain_analysis()
             all_recommendations = {}
-            
+
             for chain_id in analysis["performance_comparison"].keys():
                 recommendations = analytics.get_optimization_recommendations(chain_id)
                 if recommendations:
                     all_recommendations[chain_id] = recommendations
-            
+
             if not all_recommendations:
                 success("No optimization recommendations available")
                 return
-            
+
             # Format recommendations for display
             recommendation_data = []
             for chain_id, recommendations in all_recommendations.items():
@@ -321,9 +324,9 @@ def optimize(ctx, chain_id, format):
                         "Current Value": rec["current_value"],
                         "Recommended Action": rec["recommended_action"]
                     })
-            
+
             output(recommendation_data, ctx.obj.get('output_format', format), title="Chain Optimization Recommendations")
-        
+
     except Exception as e:
         error(f"Error getting optimization recommendations: {str(e)}")
         raise click.Abort()
@@ -338,24 +341,24 @@ def alerts(ctx, severity, hours, format):
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
-        
+
         # Collect current metrics first
         asyncio.run(analytics.collect_all_metrics())
-        
+
         # Filter alerts
         cutoff_time = datetime.now() - timedelta(hours=hours)
         filtered_alerts = [
-            alert for alert in analytics.alerts 
+            alert for alert in analytics.alerts
             if alert.timestamp >= cutoff_time
         ]
-        
+
         if severity != 'all':
             filtered_alerts = [a for a in filtered_alerts if a.severity == severity]
-        
+
         if not filtered_alerts:
             success("No alerts found")
             return
-        
+
         alert_data = [
             {
                 "Chain ID": alert.chain_id,
@@ -368,9 +371,9 @@ def alerts(ctx, severity, hours, format):
             }
             for alert in filtered_alerts
         ]
-        
+
         output(alert_data, ctx.obj.get('output_format', format), title=f"Performance Alerts (Last {hours}h)")
-        
+
     except Exception as e:
         error(f"Error getting alerts: {str(e)}")
         raise click.Abort()
@@ -383,20 +386,20 @@ def dashboard(ctx, format):
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
-        
+
         # Collect current metrics
         asyncio.run(analytics.collect_all_metrics())
-        
+
         # Get dashboard data
         dashboard_data = analytics.get_dashboard_data()
-        
+
         if format == 'json':
             import json
             click.echo(json.dumps(dashboard_data, indent=2, default=str))
         else:
             error("Dashboard data only available in JSON format")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error getting dashboard data: {str(e)}")
         raise click.Abort()

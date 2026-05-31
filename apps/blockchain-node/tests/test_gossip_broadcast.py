@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import asyncio
 
-import sys
 import pytest
-from fastapi.testclient import TestClient
-
 from aitbc_chain.app import create_app
 from aitbc_chain.gossip import BroadcastGossipBackend, InMemoryGossipBackend, gossip_broker
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)

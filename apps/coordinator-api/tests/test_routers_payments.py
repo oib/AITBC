@@ -2,8 +2,9 @@
 Tests for payments router
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -25,13 +26,13 @@ class TestPaymentsRouter:
         }
 
         # Import and test
-        from app.routers.payments import router
         from app.main import create_app
-        
+        from app.routers.payments import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.post("/payments", json={
             "amount": 100.0,
             "currency": "USDC",
@@ -56,13 +57,13 @@ class TestPaymentsRouter:
         }
 
         # Import and test
-        from app.routers.payments import router
         from app.main import create_app
-        
+        from app.routers.payments import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/payments/payment1/status")
         assert response.status_code == 200
         data = response.json()

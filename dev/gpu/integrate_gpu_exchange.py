@@ -3,11 +3,6 @@
 Integrate GPU Miner with existing Trade Exchange
 """
 
-import httpx
-import json
-import subprocess
-import time
-from datetime import datetime
 
 # Configuration
 EXCHANGE_URL = "http://localhost:3002"
@@ -15,11 +10,11 @@ GPU_REGISTRY_URL = "http://localhost:8091"
 
 def update_exchange_with_gpu():
     """Update the exchange frontend to show registered GPUs"""
-    
+
     # Read the exchange HTML
-    with open('/home/oib/windsurf/aitbc/apps/trade-exchange/index.html', 'r') as f:
+    with open('/home/oib/windsurf/aitbc/apps/trade-exchange/index.html') as f:
         html_content = f.read()
-    
+
     # Add GPU marketplace integration
     gpu_integration = """
     <script>
@@ -76,22 +71,22 @@ def update_exchange_with_gpu():
     loadGPUOffers = loadRealGPUOffers;
     </script>
     """
-    
+
     # Insert before closing body tag
     if '</body>' in html_content:
         html_content = html_content.replace('</body>', gpu_integration + '</body>')
-        
+
         # Write back to file
         with open('/home/oib/windsurf/aitbc/apps/trade-exchange/index.html', 'w') as f:
             f.write(html_content)
-        
+
         print("✅ Updated exchange with GPU integration!")
     else:
         print("❌ Could not find </body> tag in exchange HTML")
 
 def create_gpu_api_endpoint():
     """Create an API endpoint in the exchange to serve GPU data"""
-    
+
     api_code = """
 @app.get("/api/gpu/offers")
 async def get_gpu_offers():
@@ -116,25 +111,25 @@ async def get_gpu_offers():
         }]
     }
 """
-    
+
     print("\n📝 To add GPU API endpoint to exchange, add this code to simple_exchange_api.py:")
     print(api_code)
 
 def main():
     print("🔗 Integrating GPU Miner with Trade Exchange...")
-    
+
     # Update exchange frontend
     update_exchange_with_gpu()
-    
+
     # Show API integration code
     create_gpu_api_endpoint()
-    
+
     print("\n📊 Integration Summary:")
     print("1. ✅ Exchange frontend updated to show real GPUs")
     print("2. 📝 See above for API endpoint code")
     print("3. 🌐 Access the exchange at: http://localhost:3002")
     print("4. 🎯 GPU Registry available at: http://localhost:8091/miners/list")
-    
+
     print("\n🔄 To see the integrated GPU marketplace:")
     print("1. Restart the trade exchange if needed:")
     print("   cd /home/oib/windsurf/aitbc/apps/trade-exchange")

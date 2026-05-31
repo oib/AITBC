@@ -8,12 +8,11 @@ Tracks file dependencies and invalidates cache when source files change.
 
 import hashlib
 import json
-import os
 import logging
-import click
-from pathlib import Path
-from typing import Dict, List, Optional
 import time
+from pathlib import Path
+
+import click
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +44,11 @@ class ZKCircuitCache:
         composite = f"{circuit_hash}|{'|'.join(dep_hashes)}|{output_dir}"
         return hashlib.sha256(composite.encode()).hexdigest()[:16]
 
-    def _find_dependencies(self, circuit_file: Path) -> List[Path]:
+    def _find_dependencies(self, circuit_file: Path) -> list[Path]:
         """Find Circom include dependencies"""
         dependencies = []
         try:
-            with open(circuit_file, 'r') as f:
+            with open(circuit_file) as f:
                 content = f.read()
 
             # Find include statements
@@ -102,23 +101,23 @@ class ZKCircuitCache:
 
         return True
 
-    def _load_cache_entry(self, cache_key: str) -> Optional[Dict]:
+    def _load_cache_entry(self, cache_key: str) -> dict | None:
         """Load cache entry from manifest"""
         try:
             if self.cache_manifest.exists():
-                with open(self.cache_manifest, 'r') as f:
+                with open(self.cache_manifest) as f:
                     manifest = json.load(f)
                 return manifest.get(cache_key)
         except Exception:
             pass
         return None
 
-    def _save_cache_entry(self, cache_key: str, entry: Dict):
+    def _save_cache_entry(self, cache_key: str, entry: dict):
         """Save cache entry to manifest"""
         try:
             manifest = {}
             if self.cache_manifest.exists():
-                with open(self.cache_manifest, 'r') as f:
+                with open(self.cache_manifest) as f:
                     manifest = json.load(f)
 
             manifest[cache_key] = entry
@@ -129,7 +128,7 @@ class ZKCircuitCache:
         except Exception as e:
             logger.warning(f"Failed to save cache entry: {e}")
 
-    def get_cached_artifacts(self, circuit_file: Path, output_dir: Path) -> Optional[Dict]:
+    def get_cached_artifacts(self, circuit_file: Path, output_dir: Path) -> dict | None:
         """Retrieve cached artifacts if valid"""
         if self.is_cache_valid(circuit_file, output_dir):
             cache_key = self._get_cache_key(circuit_file, output_dir)
@@ -171,11 +170,11 @@ class ZKCircuitCache:
             shutil.rmtree(self.cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
 
-    def get_cache_stats(self) -> Dict:
+    def get_cache_stats(self) -> dict:
         """Get cache statistics"""
         try:
             if self.cache_manifest.exists():
-                with open(self.cache_manifest, 'r') as f:
+                with open(self.cache_manifest) as f:
                     manifest = json.load(f)
 
                 total_entries = len(manifest)
@@ -210,7 +209,7 @@ def main():
 
     if args.action == 'stats':
         stats = cache.get_cache_stats()
-        click.echo(f"Cache Statistics:")
+        click.echo("Cache Statistics:")
         click.echo(f"  Entries: {stats['entries']}")
         click.echo(f"  Total Size: {stats['total_size_mb']:.2f} MB")
         click.echo(f"  Cache Directory: {stats['cache_dir']}")

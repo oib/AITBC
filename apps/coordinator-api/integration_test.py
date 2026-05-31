@@ -4,10 +4,10 @@ AITBC Phase 5 Integration Testing Script
 Tests all critical components for Phase 5 Integration & Production Deployment
 """
 
-import requests
-import json
-import sys
 import os
+import sys
+
+import requests
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -18,7 +18,7 @@ def test_api_health():
     try:
         live_response = requests.get('http://127.0.0.1:8000/health/live', timeout=5)
         ready_response = requests.get('http://127.0.0.1:8000/health/ready', timeout=5)
-        
+
         if live_response.status_code == 200 and ready_response.status_code == 200:
             print("✅ API Health: PASSED")
             print(f"   Live Status: {live_response.json()['status']}")
@@ -106,7 +106,7 @@ def main():
     """Run all integration tests"""
     print("🚀 AITBC Phase 5 Integration Testing - Starting Now!")
     print("=" * 60)
-    
+
     tests = [
         test_api_health,
         test_zk_service,
@@ -114,20 +114,20 @@ def main():
         test_ml_zk_integration,
         test_database_integration
     ]
-    
+
     results = []
     for test in tests:
         results.append(test())
-    
+
     print("\n" + "=" * 60)
     print("🎯 Integration Testing Summary:")
-    
+
     passed = sum(results)
     total = len(results)
-    
+
     print(f"   Tests Passed: {passed}/{total}")
     print(f"   Success Rate: {(passed/total)*100:.1f}%")
-    
+
     if passed == total:
         print("\n🚀 Phase 5.1 Integration Testing: COMPLETED SUCCESSFULLY!")
         print("📋 Ready for Phase 5.2: Production Deployment!")

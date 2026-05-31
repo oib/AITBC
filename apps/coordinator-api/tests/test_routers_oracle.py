@@ -43,7 +43,7 @@ class TestOracleRouter:
             "price": 123.45,
             "source": "manual"
         }
-        
+
         response = client.post("/oracle/price", json=price_data)
         assert response.status_code == 200
         data = response.json()
@@ -91,7 +91,7 @@ class TestOracleIntegration:
             "price": 999.99,
             "source": "test"
         })
-        
+
         # Retrieve it
         response = client.get("/oracle/price/CUSTOM")
         data = response.json()

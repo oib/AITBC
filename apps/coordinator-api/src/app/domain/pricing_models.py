@@ -5,12 +5,12 @@ SQLModel definitions for pricing history, strategies, and market metrics
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, Index
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel, Text
 
 
@@ -92,8 +92,8 @@ class PricingHistory(SQLModel, table=True):
     recommendation_followed: bool | None = None
 
     # Metadata
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional context
     competitor_prices: list[float] = Field(default_factory=list, sa_column=Column(JSON))
@@ -157,8 +157,8 @@ class ProviderPricingStrategy(SQLModel, table=True):
     strategy_effectiveness_score: float = Field(default=0.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_applied: datetime | None = None
     expires_at: datetime | None = None
 
@@ -225,8 +225,8 @@ class MarketMetrics(SQLModel, table=True):
     completeness_score: float
 
     # Timestamps
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional metrics
     custom_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -278,7 +278,7 @@ class PriceForecast(SQLModel, table=True):
     market_conditions_at_forecast: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     target_timestamp: datetime = Field(index=True)  # When forecast is for
     evaluated_at: datetime | None = None  # When forecast was evaluated
 
@@ -344,8 +344,8 @@ class PricingOptimization(SQLModel, table=True):
     recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
     # Audit trail
@@ -406,9 +406,9 @@ class PricingAlert(SQLModel, table=True):
     customer_impact_estimate: str | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
-    first_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    first_seen: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_seen: datetime = Field(default_factory=lambda: datetime.now(UTC))
     acknowledged_at: datetime | None = None
     resolved_at: datetime | None = None
 
@@ -470,8 +470,8 @@ class PricingRule(SQLModel, table=True):
     business_impact: float | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
 
     # Audit trail
@@ -534,8 +534,8 @@ class PricingAuditLog(SQLModel, table=True):
     ip_address: str | None = None
 
     # Timestamps
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional metadata
     meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

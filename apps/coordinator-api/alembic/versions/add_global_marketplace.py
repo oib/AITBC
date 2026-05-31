@@ -5,9 +5,8 @@ Revises: add_cross_chain_reputation
 Create Date: 2026-02-28 23:00:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_global_marketplace'
@@ -18,7 +17,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create global marketplace tables"""
-    
+
     # Create marketplace_regions table
     op.create_table(
         'marketplace_regions',
@@ -49,7 +48,7 @@ def upgrade() -> None:
     op.create_index('idx_marketplace_region_code', 'marketplace_regions', ['region_code'])
     op.create_index('idx_marketplace_region_status', 'marketplace_regions', ['status'])
     op.create_index('idx_marketplace_region_health', 'marketplace_regions', ['health_score'])
-    
+
     # Create global_marketplace_configs table
     op.create_table(
         'global_marketplace_configs',
@@ -72,7 +71,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_global_config_key', 'global_marketplace_configs', ['config_key'])
     op.create_index('idx_global_config_category', 'global_marketplace_configs', ['category'])
-    
+
     # Create global_marketplace_offers table
     op.create_table(
         'global_marketplace_offers',
@@ -104,7 +103,7 @@ def upgrade() -> None:
     op.create_index('idx_global_offer_service', 'global_marketplace_offers', ['service_type'])
     op.create_index('idx_global_offer_status', 'global_marketplace_offers', ['global_status'])
     op.create_index('idx_global_offer_created', 'global_marketplace_offers', ['created_at'])
-    
+
     # Create global_marketplace_transactions table
     op.create_table(
         'global_marketplace_transactions',
@@ -141,7 +140,7 @@ def upgrade() -> None:
     op.create_index('idx_global_tx_status', 'global_marketplace_transactions', ['status'])
     op.create_index('idx_global_tx_created', 'global_marketplace_transactions', ['created_at'])
     op.create_index('idx_global_tx_chain', 'global_marketplace_transactions', ['source_chain', 'target_chain'])
-    
+
     # Create global_marketplace_analytics table
     op.create_table(
         'global_marketplace_analytics',
@@ -173,7 +172,7 @@ def upgrade() -> None:
     op.create_index('idx_global_analytics_period', 'global_marketplace_analytics', ['period_type', 'period_start'])
     op.create_index('idx_global_analytics_region', 'global_marketplace_analytics', ['region'])
     op.create_index('idx_global_analytics_created', 'global_marketplace_analytics', ['created_at'])
-    
+
     # Create global_marketplace_governance table
     op.create_table(
         'global_marketplace_governance',
@@ -201,7 +200,7 @@ def upgrade() -> None:
     op.create_index('idx_global_gov_rule_type', 'global_marketplace_governance', ['rule_type'])
     op.create_index('idx_global_gov_active', 'global_marketplace_governance', ['is_active'])
     op.create_index('idx_global_gov_effective', 'global_marketplace_governance', ['effective_from', 'expires_at'])
-    
+
     # Insert default regions
     op.execute("""
         INSERT INTO marketplace_regions (id, region_code, region_name, geographic_area, base_currency, timezone, language, load_factor, max_concurrent_requests, priority_weight, status, health_score, api_endpoint, websocket_endpoint, created_at, updated_at)
@@ -211,7 +210,7 @@ def upgrade() -> None:
         ('region_eu_west_1', 'eu-west-1', 'EU West (Ireland)', 'europe', 'EUR', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NOW(), NOW()),
         ('region_ap_south_1', 'ap-south-1', 'AP South (Mumbai)', 'asia_pacific', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NOW(), NOW())
     """)
-    
+
     # Insert default global marketplace configurations
     op.execute("""
         INSERT INTO global_marketplace_configs (id, config_key, config_value, config_type, description, category, is_public, created_at, updated_at)
@@ -226,7 +225,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop global marketplace tables"""
-    
+
     # Drop tables in reverse order
     op.drop_table('global_marketplace_governance')
     op.drop_table('global_marketplace_analytics')

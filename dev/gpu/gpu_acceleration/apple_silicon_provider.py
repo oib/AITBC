@@ -5,17 +5,15 @@ This module implements the ComputeProvider interface for Apple Silicon GPUs,
 providing Metal-based acceleration for ZK operations.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Any, Tuple
-import time
+import json
 import logging
 import subprocess
-import json
+import time
+from typing import Any
 
-from .compute_provider import (
-    ComputeProvider, ComputeDevice, ComputeBackend, 
-    ComputeTask, ComputeResult
-)
+import numpy as np
+
+from .compute_provider import ComputeBackend, ComputeDevice, ComputeProvider
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -31,14 +29,14 @@ except ImportError:
 
 class AppleSiliconDevice(ComputeDevice):
     """Apple Silicon GPU device information."""
-    
+
     def __init__(self, device_id: int, metal_device=None):
         """Initialize Apple Silicon device info."""
         if metal_device:
             name = metal_device.name()
         else:
             name = f"Apple Silicon GPU {device_id}"
-        
+
         super().__init__(
             device_id=device_id,
             name=name,
@@ -49,7 +47,7 @@ class AppleSiliconDevice(ComputeDevice):
         )
         self.metal_device = metal_device
         self._update_utilization()
-    
+
     def _get_total_memory(self) -> int:
         """Get total GPU memory in bytes."""
         try:
@@ -65,16 +63,16 @@ class AppleSiliconDevice(ComputeDevice):
                 return 8 * 1024 * 1024 * 1024  # 8GB default
         except Exception:
             pass
-        
+
         # Fallback estimate
         return 8 * 1024 * 1024 * 1024  # 8GB
-    
+
     def _get_available_memory(self) -> int:
         """Get available GPU memory in bytes."""
         # For Apple Silicon, this is shared with system memory
         # We'll estimate 70% availability
         return int(self._get_total_memory() * 0.7)
-    
+
     def _update_utilization(self):
         """Update GPU utilization."""
         try:
@@ -84,7 +82,7 @@ class AppleSiliconDevice(ComputeDevice):
             self.utilization = psutil.cpu_percent(interval=1) * 0.5  # Rough estimate
         except Exception:
             self.utilization = 0.0
-    
+
     def update_temperature(self):
         """Update GPU temperature."""
         try:
@@ -105,7 +103,7 @@ class AppleSiliconDevice(ComputeDevice):
 
 class AppleSiliconComputeProvider(ComputeProvider):
     """Apple Silicon GPU implementation of ComputeProvider."""
-    
+
     def __init__(self):
         """Initialize Apple Silicon compute provider."""
         self.devices = []
@@ -113,39 +111,39 @@ class AppleSiliconComputeProvider(ComputeProvider):
         self.metal_device = None
         self.command_queue = None
         self.initialized = False
-        
+
         if not METAL_AVAILABLE:
             logger.warning("Metal Python bindings not available")
             return
-        
+
         try:
             self._discover_devices()
             logger.info(f"Apple Silicon Compute Provider initialized with {len(self.devices)} devices")
         except Exception as e:
             logger.error(f"Failed to initialize Apple Silicon provider: {e}")
-    
+
     def _discover_devices(self):
         """Discover available Apple Silicon GPU devices."""
         try:
             # Apple Silicon typically has one unified GPU
             device = AppleSiliconDevice(0)
             self.devices = [device]
-            
+
             # Initialize Metal device if available
             if Metal:
                 self.metal_device = Metal.MTLCreateSystemDefaultDevice()
                 if self.metal_device:
                     self.command_queue = self.metal_device.newCommandQueue()
-            
+
         except Exception as e:
             logger.warning(f"Failed to discover Apple Silicon devices: {e}")
-    
+
     def initialize(self) -> bool:
         """Initialize the Apple Silicon provider."""
         if not METAL_AVAILABLE:
             logger.error("Metal not available")
             return False
-        
+
         try:
             if self.devices and self.metal_device:
                 self.initialized = True
@@ -153,11 +151,11 @@ class AppleSiliconComputeProvider(ComputeProvider):
             else:
                 logger.error("No Apple Silicon GPU devices available")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Apple Silicon initialization failed: {e}")
             return False
-    
+
     def shutdown(self) -> None:
         """Shutdown the Apple Silicon provider."""
         try:
@@ -166,31 +164,31 @@ class AppleSiliconComputeProvider(ComputeProvider):
             self.metal_device = None
             self.initialized = False
             logger.info("Apple Silicon provider shutdown complete")
-            
+
         except Exception as e:
             logger.error(f"Apple Silicon shutdown failed: {e}")
-    
-    def get_available_devices(self) -> List[ComputeDevice]:
+
+    def get_available_devices(self) -> list[ComputeDevice]:
         """Get list of available Apple Silicon devices."""
         return self.devices
-    
+
     def get_device_count(self) -> int:
         """Get number of available Apple Silicon devices."""
         return len(self.devices)
-    
+
     def set_device(self, device_id: int) -> bool:
         """Set the active Apple Silicon device."""
         if device_id >= len(self.devices):
             return False
-        
+
         try:
             self.current_device_id = device_id
             return True
         except Exception as e:
             logger.error(f"Failed to set Apple Silicon device {device_id}: {e}")
             return False
-    
-    def get_device_info(self, device_id: int) -> Optional[ComputeDevice]:
+
+    def get_device_info(self, device_id: int) -> ComputeDevice | None:
         """Get information about a specific Apple Silicon device."""
         if device_id < len(self.devices):
             device = self.devices[device_id]
@@ -198,19 +196,19 @@ class AppleSiliconComputeProvider(ComputeProvider):
             device.update_temperature()
             return device
         return None
-    
-    def allocate_memory(self, size: int, device_id: Optional[int] = None) -> Any:
+
+    def allocate_memory(self, size: int, device_id: int | None = None) -> Any:
         """Allocate memory on Apple Silicon GPU."""
         if not self.initialized or not self.metal_device:
             raise RuntimeError("Apple Silicon provider not initialized")
-        
+
         try:
             # Create Metal buffer
             buffer = self.metal_device.newBufferWithLength_options_(size, Metal.MTLResourceStorageModeShared)
             return buffer
         except Exception as e:
             raise RuntimeError(f"Failed to allocate Apple Silicon memory: {e}")
-    
+
     def free_memory(self, memory_handle: Any) -> None:
         """Free allocated Apple Silicon memory."""
         # Metal uses automatic memory management
@@ -219,24 +217,24 @@ class AppleSiliconComputeProvider(ComputeProvider):
             memory_handle = None
         except Exception as e:
             logger.warning(f"Failed to free Apple Silicon memory: {e}")
-    
+
     def copy_to_device(self, host_data: Any, device_data: Any) -> None:
         """Copy data from host to Apple Silicon GPU."""
         if not self.initialized:
             raise RuntimeError("Apple Silicon provider not initialized")
-        
+
         try:
             if isinstance(host_data, np.ndarray) and hasattr(device_data, 'contents'):
                 # Copy numpy array to Metal buffer
                 device_data.contents().copy_bytes_from_length_(host_data.tobytes(), host_data.nbytes)
         except Exception as e:
             logger.error(f"Failed to copy to Apple Silicon device: {e}")
-    
+
     def copy_to_host(self, device_data: Any, host_data: Any) -> None:
         """Copy data from Apple Silicon GPU to host."""
         if not self.initialized:
             raise RuntimeError("Apple Silicon provider not initialized")
-        
+
         try:
             if hasattr(device_data, 'contents') and isinstance(host_data, np.ndarray):
                 # Copy from Metal buffer to numpy array
@@ -244,19 +242,19 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 host_data.flat[:] = np.frombuffer(bytes_data[:host_data.nbytes], dtype=host_data.dtype)
         except Exception as e:
             logger.error(f"Failed to copy from Apple Silicon device: {e}")
-    
+
     def execute_kernel(
         self,
         kernel_name: str,
-        grid_size: Tuple[int, int, int],
-        block_size: Tuple[int, int, int],
-        args: List[Any],
+        grid_size: tuple[int, int, int],
+        block_size: tuple[int, int, int],
+        args: list[Any],
         shared_memory: int = 0
     ) -> bool:
         """Execute a Metal compute kernel."""
         if not self.initialized or not self.metal_device:
             return False
-        
+
         try:
             # This would require Metal shader compilation
             # For now, we'll simulate with CPU operations
@@ -265,12 +263,12 @@ class AppleSiliconComputeProvider(ComputeProvider):
             else:
                 logger.warning(f"Unknown Apple Silicon kernel: {kernel_name}")
                 return False
-            
+
         except Exception as e:
             logger.error(f"Apple Silicon kernel execution failed: {e}")
             return False
-    
-    def _simulate_kernel(self, kernel_name: str, args: List[Any]) -> bool:
+
+    def _simulate_kernel(self, kernel_name: str, args: list[Any]) -> bool:
         """Simulate kernel execution with CPU operations."""
         # This is a placeholder for actual Metal kernel execution
         # In practice, this would compile and execute Metal shaders
@@ -287,7 +285,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             return False
         except Exception:
             return False
-    
+
     def synchronize(self) -> None:
         """Synchronize Apple Silicon GPU operations."""
         if self.initialized and self.command_queue:
@@ -297,26 +295,26 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 pass
             except Exception as e:
                 logger.error(f"Apple Silicon synchronization failed: {e}")
-    
-    def get_memory_info(self, device_id: Optional[int] = None) -> Tuple[int, int]:
+
+    def get_memory_info(self, device_id: int | None = None) -> tuple[int, int]:
         """Get Apple Silicon memory information."""
         device = self.get_device_info(device_id or self.current_device_id)
         if device:
             return (device.memory_available, device.memory_total)
         return (0, 0)
-    
-    def get_utilization(self, device_id: Optional[int] = None) -> float:
+
+    def get_utilization(self, device_id: int | None = None) -> float:
         """Get Apple Silicon GPU utilization."""
         device = self.get_device_info(device_id or self.current_device_id)
         return device.utilization if device else 0.0
-    
-    def get_temperature(self, device_id: Optional[int] = None) -> Optional[float]:
+
+    def get_temperature(self, device_id: int | None = None) -> float | None:
         """Get Apple Silicon GPU temperature."""
         device = self.get_device_info(device_id or self.current_device_id)
         return device.temperature if device else None
-    
+
     # ZK-specific operations (Apple Silicon implementations)
-    
+
     def zk_field_add(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """Perform field addition using Apple Silicon GPU."""
         try:
@@ -327,7 +325,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"Apple Silicon field add failed: {e}")
             return False
-    
+
     def zk_field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """Perform field multiplication using Apple Silicon GPU."""
         try:
@@ -338,7 +336,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"Apple Silicon field mul failed: {e}")
             return False
-    
+
     def zk_field_inverse(self, a: np.ndarray, result: np.ndarray) -> bool:
         """Perform field inversion using Apple Silicon GPU."""
         try:
@@ -353,11 +351,11 @@ class AppleSiliconComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"Apple Silicon field inverse failed: {e}")
             return False
-    
+
     def zk_multi_scalar_mul(
         self,
-        scalars: List[np.ndarray],
-        points: List[np.ndarray],
+        scalars: list[np.ndarray],
+        points: list[np.ndarray],
         result: np.ndarray
     ) -> bool:
         """Perform multi-scalar multiplication using Apple Silicon GPU."""
@@ -366,17 +364,17 @@ class AppleSiliconComputeProvider(ComputeProvider):
             # In practice, this would use Metal compute shaders
             if len(scalars) != len(points):
                 return False
-            
+
             result.fill(0)
             for scalar, point in zip(scalars, points):
                 temp = np.multiply(scalar, point, dtype=result.dtype)
                 np.add(result, temp, out=result, dtype=result.dtype)
-            
+
             return True
         except Exception as e:
             logger.error(f"Apple Silicon multi-scalar mul failed: {e}")
             return False
-    
+
     def zk_pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray) -> bool:
         """Perform pairing operation using Apple Silicon GPU."""
         try:
@@ -387,27 +385,27 @@ class AppleSiliconComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"Apple Silicon pairing failed: {e}")
             return False
-    
+
     # Performance and monitoring
-    
-    def benchmark_operation(self, operation: str, iterations: int = 100) -> Dict[str, float]:
+
+    def benchmark_operation(self, operation: str, iterations: int = 100) -> dict[str, float]:
         """Benchmark an Apple Silicon operation."""
         if not self.initialized:
             return {"error": "Apple Silicon provider not initialized"}
-        
+
         try:
             # Create test data
             test_size = 1024
             a = np.random.randint(0, 2**32, size=test_size, dtype=np.uint64)
             b = np.random.randint(0, 2**32, size=test_size, dtype=np.uint64)
             result = np.zeros_like(a)
-            
+
             # Warm up
             if operation == "add":
                 self.zk_field_add(a, b, result)
             elif operation == "mul":
                 self.zk_field_mul(a, b, result)
-            
+
             # Benchmark
             start_time = time.time()
             for _ in range(iterations):
@@ -416,31 +414,31 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 elif operation == "mul":
                     self.zk_field_mul(a, b, result)
             end_time = time.time()
-            
+
             total_time = end_time - start_time
             avg_time = total_time / iterations
             ops_per_second = iterations / total_time
-            
+
             return {
                 "total_time": total_time,
                 "average_time": avg_time,
                 "operations_per_second": ops_per_second,
                 "iterations": iterations
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
-    
-    def get_performance_metrics(self) -> Dict[str, Any]:
+
+    def get_performance_metrics(self) -> dict[str, Any]:
         """Get Apple Silicon performance metrics."""
         if not self.initialized:
             return {"error": "Apple Silicon provider not initialized"}
-        
+
         try:
             free_mem, total_mem = self.get_memory_info()
             utilization = self.get_utilization()
             temperature = self.get_temperature()
-            
+
             return {
                 "backend": "apple_silicon",
                 "device_count": len(self.devices),
@@ -465,11 +463,12 @@ class AppleSiliconComputeProvider(ComputeProvider):
                     for device in self.devices
                 ]
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
 
 
 # Register the Apple Silicon provider
 from .compute_provider import ComputeProviderFactory
+
 ComputeProviderFactory.register_provider(ComputeBackend.APPLE_SILICON, AppleSiliconComputeProvider)

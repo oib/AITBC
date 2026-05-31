@@ -3,13 +3,12 @@ Dependency vulnerability scanning utilities for AITBC
 Provides automated vulnerability scanning for Python dependencies
 """
 
-import subprocess
 import json
-import re
-from typing import List, Dict, Any, Optional
+import subprocess
 from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from .aitbc_logging import get_logger
 
@@ -25,7 +24,7 @@ class VulnerabilityReport:
     severity: str
     description: str
     fix_available: bool
-    fixed_version: Optional[str]
+    fixed_version: str | None
 
 
 class DependencyScanner:
@@ -33,8 +32,8 @@ class DependencyScanner:
     Dependency vulnerability scanner.
     Scans Python dependencies for known vulnerabilities.
     """
-    
-    def __init__(self, requirements_file: Optional[Path] = None):
+
+    def __init__(self, requirements_file: Path | None = None):
         """
         Initialize dependency scanner
         
@@ -42,9 +41,9 @@ class DependencyScanner:
             requirements_file: Path to pyproject.toml (Poetry source of truth)
         """
         self.requirements_file = requirements_file or Path("pyproject.toml")
-        self._vulnerabilities: List[VulnerabilityReport] = []
-    
-    def scan_with_pip_audit(self) -> List[VulnerabilityReport]:
+        self._vulnerabilities: list[VulnerabilityReport] = []
+
+    def scan_with_pip_audit(self) -> list[VulnerabilityReport]:
         """
         Scan dependencies using pip-audit
         
@@ -52,7 +51,7 @@ class DependencyScanner:
             List of vulnerability reports
         """
         logger.info("Running pip-audit vulnerability scan")
-        
+
         try:
             result = subprocess.run(
                 ["pip-audit", "--format", "json"],
@@ -60,11 +59,11 @@ class DependencyScanner:
                 text=True,
                 timeout=300
             )
-            
+
             if result.returncode == 0:
                 logger.info("No vulnerabilities found")
                 return []
-            
+
             # Parse JSON output
             try:
                 audit_data = json.loads(result.stdout)
@@ -72,7 +71,7 @@ class DependencyScanner:
             except json.JSONDecodeError:
                 logger.warning("Failed to parse pip-audit JSON output")
                 return []
-                
+
         except FileNotFoundError:
             logger.warning("pip-audit not found, skipping scan")
             return []
@@ -82,8 +81,8 @@ class DependencyScanner:
         except Exception as e:
             logger.error(f"pip-audit scan failed: {e}")
             return []
-    
-    def scan_with_bandit(self, target_dir: Optional[Path] = None) -> List[Dict[str, Any]]:
+
+    def scan_with_bandit(self, target_dir: Path | None = None) -> list[dict[str, Any]]:
         """
         Scan code for security issues using Bandit
         
@@ -95,7 +94,7 @@ class DependencyScanner:
         """
         target_dir = target_dir or Path(".")
         logger.info(f"Running Bandit security scan on {target_dir}")
-        
+
         try:
             result = subprocess.run(
                 ["bandit", "-r", str(target_dir), "-f", "json"],
@@ -103,14 +102,14 @@ class DependencyScanner:
                 text=True,
                 timeout=300
             )
-            
+
             try:
                 bandit_data = json.loads(result.stdout)
                 return bandit_data.get("results", [])
             except json.JSONDecodeError:
                 logger.warning("Failed to parse Bandit JSON output")
                 return []
-                
+
         except FileNotFoundError:
             logger.warning("Bandit not found, skipping scan")
             return []
@@ -120,8 +119,8 @@ class DependencyScanner:
         except Exception as e:
             logger.error(f"Bandit scan failed: {e}")
             return []
-    
-    def _parse_pip_audit_output(self, audit_data: Dict[str, Any]) -> List[VulnerabilityReport]:
+
+    def _parse_pip_audit_output(self, audit_data: dict[str, Any]) -> list[VulnerabilityReport]:
         """
         Parse pip-audit JSON output
         
@@ -132,7 +131,7 @@ class DependencyScanner:
             List of vulnerability reports
         """
         vulnerabilities = []
-        
+
         for dep in audit_data.get("dependencies", []):
             for vuln in dep.get("vulnerabilities", []):
                 report = VulnerabilityReport(
@@ -145,10 +144,10 @@ class DependencyScanner:
                     fixed_version=vuln.get("fix_versions", [None])[0] if vuln.get("fix_versions") else None
                 )
                 vulnerabilities.append(report)
-        
+
         return vulnerabilities
-    
-    def generate_report(self) -> Dict[str, Any]:
+
+    def generate_report(self) -> dict[str, Any]:
         """
         Generate comprehensive vulnerability report
         
@@ -157,13 +156,13 @@ class DependencyScanner:
         """
         pip_audit_results = self.scan_with_pip_audit()
         bandit_results = self.scan_with_bandit()
-        
+
         # Count vulnerabilities by severity
         severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
         for vuln in pip_audit_results:
             severity = vuln.severity.upper()
             severity_counts[severity] = severity_counts.get(severity, 0) + 1
-        
+
         return {
             "timestamp": datetime.now().isoformat(),
             "dependency_vulnerabilities": len(pip_audit_results),
@@ -183,7 +182,7 @@ class DependencyScanner:
             ],
             "bandit_issues": bandit_results
         }
-    
+
     def save_report(self, output_file: Path) -> None:
         """
         Save vulnerability report to file
@@ -192,18 +191,18 @@ class DependencyScanner:
             output_file: Path to output file
         """
         report = self.generate_report()
-        
+
         output_file.parent.mkdir(parents=True, exist_ok=True)
         with open(output_file, 'w') as f:
             json.dump(report, f, indent=2, default=str)
-        
+
         logger.info(f"Vulnerability report saved to {output_file}")
 
 
 def run_dependency_scan(
-    requirements_file: Optional[Path] = None,
-    output_file: Optional[Path] = None
-) -> Dict[str, Any]:
+    requirements_file: Path | None = None,
+    output_file: Path | None = None
+) -> dict[str, Any]:
     """
     Run comprehensive dependency vulnerability scan
     
@@ -216,15 +215,15 @@ def run_dependency_scan(
     """
     scanner = DependencyScanner(requirements_file)
     report = scanner.generate_report()
-    
+
     if output_file:
         scanner.save_report(output_file)
-    
+
     return report
 
 
 def check_vulnerability_thresholds(
-    report: Dict[str, Any],
+    report: dict[str, Any],
     max_critical: int = 0,
     max_high: int = 0,
     max_medium: int = 10,
@@ -244,19 +243,19 @@ def check_vulnerability_thresholds(
         True if within thresholds, False otherwise
     """
     severity = report.get("severity_breakdown", {})
-    
+
     if severity.get("CRITICAL", 0) > max_critical:
         logger.error(f"Critical vulnerabilities exceed threshold: {severity.get('CRITICAL')} > {max_critical}")
         return False
-    
+
     if severity.get("HIGH", 0) > max_high:
         logger.error(f"High vulnerabilities exceed threshold: {severity.get('HIGH')} > {max_high}")
         return False
-    
+
     if severity.get("MEDIUM", 0) > max_medium:
         logger.warning(f"Medium vulnerabilities exceed threshold: {severity.get('MEDIUM')} > {max_medium}")
-    
+
     if severity.get("LOW", 0) > max_low:
         logger.warning(f"Low vulnerabilities exceed threshold: {severity.get('LOW')} > {max_low}")
-    
+
     return True

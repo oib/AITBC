@@ -2,24 +2,22 @@
 
 from __future__ import annotations
 
-import sys
 import asyncio
-import pytest
-from datetime import datetime, timezone, timedelta
+from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
-from typing import Generator
 
+import pytest
+from aitbc_chain.config import ProposerConfig
+from aitbc_chain.consensus.poa import CircuitBreaker, PoAProposer
+from aitbc_chain.mempool import InMemoryMempool
+from aitbc_chain.models import Block
 from sqlmodel import Session, create_engine, select
 from sqlmodel.pool import StaticPool
 
-from aitbc_chain.consensus.poa import CircuitBreaker, PoAProposer
-from aitbc_chain.config import ProposerConfig
-from aitbc_chain.models import Block, Account
-from aitbc_chain.mempool import InMemoryMempool
-
 
 @pytest.fixture
-def test_db() -> Generator[Session, None, None]:
+def test_db() -> Generator[Session]:
     """Create a test database session."""
     engine = create_engine(
         "sqlite:///:memory:",
@@ -44,7 +42,7 @@ def proposer_config() -> ProposerConfig:
 
 
 @pytest.fixture
-def mock_session_factory(test_db: Session) -> Generator[callable, None, None]:
+def mock_session_factory(test_db: Session) -> Generator[callable]:
     """Create a mock session factory."""
     def factory():
         return test_db
@@ -71,38 +69,38 @@ class TestCircuitBreaker:
     def test_failure_threshold_opens_circuit(self) -> None:
         """Test that exceeding failure threshold opens circuit."""
         breaker = CircuitBreaker(threshold=3, timeout=60)
-        
+
         # Record failures up to threshold
         for _ in range(3):
             breaker.record_failure()
-        
+
         assert breaker.state == "open"
         assert breaker.allow_request() is False
 
     def test_timeout_transitions_to_half_open(self) -> None:
         """Test that timeout transitions circuit to half-open."""
         breaker = CircuitBreaker(threshold=1, timeout=0.1)
-        
+
         # Trigger open state
         breaker.record_failure()
         assert breaker.state == "open"
-        
+
         # Wait for timeout
         import time
         time.sleep(0.2)
-        
+
         assert breaker.state == "half-open"
         assert breaker.allow_request() is True
 
     def test_success_resets_circuit(self) -> None:
         """Test that success resets circuit to closed."""
         breaker = CircuitBreaker(threshold=2, timeout=60)
-        
+
         # Trigger open state
         breaker.record_failure()
         breaker.record_failure()
         assert breaker.state == "open"
-        
+
         # Record success
         breaker.record_success()
         assert breaker.state == "closed"
@@ -111,12 +109,12 @@ class TestCircuitBreaker:
     def test_half_open_allows_request(self) -> None:
         """Test that half-open state allows requests."""
         breaker = CircuitBreaker(threshold=1, timeout=0.1)
-        
+
         # Trigger open then wait for timeout
         breaker.record_failure()
         import time
         time.sleep(0.2)
-        
+
         assert breaker.state == "half-open"
         assert breaker.allow_request() is True
 
@@ -142,7 +140,7 @@ class TestPoAProposer:
         await proposer.start()
         assert proposer._task is not None
         assert not proposer._stop_event.is_set()
-        
+
         # Stop proposer
         await proposer.stop()
         assert proposer._task is None
@@ -153,10 +151,10 @@ class TestPoAProposer:
         """Test that starting an already running proposer doesn't create duplicate tasks."""
         await proposer.start()
         original_task = proposer._task
-        
+
         # Try to start again
         await proposer.start()
-        
+
         assert proposer._task is original_task
         await proposer.stop()
 
@@ -173,7 +171,7 @@ class TestPoAProposer:
         with patch('aitbc_chain.mempool.get_mempool', return_value=mock_mempool):
             with patch('aitbc_chain.consensus.poa.gossip_broker', new=AsyncMock()):
                 await proposer._propose_block()
-                
+
                 # Verify genesis block was created
                 block = test_db.exec(select(Block).where(Block.chain_id == proposer._config.chain_id)).first()
                 assert block is not None
@@ -192,22 +190,22 @@ class TestPoAProposer:
             hash="0xparent",
             parent_hash="0x00",
             proposer="previous-proposer",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             tx_count=0,
         )
         test_db.add(parent)
         test_db.commit()
-        
+
         # Mock mempool with transactions
         mock_tx = Mock()
         mock_tx.tx_hash = "0xtx"
         mock_tx.content = {"sender": "alice", "recipient": "bob", "amount": 100}
         mock_mempool.drain.return_value = [mock_tx]
-        
+
         with patch('aitbc_chain.mempool.get_mempool', return_value=mock_mempool):
             with patch('aitbc_chain.consensus.poa.gossip_broker', new=AsyncMock()):
                 await proposer._propose_block()
-                
+
                 # Verify new block was created
                 block = test_db.exec(select(Block).where(Block.chain_id == proposer._config.chain_id).order_by(Block.height.desc())).first()
                 assert block is not None
@@ -231,17 +229,17 @@ class TestPoAProposer:
             hash="0xhead",
             parent_hash="0x00",
             proposer="test-proposer",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             tx_count=0,
         )
         test_db.add(head)
         test_db.commit()
-        
+
         # Should wait for the configured interval
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         await proposer._wait_until_next_slot()
-        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-        
+        elapsed = (datetime.now(UTC) - start_time).total_seconds()
+
         # Should wait at least some time (but less than full interval since block is recent)
         assert elapsed >= 0.1
 
@@ -255,18 +253,18 @@ class TestPoAProposer:
             hash="0xhead",
             parent_hash="0x00",
             proposer="test-proposer",
-            timestamp=datetime.now(timezone.utc) - timedelta(seconds=10),
+            timestamp=datetime.now(UTC) - timedelta(seconds=10),
             tx_count=0,
         )
         test_db.add(head)
         test_db.commit()
-        
+
         # Set stop event and wait
         proposer._stop_event.set()
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         await proposer._wait_until_next_slot()
-        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-        
+        elapsed = (datetime.now(UTC) - start_time).total_seconds()
+
         # Should return immediately due to stop event
         assert elapsed < 0.1
 
@@ -278,11 +276,11 @@ class TestPoAProposer:
                 # Start the loop
                 proposer._stop_event.clear()
                 task = asyncio.create_task(proposer._run_loop())
-                
+
                 # Let it run briefly then stop
                 await asyncio.sleep(0.1)
                 proposer._stop_event.set()
-                
+
                 # Wait for task to complete
                 await task
 
@@ -290,11 +288,11 @@ class TestPoAProposer:
         """Test block hash computation."""
         height = 1
         parent_hash = "0xparent"
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         processed_txs = []
-        
+
         block_hash = proposer._compute_block_hash(height, parent_hash, timestamp, processed_txs)
-        
+
         assert isinstance(block_hash, str)
         assert block_hash.startswith("0x")
         assert len(block_hash) == 66  # 0x + 64 hex chars
@@ -303,14 +301,14 @@ class TestPoAProposer:
         """Test block hash computation with transactions."""
         height = 1
         parent_hash = "0xparent"
-        timestamp = datetime.now(timezone.utc)
-        
+        timestamp = datetime.now(UTC)
+
         mock_tx = Mock()
         mock_tx.tx_hash = "0xtx"
         processed_txs = [mock_tx]
-        
+
         block_hash = proposer._compute_block_hash(height, parent_hash, timestamp, processed_txs)
-        
+
         assert isinstance(block_hash, str)
         assert block_hash.startswith("0x")
         assert len(block_hash) == 66
@@ -324,12 +322,12 @@ class TestPoAProposer:
             hash="0xexisting",
             parent_hash="0x00",
             proposer="test-proposer",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             tx_count=0,
         )
         test_db.add(block)
         test_db.commit()
-        
+
         # Should not create duplicate
         proposer._ensure_genesis_block()
         blocks = test_db.exec(select(Block).where(Block.chain_id == proposer._config.chain_id)).all()
@@ -339,15 +337,15 @@ class TestPoAProposer:
     def test_sanitize_metric_suffix(self) -> None:
         """Test metric suffix sanitization."""
         from aitbc_chain.consensus.poa import _sanitize_metric_suffix
-        
+
         # Test normal string
         assert _sanitize_metric_suffix("normal") == "normal"
-        
+
         # Test with special characters
         assert _sanitize_metric_suffix("test@#$") == "test"
-        
+
         # Test empty string
         assert _sanitize_metric_suffix("") == "unknown"
-        
+
         # Test only special characters
         assert _sanitize_metric_suffix("@#$") == "unknown"

@@ -3,17 +3,15 @@
 This module provides a client for interacting with the AITBC wallet daemon.
 """
 
-import sys
-import json
 import base64
-from typing import TYPE_CHECKING, Dict, Any, Optional, List
-from pathlib import Path
+import sys
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from aitbc import AITBCHTTPClient, NetworkError
 
 sys.path.insert(0, "/opt/aitbc/cli")
-from utils import error, success
+from utils import error
 
 if TYPE_CHECKING:
     from aitbc_cli.core.config import Config
@@ -38,9 +36,9 @@ class WalletInfo:
     wallet_id: str
     chain_id: str
     public_key: str
-    address: Optional[str] = None
-    created_at: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    address: str | None = None
+    created_at: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
@@ -49,8 +47,8 @@ class WalletBalance:
     wallet_id: str
     chain_id: str
     balance: float
-    address: Optional[str] = None
-    last_updated: Optional[str] = None
+    address: str | None = None
+    last_updated: str | None = None
 
 
 @dataclass
@@ -64,12 +62,12 @@ class WalletMigrationResult:
 
 class WalletDaemonClient:
     """Client for interacting with AITBC wallet daemon"""
-    
+
     def __init__(self, config: "Config"):
         self.config = config
         self.base_url = config.wallet_url.rstrip('/')
         self.timeout = getattr(config, 'timeout', 30)
-    
+
     def _get_http_client(self) -> AITBCHTTPClient:
         """Create HTTP client with appropriate settings"""
         return AITBCHTTPClient(
@@ -77,7 +75,7 @@ class WalletDaemonClient:
             timeout=self.timeout,
             headers={"Content-Type": "application/json"}
         )
-    
+
     def is_available(self) -> bool:
         """Check if wallet daemon is available and responsive"""
         try:
@@ -88,8 +86,8 @@ class WalletDaemonClient:
             return False
         except Exception:
             return False
-    
-    def get_status(self) -> Dict[str, Any]:
+
+    def get_status(self) -> dict[str, Any]:
         """Get wallet daemon status information"""
         try:
             client = self._get_http_client()
@@ -98,8 +96,8 @@ class WalletDaemonClient:
             return {"status": "unavailable", "error": str(e)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
-    
-    def create_wallet(self, wallet_id: str, password: str, metadata: Optional[Dict[str, Any]] = None) -> WalletInfo:
+
+    def create_wallet(self, wallet_id: str, password: str, metadata: dict[str, Any] | None = None) -> WalletInfo:
         """Create a new wallet in the daemon"""
         try:
             client = self._get_http_client()
@@ -108,7 +106,7 @@ class WalletDaemonClient:
                 "password": password,
                 "metadata": metadata or {}
             }
-            
+
             data = client.post("/v1/wallets", json=payload)
             return WalletInfo(
                 wallet_id=data["wallet_id"],
@@ -124,8 +122,8 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error creating wallet: {str(e)}")
             raise
-    
-    def list_wallets(self) -> List[WalletInfo]:
+
+    def list_wallets(self) -> list[WalletInfo]:
         """List all wallets in the daemon"""
         try:
             client = self._get_http_client()
@@ -149,8 +147,8 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error listing wallets: {str(e)}")
             raise
-    
-    def get_wallet_info(self, wallet_id: str) -> Optional[WalletInfo]:
+
+    def get_wallet_info(self, wallet_id: str) -> WalletInfo | None:
         """Get information about a specific wallet"""
         try:
             client = self._get_http_client()
@@ -169,8 +167,8 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error getting wallet info: {str(e)}")
             return None
-    
-    def get_wallet_balance(self, wallet_id: str) -> Optional[WalletBalance]:
+
+    def get_wallet_balance(self, wallet_id: str) -> WalletBalance | None:
         """Get wallet balance from daemon"""
         try:
             client = self._get_http_client()
@@ -188,19 +186,19 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error getting wallet balance: {str(e)}")
             return None
-    
+
     def sign_message(self, wallet_id: str, password: str, message: bytes) -> str:
         """Sign a message with wallet private key"""
         try:
             with self._get_http_client() as client:
                 # Encode message as base64 for transmission
                 message_b64 = base64.b64encode(message).decode()
-                
+
                 payload = {
                     "password": password,
                     "message": message_b64
                 }
-                
+
                 response = client.post(f"/v1/wallets/{wallet_id}/sign", json=payload)
                 if response.status_code == 200:
                     data = response.json()
@@ -211,9 +209,9 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error signing message: {str(e)}")
             raise
-    
-    def send_transaction(self, wallet_id: str, password: str, to_address: str, amount: float, 
-                        description: Optional[str] = None) -> Dict[str, Any]:
+
+    def send_transaction(self, wallet_id: str, password: str, to_address: str, amount: float,
+                        description: str | None = None) -> dict[str, Any]:
         """Send a transaction via the daemon"""
         try:
             with self._get_http_client() as client:
@@ -223,7 +221,7 @@ class WalletDaemonClient:
                     "amount": amount,
                     "description": description or ""
                 }
-                
+
                 response = client.post(f"/v1/wallets/{wallet_id}/send", json=payload)
                 if response.status_code == 201:
                     return response.json()
@@ -233,7 +231,7 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error sending transaction: {str(e)}")
             raise
-    
+
     def unlock_wallet(self, wallet_id: str, password: str) -> bool:
         """Unlock a wallet for operations"""
         try:
@@ -243,7 +241,7 @@ class WalletDaemonClient:
                 return response.status_code == 200
         except Exception:
             return False
-    
+
     def lock_wallet(self, wallet_id: str) -> bool:
         """Lock a wallet"""
         try:
@@ -252,7 +250,7 @@ class WalletDaemonClient:
                 return response.status_code == 200
         except Exception:
             return False
-    
+
     def delete_wallet(self, wallet_id: str, password: str) -> bool:
         """Delete a wallet from daemon"""
         try:
@@ -262,8 +260,8 @@ class WalletDaemonClient:
                 return response.status_code == 200
         except Exception:
             return False
-    
-    def jsonrpc_call(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+
+    def jsonrpc_call(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """Make a JSON-RPC call to the daemon"""
         try:
             with self._get_http_client() as client:
@@ -273,7 +271,7 @@ class WalletDaemonClient:
                     "params": params or {},
                     "id": 1
                 }
-                
+
                 response = client.post("/rpc", json=payload)
                 if response.status_code == 200:
                     return response.json()
@@ -285,8 +283,8 @@ class WalletDaemonClient:
             raise
 
     # Multi-Chain Methods
-    
-    def list_chains(self) -> List[ChainInfo]:
+
+    def list_chains(self) -> list[ChainInfo]:
         """List all blockchain chains"""
         try:
             with self._get_http_client() as client:
@@ -312,9 +310,9 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error listing chains: {str(e)}")
             raise
-    
-    def create_chain(self, chain_id: str, name: str, coordinator_url: str, 
-                    coordinator_api_key: str, metadata: Optional[Dict[str, Any]] = None) -> ChainInfo:
+
+    def create_chain(self, chain_id: str, name: str, coordinator_url: str,
+                    coordinator_api_key: str, metadata: dict[str, Any] | None = None) -> ChainInfo:
         """Create a new blockchain chain"""
         try:
             with self._get_http_client() as client:
@@ -325,7 +323,7 @@ class WalletDaemonClient:
                     "coordinator_api_key": coordinator_api_key,
                     "metadata": metadata or {}
                 }
-                
+
                 response = client.post("/v1/chains", json=payload)
                 if response.status_code == 201:
                     data = response.json()
@@ -346,8 +344,8 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error creating chain: {str(e)}")
             raise
-    
-    def create_wallet(self, wallet_id: str, password: str, metadata: Optional[Dict[str, Any]] = None) -> WalletInfo:
+
+    def create_wallet(self, wallet_id: str, password: str, metadata: dict[str, Any] | None = None) -> WalletInfo:
         """Create a new wallet in the daemon"""
         try:
             client = self._get_http_client()
@@ -356,7 +354,7 @@ class WalletDaemonClient:
                 "password": password,
                 "metadata": metadata or {}
             }
-            
+
             data = client.post("/v1/wallets", json=payload)
             return WalletInfo(
                 wallet_id=data["wallet_id"],
@@ -371,9 +369,9 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error creating wallet: {str(e)}")
             raise
-    
+
     def create_wallet_in_chain(self, chain_id: str, wallet_id: str, password: str,
-                              metadata: Optional[Dict[str, Any]] = None) -> WalletInfo:
+                              metadata: dict[str, Any] | None = None) -> WalletInfo:
         """Create a wallet in a specific chain"""
         try:
             with self._get_http_client() as client:
@@ -383,7 +381,7 @@ class WalletDaemonClient:
                     "password": password,
                     "metadata": metadata or {}
                 }
-                
+
                 response = client.post(f"/v1/chains/{chain_id}/wallets", json=payload)
                 if response.status_code == 201:
                     data = response.json()
@@ -402,8 +400,8 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error creating wallet in chain {chain_id}: {str(e)}")
             raise
-    
-    def list_wallets_in_chain(self, chain_id: str) -> List[WalletInfo]:
+
+    def list_wallets_in_chain(self, chain_id: str) -> list[WalletInfo]:
         """List wallets in a specific chain"""
         try:
             with self._get_http_client() as client:
@@ -427,8 +425,8 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error listing wallets in chain {chain_id}: {str(e)}")
             raise
-    
-    def get_wallet_info_in_chain(self, chain_id: str, wallet_id: str) -> Optional[WalletInfo]:
+
+    def get_wallet_info_in_chain(self, chain_id: str, wallet_id: str) -> WalletInfo | None:
         """Get wallet information from a specific chain"""
         try:
             wallets = self.list_wallets_in_chain(chain_id)
@@ -439,7 +437,7 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error getting wallet info from chain {chain_id}: {str(e)}")
             return None
-    
+
     def unlock_wallet_in_chain(self, chain_id: str, wallet_id: str, password: str) -> bool:
         """Unlock a wallet in a specific chain"""
         try:
@@ -449,8 +447,8 @@ class WalletDaemonClient:
                 return response.status_code == 200
         except Exception:
             return False
-    
-    def sign_message_in_chain(self, chain_id: str, wallet_id: str, password: str, message: bytes) -> Optional[str]:
+
+    def sign_message_in_chain(self, chain_id: str, wallet_id: str, password: str, message: bytes) -> str | None:
         """Sign a message with a wallet in a specific chain"""
         try:
             with self._get_http_client() as client:
@@ -458,7 +456,7 @@ class WalletDaemonClient:
                     "password": password,
                     "message_base64": base64.b64encode(message).decode()
                 }
-                
+
                 response = client.post(f"/v1/chains/{chain_id}/wallets/{wallet_id}/sign", json=payload)
                 if response.status_code == 200:
                     data = response.json()
@@ -467,8 +465,8 @@ class WalletDaemonClient:
                     return None
         except Exception:
             return None
-    
-    def get_wallet_balance_in_chain(self, chain_id: str, wallet_id: str) -> Optional[WalletBalance]:
+
+    def get_wallet_balance_in_chain(self, chain_id: str, wallet_id: str) -> WalletBalance | None:
         """Get wallet balance in a specific chain"""
         try:
             # For now, return a placeholder balance
@@ -485,9 +483,9 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error getting wallet balance in chain {chain_id}: {str(e)}")
             return None
-    
+
     def migrate_wallet(self, source_chain_id: str, target_chain_id: str, wallet_id: str,
-                      password: str, new_password: Optional[str] = None) -> Optional[WalletMigrationResult]:
+                      password: str, new_password: str | None = None) -> WalletMigrationResult | None:
         """Migrate a wallet from one chain to another"""
         try:
             with self._get_http_client() as client:
@@ -499,11 +497,11 @@ class WalletDaemonClient:
                 }
                 if new_password:
                     payload["new_password"] = new_password
-                
+
                 response = client.post("/v1/wallets/migrate", json=payload)
                 if response.status_code == 200:
                     data = response.json()
-                    
+
                     source_wallet = WalletInfo(
                         wallet_id=data["source_wallet"]["wallet_id"],
                         chain_id=data["source_wallet"]["chain_id"],
@@ -511,7 +509,7 @@ class WalletDaemonClient:
                         address=data["source_wallet"].get("address"),
                         metadata=data["source_wallet"].get("metadata")
                     )
-                    
+
                     target_wallet = WalletInfo(
                         wallet_id=data["target_wallet"]["wallet_id"],
                         chain_id=data["target_wallet"]["chain_id"],
@@ -519,7 +517,7 @@ class WalletDaemonClient:
                         address=data["target_wallet"].get("address"),
                         metadata=data["target_wallet"].get("metadata")
                     )
-                    
+
                     return WalletMigrationResult(
                         success=data["success"],
                         source_wallet=source_wallet,
@@ -532,13 +530,13 @@ class WalletDaemonClient:
         except Exception as e:
             error(f"Error migrating wallet: {str(e)}")
             return None
-    
-    def get_chain_status(self) -> Dict[str, Any]:
+
+    def get_chain_status(self) -> dict[str, Any]:
         """Get overall chain status and statistics"""
         try:
             chains = self.list_chains()
             active_chains = [c for c in chains if c.status == "active"]
-            
+
             return {
                 "total_chains": len(chains),
                 "active_chains": len(active_chains),

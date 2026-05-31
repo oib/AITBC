@@ -3,8 +3,9 @@ Global Marketplace Integration Service
 Integration service that combines global marketplace operations with cross-chain capabilities
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+import hashlib
 from typing import Any
 
 from aitbc import get_logger
@@ -14,13 +15,13 @@ logger = get_logger(__name__)
 from sqlmodel import Session, select
 
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
+from ....reputation.engine import CrossChainReputationEngine
+from ....services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
+from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol, BridgeSecurityLevel, CrossChainBridgeService
 from ..domain.global_marketplace import (
     GlobalMarketplaceOffer,
 )
-from ....reputation.engine import CrossChainReputationEngine
-from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol, CrossChainBridgeService
 from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
-from ....services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
 
 
 class IntegrationStatus(StrEnum):
@@ -80,11 +81,11 @@ class GlobalMarketplaceIntegrationService:
 
         try:
             # Initialize bridge service
-            self.bridge_service = CrossChainBridgeService(session)  # type: ignore[name-defined]
+            self.bridge_service = CrossChainBridgeService(self.session)  # type: ignore[name-defined]
             await self.bridge_service.initialize_bridge(chain_configs)
 
             # Initialize transaction manager
-            self.tx_manager = MultiChainTransactionManager(session)  # type: ignore[name-defined]
+            self.tx_manager = MultiChainTransactionManager(self.session)  # type: ignore[name-defined]
             await self.tx_manager.initialize(chain_configs)
 
             logger.info("Global marketplace integration services initialized")
@@ -146,7 +147,7 @@ class GlobalMarketplaceIntegrationService:
                 regions_available=regions_available,
                 supported_chains=supported_chains,
                 dynamic_pricing_enabled=self.integration_config["regional_pricing_enabled"],
-                expires_at=datetime.now(timezone.utc) + timedelta(minutes=deadline_minutes),
+                expires_at=datetime.now(UTC) + timedelta(minutes=deadline_minutes),
             )
 
             global_offer = await self.marketplace_service.create_global_offer(offer_request, None)  # type: ignore[arg-type]
@@ -249,7 +250,7 @@ class GlobalMarketplaceIntegrationService:
             # Update offer capacity
             offer.available_capacity -= quantity
             offer.total_transactions += 1
-            offer.updated_at = datetime.now(timezone.utc)
+            offer.updated_at = datetime.now(UTC)
 
             # Execute cross-chain bridge if needed and enabled
             bridge_transaction_id = None
@@ -365,7 +366,7 @@ class GlobalMarketplaceIntegrationService:
             # Get base marketplace analytics
             from ..domain.global_marketplace import GlobalMarketplaceAnalyticsRequest
 
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             start_time = end_time - timedelta(hours=time_period_hours)
 
             analytics_request = GlobalMarketplaceAnalyticsRequest(
@@ -398,7 +399,7 @@ class GlobalMarketplaceIntegrationService:
                 "transaction_statistics": tx_stats,
                 "cross_chain_metrics": cross_chain_metrics,
                 "integration_metrics": self.metrics,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -431,7 +432,7 @@ class GlobalMarketplaceIntegrationService:
             # Update offer with optimized pricing
             offer.price_per_region = optimized_pricing["regional_pricing"]
             offer.cross_chain_pricing = optimized_pricing["cross_chain_pricing"]
-            offer.updated_at = datetime.now(timezone.utc)
+            offer.updated_at = datetime.now(UTC)
 
             self.session.commit()
 
@@ -507,7 +508,7 @@ class GlobalMarketplaceIntegrationService:
                     "currency": offer.currency,
                     "capacity": offer.available_capacity,
                     "status": CrossChainOfferStatus.AVAILABLE.value,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(UTC).isoformat(),
                 }
                 listings.append(listing)
 

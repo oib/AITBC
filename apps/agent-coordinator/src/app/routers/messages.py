@@ -1,26 +1,15 @@
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 import json
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse
 
 from .. import state
-from ..auth.jwt_handler import api_key_manager, jwt_handler
-from ..auth.middleware import get_current_user, require_role
-from ..auth.permissions import Permission, Role, permission_manager
-from ..ai.advanced_ai import ai_integration
-from ..ai.realtime_learning import learning_system
-from ..consensus.distributed_consensus import distributed_consensus
-from ..models import AgentRegistrationRequest, AgentStatusUpdate, MessageRequest, TaskSubmission, BroadcastRequest
-from ..monitoring.alerting import alert_manager
-from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
-from ..protocols.communication import MessageType, create_protocol
-from ..protocols.message_types import create_task_message
-from ..routing.agent_discovery import create_agent_info
-from ..routing.load_balancer import LoadBalancingStrategy, TaskPriority
+from ..models import BroadcastRequest, MessageRequest
+from ..protocols.communication import MessageType
+from ..routing.load_balancer import LoadBalancingStrategy
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -74,26 +63,26 @@ async def send_message(
             "priority": message.priority.value,
             "payload": json.dumps(message.payload),
             "protocol": protocol,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
         if state.message_storage:
             await state.message_storage.store_message(message.id, message_data)
-        
+
         # Try to send via protocol (optional, for real-time notification)
         if state.communication_manager:
             try:
                 await state.communication_manager.send_message(protocol, message)
             except Exception:
                 pass  # Protocol send is optional
-        
+
         return {
             "status": "success",
             "message": "Message sent successfully",
             "message_id": message.id,
             "receiver_id": request.receiver_id,
             "protocol": protocol,
-            "sent_at": datetime.now(timezone.utc).isoformat()
+            "sent_at": datetime.now(UTC).isoformat()
         }
 
     except HTTPException:
@@ -146,7 +135,7 @@ async def broadcast_message(
                 "message": "No matching agents found",
                 "recipients": [],
                 "count": 0,
-                "broadcast_at": datetime.now(timezone.utc).isoformat()
+                "broadcast_at": datetime.now(UTC).isoformat()
             }
 
         # Send broadcast to each agent
@@ -159,7 +148,7 @@ async def broadcast_message(
                 priority=priority,
                 payload=request.payload
             )
-            
+
             # Store in Redis first (always)
             message_data = {
                 "sender_id": message.sender_id,
@@ -168,26 +157,26 @@ async def broadcast_message(
                 "priority": message.priority.value,
                 "payload": json.dumps(message.payload),
                 "protocol": "broadcast",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
-            
+
             if state.message_storage:
                 await state.message_storage.store_message(message.id, message_data)
                 recipients.append(agent.agent_id)
-            
+
             # Optionally try to send via protocol (for real-time notification)
             if state.communication_manager:
                 try:
                     await state.communication_manager.send_message("broadcast", message)
                 except Exception:
                     pass  # Protocol send is optional
-        
+
         return {
             "status": "success",
             "message": f"Broadcast sent to {len(recipients)} agents",
             "recipients": recipients,
             "count": len(recipients),
-            "broadcast_at": datetime.now(timezone.utc).isoformat()
+            "broadcast_at": datetime.now(UTC).isoformat()
         }
 
     except HTTPException:
@@ -201,8 +190,8 @@ async def broadcast_message(
 @rate_limit(rate=200, per=60)
 async def get_message_history(
     request: Request,
-    sender_id: Optional[str] = Query(None, description="Filter by sender ID"),
-    receiver_id: Optional[str] = Query(None, description="Filter by receiver ID"),
+    sender_id: str | None = Query(None, description="Filter by sender ID"),
+    receiver_id: str | None = Query(None, description="Filter by receiver ID"),
     limit: int = Query(100, description="Maximum number of messages"),
     offset: int = Query(0, description="Offset for pagination")
 ):
@@ -222,7 +211,7 @@ async def get_message_history(
         total = 0
         if state.message_storage:
             total = await state.message_storage.get_message_count()
-        
+
         return {
             "status": "success",
             "messages": messages,
@@ -230,7 +219,7 @@ async def get_message_history(
             "total": total,
             "limit": limit,
             "offset": offset,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
 
     except HTTPException:
@@ -258,7 +247,7 @@ async def get_message(
         return {
             "status": "success",
             "message": message,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
 
     except HTTPException:
@@ -277,15 +266,15 @@ async def get_load_balancer_stats(
     try:
         if not state.load_balancer:
             raise HTTPException(status_code=503, detail="Load balancer not available")
-        
+
         stats = state.load_balancer.get_load_balancing_stats()
-        
+
         return {
             "status": "success",
             "stats": stats,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting load balancer stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -300,15 +289,15 @@ async def get_registry_stats(
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        
+
         stats = await state.agent_registry.get_registry_stats()
-        
+
         return {
             "status": "success",
             "stats": stats,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting registry stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -323,17 +312,17 @@ async def get_agents_by_service(
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        
+
         agents = await state.agent_registry.get_agents_by_service(service)
-        
+
         return {
             "status": "success",
             "service": service,
             "agents": [agent.to_dict() for agent in agents],
             "count": len(agents),
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting agents by service: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -348,17 +337,17 @@ async def get_agents_by_capability(
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        
+
         agents = await state.agent_registry.get_agents_by_capability(capability)
-        
+
         return {
             "status": "success",
             "capability": capability,
             "agents": [agent.to_dict() for agent in agents],
             "count": len(agents),
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting agents by capability: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -373,21 +362,21 @@ async def set_load_balancing_strategy(
     try:
         if not state.load_balancer:
             raise HTTPException(status_code=503, detail="Load balancer not available")
-        
+
         try:
             load_balancing_strategy = LoadBalancingStrategy(strategy.lower())
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid strategy: {strategy}")
-        
+
         state.load_balancer.set_strategy(load_balancing_strategy)
-        
+
         return {
             "status": "success",
             "message": f"Load balancing strategy set to {strategy}",
             "strategy": strategy,
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(UTC).isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -402,12 +391,11 @@ async def add_peer(
 ):
     """Add a peer connection for an agent"""
     try:
-        from ..storage.message_storage import PeerStorage
-        
+
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")
 
-        success = await state.peer_storage.add_peer(agent_id, peer_id, {"connected_at": datetime.now(timezone.utc).isoformat()})
+        success = await state.peer_storage.add_peer(agent_id, peer_id, {"connected_at": datetime.now(UTC).isoformat()})
 
         if success:
             return {
@@ -415,7 +403,7 @@ async def add_peer(
                 "message": f"Peer {peer_id} added for agent {agent_id}",
                 "agent_id": agent_id,
                 "peer_id": peer_id,
-                "connected_at": datetime.now(timezone.utc).isoformat()
+                "connected_at": datetime.now(UTC).isoformat()
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to add peer")
@@ -433,8 +421,7 @@ async def remove_peer(
 ):
     """Remove a peer connection for an agent"""
     try:
-        from ..storage.message_storage import PeerStorage
-        
+
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")
 
@@ -446,7 +433,7 @@ async def remove_peer(
                 "message": f"Peer {peer_id} removed for agent {agent_id}",
                 "agent_id": agent_id,
                 "peer_id": peer_id,
-                "removed_at": datetime.now(timezone.utc).isoformat()
+                "removed_at": datetime.now(UTC).isoformat()
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to remove peer")
@@ -464,8 +451,7 @@ async def get_agent_peers(
 ):
     """Get all peers for a specific agent"""
     try:
-        from ..storage.message_storage import PeerStorage
-        
+
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")
 
@@ -476,7 +462,7 @@ async def get_agent_peers(
             "agent_id": agent_id,
             "peers": peers,
             "count": len(peers),
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
 
     except HTTPException:
@@ -492,8 +478,7 @@ async def get_all_peers(
 ):
     """Get all peer connections in the system"""
     try:
-        from ..storage.message_storage import PeerStorage
-        
+
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")
 
@@ -506,7 +491,7 @@ async def get_all_peers(
             "connections": connections,
             "total_agents": len(connections),
             "total_peers": total_peers,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
 
     except HTTPException:

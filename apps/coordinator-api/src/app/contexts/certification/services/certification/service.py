@@ -5,19 +5,19 @@ Combines certification, partnership, and badge systems
 
 from typing import Any
 
-from sqlmodel import Session, select
-
 from app.domain.certification import (
+    AchievementBadge,
     AgentBadge,
     AgentCertification,
     AgentPartnership,
-    AchievementBadge,
     CertificationStatus,
     VerificationRecord,
 )
+from sqlmodel import Session, select
+
+from .badge_system import BadgeSystem
 from .certification_system import CertificationSystem
 from .partnership_manager import PartnershipManager
-from .badge_system import BadgeSystem
 
 
 class CertificationAndPartnershipService:

@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-from sqlalchemy import Column, String, Integer, DateTime, Text, Enum as SQLEnum
+
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -20,7 +21,7 @@ class CoinRequestStatus(str, Enum):
 class CoinRequest(Base):
     """Coin request model for database storage."""
     __tablename__ = "coin_requests"
-    
+
     id = Column(String, primary_key=True)
     sender = Column(String, nullable=False, index=True)
     recipient = Column(String, nullable=False)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
 import uvicorn
+from fastapi import FastAPI
 
 from aitbc.rate_limiting import RateLimitMiddleware
 
@@ -12,17 +12,17 @@ from .settings import settings
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, debug=settings.debug)
-    
+
     # Add rate limiting middleware
     app.add_middleware(
         RateLimitMiddleware,
         rate=100,
         per=60
     )
-    
+
     app.include_router(receipts_router, prefix="/v1")
     app.include_router(jsonrpc_router, prefix="/v1")
-    
+
     # Add health check endpoint
     @app.get("/health")
     async def health_check():
@@ -31,7 +31,7 @@ def create_app() -> FastAPI:
             "env": "dev",
             "python_version": "3.13.5"
         }
-    
+
     return app
 
 

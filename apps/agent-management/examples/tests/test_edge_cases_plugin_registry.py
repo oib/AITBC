@@ -1,14 +1,20 @@
 """Edge case and error handling tests for plugin registry service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, PluginRegistration, PluginVersion, SecurityScan, plugins, plugin_versions, security_scans, analytics, downloads
+from main import (
+    PluginRegistration,
+    PluginVersion,
+    SecurityScan,
+    analytics,
+    app,
+    downloads,
+    plugin_versions,
+    plugins,
+    security_scans,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +80,7 @@ def test_plugin_version_empty_changelog():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     assert version.changelog == ""
 
@@ -86,7 +92,7 @@ def test_security_scan_empty_vulnerabilities():
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.now(timezone.utc),
+        scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True
@@ -104,7 +110,7 @@ def test_add_version_nonexistent_plugin():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     response = client.post("/api/v1/plugins/nonexistent/versions", json=version.model_dump(mode='json'))
     assert response.status_code == 404
@@ -122,7 +128,7 @@ def test_download_nonexistent_plugin():
 def test_download_nonexistent_version():
     """Test downloading nonexistent version"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -138,7 +144,7 @@ def test_download_nonexistent_version():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Try to download nonexistent version
     response = client.get("/api/v1/plugins/test_plugin/download/2.0.0")
     assert response.status_code == 404
@@ -152,7 +158,7 @@ def test_security_scan_nonexistent_plugin():
         scan_id="scan_123",
         plugin_id="nonexistent",
         version="1.0.0",
-        scan_date=datetime.now(timezone.utc),
+        scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True
@@ -165,7 +171,7 @@ def test_security_scan_nonexistent_plugin():
 def test_security_scan_nonexistent_version():
     """Test creating security scan for nonexistent version"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -181,13 +187,13 @@ def test_security_scan_nonexistent_version():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Create security scan for nonexistent version
     scan = SecurityScan(
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="2.0.0",
-        scan_date=datetime.now(timezone.utc),
+        scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True
@@ -200,7 +206,7 @@ def test_security_scan_nonexistent_version():
 def test_list_plugins_with_filters():
     """Test listing plugins with filters"""
     client = TestClient(app)
-    
+
     # Register multiple plugins
     plugin1 = PluginRegistration(
         name="Test Plugin 1",
@@ -216,7 +222,7 @@ def test_list_plugins_with_filters():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin1.model_dump())
-    
+
     plugin2 = PluginRegistration(
         name="Production Plugin",
         version="1.0.0",
@@ -231,7 +237,7 @@ def test_list_plugins_with_filters():
         plugin_type="web"
     )
     client.post("/api/v1/plugins/register", json=plugin2.model_dump())
-    
+
     # Filter by category
     response = client.get("/api/v1/plugins?category=testing")
     assert response.status_code == 200
@@ -244,7 +250,7 @@ def test_list_plugins_with_filters():
 def test_list_plugins_with_search():
     """Test listing plugins with search"""
     client = TestClient(app)
-    
+
     # Register plugin
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -260,7 +266,7 @@ def test_list_plugins_with_search():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Search for plugin
     response = client.get("/api/v1/plugins?search=test")
     assert response.status_code == 200
@@ -272,7 +278,7 @@ def test_list_plugins_with_search():
 def test_security_scan_failed():
     """Test security scan that failed"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -288,7 +294,7 @@ def test_security_scan_failed():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Add version first
     version = PluginVersion(
         version="1.0.0",
@@ -296,16 +302,16 @@ def test_security_scan_failed():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
-    
+
     # Create failed security scan
     scan = SecurityScan(
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.now(timezone.utc),
+        scan_date=datetime.now(UTC),
         vulnerabilities=[{"severity": "high", "description": "Critical issue"}],
         risk_score="high",
         passed=False

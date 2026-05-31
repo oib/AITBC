@@ -1,16 +1,14 @@
 """Unit tests for exchange integration service"""
 
-import pytest
 import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
+import pytest
 
 # Mock aiohttp before importing
 sys.modules['aiohttp'] = Mock()
 
-from main import app, ExchangeRegistration, TradingPair, OrderRequest
+from main import ExchangeRegistration, OrderRequest, TradingPair, app
 
 
 @pytest.mark.unit

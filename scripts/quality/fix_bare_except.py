@@ -9,26 +9,26 @@ from pathlib import Path
 def fix_bare_except(file_path):
     """Fix bare except clauses in a Python file"""
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             content = f.read()
-        
+
         # Parse the file to check for syntax errors
         try:
             ast.parse(content)
         except SyntaxError:
             print(f"Skipping {file_path}: syntax error")
             return False
-        
+
         # Split into lines
         lines = content.split('\n')
         modified = False
         new_lines = []
-        
+
         i = 0
         while i < len(lines):
             line = lines[i]
             stripped = line.strip()
-            
+
             # Check if this is a bare except statement
             if stripped == 'except:':
                 # Check if the previous line is a try block
@@ -40,9 +40,9 @@ def fix_bare_except(file_path):
                     new_lines.append(line)
             else:
                 new_lines.append(line)
-            
+
             i += 1
-        
+
         if modified:
             with open(file_path, 'w') as f:
                 f.write('\n'.join(new_lines))
@@ -60,15 +60,15 @@ def main():
         root = Path(sys.argv[1])
     else:
         root = Path('.')
-    
+
     # Find all Python files
     py_files = list(root.rglob('*.py'))
-    
+
     fixed_count = 0
     for py_file in py_files:
         if fix_bare_except(py_file):
             fixed_count += 1
-    
+
     print(f"\nFixed {fixed_count} files")
 
 

@@ -3,7 +3,6 @@ Authentication utilities for blockchain RPC endpoints.
 """
 
 import os
-from typing import Optional
 
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -13,7 +12,7 @@ from ..logger import get_logger
 _logger = get_logger(__name__)
 
 
-def get_authenticated_address(request: Request, credentials: Optional[HTTPAuthorizationCredentials] = None) -> str:
+def get_authenticated_address(request: Request, credentials: HTTPAuthorizationCredentials | None = None) -> str:
     """
     Extract authenticated wallet address from request headers or JWT token.
 

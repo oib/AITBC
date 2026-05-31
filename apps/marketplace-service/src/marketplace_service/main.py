@@ -3,28 +3,28 @@ Marketplace Service main application
 Manages GPU marketplace operations
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
     configure_logging,
     get_logger,
-    RequestIDMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestValidationMiddleware,
-    ErrorHandlerMiddleware,
 )
 
-from .storage import init_db, get_session
 from .services.marketplace_service import MarketplaceService
 from .services.matching_service import MatchingService
+from .storage import get_session, init_db
 
 # Configure structured logging
 configure_logging(level="INFO")
@@ -466,15 +466,15 @@ async def query_graph(
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit marketplace transaction"""
-    from .domain.marketplace import MarketplaceOffer, MarketplaceBid
-    
+    from .domain.marketplace import MarketplaceBid, MarketplaceOffer
+
     # Validate transaction type
     transaction_type = transaction_data.get('type')
     action = transaction_data.get('action')
-    
+
     if transaction_type != 'marketplace':
         return {"error": "Invalid transaction type for marketplace service"}, 400
-    
+
     try:
         if action == 'offer':
             offer = MarketplaceOffer(**transaction_data)
@@ -484,7 +484,7 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
             session.add(bid)
         else:
             return {"error": f"Invalid action: {action}. Only 'offer' and 'bid' are currently supported"}, 400
-        
+
         await session.commit()
         return {"status": "success"}
     except Exception as e:
@@ -502,12 +502,13 @@ async def get_transactions(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Query marketplace transactions"""
-    from .domain.marketplace import MarketplaceOffer, MarketplaceBid
     from sqlalchemy import select
-    
+
+    from .domain.marketplace import MarketplaceBid, MarketplaceOffer
+
     try:
         transactions = []
-        
+
         # Query offers
         if action == 'offer' or not action:
             result = await session.execute(select(MarketplaceOffer))
@@ -526,7 +527,7 @@ async def get_transactions(
                 "region": o.region,
                 "created_at": o.created_at.isoformat() if o.created_at else None
             } for o in offers])
-        
+
         # Query bids
         if action == 'bid' or not action:
             result = await session.execute(select(MarketplaceBid))
@@ -540,13 +541,13 @@ async def get_transactions(
                 "status": b.status,
                 "submitted_at": b.submitted_at.isoformat() if b.submitted_at else None
             } for b in bids])
-        
+
         # Apply filters
         if status:
             transactions = [t for t in transactions if t.get('status') == status]
         if island_id:
             transactions = [t for t in transactions if t.get('provider') == island_id]
-        
+
         return transactions
     except Exception as e:
         logger.error(f"Transaction query error: {e}")

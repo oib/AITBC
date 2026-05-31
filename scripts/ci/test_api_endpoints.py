@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """CI test script for AITBC API endpoints."""
 
-import os
-import requests
 import json
-import time
+import os
 import statistics
 import sys
+import time
+
+import requests
 
 # Service ports (must match systemd config)
 API_HOST = os.environ.get("AITBC_API_HOST", "localhost")

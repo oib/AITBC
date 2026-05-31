@@ -1,17 +1,14 @@
 """Unit tests for AI engine service"""
 
-import pytest
 import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 # Mock numpy before importing
 sys.modules['numpy'] = MagicMock()
 
-from ai_service import SimpleAITradingEngine, TradingRequest, AnalysisRequest
+from ai_service import AnalysisRequest, SimpleAITradingEngine, TradingRequest
 
 
 @pytest.mark.unit
@@ -26,15 +23,15 @@ def test_ai_engine_initialization():
 async def test_analyze_market():
     """Test market analysis functionality"""
     engine = SimpleAITradingEngine()
-    
+
     # Mock numpy to return consistent values
     with patch('ai_service.np.random.uniform') as mock_uniform:
         mock_uniform.side_effect = [0.005, 0.02, 5000, 50, 0.005, 0.03, 0.01, 0.8, 0.6, 0.03, 0.5, 0.4]
         with patch('ai_service.np.random.choice') as mock_choice:
             mock_choice.return_value = 'bullish'
-            
+
             result = await engine.analyze_market('AITBC/BTC')
-            
+
             assert result['symbol'] == 'AITBC/BTC'
             assert 'current_price' in result
             assert 'price_change_24h' in result
@@ -44,7 +41,7 @@ async def test_analyze_market():
             assert 'volatility' in result
             assert 'ai_predictions' in result
             assert 'timestamp' in result
-            
+
             # Check AI predictions structure
             predictions = result['ai_predictions']
             assert 'price_prediction' in predictions
@@ -57,15 +54,15 @@ async def test_analyze_market():
 async def test_make_trading_decision_buy():
     """Test trading decision for buy signal"""
     engine = SimpleAITradingEngine()
-    
+
     with patch('ai_service.np.random.uniform') as mock_uniform:
         # Set values to produce a buy signal
         mock_uniform.side_effect = [0.005, 0.02, 5000, 50, 0.005, 0.03, 0.01, 0.8, 0.6, 0.03, 0.5, 0.4, 0.5, 0.3, 0.1]
         with patch('ai_service.np.random.choice') as mock_choice:
             mock_choice.return_value = 'bullish'
-            
+
             result = await engine.make_trading_decision('AITBC/BTC')
-            
+
             assert result['symbol'] == 'AITBC/BTC'
             assert 'signal' in result
             assert 'confidence' in result
@@ -80,15 +77,15 @@ async def test_make_trading_decision_buy():
 async def test_make_trading_decision_sell():
     """Test trading decision for sell signal"""
     engine = SimpleAITradingEngine()
-    
+
     with patch('ai_service.np.random.uniform') as mock_uniform:
         # Set values to produce a sell signal
         mock_uniform.side_effect = [0.005, -0.02, 5000, 50, 0.005, 0.03, 0.01, 0.8, 0.6, 0.03, -0.5, 0.4, -0.5, 0.3, 0.1]
         with patch('ai_service.np.random.choice') as mock_choice:
             mock_choice.return_value = 'bearish'
-            
+
             result = await engine.make_trading_decision('AITBC/BTC')
-            
+
             assert result['symbol'] == 'AITBC/BTC'
             assert result['signal'] in ['buy', 'sell', 'hold']
 
@@ -98,15 +95,15 @@ async def test_make_trading_decision_sell():
 async def test_make_trading_decision_hold():
     """Test trading decision for hold signal"""
     engine = SimpleAITradingEngine()
-    
+
     with patch('ai_service.np.random.uniform') as mock_uniform:
         # Set values to produce a hold signal
         mock_uniform.side_effect = [0.005, 0.01, 5000, 50, 0.005, 0.03, 0.01, 0.8, 0.6, 0.03, 0.0, 0.4, 0.0, 0.3, 0.1]
         with patch('ai_service.np.random.choice') as mock_choice:
             mock_choice.return_value = 'neutral'
-            
+
             result = await engine.make_trading_decision('AITBC/BTC')
-            
+
             assert result['symbol'] == 'AITBC/BTC'
             assert result['signal'] in ['buy', 'sell', 'hold']
 

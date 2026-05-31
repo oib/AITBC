@@ -6,7 +6,7 @@ Handles edge GPU management endpoints
 import subprocess
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
@@ -43,13 +43,13 @@ def run_nvidia_smi(args: list[str]) -> str:
         "-q",
         "-h"
     }
-    
+
     for arg in args:
         # Check if arg starts with a safe prefix
         if not any(arg.startswith(prefix) for prefix in safe_args_prefixes):
             # Reject unsafe arguments
             return ""
-    
+
     try:
         result = subprocess.run(
             ["nvidia-smi"] + args,
@@ -70,7 +70,7 @@ def parse_gpu_info() -> list[dict[str, Any]]:
     output = run_nvidia_smi(["--query-gpu=index,name,memory.total", "--format=csv,noheader,nounits"])
     if not output:
         return []
-    
+
     gpus = []
     for line in output.strip().split("\n"):
         if line:
@@ -112,7 +112,7 @@ async def get_gpu_metrics(request: Request, gpu_id: str) -> dict[str, Any]:
     ])
     if not output:
         return {"gpu_id": gpu_id, "error": "GPU not found or nvidia-smi unavailable"}
-    
+
     parts = output.strip().split(", ")
     if len(parts) >= 3:
         return {
@@ -164,7 +164,7 @@ async def discover_edge_gpus(request: Request, miner_id: str) -> dict[str, Any]:
     gpus = parse_gpu_info()
     registered = len(gpus)
     edge_optimized = sum(1 for gpu in gpus if "RTX" in gpu["name"] or "GTX" in gpu["name"])
-    
+
     return {
         "miner_id": miner_id,
         "gpus": [{"gpu_id": gpu["gpu_id"], "name": gpu["name"]} for gpu in gpus],

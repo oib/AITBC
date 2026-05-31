@@ -3,12 +3,14 @@ Edge API CLI Commands
 Commands for interacting with the Edge API service
 """
 
+
 import click
 import httpx
-from typing import Optional
-from ..utils import output, error, success, info, warning
+
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 from ..config import get_config
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from ..utils import error, info, output, success
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -25,7 +27,7 @@ def edge():
 def status(ctx):
     """Get edge status from coordinator-api"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
         status_data = http_client.get("/edge-gpu/metrics")
@@ -42,7 +44,7 @@ def status(ctx):
 def balance(ctx):
     """Get edge wallet balance from coordinator-api"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
         balance_data = http_client.get("/edge-gpu/balance")
@@ -59,10 +61,10 @@ def balance(ctx):
 @click.argument('amount', type=float)
 @click.option('--note', help='Transfer note')
 @click.pass_context
-def transfer(ctx, to_address: str, amount: float, note: Optional[str]):
+def transfer(ctx, to_address: str, amount: float, note: str | None):
     """Transfer edge tokens to another address"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
         transfer_data = {
@@ -71,7 +73,7 @@ def transfer(ctx, to_address: str, amount: float, note: Optional[str]):
         }
         if note:
             transfer_data["note"] = note
-        
+
         result = http_client.post("/edge-gpu/transfer", json=transfer_data)
         success(f"Transfer of {amount} to {to_address} submitted")
         output(result, ctx.obj.get("output_format", "table"))
@@ -113,7 +115,7 @@ def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: boo
         })
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Successfully joined island {island_id}")
             output(result)
@@ -132,7 +134,7 @@ def leave(island_id: str):
         response = client.post("/v1/islands/leave", json={"island_id": island_id})
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Successfully left island {island_id}")
             output(result)
@@ -150,7 +152,7 @@ def list_islands():
         response = client.get("/v1/islands/")
         response.raise_for_status()
         result = response.json()
-        
+
         islands = result.get("islands", [])
         if islands:
             output(islands)
@@ -183,7 +185,7 @@ def bridge(target_island_id: str):
         response = client.post("/v1/islands/bridge", json={"target_island_id": target_island_id})
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Bridge request submitted to {target_island_id}")
             output(result)
@@ -203,7 +205,7 @@ def gpu():
 @click.option('--architecture', help='Filter by GPU architecture')
 @click.option('--edge-optimized', is_flag=True, help='Filter edge-optimized GPUs')
 @click.option('--min-memory-gb', type=int, help='Minimum memory in GB')
-def list_gpus(architecture: Optional[str], edge_optimized: bool, min_memory_gb: Optional[int]):
+def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int | None):
     """List available GPUs"""
     try:
         client = get_edge_client()
@@ -214,11 +216,11 @@ def list_gpus(architecture: Optional[str], edge_optimized: bool, min_memory_gb: 
             params["edge_optimized"] = edge_optimized
         if min_memory_gb:
             params["min_memory_gb"] = min_memory_gb
-        
+
         response = client.get("/v1/gpu/", params=params)
         response.raise_for_status()
         result = response.json()
-        
+
         gpus = result.get("gpus", [])
         if gpus:
             output(gpus)
@@ -307,7 +309,7 @@ def init_db(database_id: str, island_id: str, capacity_gb: int):
         })
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Database {database_id} initialized")
             output(result)
@@ -319,18 +321,18 @@ def init_db(database_id: str, island_id: str, capacity_gb: int):
 
 @database.command()
 @click.option('--island-id', help='Filter by island ID')
-def list_dbs(island_id: Optional[str]):
+def list_dbs(island_id: str | None):
     """List edge databases"""
     try:
         client = get_edge_client()
         params = {}
         if island_id:
             params["island_id"] = island_id
-        
+
         response = client.get("/v1/database/", params=params)
         response.raise_for_status()
         result = response.json()
-        
+
         databases = result.get("databases", [])
         if databases:
             output(databases)
@@ -377,7 +379,7 @@ def sync_db(database_id: str):
         response = client.post(f"/v1/database/{database_id}/sync")
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Database {database_id} synced")
             output(result)
@@ -411,7 +413,7 @@ def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str)
         })
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Compute request {result.get('request_id')} submitted")
             output(result)
@@ -424,7 +426,7 @@ def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str)
 @serve.command()
 @click.option('--gpu-id', help='Filter by GPU ID')
 @click.option('--status', help='Filter by status')
-def list_requests(gpu_id: Optional[str], status: Optional[str]):
+def list_requests(gpu_id: str | None, status: str | None):
     """List compute requests"""
     try:
         client = get_edge_client()
@@ -433,11 +435,11 @@ def list_requests(gpu_id: Optional[str], status: Optional[str]):
             params["gpu_id"] = gpu_id
         if status:
             params["status"] = status
-        
+
         response = client.get("/v1/serve/requests", params=params)
         response.raise_for_status()
         result = response.json()
-        
+
         requests = result.get("requests", [])
         if requests:
             output(requests)
@@ -509,7 +511,7 @@ def record(gpu_id: str, metrics: str):
         })
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Metrics {result.get('metric_id')} recorded")
             output(result)
@@ -522,18 +524,18 @@ def record(gpu_id: str, metrics: str):
 @metrics.command()
 @click.option('--gpu-id', help='Filter by GPU ID')
 @click.option('--limit', type=int, default=100, help='Number of metrics to return')
-def list_metrics(gpu_id: Optional[str], limit: int):
+def list_metrics(gpu_id: str | None, limit: int):
     """List edge metrics"""
     try:
         client = get_edge_client()
         params = {"limit": limit}
         if gpu_id:
             params["gpu_id"] = gpu_id
-        
+
         response = client.get("/v1/metrics/", params=params)
         response.raise_for_status()
         result = response.json()
-        
+
         metrics = result.get("metrics", [])
         if metrics:
             output(metrics)

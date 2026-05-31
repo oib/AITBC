@@ -2,14 +2,15 @@
 Security tests for AITBC Confidential Transactions
 """
 
-import pytest
 import json
 import sys
-from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, AsyncMock
+from datetime import datetime, timedelta
+from unittest.mock import Mock, patch
+
+import pytest
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 # Mock missing dependencies
@@ -31,9 +32,9 @@ sys.modules['aitbc_crypto'].decrypt_data = mock_decrypt_data
 sys.modules['aitbc_crypto'].generate_viewing_key = mock_generate_viewing_key
 
 try:
-    from app.services.confidential_service import ConfidentialTransactionService
+    from aitbc_crypto import decrypt_data, encrypt_data, generate_viewing_key
     from app.models.confidential import ConfidentialTransaction, ViewingKey
-    from aitbc_crypto import encrypt_data, decrypt_data, generate_viewing_key
+    from app.services.confidential_service import ConfidentialTransactionService
     CONFIDENTIAL_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Confidential transaction modules not available: {e}")
@@ -259,7 +260,6 @@ class TestConfidentialTransactionSecurity:
 
     def test_zero_knowledge_proof_integration(self):
         """Test ZK proof integration for privacy"""
-        from apps.zk_circuits import generate_proof, verify_proof
 
         # Create confidential transaction
         transaction = {
@@ -463,8 +463,8 @@ class TestConfidentialTransactionVulnerabilities:
 
     def test_timing_attack_prevention(self):
         """Test prevention of timing attacks on amount comparison"""
-        import time
         import statistics
+        import time
 
         # Create various transaction amounts
         amounts = [1, 100, 1000, 10000, 100000, 1000000]
@@ -514,8 +514,8 @@ class TestConfidentialTransactionVulnerabilities:
 
     def test_key_derivation_security(self):
         """Test security of key derivation functions"""
-        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
         from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
         # Test with different salts
         base_key = b"base_key_material"
@@ -550,8 +550,9 @@ class TestConfidentialTransactionVulnerabilities:
 
     def test_side_channel_leakage_prevention(self):
         """Test prevention of various side channel attacks"""
-        import psutil
         import os
+
+        import psutil
 
         # Monitor resource usage during encryption
         process = psutil.Process(os.getpid())

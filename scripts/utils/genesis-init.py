@@ -12,10 +12,8 @@ Usage:
 import argparse
 import json
 import sqlite3
-import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any
 
 
 def compute_genesis_hash(height: int, parent_hash: str, timestamp: datetime) -> str:
@@ -30,14 +28,14 @@ def create_genesis_json(
     chain_id: str,
     proposer: str,
     balance: int,
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     chain_type: str = "testnet"
 ) -> Path:
     """Create genesis.json file for a chain"""
-    
+
     timestamp = datetime(2025, 1, 1, 0, 0, 0)
     genesis_hash = compute_genesis_hash(0, "0x00", timestamp)
-    
+
     genesis_data = {
         "chain_id": chain_id,
         "block": {
@@ -63,15 +61,15 @@ def create_genesis_json(
             }
         ]
     }
-    
+
     if output_path is None:
         output_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
-    
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_path, 'w') as f:
         json.dump(genesis_data, f, indent=2)
-    
+
     print(f"Created genesis.json at {output_path}")
     return output_path
 
@@ -80,18 +78,18 @@ def initialize_database(
     chain_id: str,
     proposer: str,
     balance: int,
-    db_path: Optional[Path] = None
+    db_path: Path | None = None
 ) -> None:
     """Initialize database with genesis block and account"""
-    
+
     if db_path is None:
         db_path = Path(f"/var/lib/aitbc/data/{chain_id}/chain.db")
-    
+
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     # Create tables (simplified schema - matches SQLModel models)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS block (
@@ -109,7 +107,7 @@ def initialize_database(
             CONSTRAINT uix_block_chain_height UNIQUE (chain_id, height)
         )
     """)
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS account (
             chain_id VARCHAR NOT NULL,
@@ -120,28 +118,28 @@ def initialize_database(
             PRIMARY KEY (chain_id, address)
         )
     """)
-    
+
     # Create indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS ix_block_chain_id ON block (chain_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS ix_block_height ON block (height)")
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_block_hash ON block (hash)")
-    
+
     # Check if genesis block already exists
     cursor.execute(
         "SELECT hash FROM block WHERE chain_id=? AND height=0",
         (chain_id,)
     )
     existing = cursor.fetchone()
-    
+
     if existing:
         print(f"Genesis block already exists for chain {chain_id}")
         conn.close()
         return
-    
+
     # Insert genesis block
     timestamp = datetime(2025, 1, 1, 0, 0, 0)
     genesis_hash = compute_genesis_hash(0, "0x00", timestamp)
-    
+
     cursor.execute(
         """
         INSERT INTO block (chain_id, height, hash, parent_hash, proposer, timestamp, tx_count, state_root)
@@ -149,7 +147,7 @@ def initialize_database(
         """,
         (chain_id, genesis_hash, "0x00", proposer, timestamp.isoformat(), "0x00")
     )
-    
+
     # Insert account with initial balance
     cursor.execute(
         """
@@ -158,10 +156,10 @@ def initialize_database(
         """,
         (chain_id, proposer, balance, 0, timestamp.isoformat())
     )
-    
+
     conn.commit()
     conn.close()
-    
+
     print(f"Initialized database for chain {chain_id}")
     print(f"Genesis block hash: {genesis_hash}")
     print(f"Account {proposer} balance: {balance}")
@@ -177,9 +175,9 @@ def main():
     parser.add_argument("--genesis-path", help="Custom genesis.json path")
     parser.add_argument("--skip-genesis", action="store_true", help="Skip creating genesis.json")
     parser.add_argument("--skip-db", action="store_true", help="Skip database initialization")
-    
+
     args = parser.parse_args()
-    
+
     if not args.skip_genesis:
         genesis_path = Path(args.genesis_path) if args.genesis_path else None
         create_genesis_json(
@@ -189,7 +187,7 @@ def main():
             output_path=genesis_path,
             chain_type=args.chain_type
         )
-    
+
     if not args.skip_db:
         db_path = Path(args.db_path) if args.db_path else None
         initialize_database(
@@ -198,7 +196,7 @@ def main():
             balance=args.balance,
             db_path=db_path
         )
-    
+
     print(f"\nGenesis initialization complete for chain {args.chain_id}")
 
 

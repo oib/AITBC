@@ -135,7 +135,7 @@ class TranslationQualityChecker:
             processing_time_ms=processing_time,
         )
 
-    async def _evaluate_confidence(self, translated_text: str, source_lang: str, target_lang: str) -> QualityScore:
+    async def _evaluate_confidence(self, translated_text: str, source_text: str, source_lang: str, target_lang: str) -> QualityScore:
         """Evaluate translation confidence based on various factors"""
 
         confidence_factors = []

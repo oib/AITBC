@@ -1,4 +1,3 @@
-from typing import Annotated
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -9,8 +8,8 @@ Certification and Partnership API Endpoints
 REST API for agent certification, partnership programs, and badge system
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -34,13 +33,13 @@ from ....domain.certification import (
     VerificationRecord,
     VerificationType,
 )
+from ....storage import get_session
 from ..services.certification import (
     BadgeSystem,
     CertificationAndPartnershipService,
     CertificationSystem,
     PartnershipManager,
 )
-from ....storage import get_session
 
 router = APIRouter(prefix="/v1/certification", tags=["certification"])
 
@@ -63,18 +62,18 @@ class CertificationResponse(BaseModel):
     status: str
     issued_by: str
     issued_at: str
-    expires_at: Optional[str]
+    expires_at: str | None
     verification_hash: str
-    requirements_met: List[str]
-    granted_privileges: List[str]
-    access_levels: List[str]
+    requirements_met: list[str]
+    granted_privileges: list[str]
+    access_levels: list[str]
 
 
 class PartnershipApplicationRequest(BaseModel):
     """Request model for partnership application"""
     agent_id: str
     program_id: str
-    application_data: Dict[str, Any] = Field(default_factory=dict, description="Application data")
+    application_data: dict[str, Any] = Field(default_factory=dict, description="Application data")
 
 
 class PartnershipProgramRequest(BaseModel):
@@ -83,8 +82,8 @@ class PartnershipProgramRequest(BaseModel):
     program_type: PartnershipType
     description: str
     created_by: str
-    tier_levels: List[str] = Field(default_factory=lambda: ["basic", "premium"])
-    max_participants: Optional[int] = Field(default=None, description="Maximum participants")
+    tier_levels: list[str] = Field(default_factory=lambda: ["basic", "premium"])
+    max_participants: int | None = Field(default=None, description="Maximum participants")
     launch_immediately: bool = Field(default=False, description="Launch program immediately")
 
 
@@ -97,10 +96,10 @@ class PartnershipResponse(BaseModel):
     current_tier: str
     status: str
     applied_at: str
-    approved_at: Optional[str]
+    approved_at: str | None
     performance_score: float
     total_earnings: float
-    earned_benefits: List[str]
+    earned_benefits: list[str]
 
 
 class BadgeCreationRequest(BaseModel):
@@ -108,7 +107,7 @@ class BadgeCreationRequest(BaseModel):
     badge_name: str
     badge_type: BadgeType
     description: str
-    criteria: Dict[str, Any] = Field(description="Badge criteria and thresholds")
+    criteria: dict[str, Any] = Field(description="Badge criteria and thresholds")
     created_by: str
 
 
@@ -118,7 +117,7 @@ class BadgeAwardRequest(BaseModel):
     badge_id: str
     awarded_by: str
     award_reason: str = Field(default="", description="Reason for awarding badge")
-    context: Dict[str, Any] = Field(default_factory=dict, description="Award context")
+    context: dict[str, Any] = Field(default_factory=dict, description="Award context")
 
 
 class BadgeResponse(BaseModel):
@@ -138,10 +137,10 @@ class BadgeResponse(BaseModel):
 class AgentCertificationSummary(BaseModel):
     """Response model for agent certification summary"""
     agent_id: str
-    certifications: Dict[str, Any]
-    partnerships: Dict[str, Any]
-    badges: Dict[str, Any]
-    verifications: Dict[str, Any]
+    certifications: dict[str, Any]
+    partnerships: dict[str, Any]
+    badges: dict[str, Any]
+    verifications: dict[str, Any]
 
 
 # API Endpoints
@@ -154,9 +153,9 @@ async def certify_agent(
     session: Session = Depends(get_session)
 ) -> CertificationResponse:
     """Certify an agent at a specific level"""
-    
+
     certification_service = CertificationAndPartnershipService(session)  # type: ignore[arg-type]
-    
+
     try:
         success, certification, errors = await certification_service.certification_system.certify_agent(
             session=session,  # type: ignore[arg-type]
@@ -165,10 +164,10 @@ async def certify_agent(
             issued_by=certification_request.issued_by,
             certification_type=certification_request.certification_type
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail=f"Certification failed: {'; '.join(errors)}")
-        
+
         return CertificationResponse(
             certification_id=certification.certification_id,  # type: ignore[union-attr]
             agent_id=certification.agent_id,  # type: ignore[union-attr]
@@ -183,7 +182,7 @@ async def certify_agent(
             granted_privileges=certification.granted_privileges,  # type: ignore[union-attr]
             access_levels=certification.access_levels  # type: ignore[union-attr]
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -198,27 +197,27 @@ async def renew_certification(
     certification_id: str,
     renewed_by: str,
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Renew an existing certification"""
-    
+
     certification_service = CertificationAndPartnershipService(session)  # type: ignore[arg-type]
-    
+
     try:
         success, message = await certification_service.certification_system.renew_certification(
             session=session,  # type: ignore[arg-type]
             certification_id=certification_id,
             renewed_by=renewed_by
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail=message)
-        
+
         return {
             "success": True,
             "message": message,
             "certification_id": certification_id
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -231,21 +230,21 @@ async def renew_certification(
 async def get_agent_certifications(
     request: Request,
     agent_id: str,
-    status: Optional[str] = Query(default=None, description="Filter by status"),
+    status: str | None = Query(default=None, description="Filter by status"),
     session: Session = Depends(get_session),
-) -> List[CertificationResponse]:
+) -> list[CertificationResponse]:
     """Get certifications for an agent"""
-    
+
     try:
         query = select(AgentCertification).where(AgentCertification.agent_id == agent_id)
-        
+
         if status:
             query = query.where(AgentCertification.status == CertificationStatus(status))
-        
+
         certifications = session.execute(
             query.order_by(AgentCertification.issued_at.desc())  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             CertificationResponse(
                 certification_id=cert.certification_id,
@@ -263,7 +262,7 @@ async def get_agent_certifications(
             )
             for cert in certifications
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting certifications for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -275,11 +274,11 @@ async def create_partnership_program(
     request: Request,
     program_request: PartnershipProgramRequest,
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a new partnership program"""
-    
+
     partnership_manager = PartnershipManager()
-    
+
     try:
         program = await partnership_manager.create_partnership_program(
             session=session,  # type: ignore[arg-type]
@@ -291,7 +290,7 @@ async def create_partnership_program(
             max_participants=request.max_participants,  # type: ignore[attr-defined]
             launch_immediately=request.launch_immediately  # type: ignore[attr-defined]
         )
-        
+
         return {
             "program_id": program.program_id,
             "program_name": program.program_name,
@@ -303,7 +302,7 @@ async def create_partnership_program(
             "created_at": program.created_at.isoformat(),
             "launched_at": program.launched_at.isoformat() if program.launched_at else None
         }
-        
+
     except Exception as e:
         logger.error(f"Error creating partnership program: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -317,9 +316,9 @@ async def apply_for_partnership(
     session: Session = Depends(get_session)
 ) -> PartnershipResponse:
     """Apply for a partnership program"""
-    
+
     partnership_manager = PartnershipManager()
-    
+
     try:
         success, partnership, errors = await partnership_manager.apply_for_partnership(
             session=session,  # type: ignore[arg-type]
@@ -327,10 +326,10 @@ async def apply_for_partnership(
             program_id=application.program_id,
             application_data=application.application_data
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail=f"Application failed: {'; '.join(errors)}")
-        
+
         return PartnershipResponse(
             partnership_id=partnership.partnership_id,  # type: ignore[union-attr]
             agent_id=partnership.agent_id,  # type: ignore[union-attr]
@@ -344,7 +343,7 @@ async def apply_for_partnership(
             total_earnings=partnership.total_earnings,  # type: ignore[union-attr]
             earned_benefits=partnership.earned_benefits  # type: ignore[union-attr]
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -357,24 +356,24 @@ async def apply_for_partnership(
 async def get_agent_partnerships(
     request: Request,
     agent_id: str,
-    status: Optional[str] = Query(default=None, description="Filter by status"),
-    partnership_type: Optional[str] = Query(default=None, description="Filter by partnership type"),
+    status: str | None = Query(default=None, description="Filter by status"),
+    partnership_type: str | None = Query(default=None, description="Filter by partnership type"),
     session: Session = Depends(get_session)
-) -> List[PartnershipResponse]:
+) -> list[PartnershipResponse]:
     """Get partnerships for an agent"""
-    
+
     try:
         query = select(AgentPartnership).where(AgentPartnership.agent_id == agent_id)
-        
+
         if status:
             query = query.where(AgentPartnership.status == status)
         if partnership_type:
             query = query.where(AgentPartnership.partnership_type == PartnershipType(partnership_type))
-        
+
         partnerships = session.execute(
             query.order_by(AgentPartnership.applied_at.desc())  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             PartnershipResponse(
                 partnership_id=partner.partnership_id,
@@ -391,7 +390,7 @@ async def get_agent_partnerships(
             )
             for partner in partnerships
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting partnerships for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -401,25 +400,25 @@ async def get_agent_partnerships(
 @rate_limit(rate=200, per=60)
 async def list_partnership_programs(
     request: Request,
-    partnership_type: Optional[str] = Query(default=None, description="Filter by partnership type"),
-    status: Optional[str] = Query(default="active", description="Filter by status"),
+    partnership_type: str | None = Query(default=None, description="Filter by partnership type"),
+    status: str | None = Query(default="active", description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List available partnership programs"""
-    
+
     try:
         query = select(PartnershipProgram)
-        
+
         if partnership_type:
             query = query.where(PartnershipProgram.program_type == PartnershipType(partnership_type))
         if status:
             query = query.where(PartnershipProgram.status == status)
-        
+
         programs = session.execute(
             query.order_by(PartnershipProgram.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             {
                 "program_id": program.program_id,
@@ -436,7 +435,7 @@ async def list_partnership_programs(
             }
             for program in programs
         ]
-        
+
     except Exception as e:
         logger.error(f"Error listing partnership programs: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -448,11 +447,11 @@ async def create_badge(
     request: Request,
     badge_request: BadgeCreationRequest,
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a new achievement badge"""
-    
+
     badge_system = BadgeSystem()
-    
+
     try:
         badge = await badge_system.create_badge(
             session=session,  # type: ignore[arg-type]
@@ -462,7 +461,7 @@ async def create_badge(
             criteria=badge_request.criteria,
             created_by=badge_request.created_by
         )
-        
+
         return {
             "badge_id": badge.badge_id,
             "badge_name": badge.badge_name,
@@ -476,7 +475,7 @@ async def create_badge(
             "available_from": badge.available_from.isoformat(),
             "available_until": badge.available_until.isoformat() if badge.available_until else None
         }
-        
+
     except Exception as e:
         logger.error(f"Error creating badge: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -490,9 +489,9 @@ async def award_badge(
     session: Session = Depends(get_session)
 ) -> BadgeResponse:
     """Award a badge to an agent"""
-    
+
     badge_system = BadgeSystem()
-    
+
     try:
         success, agent_badge, message = await badge_system.award_badge(
             session=session,  # type: ignore[arg-type]
@@ -502,15 +501,15 @@ async def award_badge(
             award_reason=badge_request.award_reason,
             context=badge_request.context
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail=message)
-        
+
         # Get badge details
         badge = session.execute(
             select(AchievementBadge).where(AchievementBadge.badge_id == badge_request.badge_id)
         ).first()
-        
+
         return BadgeResponse(
             badge_id=badge.badge_id,  # type: ignore[union-attr]
             badge_name=badge.badge_name,  # type: ignore[union-attr]
@@ -523,7 +522,7 @@ async def award_badge(
             is_featured=agent_badge.is_featured,  # type: ignore[union-attr]
             badge_icon=badge.badge_icon  # type: ignore[union-attr]
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -536,35 +535,35 @@ async def award_badge(
 async def get_agent_badges(
     request: Request,
     agent_id: str,
-    badge_type: Optional[str] = Query(default=None, description="Filter by badge type"),
-    category: Optional[str] = Query(default=None, description="Filter by category"),
+    badge_type: str | None = Query(default=None, description="Filter by badge type"),
+    category: str | None = Query(default=None, description="Filter by category"),
     featured_only: bool = Query(default=False, description="Only featured badges"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[BadgeResponse]:
+) -> list[BadgeResponse]:
     """Get badges for an agent"""
-    
+
     try:
         query = select(AgentBadge).where(AgentBadge.agent_id == agent_id)
-        
+
         if badge_type:
             query = query.join(AchievementBadge).where(AchievementBadge.badge_type == BadgeType(badge_type))
         if category:
             query = query.join(AchievementBadge).where(AchievementBadge.category == category)
         if featured_only:
             query = query.where(AgentBadge.is_featured == True)
-        
+
         agent_badges = session.execute(
             query.order_by(AgentBadge.awarded_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         # Get badge details
         badge_ids = [ab.badge_id for ab in agent_badges]
         badges = session.execute(
             select(AchievementBadge).where(AchievementBadge.badge_id.in_(badge_ids))  # type: ignore[attr-defined]
         ).all()
         badge_map = {badge.badge_id: badge for badge in badges}
-        
+
         return [
             BadgeResponse(
                 badge_id=ab.badge_id,
@@ -580,7 +579,7 @@ async def get_agent_badges(
             )
             for ab in agent_badges if ab.badge_id in badge_map
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting badges for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -590,18 +589,18 @@ async def get_agent_badges(
 @rate_limit(rate=500, per=60)
 async def list_available_badges(
     request: Request,
-    badge_type: Optional[str] = Query(default=None, description="Filter by badge type"),
-    category: Optional[str] = Query(default=None, description="Filter by category"),
-    rarity: Optional[str] = Query(default=None, description="Filter by rarity"),
+    badge_type: str | None = Query(default=None, description="Filter by badge type"),
+    category: str | None = Query(default=None, description="Filter by category"),
+    rarity: str | None = Query(default=None, description="Filter by rarity"),
     active_only: bool = Query(default=True, description="Only active badges"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List available badges"""
-    
+
     try:
         query = select(AchievementBadge)
-        
+
         if badge_type:
             query = query.where(AchievementBadge.badge_type == BadgeType(badge_type))
         if category:
@@ -610,11 +609,11 @@ async def list_available_badges(
             query = query.where(AchievementBadge.rarity == rarity)
         if active_only:
             query = query.where(AchievementBadge.is_active == True)
-        
+
         badges = session.execute(
             query.order_by(AchievementBadge.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             {
                 "badge_id": badge.badge_id,
@@ -634,7 +633,7 @@ async def list_available_badges(
             }
             for badge in badges
         ]
-        
+
     except Exception as e:
         logger.error(f"Error listing available badges: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -646,21 +645,21 @@ async def check_automatic_badges(
     request: Request,
     agent_id: str,
     session: Session = Depends(get_session)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Check and award automatic badges for an agent"""
-    
+
     badge_system = BadgeSystem()
-    
+
     try:
         awarded_badges = await badge_system.check_and_award_automatic_badges(session, agent_id)  # type: ignore[arg-type]
-        
+
         return {
             "agent_id": agent_id,
             "badges_awarded": awarded_badges,
             "total_awarded": len(awarded_badges),
-            "checked_at": datetime.now(timezone.utc).isoformat()
+            "checked_at": datetime.now(UTC).isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error checking automatic badges for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -674,14 +673,14 @@ async def get_agent_summary(
     session: Session = Depends(get_session)
 ) -> AgentCertificationSummary:
     """Get comprehensive certification and partnership summary for an agent"""
-    
+
     certification_service = CertificationAndPartnershipService(session)  # type: ignore[arg-type]
-    
+
     try:
         summary = await certification_service.get_agent_certification_summary(agent_id)
-        
+
         return AgentCertificationSummary(**summary)
-        
+
     except Exception as e:
         logger.error(f"Error getting certification summary for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -692,25 +691,25 @@ async def get_agent_summary(
 async def get_verification_records(
     request: Request,
     agent_id: str,
-    verification_type: Optional[str] = Query(default=None, description="Filter by verification type"),
-    status: Optional[str] = Query(default=None, description="Filter by status"),
+    verification_type: str | None = Query(default=None, description="Filter by verification type"),
+    status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get verification records for an agent"""
-    
+
     try:
         query = select(VerificationRecord).where(VerificationRecord.agent_id == agent_id)
-        
+
         if verification_type:
             query = query.where(VerificationRecord.verification_type == VerificationType(verification_type))
         if status:
             query = query.where(VerificationRecord.status == status)
-        
+
         verifications = session.execute(
             query.order_by(VerificationRecord.requested_at.desc()).limit(limit)  # type: ignore[attr-defined]
         ).all()
-        
+
         return [
             {
                 "verification_id": verification.verification_id,
@@ -727,7 +726,7 @@ async def get_verification_records(
             }
             for verification in verifications
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting verification records for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -737,12 +736,12 @@ async def get_verification_records(
 @rate_limit(rate=500, per=60)
 async def get_certification_levels(
     request: Request, session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get available certification levels and requirements"""
-    
+
     try:
         certification_system = CertificationSystem()
-        
+
         levels = []
         for level, config in certification_system.certification_levels.items():
             levels.append({
@@ -752,9 +751,9 @@ async def get_certification_levels(
                 "validity_days": config['validity_days'],
                 "renewal_requirements": config['renewal_requirements']
             })
-        
+
         return sorted(levels, key=lambda x: ['basic', 'intermediate', 'advanced', 'enterprise', 'premium'].index(x['level']))
-        
+
     except Exception as e:
         logger.error(f"Error getting certification levels: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -764,24 +763,24 @@ async def get_certification_levels(
 @rate_limit(rate=500, per=60)
 async def get_certification_requirements(
     request: Request,
-    level: Optional[str] = Query(default=None, description="Filter by certification level"),
-    verification_type: Optional[str] = Query(default=None, description="Filter by verification type"),
+    level: str | None = Query(default=None, description="Filter by certification level"),
+    verification_type: str | None = Query(default=None, description="Filter by verification type"),
     session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get certification requirements"""
-    
+
     try:
         query = select(CertificationRequirement)
-        
+
         if level:
             query = query.where(CertificationRequirement.certification_level == CertificationLevel(level))
         if verification_type:
             query = query.where(CertificationRequirement.verification_type == VerificationType(verification_type))  # type: ignore[attr-defined]
-        
+
         requirements = session.execute(
             query.order_by(CertificationRequirement.certification_level, CertificationRequirement.requirement_name)
         ).all()
-        
+
         return [
             {
                 "id": requirement.id,
@@ -800,7 +799,7 @@ async def get_certification_requirements(
             }
             for requirement in requirements
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting certification requirements: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -813,9 +812,9 @@ async def get_certification_leaderboard(
     category: str = Query(default="highest_level", description="Leaderboard category"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get certification leaderboard"""
-    
+
     try:
         if category == "highest_level":
             # Get agents with highest certification levels
@@ -831,14 +830,14 @@ async def get_certification_leaderboard(
             query = select(AgentCertification).where(
                 AgentCertification.status == CertificationStatus.ACTIVE
             )
-        
+
         certifications = session.execute(
             query.order_by(desc(AgentCertification.issued_at)).limit(limit * 2)  # Get more to account for duplicates  # type: ignore[arg-type]
         ).all()
-        
+
         # Group by agent and calculate scores
         agent_scores = {}
-        
+
         for cert in certifications:
             if cert.agent_id not in agent_scores:
                 agent_scores[cert.agent_id] = {
@@ -848,22 +847,22 @@ async def get_certification_leaderboard(
                     'total_privileges': 0,
                     'latest_certification': cert.issued_at
                 }
-            
+
             agent_scores[cert.agent_id]['certification_count'] += 1
             agent_scores[cert.agent_id]['total_privileges'] += len(cert.granted_privileges)
-            
+
             # Update highest level if current is higher
             level_order = ['basic', 'intermediate', 'advanced', 'enterprise', 'premium']
             current_level_index = level_order.index(agent_scores[cert.agent_id]['highest_level'])
             new_level_index = level_order.index(cert.certification_level.value)
-            
+
             if new_level_index > current_level_index:
                 agent_scores[cert.agent_id]['highest_level'] = cert.certification_level.value
-            
+
             # Update latest certification
             if cert.issued_at > agent_scores[cert.agent_id]['latest_certification']:
                 agent_scores[cert.agent_id]['latest_certification'] = cert.issued_at
-        
+
         # Sort based on category
         if category == "highest_level":
             sorted_agents = sorted(
@@ -883,7 +882,7 @@ async def get_certification_leaderboard(
                 key=lambda x: x['total_privileges'],
                 reverse=True
             )
-        
+
         return [
             {
                 'rank': rank + 1,
@@ -895,7 +894,7 @@ async def get_certification_leaderboard(
             }
             for rank, agent in enumerate(sorted_agents[:limit])
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting certification leaderboard: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")

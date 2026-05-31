@@ -1,7 +1,7 @@
 """Transaction event subscriber for gossip broker."""
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 from aitbc.aitbc_logging import get_logger
 
@@ -21,7 +21,7 @@ class TransactionEventSubscriber:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._running = False
-        self._bridge: "BlockchainEventBridge | None" = None
+        self._bridge: BlockchainEventBridge | None = None
         self._subscription = None
 
     def set_bridge(self, bridge: "BlockchainEventBridge") -> None:
@@ -46,7 +46,7 @@ class TransactionEventSubscriber:
             if str(blockchain_node_src) not in sys.path:
                 sys.path.insert(0, str(blockchain_node_src))
 
-            from aitbc_chain.gossip.broker import create_backend, GossipBroker
+            from aitbc_chain.gossip.broker import GossipBroker, create_backend
 
             # Create gossip backend
             backend = create_backend(

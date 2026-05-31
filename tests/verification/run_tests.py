@@ -22,4 +22,5 @@ sys.path.insert(0, str(project_root / "apps" / "blockchain-node" / "src"))
 
 # Run pytest with the original arguments
 import pytest
+
 sys.exit(pytest.main())

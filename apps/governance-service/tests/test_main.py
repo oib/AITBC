@@ -4,7 +4,6 @@ Test Governance service main application
 
 import pytest
 from fastapi.testclient import TestClient
-
 from governance_service.main import app
 
 

@@ -1,23 +1,22 @@
 """Island service for Edge API Service"""
 
-from typing import Dict, List, Optional
 
 from ..clients.blockchain_rpc import BlockchainRPCClient
+from ..schemas.island import BridgeRequest, IslandMembership, IslandStatus
 from ..storage import get_session
-from ..schemas.island import IslandMembership, BridgeRequest, IslandStatus
 
 
 class IslandService:
     """Service for island operations"""
-    
+
     def __init__(self):
         self.rpc_client = BlockchainRPCClient()
-    
-    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> Dict:
+
+    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> dict:
         """Join an island via blockchain RPC"""
         # Call blockchain RPC to join island
         result = await self.rpc_client.join_island(island_id, island_name, chain_id, role, is_hub)
-        
+
         # Store membership in edge-api database
         if result.get("success"):
             async with get_session() as session:
@@ -40,14 +39,14 @@ class IslandService:
                 )
                 session.add(membership)
                 await session.commit()
-        
+
         return result
-    
-    async def leave_island(self, island_id: str) -> Dict:
+
+    async def leave_island(self, island_id: str) -> dict:
         """Leave an island via blockchain RPC"""
         # Call blockchain RPC to leave island
         result = await self.rpc_client.leave_island(island_id)
-        
+
         # Remove membership from edge-api database
         if result.get("success"):
             async with get_session() as session:
@@ -55,23 +54,23 @@ class IslandService:
                 stmt = delete(IslandMembership).where(IslandMembership.island_id == island_id)
                 await session.execute(stmt)
                 await session.commit()
-        
+
         return result
-    
-    async def list_islands(self) -> List[Dict]:
+
+    async def list_islands(self) -> list[dict]:
         """List all islands via blockchain RPC"""
         result = await self.rpc_client.list_islands()
         return result.get("islands", [])
-    
-    async def get_island(self, island_id: str) -> Optional[Dict]:
+
+    async def get_island(self, island_id: str) -> dict | None:
         """Get island details via blockchain RPC"""
         result = await self.rpc_client.get_island_info(island_id)
         return result
-    
-    async def request_bridge(self, target_island_id: str) -> Dict:
+
+    async def request_bridge(self, target_island_id: str) -> dict:
         """Request bridge to another island via blockchain RPC"""
         result = await self.rpc_client.request_bridge(target_island_id)
-        
+
         # Store bridge request in edge-api database
         if result.get("success"):
             async with get_session() as session:
@@ -83,5 +82,5 @@ class IslandService:
                 )
                 session.add(bridge_req)
                 await session.commit()
-        
+
         return result

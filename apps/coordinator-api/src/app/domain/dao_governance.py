@@ -6,7 +6,7 @@ Domain models for managing multi-jurisdictional DAOs, regional councils, and glo
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
@@ -46,8 +46,8 @@ class DAOMember(SQLModel, table=True):
     is_council_member: bool = Field(default=False)
     council_region: str | None = Field(default=None, index=True)
 
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    last_active: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_active: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships
     # DISABLED:     votes: List["Vote"] = Relationship(back_populates="member")
@@ -76,10 +76,10 @@ class DAOProposal(SQLModel, table=True):
 
     execution_payload: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    end_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    end_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships
     # DISABLED:     votes: List["Vote"] = Relationship(back_populates="proposal")
@@ -98,7 +98,7 @@ class Vote(SQLModel, table=True):
     weight: float = Field()
 
     tx_hash: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships
     # DISABLED:     proposal: DAOProposal = Relationship(back_populates="votes")
@@ -120,4 +120,4 @@ class TreasuryAllocation(SQLModel, table=True):
     purpose: str = Field()
 
     tx_hash: str | None = Field(default=None)
-    executed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    executed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

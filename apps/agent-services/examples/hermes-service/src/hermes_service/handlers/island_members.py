@@ -1,12 +1,11 @@
 """Island members detection via journalctl parsing."""
 
-import subprocess
-import re
 import logging
-from typing import Set
+import re
+import subprocess
 
 
-def get_island_members() -> Set[str]:
+def get_island_members() -> set[str]:
     """
     Get list of island members by parsing journalctl for blockchain sync events.
     
@@ -15,7 +14,7 @@ def get_island_members() -> Set[str]:
     """
     logger = logging.getLogger(__name__)
     members = set()
-    
+
     try:
         # Query journalctl for blockchain sync events
         # Look for sync events from blockchain-node or similar services
@@ -26,18 +25,18 @@ def get_island_members() -> Set[str]:
             "-o", "cat",
             "--no-pager"
         ]
-        
+
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=30
         )
-        
+
         if result.returncode != 0:
             logger.warning(f"Failed to query journalctl: {result.stderr}")
             return members
-        
+
         # Parse logs for sync events
         # Look for patterns like "synced with peer", "connected to", "peer added"
         sync_patterns = [
@@ -47,7 +46,7 @@ def get_island_members() -> Set[str]:
             r"new peer:([a-zA-Z0-9_-]+)",
             r"peer_id[=:]\s*([a-zA-Z0-9_-]+)"
         ]
-        
+
         for line in result.stdout.split('\n'):
             for pattern in sync_patterns:
                 matches = re.findall(pattern, line, re.IGNORECASE)
@@ -56,15 +55,15 @@ def get_island_members() -> Set[str]:
                         member_id = match[-1]  # Get the last capture group
                     else:
                         member_id = match
-                    
+
                     if member_id and len(member_id) > 3:  # Filter out short matches
                         members.add(member_id)
-        
+
         logger.info(f"Found {len(members)} island members from journalctl")
-        
+
     except subprocess.TimeoutExpired:
         logger.error("journalctl query timed out")
     except Exception as e:
         logger.error(f"Error parsing journalctl: {e}")
-    
+
     return members

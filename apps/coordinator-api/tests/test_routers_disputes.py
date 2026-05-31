@@ -20,7 +20,7 @@ class TestDisputesRouter:
             "evidence": ["url1", "url2"],
             "claim_amount": 1000
         }
-        
+
         response = client.post("/disputes/create", json=dispute_data)
         assert response.status_code == 200
         data = response.json()
@@ -39,7 +39,7 @@ class TestDisputesRouter:
             "claim_amount": 500
         })
         dispute_id = create_response.json()["dispute_id"]
-        
+
         # Get the dispute
         response = client.get(f"/disputes/{dispute_id}")
         assert response.status_code == 200
@@ -65,7 +65,7 @@ class TestDisputesRouter:
             "description": "Evidence test"
         })
         dispute_id = create_response.json()["dispute_id"]
-        
+
         # Submit evidence
         evidence_data = {
             "dispute_id": dispute_id,
@@ -73,7 +73,7 @@ class TestDisputesRouter:
             "evidence_url": "https://evidence.example.com/proof",
             "description": "Proof of incomplete work"
         }
-        
+
         response = client.post("/disputes/evidence", json=evidence_data)
         assert response.status_code == 200
         data = response.json()
@@ -87,7 +87,7 @@ class TestDisputesRouter:
             "address": "0xARBITRATOR789",
             "stake": 5000
         })
-        
+
         # Create dispute
         create_response = client.post("/disputes/create", json={
             "job_id": "job-004",
@@ -96,7 +96,7 @@ class TestDisputesRouter:
             "description": "Voting test"
         })
         dispute_id = create_response.json()["dispute_id"]
-        
+
         # Vote
         vote_data = {
             "dispute_id": dispute_id,
@@ -104,7 +104,7 @@ class TestDisputesRouter:
             "vote": "client",
             "reason": "Evidence supports client claim"
         }
-        
+
         response = client.post("/disputes/vote", json=vote_data)
         assert response.status_code == 200
         data = response.json()
@@ -117,7 +117,7 @@ class TestDisputesRouter:
             "address": "0xARBITRATOR999",
             "stake": 10000
         }
-        
+
         response = client.post("/disputes/arbitrators/register", json=arb_data)
         assert response.status_code == 200
         data = response.json()
@@ -145,7 +145,7 @@ class TestDisputesIntegration:
                 "address": f"0xARB{i}",
                 "stake": 5000
             })
-        
+
         # 2. Create dispute
         dispute_response = client.post("/disputes/create", json={
             "job_id": "integration-job",
@@ -156,20 +156,20 @@ class TestDisputesIntegration:
             "claim_amount": 2000
         })
         dispute_id = dispute_response.json()["dispute_id"]
-        
+
         # 3. Submit evidence from both sides
         client.post("/disputes/evidence", json={
             "dispute_id": dispute_id,
             "submitter": "0xINTEGRATION_CLIENT",
             "evidence_url": "client-evidence"
         })
-        
+
         client.post("/disputes/evidence", json={
             "dispute_id": dispute_id,
             "submitter": "0xINTEGRATION_PROVIDER",
             "evidence_url": "provider-evidence"
         })
-        
+
         # 4. Arbitrators vote
         for i in range(3):
             client.post("/disputes/vote", json={
@@ -177,7 +177,7 @@ class TestDisputesIntegration:
                 "arbitrator": f"0xARB{i}",
                 "vote": "client" if i < 2 else "provider"
             })
-        
+
         # 5. Verify dispute has votes
         dispute = client.get(f"/disputes/{dispute_id}").json()
         assert len(dispute.get("votes", [])) >= 3

@@ -5,11 +5,12 @@ Centralized JSON loading, saving, and manipulation
 
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from ..exceptions import ConfigurationError
 
 
-def load_json(path: Path) -> Dict[str, Any]:
+def load_json(path: Path) -> dict[str, Any]:
     """
     Load JSON data from a file.
     
@@ -23,7 +24,7 @@ def load_json(path: Path) -> Dict[str, Any]:
         ConfigurationError: If file cannot be read or parsed
     """
     try:
-        with open(path, 'r') as f:
+        with open(path) as f:
             return json.load(f)
     except FileNotFoundError:
         raise ConfigurationError(f"JSON file not found: {path}")
@@ -31,7 +32,7 @@ def load_json(path: Path) -> Dict[str, Any]:
         raise ConfigurationError(f"Invalid JSON in {path}: {e}")
 
 
-def save_json(data: Dict[str, Any], path: Path, indent: int = 2) -> None:
+def save_json(data: dict[str, Any], path: Path, indent: int = 2) -> None:
     """
     Save JSON data to a file.
     
@@ -45,7 +46,7 @@ def save_json(data: Dict[str, Any], path: Path, indent: int = 2) -> None:
         json.dump(data, f, indent=indent)
 
 
-def merge_json(*paths: Path) -> Dict[str, Any]:
+def merge_json(*paths: Path) -> dict[str, Any]:
     """
     Merge multiple JSON files, later files override earlier ones.
     
@@ -62,7 +63,7 @@ def merge_json(*paths: Path) -> Dict[str, Any]:
     return merged
 
 
-def json_to_string(data: Dict[str, Any], indent: int = 2) -> str:
+def json_to_string(data: dict[str, Any], indent: int = 2) -> str:
     """
     Convert dictionary to JSON string.
     
@@ -76,7 +77,7 @@ def json_to_string(data: Dict[str, Any], indent: int = 2) -> str:
     return json.dumps(data, indent=indent)
 
 
-def string_to_json(json_str: str) -> Dict[str, Any]:
+def string_to_json(json_str: str) -> dict[str, Any]:
     """
     Parse JSON string to dictionary.
     
@@ -95,7 +96,7 @@ def string_to_json(json_str: str) -> Dict[str, Any]:
         raise ConfigurationError(f"Invalid JSON string: {e}")
 
 
-def get_nested_value(data: Dict[str, Any], *keys: str, default: Any = None) -> Any:
+def get_nested_value(data: dict[str, Any], *keys: str, default: Any = None) -> Any:
     """
     Get a nested value from a dictionary using dot notation or key chain.
     
@@ -116,7 +117,7 @@ def get_nested_value(data: Dict[str, Any], *keys: str, default: Any = None) -> A
     return current
 
 
-def set_nested_value(data: Dict[str, Any], *keys: str, value: Any) -> None:
+def set_nested_value(data: dict[str, Any], *keys: str, value: Any) -> None:
     """
     Set a nested value in a dictionary using key chain.
     
@@ -133,7 +134,7 @@ def set_nested_value(data: Dict[str, Any], *keys: str, value: Any) -> None:
     current[keys[-1]] = value
 
 
-def flatten_json(data: Dict[str, Any], separator: str = ".") -> Dict[str, Any]:
+def flatten_json(data: dict[str, Any], separator: str = ".") -> dict[str, Any]:
     """
     Flatten a nested dictionary using dot notation.
     
@@ -144,7 +145,7 @@ def flatten_json(data: Dict[str, Any], separator: str = ".") -> Dict[str, Any]:
     Returns:
         Flattened dictionary
     """
-    def _flatten(obj: Any, parent_key: str = "") -> Dict[str, Any]:
+    def _flatten(obj: Any, parent_key: str = "") -> dict[str, Any]:
         items = {}
         if isinstance(obj, dict):
             for key, value in obj.items():
@@ -153,5 +154,5 @@ def flatten_json(data: Dict[str, Any], separator: str = ".") -> Dict[str, Any]:
         else:
             items[parent_key] = obj
         return items
-    
+
     return _flatten(data)

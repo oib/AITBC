@@ -3,7 +3,7 @@ Pricing API Schemas
 Pydantic models for dynamic pricing API requests and responses
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -358,7 +358,7 @@ class PricingError(BaseModel):
     error_code: str = Field(..., description="Error code")
     message: str = Field(..., description="Error message")
     details: dict[str, Any] | None = Field(None, description="Additional error details")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Error timestamp")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Error timestamp")
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}

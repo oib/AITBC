@@ -11,10 +11,13 @@ import time
 import uuid
 import weakref
 from collections import deque
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncGenerator, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from websockets.exceptions import ConnectionClosed
+
 if TYPE_CHECKING:
     from websockets.legacy.server import WebSocketServerProtocol
 WebSocketServerProtocol = Any  # type: ignore[assignment,misc]
@@ -437,7 +440,7 @@ class WebSocketStreamManager:
 
         logger.info("WebSocket Stream Manager stopped")
 
-    async def manage_stream(self, websocket: Any, config: StreamConfig | None = None) -> AsyncGenerator["WebSocketStream", None]:
+    async def manage_stream(self, websocket: Any, config: StreamConfig | None = None) -> AsyncGenerator["WebSocketStream"]:
         """Context manager for stream lifecycle"""
         stream_id = str(uuid.uuid4())
         stream_config = config or self.default_config

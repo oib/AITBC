@@ -3,17 +3,18 @@ Tests for AITBC decorators
 """
 
 import time
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from aitbc.decorators import (
+    async_timing,
+    cache_result,
+    handle_exceptions,
     retry,
     timing,
-    cache_result,
     validate_args,
-    handle_exceptions,
-    async_timing,
 )
-from aitbc.exceptions import AITBCError
 
 
 class TestRetry:
@@ -24,21 +25,21 @@ class TestRetry:
         @retry(max_attempts=3)
         def test_func():
             return "success"
-        
+
         result = test_func()
         assert result == "success"
 
     def test_retry_succeeds_after_failure(self):
         """Test retry when function succeeds after initial failure"""
         attempts = [0]
-        
+
         @retry(max_attempts=3, delay=0.01)
         def test_func():
             attempts[0] += 1
             if attempts[0] < 2:
                 raise ValueError("fail")
             return "success"
-        
+
         result = test_func()
         assert result == "success"
         assert attempts[0] == 2
@@ -48,7 +49,7 @@ class TestRetry:
         @retry(max_attempts=2, delay=0.01)
         def test_func():
             raise ValueError("fail")
-        
+
         with pytest.raises(ValueError):
             test_func()
 
@@ -57,41 +58,41 @@ class TestRetry:
         @retry(max_attempts=2, delay=0.01, exceptions=(ValueError,))
         def test_func():
             raise TypeError("fail")
-        
+
         with pytest.raises(TypeError):
             test_func()
 
     def test_retry_with_backoff(self):
         """Test retry with exponential backoff"""
         attempts = [0]
-        
+
         @retry(max_attempts=3, delay=0.01, backoff=2.0)
         def test_func():
             attempts[0] += 1
             raise ValueError("fail")
-        
+
         start_time = time.time()
         with pytest.raises(ValueError):
             test_func()
         elapsed = time.time() - start_time
-        
+
         # Should have delays: 0.01 + 0.02 = 0.03 seconds minimum
         assert elapsed >= 0.03
 
     def test_retry_with_on_failure_callback(self):
         """Test retry with on_failure callback"""
         callback_called = [False]
-        
+
         def on_fail(e):
             callback_called[0] = True
-        
+
         @retry(max_attempts=2, delay=0.01, on_failure=on_fail)
         def test_func():
             raise ValueError("fail")
-        
+
         with pytest.raises(ValueError):
             test_func()
-        
+
         assert callback_called[0] is True
 
 
@@ -105,7 +106,7 @@ class TestTiming:
         def test_func():
             time.sleep(0.01)
             return "result"
-        
+
         result = test_func()
         assert result == "result"
         mock_logger.info.assert_called_once()
@@ -117,7 +118,7 @@ class TestTiming:
         @timing
         def my_function():
             return "result"
-        
+
         assert my_function.__name__ == "my_function"
 
 
@@ -127,15 +128,15 @@ class TestCacheResult:
     def test_cache_result_caches_value(self):
         """Test cache_result caches function return value"""
         call_count = [0]
-        
+
         @cache_result(ttl=60)
         def test_func(x):
             call_count[0] += 1
             return x * 2
-        
+
         result1 = test_func(5)
         result2 = test_func(5)
-        
+
         assert result1 == 10
         assert result2 == 10
         assert call_count[0] == 1  # Only called once due to cache
@@ -143,44 +144,44 @@ class TestCacheResult:
     def test_cache_result_different_args(self):
         """Test cache_result with different arguments"""
         call_count = [0]
-        
+
         @cache_result(ttl=60)
         def test_func(x):
             call_count[0] += 1
             return x * 2
-        
+
         test_func(5)
         test_func(10)
-        
+
         assert call_count[0] == 2  # Called twice for different args
 
     def test_cache_result_ttl_expires(self):
         """Test cache_result TTL expires"""
         call_count = [0]
-        
+
         @cache_result(ttl=0.1)  # 100ms TTL
         def test_func(x):
             call_count[0] += 1
             return x * 2
-        
+
         test_func(5)
         time.sleep(0.15)  # Wait for TTL to expire
         test_func(5)
-        
+
         assert call_count[0] == 2  # Called again after TTL expired
 
     def test_cache_result_with_kwargs(self):
         """Test cache_result with keyword arguments"""
         call_count = [0]
-        
+
         @cache_result(ttl=60)
         def test_func(x, y=10):
             call_count[0] += 1
             return x + y
-        
+
         test_func(5, y=10)
         test_func(5, y=10)
-        
+
         assert call_count[0] == 1  # Cached
 
 
@@ -192,11 +193,11 @@ class TestValidateArgs:
         def validator(x):
             if x < 0:
                 raise ValueError("Must be positive")
-        
+
         @validate_args(validator)
         def test_func(x):
             return x * 2
-        
+
         result = test_func(5)
         assert result == 10
 
@@ -205,11 +206,11 @@ class TestValidateArgs:
         def validator(x):
             if x < 0:
                 raise ValueError("Must be positive")
-        
+
         @validate_args(validator)
         def test_func(x):
             return x * 2
-        
+
         with pytest.raises(ValueError):
             test_func(-5)
 
@@ -218,15 +219,15 @@ class TestValidateArgs:
         def validator1(x):
             if x < 0:
                 raise ValueError("Must be positive")
-        
+
         def validator2(x):
             if x > 100:
                 raise ValueError("Must be <= 100")
-        
+
         @validate_args(validator1, validator2)
         def test_func(x):
             return x * 2
-        
+
         with pytest.raises(ValueError):
             test_func(150)
 
@@ -240,7 +241,7 @@ class TestHandleExceptions:
         @handle_exceptions(default_return="error")
         def test_func():
             raise ValueError("fail")
-        
+
         result = test_func()
         assert result == "error"
         mock_logger.error.assert_called_once()
@@ -251,7 +252,7 @@ class TestHandleExceptions:
         @handle_exceptions(default_return="error", log_errors=False)
         def test_func():
             raise ValueError("fail")
-        
+
         result = test_func()
         assert result == "error"
         mock_logger.error.assert_not_called()
@@ -261,7 +262,7 @@ class TestHandleExceptions:
         @handle_exceptions(default_return="error", raise_on=(ValueError,))
         def test_func():
             raise ValueError("fail")
-        
+
         with pytest.raises(ValueError):
             test_func()
 
@@ -270,7 +271,7 @@ class TestHandleExceptions:
         @handle_exceptions(default_return="error")
         def test_func():
             return "success"
-        
+
         result = test_func()
         assert result == "success"
 
@@ -286,7 +287,7 @@ class TestAsyncTiming:
         async def test_func():
             await asyncio.sleep(0.01)
             return "result"
-        
+
         import asyncio
         result = await test_func()
         assert result == "result"
@@ -299,5 +300,5 @@ class TestAsyncTiming:
         @async_timing
         async def my_function():
             return "result"
-        
+
         assert my_function.__name__ == "my_function"

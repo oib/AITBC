@@ -3,25 +3,25 @@ Governance Service main application
 Manages governance operations
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
     configure_logging,
     get_logger,
-    RequestIDMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestValidationMiddleware,
-    ErrorHandlerMiddleware,
 )
 
-from .storage import init_db, get_session
 from .services.governance_service import GovernanceService
+from .storage import get_session, init_db
 
 # Configure structured logging
 configure_logging(level="INFO")
@@ -203,14 +203,14 @@ async def get_analytics(
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit governance transaction"""
     from .domain.governance import Proposal, Vote
-    
+
     # Validate transaction type
     transaction_type = transaction_data.get('type')
     action = transaction_data.get('action')
-    
+
     if transaction_type != 'governance':
         return {"error": "Invalid transaction type for governance service"}, 400
-    
+
     try:
         if action == 'propose':
             proposal = Proposal(**transaction_data)
@@ -220,7 +220,7 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
             session.add(vote)
         else:
             return {"error": f"Invalid action: {action}. Only 'propose' and 'vote' are currently supported"}, 400
-        
+
         await session.commit()
         return {"status": "success", "transaction_id": transaction_data.get('proposal_id') or transaction_data.get('vote_id')}
     except Exception as e:
@@ -238,12 +238,13 @@ async def get_transactions(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Query governance transactions"""
-    from .domain.governance import Proposal, Vote
     from sqlalchemy import select
-    
+
+    from .domain.governance import Proposal, Vote
+
     try:
         transactions = []
-        
+
         # Query proposals
         if action == 'propose' or not action:
             result = await session.execute(select(Proposal))
@@ -255,7 +256,7 @@ async def get_transactions(
                 "status": p.status,
                 "created_at": p.created_at.isoformat() if p.created_at else None
             } for p in proposals])
-        
+
         # Query votes
         if action == 'vote' or not action:
             result = await session.execute(select(Vote))
@@ -267,13 +268,13 @@ async def get_transactions(
                 "vote_type": v.vote_type,
                 "created_at": v.created_at.isoformat() if v.created_at else None
             } for v in votes])
-        
+
         # Apply filters
         if status:
             transactions = [t for t in transactions if t.get('status') == status]
         if island_id:
             transactions = [t for t in transactions if t.get('island_id') == island_id]
-        
+
         return transactions
     except Exception as e:
         logger.error(f"Transaction query error: {e}")

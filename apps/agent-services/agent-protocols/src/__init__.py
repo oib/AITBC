@@ -2,12 +2,12 @@
 Agent Protocols Package
 """
 
-from .message_protocol import MessageProtocol, MessageTypes, AgentMessageClient
-from .task_manager import TaskManager, TaskStatus, TaskPriority, Task
+from .message_protocol import AgentMessageClient, MessageProtocol, MessageTypes
+from .task_manager import Task, TaskManager, TaskPriority, TaskStatus
 
 __all__ = [
     "MessageProtocol",
-    "MessageTypes", 
+    "MessageTypes",
     "AgentMessageClient",
     "TaskManager",
     "TaskStatus",

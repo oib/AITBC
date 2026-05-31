@@ -8,7 +8,7 @@ Partner Router - Third-party integration management
 
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -94,7 +94,7 @@ async def register_partner(partner: PartnerRegister, request: Request, session: 
         "api_key": api_key,
         "api_secret_hash": hashlib.sha256(api_secret.encode()).hexdigest(),
         "rate_limit": rate_limits.get(partner.integration_type, rate_limits["other"]),
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
         "status": "active",
     }
 
@@ -167,7 +167,7 @@ async def create_webhook(
         "events": webhook.events,
         "secret": webhook.secret,
         "status": "active",
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
     }
 
     return WebhookResponse(

@@ -4,7 +4,7 @@ Service registry router for dynamic service management
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, Request, status
 
 from aitbc.rate_limiting import rate_limit
 

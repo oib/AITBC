@@ -1,8 +1,10 @@
 """Account commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
 from aitbc import AITBCHTTPClient, NetworkError
+
+from ..utils import error, output
 
 
 @click.group()
@@ -22,10 +24,10 @@ def get(ctx, address, rpc_url, chain_id):
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         account_data = http_client.get(f"/rpc/account/{address}", params=params)
-        
+
         output(account_data, ctx.obj.get('output_format', 'table'), title=f"Account: {address}")
     except NetworkError as e:
         error(f"Network error: {e}")
@@ -45,12 +47,12 @@ def list(ctx, rpc_url, chain_id):
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         accounts = http_client.get("/rpc/accounts", params=params)
-        
+
         output(accounts, ctx.obj.get('output_format', 'table'), title="Accounts")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         accounts = {
             "status": "simulated",

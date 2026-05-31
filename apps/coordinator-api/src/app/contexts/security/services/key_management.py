@@ -6,7 +6,7 @@ import asyncio
 import base64
 import json
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
@@ -42,7 +42,7 @@ class KeyManager:
                 private_key=private_key.private_bytes_raw(),
                 public_key=public_key.public_bytes_raw(),
                 algorithm="X25519",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 version=1,
             )
 
@@ -83,7 +83,7 @@ class KeyManager:
                 participant_id=participant_id,
                 old_version=current_key.version,
                 new_version=new_key_pair.version,
-                rotated_at=datetime.now(timezone.utc),
+                rotated_at=datetime.now(UTC),
                 reason="scheduled_rotation",
             )
             await self.storage.log_rotation(rotation_log)
@@ -154,7 +154,7 @@ class KeyManager:
             auth_json = json.loads(auth_data)
 
             expires_at = datetime.fromisoformat(auth_json["expires_at"])
-            if datetime.now(timezone.utc) > expires_at:
+            if datetime.now(UTC) > expires_at:
                 return False
 
             required_fields = ["issuer", "subject", "expires_at", "signature"]
@@ -175,8 +175,8 @@ class KeyManager:
                 "issuer": issuer,
                 "subject": "audit_access",
                 "purpose": purpose,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=expires_in_hours)).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=expires_in_hours)).isoformat(),
                 "signature": "placeholder",  # In production, sign with issuer key
             }
 
@@ -224,7 +224,7 @@ class KeyManager:
                 private_key=self._audit_private,
                 public_key=audit_public.public_bytes_raw(),
                 algorithm="X25519",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 version=1,
             )
 
@@ -476,14 +476,14 @@ class AccessDeniedError(KeyManagementError):
 
 class MockHSMStorage(KeyStorageBackend):
     """Mock HSM storage for development/testing"""
-    
+
     def __init__(self) -> None:
         self._keys: dict[str, KeyPair] = {}  # In-memory key storage
         self._audit_key = None
         self._rotation_logs: list = []
         self._revoked_keys: set = set()
         self.logger = get_logger("mock_hsm")
-    
+
     async def store_key_pair(self, key_pair: KeyPair) -> bool:
         """Store key pair in mock HSM"""
         try:
@@ -493,15 +493,15 @@ class MockHSMStorage(KeyStorageBackend):
         except Exception as e:
             self.logger.error(f"Failed to store key pair in mock HSM: {e}")
             return False
-    
+
     async def get_key_pair(self, participant_id: str) -> KeyPair | None:
         """Get key pair from mock HSM"""
         return self._keys.get(participant_id)
-    
+
     def get_key_pair_sync(self, participant_id: str) -> KeyPair | None:
         """Synchronous get key pair"""
         return self._keys.get(participant_id)
-    
+
     async def store_audit_key(self, key_pair: KeyPair) -> bool:
         """Store audit key in mock HSM"""
         try:
@@ -511,15 +511,15 @@ class MockHSMStorage(KeyStorageBackend):
         except Exception as e:
             self.logger.error(f"Failed to store audit key in mock HSM: {e}")
             return False
-    
+
     async def get_audit_key(self) -> KeyPair | None:
         """Get audit key from mock HSM"""
         return self._audit_key
-    
+
     async def list_participants(self) -> list[str]:
         """List all participants in mock HSM"""
         return list(self._keys.keys())
-    
+
     async def revoke_keys(self, participant_id: str, reason: str) -> bool:
         """Revoke keys in mock HSM"""
         try:
@@ -532,7 +532,7 @@ class MockHSMStorage(KeyStorageBackend):
         except Exception as e:
             self.logger.error(f"Failed to revoke keys in mock HSM: {e}")
             return False
-    
+
     async def log_rotation(self, rotation_log: KeyRotationLog) -> bool:
         """Log key rotation in mock HSM"""
         try:
@@ -546,12 +546,12 @@ class MockHSMStorage(KeyStorageBackend):
 
 class HSMProviderInterface:
     """Mock HSM provider interface for development/testing"""
-    
+
     def __init__(self) -> None:
         self._connected = False
         self._stored_keys = {}  # type: ignore[var-annotated]
         self.logger = get_logger("hsm_provider")
-    
+
     async def connect_to_hsm(self) -> bool:
         """Mock connection to HSM"""
         try:
@@ -561,7 +561,7 @@ class HSMProviderInterface:
         except Exception as e:
             self.logger.error(f"Failed to connect to mock HSM: {e}")
             return False
-    
+
     async def store_key_in_hsm(self, key_id: str, key_data: bytes) -> bool:
         """Mock store key in HSM"""
         try:
@@ -573,7 +573,7 @@ class HSMProviderInterface:
         except Exception as e:
             self.logger.error(f"Failed to store key in mock HSM: {e}")
             return False
-    
+
     async def retrieve_from_hsm(self, key_id: str) -> bytes | None:
         """Mock retrieve key from HSM"""
         try:

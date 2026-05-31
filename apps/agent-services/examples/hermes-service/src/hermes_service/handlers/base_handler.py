@@ -1,32 +1,32 @@
 """Base handler class for Hermes message handlers."""
 
-from abc import ABC, abstractmethod
-from typing import Dict, Any
 import logging
+from abc import ABC, abstractmethod
+from typing import Any
 
 
 class BaseHandler(ABC):
     """Abstract base class for message handlers."""
-    
+
     def __init__(self, coordinator_url: str, agent_id: str):
         self.coordinator_url = coordinator_url
         self.agent_id = agent_id
         self.logger = logging.getLogger(self.__class__.__name__)
-    
+
     @abstractmethod
     def can_handle(self, content: str) -> bool:
         """Check if this handler can process the given message content."""
         pass
-    
+
     @abstractmethod
-    async def handle(self, message: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle(self, message: dict[str, Any]) -> dict[str, Any]:
         """Process the message and return a response."""
         pass
-    
-    def send_response(self, recipient: str, content: str, message_type: str = "direct") -> Dict[str, Any]:
+
+    def send_response(self, recipient: str, content: str, message_type: str = "direct") -> dict[str, Any]:
         """Send a response message via the Coordinator API."""
         import requests
-        
+
         try:
             response = requests.post(
                 f"{self.coordinator_url}/v1/hermes/messages/send",

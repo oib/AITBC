@@ -1,13 +1,9 @@
 """Edge case and error handling tests for blockchain explorer service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-
-
-from main import app, TransactionSearch, BlockSearch, AnalyticsRequest
+from main import AnalyticsRequest, BlockSearch, TransactionSearch, app
 
 
 @pytest.mark.unit

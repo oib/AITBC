@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlmodel import Session
 
 from aitbc import get_logger
+
 # from ...blockchain.services.contract_interactions import ContractInteractionService
 from ....domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
 from ....schemas.wallet import TransactionRequest, WalletCreate

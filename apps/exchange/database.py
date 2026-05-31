@@ -4,11 +4,13 @@ Database configuration for the AITBC Trade Exchange
 """
 
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import StaticPool
-from aitbc.constants import DATA_DIR
+
 from models import Base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from aitbc.constants import DATA_DIR
 
 # Database configuration
 DATABASE_URL = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db")

@@ -1,12 +1,8 @@
 """Unit tests for plugin marketplace service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-
-
-from main import app, MarketplaceReview, PluginPurchase, DeveloperApplication
+from main import DeveloperApplication, MarketplaceReview, PluginPurchase, app
 
 
 @pytest.mark.unit

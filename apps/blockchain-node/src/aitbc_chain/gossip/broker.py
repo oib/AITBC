@@ -4,9 +4,10 @@ import asyncio
 import json
 import warnings
 from collections import defaultdict
-from contextlib import suppress, asynccontextmanager
+from collections.abc import Callable
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any
 
 warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
 
@@ -27,7 +28,7 @@ def _set_queue_gauge(topic: str, size: int) -> None:
     metrics_registry.set_gauge(f"gossip_queue_size_{topic}", float(size))
 
 
-def _update_subscriber_metrics(topics: Dict[str, List["asyncio.Queue[Any]"]]) -> None:
+def _update_subscriber_metrics(topics: dict[str, list[asyncio.Queue[Any]]]) -> None:
     for topic, queues in topics.items():
         metrics_registry.set_gauge(f"gossip_subscribers_topic_{topic}", float(len(queues)))
     total = sum(len(queues) for queues in topics.values())
@@ -41,7 +42,7 @@ def _clear_topic_metrics(topic: str) -> None:
 @dataclass
 class TopicSubscription:
     topic: str
-    queue: "asyncio.Queue[Any]"
+    queue: asyncio.Queue[Any]
     _unsubscribe: Callable[[], None]
 
     def close(self) -> None:
@@ -74,7 +75,7 @@ class GossipBackend:
 
 class InMemoryGossipBackend(GossipBackend):
     def __init__(self) -> None:
-        self._topics: Dict[str, List["asyncio.Queue[Any]"]] = defaultdict(list)
+        self._topics: dict[str, list[asyncio.Queue[Any]]] = defaultdict(list)
         self._lock = asyncio.Lock()
 
     async def publish(self, topic: str, message: Any) -> None:
@@ -86,7 +87,7 @@ class InMemoryGossipBackend(GossipBackend):
         _increment_publication("gossip_publications", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
-        queue: "asyncio.Queue[Any]" = asyncio.Queue(maxsize=max_queue_size)
+        queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
 
         async with self._lock:
             self._topics[topic].append(queue)
@@ -126,7 +127,7 @@ class BroadcastGossipBackend(GossipBackend):
             self._broadcast = _InProcessBroadcast()
         else:
             self._broadcast = Broadcast(url)  # type: ignore[arg-type]
-        self._tasks: Set[asyncio.Task[None]] = set()
+        self._tasks: set[asyncio.Task[None]] = set()
         self._lock = asyncio.Lock()
         self._running = False
 
@@ -149,7 +150,7 @@ class BroadcastGossipBackend(GossipBackend):
         if not self._running:
             raise RuntimeError("Broadcast backend not started")
 
-        queue: "asyncio.Queue[Any]" = asyncio.Queue(maxsize=max_queue_size)
+        queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
         stop_event = asyncio.Event()
 
         async def _run_subscription() -> None:
@@ -239,7 +240,7 @@ class GossipBroker:
 
 
 class _InProcessSubscriber:
-    def __init__(self, queue: "asyncio.Queue[Any]"):
+    def __init__(self, queue: asyncio.Queue[Any]):
         self._queue = queue
 
     def __aiter__(self):  # type: ignore[override]
@@ -254,7 +255,7 @@ class _InProcessBroadcast:
     """Minimal in-memory broadcast substitute for tests when Starlette Broadcast is absent."""
 
     def __init__(self) -> None:
-        self._topics: Dict[str, List["asyncio.Queue[Any]"]] = defaultdict(list)
+        self._topics: dict[str, list[asyncio.Queue[Any]]] = defaultdict(list)
         self._lock = asyncio.Lock()
         self._running = False
 
@@ -268,10 +269,10 @@ class _InProcessBroadcast:
 
     @asynccontextmanager
     async def subscribe(self, topic: str):
-        queue: "asyncio.Queue[Any]" = asyncio.Queue()
+        queue: asyncio.Queue[Any] = asyncio.Queue()
         async with self._lock:
             self._topics[topic].append(queue)
-            
+
         try:
             yield _InProcessSubscriber(queue)
         finally:
@@ -289,7 +290,7 @@ class _InProcessBroadcast:
             await queue.put(message)
 
 
-def create_backend(backend_type: str, *, broadcast_url: Optional[str] = None) -> GossipBackend:
+def create_backend(backend_type: str, *, broadcast_url: str | None = None) -> GossipBackend:
     backend = backend_type.lower()
     if backend in {"memory", "inmemory", "local"}:
         return InMemoryGossipBackend()

@@ -11,9 +11,9 @@ This module provides a modular structure for certification, partnership, and bad
 The original certification_service.py has been deprecated in favor of this modular structure.
 """
 
+from .badge_system import BadgeSystem
 from .certification_system import CertificationSystem
 from .partnership_manager import PartnershipManager
-from .badge_system import BadgeSystem
 from .service import CertificationAndPartnershipService
 
 __all__ = ['CertificationSystem', 'PartnershipManager', 'BadgeSystem', 'CertificationAndPartnershipService']

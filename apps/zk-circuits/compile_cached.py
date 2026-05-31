@@ -10,7 +10,9 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
 from zk_cache import ZKCircuitCache
+
 
 def compile_circuit_cached(circuit_file: str, output_dir: str = None, use_cache: bool = True) -> dict:
     """
@@ -101,7 +103,7 @@ def main():
     if args.stats:
         cache = ZKCircuitCache()
         stats = cache.get_cache_stats()
-        print(f"Cache Statistics:")
+        print("Cache Statistics:")
         print(f"  Entries: {stats['entries']}")
         print(f"  Total Size: {stats['total_size_mb']:.2f} MB")
         print(f"  Cache Directory: {stats['cache_dir']}")

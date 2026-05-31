@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
-import pytest
 import httpx
-from nacl.signing import SigningKey
-
+import pytest
 from aitbc_crypto.signing import ReceiptSigner
-
 from aitbc_sdk.receipts import (
     CoordinatorReceiptClient,
     ReceiptFailure,
@@ -18,10 +14,11 @@ from aitbc_sdk.receipts import (
     verify_receipt,
     verify_receipts,
 )
+from nacl.signing import SigningKey
 
 
 @pytest.fixture()
-def sample_payload() -> Dict[str, object]:
+def sample_payload() -> dict[str, object]:
     return {
         "version": "1.0",
         "receipt_id": "rcpt-1",
@@ -42,14 +39,14 @@ def sample_payload() -> Dict[str, object]:
     }
 
 
-def _sign_receipt(payload: Dict[str, object], key: SigningKey) -> Dict[str, object]:
+def _sign_receipt(payload: dict[str, object], key: SigningKey) -> dict[str, object]:
     signer = ReceiptSigner(key.encode())
     receipt = dict(payload)
     receipt["signature"] = signer.sign(payload)
     return receipt
 
 
-def test_verify_receipt_success(sample_payload: Dict[str, object]) -> None:
+def test_verify_receipt_success(sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipt = _sign_receipt(sample_payload, signing_key)
 
@@ -61,7 +58,7 @@ def test_verify_receipt_success(sample_payload: Dict[str, object]) -> None:
     assert result.miner_signature.reason is None
 
 
-def test_verify_receipt_failure(sample_payload: Dict[str, object]) -> None:
+def test_verify_receipt_failure(sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipt = _sign_receipt(sample_payload, signing_key)
     receipt["metadata"] = {"job_payload": {"task": "tampered"}}
@@ -73,7 +70,7 @@ def test_verify_receipt_failure(sample_payload: Dict[str, object]) -> None:
     assert result.miner_signature.reason == "signature mismatch"
 
 
-def test_verify_receipts_batch(sample_payload: Dict[str, object]) -> None:
+def test_verify_receipts_batch(sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipt = _sign_receipt(sample_payload, signing_key)
 
@@ -97,7 +94,7 @@ class _DummyResponse:
             )
 
 
-def test_coordinator_receipt_client_latest(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_coordinator_receipt_client_latest(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipt = _sign_receipt(sample_payload, signing_key)
 
@@ -112,7 +109,7 @@ def test_coordinator_receipt_client_latest(monkeypatch, sample_payload: Dict[str
     assert fetched == receipt
 
 
-def test_coordinator_receipt_client_history(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_coordinator_receipt_client_history(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipts = [_sign_receipt(sample_payload, signing_key)]
 
@@ -138,7 +135,7 @@ def test_coordinator_receipt_client_latest_404(monkeypatch) -> None:
     assert client.fetch_latest("job-missing") is None
 
 
-def test_fetch_receipts_page_list(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_fetch_receipts_page_list(monkeypatch, sample_payload: dict[str, object]) -> None:
     items = [_sign_receipt(sample_payload, SigningKey.generate())]
 
     def _mock_request(self, method, url, params=None, allow_404=False):
@@ -153,7 +150,7 @@ def test_fetch_receipts_page_list(monkeypatch, sample_payload: Dict[str, object]
     assert page.next_cursor is None
 
 
-def test_fetch_receipts_page_dict_with_cursor(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_fetch_receipts_page_dict_with_cursor(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipts = [_sign_receipt(sample_payload, signing_key)]
     responses = [
@@ -174,7 +171,7 @@ def test_fetch_receipts_page_dict_with_cursor(monkeypatch, sample_payload: Dict[
     assert second_page.next_cursor is None
 
 
-def test_iter_receipts_handles_pagination(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_iter_receipts_handles_pagination(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipt_a = _sign_receipt(sample_payload, signing_key)
     receipt_b = _sign_receipt(sample_payload, signing_key)
@@ -193,16 +190,16 @@ def test_iter_receipts_handles_pagination(monkeypatch, sample_payload: Dict[str,
     assert collected == [receipt_a, receipt_b]
 
 
-def test_request_retries_on_transient(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_request_retries_on_transient(monkeypatch, sample_payload: dict[str, object]) -> None:
     from aitbc import NetworkError
-    responses: List[object] = [
+    responses: list[object] = [
         NetworkError("timeout"),
         _DummyResponse(429, {}),
         _DummyResponse(200, {}),
     ]
 
     class _RetryClient:
-        def __init__(self, shared: List[object]):
+        def __init__(self, shared: list[object]):
             self._shared = shared
 
         def request(self, method: str, url: str, params=None):
@@ -211,7 +208,7 @@ def test_request_retries_on_transient(monkeypatch, sample_payload: Dict[str, obj
                 raise obj
             return obj
 
-        def __enter__(self) -> "_RetryClient":
+        def __enter__(self) -> _RetryClient:
             return self
 
         def __exit__(self, exc_type, exc, tb) -> None:
@@ -229,7 +226,7 @@ def test_request_retries_on_transient(monkeypatch, sample_payload: Dict[str, obj
     assert response.status_code == 200
 
 
-def test_summarize_receipts_all_verified(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_summarize_receipts_all_verified(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipts = [_sign_receipt(sample_payload, signing_key) for _ in range(2)]
 
@@ -251,7 +248,7 @@ def test_summarize_receipts_all_verified(monkeypatch, sample_payload: Dict[str, 
     assert isinstance(status.latest_verified, ReceiptVerification)
 
 
-def test_summarize_receipts_with_failures(monkeypatch, sample_payload: Dict[str, object]) -> None:
+def test_summarize_receipts_with_failures(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     good = _sign_receipt(sample_payload, signing_key)
 

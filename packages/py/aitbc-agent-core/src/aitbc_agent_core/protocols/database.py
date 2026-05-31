@@ -9,7 +9,7 @@ from typing import Any
 
 class ISessionProvider(ABC):
     """Protocol for database session management"""
-    
+
     @abstractmethod
     def get_session(self) -> Any:
         """
@@ -19,7 +19,7 @@ class ISessionProvider(ABC):
             Database session object (typically SQLModel Session)
         """
         ...
-    
+
     @abstractmethod
     def close_session(self, session: Any) -> None:
         """

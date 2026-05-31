@@ -42,11 +42,11 @@ async def submit_job(request: Request, req: JobCreate, client_id: str = "default
     try:
         ai_url = get_ai_service_url()
         client = AITBCHTTPClient(timeout=10.0)
-        
+
         # Add client_id to request data
         job_data = req.model_dump()
         job_data["client_id"] = client_id
-        
+
         response = client.post(f"{ai_url}/jobs", json=job_data)
         return response  # type: ignore[no-any-return]
     except NetworkError as e:

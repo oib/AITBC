@@ -2,11 +2,9 @@
 Tests for feature flags utilities
 """
 
-import pytest
 import json
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 from aitbc.feature_flags import (
     FeatureFlag,
@@ -88,9 +86,9 @@ class TestFeatureFlagManager:
             }
         }
         config_file.write_text(json.dumps(config_data))
-        
+
         manager = FeatureFlagManager(config_file=config_file)
-        
+
         assert "test_feature" in manager._flags
         assert manager._flags["test_feature"].enabled is True
         assert manager._flags["test_feature"].description == "Test feature"
@@ -109,7 +107,7 @@ class TestFeatureFlagManager:
         """Test loading flags with invalid JSON"""
         config_file = tmp_path / "feature_flags.json"
         config_file.write_text("invalid json")
-        
+
         manager = FeatureFlagManager(config_file=config_file)
         mock_logger.error.assert_called_once()
         assert "Failed to load feature flags" in mock_logger.error.call_args[0][0]
@@ -119,17 +117,17 @@ class TestFeatureFlagManager:
         """Test saving flags to configuration file"""
         config_file = tmp_path / "feature_flags.json"
         manager = FeatureFlagManager(config_file=config_file)
-        
+
         manager._flags["test_feature"] = FeatureFlag(
             name="test_feature",
             enabled=True,
             description="Test feature"
         )
-        
+
         manager.save_flags()
-        
+
         assert config_file.exists()
-        with open(config_file, 'r') as f:
+        with open(config_file) as f:
             data = json.load(f)
         assert "test_feature" in data
         assert data["test_feature"]["enabled"] is True
@@ -219,9 +217,9 @@ class TestFeatureFlagManager:
         """Test enable_feature for new flag"""
         config_file = tmp_path / "feature_flags.json"
         manager = FeatureFlagManager(config_file=config_file)
-        
+
         manager.enable_feature("new_feature", rollout_percentage=75.0)
-        
+
         assert "new_feature" in manager._flags
         assert manager._flags["new_feature"].enabled is True
         assert manager._flags["new_feature"].rollout_percentage == 75.0
@@ -239,9 +237,9 @@ class TestFeatureFlagManager:
             enabled=False,
             description="Existing feature"
         )
-        
+
         manager.enable_feature("existing_feature", rollout_percentage=50.0)
-        
+
         assert manager._flags["existing_feature"].enabled is True
         assert manager._flags["existing_feature"].rollout_percentage == 50.0
         # Check that enable was logged
@@ -257,9 +255,9 @@ class TestFeatureFlagManager:
             enabled=True,
             description="Test feature"
         )
-        
+
         manager.disable_feature("test_feature")
-        
+
         assert manager._flags["test_feature"].enabled is False
         # Check that disable was logged
         assert any("Disabled" in str(call) for call in mock_logger.info.call_args_list)
@@ -269,9 +267,9 @@ class TestFeatureFlagManager:
         """Test add_whitelisted_user for new flag"""
         config_file = tmp_path / "feature_flags.json"
         manager = FeatureFlagManager(config_file=config_file)
-        
+
         manager.add_whitelisted_user("new_feature", "user1")
-        
+
         assert "new_feature" in manager._flags
         assert "user1" in manager._flags["new_feature"].whitelisted_users
         # Check that add was logged
@@ -288,9 +286,9 @@ class TestFeatureFlagManager:
             description="Test feature",
             whitelisted_users=set()
         )
-        
+
         manager.add_whitelisted_user("test_feature", "user1")
-        
+
         assert "user1" in manager._flags["test_feature"].whitelisted_users
         # Check that add was logged
         assert any("whitelist" in str(call) for call in mock_logger.info.call_args_list)
@@ -300,9 +298,9 @@ class TestFeatureFlagManager:
         """Test add_blacklisted_user for new flag"""
         config_file = tmp_path / "feature_flags.json"
         manager = FeatureFlagManager(config_file=config_file)
-        
+
         manager.add_blacklisted_user("new_feature", "user1")
-        
+
         assert "new_feature" in manager._flags
         assert "user1" in manager._flags["new_feature"].blacklisted_users
         # Check that add was logged
@@ -319,9 +317,9 @@ class TestFeatureFlagManager:
             description="Test feature",
             blacklisted_users=set()
         )
-        
+
         manager.add_blacklisted_user("test_feature", "user1")
-        
+
         assert "user1" in manager._flags["test_feature"].blacklisted_users
         # Check that add was logged
         assert any("blacklist" in str(call) for call in mock_logger.info.call_args_list)
@@ -339,9 +337,9 @@ class TestFeatureFlagManager:
             enabled=False,
             description="Feature 2"
         )
-        
+
         flags = manager.get_all_flags()
-        
+
         assert len(flags) == 2
         assert "feature1" in flags
         assert "feature2" in flags
@@ -355,17 +353,17 @@ class TestFeatureFlagManager:
             description="Test feature"
         )
         manager._flags["test_feature"] = flag
-        
+
         result = manager.get_flag_status("test_feature")
-        
+
         assert result == flag
 
     def test_get_flag_status_not_found(self):
         """Test get_flag_status when flag doesn't exist"""
         manager = FeatureFlagManager()
-        
+
         result = manager.get_flag_status("nonexistent_feature")
-        
+
         assert result is None
 
 
@@ -376,7 +374,7 @@ class TestGlobalFunctions:
         """Test get_feature_flag_manager returns singleton"""
         manager1 = get_feature_flag_manager()
         manager2 = get_feature_flag_manager()
-        
+
         assert manager1 is manager2
 
     def test_get_feature_flag_manager_with_config(self, tmp_path):
@@ -384,9 +382,9 @@ class TestGlobalFunctions:
         # Reset global manager first
         import aitbc.feature_flags as ff_module
         ff_module._global_feature_flag_manager = None
-        
+
         manager = get_feature_flag_manager(config_file=tmp_path / "custom.json")
-        
+
         assert manager.config_file == tmp_path / "custom.json"
 
     def test_is_feature_enabled_global(self):
@@ -397,7 +395,7 @@ class TestGlobalFunctions:
             enabled=True,
             description="Test feature"
         )
-        
+
         result = is_feature_enabled("test_feature")
-        
+
         assert result is True

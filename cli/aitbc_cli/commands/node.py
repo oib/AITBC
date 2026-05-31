@@ -2,29 +2,40 @@
 Node management commands for AITBC
 """
 
-import os
-import sys
-import socket
-import json
-import hashlib
-import click
 import asyncio
-from pathlib import Path
-from typing import Optional
+import hashlib
+import json
+import os
+import socket
+import sys
 from datetime import datetime
 
+import click
+
 try:
-    from ..utils.output import output, success, error, warning, info
-    from ..core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
+    from ..core.config import (
+        MultiChainConfig,
+        add_node_config,
+        get_default_node_config,
+        load_multichain_config,
+        remove_node_config,
+    )
     from ..core.node_client import NodeClient
+    from ..utils.output import error, info, output, success, warning
 except ImportError:
-    from utils import output, error, success, warning
-    from aitbc_cli.core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
+    from aitbc_cli.core.config import (
+        add_node_config,
+        get_default_node_config,
+        load_multichain_config,
+        remove_node_config,
+    )
     from aitbc_cli.core.node_client import NodeClient
+    from utils import error, output, success
 
     def info(message):
         click.echo(message)
 import uuid
+
 
 @click.group()
 def node():
@@ -38,21 +49,21 @@ def info(ctx, node_id):
     """Get detailed node information"""
     try:
         config = load_multichain_config()
-        
+
         if node_id not in config.nodes:
             error(f"Node {node_id} not found in configuration")
             raise click.Abort()
-        
+
         node_config = config.nodes[node_id]
-        
+
         import asyncio
-        
+
         async def get_node_info():
             async with NodeClient(node_config) as client:
                 return await client.get_node_info()
-        
+
         node_info = asyncio.run(get_node_info())
-        
+
         # Basic node information
         basic_info = {
             "Node ID": node_info["node_id"],
@@ -62,9 +73,9 @@ def info(ctx, node_id):
             "Uptime": f"{node_info['uptime_days']} days, {node_info['uptime_hours']} hours",
             "Endpoint": node_config.endpoint
         }
-        
+
         output(basic_info, ctx.obj.get('output_format', 'table'), title=f"Node Information: {node_id}")
-        
+
         # Performance metrics
         metrics = {
             "CPU Usage": f"{node_info['cpu_usage']}%",
@@ -73,9 +84,9 @@ def info(ctx, node_id):
             "Network In": f"{node_info['network_in_mb']:.1f}MB/s",
             "Network Out": f"{node_info['network_out_mb']:.1f}MB/s"
         }
-        
+
         output(metrics, ctx.obj.get('output_format', 'table'), title="Performance Metrics")
-        
+
         # Hosted chains
         if node_info.get("hosted_chains"):
             chains_data = [
@@ -86,9 +97,9 @@ def info(ctx, node_id):
                 }
                 for chain_id, chain in node_info["hosted_chains"].items()
             ]
-            
+
             output(chains_data, ctx.obj.get('output_format', 'table'), title="Hosted Chains")
-        
+
     except Exception as e:
         error(f"Error getting node info: {str(e)}")
         raise click.Abort()
@@ -101,11 +112,11 @@ def chains(ctx, show_private, node_id):
     """List chains hosted on all nodes"""
     try:
         config = load_multichain_config()
-        
+
         all_chains = []
-        
+
         import asyncio
-        
+
         async def get_all_chains():
             tasks = []
             for nid, node_config in config.nodes.items():
@@ -119,24 +130,24 @@ def chains(ctx, show_private, node_id):
                     except Exception as e:
                         click.echo(f"Error getting chains from node {nid}: {e}")
                         return []
-                
+
                 tasks.append(get_chains_for_node(node_id, node_config))
-            
+
             results = await asyncio.gather(*tasks)
             for result in results:
                 all_chains.extend(result)
-        
+
         asyncio.run(get_all_chains())
-        
+
         if not all_chains:
             output("No chains found on any node", ctx.obj.get('output_format', 'table'))
             return
-        
+
         # Filter private chains if not requested
         if not show_private:
-            all_chains = [(node_id, chain) for node_id, chain in all_chains 
+            all_chains = [(node_id, chain) for node_id, chain in all_chains
                          if chain.privacy.visibility != "private"]
-        
+
         # Format output
         chains_data = [
             {
@@ -151,9 +162,9 @@ def chains(ctx, show_private, node_id):
             }
             for node_id, chain in all_chains
         ]
-        
+
         output(chains_data, ctx.obj.get('output_format', 'table'), title="Chains by Node")
-        
+
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
         raise click.Abort()
@@ -165,11 +176,11 @@ def list(ctx, format):
     """List all configured nodes"""
     try:
         config = load_multichain_config()
-        
+
         if not config.nodes:
             output("No nodes configured", ctx.obj.get('output_format', 'table'))
             return
-        
+
         nodes_data = [
             {
                 "Node ID": node_id,
@@ -180,9 +191,9 @@ def list(ctx, format):
             }
             for node_id, node_config in config.nodes.items()
         ]
-        
+
         output(nodes_data, ctx.obj.get('output_format', 'table'), title="Configured Nodes")
-        
+
     except Exception as e:
         error(f"Error listing nodes: {str(e)}")
         raise click.Abort()
@@ -198,25 +209,25 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
     """Add a new node to configuration"""
     try:
         config = load_multichain_config()
-        
+
         if node_id in config.nodes:
             error(f"Node {node_id} already exists")
             raise click.Abort()
-        
+
         node_config = get_default_node_config()
         node_config.id = node_id
         node_config.endpoint = endpoint
         node_config.timeout = timeout
         node_config.max_connections = max_connections
         node_config.retry_count = retry_count
-        
+
         config = add_node_config(config, node_config)
-        
+
         from ..core.config import save_multichain_config
         save_multichain_config(config)
-        
+
         success(f"Node {node_id} added successfully!")
-        
+
         result = {
             "Node ID": node_id,
             "Endpoint": endpoint,
@@ -224,9 +235,9 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
             "Max Connections": max_connections,
             "Retry Count": retry_count
         }
-        
+
         output(result, ctx.obj.get('output_format', 'table'))
-        
+
     except Exception as e:
         error(f"Error adding node: {str(e)}")
         raise click.Abort()
@@ -239,11 +250,11 @@ def remove(ctx, node_id, force):
     """Remove a node from configuration"""
     try:
         config = load_multichain_config()
-        
+
         if node_id not in config.nodes:
             error(f"Node {node_id} not found")
             raise click.Abort()
-        
+
         if not force:
             # Show node information before removal
             node_config = config.nodes[node_id]
@@ -253,19 +264,19 @@ def remove(ctx, node_id, force):
                 "Timeout": f"{node_config.timeout}s",
                 "Max Connections": node_config.max_connections
             }
-            
+
             output(node_info, ctx.obj.get('output_format', 'table'), title="Node to Remove")
-            
+
             if not click.confirm(f"Are you sure you want to remove node {node_id}?"):
                 raise click.Abort()
-        
+
         config = remove_node_config(config, node_id)
-        
+
         from ..core.config import save_multichain_config
         save_multichain_config(config)
-        
+
         success(f"Node {node_id} removed successfully!")
-        
+
     except Exception as e:
         error(f"Error removing node: {str(e)}")
         raise click.Abort()
@@ -279,44 +290,45 @@ def monitor(ctx, node_id, realtime, interval):
     """Monitor node activity"""
     try:
         config = load_multichain_config()
-        
+
         if node_id not in config.nodes:
             error(f"Node {node_id} not found")
             raise click.Abort()
-        
+
         node_config = config.nodes[node_id]
-        
+
         import asyncio
+        import time
+
         from rich.console import Console
         from rich.layout import Layout
         from rich.live import Live
-        import time
-        
+
         console = Console()
-        
+
         async def get_node_stats():
             async with NodeClient(node_config) as client:
                 node_info = await client.get_node_info()
                 return node_info
-        
+
         if realtime:
             # Real-time monitoring
             def generate_monitor_layout():
                 try:
                     node_info = asyncio.run(get_node_stats())
-                    
+
                     layout = Layout()
                     layout.split_column(
                         Layout(name="header", size=3),
                         Layout(name="metrics"),
                         Layout(name="chains", size=10)
                     )
-                    
+
                     # Header
                     layout["header"].update(
                         f"Node Monitor: {node_id} - {node_info['status'].upper()}"
                     )
-                    
+
                     # Metrics table
                     metrics_data = [
                         ["CPU Usage", f"{node_info['cpu_usage']}%"],
@@ -326,9 +338,9 @@ def monitor(ctx, node_id, realtime, interval):
                         ["Network Out", f"{node_info['network_out_mb']:.1f}MB/s"],
                         ["Uptime", f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"]
                     ]
-                    
+
                     layout["metrics"].update(str(metrics_data))
-                    
+
                     # Chains info
                     if node_info.get("hosted_chains"):
                         chains_text = f"Hosted Chains: {len(node_info['hosted_chains'])}\n"
@@ -337,11 +349,11 @@ def monitor(ctx, node_id, realtime, interval):
                         layout["chains"].update(chains_text)
                     else:
                         layout["chains"].update("No chains hosted")
-                    
+
                     return layout
                 except Exception as e:
                     return f"Error getting node stats: {e}"
-            
+
             with Live(generate_monitor_layout(), refresh_per_second=1) as live:
                 try:
                     while True:
@@ -352,7 +364,7 @@ def monitor(ctx, node_id, realtime, interval):
         else:
             # Single snapshot
             node_info = asyncio.run(get_node_stats())
-            
+
             stats_data = [
                 {
                     "Metric": "CPU Usage",
@@ -379,9 +391,9 @@ def monitor(ctx, node_id, realtime, interval):
                     "Value": f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"
                 }
             ]
-            
+
             output(stats_data, ctx.obj.get('output_format', 'table'), title=f"Node Statistics: {node_id}")
-        
+
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort()
@@ -393,21 +405,21 @@ def test(ctx, node_id):
     """Test connectivity to a node"""
     try:
         config = load_multichain_config()
-        
+
         if node_id not in config.nodes:
             error(f"Node {node_id} not found")
             raise click.Abort()
-        
+
         node_config = config.nodes[node_id]
-        
+
         import asyncio
-        
+
         async def test_node():
             try:
                 async with NodeClient(node_config) as client:
                     node_info = await client.get_node_info()
                     chains = await client.get_hosted_chains()
-                    
+
                     return {
                         "connected": True,
                         "node_id": node_info["node_id"],
@@ -420,12 +432,12 @@ def test(ctx, node_id):
                     "connected": False,
                     "error": str(e)
                 }
-        
+
         result = asyncio.run(test_node())
-        
+
         if result["connected"]:
             success(f"Successfully connected to node {node_id}!")
-            
+
             test_data = [
                 {
                     "Test": "Connection",
@@ -448,12 +460,12 @@ def test(ctx, node_id):
                     "Status": f"{result['chains_count']} hosted"
                 }
             ]
-            
+
             output(test_data, ctx.obj.get('output_format', 'table'), title=f"Node Test Results: {node_id}")
         else:
             error(f"Failed to connect to node {node_id}: {result['error']}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error testing node: {str(e)}")
         raise click.Abort()
@@ -474,23 +486,23 @@ def create(ctx, island_id, island_name, chain_id):
     try:
         if not island_id:
             island_id = str(uuid.uuid4())
-        
+
         if not chain_id:
             chain_id = f"ait-{island_id[:8]}"
-        
+
         island_info = {
             "Island ID": island_id,
             "Island Name": island_name,
             "Chain ID": chain_id,
             "Created": "Now"
         }
-        
+
         output(island_info, ctx.obj.get('output_format', 'table'), title="New Island Created")
         success(f"Island {island_name} ({island_id}) created successfully")
-        
+
         # Note: In a real implementation, this would update the configuration
         # and notify the island manager
-        
+
     except Exception as e:
         error(f"Error creating island: {str(e)}")
         raise click.Abort()
@@ -516,7 +528,7 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
         public_key_pem = None
 
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 # Get first key's public key
                 for key_id, key_data in keys.items():
@@ -622,9 +634,9 @@ def leave(ctx, island_id):
     """Leave an island"""
     try:
         success(f"Successfully left island {island_id}")
-        
+
         # Note: In a real implementation, this would update the island manager
-        
+
     except Exception as e:
         error(f"Error leaving island: {str(e)}")
         raise click.Abort()
@@ -644,9 +656,9 @@ def list(ctx):
                 "Peer Count": "3"
             }
         ]
-        
+
         output(islands, ctx.obj.get('output_format', 'table'), title="Known Islands")
-        
+
     except Exception as e:
         error(f"Error listing islands: {str(e)}")
         raise click.Abort()
@@ -666,9 +678,9 @@ def info(ctx, island_id):
             "Peer Count": "3",
             "Hub Count": "1"
         }
-        
+
         output(island_info, ctx.obj.get('output_format', 'table'), title=f"Island Information: {island_id}")
-        
+
     except Exception as e:
         error(f"Error getting island info: {str(e)}")
         raise click.Abort()
@@ -700,7 +712,7 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
         public_key_pem = None
 
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 # Get first key's public key
                 for key_id, key_data in keys.items():
@@ -722,8 +734,8 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
 
         # Create HubManager instance
         sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
-        from aitbc_chain.network.hub_manager import HubManager
         from aitbc_chain.network.hub_discovery import HubDiscovery
+        from aitbc_chain.network.hub_manager import HubManager
 
         hub_manager = HubManager(
             node_id,
@@ -798,7 +810,7 @@ def unregister(ctx, redis_url, hub_discovery_url):
         public_key_pem = None
 
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 # Get first key's public key
                 for key_id, key_data in keys.items():
@@ -820,8 +832,8 @@ def unregister(ctx, redis_url, hub_discovery_url):
 
         # Create HubManager instance
         sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
-        from aitbc_chain.network.hub_manager import HubManager
         from aitbc_chain.network.hub_discovery import HubDiscovery
+        from aitbc_chain.network.hub_manager import HubManager
 
         hub_manager = HubManager(
             node_id,
@@ -918,9 +930,9 @@ def request(ctx, target_island_id):
     """Request a bridge to another island"""
     try:
         success(f"Bridge request sent to island {target_island_id}")
-        
+
         # Note: In a real implementation, this would use the bridge manager
-        
+
     except Exception as e:
         error(f"Error requesting bridge: {str(e)}")
         raise click.Abort()
@@ -933,9 +945,9 @@ def approve(ctx, request_id, approving_node_id):
     """Approve a bridge request"""
     try:
         success(f"Bridge request {request_id} approved")
-        
+
         # Note: In a real implementation, this would use the bridge manager
-        
+
     except Exception as e:
         error(f"Error approving bridge request: {str(e)}")
         raise click.Abort()
@@ -948,9 +960,9 @@ def reject(ctx, request_id, reason):
     """Reject a bridge request"""
     try:
         success(f"Bridge request {request_id} rejected")
-        
+
         # Note: In a real implementation, this would use the bridge manager
-        
+
     except Exception as e:
         error(f"Error rejecting bridge request: {str(e)}")
         raise click.Abort()
@@ -969,9 +981,9 @@ def list(ctx):
                 "Status": "Active"
             }
         ]
-        
+
         output(bridges, ctx.obj.get('output_format', 'table'), title="Bridge Connections")
-        
+
     except Exception as e:
         error(f"Error listing bridges: {str(e)}")
         raise click.Abort()
@@ -996,12 +1008,12 @@ def start(ctx, chain_id, chain_type):
             "RPC Port": "auto-allocated",
             "P2P Port": "auto-allocated"
         }
-        
+
         output(chain_info, ctx.obj.get('output_format', 'table'), title=f"Starting Chain: {chain_id}")
         success(f"Chain {chain_id} started successfully")
-        
+
         # Note: In a real implementation, this would use the multi-chain manager
-        
+
     except Exception as e:
         error(f"Error starting chain: {str(e)}")
         raise click.Abort()
@@ -1013,9 +1025,9 @@ def stop(ctx, chain_id):
     """Stop a parallel chain instance"""
     try:
         success(f"Chain {chain_id} stopped successfully")
-        
+
         # Note: In a real implementation, this would use the multi-chain manager
-        
+
     except Exception as e:
         error(f"Error stopping chain: {str(e)}")
         raise click.Abort()
@@ -1035,9 +1047,9 @@ def list(ctx):
                 "P2P Port": 7070
             }
         ]
-        
+
         output(chains, ctx.obj.get('output_format', 'table'), title="Active Chains")
-        
+
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
         raise click.Abort()

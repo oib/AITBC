@@ -1,12 +1,11 @@
 """IPFS storage router for Coordinator API"""
 
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ....services.ipfs_storage_service import IPFSStorageService, IPFSUploadResult
 from ....config import settings
+from ....services.ipfs_storage_service import IPFSStorageService
 
 router = APIRouter()
 
@@ -69,7 +68,7 @@ async def upload_memory(request: IPFSUploadRequest) -> None:
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         result = await service.upload_memory(  # type: ignore[attr-defined]
             agent_id=request.agent_id,
             memory_data=request.memory_data,
@@ -78,7 +77,7 @@ async def upload_memory(request: IPFSUploadRequest) -> None:
             compress=request.compress,
             pin=request.pin,
         )
-        
+
         return {  # type: ignore[return-value]
             "success": True,
             "cid": result.cid,
@@ -98,12 +97,12 @@ async def retrieve_memory(request: IPFSRetrieveRequest) -> None:
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         memory_data, metadata = await service.retrieve_memory(  # type: ignore[attr-defined]
             cid=request.cid,
             verify_integrity=request.verify_integrity,
         )
-        
+
         return {  # type: ignore[return-value]
             "success": True,
             "cid": request.cid,
@@ -130,16 +129,16 @@ async def batch_upload_memories(request: IPFSBatchUploadRequest) -> None:
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         # Convert memories to tuples for the service
         memory_tuples = [(mem.get("data", {}), mem.get("type", "experience"), mem.get("tags", [])) for mem in request.memories]
-        
+
         results = await service.batch_upload_memories(  # type: ignore[attr-defined]
             agent_id=request.agent_id,
             memories=memory_tuples,
             batch_size=request.batch_size,
         )
-        
+
         return {  # type: ignore[return-value]
             "success": True,
             "total_uploaded": len(results),
@@ -163,15 +162,15 @@ async def create_filecoin_deal(request: IPFSCreateDealRequest) -> None:
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         deal_id = await service.create_filecoin_deal(  # type: ignore[attr-defined]
             cid=request.cid,
             duration=request.duration,
         )
-        
+
         if deal_id is None:
             raise HTTPException(status_code=500, detail="Failed to create Filecoin deal")
-        
+
         return {  # type: ignore[return-value]
             "success": True,
             "deal_id": deal_id,
@@ -191,9 +190,9 @@ async def list_agent_memories(  # type: ignore[no-untyped-def]
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         cids = await service.list_agent_memories(agent_id=agent_id, limit=limit)  # type: ignore[attr-defined]
-        
+
         return {
             "success": True,
             "agent_id": agent_id,
@@ -210,12 +209,12 @@ async def delete_memory(request: IPFSDeleteRequest) -> None:
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         success = await service.delete_memory(cid=request.cid)  # type: ignore[attr-defined]
-        
+
         if not success:
             raise HTTPException(status_code=404, detail=f"Failed to delete CID {request.cid}")
-        
+
         return {  # type: ignore[return-value]
             "success": True,
             "message": f"Memory {request.cid} deleted successfully",
@@ -233,9 +232,9 @@ async def get_storage_stats() -> None:
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         stats = await service.get_storage_stats()  # type: ignore[attr-defined]
-        
+
         return {  # type: ignore[return-value]
             "success": True,
             "stats": stats,
@@ -250,7 +249,7 @@ async def health_check() -> None:
     try:
         service = get_ipfs_service()  # type: ignore[func-returns-value]
         await service.initialize()  # type: ignore[attr-defined]
-        
+
         return {  # type: ignore[return-value]
             "status": "healthy",
             "service": "ipfs-storage",

@@ -1,13 +1,18 @@
 """Unit tests for plugin security service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-from datetime import datetime, timezone
-
-
-from main import app, SecurityScan, Vulnerability, SecurityReport, calculate_overall_score, generate_recommendations, get_severity_distribution, estimate_scan_time
+from main import (
+    SecurityReport,
+    SecurityScan,
+    Vulnerability,
+    app,
+    calculate_overall_score,
+    estimate_scan_time,
+    generate_recommendations,
+    get_severity_distribution,
+)
 
 
 @pytest.mark.unit
@@ -76,7 +81,7 @@ def test_security_report_model():
         scan_id="scan_123",
         plugin_id="plugin_123",
         version="1.0.0",
-        scan_date=datetime.now(timezone.utc),
+        scan_date=datetime.now(UTC),
         scan_duration=120.5,
         overall_score="passed",
         vulnerabilities=[],

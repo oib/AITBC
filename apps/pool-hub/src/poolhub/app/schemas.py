@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class MatchRequestPayload(BaseModel):
     job_id: str
-    requirements: Dict[str, Any] = Field(default_factory=dict)
-    hints: Dict[str, Any] = Field(default_factory=dict)
+    requirements: dict[str, Any] = Field(default_factory=dict)
+    hints: dict[str, Any] = Field(default_factory=dict)
     top_k: int = Field(default=1, ge=1, le=50)
-    redis_error: Optional[str] = None
+    redis_error: str | None = None
 
 
 class MatchCandidate(BaseModel):
@@ -19,14 +19,14 @@ class MatchCandidate(BaseModel):
     addr: str
     proto: str
     score: float
-    explain: Optional[str] = None
-    eta_ms: Optional[int] = None
-    price: Optional[float] = None
+    explain: str | None = None
+    eta_ms: int | None = None
+    price: float | None = None
 
 
 class MatchResponse(BaseModel):
     job_id: str
-    candidates: List[MatchCandidate]
+    candidates: list[MatchCandidate]
 
 
 class HealthResponse(BaseModel):
@@ -34,8 +34,8 @@ class HealthResponse(BaseModel):
     db: bool
     redis: bool
     miners_online: int
-    db_error: Optional[str] = None
-    redis_error: Optional[str] = None
+    db_error: str | None = None
+    redis_error: str | None = None
 
 
 class MetricsResponse(BaseModel):
@@ -46,9 +46,9 @@ class MetricsResponse(BaseModel):
 class ServiceConfigBase(BaseModel):
     """Base service configuration"""
     enabled: bool = Field(False, description="Whether service is enabled")
-    config: Dict[str, Any] = Field(default_factory=dict, description="Service-specific configuration")
-    pricing: Dict[str, Any] = Field(default_factory=dict, description="Pricing configuration")
-    capabilities: List[str] = Field(default_factory=list, description="Service capabilities")
+    config: dict[str, Any] = Field(default_factory=dict, description="Service-specific configuration")
+    pricing: dict[str, Any] = Field(default_factory=dict, description="Pricing configuration")
+    capabilities: list[str] = Field(default_factory=list, description="Service capabilities")
     max_concurrent: int = Field(1, ge=1, le=10, description="Maximum concurrent jobs")
 
 
@@ -59,11 +59,11 @@ class ServiceConfigCreate(ServiceConfigBase):
 
 class ServiceConfigUpdate(BaseModel):
     """Service configuration update request"""
-    enabled: Optional[bool] = Field(None, description="Whether service is enabled")
-    config: Optional[Dict[str, Any]] = Field(None, description="Service-specific configuration")
-    pricing: Optional[Dict[str, Any]] = Field(None, description="Pricing configuration")
-    capabilities: Optional[List[str]] = Field(None, description="Service capabilities")
-    max_concurrent: Optional[int] = Field(None, ge=1, le=10, description="Maximum concurrent jobs")
+    enabled: bool | None = Field(None, description="Whether service is enabled")
+    config: dict[str, Any] | None = Field(None, description="Service-specific configuration")
+    pricing: dict[str, Any] | None = Field(None, description="Pricing configuration")
+    capabilities: list[str] | None = Field(None, description="Service capabilities")
+    max_concurrent: int | None = Field(None, ge=1, le=10, description="Maximum concurrent jobs")
 
 
 class ServiceConfigResponse(ServiceConfigBase):
@@ -71,6 +71,6 @@ class ServiceConfigResponse(ServiceConfigBase):
     service_type: str = Field(..., description="Service type")
     created_at: datetime = Field(..., description="Creation time")
     updated_at: datetime = Field(..., description="Last update time")
-    
+
     class Config:
         from_attributes = True

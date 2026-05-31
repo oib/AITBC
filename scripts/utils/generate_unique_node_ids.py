@@ -4,9 +4,9 @@ Utility script to generate and set unique node IDs for AITBC nodes.
 This script updates /etc/aitbc/blockchain.env and /etc/aitbc/node.env with unique UUID-based IDs.
 """
 
-import uuid
-import sys
 import os
+import sys
+import uuid
 from pathlib import Path
 
 
@@ -39,10 +39,10 @@ def update_env_file(env_path: Path, key: str, value: str, preserve_existing: boo
         env_path.write_text(f"{key}={value}\n")
         print(f"Created {env_path} with {key}={value}")
         return True
-    
+
     content = env_path.read_text()
     lines = content.split('\n')
-    
+
     # Check if key already exists
     key_found = False
     new_lines = []
@@ -58,48 +58,48 @@ def update_env_file(env_path: Path, key: str, value: str, preserve_existing: boo
                 new_lines.append(line)
         else:
             new_lines.append(line)
-    
+
     if not key_found:
         new_lines.append(f"{key}={value}\n")
         print(f"Added {key} to {env_path}: {value}")
         env_path.write_text('\n'.join(new_lines))
         return True
-    
+
     if not preserve_existing:
         env_path.write_text('\n'.join(new_lines))
         return True
-    
+
     return False
 
 
 def main():
     """Main function to generate and set unique node IDs."""
     print("=== AITBC Unique Node ID Generator ===\n")
-    
+
     # Paths
     env_path = Path("/etc/aitbc/blockchain.env")
     node_env_path = Path("/etc/aitbc/node.env")
-    
+
     # Check if running as root
     if os.geteuid() != 0:
         print("ERROR: This script must be run as root (use sudo)")
         sys.exit(1)
-    
+
     # Generate unique IDs
     proposer_id = generate_proposer_id()
     p2p_node_id = generate_p2p_node_id()
-    
+
     print(f"Generated proposer_id: {proposer_id}")
     print(f"Generated p2p_node_id: {p2p_node_id}\n")
-    
+
     # Update /etc/aitbc/blockchain.env with proposer_id
     print("Updating /etc/aitbc/blockchain.env...")
     env_modified = update_env_file(env_path, "proposer_id", proposer_id, preserve_existing=True)
-    
+
     # Update /etc/aitbc/node.env with p2p_node_id
     print("\nUpdating /etc/aitbc/node.env...")
     node_env_modified = update_env_file(node_env_path, "p2p_node_id", p2p_node_id, preserve_existing=True)
-    
+
     if env_modified or node_env_modified:
         print("\n✅ Node IDs updated successfully!")
         print("\nNext steps:")
@@ -108,7 +108,7 @@ def main():
     else:
         print("\nℹ️  No changes made - existing IDs preserved")
         print("\nTo force regeneration, run with --force flag")
-    
+
     return 0
 
 
@@ -120,5 +120,5 @@ if __name__ == "__main__":
         # Note: This is a simple implementation. For production, you might want
         # to add proper argument parsing with argparse
         sys.exit(0)
-    
+
     sys.exit(main())

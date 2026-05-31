@@ -6,19 +6,18 @@ Provides health monitoring for agent orchestration, edge computing, and ecosyste
 """
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from aitbc import get_logger
-
-from ..services.hermes_enhanced import hermesEnhancedService
 from ....storage import get_session
+from ..services.hermes_enhanced import hermesEnhancedService
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -46,7 +45,7 @@ async def hermes_enhanced_health(request: Request, session: Annotated[Session, D
             "status": "healthy" if edge_status["available"] else "degraded",
             "service": "hermes-enhanced",
             "port": 8007,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -98,7 +97,7 @@ async def hermes_enhanced_health(request: Request, session: Annotated[Session, D
             "status": "unhealthy",
             "service": "hermes-enhanced",
             "port": 8007,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -123,7 +122,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
                 "orchestration_latency": "0.02s",
                 "success_rate": "100%",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["agent_orchestration"] = {"status": "fail", "error": "Test failed"}
 
         # Test edge deployment
@@ -134,7 +133,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
                 "edge_nodes_available": "500+",
                 "geographic_coverage": "global",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["edge_deployment"] = {"status": "fail", "error": "Test failed"}
 
         # Test hybrid execution
@@ -145,7 +144,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
                 "efficiency": "85%",
                 "cost_reduction": "40%",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["hybrid_execution"] = {"status": "fail", "error": "Test failed"}
 
         # Test ecosystem development
@@ -156,7 +155,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
                 "developer_tools": "available",
                 "documentation": "comprehensive",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["ecosystem_development"] = {"status": "fail", "error": "Test failed"}
 
         # Check edge computing status
@@ -166,7 +165,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
             "status": "healthy" if edge_status["available"] else "degraded",
             "service": "hermes-enhanced",
             "port": 8007,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "feature_tests": feature_tests,
             "edge_computing": edge_status,
             "overall_health": (
@@ -182,7 +181,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
             "status": "unhealthy",
             "service": "hermes-enhanced",
             "port": 8007,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Deep health check failed",
         }
 
@@ -212,5 +211,5 @@ async def check_edge_computing_status() -> dict[str, Any]:
             "compute_capacity": "5000 TFLOPS",
         }
 
-    except Exception as e:
+    except Exception:
         return {"available": False, "error": "Edge check failed"}

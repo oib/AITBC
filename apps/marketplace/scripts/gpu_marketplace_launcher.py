@@ -4,9 +4,7 @@ GPU Marketplace Launcher for AITBC Production
 """
 
 import os
-import sys
 import subprocess
-from pathlib import Path
 
 from aitbc import get_logger
 
@@ -15,14 +13,14 @@ logger = get_logger(__name__)
 def main():
     """Main GPU marketplace launcher function"""
     logger.info("Starting AITBC GPU Marketplace Launcher")
-    
+
     try:
         # Set environment variables
         os.environ.setdefault('PYTHONPATH', '/opt/aitbc/apps/marketplace/scripts:/opt/aitbc/apps/marketplace/src:/opt/aitbc/apps/coordinator-api/src')
-        
+
         # Try to run the GPU marketplace service
         logger.info("Launching GPU marketplace service")
-        
+
         # Check if the main marketplace service exists
         marketplace_path = '/opt/aitbc/apps/marketplace/scripts/marketplace.py'
         if os.path.exists(marketplace_path):
@@ -35,7 +33,7 @@ def main():
             logger.error(f"Marketplace service not found at {marketplace_path}")
             # Fallback to simple service
             fallback_service()
-            
+
     except subprocess.CalledProcessError as e:
         logger.error(f"GPU marketplace service failed with exit code {e.returncode}: {e}")
         logger.info("Starting fallback GPU marketplace service")
@@ -52,18 +50,18 @@ def main():
 def fallback_service():
     """Fallback GPU marketplace service"""
     logger.info("Starting fallback GPU marketplace service")
-    
+
     try:
         # Simple GPU marketplace heartbeat
         import time
-        
+
         while True:
             logger.info("GPU Marketplace service heartbeat - active")
             time.sleep(30)
-            
+
     except KeyboardInterrupt:
         logger.info("GPU Marketplace service stopped by user")
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.error(f"System error in fallback service: {type(e).__name__}: {e}")
         time.sleep(5)
     except Exception as e:

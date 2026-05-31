@@ -1,9 +1,10 @@
 """Stub contracts module for when contract_service is not available."""
-from typing import Any, Dict
+from typing import Any
+
 from fastapi import Request
 
 
-async def _stub(request: Request, *args, **kwargs) -> Dict[str, Any]:
+async def _stub(request: Request, *args, **kwargs) -> dict[str, Any]:
     return {"error": "Contract service not available", "status": "unavailable"}
 
 

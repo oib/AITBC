@@ -4,7 +4,7 @@
 
 A comprehensive blockchain-based marketplace for AI computing services with zero-knowledge proof verification and confidential transaction support.
 
-> **Note:** This README describes the designed capabilities of the AITBC platform. For the current operational state and deployment status, see [Current Operational State](docs/infrastructure/CURRENT_OPERATIONAL_STATE.md).
+> **Note:** This README describes the designed capabilities of the AITBC platform. For the current operational state and deployment status, see [Blockchain Operational Features](docs/blockchain/operational-features.md).
 
 ## Implemented Features
 
@@ -133,4 +133,4 @@ Users should focus on the actual documentation in `/opt/aitbc/docs/`:
 
 - **[Master Index](docs/MASTER_INDEX.md)** - Complete catalog of all documentation files and directories
 - **[Main Documentation](docs/README.md)** - Project status, navigation guide, and learning paths
-- **[Setup Instructions](docs/deployment/SETUP.md)** - Installation and configuration guide
+- **[Setup Instructions](docs/getting-started/SETUP.md)** - Installation and configuration guide

@@ -9,10 +9,10 @@ from sqlmodel import Field, SQLModel
 
 class ComputeRequest(SQLModel, table=True):
     """Compute request in edge serve queue"""
-    
+
     __tablename__ = "compute_requests"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"compute_req_{uuid4().hex[:8]}", primary_key=True)
     request_id: str = Field(index=True)
     gpu_id: str = Field(index=True)
@@ -30,10 +30,10 @@ class ComputeRequest(SQLModel, table=True):
 
 class ComputeResult(SQLModel, table=True):
     """Compute result cache"""
-    
+
     __tablename__ = "compute_results"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"compute_res_{uuid4().hex[:8]}", primary_key=True)
     result_id: str = Field(index=True)
     request_id: str = Field(index=True)

@@ -1,13 +1,9 @@
 """Integration tests for plugin marketplace service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-
-
-from main import app, MarketplaceReview, PluginPurchase, DeveloperApplication, reviews, purchases, developer_applications
+from main import DeveloperApplication, MarketplaceReview, PluginPurchase, app, developer_applications, purchases, reviews
 
 
 @pytest.fixture(autouse=True)
@@ -93,7 +89,7 @@ def test_get_plugin_reviews_api():
         content="Excellent functionality"
     )
     client.post("/api/v1/reviews", json=review.model_dump())
-    
+
     response = client.get("/api/v1/reviews/plugin_123")
     assert response.status_code == 200
     data = response.json()

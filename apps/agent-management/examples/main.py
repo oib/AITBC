@@ -3,14 +3,12 @@ Production Plugin Registry Service for AITBC
 Handles plugin registration, discovery, versioning, and security validation
 """
 
-import os
 import asyncio
-import json
-import hashlib
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, UploadFile, File
+import os
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from aitbc import get_logger
@@ -30,11 +28,11 @@ class PluginRegistration(BaseModel):
     description: str
     author: str
     category: str
-    tags: List[str]
+    tags: list[str]
     repository_url: str
-    homepage_url: Optional[str] = None
+    homepage_url: str | None = None
     license: str
-    dependencies: List[str] = []
+    dependencies: list[str] = []
     aitbc_version: str
     plugin_type: str  # cli, blockchain, ai, web, etc.
 
@@ -43,7 +41,7 @@ class PluginVersion(BaseModel):
     changelog: str
     download_url: str
     checksum: str
-    aitbc_compatibility: List[str]
+    aitbc_compatibility: list[str]
     release_date: datetime
 
 class SecurityScan(BaseModel):
@@ -51,23 +49,23 @@ class SecurityScan(BaseModel):
     plugin_id: str
     version: str
     scan_date: datetime
-    vulnerabilities: List[Dict[str, Any]]
+    vulnerabilities: list[dict[str, Any]]
     risk_score: str  # low, medium, high, critical
     passed: bool
 
 # In-memory storage (in production, use database)
-plugins: Dict[str, Dict] = {}
-plugin_versions: Dict[str, List[Dict]] = {}
-security_scans: Dict[str, Dict] = {}
-analytics: Dict[str, Dict] = {}
-downloads: Dict[str, List[Dict]] = {}
+plugins: dict[str, dict] = {}
+plugin_versions: dict[str, list[dict]] = {}
+security_scans: dict[str, dict] = {}
+analytics: dict[str, dict] = {}
+downloads: dict[str, list[dict]] = {}
 
 @app.get("/")
 async def root():
     return {
         "service": "AITBC Plugin Registry",
         "status": "running",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -78,19 +76,19 @@ async def health_check():
         "total_plugins": len(plugins),
         "total_versions": sum(len(versions) for versions in plugin_versions.values()),
         "security_scans": len(security_scans),
-        "downloads_today": len([d for downloads_list in downloads.values() 
-                              for d in downloads_list 
-                              if datetime.fromisoformat(d["timestamp"]).date() == datetime.now(timezone.utc).date()])
+        "downloads_today": len([d for downloads_list in downloads.values()
+                              for d in downloads_list
+                              if datetime.fromisoformat(d["timestamp"]).date() == datetime.now(UTC).date()])
     }
 
 @app.post("/api/v1/plugins/register")
 async def register_plugin(plugin: PluginRegistration):
     """Register a new plugin"""
     plugin_id = f"{plugin.name.lower().replace(' ', '_')}"
-    
+
     if plugin_id in plugins:
         raise HTTPException(status_code=400, detail="Plugin already registered")
-    
+
     # Create plugin record
     plugin_record = {
         "plugin_id": plugin_id,
@@ -106,8 +104,8 @@ async def register_plugin(plugin: PluginRegistration):
         "aitbc_version": plugin.aitbc_version,
         "plugin_type": plugin.plugin_type,
         "status": "active",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
         "verified": False,
         "featured": False,
         "download_count": 0,
@@ -115,10 +113,10 @@ async def register_plugin(plugin: PluginRegistration):
         "rating_count": 0,
         "latest_version": plugin.version
     }
-    
+
     plugins[plugin_id] = plugin_record
     plugin_versions[plugin_id] = []
-    
+
     # Initialize analytics
     analytics[plugin_id] = {
         "downloads": [],
@@ -126,9 +124,9 @@ async def register_plugin(plugin: PluginRegistration):
         "ratings": [],
         "daily_stats": {}
     }
-    
+
     logger.info(f"Plugin registered: {plugin.name}")
-    
+
     return {
         "plugin_id": plugin_id,
         "status": "registered",
@@ -141,12 +139,12 @@ async def add_plugin_version(plugin_id: str, version: PluginVersion):
     """Add a new version to an existing plugin"""
     if plugin_id not in plugins:
         raise HTTPException(status_code=404, detail="Plugin not found")
-    
+
     # Check if version already exists
     for existing_version in plugin_versions[plugin_id]:
         if existing_version["version"] == version.version:
             raise HTTPException(status_code=400, detail="Version already exists")
-    
+
     # Create version record
     version_record = {
         "version_id": f"{plugin_id}_v_{version.version}",
@@ -159,20 +157,20 @@ async def add_plugin_version(plugin_id: str, version: PluginVersion):
         "release_date": version.release_date.isoformat(),
         "downloads": 0,
         "security_scan_passed": False,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": datetime.now(UTC).isoformat()
     }
-    
+
     plugin_versions[plugin_id].append(version_record)
-    
+
     # Update plugin's latest version
     plugins[plugin_id]["latest_version"] = version.version
-    plugins[plugin_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
+    plugins[plugin_id]["updated_at"] = datetime.now(UTC).isoformat()
+
     # Sort versions by version number (semantic versioning)
     plugin_versions[plugin_id].sort(key=lambda x: x["version"], reverse=True)
-    
+
     logger.info(f"Version added to plugin {plugin_id}: {version.version}")
-    
+
     return {
         "plugin_id": plugin_id,
         "version": version.version,
@@ -181,11 +179,11 @@ async def add_plugin_version(plugin_id: str, version: PluginVersion):
     }
 
 @app.get("/api/v1/plugins")
-async def list_plugins(category: Optional[str] = None, tag: Optional[str] = None, 
-                     search: Optional[str] = None, sort_by: str = "created_at"):
+async def list_plugins(category: str | None = None, tag: str | None = None,
+                     search: str | None = None, sort_by: str = "created_at"):
     """List all plugins with filtering and sorting"""
     filtered_plugins = []
-    
+
     for plugin in plugins.values():
         # Apply filters
         if category and plugin["category"] != category:
@@ -194,9 +192,9 @@ async def list_plugins(category: Optional[str] = None, tag: Optional[str] = None
             continue
         if search and search.lower() not in plugin["name"].lower() and search.lower() not in plugin["description"].lower():
             continue
-        
+
         filtered_plugins.append(plugin.copy())
-    
+
     # Sort plugins
     if sort_by == "created_at":
         filtered_plugins.sort(key=lambda x: x["created_at"], reverse=True)
@@ -208,7 +206,7 @@ async def list_plugins(category: Optional[str] = None, tag: Optional[str] = None
         filtered_plugins.sort(key=lambda x: x["download_count"], reverse=True)
     elif sort_by == "rating":
         filtered_plugins.sort(key=lambda x: x["rating"], reverse=True)
-    
+
     return {
         "plugins": filtered_plugins,
         "total_plugins": len(filtered_plugins),
@@ -225,12 +223,12 @@ async def get_plugin(plugin_id: str):
     """Get detailed plugin information"""
     if plugin_id not in plugins:
         raise HTTPException(status_code=404, detail="Plugin not found")
-    
+
     plugin = plugins[plugin_id].copy()
-    
+
     # Add version information
     plugin["versions"] = plugin_versions.get(plugin_id, [])
-    
+
     # Add analytics
     plugin_analytics = analytics.get(plugin_id, {})
     plugin["analytics"] = {
@@ -239,7 +237,7 @@ async def get_plugin(plugin_id: str):
         "average_rating": sum(plugin_analytics.get("ratings", [])) / len(plugin_analytics.get("ratings", [])) if plugin_analytics.get("ratings") else 0.0,
         "rating_count": len(plugin_analytics.get("ratings", []))
     }
-    
+
     return plugin
 
 @app.get("/api/v1/plugins/{plugin_id}/versions")
@@ -247,7 +245,7 @@ async def get_plugin_versions(plugin_id: str):
     """Get all versions of a plugin"""
     if plugin_id not in plugins:
         raise HTTPException(status_code=404, detail="Plugin not found")
-    
+
     return {
         "plugin_id": plugin_id,
         "versions": plugin_versions.get(plugin_id, []),
@@ -259,38 +257,38 @@ async def download_plugin(plugin_id: str, version: str):
     """Download a specific plugin version"""
     if plugin_id not in plugins:
         raise HTTPException(status_code=404, detail="Plugin not found")
-    
+
     # Find the version
     version_record = None
     for v in plugin_versions.get(plugin_id, []):
         if v["version"] == version:
             version_record = v
             break
-    
+
     if not version_record:
         raise HTTPException(status_code=404, detail="Version not found")
-    
+
     # Record download
     download_record = {
         "version": version,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "ip_address": "client_ip",  # In production, get actual IP
         "user_agent": "user_agent"   # In production, get actual user agent
     }
-    
+
     if plugin_id not in downloads:
         downloads[plugin_id] = []
     downloads[plugin_id].append(download_record)
-    
+
     # Update analytics
     if plugin_id not in analytics:
         analytics[plugin_id] = {"downloads": [], "views": [], "ratings": []}
-    analytics[plugin_id]["downloads"].append(datetime.now(timezone.utc).timestamp())
-    
+    analytics[plugin_id]["downloads"].append(datetime.now(UTC).timestamp())
+
     # Update plugin download count
     plugins[plugin_id]["download_count"] += 1
     version_record["downloads"] += 1
-    
+
     # In production, this would return the actual file
     return {
         "plugin_id": plugin_id,
@@ -305,12 +303,12 @@ async def create_security_scan(plugin_id: str, scan: SecurityScan):
     """Create a security scan record for a plugin version"""
     if plugin_id not in plugins:
         raise HTTPException(status_code=404, detail="Plugin not found")
-    
+
     # Verify version exists
     version_exists = any(v["version"] == scan.version for v in plugin_versions.get(plugin_id, []))
     if not version_exists:
         raise HTTPException(status_code=404, detail="Version not found")
-    
+
     # Create security scan record
     security_scans[scan.scan_id] = {
         "scan_id": scan.scan_id,
@@ -320,17 +318,17 @@ async def create_security_scan(plugin_id: str, scan: SecurityScan):
         "vulnerabilities": scan.vulnerabilities,
         "risk_score": scan.risk_score,
         "passed": scan.passed,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": datetime.now(UTC).isoformat()
     }
-    
+
     # Update version security status
     for version_record in plugin_versions.get(plugin_id, []):
         if version_record["version"] == scan.version:
             version_record["security_scan_passed"] = scan.passed
             break
-    
+
     logger.info(f"Security scan created for {plugin_id} v{scan.version}: {scan.risk_score}")
-    
+
     return {
         "scan_id": scan.scan_id,
         "plugin_id": plugin_id,
@@ -345,15 +343,15 @@ async def get_plugin_security(plugin_id: str):
     """Get security information for a plugin"""
     if plugin_id not in plugins:
         raise HTTPException(status_code=404, detail="Plugin not found")
-    
+
     plugin_scans = []
     for scan_id, scan in security_scans.items():
         if scan["plugin_id"] == plugin_id:
             plugin_scans.append(scan)
-    
+
     # Sort by scan date
     plugin_scans.sort(key=lambda x: x["scan_date"], reverse=True)
-    
+
     return {
         "plugin_id": plugin_id,
         "security_scans": plugin_scans,
@@ -374,7 +372,7 @@ async def get_categories():
                 "description": f"Plugins in {category} category"
             }
         categories[category]["plugin_count"] += 1
-    
+
     return {
         "categories": list(categories.values()),
         "total_categories": len(categories)
@@ -387,7 +385,7 @@ async def get_tags():
     for plugin in plugins.values():
         for tag in plugin["tags"]:
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
-    
+
     return {
         "tags": [{"tag": tag, "count": count} for tag, count in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)],
         "total_tags": len(tag_counts)
@@ -397,22 +395,22 @@ async def get_tags():
 async def get_popular_plugins(limit: int = 10):
     """Get most popular plugins by downloads"""
     popular_plugins = sorted(plugins.values(), key=lambda x: x["download_count"], reverse=True)[:limit]
-    
+
     return {
         "popular_plugins": popular_plugins,
         "limit": limit,
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/recent")
 async def get_recent_plugins(limit: int = 10):
     """Get recently updated plugins"""
     recent_plugins = sorted(plugins.values(), key=lambda x: x["updated_at"], reverse=True)[:limit]
-    
+
     return {
         "recent_plugins": recent_plugins,
         "limit": limit,
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/dashboard")
@@ -421,20 +419,20 @@ async def get_analytics_dashboard():
     total_plugins = len(plugins)
     total_versions = sum(len(versions) for versions in plugin_versions.values())
     total_downloads = sum(plugin["download_count"] for plugin in plugins.values())
-    
+
     # Category distribution
     category_stats = {}
     for plugin in plugins.values():
         category = plugin["category"]
         category_stats[category] = category_stats.get(category, 0) + 1
-    
+
     # Recent activity
     recent_downloads = 0
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     for download_list in downloads.values():
-        recent_downloads += len([d for d in download_list 
+        recent_downloads += len([d for d in download_list
                                if datetime.fromisoformat(d["timestamp"]).date() == today])
-    
+
     return {
         "dashboard": {
             "total_plugins": total_plugins,
@@ -445,7 +443,7 @@ async def get_analytics_dashboard():
             "security_scans": len(security_scans),
             "passed_scans": len([s for s in security_scans.values() if s["passed"]])
         },
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 # Background task for analytics processing
@@ -453,20 +451,20 @@ async def process_analytics():
     """Background task to process analytics data"""
     while True:
         await asyncio.sleep(3600)  # Process every hour
-        
+
         # Update daily statistics
-        current_date = datetime.now(timezone.utc).date()
-        
+        current_date = datetime.now(UTC).date()
+
         for plugin_id, plugin_analytics in analytics.items():
             daily_key = current_date.isoformat()
-            
+
             if daily_key not in plugin_analytics["daily_stats"]:
                 plugin_analytics["daily_stats"][daily_key] = {
-                    "downloads": len([d for d in plugin_analytics.get("downloads", []) 
+                    "downloads": len([d for d in plugin_analytics.get("downloads", [])
                                    if datetime.fromtimestamp(d).date() == current_date]),
-                    "views": len([v for v in plugin_analytics.get("views", []) 
+                    "views": len([v for v in plugin_analytics.get("views", [])
                                  if datetime.fromtimestamp(v).date() == current_date]),
-                    "ratings": len([r for r in plugin_analytics.get("ratings", []) 
+                    "ratings": len([r for r in plugin_analytics.get("ratings", [])
                                    if datetime.fromtimestamp(r).date() == current_date])
                 }
 

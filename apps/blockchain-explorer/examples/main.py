@@ -3,18 +3,15 @@
 Simple AITBC Blockchain Explorer - Demonstrating the issues described in the analysis
 """
 
-import os
-import asyncio
 import re
-from datetime import datetime
-from typing import Dict, Any, Optional
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-import uvicorn
 
-from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 
 app = FastAPI(title="Simple AITBC Explorer", version="0.1.0")
 

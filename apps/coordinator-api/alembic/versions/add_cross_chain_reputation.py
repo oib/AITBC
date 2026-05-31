@@ -5,9 +5,8 @@ Revises: add_dynamic_pricing_tables
 Create Date: 2026-02-28 22:30:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_cross_chain_reputation'
@@ -18,7 +17,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create cross-chain reputation system tables"""
-    
+
     # Create cross_chain_reputation_configs table
     op.create_table(
         'cross_chain_reputation_configs',
@@ -41,7 +40,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_chain_reputation_config_chain', 'cross_chain_reputation_configs', ['chain_id'])
     op.create_index('idx_chain_reputation_config_active', 'cross_chain_reputation_configs', ['is_active'])
-    
+
     # Create cross_chain_reputation_aggregations table
     op.create_table(
         'cross_chain_reputation_aggregations',
@@ -67,7 +66,7 @@ def upgrade() -> None:
     op.create_index('idx_cross_chain_agg_score', 'cross_chain_reputation_aggregations', ['aggregated_score'])
     op.create_index('idx_cross_chain_agg_updated', 'cross_chain_reputation_aggregations', ['last_updated'])
     op.create_index('idx_cross_chain_agg_status', 'cross_chain_reputation_aggregations', ['verification_status'])
-    
+
     # Create cross_chain_reputation_events table
     op.create_table(
         'cross_chain_reputation_events',
@@ -92,7 +91,7 @@ def upgrade() -> None:
     op.create_index('idx_cross_chain_event_chains', 'cross_chain_reputation_events', ['source_chain_id', 'target_chain_id'])
     op.create_index('idx_cross_chain_event_type', 'cross_chain_reputation_events', ['event_type'])
     op.create_index('idx_cross_chain_event_created', 'cross_chain_reputation_events', ['created_at'])
-    
+
     # Create reputation_metrics table
     op.create_table(
         'reputation_metrics',
@@ -120,7 +119,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop cross-chain reputation system tables"""
-    
+
     # Drop tables in reverse order
     op.drop_table('reputation_metrics')
     op.drop_table('cross_chain_reputation_events')

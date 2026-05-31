@@ -20,17 +20,17 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
-
-# Uses Cryptography library for ed25519 and encryption
-from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.backends import default_backend
+from typing import Any
 
 # Address encoding: bech32m (HRP 'ait')
 from bech32 import bech32_encode, convertbits
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+
+# Uses Cryptography library for ed25519 and encryption
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 def generate_address(public_key_bytes: bytes) -> str:
@@ -47,7 +47,7 @@ def generate_address(public_key_bytes: bytes) -> str:
     return bech32_encode("ait", data)
 
 
-def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) -> Dict[str, Any]:
+def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) -> dict[str, Any]:
     """Encrypt a private key using AES-GCM, wrapped in a JSON keystore."""
     # Derive key from password using PBKDF2
     kdf = PBKDF2HMAC(
@@ -89,7 +89,7 @@ def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) ->
     }
 
 
-def generate_keypair(name: str, password: str, keystore_dir: Path) -> Dict[str, Any]:
+def generate_keypair(name: str, password: str, keystore_dir: Path) -> dict[str, Any]:
     """Generate a new ed25519 keypair and store in keystore."""
     salt = os.urandom(32)
     private_key = ed25519.Ed25519PrivateKey.generate()
@@ -157,7 +157,7 @@ def show_keyinfo(keystore_file: Path, password: str) -> None:
 
 def main():
     from getpass import getpass
-    from cryptography.hazmat.primitives import serialization
+
 
     parser = argparse.ArgumentParser(description="Production keystore management")
     parser.add_argument("--name", required=True, help="Key name (e.g., treasury, proposer)")

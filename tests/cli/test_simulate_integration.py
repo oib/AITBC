@@ -4,13 +4,15 @@ These tests require coordinator-api running and validate simulation operations
 including blockchain, wallets, price, network, and ai-jobs simulations with actual service calls.
 """
 
-import pytest
 import json
+from unittest.mock import MagicMock, Mock, patch
+
 import httpx
-from click.testing import CliRunner
-from unittest.mock import Mock, patch, MagicMock
+import pytest
 from aitbc_cli.commands.simulate import simulate
-from aitbc import AITBCHTTPClient, NetworkError
+from click.testing import CliRunner
+
+from aitbc import AITBCHTTPClient
 
 
 @pytest.fixture
@@ -55,7 +57,7 @@ class TestSimulateCommandsIntegration:
             '--blocks', '10',
             '--transactions', '50'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'blocks' in data or 'simulation_id' in data
@@ -67,7 +69,7 @@ class TestSimulateCommandsIntegration:
             '--count', '5',
             '--balance', '1000'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'wallets' in data or 'simulation_id' in data
@@ -79,7 +81,7 @@ class TestSimulateCommandsIntegration:
             '--days', '30',
             '--volatility', '0.1'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'prices' in data or 'simulation_id' in data
@@ -91,7 +93,7 @@ class TestSimulateCommandsIntegration:
             '--nodes', '10',
             '--latency', '50'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'network' in data or 'simulation_id' in data
@@ -103,7 +105,7 @@ class TestSimulateCommandsIntegration:
             '--jobs', '20',
             '--duration', '300'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'jobs' in data or 'simulation_id' in data
@@ -115,7 +117,7 @@ class TestSimulateCommandsIntegration:
             '--type', 'blockchain',
             '--duration', '60'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'simulation_id' in data or 'status' in data
@@ -127,17 +129,17 @@ class TestSimulateCommandsIntegration:
             'run',
             '--type', 'blockchain'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
         sim_id = run_data.get('simulation_id')
-        
+
         if sim_id:
             # Get status
             status_result = runner.invoke(simulate, [
                 'status', sim_id
             ], obj={'config': mock_config, 'output': 'json'})
-            
+
             assert status_result.exit_code == 0
             status_data = json.loads(status_result.output)
             assert 'status' in status_data
@@ -149,17 +151,17 @@ class TestSimulateCommandsIntegration:
             'run',
             '--type', 'wallets'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert run_result.exit_code == 0
         run_data = json.loads(run_result.output)
         sim_id = run_data.get('simulation_id')
-        
+
         if sim_id:
             # Get results
             result_result = runner.invoke(simulate, [
                 'result', sim_id
             ], obj={'config': mock_config, 'output': 'json'})
-            
+
             assert result_result.exit_code == 0
             result_data = json.loads(result_result.output)
             assert 'results' in result_data or 'data' in result_data
@@ -172,7 +174,7 @@ class TestSimulateCommandsIntegration:
             '--transactions', '500',
             '--difficulty', '5'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'blocks' in data or 'simulation_id' in data
@@ -184,7 +186,7 @@ class TestSimulateCommandsIntegration:
             '--count', '10',
             '--distribution', 'exponential'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'wallets' in data or 'simulation_id' in data
@@ -197,7 +199,7 @@ class TestSimulateCommandsIntegration:
             '--trend', 'bullish',
             '--volatility', '0.15'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'prices' in data or 'simulation_id' in data
@@ -210,7 +212,7 @@ class TestSimulateCommandsIntegration:
             '--topology', 'mesh',
             '--latency', '100'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'network' in data or 'simulation_id' in data
@@ -223,7 +225,7 @@ class TestSimulateCommandsIntegration:
             '--gpu-required',
             '--duration', '600'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'jobs' in data or 'simulation_id' in data
@@ -236,7 +238,7 @@ class TestSimulateCommandsIntegration:
             '--async',
             '--duration', '120'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'simulation_id' in data
@@ -247,7 +249,7 @@ class TestSimulateCommandsIntegration:
         result = runner.invoke(simulate, [
             'status', 'sim_nonexistent_12345'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should handle gracefully
         assert result.exit_code != 0 or 'not found' in result.output.lower()
 
@@ -256,27 +258,27 @@ class TestSimulateCommandsIntegration:
         result = runner.invoke(simulate, [
             'result', 'sim_nonexistent_12345'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should handle gracefully
         assert result.exit_code != 0 or 'not found' in result.output.lower()
 
     def test_simulate_multiple_concurrent(self, runner, mock_config, coordinator_available):
         """Test running multiple concurrent simulations"""
         sim_ids = []
-        
+
         for i in range(3):
             result = runner.invoke(simulate, [
                 'run',
                 '--type', 'blockchain',
                 '--async'
             ], obj={'config': mock_config, 'output': 'json'})
-            
+
             assert result.exit_code == 0
             data = json.loads(result.output)
             sim_id = data.get('simulation_id')
             if sim_id:
                 sim_ids.append(sim_id)
-        
+
         # Verify we got multiple simulation IDs
         assert len(sim_ids) > 0
 
@@ -284,11 +286,11 @@ class TestSimulateCommandsIntegration:
         """Test simulate command handles coordinator-api errors gracefully"""
         # Use invalid coordinator URL to trigger error
         mock_config.coordinator_url = "http://invalid:9999"
-        
+
         result = runner.invoke(simulate, [
             'blockchain'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should either fail gracefully or skip with appropriate message
         assert result.exit_code != 0 or 'error' in result.output.lower() or 'unavailable' in result.output.lower()
 
@@ -300,7 +302,7 @@ class TestSimulateCommandsIntegration:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.post.return_value = {
@@ -308,12 +310,12 @@ class TestSimulateCommandsIntegration:
             "status": "started",
             "blocks": 10
         }
-        
+
         result = runner.invoke(simulate, [
             'blockchain',
             '--blocks', '10'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         # Verify API was called (if simulate command uses coordinator-api)
 
@@ -324,14 +326,14 @@ class TestSimulateCommandsIntegration:
             'blockchain',
             '--blocks', '5'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result_json.exit_code == 0
         json.loads(result_json.output)  # Should be valid JSON
-        
+
         # Table format
         result_table = runner.invoke(simulate, [
             'blockchain',
             '--blocks', '5'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result_table.exit_code == 0

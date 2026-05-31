@@ -42,7 +42,7 @@ def _check_health(url: str, expect_status_field: bool = True) -> None:
         payload = json.loads(data)
     except json.JSONDecodeError:
         pytest.fail(f"Health response not JSON: {data}")
-    
+
     if expect_status_field:
         assert payload.get("status", "").lower() in {"ok", "healthy", "pass"}
 

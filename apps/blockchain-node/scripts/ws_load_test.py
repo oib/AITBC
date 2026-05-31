@@ -9,7 +9,6 @@ import json
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 import httpx
 import websockets
@@ -19,16 +18,16 @@ import websockets
 class PublishStats:
     sent: int = 0
     failed: int = 0
-    latencies: List[float] = field(default_factory=list)
+    latencies: list[float] = field(default_factory=list)
 
     @property
-    def average_latency_ms(self) -> Optional[float]:
+    def average_latency_ms(self) -> float | None:
         if not self.latencies:
             return None
         return (sum(self.latencies) / len(self.latencies)) * 1000.0
 
     @property
-    def p95_latency_ms(self) -> Optional[float]:
+    def p95_latency_ms(self) -> float | None:
         if not self.latencies:
             return None
         sorted_latencies = sorted(self.latencies)
@@ -79,7 +78,7 @@ async def _publish_transactions(
             if interval:
                 try:
                     await asyncio.wait_for(stop_event.wait(), timeout=interval)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
             else:
                 await asyncio.sleep(0)
@@ -97,7 +96,7 @@ async def _subscription_worker(
                 while not stop_event.is_set():
                     try:
                         message = await asyncio.wait_for(ws.recv(), timeout=1.0)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         continue
                     except websockets.ConnectionClosed:
                         stats.disconnects += 1
@@ -113,8 +112,8 @@ async def _subscription_worker(
 async def run_load(args: argparse.Namespace) -> None:
     stop_event = asyncio.Event()
 
-    publish_stats: List[PublishStats] = [PublishStats() for _ in range(args.publishers)]
-    subscription_stats: Dict[str, SubscriptionStats] = {
+    publish_stats: list[PublishStats] = [PublishStats() for _ in range(args.publishers)]
+    subscription_stats: dict[str, SubscriptionStats] = {
         "blocks": SubscriptionStats(),
         "transactions": SubscriptionStats(),
     }
@@ -160,7 +159,7 @@ async def run_load(args: argparse.Namespace) -> None:
 
     try:
         await asyncio.wait_for(stop_event.wait(), timeout=args.duration)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         pass
     finally:
         stop_event.set()
@@ -169,7 +168,7 @@ async def run_load(args: argparse.Namespace) -> None:
     _print_summary(publish_stats, subscription_stats)
 
 
-def _print_summary(publish_stats: List[PublishStats], subscription_stats: Dict[str, SubscriptionStats]) -> None:
+def _print_summary(publish_stats: list[PublishStats], subscription_stats: dict[str, SubscriptionStats]) -> None:
     total_sent = sum(s.sent for s in publish_stats)
     total_failed = sum(s.failed for s in publish_stats)
     all_latencies = [lat for s in publish_stats for lat in s.latencies]
@@ -192,7 +191,7 @@ def _print_summary(publish_stats: List[PublishStats], subscription_stats: Dict[s
     print(json.dumps(summary, indent=2))
 
 
-def _p95(latencies: List[float]) -> Optional[float]:
+def _p95(latencies: list[float]) -> float | None:
     if not latencies:
         return None
     sorted_latencies = sorted(latencies)

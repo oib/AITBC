@@ -1,6 +1,6 @@
 """Prometheus metrics for blockchain event bridge."""
 
-from prometheus_client import Counter, Histogram, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
 # Event metrics
 events_received_total = Counter(

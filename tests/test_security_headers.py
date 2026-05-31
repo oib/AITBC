@@ -2,17 +2,16 @@
 Tests for security headers and CORS utilities
 """
 
-import pytest
 
 from aitbc.security_headers import (
-    SecurityHeaders,
     CORSConfig,
-    SecurityHeadersMiddleware,
     CORSMiddleware,
-    create_production_security_headers,
+    SecurityHeaders,
+    SecurityHeadersMiddleware,
     create_development_security_headers,
-    create_strict_cors_config,
     create_permissive_cors_config,
+    create_production_security_headers,
+    create_strict_cors_config,
 )
 
 
@@ -117,7 +116,7 @@ class TestSecurityHeadersMiddleware:
         middleware = SecurityHeadersMiddleware()
         response_headers = {"Content-Type": "application/json"}
         result = middleware.apply_to_response(response_headers)
-        
+
         assert "X-Content-Type-Options" in result
         assert "X-Frame-Options" in result
         assert result["Content-Type"] == "application/json"
@@ -127,7 +126,7 @@ class TestSecurityHeadersMiddleware:
         middleware = SecurityHeadersMiddleware()
         response_headers = {"X-Frame-Options": "ALLOW"}
         result = middleware.apply_to_response(response_headers)
-        
+
         assert result["X-Frame-Options"] == "DENY"
 
 
@@ -153,7 +152,7 @@ class TestCORSMiddleware:
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://localhost:3000")
-        
+
         assert headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
         assert headers["Access-Control-Allow-Methods"] == "GET, POST"
         assert headers["Access-Control-Allow-Headers"] == "Content-Type"
@@ -168,7 +167,7 @@ class TestCORSMiddleware:
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://evil.com")
-        
+
         assert headers == {}
 
     def test_get_cors_headers_wildcard_origin(self):
@@ -180,7 +179,7 @@ class TestCORSMiddleware:
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://any-origin.com")
-        
+
         assert headers["Access-Control-Allow-Origin"] == "http://any-origin.com"
 
     def test_get_cors_headers_with_credentials(self):
@@ -193,7 +192,7 @@ class TestCORSMiddleware:
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://localhost:3000")
-        
+
         assert headers["Access-Control-Allow-Credentials"] == "true"
 
     def test_get_cors_headers_with_expose_headers(self):
@@ -206,7 +205,7 @@ class TestCORSMiddleware:
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://localhost:3000")
-        
+
         assert headers["Access-Control-Expose-Headers"] == "X-Request-ID"
 
     def test_is_origin_allowed_wildcard(self):

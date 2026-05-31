@@ -1,14 +1,20 @@
 """Edge case and error handling tests for global AI agents service"""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone, timedelta
-
-
-from main import app, Agent, AgentMessage, CollaborationSession, AgentPerformance, global_agents, agent_messages, collaboration_sessions, agent_performance
+from main import (
+    Agent,
+    AgentMessage,
+    AgentPerformance,
+    CollaborationSession,
+    agent_messages,
+    agent_performance,
+    app,
+    collaboration_sessions,
+    global_agents,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +70,7 @@ def test_agent_performance_out_of_range_score():
     """Test AgentPerformance with out of range scores"""
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=2.0,
@@ -86,7 +92,7 @@ def test_agent_message_empty_content():
         content={},
         priority="high",
         language="english",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert message.content == {}
 
@@ -142,18 +148,18 @@ def test_send_collaboration_message_sender_not_participant():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     session = CollaborationSession(
         session_id="session_123",
         participants=["agent_123"],
         session_type="research",
         objective="Research task",
-        created_at=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        created_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
         status="active"
     )
     client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
-    
+
     response = client.post("/api/v1/collaborations/session_123/message", params={"sender_id": "nonexistent"}, json={"content": "test"})
     assert response.status_code == 400
 

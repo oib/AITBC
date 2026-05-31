@@ -3,8 +3,8 @@ Database session management for Trading service
 """
 
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
@@ -22,19 +22,10 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 
 async def init_db() -> None:
     """Initialize database tables"""
-    from .domain.trading import (
-        TradeRequest,
-        TradeMatch,
-        TradeNegotiation,
-        TradeAgreement,
-        TradeSettlement,
-        TradeFeedback,
-        TradingAnalytics,
-    )
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    
+
     logger.info("Trading service database initialized")
 
 

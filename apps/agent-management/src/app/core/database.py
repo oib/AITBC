@@ -1,8 +1,9 @@
 """Shared database utilities for AITBC services."""
 
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from typing import Generator
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from .config import ServiceSettings
 

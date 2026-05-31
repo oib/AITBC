@@ -4,11 +4,10 @@ Scaling strategies and implementation for enterprise workloads
 """
 
 import asyncio
-import json
-from aitbc.logging import get_logger
-from datetime import datetime
-from typing import Dict, List, Optional, Any
 from enum import Enum
+from typing import Any
+
+from aitbc.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -23,7 +22,7 @@ class ScalingStrategy(str, Enum):
 
 class EnterpriseWorkloadManager:
     """Manages enterprise-level scaling for agent orchestration"""
-    
+
     def __init__(self):
         self.scaling_policies = {
             "high_throughput": {
@@ -51,7 +50,7 @@ class EnterpriseWorkloadManager:
                 "response_time_threshold": 500  # ms
             }
         }
-        
+
         self.enterprise_features = [
             "load_balancing",
             "resource_pooling",
@@ -61,10 +60,10 @@ class EnterpriseWorkloadManager:
             "fault_tolerance",
             "monitoring_alerts"
         ]
-    
-    async def implement_enterprise_scaling(self) -> Dict[str, Any]:
+
+    async def implement_enterprise_scaling(self) -> dict[str, Any]:
         """Implement enterprise-level scaling"""
-        
+
         scaling_result = {
             "scaling_implementation": "in_progress",
             "features_implemented": [],
@@ -72,9 +71,9 @@ class EnterpriseWorkloadManager:
             "scalability_tests": [],
             "errors": []
         }
-        
+
         logger.info("Starting enterprise scaling implementation")
-        
+
         # Implement scaling features
         for feature in self.enterprise_features:
             try:
@@ -85,31 +84,31 @@ class EnterpriseWorkloadManager:
                     "details": feature_result
                 })
                 logger.info(f"✅ Implemented scaling feature: {feature}")
-                
+
             except Exception as e:
                 scaling_result["errors"].append(f"Feature {feature} failed: {e}")
                 logger.error(f"❌ Failed to implement feature {feature}: {e}")
-        
+
         # Run scalability tests
         test_results = await self._run_scalability_tests()
         scaling_result["scalability_tests"] = test_results
-        
+
         # Collect performance metrics
         metrics = await self._collect_performance_metrics()
         scaling_result["performance_metrics"] = metrics
-        
+
         # Determine overall status
         if scaling_result["errors"]:
             scaling_result["scaling_implementation"] = "partial_success"
         else:
             scaling_result["scaling_implementation"] = "success"
-        
+
         logger.info(f"Enterprise scaling completed with status: {scaling_result['scaling_implementation']}")
         return scaling_result
-    
-    async def _implement_scaling_feature(self, feature: str) -> Dict[str, Any]:
+
+    async def _implement_scaling_feature(self, feature: str) -> dict[str, Any]:
         """Implement individual scaling feature"""
-        
+
         if feature == "load_balancing":
             return await self._implement_load_balancing()
         elif feature == "resource_pooling":
@@ -126,10 +125,10 @@ class EnterpriseWorkloadManager:
             return await self._implement_monitoring_alerts()
         else:
             raise ValueError(f"Unknown scaling feature: {feature}")
-    
-    async def _implement_load_balancing(self) -> Dict[str, Any]:
+
+    async def _implement_load_balancing(self) -> dict[str, Any]:
         """Implement load balancing for enterprise workloads"""
-        
+
         load_balancing_config = {
             "algorithm": "round_robin",
             "health_checks": "enabled",
@@ -140,12 +139,12 @@ class EnterpriseWorkloadManager:
             "timeout": 30,
             "retry_policy": "exponential_backoff"
         }
-        
+
         return load_balancing_config
-    
-    async def _implement_resource_pooling(self) -> Dict[str, Any]:
+
+    async def _implement_resource_pooling(self) -> dict[str, Any]:
         """Implement resource pooling"""
-        
+
         resource_pools = {
             "cpu_pools": {
                 "high_performance": {"cores": 8, "priority": "high"},
@@ -163,12 +162,12 @@ class EnterpriseWorkloadManager:
                 "basic": {"gpu_memory_gb": 4, "priority": "low"}
             }
         }
-        
+
         return resource_pools
-    
-    async def _implement_priority_queues(self) -> Dict[str, Any]:
+
+    async def _implement_priority_queues(self) -> dict[str, Any]:
         """Implement priority queues for workloads"""
-        
+
         priority_queues = {
             "queues": [
                 {"name": "critical", "priority": 1, "max_size": 100},
@@ -180,12 +179,12 @@ class EnterpriseWorkloadManager:
             "preemption": "enabled",
             "fairness": "weighted_round_robin"
         }
-        
+
         return priority_queues
-    
-    async def _implement_batch_processing(self) -> Dict[str, Any]:
+
+    async def _implement_batch_processing(self) -> dict[str, Any]:
         """Implement batch processing capabilities"""
-        
+
         batch_config = {
             "batch_size": 100,
             "batch_timeout": 30,  # seconds
@@ -195,12 +194,12 @@ class EnterpriseWorkloadManager:
             "retry_failed_batches": True,
             "max_retries": 3
         }
-        
+
         return batch_config
-    
-    async def _implement_distributed_caching(self) -> Dict[str, Any]:
+
+    async def _implement_distributed_caching(self) -> dict[str, Any]:
         """Implement distributed caching"""
-        
+
         caching_config = {
             "cache_type": "redis_cluster",
             "cache_nodes": 6,
@@ -214,12 +213,12 @@ class EnterpriseWorkloadManager:
             "eviction_policy": "lru",
             "compression": "enabled"
         }
-        
+
         return caching_config
-    
-    async def _implement_fault_tolerance(self) -> Dict[str, Any]:
+
+    async def _implement_fault_tolerance(self) -> dict[str, Any]:
         """Implement fault tolerance"""
-        
+
         fault_tolerance_config = {
             "circuit_breaker": "enabled",
             "retry_patterns": ["exponential_backoff", "fixed_delay"],
@@ -235,12 +234,12 @@ class EnterpriseWorkloadManager:
                 "database_queries": 10
             }
         }
-        
+
         return fault_tolerance_config
-    
-    async def _implement_monitoring_alerts(self) -> Dict[str, Any]:
+
+    async def _implement_monitoring_alerts(self) -> dict[str, Any]:
         """Implement monitoring and alerting"""
-        
+
         monitoring_config = {
             "metrics_collection": "enabled",
             "alerting_rules": [
@@ -251,7 +250,7 @@ class EnterpriseWorkloadManager:
                     "action": "scale_up"
                 },
                 {
-                    "name": "high_memory_usage", 
+                    "name": "high_memory_usage",
                     "condition": "memory_usage > 85",
                     "severity": "warning",
                     "action": "scale_up"
@@ -272,12 +271,12 @@ class EnterpriseWorkloadManager:
             "notification_channels": ["email", "slack", "webhook"],
             "dashboard": "enterprise_monitoring"
         }
-        
+
         return monitoring_config
-    
-    async def _run_scalability_tests(self) -> List[Dict[str, Any]]:
+
+    async def _run_scalability_tests(self) -> list[dict[str, Any]]:
         """Run scalability tests"""
-        
+
         test_scenarios = [
             {
                 "name": "concurrent_executions_100",
@@ -287,7 +286,7 @@ class EnterpriseWorkloadManager:
             },
             {
                 "name": "concurrent_executions_500",
-                "description": "Test 500 concurrent agent executions", 
+                "description": "Test 500 concurrent agent executions",
                 "target_throughput": 500,
                 "max_response_time": 3000
             },
@@ -310,16 +309,16 @@ class EnterpriseWorkloadManager:
                 "expected_behavior": "queue_management"
             }
         ]
-        
+
         test_results = []
-        
+
         for test in test_scenarios:
             try:
                 # Simulate test execution
                 result = await self._simulate_scalability_test(test)
                 test_results.append(result)
                 logger.info(f"✅ Scalability test passed: {test['name']}")
-                
+
             except Exception as e:
                 test_results.append({
                     "name": test["name"],
@@ -327,16 +326,16 @@ class EnterpriseWorkloadManager:
                     "error": str(e)
                 })
                 logger.error(f"❌ Scalability test failed: {test['name']} - {e}")
-        
+
         return test_results
-    
-    async def _simulate_scalability_test(self, test: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def _simulate_scalability_test(self, test: dict[str, Any]) -> dict[str, Any]:
         """Simulate scalability test execution"""
-        
+
         # Simulate test execution based on test parameters
         if "concurrent_executions" in test["name"]:
             concurrent_count = int(test["name"].split("_")[2])
-            
+
             # Simulate performance based on concurrent count
             if concurrent_count <= 100:
                 avg_response_time = 800
@@ -347,7 +346,7 @@ class EnterpriseWorkloadManager:
             else:
                 avg_response_time = 3500
                 success_rate = 95.0
-            
+
             return {
                 "name": test["name"],
                 "status": "passed",
@@ -357,7 +356,7 @@ class EnterpriseWorkloadManager:
                 "target_throughput_met": avg_response_time < test["max_response_time"],
                 "test_duration": 60  # seconds
             }
-        
+
         elif "memory_pressure" in test["name"]:
             return {
                 "name": test["name"],
@@ -367,7 +366,7 @@ class EnterpriseWorkloadManager:
                 "error_rate": "stable",
                 "graceful_degradation": "enabled"
             }
-        
+
         elif "gpu_utilization" in test["name"]:
             return {
                 "name": test["name"],
@@ -377,17 +376,17 @@ class EnterpriseWorkloadManager:
                 "proof_generation_time": "+30%",
                 "verification_time": "+15%"
             }
-        
+
         else:
             return {
                 "name": test["name"],
                 "status": "passed",
                 "details": "Test simulation completed"
             }
-    
-    async def _collect_performance_metrics(self) -> Dict[str, Any]:
+
+    async def _collect_performance_metrics(self) -> dict[str, Any]:
         """Collect performance metrics"""
-        
+
         metrics = {
             "throughput": {
                 "requests_per_second": 1250,
@@ -416,13 +415,13 @@ class EnterpriseWorkloadManager:
                 "mean_time_to_recovery": 30  # seconds
             }
         }
-        
+
         return metrics
 
 
 class AgentMarketplaceDevelopment:
     """Development of agent marketplace with GPU acceleration"""
-    
+
     def __init__(self):
         self.marketplace_features = [
             "agent_listing",
@@ -433,7 +432,7 @@ class AgentMarketplaceDevelopment:
             "transaction_processing",
             "compliance_verification"
         ]
-        
+
         self.gpu_accelerated_agent_types = [
             "ml_inference",
             "data_processing",
@@ -441,10 +440,10 @@ class AgentMarketplaceDevelopment:
             "cryptographic_proofs",
             "complex_workflows"
         ]
-    
-    async def develop_marketplace(self) -> Dict[str, Any]:
+
+    async def develop_marketplace(self) -> dict[str, Any]:
         """Develop agent marketplace"""
-        
+
         marketplace_result = {
             "development_status": "in_progress",
             "features_developed": [],
@@ -452,9 +451,9 @@ class AgentMarketplaceDevelopment:
             "marketplace_metrics": {},
             "errors": []
         }
-        
+
         logger.info("Starting agent marketplace development")
-        
+
         # Develop marketplace features
         for feature in self.marketplace_features:
             try:
@@ -465,31 +464,31 @@ class AgentMarketplaceDevelopment:
                     "details": feature_result
                 })
                 logger.info(f"✅ Developed marketplace feature: {feature}")
-                
+
             except Exception as e:
                 marketplace_result["errors"].append(f"Feature {feature} failed: {e}")
                 logger.error(f"❌ Failed to develop feature {feature}: {e}")
-        
+
         # Create GPU-accelerated agents
         gpu_agents = await self._create_gpu_accelerated_agents()
         marketplace_result["gpu_agents_created"] = gpu_agents
-        
+
         # Collect marketplace metrics
         metrics = await self._collect_marketplace_metrics()
         marketplace_result["marketplace_metrics"] = metrics
-        
+
         # Determine overall status
         if marketplace_result["errors"]:
             marketplace_result["development_status"] = "partial_success"
         else:
             marketplace_result["development_status"] = "success"
-        
+
         logger.info(f"Agent marketplace development completed with status: {marketplace_result['development_status']}")
         return marketplace_result
-    
-    async def _develop_marketplace_feature(self, feature: str) -> Dict[str, Any]:
+
+    async def _develop_marketplace_feature(self, feature: str) -> dict[str, Any]:
         """Develop individual marketplace feature"""
-        
+
         if feature == "agent_listing":
             return await self._develop_agent_listing()
         elif feature == "agent_discovery":
@@ -506,10 +505,10 @@ class AgentMarketplaceDevelopment:
             return await self._develop_compliance_verification()
         else:
             raise ValueError(f"Unknown marketplace feature: {feature}")
-    
-    async def _develop_agent_listing(self) -> Dict[str, Any]:
+
+    async def _develop_agent_listing(self) -> dict[str, Any]:
         """Develop agent listing functionality"""
-        
+
         listing_config = {
             "listing_fields": [
                 "name", "description", "category", "tags",
@@ -520,12 +519,12 @@ class AgentMarketplaceDevelopment:
             "sorting_options": ["rating", "price", "popularity", "performance"],
             "listing_validation": "automated"
         }
-        
+
         return listing_config
-    
-    async def _develop_agent_discovery(self) -> Dict[str, Any]:
+
+    async def _develop_agent_discovery(self) -> dict[str, Any]:
         """Develop agent discovery functionality"""
-        
+
         discovery_config = {
             "search_algorithms": ["keyword", "semantic", "collaborative"],
             "recommendation_engine": "enabled",
@@ -533,12 +532,12 @@ class AgentMarketplaceDevelopment:
             "discovery_analytics": "enabled",
             "personalization": "enabled"
         }
-        
+
         return discovery_config
-    
-    async def _develop_gpu_accelerated_agents(self) -> Dict[str, Any]:
+
+    async def _develop_gpu_accelerated_agents(self) -> dict[str, Any]:
         """Develop GPU-accelerated agent support"""
-        
+
         gpu_config = {
             "supported_gpu_types": ["CUDA", "ROCm"],
             "gpu_memory_requirements": "auto-detect",
@@ -550,12 +549,12 @@ class AgentMarketplaceDevelopment:
                 "memory_efficiency": "optimized"
             }
         }
-        
+
         return gpu_config
-    
-    async def _develop_pricing_models(self) -> Dict[str, Any]:
+
+    async def _develop_pricing_models(self) -> dict[str, Any]:
         """Develop pricing models"""
-        
+
         pricing_models = {
             "models": [
                 {"name": "pay_per_use", "unit": "execution", "base_price": 0.01},
@@ -567,12 +566,12 @@ class AgentMarketplaceDevelopment:
             "billing_cycle": "monthly",
             "discounts": "volume_based"
         }
-        
+
         return pricing_models
-    
-    async def _develop_reputation_system(self) -> Dict[str, Any]:
+
+    async def _develop_reputation_system(self) -> dict[str, Any]:
         """Develop reputation system"""
-        
+
         reputation_config = {
             "scoring_factors": [
                 "execution_success_rate",
@@ -586,12 +585,12 @@ class AgentMarketplaceDevelopment:
             "review_system": "enabled",
             "dispute_resolution": "automated"
         }
-        
+
         return reputation_config
-    
-    async def _develop_transaction_processing(self) -> Dict[str, Any]:
+
+    async def _develop_transaction_processing(self) -> dict[str, Any]:
         """Develop transaction processing"""
-        
+
         transaction_config = {
             "payment_processing": "automated",
             "smart_contracts": "enabled",
@@ -600,12 +599,12 @@ class AgentMarketplaceDevelopment:
             "transaction_fees": "2.5%",
             "settlement_time": "instant"
         }
-        
+
         return transaction_config
-    
-    async def _develop_compliance_verification(self) -> Dict[str, Any]:
+
+    async def _develop_compliance_verification(self) -> dict[str, Any]:
         """Develop compliance verification"""
-        
+
         compliance_config = {
             "verification_standards": ["SOC2", "GDPR", "ISO27001"],
             "automated_scanning": "enabled",
@@ -613,14 +612,14 @@ class AgentMarketplaceDevelopment:
             "certification_badges": ["verified", "compliant", "secure"],
             "continuous_monitoring": "enabled"
         }
-        
+
         return compliance_config
-    
-    async def _create_gpu_accelerated_agents(self) -> List[Dict[str, Any]]:
+
+    async def _create_gpu_accelerated_agents(self) -> list[dict[str, Any]]:
         """Create GPU-accelerated agents"""
-        
+
         agents = []
-        
+
         for agent_type in self.gpu_accelerated_agent_types:
             agent = {
                 "name": f"GPU_{agent_type.title()}_Agent",
@@ -645,12 +644,12 @@ class AgentMarketplaceDevelopment:
                 "developer": "AITBC_Labs"
             }
             agents.append(agent)
-        
+
         return agents
-    
-    async def _collect_marketplace_metrics(self) -> Dict[str, Any]:
+
+    async def _collect_marketplace_metrics(self) -> dict[str, Any]:
         """Collect marketplace metrics"""
-        
+
         metrics = {
             "total_agents": 50,
             "gpu_accelerated_agents": 25,
@@ -662,42 +661,42 @@ class AgentMarketplaceDevelopment:
             "gpu_utilization": 78,
             "marketplace_growth": 25  # % monthly
         }
-        
+
         return metrics
 
 
 async def main():
     """Main enterprise scaling and marketplace development"""
-    
+
     print("🚀 Starting Enterprise Scaling and Marketplace Development")
     print("=" * 60)
-    
+
     # Step 1: Enterprise Scaling
     print("\n📈 Step 1: Enterprise Scaling")
     scaling_manager = EnterpriseWorkloadManager()
     scaling_result = await scaling_manager.implement_enterprise_scaling()
-    
+
     print(f"Scaling Status: {scaling_result['scaling_implementation']}")
     print(f"Features Implemented: {len(scaling_result['features_implemented'])}")
     print(f"Scalability Tests: {len(scaling_result['scalability_tests'])}")
-    
+
     # Step 2: Marketplace Development
     print("\n🏪 Step 2: Agent Marketplace Development")
     marketplace = AgentMarketplaceDevelopment()
     marketplace_result = await marketplace.develop_marketplace()
-    
+
     print(f"Marketplace Status: {marketplace_result['development_status']}")
     print(f"Features Developed: {len(marketplace_result['features_developed'])}")
     print(f"GPU Agents Created: {len(marketplace_result['gpu_agents_created'])}")
-    
+
     # Summary
     print("\n" + "=" * 60)
     print("🎯 ENTERPRISE SCALING AND MARKETPLACE DEVELOPMENT COMPLETE")
     print("=" * 60)
     print(f"✅ Enterprise Scaling: {scaling_result['scaling_implementation']}")
     print(f"✅ Agent Marketplace: {marketplace_result['development_status']}")
-    print(f"✅ Ready for: Enterprise workloads and agent marketplace")
-    
+    print("✅ Ready for: Enterprise workloads and agent marketplace")
+
     return {
         "scaling_result": scaling_result,
         "marketplace_result": marketplace_result

@@ -1,19 +1,16 @@
 """Tests for chain synchronization, conflict resolution, and signature validation."""
 
 import hashlib
-import time
-import sys
-import pytest
-from datetime import datetime, timezone
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
 
-from sqlmodel import Session, SQLModel, create_engine, select
-
-from aitbc_chain.models import Block, Transaction
-from aitbc_chain.sync import settings as sync_settings
+import pytest
 from aitbc_chain.metrics import metrics_registry
-from aitbc_chain.sync import ChainSync, ProposerSignatureValidator, ImportResult
+from aitbc_chain.models import Block, Transaction
+from aitbc_chain.sync import ChainSync, ImportResult, ProposerSignatureValidator
+from aitbc_chain.sync import settings as sync_settings
+from sqlmodel import Session, SQLModel, create_engine, select
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +67,7 @@ class TestProposerSignatureValidator:
 
     def test_valid_block(self):
         v = ProposerSignatureValidator()
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": bh, "parent_hash": "0x00",
@@ -83,7 +80,7 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator()
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": "0x" + "a" * 64, "parent_hash": "0x00",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         })
         assert ok is False
         assert "Missing proposer" in reason
@@ -92,7 +89,7 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator()
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": "badhash", "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": datetime.now(timezone.utc).isoformat(),
+            "proposer": "node-a", "timestamp": datetime.now(UTC).isoformat(),
         })
         assert ok is False
         assert "Invalid block hash" in reason
@@ -101,14 +98,14 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator()
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": "0xabc", "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": datetime.now(timezone.utc).isoformat(),
+            "proposer": "node-a", "timestamp": datetime.now(UTC).isoformat(),
         })
         assert ok is False
         assert "Invalid hash length" in reason
 
     def test_untrusted_proposer_rejected(self):
         v = ProposerSignatureValidator(trusted_proposers=["node-a", "node-b"])
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": bh, "parent_hash": "0x00",
@@ -119,7 +116,7 @@ class TestProposerSignatureValidator:
 
     def test_trusted_proposer_accepted(self):
         v = ProposerSignatureValidator(trusted_proposers=["node-a"])
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": bh, "parent_hash": "0x00",
@@ -149,7 +146,7 @@ class TestChainSyncAppend:
 
     def test_append_to_empty_chain(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -294,7 +291,7 @@ class TestChainSyncBulkImport:
         last = blocks[-1]
         ts = datetime(2026, 1, 1, 0, 0, 1)
         bh = _make_block_hash("test", 1, last["hash"], ts)
-        
+
         result = sync.import_block({
             "height": 1,
             "hash": bh,
@@ -303,7 +300,7 @@ class TestChainSyncBulkImport:
             "timestamp": ts.isoformat(),
             "state_root": "0x" + "11" * 32,
         })
-        
+
         assert result.accepted is False
         assert "State root mismatch" in result.reason
         with session_factory() as session:
@@ -316,7 +313,7 @@ class TestChainSyncSignatureValidation:
     def test_untrusted_proposer_rejected_on_import(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -328,7 +325,7 @@ class TestChainSyncSignatureValidation:
     def test_trusted_proposer_accepted_on_import(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -339,7 +336,7 @@ class TestChainSyncSignatureValidation:
     def test_validation_disabled(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=False)
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -379,7 +376,7 @@ class TestSyncMetrics:
 
     def test_accepted_block_increments_metrics(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -392,7 +389,7 @@ class TestSyncMetrics:
     def test_rejected_block_increments_metrics(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",

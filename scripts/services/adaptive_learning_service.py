@@ -3,8 +3,9 @@
 Simple FastAPI service for AITBC Adaptive Learning (Port 8011)
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
 
 import uvicorn
@@ -15,8 +16,8 @@ app = FastAPI(title='AITBC Adaptive Learning Service', version='1.0.0')
 @app.get('/health')
 def health():
     return {
-        'status': 'ok', 
-        'service': 'adaptive-learning', 
+        'status': 'ok',
+        'service': 'adaptive-learning',
         'port': 8011,
         'python_version': sys.version.split()[0]
     }

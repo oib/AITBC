@@ -31,13 +31,10 @@ if _COORD_SRC in sys.path:
     sys.path.remove(_COORD_SRC)
 sys.path.insert(0, _COORD_SRC)
 
-from app.config import settings  # noqa: E402
-from app.main import create_app  # noqa: E402
-from app.deps import APIKeyValidator  # noqa: E402
-
 # CLI imports
 from aitbc_cli import cli  # noqa: E402
-
+from app.deps import APIKeyValidator  # noqa: E402
+from app.main import create_app  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures

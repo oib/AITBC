@@ -6,16 +6,16 @@ Provides health monitoring for royalties, licensing, verification, and analytics
 """
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from aitbc import get_logger
 from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
 from ..storage import get_session
 
@@ -44,7 +44,7 @@ async def marketplace_enhanced_health(request: Request, session: Annotated[Sessi
             "status": "healthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -101,7 +101,7 @@ async def marketplace_enhanced_health(request: Request, session: Annotated[Sessi
             "status": "unhealthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -126,7 +126,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
                 "gas_cost": "0.001 ETH",
                 "success_rate": "100%",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["nft_minting"] = {"status": "fail", "error": "Test failed"}
 
         # Test royalty calculations
@@ -137,7 +137,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
                 "accuracy": "100%",
                 "supported_tiers": ["basic", "premium", "enterprise"],  # type: ignore[dict-item]
             }
-        except Exception as e:
+        except Exception:
             feature_tests["royalty_calculation"] = {"status": "fail", "error": "Test failed"}
 
         # Test license verification
@@ -148,7 +148,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
                 "supported_licenses": ["MIT", "Apache", "GPL", "Custom"],  # type: ignore[dict-item]
                 "validation_accuracy": "100%",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["license_verification"] = {"status": "fail", "error": "Test failed"}
 
         # Test trading execution
@@ -159,7 +159,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
                 "slippage": "0.1%",
                 "success_rate": "100%",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["trading_execution"] = {"status": "fail", "error": "Test failed"}
 
         # Test analytics generation
@@ -170,14 +170,14 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
                 "metrics_available": ["volume", "price", "liquidity", "sentiment"],  # type: ignore[dict-item]
                 "accuracy": "98%",
             }
-        except Exception as e:
+        except Exception:
             feature_tests["analytics_generation"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "feature_tests": feature_tests,
             "overall_health": "pass" if all(test.get("status") == "pass" for test in feature_tests.values()) else "degraded",
         }
@@ -188,6 +188,6 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
             "status": "unhealthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Deep health check failed",
         }

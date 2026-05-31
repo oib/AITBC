@@ -1,12 +1,8 @@
 """Unit tests for blockchain explorer service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-
-
-from main import app, TransactionSearch, BlockSearch, AnalyticsRequest
+from main import AnalyticsRequest, BlockSearch, TransactionSearch, app
 
 
 @pytest.mark.unit

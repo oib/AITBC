@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from aitbc_chain.rpc.router import TransactionRequest
 
 
@@ -200,8 +199,8 @@ def test_unsupported_transaction_type() -> None:
 
 
 # Integration tests for full flow
-from fastapi.testclient import TestClient
 from aitbc_chain.rpc.router import router
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture

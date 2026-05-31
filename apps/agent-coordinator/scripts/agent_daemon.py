@@ -4,21 +4,21 @@ AITBC Autonomous Agent Listener Daemon
 Listens for blockchain transactions addressed to an agent wallet and autonomously replies.
 """
 
+import argparse
+import hashlib
+import json
 import sys
 import time
-import requests
-import json
-import hashlib
-import argparse
 from pathlib import Path
-from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from aitbc.constants import KEYSTORE_DIR, DATA_DIR
+import requests
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+from aitbc.constants import DATA_DIR, KEYSTORE_DIR
 
 # Default configuration
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
@@ -36,18 +36,18 @@ def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
     """
     with open(keystore_path) as f:
         data = json.load(f)
-    
+
     crypto = data.get('crypto', data)  # Handle both nested and flat crypto structures
-    
+
     # Detect encryption method
     cipher = crypto.get('cipher', crypto.get('algorithm', ''))
-    
+
     if cipher == 'aes-256-gcm':
         # AES-256-GCM (blockchain-node standard)
         salt = bytes.fromhex(crypto['kdfparams']['salt'])
         ciphertext = bytes.fromhex(crypto['ciphertext'])
         nonce = bytes.fromhex(crypto['cipherparams']['nonce'])
-        
+
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=crypto['kdfparams']['dklen'],
@@ -58,27 +58,28 @@ def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
         key = kdf.derive(password.encode())
         aesgcm = AESGCM(key)
         return aesgcm.decrypt(nonce, ciphertext, None)
-    
+
     elif cipher == 'fernet' or cipher == 'PBKDF2-SHA256-Fernet':
         # Fernet (scripts/utils standard)
-        from cryptography.fernet import Fernet
         import base64
-        
+
+        from cryptography.fernet import Fernet
+
         kdfparams = crypto.get('kdfparams', {})
         if 'salt' in kdfparams:
             salt = base64.b64decode(kdfparams['salt'])
         else:
             salt = bytes.fromhex(kdfparams.get('salt', ''))
-        
+
         # Use PBKDF2 for secure key derivation (100,000 iterations for security)
         dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000, dklen=32)
         fernet_key = base64.urlsafe_b64encode(dk)
-        
+
         f = Fernet(fernet_key)
         ciphertext = base64.b64decode(crypto['ciphertext'])
         priv = f.decrypt(ciphertext)
         return priv.encode()
-    
+
     else:
         raise ValueError(f"Unsupported cipher: {cipher}")
 
@@ -90,7 +91,7 @@ def create_tx(private_bytes: bytes, from_addr: str, to_addr: str, amount: float,
         encoding=serialization.Encoding.Raw,
         format=serialization.PublicFormat.Raw
     ).hex()
-    
+
     tx = {
         "type": "transfer",
         "from": from_addr,
@@ -101,7 +102,7 @@ def create_tx(private_bytes: bytes, from_addr: str, to_addr: str, amount: float,
         "payload": payload,
         "chain_id": chain_id
     }
-    
+
     tx_string = json.dumps(tx, sort_keys=True)
     tx["signature"] = priv_key.sign(tx_string.encode()).hex()
     tx["public_key"] = pub_hex
@@ -121,9 +122,9 @@ def main():
     parser.add_argument("--reply-message", default="pong", help="Message to send as reply")
     parser.add_argument("--trigger-message", default="ping", help="Message that triggers reply")
     parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID for transactions (default: ait-mainnet)")
-    
+
     args = parser.parse_args()
-    
+
     # Get password
     if args.password_file:
         with open(args.password_file) as f:
@@ -133,14 +134,14 @@ def main():
     else:
         print("Error: password or password-file is required")
         sys.exit(1)
-    
+
     # Setup paths
     keystore_path = Path(args.keystore_dir) / f"{args.wallet}.json"
-    
+
     print(f"Agent daemon started. Listening for messages to {args.address}...")
     print(f"Trigger message: '{args.trigger_message}'")
     print(f"Reply message: '{args.reply_message}'")
-    
+
     # Decrypt wallet
     try:
         priv_bytes = decrypt_wallet(keystore_path, password)
@@ -148,26 +149,26 @@ def main():
     except Exception as e:
         print(f"Failed to unlock wallet: {e}")
         sys.exit(1)
-    
+
     sys.stdout.flush()
-    
+
     # Setup database connection
     processed_txs = set()
     sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
-    
+
     try:
-        from sqlmodel import create_engine, Session, select
         from aitbc_chain.models import Transaction
-        
+        from sqlmodel import Session, create_engine, select
+
         engine = create_engine(f"sqlite:///{args.db_path}")
         print(f"Connected to database: {args.db_path}")
     except ImportError as e:
         print(f"Error importing sqlmodel: {e}")
         print("Make sure sqlmodel is installed in the virtual environment")
         sys.exit(1)
-    
+
     sys.stdout.flush()
-    
+
     # Main polling loop
     while True:
         try:
@@ -178,13 +179,13 @@ def main():
                         Transaction.chain_id == args.chain_id
                     )
                 ).all()
-                
+
                 for tx in txs:
                     if tx.id in processed_txs:
                         continue
-                    
+
                     processed_txs.add(tx.id)
-                    
+
                     # Extract payload
                     data = ""
                     if hasattr(tx, "tx_metadata") and tx.tx_metadata:
@@ -198,14 +199,14 @@ def main():
                     elif hasattr(tx, "payload") and tx.payload:
                         if isinstance(tx.payload, dict):
                             data = tx.payload.get("payload", "")
-                    
+
                     sender = tx.sender
-                    
+
                     # Check if message matches trigger
                     if sender != args.address and args.trigger_message in str(data):
                         print(f"Received '{data}' from {sender}! Sending '{args.reply_message}'...")
                         reply_tx = create_tx(priv_bytes, args.address, sender, 0, 10, args.reply_message, args.chain_id)
-                        
+
                         try:
                             res = requests.post(f"{args.rpc_url}/rpc/transaction", json=reply_tx, timeout=10)
                             if res.status_code == 200:
@@ -214,13 +215,13 @@ def main():
                                 print(f"Failed to send reply: {res.text}")
                         except requests.RequestException as e:
                             print(f"Network error sending reply: {e}")
-                    
+
                     sys.stdout.flush()
-                    
+
         except Exception as e:
             print(f"Error querying database: {e}")
             sys.stdout.flush()
-        
+
         time.sleep(args.poll_interval)
 
 

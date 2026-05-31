@@ -3,13 +3,14 @@ Swarm Coordinator - for agents participating in collective intelligence
 """
 
 import asyncio
-import json
-from typing import Dict, List, Optional, Any  # noqa: F401
-from datetime import datetime, timezone
+import httpx
 from dataclasses import dataclass
-from .agent import Agent
+from datetime import UTC, datetime
+from typing import Any, Dict, List, Optional  # noqa: F401
 
 from aitbc.aitbc_logging import get_logger
+
+from .agent import Agent
 
 logger = get_logger(__name__)
 
@@ -22,7 +23,7 @@ class SwarmMessage:
     sender_id: str
     message_type: str
     priority: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     timestamp: str
     swarm_signature: str
 
@@ -33,10 +34,10 @@ class SwarmDecision:
 
     swarm_id: str
     decision_type: str
-    proposal: Dict[str, Any]
-    votes: Dict[str, str]  # agent_id -> vote
+    proposal: dict[str, Any]
+    votes: dict[str, str]  # agent_id -> vote
     consensus: bool
-    implementation_plan: Dict[str, Any]
+    implementation_plan: dict[str, Any]
     timestamp: str
 
 
@@ -45,11 +46,11 @@ class SwarmCoordinator(Agent):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.joined_swarms: Dict[str, Dict[str, Any]] = {}
-        self.swarm_reputation: Dict[str, float] = {}
+        self.joined_swarms: dict[str, dict[str, Any]] = {}
+        self.swarm_reputation: dict[str, float] = {}
         self.contribution_score = 0.0
 
-    async def join_swarm(self, swarm_type: str, config: Dict[str, Any]) -> bool:
+    async def join_swarm(self, swarm_type: str, config: dict[str, Any]) -> bool:
         """Join a swarm for collective intelligence"""
         try:
             swarm_id = f"{swarm_type}-v1"
@@ -79,9 +80,9 @@ class SwarmCoordinator(Agent):
             self.joined_swarms[swarm_id] = {
                 "type": swarm_type,
                 "role": config.get("role", "participant"),
-                "joined_at": datetime.now(timezone.utc).isoformat(),
+                "joined_at": datetime.now(UTC).isoformat(),
                 "contribution_count": 0,
-                "last_activity": datetime.now(timezone.utc).isoformat(),
+                "last_activity": datetime.now(UTC).isoformat(),
             }
 
             # Initialize swarm reputation
@@ -115,7 +116,7 @@ class SwarmCoordinator(Agent):
                 await self._participate_in_decisions(swarm_id)
 
                 # Update activity timestamp
-                swarm_config["last_activity"] = datetime.now(timezone.utc).isoformat()
+                swarm_config["last_activity"] = datetime.now(UTC).isoformat()
 
             except Exception as e:
                 logger.error(f"Swarm participation error for {swarm_id}: {e}")
@@ -177,7 +178,7 @@ class SwarmCoordinator(Agent):
                 message_type="data_contribution",
                 priority="medium",
                 payload=data,
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 swarm_signature="",  # Will be added in broadcast_to_swarm
             )
 
@@ -186,7 +187,7 @@ class SwarmCoordinator(Agent):
         except Exception as e:
             logger.error(f"Failed to contribute swarm data: {e}")
 
-    async def _get_load_balancing_data(self) -> Dict[str, Any]:
+    async def _get_load_balancing_data(self) -> dict[str, Any]:
         """Get actual load balancing metrics from coordinator"""
         try:
             async with httpx.AsyncClient() as client:
@@ -202,8 +203,8 @@ class SwarmCoordinator(Agent):
         except Exception as e:
             logger.error(f"Error fetching load balancing data: {e}")
             return self._get_default_load_balancing_data()
-    
-    def _get_default_load_balancing_data(self) -> Dict[str, Any]:
+
+    def _get_default_load_balancing_data(self) -> dict[str, Any]:
         """Default load balancing data when API is unavailable"""
         return {
             "resource_type": "gpu_memory",
@@ -214,7 +215,7 @@ class SwarmCoordinator(Agent):
             "capacity_utilization": 0.8,
         }
 
-    async def _get_pricing_data(self) -> Dict[str, Any]:
+    async def _get_pricing_data(self) -> dict[str, Any]:
         """Get actual pricing data from coordinator marketplace API"""
         try:
             async with httpx.AsyncClient() as client:
@@ -230,8 +231,8 @@ class SwarmCoordinator(Agent):
         except Exception as e:
             logger.error(f"Error fetching pricing data: {e}")
             return self._get_default_pricing_data()
-    
-    def _get_default_pricing_data(self) -> Dict[str, Any]:
+
+    def _get_default_pricing_data(self) -> dict[str, Any]:
         """Default pricing data when API is unavailable"""
         return {
             "current_demand": "high",
@@ -241,7 +242,7 @@ class SwarmCoordinator(Agent):
             "market_volatility": 0.15,
         }
 
-    async def _get_security_data(self) -> Dict[str, Any]:
+    async def _get_security_data(self) -> dict[str, Any]:
         """Get actual security metrics from coordinator security API"""
         try:
             async with httpx.AsyncClient() as client:
@@ -257,8 +258,8 @@ class SwarmCoordinator(Agent):
         except Exception as e:
             logger.error(f"Error fetching security data: {e}")
             return self._get_default_security_data()
-    
-    def _get_default_security_data(self) -> Dict[str, Any]:
+
+    def _get_default_security_data(self) -> dict[str, Any]:
         """Default security data when API is unavailable"""
         return {
             "threat_level": "low",
@@ -268,7 +269,7 @@ class SwarmCoordinator(Agent):
             "security_events": [],
         }
 
-    async def _get_general_data(self) -> Dict[str, Any]:
+    async def _get_general_data(self) -> dict[str, Any]:
         """Get general performance data for swarm contribution"""
         return {
             "performance_metrics": {
@@ -280,12 +281,12 @@ class SwarmCoordinator(Agent):
             "agent_status": "active",
         }
 
-    async def coordinate_task(self, task: str, collaborators: int) -> Dict[str, Any]:
+    async def coordinate_task(self, task: str, collaborators: int) -> dict[str, Any]:
         """Coordinate a collaborative task with other agents"""
         try:
             # Create coordination proposal
             proposal = {
-                "task_id": f"task_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+                "task_id": f"task_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",
                 "task_type": task,
                 "coordinator_id": self.identity.id,
                 "required_collaborators": collaborators,
@@ -309,7 +310,7 @@ class SwarmCoordinator(Agent):
             logger.error(f"Failed to coordinate task: {e}")
             return {"success": False, "error": str(e)}
 
-    async def get_market_intelligence(self) -> Dict[str, Any]:
+    async def get_market_intelligence(self) -> dict[str, Any]:
         """Get collective market intelligence from swarm"""
         try:
             # Request market intelligence from pricing swarm
@@ -320,7 +321,7 @@ class SwarmCoordinator(Agent):
                     message_type="intelligence_request",
                     priority="high",
                     payload={"request_type": "market_intelligence"},
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                     swarm_signature="",
                 )
 
@@ -343,7 +344,7 @@ class SwarmCoordinator(Agent):
             logger.error(f"Failed to get market intelligence: {e}")
             return {"error": str(e)}
 
-    async def analyze_swarm_benefits(self) -> Dict[str, Any]:
+    async def analyze_swarm_benefits(self) -> dict[str, Any]:
         """Analyze benefits of swarm participation"""
         try:
             # Calculate benefits based on swarm participation
@@ -376,7 +377,7 @@ class SwarmCoordinator(Agent):
             return {"error": str(e)}
 
     async def _register_with_swarm(
-        self, swarm_id: str, registration: Dict[str, Any]
+        self, swarm_id: str, registration: dict[str, Any]
     ) -> None:
         """Register with swarm coordinator via API"""
         try:
@@ -445,8 +446,8 @@ class SwarmCoordinator(Agent):
             logger.error(f"Error participating in swarm decisions: {e}")
 
     async def _submit_coordination_proposal(
-        self, proposal: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, proposal: dict[str, Any]
+    ) -> dict[str, Any]:
         """Submit coordination proposal to swarm via API"""
         try:
             async with httpx.AsyncClient() as client:

@@ -2,8 +2,8 @@
 Secure pickle utilities for safe deserialization
 """
 
-import pickle
 import hashlib
+import pickle
 from typing import Any
 
 
@@ -24,7 +24,7 @@ def safe_loads(data: bytes, max_size: int = 10 * 1024 * 1024) -> Any:
     """
     if len(data) > max_size:
         raise ValueError(f"Data size {len(data)} exceeds maximum allowed size {max_size}")
-    
+
     try:
         return pickle.loads(data)
     except (pickle.UnpicklingError, EOFError) as e:

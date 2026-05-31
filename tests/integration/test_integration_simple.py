@@ -2,8 +2,9 @@
 Simple integration tests that work with the current setup
 """
 
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import patch, Mock
 
 
 @pytest.mark.integration
@@ -42,15 +43,14 @@ def test_miner_registration():
 @pytest.mark.unit
 def test_mock_services():
     """Test that our mocking approach works"""
-    from unittest.mock import Mock, patch
-    
+
     # Create a mock service
     mock_service = Mock()
     mock_service.create_job.return_value = {"id": "123"}
-    
+
     # Use the mock
     result = mock_service.create_job({"test": "data"})
-    
+
     assert result["id"] == "123"
     mock_service.create_job.assert_called_once_with({"test": "data"})
 

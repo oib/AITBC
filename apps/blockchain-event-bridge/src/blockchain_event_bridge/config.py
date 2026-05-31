@@ -1,6 +1,6 @@
 """Configuration settings for blockchain event bridge."""
 
-from typing import Optional
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -18,11 +18,11 @@ class Settings(BaseSettings):
 
     # Gossip broker
     gossip_backend: str = Field(default="memory")  # memory, broadcast, redis
-    gossip_broadcast_url: Optional[str] = Field(default=None)
+    gossip_broadcast_url: str | None = Field(default=None)
 
     # Coordinator API
     coordinator_api_url: str = Field(default="http://localhost:8011")
-    coordinator_api_key: Optional[str] = Field(default=None)
+    coordinator_api_key: str | None = Field(default=None)
 
     # Event subscription filters
     subscribe_blocks: bool = Field(default=True)
@@ -30,11 +30,11 @@ class Settings(BaseSettings):
     subscribe_contracts: bool = Field(default=False)  # Phase 2
 
     # Smart contract addresses (Phase 2)
-    agent_staking_address: Optional[str] = Field(default=None)
-    performance_verifier_address: Optional[str] = Field(default=None)
-    marketplace_address: Optional[str] = Field(default=None)
-    bounty_address: Optional[str] = Field(default=None)
-    bridge_address: Optional[str] = Field(default=None)
+    agent_staking_address: str | None = Field(default=None)
+    performance_verifier_address: str | None = Field(default=None)
+    marketplace_address: str | None = Field(default=None)
+    bounty_address: str | None = Field(default=None)
+    bridge_address: str | None = Field(default=None)
 
     # Action handler enable/disable flags
     enable_agent_daemon_trigger: bool = Field(default=True)

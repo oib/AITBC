@@ -1,10 +1,11 @@
 """Marketplace command handlers."""
 
 import json
-import os
-import sys
-import requests
 import logging
+import os
+
+import requests
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,13 +41,13 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
     """Handle marketplace listings command."""
     marketplace_url = _marketplace_url(args, default_coordinator_url)
     chain_id = getattr(args, "chain_id", None)
-    
+
     logger.info(f"Getting marketplace listings from {marketplace_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{marketplace_url}/v1/marketplace/offers", params=params, timeout=10)
         if response.status_code == 200:
             listings = response.json()
@@ -82,13 +83,13 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
     item = getattr(args, "item", None)
     item_type = getattr(args, "item_type", None) or item or "service"
     price = getattr(args, "price", None)
-    
+
     if not wallet or price is None:
         logger.error("Error: --wallet and --price are required")
         return
-    
+
     headers = _auth_headers(args, read_password)
-    
+
     listing_data = {
         "wallet": wallet,
         "item": item or item_type,
@@ -98,7 +99,7 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
     }
     if chain_id:
         listing_data["chain_id"] = chain_id
-    
+
     logger.info(f"Creating marketplace listing on {marketplace_url}...")
     try:
         response = requests.post(f"{marketplace_url}/v1/marketplace/offers", json=listing_data, headers=headers, timeout=30)
@@ -119,11 +120,11 @@ def handle_market_get(args, default_rpc_url):
     """Handle marketplace get command."""
     marketplace_url = _marketplace_url(args, default_rpc_url)
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.listing_id:
         logger.error("Error: --listing-id is required")
         return
-    
+
     logger.info(f"Getting listing {args.listing_id} from {marketplace_url}...")
     try:
         import requests
@@ -144,14 +145,14 @@ def handle_market_delete(args, default_coordinator_url, read_password, render_ma
     """Handle marketplace delete command."""
     marketplace_url = _marketplace_url(args, default_coordinator_url)
     listing_id = getattr(args, "listing_id", None) or getattr(args, "order", None)
-    
+
     if not listing_id:
         logger.error("Error: --listing-id or --order is required")
         return
-    
+
     headers = _auth_headers(args, read_password)
     endpoint_type = "orders" if str(listing_id).startswith("order_") else "offers"
-    
+
     logger.info(f"Deleting {endpoint_type[:-1]} {listing_id} on {marketplace_url}...")
     try:
         response = requests.delete(f"{marketplace_url}/v1/marketplace/{endpoint_type}/{listing_id}", headers=headers, timeout=30)
@@ -172,12 +173,12 @@ def handle_market_gpu_register(args, default_coordinator_url):
     """Handle GPU registration command with nvidia-smi auto-detection."""
     # Use GPU service URL instead of coordinator URL
     gpu_url = getattr(args, 'gpu_url', 'http://localhost:8101')
-    
+
     # Auto-detect GPU specs from nvidia-smi
     gpu_name = args.name
     memory_gb = args.memory
     compute_capability = getattr(args, "compute_capability", None)
-    
+
     if not gpu_name or memory_gb is None:
         logger.info("Auto-detecting GPU specifications from nvidia-smi...")
         try:
@@ -195,11 +196,11 @@ def handle_market_gpu_register(args, default_coordinator_url):
                     detected_name = parts[0]
                     detected_memory = parts[1].strip()  # "16380 MiB"
                     detected_compute = parts[2].strip()  # "8.9"
-                    
+
                     # Convert memory to GB
                     memory_value = int(detected_memory.split()[0])  # 16380
                     memory_gb_detected = round(memory_value / 1024, 1)  # 16.0
-                    
+
                     if not gpu_name:
                         gpu_name = detected_name
                         logger.info(f"  Detected GPU: {gpu_name}")
@@ -218,11 +219,11 @@ def handle_market_gpu_register(args, default_coordinator_url):
         logger.error("Error: Could not auto-detect GPU specs. Please provide --name and --memory manually.")
         logger.info("  Example: aitbc-cli market gpu register --name 'NVIDIA GeForce RTX 4060 Ti' --memory 16 --price-per-hour 0.05")
         return
-    
+
     if not args.price_per_hour:
         logger.error("Error: --price-per-hour is required (in AIT coins)")
         return
-    
+
     # Build GPU specs
     gpu_specs = {
         "name": gpu_name,
@@ -234,7 +235,7 @@ def handle_market_gpu_register(args, default_coordinator_url):
         "miner_id": getattr(args, "miner_id", "default_miner"),
         "registered_at": __import__("datetime").datetime.now().isoformat()
     }
-    
+
     logger.info(f"Registering GPU on {gpu_url}...")
     try:
         response = requests.post(
@@ -264,7 +265,7 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
     """Handle GPU list command."""
     # Use GPU service URL instead of coordinator URL
     gpu_url = getattr(args, 'gpu_url', 'http://localhost:8101')
-    
+
     logger.info(f"Listing GPUs from {gpu_url}...")
     try:
         params = {
@@ -281,7 +282,7 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
             params["model"] = args.model
         if getattr(args, "limit", None):
             params["limit"] = args.limit
-        
+
         response = requests.get(f"{gpu_url}/v1/transactions", params=params, timeout=10)
         if response.status_code == 200:
             gpus = response.json()
@@ -388,7 +389,7 @@ def handle_market_orders(args, default_coordinator_url, output_format, render_ma
 def handle_market_list_plugins(args, default_coordinator_url, output_format, render_mapping):
     """Handle marketplace plugin listing command."""
     marketplace_url = _marketplace_url(args, default_coordinator_url)
-    
+
     logger.info(f"Getting marketplace plugins from {marketplace_url}...")
     try:
         response = requests.get(f"{marketplace_url}/v1/marketplace/plugins", timeout=10)

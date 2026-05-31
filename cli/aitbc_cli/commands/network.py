@@ -1,8 +1,10 @@
 """Network commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
 from aitbc import AITBCHTTPClient, NetworkError
+
+from ..utils import error, output
 
 
 @click.group()
@@ -20,7 +22,7 @@ def status(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         status = http_client.get("/rpc/network/status")
         output(status, ctx.obj.get('output_format', 'table'), title="Network Status")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         status = {
             "network_status": "simulated",
@@ -43,7 +45,7 @@ def peers(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         peers = http_client.get("/rpc/network/peers")
         output(peers, ctx.obj.get('output_format', 'table'), title="Connected Peers")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         peers = {
             "status": "simulated",

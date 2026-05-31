@@ -86,7 +86,7 @@ class EdgeGPUService:
             stmt = select(GPURegistry).where(GPURegistry.miner_id == miner_id)
             result = await self.session.execute(stmt)
             gpus = result.scalars().all()
-            
+
             # Count edge-optimized GPUs (those with edge-related capabilities)
             edge_optimized_count = 0
             gpu_list = []
@@ -102,7 +102,7 @@ class EdgeGPUService:
                 # Check if GPU has edge-related capabilities
                 if any("edge" in str(cap).lower() or "inference" in str(cap).lower() for cap in gpu.capabilities):
                     edge_optimized_count += 1
-            
+
             return {
                 "miner_id": miner_id,
                 "gpus": gpu_list,

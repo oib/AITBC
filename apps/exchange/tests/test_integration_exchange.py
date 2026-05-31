@@ -1,11 +1,9 @@
 """Integration tests for exchange service"""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
 
 # Mock database initialization to avoid creating real database

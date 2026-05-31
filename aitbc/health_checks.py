@@ -3,10 +3,10 @@ Health check utilities for AITBC services
 Provides health check endpoints for all services
 """
 
-from typing import Dict, Any, Optional, List
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
 from enum import Enum
+from typing import Any
 
 from .aitbc_logging import get_logger
 
@@ -27,7 +27,7 @@ class HealthCheck:
     status: HealthStatus
     message: str
     timestamp: datetime
-    details: Optional[Dict[str, Any]] = None
+    details: dict[str, Any] | None = None
 
 
 class HealthChecker:
@@ -35,7 +35,7 @@ class HealthChecker:
     Health checker for monitoring service health.
     Provides health check functionality for AITBC services.
     """
-    
+
     def __init__(self, service_name: str):
         """
         Initialize health checker
@@ -44,9 +44,9 @@ class HealthChecker:
             service_name: Name of the service
         """
         self.service_name = service_name
-        self._checks: Dict[str, callable] = {}
-        self._last_check: Optional[HealthCheck] = None
-    
+        self._checks: dict[str, callable] = {}
+        self._last_check: HealthCheck | None = None
+
     def register_check(self, name: str, check_func: callable) -> None:
         """
         Register a health check function
@@ -57,7 +57,7 @@ class HealthChecker:
         """
         self._checks[name] = check_func
         logger.info(f"Registered health check: {name}")
-    
+
     def run_checks(self) -> HealthCheck:
         """
         Run all registered health checks
@@ -68,7 +68,7 @@ class HealthChecker:
         results = []
         overall_status = HealthStatus.HEALTHY
         all_details = {}
-        
+
         for name, check_func in self._checks.items():
             try:
                 status, message, details = check_func()
@@ -78,13 +78,13 @@ class HealthChecker:
                     "message": message,
                     "details": details
                 }
-                
+
                 # Update overall status
                 if status == HealthStatus.UNHEALTHY:
                     overall_status = HealthStatus.UNHEALTHY
                 elif status == HealthStatus.DEGRADED and overall_status == HealthStatus.HEALTHY:
                     overall_status = HealthStatus.DEGRADED
-                    
+
             except Exception as e:
                 logger.error(f"Health check {name} failed: {e}")
                 results.append((name, HealthStatus.UNHEALTHY, str(e)))
@@ -94,7 +94,7 @@ class HealthChecker:
                     "details": None
                 }
                 overall_status = HealthStatus.UNHEALTHY
-        
+
         # Generate overall message
         if overall_status == HealthStatus.HEALTHY:
             message = "All health checks passed"
@@ -104,7 +104,7 @@ class HealthChecker:
         else:
             failed = [name for name, status, _ in results if status != HealthStatus.HEALTHY]
             message = f"Unhealthy: {', '.join(failed)}"
-        
+
         health_check = HealthCheck(
             service=self.service_name,
             status=overall_status,
@@ -112,11 +112,11 @@ class HealthChecker:
             timestamp=datetime.now(),
             details=all_details
         )
-        
+
         self._last_check = health_check
         return health_check
-    
-    def get_last_check(self) -> Optional[HealthCheck]:
+
+    def get_last_check(self) -> HealthCheck | None:
         """
         Get the last health check result
         
@@ -124,8 +124,8 @@ class HealthChecker:
             Last health check result or None
         """
         return self._last_check
-    
-    def get_health_dict(self) -> Dict[str, Any]:
+
+    def get_health_dict(self) -> dict[str, Any]:
         """
         Get health check result as dictionary
         
@@ -147,7 +147,7 @@ def create_basic_health_check(service_name: str) -> HealthChecker:
         HealthChecker instance with basic checks
     """
     checker = HealthChecker(service_name)
-    
+
     def check_memory() -> tuple:
         """Check memory usage"""
         import psutil
@@ -158,7 +158,7 @@ def create_basic_health_check(service_name: str) -> HealthChecker:
             return HealthStatus.DEGRADED, f"Elevated memory usage: {mem.percent}%", {"percent": mem.percent}
         else:
             return HealthStatus.HEALTHY, f"Memory usage: {mem.percent}%", {"percent": mem.percent}
-    
+
     def check_disk() -> tuple:
         """Check disk usage"""
         import psutil
@@ -170,11 +170,11 @@ def create_basic_health_check(service_name: str) -> HealthChecker:
             return HealthStatus.DEGRADED, f"Elevated disk usage: {percent:.1f}%", {"percent": percent}
         else:
             return HealthStatus.HEALTHY, f"Disk usage: {percent:.1f}%", {"percent": percent}
-    
+
     try:
         checker.register_check("memory", check_memory)
         checker.register_check("disk", check_disk)
     except ImportError:
         logger.warning("psutil not available, skipping system health checks")
-    
+
     return checker

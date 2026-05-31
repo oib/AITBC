@@ -2,8 +2,9 @@
 Tests for governance service
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 @pytest.mark.unit
@@ -25,7 +26,7 @@ class TestGovernanceService:
 
         # Import and test
         from app.services.governance_service import get_proposals
-        
+
         result = get_proposals()
         assert len(result["proposals"]) == 2
 
@@ -43,6 +44,6 @@ class TestGovernanceService:
 
         # Import and test
         from app.services.governance_service import vote_on_proposal
-        
+
         result = vote_on_proposal(1, "yes")
         assert result["success"] is True

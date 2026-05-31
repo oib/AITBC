@@ -4,16 +4,17 @@ Database connection and query utilities for AITBC applications
 """
 
 import sqlite3
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 from contextlib import contextmanager
-from .exceptions import DatabaseError
+from pathlib import Path
+from typing import Any
 
 # SQLAlchemy support for connection pooling
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+from .exceptions import DatabaseError
 
 
 class DatabaseConnection:
@@ -21,7 +22,7 @@ class DatabaseConnection:
     Base database connection class for AITBC applications.
     Provides common database operations with error handling.
     """
-    
+
     def __init__(self, db_path: Path, timeout: int = 30):
         """
         Initialize database connection.
@@ -33,7 +34,7 @@ class DatabaseConnection:
         self.db_path = db_path
         self.timeout = timeout
         self._connection = None
-    
+
     def connect(self) -> sqlite3.Connection:
         """
         Establish database connection.
@@ -53,13 +54,13 @@ class DatabaseConnection:
             return self._connection
         except sqlite3.Error as e:
             raise DatabaseError(f"Failed to connect to database: {e}")
-    
+
     def close(self) -> None:
         """Close database connection."""
         if self._connection:
             self._connection.close()
             self._connection = None
-    
+
     @contextmanager
     def cursor(self):
         """
@@ -79,11 +80,11 @@ class DatabaseConnection:
             raise DatabaseError(f"Database operation failed: {e}")
         finally:
             cursor.close()
-    
+
     async def execute(
         self,
         query: str,
-        params: Optional[Tuple[Any, ...]] = None
+        params: tuple[Any, ...] | None = None
     ) -> sqlite3.Cursor:
         """
         Execute a SQL query.
@@ -107,12 +108,12 @@ class DatabaseConnection:
                 return cursor
         except sqlite3.Error as e:
             raise DatabaseError(f"Query execution failed: {e}")
-    
+
     async def fetch_one(
         self,
         query: str,
-        params: Optional[Tuple[Any, ...]] = None
-    ) -> Optional[Dict[str, Any]]:
+        params: tuple[Any, ...] | None = None
+    ) -> dict[str, Any] | None:
         """
         Fetch a single row from query.
         
@@ -130,12 +131,12 @@ class DatabaseConnection:
                 cursor.execute(query)
             row = cursor.fetchone()
             return dict(row) if row else None
-    
+
     async def fetch_all(
         self,
         query: str,
-        params: Optional[Tuple[Any, ...]] = None
-    ) -> List[Dict[str, Any]]:
+        params: tuple[Any, ...] | None = None
+    ) -> list[dict[str, Any]]:
         """
         Fetch all rows from query.
         
@@ -153,11 +154,11 @@ class DatabaseConnection:
                 cursor.execute(query)
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
-    
+
     async def execute_many(
         self,
         query: str,
-        params_list: List[Tuple[Any, ...]]
+        params_list: list[tuple[Any, ...]]
     ) -> None:
         """
         Execute query with multiple parameter sets.
@@ -174,12 +175,12 @@ class DatabaseConnection:
                 cursor.executemany(query, params_list)
         except sqlite3.Error as e:
             raise DatabaseError(f"Bulk execution failed: {e}")
-    
+
     def __enter__(self):
         """Context manager entry."""
         self.connect()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.close()
@@ -233,7 +234,7 @@ def vacuum_database(db_path: Path) -> None:
         raise DatabaseError(f"Database vacuum failed: {e}")
 
 
-def get_table_info(db_path: Path, table_name: str) -> List[Dict[str, Any]]:
+def get_table_info(db_path: Path, table_name: str) -> list[dict[str, Any]]:
     """
     Get information about a table's columns.
     
@@ -375,7 +376,7 @@ def create_async_pooled_engine(
         async_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
     else:
         async_url = database_url
-    
+
     engine = create_async_engine(
         async_url,
         poolclass=QueuePool,

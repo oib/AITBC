@@ -3,8 +3,8 @@
 Migrate secrets from .env to encrypted keystore storage
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 from secrets import token_bytes
 
@@ -12,6 +12,7 @@ from secrets import token_bytes
 sys.path.insert(0, '/opt/aitbc/apps/wallet/src')
 
 from app.crypto.encryption import EncryptionSuite
+
 
 def encrypt_secret(plaintext: str, encryption_password: str) -> bytes:
     """Encrypt a secret using AES-GCM"""
@@ -36,7 +37,7 @@ def main():
     # Read .env file
     env_vars = {}
     if env_file.exists():
-        with open(env_file, 'r') as f:
+        with open(env_file) as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#') and '=' in line:
@@ -69,7 +70,7 @@ def main():
 
     # Update .env to remove migrated secrets
     new_env_lines = []
-    with open(env_file, 'r') as f:
+    with open(env_file) as f:
         for line in f:
             if line.strip().startswith('API_KEY_HASH_SECRET='):
                 new_env_lines.append('# API_KEY_HASH_SECRET migrated to keystore/config/api_hash_secret.enc\n')

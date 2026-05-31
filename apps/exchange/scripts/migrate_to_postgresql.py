@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """Migration script from SQLite to PostgreSQL for AITBC Exchange"""
 
-import os
 import sys
 from pathlib import Path
 
 # Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-import sqlite3
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from datetime import datetime
-from decimal import Decimal
 import logging
+import sqlite3
+from decimal import Decimal
+
+import psycopg2
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +27,16 @@ PG_CONFIG = {
 
 def create_pg_schema():
     """Create PostgreSQL schema with optimized types"""
-    
+
     conn = psycopg2.connect(**PG_CONFIG)
     cursor = conn.cursor()
-    
+
     logger.info("Creating PostgreSQL schema...")
-    
+
     # Drop existing tables
     cursor.execute("DROP TABLE IF EXISTS trades CASCADE")
     cursor.execute("DROP TABLE IF EXISTS orders CASCADE")
-    
+
     # Create trades table with proper types
     cursor.execute("""
         CREATE TABLE trades (
@@ -52,7 +50,7 @@ def create_pg_schema():
             taker_address VARCHAR(66)
         )
     """)
-    
+
     # Create orders table with proper types
     cursor.execute("""
         CREATE TABLE orders (
@@ -70,7 +68,7 @@ def create_pg_schema():
             tx_hash VARCHAR(66)
         )
     """)
-    
+
     # Create indexes for performance
     logger.info("Creating indexes...")
     cursor.execute("CREATE INDEX idx_trades_created_at ON trades(created_at DESC)")
@@ -80,30 +78,30 @@ def create_pg_schema():
     cursor.execute("CREATE INDEX idx_orders_status ON orders(status)")
     cursor.execute("CREATE INDEX idx_orders_created_at ON orders(created_at DESC)")
     cursor.execute("CREATE INDEX idx_orders_user ON orders(user_address)")
-    
+
     conn.commit()
     conn.close()
     logger.info("PostgreSQL schema created successfully")
 
 def migrate_data():
     """Migrate data from SQLite to PostgreSQL"""
-    
+
     logger.info("Starting data migration...")
-    
+
     # Connect to SQLite
     sqlite_conn = sqlite3.connect(SQLITE_DB)
     sqlite_conn.row_factory = sqlite3.Row
     sqlite_cursor = sqlite_conn.cursor()
-    
+
     # Connect to PostgreSQL
     pg_conn = psycopg2.connect(**PG_CONFIG)
     pg_cursor = pg_conn.cursor()
-    
+
     # Migrate trades
     logger.info("Migrating trades...")
     sqlite_cursor.execute("SELECT * FROM trades")
     trades = sqlite_cursor.fetchall()
-    
+
     trades_count = 0
     for trade in trades:
         pg_cursor.execute("""
@@ -119,12 +117,12 @@ def migrate_data():
             trade.get('taker_address')
         ))
         trades_count += 1
-    
+
     # Migrate orders
     logger.info("Migrating orders...")
     sqlite_cursor.execute("SELECT * FROM orders")
     orders = sqlite_cursor.fetchall()
-    
+
     orders_count = 0
     for order in orders:
         pg_cursor.execute("""
@@ -145,29 +143,29 @@ def migrate_data():
             order.get('tx_hash')
         ))
         orders_count += 1
-    
+
     pg_conn.commit()
-    
+
     logger.info("Migration complete")
     logger.info(f"Migrated {trades_count} trades")
     logger.info(f"Migrated {orders_count} orders")
-    
+
     sqlite_conn.close()
     pg_conn.close()
 
 def update_exchange_config():
     """Update exchange configuration to use PostgreSQL"""
-    
+
     config_file = Path("simple_exchange_api.py")
     if not config_file.exists():
         logger.error("simple_exchange_api.py not found!")
         return
-    
+
     logger.info("Updating exchange configuration...")
-    
+
     # Read the current file
     content = config_file.read_text()
-    
+
     # Add PostgreSQL configuration
     pg_config = """
 # PostgreSQL Configuration
@@ -183,7 +181,7 @@ def get_pg_connection():
     \"\"\"Get PostgreSQL connection\"\"\"
     return psycopg2.connect(**PG_CONFIG)
 """
-    
+
     # Replace SQLite init with PostgreSQL
     new_init = """
 def init_db():
@@ -208,38 +206,38 @@ def init_db():
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
 """
-    
+
     # Update the file
     content = content.replace("import sqlite3", "import sqlite3\nimport psycopg2\nfrom psycopg2.extras import RealDictCursor")
     content = content.replace("def init_db():", new_init)
     content = content.replace("conn = sqlite3.connect('exchange.db')", "conn = get_pg_connection()")
     content = content.replace("cursor = conn.cursor()", "cursor = conn.cursor(cursor_factory=RealDictCursor)")
-    
+
     # Write back
     config_file.write_text(content)
     logger.info("Configuration updated to use PostgreSQL")
 
 def main():
     """Main migration process"""
-    
+
     logger.info("=" * 60)
     logger.info("AITBC Exchange SQLite to PostgreSQL Migration")
     logger.info("=" * 60)
-    
+
     # Check if SQLite DB exists
     if not Path(SQLITE_DB).exists():
         logger.error(f"SQLite database '{SQLITE_DB}' not found!")
         return
-    
+
     # Create PostgreSQL schema
     create_pg_schema()
-    
+
     # Migrate data
     migrate_data()
-    
+
     # Update configuration
     update_exchange_config()
-    
+
     logger.info("\n" + "=" * 60)
     logger.info("Migration completed successfully!")
     logger.info("=" * 60)

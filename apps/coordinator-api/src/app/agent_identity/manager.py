@@ -3,7 +3,7 @@ Agent Identity Manager Implementation
 High-level manager for agent identity operations and cross-chain management
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -122,7 +122,7 @@ class AgentIdentityManager:
                     else:
                         migration_result["wallet_created"] = False
                         migration_result["error"] = "Identity not found"
-                except Exception as e:
+                except Exception:
                     migration_result["wallet_created"] = False
                     migration_result["wallet_error"] = "Wallet creation failed"
             else:
@@ -171,7 +171,7 @@ class AgentIdentityManager:
                 # Update identity reputation
                 await self.core.update_reputation(agent_id, True, 0)  # This will recalculate based on new data
                 identity.reputation_score = aggregated_score
-                identity.updated_at = datetime.now(timezone.utc)
+                identity.updated_at = datetime.now(UTC)
                 self.session.commit()
             else:
                 aggregated_score = identity.reputation_score
@@ -181,7 +181,7 @@ class AgentIdentityManager:
                 "aggregated_reputation": aggregated_score,
                 "chain_reputations": reputation_scores,
                 "verified_chains": list(verified_chains) if "verified_chains" in locals() else [],
-                "sync_timestamp": datetime.now(timezone.utc).isoformat(),
+                "sync_timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -449,12 +449,12 @@ class AgentIdentityManager:
                 "supported_chains": supported_chains,
                 "cleaned_verifications": cleaned_count,
                 "issues": issues,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Failed to get registry health: {e}")
-            return {"status": "error", "error": "Health check failed", "timestamp": datetime.now(timezone.utc).isoformat()}
+            return {"status": "error", "error": "Health check failed", "timestamp": datetime.now(UTC).isoformat()}
 
     async def export_agent_identity(self, agent_id: str, format: str = "json") -> dict[str, Any]:
         """Export agent identity data for backup or migration"""
@@ -469,7 +469,7 @@ class AgentIdentityManager:
             # Prepare export data
             export_data = {
                 "export_version": "1.0",
-                "export_timestamp": datetime.now(timezone.utc).isoformat(),
+                "export_timestamp": datetime.now(UTC).isoformat(),
                 "agent_id": agent_id,
                 "identity": summary["identity"],
                 "cross_chain_mappings": summary["cross_chain"]["mappings"],
@@ -541,7 +541,7 @@ class AgentIdentityManager:
                 "identity_id": identity.id,
                 "import_successful": True,
                 "restored_mappings": len(chain_mappings),
-                "import_timestamp": datetime.now(timezone.utc).isoformat(),
+                "import_timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:

@@ -1,14 +1,20 @@
 """Integration tests for plugin registry service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, PluginRegistration, PluginVersion, SecurityScan, plugins, plugin_versions, security_scans, analytics, downloads
+from main import (
+    PluginRegistration,
+    PluginVersion,
+    SecurityScan,
+    analytics,
+    app,
+    downloads,
+    plugin_versions,
+    plugins,
+    security_scans,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -92,10 +98,10 @@ def test_register_duplicate_plugin():
         aitbc_version="1.0.0",
         plugin_type="cli"
     )
-    
+
     # First registration
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Second registration should fail
     response = client.post("/api/v1/plugins/register", json=plugin.model_dump())
     assert response.status_code == 400
@@ -105,7 +111,7 @@ def test_register_duplicate_plugin():
 def test_add_plugin_version():
     """Test adding plugin version"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -121,7 +127,7 @@ def test_add_plugin_version():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Add version
     version = PluginVersion(
         version="1.1.0",
@@ -129,7 +135,7 @@ def test_add_plugin_version():
         download_url="https://github.com/test/plugin/archive/v1.1.0.tar.gz",
         checksum="def456",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     response = client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
     assert response.status_code == 200
@@ -142,7 +148,7 @@ def test_add_plugin_version():
 def test_add_duplicate_version():
     """Test adding duplicate version"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -158,7 +164,7 @@ def test_add_duplicate_version():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Add version
     version = PluginVersion(
         version="1.1.0",
@@ -166,10 +172,10 @@ def test_add_duplicate_version():
         download_url="https://github.com/test/plugin/archive/v1.1.0.tar.gz",
         checksum="def456",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
-    
+
     # Add same version again should fail
     response = client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
     assert response.status_code == 400
@@ -190,7 +196,7 @@ def test_list_plugins():
 def test_get_plugin():
     """Test getting specific plugin"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -206,7 +212,7 @@ def test_get_plugin():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Get plugin
     response = client.get("/api/v1/plugins/test_plugin")
     assert response.status_code == 200
@@ -227,7 +233,7 @@ def test_get_plugin_not_found():
 def test_get_plugin_versions():
     """Test getting plugin versions"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -243,7 +249,7 @@ def test_get_plugin_versions():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Get versions
     response = client.get("/api/v1/plugins/test_plugin/versions")
     assert response.status_code == 200
@@ -256,7 +262,7 @@ def test_get_plugin_versions():
 def test_download_plugin():
     """Test downloading plugin"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -272,7 +278,7 @@ def test_download_plugin():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Add version first
     version = PluginVersion(
         version="1.0.0",
@@ -280,10 +286,10 @@ def test_download_plugin():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
-    
+
     # Download plugin
     response = client.get("/api/v1/plugins/test_plugin/download/1.0.0")
     assert response.status_code == 200
@@ -296,7 +302,7 @@ def test_download_plugin():
 def test_create_security_scan():
     """Test creating security scan"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -312,7 +318,7 @@ def test_create_security_scan():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Add version first
     version = PluginVersion(
         version="1.0.0",
@@ -320,16 +326,16 @@ def test_create_security_scan():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
-    
+
     # Create security scan
     scan = SecurityScan(
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.now(timezone.utc),
+        scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True
@@ -345,7 +351,7 @@ def test_create_security_scan():
 def test_get_plugin_security():
     """Test getting plugin security info"""
     client = TestClient(app)
-    
+
     # Register plugin first
     plugin = PluginRegistration(
         name="Test Plugin",
@@ -361,7 +367,7 @@ def test_get_plugin_security():
         plugin_type="cli"
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
-    
+
     # Get security info
     response = client.get("/api/v1/plugins/test_plugin/security")
     assert response.status_code == 200

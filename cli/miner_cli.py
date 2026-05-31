@@ -4,12 +4,11 @@ AITBC Miner CLI Extension
 Adds comprehensive miner management commands to AITBC CLI
 """
 
-import sys
-import os
 import argparse
+import sys
 from pathlib import Path
-import click
 
+import click
 
 # Add the CLI directory to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -47,14 +46,14 @@ Examples:
   python miner_cli.py marketplace create --miner-id ai-miner-1 --price 0.75 --capacity 2
         """
     )
-    
-    parser.add_argument("--coordinator-url", default="http://localhost:8011", 
+
+    parser.add_argument("--coordinator-url", default="http://localhost:8011",
                        help="Coordinator API URL")
     parser.add_argument("--api-key", default="miner_prod_key_use_real_value",
                        help="Miner API key")
-    
+
     subparsers = parser.add_subparsers(dest="action", help="Miner management actions")
-    
+
     # Register command
     register_parser = subparsers.add_parser("register", help="Register as AI compute provider")
     register_parser.add_argument("--miner-id", required=True, help="Unique miner identifier")
@@ -65,23 +64,23 @@ Examples:
     register_parser.add_argument("--pricing", type=float, help="Price per hour")
     register_parser.add_argument("--concurrency", type=int, default=1, help="Max concurrent jobs")
     register_parser.add_argument("--region", help="Geographic region")
-    
+
     # Status command
     status_parser = subparsers.add_parser("status", help="Get miner status")
     status_parser.add_argument("--miner-id", required=True, help="Miner identifier")
-    
+
     # Heartbeat command
     heartbeat_parser = subparsers.add_parser("heartbeat", help="Send miner heartbeat")
     heartbeat_parser.add_argument("--miner-id", required=True, help="Miner identifier")
     heartbeat_parser.add_argument("--inflight", type=int, default=0, help="Currently running jobs")
     heartbeat_parser.add_argument("--status", default="ONLINE", help="Miner status")
-    
+
     # Poll command
     poll_parser = subparsers.add_parser("poll", help="Poll for available jobs")
     poll_parser.add_argument("--miner-id", required=True, help="Miner identifier")
     poll_parser.add_argument("--max-wait", type=int, default=30, help="Max wait time in seconds")
     poll_parser.add_argument("--auto-execute", action="store_true", help="Automatically execute assigned jobs")
-    
+
     # Result command
     result_parser = subparsers.add_parser("result", help="Submit job result")
     result_parser.add_argument("--job-id", required=True, help="Job identifier")
@@ -90,7 +89,7 @@ Examples:
     result_parser.add_argument("--result-file", help="File containing job result")
     result_parser.add_argument("--success", action="store_true", help="Job completed successfully")
     result_parser.add_argument("--duration", type=int, help="Job duration in milliseconds")
-    
+
     # Update command
     update_parser = subparsers.add_parser("update", help="Update miner capabilities")
     update_parser.add_argument("--miner-id", required=True, help="Miner identifier")
@@ -101,43 +100,43 @@ Examples:
     update_parser.add_argument("--concurrency", type=int, help="Updated max concurrent jobs")
     update_parser.add_argument("--region", help="Updated geographic region")
     update_parser.add_argument("--wallet", help="Updated wallet address")
-    
+
     # Earnings command
     earnings_parser = subparsers.add_parser("earnings", help="Check miner earnings")
     earnings_parser.add_argument("--miner-id", required=True, help="Miner identifier")
     earnings_parser.add_argument("--period", choices=["day", "week", "month", "all"], default="all", help="Earnings period")
-    
+
     # Marketplace commands
     marketplace_parser = subparsers.add_parser("marketplace", help="Manage marketplace offers")
     marketplace_subparsers = marketplace_parser.add_subparsers(dest="marketplace_action", help="Marketplace actions")
-    
+
     # Marketplace list
     market_list_parser = marketplace_subparsers.add_parser("list", help="List marketplace offers")
     market_list_parser.add_argument("--miner-id", help="Filter by miner ID")
     market_list_parser.add_argument("--region", help="Filter by region")
-    
+
     # Marketplace create
     market_create_parser = marketplace_subparsers.add_parser("create", help="Create marketplace offer")
     market_create_parser.add_argument("--miner-id", required=True, help="Miner identifier")
     market_create_parser.add_argument("--price", type=float, required=True, help="Offer price per hour")
     market_create_parser.add_argument("--capacity", type=int, default=1, help="Available capacity")
     market_create_parser.add_argument("--region", help="Geographic region")
-    
+
     args = parser.parse_args()
-    
+
     if not args.action:
         parser.print_help()
         return
-    
+
     # Initialize action variable
     action = args.action
-    
+
     # Prepare kwargs for the dispatcher
     kwargs = {
         "coordinator_url": args.coordinator_url,
         "api_key": args.api_key
     }
-    
+
     # Add action-specific arguments
     if args.action == "register":
         kwargs.update({
@@ -150,24 +149,24 @@ Examples:
             "concurrency": args.concurrency,
             "region": args.region
         })
-    
+
     elif args.action == "status":
         kwargs["miner_id"] = args.miner_id
-    
+
     elif args.action == "heartbeat":
         kwargs.update({
             "miner_id": args.miner_id,
             "inflight": args.inflight,
             "status": args.status
         })
-    
+
     elif args.action == "poll":
         kwargs.update({
             "miner_id": args.miner_id,
             "max_wait": args.max_wait,
             "auto_execute": args.auto_execute
         })
-    
+
     elif args.action == "result":
         kwargs.update({
             "job_id": args.job_id,
@@ -177,7 +176,7 @@ Examples:
             "success": args.success,
             "duration": args.duration
         })
-    
+
     elif args.action == "update":
         kwargs.update({
             "miner_id": args.miner_id,
@@ -189,13 +188,13 @@ Examples:
             "region": args.region,
             "wallet": args.wallet
         })
-    
+
     elif args.action == "earnings":
         kwargs.update({
             "miner_id": args.miner_id,
             "period": args.period
         })
-    
+
     elif args.action == "marketplace":
         action = args.action
         if args.marketplace_action == "list":
@@ -215,9 +214,9 @@ Examples:
         else:
             click.echo("❌ Unknown marketplace action")
             return
-    
+
     result = miner_cli_dispatcher(action, **kwargs)
-    
+
     # Display results
     if result:
         click.echo("\n" + "="*60)

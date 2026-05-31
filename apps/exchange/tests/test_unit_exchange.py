@@ -1,12 +1,9 @@
 """Unit tests for exchange service"""
 
+from datetime import UTC
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-
-
-from exchange_api import app, OrderCreate, OrderResponse, TradeResponse, OrderBookResponse
+from exchange_api import OrderBookResponse, OrderCreate, OrderResponse, TradeResponse, app
 
 
 @pytest.mark.unit
@@ -45,7 +42,7 @@ def test_order_create_model_sell():
 @pytest.mark.unit
 def test_order_response_model():
     """Test OrderResponse model"""
-    from datetime import datetime, timezone
+    from datetime import datetime
     order = OrderResponse(
         id=1,
         order_type="BUY",
@@ -55,7 +52,7 @@ def test_order_response_model():
         filled=0.0,
         remaining=100.0,
         status="OPEN",
-        created_at=datetime.now(timezone.utc)
+        created_at=datetime.now(UTC)
     )
     assert order.id == 1
     assert order.order_type == "BUY"
@@ -66,13 +63,13 @@ def test_order_response_model():
 @pytest.mark.unit
 def test_trade_response_model():
     """Test TradeResponse model"""
-    from datetime import datetime, timezone
+    from datetime import datetime
     trade = TradeResponse(
         id=1,
         amount=50.0,
         price=0.00001,
         total=0.0005,
-        created_at=datetime.now(timezone.utc)
+        created_at=datetime.now(UTC)
     )
     assert trade.id == 1
     assert trade.amount == 50.0
@@ -82,7 +79,7 @@ def test_trade_response_model():
 @pytest.mark.unit
 def test_order_book_response_model():
     """Test OrderBookResponse model"""
-    from datetime import datetime, timezone
+    from datetime import datetime
     buy_order = OrderResponse(
         id=1,
         order_type="BUY",
@@ -92,7 +89,7 @@ def test_order_book_response_model():
         filled=0.0,
         remaining=100.0,
         status="OPEN",
-        created_at=datetime.now(timezone.utc)
+        created_at=datetime.now(UTC)
     )
     sell_order = OrderResponse(
         id=2,
@@ -103,7 +100,7 @@ def test_order_book_response_model():
         filled=0.0,
         remaining=50.0,
         status="OPEN",
-        created_at=datetime.now(timezone.utc)
+        created_at=datetime.now(UTC)
     )
     orderbook = OrderBookResponse(buys=[buy_order], sells=[sell_order])
     assert len(orderbook.buys) == 1

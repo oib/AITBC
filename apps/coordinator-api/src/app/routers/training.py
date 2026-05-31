@@ -10,18 +10,15 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
-from ..services.training_service import get_training_service, TrainingStatus
-
 
 router = APIRouter(prefix="/training", tags=["training"])
 
 # In-memory state for mock data
-_mock_jobs: Dict[str, Dict[str, Any]] = {}
+_mock_jobs: dict[str, dict[str, Any]] = {}
 _job_counter = 0
 
 
@@ -29,7 +26,7 @@ class CreateTrainingRequest(BaseModel):
     """Request to create training job"""
     model_type: str = Field(..., description="Type of model: llm, vision, audio, etc.")
     dataset_id: str
-    hyperparameters: Optional[Dict[str, Any]] = None
+    hyperparameters: dict[str, Any] | None = None
     epochs: int = Field(default=10, ge=1, le=1000)
     gpu_count: int = Field(default=1, ge=0, le=8)
     memory_gb: int = Field(default=16, ge=4, le=128)
@@ -48,14 +45,14 @@ class UpdateProgressRequest(BaseModel):
 class CompleteTrainingRequest(BaseModel):
     """Request to complete training"""
     job_id: str
-    checkpoint_url: Optional[str] = None
+    checkpoint_url: str | None = None
 
 
 @router.post("/jobs", summary="Create training job")
 async def create_training(
     request: Request,
     req: CreateTrainingRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a new AI model training job"""
     global _job_counter
     _job_counter += 1
@@ -77,7 +74,7 @@ async def create_training(
 async def get_training(
     request: Request,
     job_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get training job details"""
     if job_id in _mock_jobs:
         return _mock_jobs[job_id]
@@ -92,9 +89,9 @@ async def get_training(
 @router.get("/jobs", summary="List training jobs")
 async def list_trainings(
     request: Request,
-    status: Optional[str] = None,
-    model_type: Optional[str] = None
-) -> Dict[str, Any]:
+    status: str | None = None,
+    model_type: str | None = None
+) -> dict[str, Any]:
     """List all training jobs with optional filters"""
     jobs = [{"id": "job-001", "model_type": "resnet", "status": "pending"}]
     if status == "pending":
@@ -109,7 +106,7 @@ async def list_trainings(
 async def start_training(
     request: Request,
     job_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Start a pending training job"""
     if job_id in _mock_jobs:
         _mock_jobs[job_id]["status"] = "running"
@@ -126,7 +123,7 @@ async def start_training(
 async def update_progress(
     request: Request,
     req: UpdateProgressRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Update training progress (called by training workers)"""
     if req.job_id in _mock_jobs:
         if "metrics" not in _mock_jobs[req.job_id]:
@@ -148,8 +145,8 @@ async def update_progress(
 async def complete_training(
     request: Request,
     job_id: str,
-    checkpoint_url: Optional[str] = None
-) -> Dict[str, Any]:
+    checkpoint_url: str | None = None
+) -> dict[str, Any]:
     """Mark training as complete"""
     if job_id in _mock_jobs:
         _mock_jobs[job_id]["status"] = "completed"
@@ -169,7 +166,7 @@ async def complete_training(
 async def cancel_training(
     request: Request,
     job_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Cancel a training job"""
     return {
         "success": True,
@@ -185,7 +182,7 @@ async def get_logs(
     request: Request,
     job_id: str,
     limit: int = 100
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get training job logs"""
     return {
         "logs": ["log entry 1", "log entry 2"],
@@ -194,7 +191,7 @@ async def get_logs(
 
 
 @router.get("/stats", summary="Training statistics")
-async def get_stats(request: Request) -> Dict[str, Any]:
+async def get_stats(request: Request) -> dict[str, Any]:
     """Get training platform statistics"""
     return {
         "total_jobs": 10,
@@ -206,7 +203,7 @@ async def get_stats(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/health", summary="Health check")
-async def training_health(request: Request) -> Dict[str, Any]:
+async def training_health(request: Request) -> dict[str, Any]:
     """Check training service health"""
     return {
         "status": "healthy",

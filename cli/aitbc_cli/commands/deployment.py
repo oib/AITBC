@@ -1,14 +1,13 @@
 """Production deployment and scaling commands for AITBC CLI"""
 
-import click
 import asyncio
-import json
 from datetime import datetime
-from typing import Optional
-from ..core.deployment import (
-    ProductionDeployment, ScalingPolicy, DeploymentStatus
-)
-from ..utils import output, error, success
+
+import click
+
+from ..core.deployment import ProductionDeployment
+from ..utils import error, output, success
+
 
 @click.group()
 def deploy():
@@ -33,7 +32,7 @@ def create(ctx, name, environment, region, instance_type, min_instances, max_ins
     """Create a new deployment configuration"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Database configuration
         database_config = {
             "host": db_host,
@@ -41,7 +40,7 @@ def create(ctx, name, environment, region, instance_type, min_instances, max_ins
             "name": db_name,
             "ssl_enabled": True if environment == "production" else False
         }
-        
+
         # Create deployment
         deployment_id = asyncio.run(deployment.create_deployment(
             name=name,
@@ -55,10 +54,10 @@ def create(ctx, name, environment, region, instance_type, min_instances, max_ins
             domain=domain,
             database_config=database_config
         ))
-        
+
         if deployment_id:
             success(f"Deployment configuration created! ID: {deployment_id}")
-            
+
             deployment_data = {
                 "Deployment ID": deployment_id,
                 "Name": name,
@@ -73,12 +72,12 @@ def create(ctx, name, environment, region, instance_type, min_instances, max_ins
                 "Status": "pending",
                 "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            
+
             output(deployment_data, ctx.obj.get('output_format', 'table'))
         else:
             error("Failed to create deployment configuration")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error creating deployment: {str(e)}")
         raise click.Abort()
@@ -90,24 +89,24 @@ def start(ctx, deployment_id):
     """Deploy the application to production"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Deploy application
         success_deploy = asyncio.run(deployment.deploy_application(deployment_id))
-        
+
         if success_deploy:
             success(f"Deployment {deployment_id} started successfully!")
-            
+
             deployment_data = {
                 "Deployment ID": deployment_id,
                 "Status": "running",
                 "Started": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            
+
             output(deployment_data, ctx.obj.get('output_format', 'table'))
         else:
             error(f"Failed to start deployment {deployment_id}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error starting deployment: {str(e)}")
         raise click.Abort()
@@ -121,13 +120,13 @@ def scale(ctx, deployment_id, target_instances, reason):
     """Scale a deployment to target instance count"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Scale deployment
         success_scale = asyncio.run(deployment.scale_deployment(deployment_id, target_instances, reason))
-        
+
         if success_scale:
             success(f"Deployment {deployment_id} scaled to {target_instances} instances!")
-            
+
             scaling_data = {
                 "Deployment ID": deployment_id,
                 "Target Instances": target_instances,
@@ -135,12 +134,12 @@ def scale(ctx, deployment_id, target_instances, reason):
                 "Status": "completed",
                 "Scaled": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            
+
             output(scaling_data, ctx.obj.get('output_format', 'table'))
         else:
             error(f"Failed to scale deployment {deployment_id}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error scaling deployment: {str(e)}")
         raise click.Abort()
@@ -152,14 +151,14 @@ def status(ctx, deployment_id):
     """Get comprehensive deployment status"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Get deployment status
         status_data = asyncio.run(deployment.get_deployment_status(deployment_id))
-        
+
         if not status_data:
             error(f"Deployment {deployment_id} not found")
             raise click.Abort()
-        
+
         # Format deployment info
         deployment_info = status_data["deployment"]
         info_data = [
@@ -176,9 +175,9 @@ def status(ctx, deployment_id):
             {"Metric": "Health Status", "Value": "Healthy" if status_data["health_status"] else "Unhealthy"},
             {"Metric": "Uptime", "Value": f"{status_data['uptime_percentage']:.2f}%"}
         ]
-        
+
         output(info_data, ctx.obj.get('output_format', 'table'), title=f"Deployment Status: {deployment_id}")
-        
+
         # Show metrics if available
         if status_data["metrics"]:
             metrics = status_data["metrics"]
@@ -191,9 +190,9 @@ def status(ctx, deployment_id):
                 {"Metric": "Response Time", "Value": f"{metrics['response_time']:.1f}ms"},
                 {"Metric": "Active Instances", "Value": metrics['active_instances']}
             ]
-            
+
             output(metrics_data, ctx.obj.get('output_format', 'table'), title="Performance Metrics")
-        
+
         # Show recent scaling events
         if status_data["recent_scaling_events"]:
             events = status_data["recent_scaling_events"]
@@ -209,9 +208,9 @@ def status(ctx, deployment_id):
                 }
                 for event in events
             ]
-            
+
             output(events_data, ctx.obj.get('output_format', 'table'), title="Recent Scaling Events")
-        
+
     except Exception as e:
         error(f"Error getting deployment status: {str(e)}")
         raise click.Abort()
@@ -223,14 +222,14 @@ def overview(ctx, format):
     """Get overview of all deployments"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Get cluster overview
         overview_data = asyncio.run(deployment.get_cluster_overview())
-        
+
         if not overview_data:
             error("No deployment data available")
             raise click.Abort()
-        
+
         # Cluster metrics
         cluster_data = [
             {"Metric": "Total Deployments", "Value": overview_data["total_deployments"]},
@@ -240,9 +239,9 @@ def overview(ctx, format):
             {"Metric": "Recent Scaling Events", "Value": overview_data["recent_scaling_events"]},
             {"Metric": "Scaling Success Rate", "Value": f"{overview_data['successful_scaling_rate']:.1%}"}
         ]
-        
+
         output(cluster_data, ctx.obj.get('output_format', format), title="Cluster Overview")
-        
+
         # Aggregate metrics
         if "aggregate_metrics" in overview_data:
             metrics = overview_data["aggregate_metrics"]
@@ -254,9 +253,9 @@ def overview(ctx, format):
                 {"Metric": "Average Error Rate", "Value": f"{metrics['average_error_rate']:.2f}%"},
                 {"Metric": "Average Uptime", "Value": f"{metrics['average_uptime']:.1f}%"}
             ]
-            
+
             output(metrics_data, ctx.obj.get('output_format', format), title="Aggregate Performance Metrics")
-        
+
     except Exception as e:
         error(f"Error getting cluster overview: {str(e)}")
         raise click.Abort()
@@ -269,34 +268,35 @@ def monitor(ctx, deployment_id, interval):
     """Monitor deployment performance in real-time"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Real-time monitoring
+        import time
+
         from rich.console import Console
         from rich.live import Live
         from rich.table import Table
-        import time
-        
+
         console = Console()
-        
+
         def generate_monitor_table():
             try:
                 status_data = asyncio.run(deployment.get_deployment_status(deployment_id))
-                
+
                 if not status_data:
                     return f"Deployment {deployment_id} not found"
-                
+
                 deployment_info = status_data["deployment"]
                 metrics = status_data.get("metrics")
-                
+
                 table = Table(title=f"Deployment Monitor - {deployment_info['name']} ({deployment_id[:8]}) - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                 table.add_column("Metric", style="cyan")
                 table.add_column("Value", style="green")
-                
+
                 table.add_row("Environment", deployment_info["environment"])
                 table.add_row("Desired Instances", str(deployment_info["desired_instances"]))
                 table.add_row("Health Status", "✅ Healthy" if status_data["health_status"] else "❌ Unhealthy")
                 table.add_row("Uptime", f"{status_data['uptime_percentage']:.2f}%")
-                
+
                 if metrics:
                     table.add_row("CPU Usage", f"{metrics['cpu_usage']:.1f}%")
                     table.add_row("Memory Usage", f"{metrics['memory_usage']:.1f}%")
@@ -305,11 +305,11 @@ def monitor(ctx, deployment_id, interval):
                     table.add_row("Error Rate", f"{metrics['error_rate']:.2f}%")
                     table.add_row("Response Time", f"{metrics['response_time']:.1f}ms")
                     table.add_row("Active Instances", str(metrics['active_instances']))
-                
+
                 return table
             except Exception as e:
                 return f"Error getting deployment data: {e}"
-        
+
         with Live(generate_monitor_table(), refresh_per_second=1) as live:
             try:
                 while True:
@@ -328,16 +328,16 @@ def auto_scale(ctx, deployment_id):
     """Trigger auto-scaling evaluation for a deployment"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Trigger auto-scaling
         success_auto = asyncio.run(deployment.auto_scale_deployment(deployment_id))
-        
+
         if success_auto:
             success(f"Auto-scaling evaluation completed for deployment {deployment_id}")
         else:
             error(f"Auto-scaling evaluation failed for deployment {deployment_id}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error in auto-scaling: {str(e)}")
         raise click.Abort()
@@ -349,7 +349,7 @@ def list_deployments(ctx, format):
     """List all deployments"""
     try:
         deployment = ProductionDeployment()
-        
+
         # Get all deployment statuses
         deployments = []
         for deployment_id in deployment.deployments.keys():
@@ -365,13 +365,13 @@ def list_deployments(ctx, format):
                     "Uptime": f"{status_data['uptime_percentage']:.1f}%",
                     "Created": deployment_info["created_at"]
                 })
-        
+
         if not deployments:
             output("No deployments found", ctx.obj.get('output_format', 'table'))
             return
-        
+
         output(deployments, ctx.obj.get('output_format', format), title="All Deployments")
-        
+
     except Exception as e:
         error(f"Error listing deployments: {str(e)}")
         raise click.Abort()

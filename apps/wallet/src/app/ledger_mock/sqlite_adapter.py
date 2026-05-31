@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
 
 
 @dataclass
@@ -68,7 +68,7 @@ class SQLiteLedgerAdapter:
                 (wallet_id, public_key, payload),
             )
 
-    def get_wallet(self, wallet_id: str) -> Optional[WalletRecord]:
+    def get_wallet(self, wallet_id: str) -> WalletRecord | None:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT wallet_id, public_key, metadata FROM wallets WHERE wallet_id = ?",

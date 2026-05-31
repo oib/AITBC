@@ -1,14 +1,9 @@
 """Edge case and error handling tests for plugin security service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
-
-
-from main import app, SecurityScan, scan_reports, security_policies, scan_queue, vulnerability_database
+from main import SecurityScan, app, scan_queue, scan_reports, security_policies, vulnerability_database
 
 
 @pytest.fixture(autouse=True)
@@ -109,7 +104,7 @@ def test_list_security_policies_with_no_policies():
 def test_scan_priority_ordering():
     """Test that scan queue respects priority ordering"""
     client = TestClient(app)
-    
+
     # Add scans in random priority order
     priorities = ["low", "critical", "medium", "high"]
     for priority in priorities:
@@ -121,7 +116,7 @@ def test_scan_priority_ordering():
             priority=priority
         )
         client.post("/api/v1/security/scan", json=scan.model_dump())
-    
+
     # Critical should be first, low should be last
     response = client.get("/api/v1/security/scan/nonexistent")
     # This will fail, but we can check queue size

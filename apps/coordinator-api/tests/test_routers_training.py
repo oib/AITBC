@@ -24,7 +24,7 @@ class TestTrainingRouter:
             "gpu_count": 2,
             "memory_gb": 32
         }
-        
+
         response = client.post("/training/jobs", json=job_data)
         assert response.status_code == 200
         data = response.json()
@@ -42,7 +42,7 @@ class TestTrainingRouter:
             "epochs": 5
         })
         job_id = create_response.json()["job"]["id"]
-        
+
         # Get job
         response = client.get(f"/training/jobs/{job_id}")
         assert response.status_code == 200
@@ -74,7 +74,7 @@ class TestTrainingRouter:
             "epochs": 3
         })
         job_id = create_response.json()["job"]["id"]
-        
+
         # Start it
         response = client.post(f"/training/jobs/{job_id}/start")
         assert response.status_code == 200
@@ -91,7 +91,7 @@ class TestTrainingRouter:
         })
         job_id = create_response.json()["job"]["id"]
         client.post(f"/training/jobs/{job_id}/start")
-        
+
         # Update progress
         progress_data = {
             "job_id": job_id,
@@ -101,7 +101,7 @@ class TestTrainingRouter:
             "accuracy": 0.95,
             "validation_loss": 0.0256
         }
-        
+
         response = client.post("/training/progress", json=progress_data)
         assert response.status_code == 200
         data = response.json()
@@ -118,7 +118,7 @@ class TestTrainingRouter:
         })
         job_id = create_response.json()["job"]["id"]
         client.post(f"/training/jobs/{job_id}/start")
-        
+
         # Complete it
         response = client.post(f"/training/jobs/{job_id}/complete", json={
             "checkpoint_url": "s3://models/checkpoint-001.pt"
@@ -136,7 +136,7 @@ class TestTrainingRouter:
             "dataset_id": "test-data"
         })
         job_id = create_response.json()["job"]["id"]
-        
+
         # Cancel it
         response = client.post(f"/training/jobs/{job_id}/cancel")
         assert response.status_code == 200
@@ -152,7 +152,7 @@ class TestTrainingRouter:
             "dataset_id": "data"
         })
         job_id = create_response.json()["job"]["id"]
-        
+
         # Get logs
         response = client.get(f"/training/jobs/{job_id}/logs")
         assert response.status_code == 200
@@ -198,10 +198,10 @@ class TestTrainingIntegration:
             "gpu_count": 1
         })
         job_id = create_response.json()["job"]["id"]
-        
+
         # 2. Start training
         client.post(f"/training/jobs/{job_id}/start")
-        
+
         # 3. Simulate training progress
         for epoch in range(1, 4):
             client.post("/training/progress", json={
@@ -212,12 +212,12 @@ class TestTrainingIntegration:
                 "accuracy": 0.6 + (epoch * 0.1),
                 "validation_loss": 0.55 / epoch
             })
-        
+
         # 4. Complete training
         complete_response = client.post(f"/training/jobs/{job_id}/complete", json={
             "checkpoint_url": "s3://integration/checkpoint.pt"
         })
-        
+
         # 5. Verify completed
         assert complete_response.json()["job"]["status"] == "completed"
         assert complete_response.json()["job"]["metrics"]["accuracy"] > 0.8

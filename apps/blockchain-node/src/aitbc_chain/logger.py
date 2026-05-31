@@ -1,18 +1,18 @@
+import json
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
-            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat() + "Z",
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage()
         }
-        
+
         # Add any extra arguments passed to the logger
         if hasattr(record, "chain_id"):
             log_record["chain_id"] = record.chain_id
@@ -26,18 +26,18 @@ class JsonFormatter(logging.Formatter):
             log_record["proposer"] = record.proposer
         if hasattr(record, "error"):
             log_record["error"] = record.error
-            
+
         return json.dumps(log_record)
 
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
-    
+
     if not logger.handlers:
         logger.setLevel(logging.INFO)
-        
+
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(JsonFormatter())
         logger.addHandler(console_handler)
-        
+
     return logger

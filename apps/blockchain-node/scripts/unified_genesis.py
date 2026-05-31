@@ -10,22 +10,20 @@ Usage:
     python3 unified_genesis.py --chain-id ait-mainnet --force
 """
 
-import json
-import hashlib
 import argparse
-import secrets
-import base64
+import hashlib
+import json
 import os
+import secrets
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Any
 
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 # Add project paths
 sys.path.insert(0, '/opt/aitbc')
@@ -33,7 +31,7 @@ sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
 
 try:
     from aitbc_chain.config import BlockchainConfig
-    from aitbc_chain.models import Block, Account
+    from aitbc_chain.models import Account, Block
     from sqlmodel import Session, create_engine, select
 except ImportError:
     print("Warning: Could not import blockchain modules, running in wallet-only mode")
@@ -52,29 +50,29 @@ def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain
     return hashlib.sha256(hash_input).hexdigest()
 
 
-def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -> Dict[str, str]:
+def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -> dict[str, str]:
     """Create genesis wallet with secure random private key"""
     # Generate cryptographically secure random private key
     private_key_bytes = secrets.token_bytes(32)
-    
+
     # Generate Ed25519 key pair
     private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
     public_key = private_key.public_key()
-    
+
     # Get public key bytes
     pub_key_bytes = public_key.public_bytes(
         encoding=serialization.Encoding.Raw,
         format=serialization.PublicFormat.Raw
     )
-    
+
     # Derive address
     address = derive_address_from_public_key(pub_key_bytes)
     ait_address = address.replace("aitbc1", "ait1")
-    
+
     # Generate password if not provided
     if not password:
         password = secrets.token_urlsafe(32)
-    
+
     # Encrypt private key with password
     salt = secrets.token_bytes(16)
     kdf = PBKDF2HMAC(
@@ -84,12 +82,12 @@ def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -
         iterations=100000,
     )
     key = kdf.derive(password.encode())
-    
+
     # Encrypt using AES-GCM
     aesgcm = AESGCM(key)
     nonce = secrets.token_bytes(12)
     ciphertext = aesgcm.encrypt(nonce, private_key_bytes, None)
-    
+
     # Create wallet data
     wallet_data = {
         "address": ait_address,
@@ -110,7 +108,7 @@ def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -
         },
         "version": 1
     }
-    
+
     return {
         "wallet": wallet_data,
         "address": ait_address,
@@ -120,14 +118,14 @@ def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -
     }
 
 
-def create_genesis_block(chain_id: str, proposer: str, timestamp: datetime = None) -> Dict[str, Any]:
+def create_genesis_block(chain_id: str, proposer: str, timestamp: datetime = None) -> dict[str, Any]:
     """Create genesis block"""
     if not timestamp:
-        timestamp = datetime.now(timezone.utc)
-    
+        timestamp = datetime.now(UTC)
+
     parent_hash = "0x00"
     genesis_hash = compute_block_hash(0, parent_hash, timestamp, chain_id)
-    
+
     genesis_block = {
         "height": 0,
         "hash": genesis_hash,
@@ -143,11 +141,11 @@ def create_genesis_block(chain_id: str, proposer: str, timestamp: datetime = Non
             "consensus_algorithm": "poa"
         }
     }
-    
+
     return genesis_block
 
 
-def create_genesis_allocations(genesis_address: str, additional_allocations: List[Dict] = None) -> List[Dict]:
+def create_genesis_allocations(genesis_address: str, additional_allocations: list[dict] = None) -> list[dict]:
     """Create genesis allocations including genesis wallet"""
     allocations = [
         {
@@ -156,20 +154,20 @@ def create_genesis_allocations(genesis_address: str, additional_allocations: Lis
             "nonce": 0
         }
     ]
-    
+
     if additional_allocations:
         allocations.extend(additional_allocations)
-    
+
     return allocations
 
 
-def save_genesis_wallet(wallet_data: Dict, keystore_path: Path, password: str):
+def save_genesis_wallet(wallet_data: dict, keystore_path: Path, password: str):
     """Save genesis wallet to keystore"""
     keystore_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(keystore_path, 'w') as f:
         json.dump(wallet_data, f, indent=2)
-    
+
     # Save password securely
     password_path = keystore_path.parent / ".genesis_password"
     with open(password_path, 'w') as f:
@@ -177,36 +175,36 @@ def save_genesis_wallet(wallet_data: Dict, keystore_path: Path, password: str):
     os.chmod(password_path, 0o600)
 
 
-def save_genesis_json(genesis_block: Dict, allocations: List[Dict], genesis_path: Path):
+def save_genesis_json(genesis_block: dict, allocations: list[dict], genesis_path: Path):
     """Save genesis configuration to JSON file"""
     genesis_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     genesis_config = {
         "chain_id": genesis_block["chain_id"],
         "block": genesis_block,
         "allocations": allocations
     }
-    
+
     with open(genesis_path, 'w') as f:
         json.dump(genesis_config, f, indent=2)
 
 
-def initialize_genesis_database(genesis_block: Dict, allocations: List[Dict], db_path: Path):
+def initialize_genesis_database(genesis_block: dict, allocations: list[dict], db_path: Path):
     """Initialize blockchain database with genesis data"""
     import sqlite3
-    
+
     try:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
-        
+
         # Check if genesis block already exists
         cursor.execute("SELECT * FROM block WHERE height=0 AND chain_id=?", (genesis_block["chain_id"],))
         existing = cursor.fetchone()
-        
+
         if existing:
-            print(f"⚠️  Genesis block already exists in database")
+            print("⚠️  Genesis block already exists in database")
             return False
-        
+
         # Create genesis block
         cursor.execute(
             """INSERT INTO block (height, hash, parent_hash, proposer, timestamp, tx_count, chain_id, state_root) 
@@ -222,7 +220,7 @@ def initialize_genesis_database(genesis_block: Dict, allocations: List[Dict], db
                 genesis_block.get("state_root", "0x00")
             )
         )
-        
+
         # Create genesis accounts
         for alloc in allocations:
             cursor.execute(
@@ -233,14 +231,14 @@ def initialize_genesis_database(genesis_block: Dict, allocations: List[Dict], db
                     alloc["address"],
                     alloc["balance"],
                     alloc["nonce"],
-                    datetime.now(timezone.utc).isoformat()
+                    datetime.now(UTC).isoformat()
                 )
             )
-        
+
         conn.commit()
         print(f"✅ Genesis initialized in database: {db_path}")
         return True
-            
+
     except sqlite3.Error as e:
         print(f"❌ Error initializing genesis in database: {e}")
         return False
@@ -249,11 +247,11 @@ def initialize_genesis_database(genesis_block: Dict, allocations: List[Dict], db
             conn.close()
 
 
-def register_wallet_with_service(wallet_address: str, wallet_data: Dict, service_url: str = "http://localhost:8003"):
+def register_wallet_with_service(wallet_address: str, wallet_data: dict, service_url: str = "http://localhost:8003"):
     """Register genesis wallet with wallet daemon service"""
     try:
         import httpx
-        
+
         response = httpx.post(
             f"{service_url}/api/wallet",
             json={
@@ -263,14 +261,14 @@ def register_wallet_with_service(wallet_address: str, wallet_data: Dict, service
             },
             timeout=5
         )
-        
+
         if response.status_code in (200, 201):
-            print(f"✅ Genesis wallet registered with wallet service")
+            print("✅ Genesis wallet registered with wallet service")
             return True
         else:
             print(f"⚠️  Failed to register with wallet service: {response.status_code}")
             return False
-            
+
     except Exception as e:
         print(f"⚠️  Could not connect to wallet service: {e}")
         return False
@@ -288,71 +286,71 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force overwrite existing genesis")
     parser.add_argument("--register-service", action="store_true", help="Register with wallet service")
     parser.add_argument("--service-url", default="http://localhost:8003", help="Wallet service URL")
-    
+
     args = parser.parse_args()
-    
+
     print(f"🌟 Unified Genesis Generation for {args.chain_id}")
     print("=" * 60)
-    
+
     # Create genesis wallet
     if args.create_wallet:
-        print(f"\n📝 Creating Genesis Wallet...")
+        print("\n📝 Creating Genesis Wallet...")
         wallet_result = create_genesis_wallet(args.password, args.chain_id)
-        
+
         print(f"Address: {wallet_result['address']}")
         print(f"Public key: {wallet_result['public_key']}")
         print(f"Private key: {wallet_result['private_key']}")
         print(f"Password: {wallet_result['password']}")
-        
+
         save_genesis_wallet(wallet_result['wallet'], Path(args.keystore_path), wallet_result['password'])
         print(f"Wallet saved to: {args.keystore_path}")
-        
+
         proposer = args.proposer or wallet_result['address']
     else:
         proposer = args.proposer or "genesis"
         wallet_result = None
-    
+
     # Create genesis block
-    print(f"\n📦 Creating Genesis Block...")
+    print("\n📦 Creating Genesis Block...")
     genesis_block = create_genesis_block(args.chain_id, proposer)
     print(f"Height: {genesis_block['height']}")
     print(f"Hash: {genesis_block['hash']}")
     print(f"Proposer: {genesis_block['proposer']}")
-    
+
     # Create allocations
-    print(f"\n💰 Creating Genesis Allocations...")
+    print("\n💰 Creating Genesis Allocations...")
     if wallet_result:
         allocations = create_genesis_allocations(wallet_result['address'])
     else:
         allocations = create_genesis_allocations(proposer)
-    
+
     print(f"Total allocations: {len(allocations)}")
     for alloc in allocations[:3]:  # Show first 3
         print(f"  - {alloc['address']}: {alloc['balance']} AIT")
-    
+
     # Save genesis configuration
-    print(f"\n💾 Saving Genesis Configuration...")
+    print("\n💾 Saving Genesis Configuration...")
     save_genesis_json(genesis_block, allocations, Path(args.genesis_path))
     print(f"Genesis config saved to: {args.genesis_path}")
-    
+
     # Initialize database
-    print(f"\n🗄️  Initializing Database...")
+    print("\n🗄️  Initializing Database...")
     if initialize_genesis_database(genesis_block, allocations, Path(args.db_path)):
         print(f"Database initialized: {args.db_path}")
-    
+
     # Register with wallet service
     if args.register_service and wallet_result:
-        print(f"\n🔗 Registering with Wallet Service...")
+        print("\n🔗 Registering with Wallet Service...")
         register_wallet_with_service(wallet_result['address'], wallet_result['wallet'], args.service_url)
-    
-    print(f"\n✅ Unified Genesis Generation Complete!")
-    print(f"\n📋 Summary:")
+
+    print("\n✅ Unified Genesis Generation Complete!")
+    print("\n📋 Summary:")
     print(f"  Chain ID: {args.chain_id}")
     print(f"  Genesis Block: {genesis_block['hash']}")
     if wallet_result:
         print(f"  Genesis Wallet: {wallet_result['address']}")
         print(f"  Wallet Password: {wallet_result['password']}")
-        print(f"  ⚠️  IMPORTANT: Store the password securely!")
+        print("  ⚠️  IMPORTANT: Store the password securely!")
     print(f"  Database: {args.db_path}")
     print(f"  Config: {args.genesis_path}")
 

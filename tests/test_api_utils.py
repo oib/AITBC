@@ -2,37 +2,38 @@
 Tests for API utilities
 """
 
-import pytest
-from datetime import datetime, timezone
+from datetime import datetime
 from unittest.mock import Mock
+
+import pytest
 
 from aitbc.api_utils import (
     APIResponse,
     PaginatedResponse,
-    success_response,
-    error_response,
-    not_found_response,
-    unauthorized_response,
-    forbidden_response,
-    validation_error_response,
-    conflict_response,
-    internal_error_response,
     PaginationParams,
-    paginate_items,
-    build_paginated_response,
     RateLimitHeaders,
     build_cors_headers,
-    build_standard_headers,
-    validate_sort_field,
-    validate_sort_order,
+    build_paginated_response,
+    build_request_metadata,
     build_sort_params,
-    filter_fields,
+    build_standard_headers,
+    conflict_response,
+    error_response,
     exclude_fields,
-    sanitize_response,
-    merge_responses,
+    filter_fields,
+    forbidden_response,
     get_client_ip,
     get_user_agent,
-    build_request_metadata,
+    internal_error_response,
+    merge_responses,
+    not_found_response,
+    paginate_items,
+    sanitize_response,
+    success_response,
+    unauthorized_response,
+    validate_sort_field,
+    validate_sort_order,
+    validation_error_response,
 )
 
 
@@ -192,7 +193,7 @@ class TestPaginateItems:
         """Test basic pagination"""
         items = list(range(25))
         result = paginate_items(items, page=1, page_size=10)
-        
+
         assert len(result["items"]) == 10
         assert result["items"] == list(range(10))
         assert result["pagination"]["page"] == 1
@@ -205,7 +206,7 @@ class TestPaginateItems:
         """Test pagination second page"""
         items = list(range(25))
         result = paginate_items(items, page=2, page_size=10)
-        
+
         assert result["items"] == list(range(10, 20))
         assert result["pagination"]["has_next"] is True
         assert result["pagination"]["has_prev"] is True
@@ -214,7 +215,7 @@ class TestPaginateItems:
         """Test pagination last page"""
         items = list(range(25))
         result = paginate_items(items, page=3, page_size=10)
-        
+
         assert result["items"] == list(range(20, 25))
         assert result["pagination"]["has_next"] is False
         assert result["pagination"]["has_prev"] is True
@@ -222,7 +223,7 @@ class TestPaginateItems:
     def test_paginate_items_empty_list(self):
         """Test pagination with empty list"""
         result = paginate_items([], page=1, page_size=10)
-        
+
         assert result["items"] == []
         assert result["pagination"]["total"] == 0
         assert result["pagination"]["total_pages"] == 0
@@ -231,7 +232,7 @@ class TestPaginateItems:
         """Test build_paginated_response function"""
         items = list(range(15))
         response = build_paginated_response(items, page=1, page_size=10)
-        
+
         assert isinstance(response, PaginatedResponse)
         assert response.success is True
         assert len(response.data) == 10
@@ -244,7 +245,7 @@ class TestRateLimitHeaders:
     def test_get_headers(self):
         """Test get_headers method"""
         headers = RateLimitHeaders.get_headers(limit=100, remaining=50, reset=3600, window=60)
-        
+
         assert headers["X-RateLimit-Limit"] == "100"
         assert headers["X-RateLimit-Remaining"] == "50"
         assert headers["X-RateLimit-Reset"] == "3600"
@@ -253,7 +254,7 @@ class TestRateLimitHeaders:
     def test_get_retry_after(self):
         """Test get_retry_after method"""
         headers = RateLimitHeaders.get_retry_after(30)
-        
+
         assert headers["Retry-After"] == "30"
 
 
@@ -263,7 +264,7 @@ class TestHeaderBuilders:
     def test_build_cors_headers_defaults(self):
         """Test build_cors_headers with defaults"""
         headers = build_cors_headers()
-        
+
         assert "Access-Control-Allow-Origin" in headers
         assert "Access-Control-Allow-Methods" in headers
         assert "Access-Control-Allow-Headers" in headers
@@ -276,7 +277,7 @@ class TestHeaderBuilders:
             allowed_methods=["GET", "POST"],
             max_age=7200
         )
-        
+
         assert "http://localhost:3000" in headers["Access-Control-Allow-Origin"]
         assert "GET, POST" in headers["Access-Control-Allow-Methods"]
         assert headers["Access-Control-Max-Age"] == "7200"
@@ -284,7 +285,7 @@ class TestHeaderBuilders:
     def test_build_standard_headers_defaults(self):
         """Test build_standard_headers with defaults"""
         headers = build_standard_headers()
-        
+
         assert headers["Content-Type"] == "application/json"
         assert "Cache-Control" not in headers
         assert "X-Request-ID" not in headers
@@ -296,7 +297,7 @@ class TestHeaderBuilders:
             cache_control="no-cache",
             x_request_id="req-123"
         )
-        
+
         assert headers["Content-Type"] == "application/xml"
         assert headers["Cache-Control"] == "no-cache"
         assert headers["X-Request-ID"] == "req-123"
@@ -359,14 +360,14 @@ class TestFieldFiltering:
         """Test filter_fields function"""
         data = {"name": "John", "email": "john@example.com", "age": 30}
         result = filter_fields(data, ["name", "email"])
-        
+
         assert result == {"name": "John", "email": "john@example.com"}
 
     def test_exclude_fields(self):
         """Test exclude_fields function"""
         data = {"name": "John", "email": "john@example.com", "age": 30}
         result = exclude_fields(data, ["age"])
-        
+
         assert result == {"name": "John", "email": "john@example.com"}
 
 
@@ -377,7 +378,7 @@ class TestSanitizeResponse:
         """Test sanitize_response with dictionary"""
         data = {"username": "john", "password": "secret123", "email": "john@example.com"}
         result = sanitize_response(data)
-        
+
         assert result["username"] == "john"
         assert result["password"] == "***"
         assert result["email"] == "john@example.com"
@@ -389,7 +390,7 @@ class TestSanitizeResponse:
             {"username": "jane", "token": "xyz789"}
         ]
         result = sanitize_response(data)
-        
+
         assert result[0]["username"] == "john"
         assert result[0]["token"] == "***"
         assert result[1]["username"] == "jane"
@@ -399,7 +400,7 @@ class TestSanitizeResponse:
         """Test sanitize_response with custom sensitive fields"""
         data = {"username": "john", "api_key": "secret", "email": "john@example.com"}
         result = sanitize_response(data, sensitive_fields=["api_key"])
-        
+
         assert result["username"] == "john"
         assert result["api_key"] == "***"
         assert result["email"] == "john@example.com"
@@ -408,7 +409,7 @@ class TestSanitizeResponse:
         """Test sanitize_response with nested structure"""
         data = {"user": {"username": "john", "password": "secret"}}
         result = sanitize_response(data)
-        
+
         assert result["user"]["username"] == "john"
         assert result["user"]["password"] == "***"
 
@@ -420,9 +421,9 @@ class TestMergeResponses:
         """Test merge_responses with APIResponse objects"""
         response1 = success_response("Success1", {"key1": "value1"})
         response2 = success_response("Success2", {"key2": "value2"})
-        
+
         result = merge_responses(response1, response2)
-        
+
         assert result["data"]["key1"] == "value1"
         assert result["data"]["key2"] == "value2"
 
@@ -430,9 +431,9 @@ class TestMergeResponses:
         """Test merge_responses with dict objects"""
         response1 = {"data": {"key1": "value1"}}
         response2 = {"data": {"key2": "value2"}}
-        
+
         result = merge_responses(response1, response2)
-        
+
         assert result["data"]["key1"] == "value1"
         assert result["data"]["key2"] == "value2"
 
@@ -440,9 +441,9 @@ class TestMergeResponses:
         """Test merge_responses with mixed types"""
         response1 = success_response("Success1", {"key1": "value1"})
         response2 = {"data": {"key2": "value2"}}
-        
+
         result = merge_responses(response1, response2)
-        
+
         assert result["data"]["key1"] == "value1"
         assert result["data"]["key2"] == "value2"
 
@@ -460,7 +461,7 @@ class TestRequestHelpers:
         request = Mock()
         request.headers = {"X-Forwarded-For": "192.168.1.1, 10.0.0.1"}
         request.client = Mock()
-        
+
         ip = get_client_ip(request)
         assert ip == "192.168.1.1"
 
@@ -469,7 +470,7 @@ class TestRequestHelpers:
         request = Mock()
         request.headers = {"X-Real-IP": "192.168.1.2"}
         request.client = Mock()
-        
+
         ip = get_client_ip(request)
         assert ip == "192.168.1.2"
 
@@ -479,7 +480,7 @@ class TestRequestHelpers:
         request.headers = {}
         request.client = Mock()
         request.client.host = "192.168.1.3"
-        
+
         ip = get_client_ip(request)
         assert ip == "192.168.1.3"
 
@@ -488,7 +489,7 @@ class TestRequestHelpers:
         request = Mock()
         request.headers = {}
         request.client = None
-        
+
         ip = get_client_ip(request)
         assert ip == "unknown"
 
@@ -496,7 +497,7 @@ class TestRequestHelpers:
         """Test get_user_agent function"""
         request = Mock()
         request.headers = {"User-Agent": "Mozilla/5.0"}
-        
+
         ua = get_user_agent(request)
         assert ua == "Mozilla/5.0"
 
@@ -504,7 +505,7 @@ class TestRequestHelpers:
         """Test get_user_agent when header missing"""
         request = Mock()
         request.headers = {}
-        
+
         ua = get_user_agent(request)
         assert ua == "unknown"
 
@@ -518,9 +519,9 @@ class TestRequestHelpers:
         }
         request.client = Mock()
         request.client.host = "192.168.1.1"
-        
+
         metadata = build_request_metadata(request)
-        
+
         assert metadata["client_ip"] == "192.168.1.1"
         assert metadata["user_agent"] == "Mozilla/5.0"
         assert metadata["request_id"] == "req-123"

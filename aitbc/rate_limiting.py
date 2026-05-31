@@ -4,20 +4,22 @@ Provides decorators and middleware for API rate limiting
 """
 
 import asyncio
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Optional, Dict, Any
-from fastapi import Request, HTTPException, Response
+from typing import Any
+
+from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from .security_hardening import RateLimiter
 from .aitbc_logging import get_logger
+from .security_hardening import RateLimiter
 
 logger = get_logger(__name__)
 
 
 # Global rate limiters for different endpoints
-_rate_limiters: Dict[str, RateLimiter] = {}
+_rate_limiters: dict[str, RateLimiter] = {}
 
 
 def get_rate_limiter(name: str, rate: int = 100, per: int = 60) -> RateLimiter:
@@ -40,7 +42,7 @@ def get_rate_limiter(name: str, rate: int = 100, per: int = 60) -> RateLimiter:
 def rate_limit(
     rate: int = 100,
     per: int = 60,
-    key_func: Optional[Callable[[Request], str]] = None,
+    key_func: Callable[[Request], str] | None = None,
     error_message: str = "Rate limit exceeded"
 ) -> Callable:
     """
@@ -67,7 +69,7 @@ def rate_limit(
                 if isinstance(arg, Request):
                     request = arg
                     break
-            
+
             if request is None:
                 # Try to get request from kwargs
                 request = kwargs.get('request')
@@ -75,13 +77,13 @@ def rate_limit(
                     return await func(*args, **kwargs)
                 else:
                     return func(*args, **kwargs)
-            
+
             # Get rate limit key
             if key_func:
                 key = key_func(request)
             else:
                 key = request.client.host if request.client else "unknown"
-            
+
             # Check rate limit
             if not limiter.is_allowed(key):
                 logger.warning(f"Rate limit exceeded for {key} on {request.url.path}")
@@ -90,12 +92,12 @@ def rate_limit(
                     detail=error_message,
                     headers={"Retry-After": str(per)}
                 )
-            
+
             if is_async:
                 return await func(*args, **kwargs)
             else:
                 return func(*args, **kwargs)
-        
+
         return wrapper
     return decorator
 
@@ -106,13 +108,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     Applies rate limiting based on client IP address
     """
-    
+
     def __init__(
         self,
         app: ASGIApp,
         rate: int = 100,
         per: int = 60,
-        key_func: Optional[Callable[[Request], str]] = None,
+        key_func: Callable[[Request], str] | None = None,
         error_message: str = "Rate limit exceeded"
     ) -> None:
         """
@@ -131,7 +133,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.key_func = key_func
         self.error_message = error_message
         self._limiter = RateLimiter(rate=rate, per=per)
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Process request with rate limiting
@@ -148,7 +150,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             key = self.key_func(request)
         else:
             key = request.client.host if request.client else "unknown"
-        
+
         # Check rate limit
         if not self._limiter.is_allowed(key):
             logger.warning(f"Rate limit exceeded for {key} on {request.url.path}")
@@ -158,11 +160,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 media_type="application/json",
                 headers={"Retry-After": str(self.per)}
             )
-        
+
         return await call_next(request)
 
 
-def get_rate_limit_headers(request: Request, limiter_name: str) -> Dict[str, str]:
+def get_rate_limit_headers(request: Request, limiter_name: str) -> dict[str, str]:
     """
     Get rate limit headers for response
     
@@ -176,10 +178,10 @@ def get_rate_limit_headers(request: Request, limiter_name: str) -> Dict[str, str
     limiter = _rate_limiters.get(limiter_name)
     if not limiter:
         return {}
-    
+
     key = request.client.host if request.client else "unknown"
     remaining = limiter.get_remaining_requests(key)
-    
+
     return {
         "X-RateLimit-Limit": str(limiter.rate),
         "X-RateLimit-Remaining": str(remaining),
@@ -187,7 +189,7 @@ def get_rate_limit_headers(request: Request, limiter_name: str) -> Dict[str, str
     }
 
 
-def reset_rate_limit(identifier: str, limiter_name: Optional[str] = None) -> None:
+def reset_rate_limit(identifier: str, limiter_name: str | None = None) -> None:
     """
     Reset rate limit for an identifier
     

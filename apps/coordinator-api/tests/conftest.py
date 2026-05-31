@@ -1,9 +1,9 @@
 """Ensure coordinator-api src is on sys.path for all tests in this directory."""
 
-import sys
 import os
-import tempfile
+import sys
 from pathlib import Path
+
 import pytest
 
 _src = str(Path(__file__).resolve().parent.parent / "src")
@@ -28,7 +28,7 @@ os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database session for each test."""
-    from sqlmodel import SQLModel, create_engine, Session
+    from sqlmodel import Session, SQLModel, create_engine
     engine = create_engine("sqlite:///:memory:", echo=False)
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
@@ -38,6 +38,6 @@ def db_session():
 @pytest.fixture(scope="function")
 def client():
     """Create a TestClient for API testing."""
-    from fastapi.testclient import TestClient
     from app.main import app
+    from fastapi.testclient import TestClient
     return TestClient(app)

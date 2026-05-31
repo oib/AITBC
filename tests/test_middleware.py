@@ -2,15 +2,16 @@
 Tests for AITBC middleware modules
 """
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from fastapi import Request, Response, HTTPException
+from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp
 
+from aitbc.middleware.error_handler import ErrorHandlerMiddleware
 from aitbc.middleware.performance import PerformanceLoggingMiddleware
 from aitbc.middleware.request_id import RequestIDMiddleware
-from aitbc.middleware.error_handler import ErrorHandlerMiddleware
 
 
 class TestPerformanceLoggingMiddleware:
@@ -21,20 +22,20 @@ class TestPerformanceLoggingMiddleware:
         """Test that middleware adds X-Process-Time header"""
         app = Mock(spec=ASGIApp)
         middleware = PerformanceLoggingMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.method = "GET"
         request.url = Mock()
         request.url.path = "/test"
-        
+
         response = Mock(spec=Response)
         response.status_code = 200
         response.headers = {}
-        
+
         call_next = AsyncMock(return_value=response)
-        
+
         result = await middleware.dispatch(request, call_next)
-        
+
         assert "X-Process-Time" in result.headers
         assert float(result.headers["X-Process-Time"]) >= 0
 
@@ -43,18 +44,18 @@ class TestPerformanceLoggingMiddleware:
         """Test that middleware logs performance metrics"""
         app = Mock(spec=ASGIApp)
         middleware = PerformanceLoggingMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.method = "POST"
         request.url = Mock()
         request.url.path = "/api/test"
-        
+
         response = Mock(spec=Response)
         response.status_code = 201
         response.headers = {}
-        
+
         call_next = AsyncMock(return_value=response)
-        
+
         with patch('aitbc.middleware.performance.logger') as mock_logger:
             await middleware.dispatch(request, call_next)
             mock_logger.info.assert_called_once()
@@ -65,20 +66,20 @@ class TestPerformanceLoggingMiddleware:
         """Test that middleware measures request duration accurately"""
         app = Mock(spec=ASGIApp)
         middleware = PerformanceLoggingMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.method = "GET"
         request.url = Mock()
         request.url.path = "/test"
-        
+
         response = Mock(spec=Response)
         response.status_code = 200
         response.headers = {}
-        
+
         call_next = AsyncMock(return_value=response)
-        
+
         result = await middleware.dispatch(request, call_next)
-        
+
         process_time = float(result.headers["X-Process-Time"])
         assert 0 <= process_time < 1.0  # Should complete in under 1 second
 
@@ -91,7 +92,7 @@ class TestRequestIDMiddleware:
         """Test that middleware generates request ID when not in headers"""
         app = Mock(spec=ASGIApp)
         middleware = RequestIDMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.headers = {}
         request.method = "GET"
@@ -100,15 +101,15 @@ class TestRequestIDMiddleware:
         request.client = Mock()
         request.client.host = "127.0.0.1"
         request.state = Mock()
-        
+
         response = Mock(spec=Response)
         response.headers = {}
         response.status_code = 200
-        
+
         call_next = AsyncMock(return_value=response)
-        
+
         result = await middleware.dispatch(request, call_next)
-        
+
         assert "X-Request-ID" in result.headers
         assert len(result.headers["X-Request-ID"]) > 0
         assert request.state.request_id == result.headers["X-Request-ID"]
@@ -118,7 +119,7 @@ class TestRequestIDMiddleware:
         """Test that middleware uses existing request ID from header"""
         app = Mock(spec=ASGIApp)
         middleware = RequestIDMiddleware(app)
-        
+
         existing_id = "test-request-id-123"
         request = Mock(spec=Request)
         request.headers = {"X-Request-ID": existing_id}
@@ -128,15 +129,15 @@ class TestRequestIDMiddleware:
         request.client = Mock()
         request.client.host = "192.168.1.1"
         request.state = Mock()
-        
+
         response = Mock(spec=Response)
         response.headers = {}
         response.status_code = 201
-        
+
         call_next = AsyncMock(return_value=response)
-        
+
         result = await middleware.dispatch(request, call_next)
-        
+
         assert result.headers["X-Request-ID"] == existing_id
         assert request.state.request_id == existing_id
 
@@ -145,7 +146,7 @@ class TestRequestIDMiddleware:
         """Test that middleware logs request information"""
         app = Mock(spec=ASGIApp)
         middleware = RequestIDMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.headers = {}
         request.method = "GET"
@@ -154,13 +155,13 @@ class TestRequestIDMiddleware:
         request.client = Mock()
         request.client.host = "127.0.0.1"
         request.state = Mock()
-        
+
         response = Mock(spec=Response)
         response.headers = {}
         response.status_code = 200
-        
+
         call_next = AsyncMock(return_value=response)
-        
+
         with patch('aitbc.middleware.request_id.logger') as mock_logger:
             await middleware.dispatch(request, call_next)
             assert mock_logger.info.call_count >= 2  # Logs start and completion
@@ -174,19 +175,19 @@ class TestErrorHandlerMiddleware:
         """Test that middleware passes through normal responses"""
         app = Mock(spec=ASGIApp)
         middleware = ErrorHandlerMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.url = Mock()
         request.url.path = "/test"
         request.method = "GET"
-        
+
         response = Mock(spec=Response)
         response.status_code = 200
-        
+
         call_next = AsyncMock(return_value=response)
-        
+
         result = await middleware.dispatch(request, call_next)
-        
+
         assert result == response
 
     @pytest.mark.asyncio
@@ -194,17 +195,17 @@ class TestErrorHandlerMiddleware:
         """Test that middleware handles HTTPException"""
         app = Mock(spec=ASGIApp)
         middleware = ErrorHandlerMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.url = Mock()
         request.url.path = "/api/error"
         request.method = "GET"
-        
+
         exception = HTTPException(status_code=404, detail="Not found")
         call_next = AsyncMock(side_effect=exception)
-        
+
         result = await middleware.dispatch(request, call_next)
-        
+
         assert isinstance(result, JSONResponse)
         assert result.status_code == 404
         content = result.body.decode() if hasattr(result, 'body') else {}
@@ -215,17 +216,17 @@ class TestErrorHandlerMiddleware:
         """Test that middleware handles generic exceptions"""
         app = Mock(spec=ASGIApp)
         middleware = ErrorHandlerMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.url = Mock()
         request.url.path = "/api/crash"
         request.method = "POST"
-        
+
         exception = ValueError("Something went wrong")
         call_next = AsyncMock(side_effect=exception)
-        
+
         result = await middleware.dispatch(request, call_next)
-        
+
         assert isinstance(result, JSONResponse)
         assert result.status_code == 500
 
@@ -234,15 +235,15 @@ class TestErrorHandlerMiddleware:
         """Test that middleware logs HTTPException"""
         app = Mock(spec=ASGIApp)
         middleware = ErrorHandlerMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.url = Mock()
         request.url.path = "/test"
         request.method = "GET"
-        
+
         exception = HTTPException(status_code=400, detail="Bad request")
         call_next = AsyncMock(side_effect=exception)
-        
+
         with patch('aitbc.middleware.error_handler.logger') as mock_logger:
             await middleware.dispatch(request, call_next)
             mock_logger.warning.assert_called_once()
@@ -252,15 +253,15 @@ class TestErrorHandlerMiddleware:
         """Test that middleware logs generic exceptions"""
         app = Mock(spec=ASGIApp)
         middleware = ErrorHandlerMiddleware(app)
-        
+
         request = Mock(spec=Request)
         request.url = Mock()
         request.url.path = "/test"
         request.method = "GET"
-        
+
         exception = RuntimeError("Runtime error")
         call_next = AsyncMock(side_effect=exception)
-        
+
         with patch('aitbc.middleware.error_handler.logger') as mock_logger:
             await middleware.dispatch(request, call_next)
             mock_logger.error.assert_called_once()

@@ -2,8 +2,9 @@
 Tests for blockchain service
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 @pytest.mark.unit
@@ -20,7 +21,7 @@ class TestBlockchainService:
 
         # Import and test
         from app.services.blockchain import get_block_height
-        
+
         result = get_block_height()
         assert result == 1000
 
@@ -38,7 +39,7 @@ class TestBlockchainService:
 
         # Import and test
         from app.services.blockchain import get_block_by_hash
-        
+
         result = get_block_by_hash("0xabc123")
         assert result["hash"] == "0xabc123"
         assert result["height"] == 1000

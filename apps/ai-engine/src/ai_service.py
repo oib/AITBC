@@ -4,13 +4,12 @@ AITBC AI Service - Simplified Version
 Basic AI-powered trading and analytics
 """
 
-import asyncio
-import json
+from datetime import UTC, datetime
+from typing import Any
+
 import numpy as np
-from datetime import datetime, timezone
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Dict, Any, List
 
 app = FastAPI(title="AITBC AI Service API", version="1.0.0")
 
@@ -26,16 +25,16 @@ class AnalysisRequest(BaseModel):
 # Simple AI Engine
 class SimpleAITradingEngine:
     """Simplified AI trading engine"""
-    
+
     def __init__(self):
         self.models_loaded = True
-        
-    async def analyze_market(self, symbol: str) -> Dict[str, Any]:
+
+    async def analyze_market(self, symbol: str) -> dict[str, Any]:
         """Simple market analysis"""
         # Generate realistic-looking analysis
         current_price = np.random.uniform(0.001, 0.01)
         price_change = np.random.uniform(-0.05, 0.05)
-        
+
         return {
             'symbol': symbol,
             'current_price': current_price,
@@ -58,31 +57,31 @@ class SimpleAITradingEngine:
                     'overall_sentiment': np.random.choice(['bullish', 'bearish', 'neutral'])
                 }
             },
-            'timestamp': datetime.now(timezone.utc)
+            'timestamp': datetime.now(UTC)
         }
-    
-    async def make_trading_decision(self, symbol: str) -> Dict[str, Any]:
+
+    async def make_trading_decision(self, symbol: str) -> dict[str, Any]:
         """Make AI trading decision"""
         analysis = await self.analyze_market(symbol)
-        
+
         # Simple decision logic
         price_pred = analysis['ai_predictions']['price_prediction']['predicted_change']
         sentiment = analysis['ai_predictions']['sentiment_analysis']['sentiment_score']
         risk = analysis['ai_predictions']['risk_assessment']['risk_score']
-        
+
         # Calculate signal strength
         signal_strength = (price_pred * 0.5) + (sentiment * 0.3) - (risk * 0.2)
-        
+
         if signal_strength > 0.2:
             signal = "buy"
         elif signal_strength < -0.2:
             signal = "sell"
         else:
             signal = "hold"
-        
+
         confidence = abs(signal_strength)
         quantity = 1000 * confidence  # Base position size
-        
+
         return {
             'symbol': symbol,
             'signal': signal,
@@ -90,7 +89,7 @@ class SimpleAITradingEngine:
             'quantity': quantity,
             'price': analysis['current_price'],
             'reasoning': f"Signal strength: {signal_strength:.3f}",
-            'timestamp': datetime.now(timezone.utc)
+            'timestamp': datetime.now(UTC)
         }
 
 # Global AI engine
@@ -104,9 +103,9 @@ async def analyze_market(request: AnalysisRequest):
         return {
             "status": "success",
             "analysis": analysis,
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": datetime.now(UTC)
         }
-    except Exception as e:
+    except Exception:
         return {"status": "error", "message": "Analysis failed"}
 
 @app.post("/api/ai/trade")
@@ -114,13 +113,13 @@ async def execute_ai_trade(request: TradingRequest):
     """Execute AI-powered trade"""
     try:
         decision = await ai_engine.make_trading_decision(request.symbol)
-        
+
         return {
             "status": "success",
             "decision": decision,
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": datetime.now(UTC)
         }
-    except Exception as e:
+    except Exception:
         return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/predict/{symbol}")
@@ -128,7 +127,7 @@ async def predict_market(symbol: str):
     """AI market prediction"""
     try:
         analysis = await ai_engine.analyze_market(symbol)
-        
+
         return {
             "status": "success",
             "predictions": {
@@ -136,9 +135,9 @@ async def predict_market(symbol: str):
                 "risk": analysis['ai_predictions']['risk_assessment'],
                 "sentiment": analysis['ai_predictions']['sentiment_analysis']
             },
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": datetime.now(UTC)
         }
-    except Exception as e:
+    except Exception:
         return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/dashboard")
@@ -152,11 +151,11 @@ async def get_ai_dashboard():
                 'total_volume': np.random.uniform(100000, 1000000),
                 'active_symbols': len(symbols),
                 'ai_models_active': 3,
-                'last_update': datetime.now(timezone.utc)
+                'last_update': datetime.now(UTC)
             },
             'symbol_analysis': {}
         }
-        
+
         for symbol in symbols:
             analysis = await ai_engine.analyze_market(symbol)
             dashboard_data['symbol_analysis'][symbol] = {
@@ -165,13 +164,13 @@ async def get_ai_dashboard():
                 'signal': (await ai_engine.make_trading_decision(symbol))['signal'],
                 'confidence': (await ai_engine.make_trading_decision(symbol))['confidence']
             }
-        
+
         return {
             "status": "success",
             "dashboard": dashboard_data,
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": datetime.now(UTC)
         }
-    except Exception as e:
+    except Exception:
         return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/status")
@@ -192,13 +191,13 @@ async def get_ai_status():
             "risk_assessment",
             "sentiment_analysis"
         ],
-        "timestamp": datetime.now(timezone.utc)
+        "timestamp": datetime.now(UTC)
     }
 
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.now(timezone.utc)}
+    return {"status": "ok", "timestamp": datetime.now(UTC)}
 
 if __name__ == "__main__":
     import uvicorn

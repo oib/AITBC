@@ -2,8 +2,9 @@
 Integration tests for agent and marketplace interaction
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -34,15 +35,15 @@ class TestAgentMarketplaceIntegration:
         }
 
         # Import and test
+        from app.main import create_app
         from app.routers.agent_router import router as agent_router
         from app.routers.marketplace import router as marketplace_router
-        from app.main import create_app
-        
+
         app = create_app()
         app.include_router(agent_router)
         app.include_router(marketplace_router)
         client = TestClient(app)
-        
+
         # Register agent
         response = client.post("/agents", json={
             "name": "Agent 1",
@@ -50,7 +51,7 @@ class TestAgentMarketplaceIntegration:
             "capabilities": ["gpu", "inference"]
         })
         assert response.status_code == 200
-        
+
         # Check marketplace listing
         response = client.get("/marketplace/listings")
         assert response.status_code == 200

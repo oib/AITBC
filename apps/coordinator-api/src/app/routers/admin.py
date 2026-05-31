@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -27,7 +27,7 @@ async def debug_settings(request: Request) -> dict:
     # SECURITY FIX: Mask API keys before returning to prevent clear-text exposure
     def mask_keys(keys: list[str]) -> list[str]:
         return [key[:8] + "..." if len(key) > 8 else "***" for key in keys]
-    
+
     return {
         "admin_api_keys": mask_keys(settings.admin_api_keys),
         "client_api_keys": mask_keys(settings.client_api_keys),
@@ -55,7 +55,7 @@ async def create_test_miner(
         if existing_miner:
             # Update existing miner to ONLINE
             existing_miner.status = "ONLINE"
-            existing_miner.last_heartbeat = datetime.now(timezone.utc)
+            existing_miner.last_heartbeat = datetime.now(UTC)
             existing_miner.session_token = session_token
             session.add(existing_miner)
             session.commit()
@@ -79,7 +79,7 @@ async def create_test_miner(
             session_token=session_token,
             status="ONLINE",
             inflight=0,
-            last_heartbeat=datetime.now(timezone.utc),
+            last_heartbeat=datetime.now(UTC),
         )
 
         session.add(miner)
@@ -94,7 +94,7 @@ async def create_test_miner(
             "message": "Test miner created successfully",
         }
 
-    except Exception as e:
+    except Exception:
         # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
         logger.error("Failed to create test miner")
         raise HTTPException(status_code=500, detail="Failed to create test miner")
@@ -227,7 +227,7 @@ async def get_system_status(
 
         # Get system info
         import sys
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         import psutil
 
@@ -236,7 +236,7 @@ async def get_system_status(
             "memory_percent": psutil.virtual_memory().percent,
             "disk_percent": psutil.disk_usage("/").percent,
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         return {
@@ -256,7 +256,7 @@ async def get_system_status(
             "status": "healthy" if online_miners > 0 else "degraded",
         }
 
-    except Exception as e:
+    except Exception:
         # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
         logger.error("Failed to get system status")
         return {

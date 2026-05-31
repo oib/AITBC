@@ -1,8 +1,10 @@
 """Contract commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
 from aitbc import AITBCHTTPClient, NetworkError
+
+from ..utils import error, output
 
 
 @click.group()

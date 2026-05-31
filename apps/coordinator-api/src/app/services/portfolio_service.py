@@ -12,12 +12,12 @@ Aggregates:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 import httpx
 
 from aitbc.aitbc_logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,7 @@ class PortfolioPosition:
     chain_id: str
     wallet_id: str
     usd_value: float
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
 class PortfolioService:
@@ -55,7 +55,7 @@ class PortfolioService:
     - Staking positions
     - Active jobs/market positions
     """
-    
+
     def __init__(  # type: ignore[no-untyped-def]
         self,
         wallet_service_url: str = "http://localhost:8012",
@@ -68,12 +68,12 @@ class PortfolioService:
         self.oracle_url = oracle_url
         self.session = session
         self._http_client = httpx.AsyncClient(timeout=30.0)
-    
+
     async def get_portfolio(
         self,
-        user_id: Optional[str] = None,
-        wallet_addresses: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+        wallet_addresses: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Get complete portfolio for a user or set of wallets.
         
@@ -94,7 +94,7 @@ class PortfolioService:
                 return {
                     "error": "Must provide user_id or wallet_addresses"
                 }
-            
+
             if not wallets:
                 return {
                     "total_value_usd": 0,
@@ -102,18 +102,18 @@ class PortfolioService:
                     "positions": [],
                     "chains": []
                 }
-            
+
             # Aggregate holdings across all wallets
             positions = []
             chain_totals = {}
             total_native = 0
             total_staked = 0
             total_locked = 0
-            
+
             for wallet in wallets:
                 wallet_positions = await self._get_wallet_positions(wallet)
                 positions.extend(wallet_positions)
-                
+
                 for pos in wallet_positions:
                     if pos.asset_type == "native":
                         total_native += pos.amount
@@ -121,17 +121,17 @@ class PortfolioService:
                         total_staked += pos.amount
                     elif pos.asset_type == "bridge_locked":
                         total_locked += pos.amount
-                    
+
                     # Track by chain
                     chain = pos.chain_id
                     if chain not in chain_totals:
                         chain_totals[chain] = {"native": 0, "staked": 0, "locked": 0}
                     chain_totals[chain][pos.asset_type] = chain_totals[chain].get(pos.asset_type, 0) + pos.amount
-            
+
             # Calculate USD values
             token_price = await self._get_token_price("AITBC/USD")
             total_value_usd = (total_native + total_staked + total_locked) * token_price
-            
+
             return {
                 "total_value_usd": round(total_value_usd, 2),
                 "token_price_usd": token_price,
@@ -163,21 +163,21 @@ class PortfolioService:
                     "total_locked": total_locked,
                     "total_tokens": total_native + total_staked + total_locked
                 },
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
-            
+
         except Exception as e:
             logger.error(f"Portfolio aggregation failed: {e}")
             return {
                 "error": str(e),
                 "total_value_usd": 0
             }
-    
+
     async def get_wallet_breakdown(
         self,
         address: str,
         chain_id: str = "ait-mainnet"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get detailed breakdown for a single wallet"""
         try:
             # Get balance from blockchain
@@ -185,40 +185,40 @@ class PortfolioService:
                 f"{self.blockchain_url}/rpc/accounts/{address}",  # type: ignore[attr-defined]
                 params={"chain_id": chain_id}
             )
-            
+
             if response.status_code != 200:
                 return {"error": "Failed to fetch wallet data"}
-            
+
             account_data = response.json()
             balance = account_data.get("balance", 0)
-            
+
             # Get staking info
             staking_response = await self._http_client.get(
                 f"{self.blockchain_url}/rpc/staking/{address}",  # type: ignore[attr-defined]
                 params={"chain_id": chain_id}
             )
-            
+
             staked = 0
             if staking_response.status_code == 200:
                 staking_data = staking_response.json()
                 staked = staking_data.get("total_staked", 0)
-            
+
             # Get detailed balance breakdown
             breakdown_response = await self._http_client.get(
                 f"{self.blockchain_url}/rpc/balance/{address}",  # type: ignore[attr-defined]
                 params={"chain_id": chain_id}
             )
-            
+
             bridge_locked = 0
             if breakdown_response.status_code == 200:
                 breakdown = breakdown_response.json()
                 bridge_locked = breakdown.get("bridge_locked", 0)
-            
+
             # Get token price
             token_price = await self._get_token_price("AITBC/USD")
-            
+
             total_tokens = balance + staked + bridge_locked
-            
+
             return {
                 "address": address,
                 "chain_id": chain_id,
@@ -228,14 +228,14 @@ class PortfolioService:
                 "total_tokens": total_tokens,
                 "total_value_usd": round(total_tokens * token_price, 2),
                 "token_price_usd": token_price,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
-            
+
         except Exception as e:
             logger.error(f"Wallet breakdown failed for {address}: {e}")
             return {"error": str(e)}
-    
-    async def _get_user_wallets(self, user_id: str) -> List[Dict[str, Any]]:
+
+    async def _get_user_wallets(self, user_id: str) -> list[dict[str, Any]]:
         """Fetch all wallets for a user"""
         try:
             # This would query the wallet service or database
@@ -244,20 +244,20 @@ class PortfolioService:
                 f"{self.wallet_url}/wallets",  # type: ignore[attr-defined]
                 headers={"X-User-ID": user_id}
             )
-            
+
             if response.status_code == 200:
                 return response.json().get("wallets", [])  # type: ignore[no-any-return]
-            
+
             return []
-            
+
         except Exception as e:
             logger.warning(f"Failed to fetch user wallets: {e}")
             return []
-    
+
     async def _get_wallets_by_address(
         self,
-        addresses: List[str]
-    ) -> List[Dict[str, Any]]:
+        addresses: list[str]
+    ) -> list[dict[str, Any]]:
         """Fetch wallet details by addresses"""
         wallets = []
         for addr in addresses:
@@ -267,27 +267,27 @@ class PortfolioService:
                 "chain_id": "ait-mainnet"
             })
         return wallets
-    
+
     async def _get_wallet_positions(
         self,
-        wallet: Dict[str, Any]
-    ) -> List[PortfolioPosition]:
+        wallet: dict[str, Any]
+    ) -> list[PortfolioPosition]:
         """Get all positions for a wallet"""
         positions = []  # type: ignore[var-annotated]
-        
+
         try:
             address = wallet.get("address")
             chain_id = wallet.get("chain_id", "ait-mainnet")
             wallet_id = wallet.get("id", address)
-            
+
             # Get balance breakdown
             breakdown = await self.get_wallet_breakdown(address, chain_id)  # type: ignore[arg-type]
-            
+
             if "error" in breakdown:
                 return positions
-            
+
             token_price = breakdown.get("token_price_usd", 0)
-            
+
             # Native balance
             if breakdown.get("available_balance", 0) > 0:
                 positions.append(PortfolioPosition(
@@ -298,7 +298,7 @@ class PortfolioService:
                     usd_value=breakdown["available_balance"] * token_price,
                     details={"address": address}
                 ))
-            
+
             # Staked
             if breakdown.get("staked", 0) > 0:
                 positions.append(PortfolioPosition(
@@ -309,7 +309,7 @@ class PortfolioService:
                     usd_value=breakdown["staked"] * token_price,
                     details={"address": address}
                 ))
-            
+
             # Bridge locked
             if breakdown.get("bridge_locked", 0) > 0:
                 positions.append(PortfolioPosition(
@@ -320,12 +320,12 @@ class PortfolioService:
                     usd_value=breakdown["bridge_locked"] * token_price,
                     details={"address": address}
                 ))
-            
+
         except Exception as e:
             logger.warning(f"Failed to get positions for wallet {wallet.get('id')}: {e}")
-        
+
         return positions
-    
+
     async def _get_token_price(self, pair: str = "AITBC/USD") -> float:
         """Get token price from oracle"""
         try:
@@ -333,20 +333,20 @@ class PortfolioService:
                 f"{self.oracle_url}/oracle/price/{pair}",
                 timeout=5.0
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 return data.get("price", 1.0)  # type: ignore[no-any-return]
-            
+
             return 1.0  # Default price
-            
+
         except Exception as e:
             logger.warning(f"Failed to get token price: {e}")
             return 1.0
 
 
 # Global instance
-_portfolio_service: Optional[PortfolioService] = None
+_portfolio_service: PortfolioService | None = None
 
 
 def get_portfolio_service() -> PortfolioService:

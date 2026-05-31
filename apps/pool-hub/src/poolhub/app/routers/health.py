@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from poolhub.repositories.miner_repository import MinerRepository
+
 from ..deps import db_session_dep, redis_dep
 from ..prometheus import miners_online_gauge
-from poolhub.repositories.miner_repository import MinerRepository
 from ..schemas import HealthResponse
 
 router = APIRouter(tags=["health"], prefix="/v1")

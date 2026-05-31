@@ -6,7 +6,7 @@ Python SDK for enterprise clients to integrate with AITBC platform
 import hashlib
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -162,7 +162,7 @@ class EnterpriseClient:
                 # Store tokens
                 self.access_token = auth_data["access_token"]
                 self.refresh_token = auth_data.get("refresh_token")
-                self.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=auth_data["expires_in"])
+                self.token_expires_at = datetime.now(UTC) + timedelta(seconds=auth_data["expires_in"])
 
                 # Update session headers
                 self.session.headers["Authorization"] = f"Bearer {self.access_token}"
@@ -175,7 +175,7 @@ class EnterpriseClient:
     async def _ensure_valid_token(self):
         """Ensure we have a valid access token"""
 
-        if not self.access_token or (self.token_expires_at and datetime.now(timezone.utc) >= self.token_expires_at):
+        if not self.access_token or (self.token_expires_at and datetime.now(UTC) >= self.token_expires_at):
             await self.authenticate()
 
     async def create_integration(self, integration_config: IntegrationConfig) -> APIResponse:

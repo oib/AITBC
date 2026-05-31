@@ -10,13 +10,10 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
-from ..services.swarm_service import get_swarm_service, NodeStatus, TaskStatus
-
 
 router = APIRouter(prefix="/swarm", tags=["swarm"])
 
@@ -25,7 +22,7 @@ class RegisterNodeRequest(BaseModel):
     """Request to register a node"""
     node_id: str
     address: str
-    capabilities: List[str] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
     cpu_cores: int = 4
     memory_gb: int = 16
     gpu_count: int = 0
@@ -34,8 +31,8 @@ class RegisterNodeRequest(BaseModel):
 class SubmitTaskRequest(BaseModel):
     """Request to submit a task"""
     task_type: str
-    payload: Dict[str, Any]
-    required_capabilities: Optional[List[str]] = None
+    payload: dict[str, Any]
+    required_capabilities: list[str] | None = None
     priority: int = Field(default=1, ge=1, le=10)
 
 
@@ -44,22 +41,22 @@ class ReportTaskRequest(BaseModel):
     task_id: str
     node_id: str
     status: str
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
 
 
 class CreateClusterRequest(BaseModel):
     """Request to create a cluster"""
     name: str
     description: str = ""
-    node_ids: List[str] = Field(default_factory=list)
+    node_ids: list[str] = Field(default_factory=list)
 
 
 @router.post("/nodes/register", summary="Register compute node")
 async def register_node(
     request: Request,
     req: RegisterNodeRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Register a compute node with the swarm"""
     return {
         "node_id": req.node_id,
@@ -73,7 +70,7 @@ async def register_node(
 async def heartbeat(
     request: Request,
     node_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Send heartbeat from a node"""
     return {
         "node_id": node_id,
@@ -84,9 +81,9 @@ async def heartbeat(
 @router.get("/nodes", summary="List nodes")
 async def list_nodes(
     request: Request,
-    status: Optional[str] = None,
-    capability: Optional[str] = None
-) -> Dict[str, Any]:
+    status: str | None = None,
+    capability: str | None = None
+) -> dict[str, Any]:
     """List all compute nodes with optional filters"""
     return {
         "nodes": [],
@@ -102,7 +99,7 @@ async def list_nodes(
 async def get_node(
     request: Request,
     node_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get details of a specific node"""
     return {
         "node_id": node_id,
@@ -116,7 +113,7 @@ async def get_node(
 async def submit_task(
     request: Request,
     req: SubmitTaskRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Submit a task to the swarm"""
     return {
         "task_id": "task-001",
@@ -129,7 +126,7 @@ async def submit_task(
 async def report_task(
     request: Request,
     req: ReportTaskRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Report task status update from a node"""
     return {
         "task_id": req.task_id,
@@ -142,7 +139,7 @@ async def report_task(
 async def get_task(
     request: Request,
     task_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get task details by ID"""
     return {
         "task_id": task_id,
@@ -154,9 +151,9 @@ async def get_task(
 @router.get("/tasks", summary="List tasks")
 async def list_tasks(
     request: Request,
-    status: Optional[str] = None,
-    node_id: Optional[str] = None
-) -> Dict[str, Any]:
+    status: str | None = None,
+    node_id: str | None = None
+) -> dict[str, Any]:
     """List all tasks with optional filters"""
     return {
         "tasks": [],
@@ -172,7 +169,7 @@ async def list_tasks(
 async def create_cluster(
     request: Request,
     req: CreateClusterRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a new compute cluster"""
     return {
         "cluster_id": "cluster-001",
@@ -183,7 +180,7 @@ async def create_cluster(
 
 
 @router.get("/clusters", summary="List clusters")
-async def list_clusters(request: Request) -> Dict[str, Any]:
+async def list_clusters(request: Request) -> dict[str, Any]:
     """List all compute clusters"""
     return {
         "clusters": [],
@@ -195,7 +192,7 @@ async def list_clusters(request: Request) -> Dict[str, Any]:
 async def get_cluster(
     request: Request,
     cluster_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get cluster details by ID"""
     return {
         "cluster_id": cluster_id,
@@ -210,7 +207,7 @@ async def add_node_to_cluster(
     request: Request,
     cluster_id: str,
     node_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Add a node to a cluster"""
     return {
         "cluster_id": cluster_id,
@@ -220,7 +217,7 @@ async def add_node_to_cluster(
 
 
 @router.get("/stats", summary="Get statistics")
-async def get_stats(request: Request) -> Dict[str, Any]:
+async def get_stats(request: Request) -> dict[str, Any]:
     """Get swarm statistics"""
     return {
         "total_nodes": 0,
@@ -231,7 +228,7 @@ async def get_stats(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/health", summary="Health check")
-async def swarm_health(request: Request) -> Dict[str, Any]:
+async def swarm_health(request: Request) -> dict[str, Any]:
     """Check swarm service health"""
     return {
         "status": "healthy",

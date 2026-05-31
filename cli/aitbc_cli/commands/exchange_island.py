@@ -3,22 +3,19 @@ Exchange Island CLI Commands
 Commands for trading AIT coin against BTC and ETH on the island exchange
 """
 
-import click
-import json
 import hashlib
-import socket
+import json
 import os
+import socket
 from datetime import datetime
-from decimal import Decimal
-from typing import Optional
-from ..utils import output, error, success, info, warning
-from ..utils.island_credentials import (
-    load_island_credentials, get_rpc_endpoint, get_chain_id,
-    get_island_id, get_island_name
-)
+
+import click
 
 # Import shared modules
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
+from ..utils import error, info, output, success
+from ..utils.island_credentials import get_chain_id, get_island_id, get_rpc_endpoint, load_island_credentials
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -49,7 +46,7 @@ def exchange_island():
 @click.argument('quote_currency', type=click.Choice(['BTC', 'ETH']))
 @click.option('--max-price', type=float, help='Maximum price to pay per AIT')
 @click.pass_context
-def buy(ctx, ait_amount: float, quote_currency: str, max_price: Optional[float]):
+def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
     """Buy AIT with BTC or ETH"""
     try:
         if ait_amount <= 0:
@@ -68,11 +65,11 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: Optional[float])
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-        
+
         # Get public key for node ID generation
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
                 for key_id, key_data in keys.items():
@@ -113,13 +110,13 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: Optional[float])
         try:
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             result = http_client.post("/transaction", json=buy_order_data)
-            success(f"Buy order created successfully!")
+            success("Buy order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Buying {ait_amount} AIT with {quote_currency}")
-            
+
             if max_price:
                 success(f"Max price: {max_price:.8f} {quote_currency}/AIT")
-            
+
             order_info = {
                 "Order ID": order_id,
                 "Pair": pair,
@@ -148,7 +145,7 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: Optional[float])
 @click.argument('quote_currency', type=click.Choice(['BTC', 'ETH']))
 @click.option('--min-price', type=float, help='Minimum price to accept per AIT')
 @click.pass_context
-def sell(ctx, ait_amount: float, quote_currency: str, min_price: Optional[float]):
+def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
     """Sell AIT for BTC or ETH"""
     try:
         if ait_amount <= 0:
@@ -167,11 +164,11 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: Optional[float]
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-        
+
         # Get public key for node ID generation
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
                 for key_id, key_data in keys.items():
@@ -212,13 +209,13 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: Optional[float]
         try:
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             result = http_client.post("/transaction", json=sell_order_data)
-            success(f"Sell order created successfully!")
+            success("Sell order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Selling {ait_amount} AIT for {quote_currency}")
-            
+
             if min_price:
                 success(f"Min price: {min_price:.8f} {quote_currency}/AIT")
-            
+
             order_info = {
                 "Order ID": order_id,
                 "Pair": pair,
@@ -264,26 +261,26 @@ def orderbook(ctx, pair: str, limit: int):
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             transactions = http_client.get("/transactions", params=params)
-                    
+
             # Separate buy and sell orders
             buy_orders = []
             sell_orders = []
-            
+
             for order in transactions:
                 if order.get('side') == 'buy':
                     buy_orders.append(order)
                 elif order.get('side') == 'sell':
                     sell_orders.append(order)
-            
+
             # Sort buy orders by price descending (highest first)
             buy_orders.sort(key=lambda x: x.get('max_price', 0), reverse=True)
             # Sort sell orders by price ascending (lowest first)
             sell_orders.sort(key=lambda x: x.get('min_price', float('inf')))
-            
+
             if not buy_orders and not sell_orders:
                 info(f"No open orders for {pair}")
                 return
-            
+
             # Display sell orders (asks)
             if sell_orders:
                 asks_data = []
@@ -295,9 +292,9 @@ def orderbook(ctx, pair: str, limit: int):
                         "User": order.get('user_id', '')[:16] + "...",
                         "Order": order.get('order_id', '')[:16] + "..."
                     })
-                
+
                 output(asks_data, ctx.obj.get('output_format', 'table'), title=f"Sell Orders (Asks) - {pair}")
-            
+
             # Display buy orders (bids)
             if buy_orders:
                 bids_data = []
@@ -309,9 +306,9 @@ def orderbook(ctx, pair: str, limit: int):
                         "User": order.get('user_id', '')[:16] + "...",
                         "Order": order.get('order_id', '')[:16] + "..."
                     })
-                
+
                 output(bids_data, ctx.obj.get('output_format', 'table'), title=f"Buy Orders (Bids) - {pair}")
-            
+
             # Calculate spread if both exist
             if sell_orders and buy_orders:
                 best_ask = sell_orders[0].get('min_price', 0)
@@ -345,7 +342,7 @@ def rates(ctx):
         # Query blockchain for exchange orders to calculate rates
         try:
             rates_data = []
-            
+
             for pair in SUPPORTED_PAIRS:
                 params = {
                     'transaction_type': 'exchange',
@@ -357,18 +354,18 @@ def rates(ctx):
 
                 http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
                 orders = http_client.get("/transactions", params=params)
-                
+
                 # Calculate rates from order book
                 buy_orders = [o for o in orders if o.get('side') == 'buy']
                 sell_orders = [o for o in orders if o.get('side') == 'sell']
-                
+
                 # Get best bid and ask
                 best_bid = max([o.get('max_price', 0) for o in buy_orders]) if buy_orders else 0
                 best_ask = min([o.get('min_price', float('inf')) for o in sell_orders]) if sell_orders else 0
-                
+
                 # Calculate mid price
                 mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < float('inf') else 0
-                
+
                 rates_data.append({
                     "Pair": pair,
                     "Best Bid": f"{best_bid:.8f}" if best_bid > 0 else "N/A",
@@ -377,7 +374,7 @@ def rates(ctx):
                     "Buy Orders": len(buy_orders),
                     "Sell Orders": len(sell_orders)
                 })
-            
+
             output(rates_data, ctx.obj.get('output_format', 'table'), title="Exchange Rates")
 
         except Exception as e:
@@ -394,7 +391,7 @@ def rates(ctx):
 @click.option('--status', help='Filter by status (open, filled, partially_filled, cancelled)')
 @click.option('--pair', type=click.Choice(SUPPORTED_PAIRS), help='Filter by trading pair')
 @click.pass_context
-def orders(ctx, user: Optional[str], status: Optional[str], pair: Optional[str]):
+def orders(ctx, user: str | None, status: str | None, pair: str | None):
     """List exchange orders"""
     try:
         # Load island credentials
@@ -419,11 +416,11 @@ def orders(ctx, user: Optional[str], status: Optional[str], pair: Optional[str])
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             orders = http_client.get("/transactions", params=params)
-            
+
             if not orders:
                 info("No exchange orders found")
                 return
-            
+
             # Format output
             orders_data = []
             for order in orders:
@@ -437,7 +434,7 @@ def orders(ctx, user: Optional[str], status: Optional[str], pair: Optional[str])
                     "User": order.get('user_id', '')[:16] + "...",
                     "Created": order.get('created_at', '')[:19]
                 })
-            
+
             output(orders_data, ctx.obj.get('output_format', 'table'), title=f"Exchange Orders ({island_id[:16]}...)")
         except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
@@ -466,10 +463,10 @@ def cancel(ctx, order_id: str):
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-        
+
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
                 for key_id, key_data in keys.items():

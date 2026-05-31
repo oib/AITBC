@@ -1,9 +1,8 @@
 """Tests for contract event subscriber."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
-import sys
+from unittest.mock import AsyncMock, Mock
 
+import pytest
 from blockchain_event_bridge.event_subscribers.contracts import ContractEventSubscriber
 
 
@@ -23,8 +22,8 @@ async def test_contract_subscriber_initialization():
 @pytest.mark.asyncio
 async def test_contract_subscriber_set_bridge():
     """Test setting bridge on contract subscriber."""
-    from blockchain_event_bridge.config import Settings
     from blockchain_event_bridge.bridge import BlockchainEventBridge
+    from blockchain_event_bridge.config import Settings
 
     settings = Settings()
     subscriber = ContractEventSubscriber(settings)
@@ -61,8 +60,8 @@ async def test_contract_subscriber_stop():
 @pytest.mark.asyncio
 async def test_process_staking_event():
     """Test processing staking event."""
-    from blockchain_event_bridge.config import Settings
     from blockchain_event_bridge.bridge import BlockchainEventBridge
+    from blockchain_event_bridge.config import Settings
 
     settings = Settings()
     subscriber = ContractEventSubscriber(settings)
@@ -84,8 +83,8 @@ async def test_process_staking_event():
 @pytest.mark.asyncio
 async def test_process_performance_event():
     """Test processing performance event."""
-    from blockchain_event_bridge.config import Settings
     from blockchain_event_bridge.bridge import BlockchainEventBridge
+    from blockchain_event_bridge.config import Settings
 
     settings = Settings()
     subscriber = ContractEventSubscriber(settings)

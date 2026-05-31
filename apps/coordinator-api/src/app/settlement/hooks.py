@@ -3,7 +3,7 @@ Settlement hooks for coordinator API integration
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from aitbc import get_logger
@@ -210,7 +210,7 @@ class SettlementHook:
         """Generate a unique nonce for settlement"""
         # This would generate a unique nonce
         # For now, use timestamp
-        return int(datetime.now(timezone.utc).timestamp())
+        return int(datetime.now(UTC).timestamp())
 
     async def _sign_settlement_message(self, job: Job) -> str:
         """Sign the settlement message"""

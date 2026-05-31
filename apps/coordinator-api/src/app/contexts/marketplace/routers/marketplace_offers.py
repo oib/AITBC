@@ -12,11 +12,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from aitbc import get_logger
+
 from ....deps import require_admin_key
 from ....domain import Miner
-from ..domain.marketplace import MarketplaceOffer
 from ....schemas import MarketplaceOfferView
 from ....storage import get_session
+from ..domain.marketplace import MarketplaceOffer
 
 logger = get_logger(__name__)
 

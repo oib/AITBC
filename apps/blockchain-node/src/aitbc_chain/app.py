@@ -5,9 +5,11 @@ import os
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import settings
@@ -15,11 +17,14 @@ from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
 from .logger import get_logger
 from .mempool import init_mempool
-from .metrics import metrics_registry, block_processing_duration, block_height, block_validation_duration, block_propagation_duration, transaction_processing_duration, transactions_total, sync_duration, sync_blocks_imported, rpc_request_duration, rpc_requests_total
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from .rpc.router import router as rpc_router, set_poa_proposer
-from .rpc.websocket import router as websocket_router
+from .metrics import (
+    metrics_registry,
+)
 from .network.island_manager import create_island_manager
+from .rpc.router import router as rpc_router
+from .rpc.router import set_poa_proposer
+from .rpc.websocket import router as websocket_router
+
 # from .escrow_routes import router as escrow_router  # Not yet implemented
 
 _app_logger = get_logger("aitbc_chain.app")
@@ -129,9 +134,9 @@ async def lifespan(app: FastAPI):
     block_production_enabled = settings.enable_block_production
     if block_production_override is not None:
         block_production_enabled = block_production_override.strip().lower() in {"1", "true", "yes", "on"}
-    
+
     _app_logger.info(f"Block production enabled: {block_production_enabled}, proposer_id: {settings.proposer_id}")
-    
+
     # Initialize PoA proposer for mining integration
     if block_production_enabled and settings.proposer_id:
         try:
@@ -164,7 +169,7 @@ async def lifespan(app: FastAPI):
             })
         except Exception as e:
             _app_logger.warning(f"Failed to initialize PoA proposer for mining: {e}")
-    
+
     # Initialize balance tracker
     try:
         from .services.balance_tracker import init_balance_tracker
@@ -172,7 +177,7 @@ async def lifespan(app: FastAPI):
         _app_logger.info("Balance tracker initialized")
     except Exception as e:
         _app_logger.warning(f"Failed to initialize balance tracker: {e}")
-    
+
     _app_logger.info("Blockchain node started", extra={"supported_chains": settings.supported_chains})
     try:
         yield

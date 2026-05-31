@@ -3,14 +3,14 @@
 QA Cycle: Run tests, exercise scenarios, find bugs, perform code reviews.
 Runs periodically to ensure repository health and discover regressions.
 """
-import os
-import subprocess
 import json
-import sys
-import shutil
-import time
+import os
 import random
-from datetime import datetime, timezone
+import shutil
+import subprocess
+import sys
+import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Jitter: random delay up to 15 minutes (900 seconds)
@@ -46,7 +46,7 @@ API_BASE = os.getenv('GITEA_API_BASE', 'http://gitea.bubuit.net:3000/api/v1')
 REPO = 'oib/aitbc'
 
 def log(msg):
-    now = datetime.now(timezone.utc).isoformat() + 'Z'
+    now = datetime.now(UTC).isoformat() + 'Z'
     Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
     with open(LOG_FILE, 'a') as f:
         f.write(f"[{now}] {msg}\n")
@@ -122,8 +122,8 @@ def run_lint():
         log("flake8 not installed; skipping lint.")
 
 def query_api(path, method='GET', data=None):
-    import urllib.request
     import urllib.error
+    import urllib.request
     url = f"{API_BASE}/{path}"
     headers = {'Authorization': f'token {GITEA_TOKEN}'}
     if data:
@@ -169,7 +169,7 @@ def synthesize_status():
             log(f"PR #{num} has failing checks: {', '.join(s.get('context','?') for s in failing)}")
 
 def main():
-    now = datetime.now(timezone.utc).isoformat() + 'Z'
+    now = datetime.now(UTC).isoformat() + 'Z'
     log(f"\n=== QA Cycle start: {now} ===")
     if not GITEA_TOKEN:
         log("GITEA_TOKEN not set; aborting.")
@@ -184,7 +184,7 @@ def main():
     run_lint()
     review_my_open_prs()
     synthesize_status()
-    log(f"=== QA Cycle complete ===")
+    log("=== QA Cycle complete ===")
 
 if __name__ == '__main__':
     main()

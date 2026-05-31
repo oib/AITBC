@@ -4,18 +4,18 @@ Account-related RPC endpoints.
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
-from fastapi import HTTPException, Request
-from fastapi import status
+from fastapi import HTTPException, Request, status
 from sqlmodel import select
 
-from ..database import session_scope
-from ..models import Account, Transaction
-from ..logger import get_logger
-from .utils import get_chain_id
 from aitbc.rate_limiting import rate_limit
+
+from ..database import session_scope
+from ..logger import get_logger
+from ..models import Account, Transaction
+from .utils import get_chain_id
 
 _logger = get_logger(__name__)
 
@@ -23,15 +23,15 @@ _logger = get_logger(__name__)
 @rate_limit(rate=200, per=60)
 async def get_account(
     request: Request, address: str, chain_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
-    
+
     with session_scope() as session:
         account = session.exec(select(Account).where(Account.address == address).where(Account.chain_id == chain_id)).first()
         if not account:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
-        
+
         return {
             "address": account.address,
             "balance": account.balance,
@@ -43,7 +43,7 @@ async def get_account(
 @rate_limit(rate=200, per=60)
 async def get_account_alias(
     request: Request, address: str, chain_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get account information (alias endpoint)"""
     return await get_account(request, address, chain_id)
 
@@ -53,7 +53,7 @@ async def get_account_details(
     request: Request,
     address: str,
     chain_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get account details including balance and nonce.
     
@@ -66,12 +66,12 @@ async def get_account_details(
     """
     chain_id = get_chain_id(chain_id)
     address = address.lower().strip()
-    
+
     with session_scope() as session:
         account = session.get(Account, (chain_id, address))
         if not account:
             raise HTTPException(status_code=404, detail=f"Account {address} not found on chain {chain_id}")
-        
+
         return {
             "success": True,
             "address": account.address,
@@ -86,7 +86,7 @@ async def get_account_details(
 async def create_account(
     request: Request,
     account_data: dict
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create or register a new account on the blockchain.
     
@@ -103,19 +103,19 @@ async def create_account(
     """
     chain_id = get_chain_id(account_data.get("chain_id"))
     address = account_data.get("address")
-    
+
     if not address:
         raise HTTPException(status_code=400, detail="address is required")
-    
+
     # Normalize address (ensure lowercase hex)
     address = address.lower().strip()
     if not address.startswith("0x"):
         address = "0x" + address
-    
+
     # Validate address format (should be hex)
     if not all(c in "0123456789abcdef" for c in address[2:]):
         raise HTTPException(status_code=400, detail="address must be a valid hex string")
-    
+
     with session_scope() as session:
         # Check if account already exists
         existing_account = session.get(Account, (chain_id, address))
@@ -129,7 +129,7 @@ async def create_account(
                 "created": False,
                 "message": "Account already exists"
             }
-        
+
         # Create new account with zero balance
         new_account = Account(
             chain_id=chain_id,
@@ -139,7 +139,7 @@ async def create_account(
         )
         session.add(new_account)
         session.commit()
-        
+
         return {
             "success": True,
             "address": address,
@@ -155,7 +155,7 @@ async def create_account(
 async def faucet_request(
     request: Request,
     faucet_data: dict
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Request test tokens from the blockchain faucet.
     
@@ -174,23 +174,23 @@ async def faucet_request(
     chain_id = get_chain_id(faucet_data.get("chain_id"))
     address = faucet_data.get("address")
     amount = faucet_data.get("amount", 1000000)  # Default 1M units
-    
+
     if not address:
         raise HTTPException(status_code=400, detail="address is required")
-    
+
     # Normalize address
     address = address.lower().strip()
     if not address.startswith("0x"):
         address = "0x" + address
-    
+
     # Validate address format
     if not all(c in "0123456789abcdef" for c in address[2:]):
         raise HTTPException(status_code=400, detail="address must be a valid hex string")
-    
+
     # Cap max faucet amount
     if amount > 10000000:  # Max 10M per request
         amount = 10000000
-    
+
     with session_scope() as session:
         # Check if account exists
         account = session.get(Account, (chain_id, address))
@@ -200,17 +200,17 @@ async def faucet_request(
             session.add(account)
             session.flush()
             _logger.info(f"Faucet auto-created account: {address}")
-        
+
         # Generate faucet transaction (special minting transaction)
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         tx_hash = hashlib.sha256(
             f"faucet:{address}:{amount}:{timestamp.isoformat()}:{uuid.uuid4()}".encode()
         ).hexdigest()
-        
+
         # Apply balance update directly (faucet is special system tx)
         account.balance += amount
         session.add(account)
-        
+
         # Create faucet transaction record
         faucet_tx = Transaction(
             chain_id=chain_id,
@@ -228,7 +228,7 @@ async def faucet_request(
         )
         session.add(faucet_tx)
         session.commit()
-        
+
         return {
             "success": True,
             "address": address,
@@ -244,7 +244,7 @@ async def get_balance_breakdown(
     request: Request,
     address: str,
     chain_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get detailed balance breakdown including:
     - Available balance
@@ -255,16 +255,16 @@ async def get_balance_breakdown(
     try:
         from ..services.balance_tracker import get_balance_tracker
         tracker = get_balance_tracker()
-        
+
         if not tracker:
             raise HTTPException(status_code=503, detail="Balance tracker not initialized")
-        
+
         chain_id = get_chain_id(chain_id)
         address = address.lower().strip()
-        
+
         breakdown = tracker.get_balance_breakdown(address, chain_id)
         return breakdown
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -277,7 +277,7 @@ async def reconcile_balance(
     request: Request,
     address: str,
     chain_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Reconcile account balance against all recorded operations.
     
@@ -287,16 +287,16 @@ async def reconcile_balance(
     try:
         from ..services.balance_tracker import get_balance_tracker
         tracker = get_balance_tracker()
-        
+
         if not tracker:
             raise HTTPException(status_code=503, detail="Balance tracker not initialized")
-        
+
         chain_id = get_chain_id(chain_id)
         address = address.lower().strip()
-        
+
         result = tracker.reconcile_balance(address, chain_id)
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:

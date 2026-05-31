@@ -1,12 +1,14 @@
 """Chain management commands for AITBC CLI"""
 
+
 import click
 from click import echo
-from typing import Optional
-from ..core.chain_manager import ChainManager, ChainNotFoundError, NodeNotAvailableError
-from ..core.config import MultiChainConfig, load_multichain_config
+
+from ..core.chain_manager import ChainManager, ChainNotFoundError
+from ..core.config import load_multichain_config
 from ..models.chain import ChainType
-from ..utils import output, error, success
+from ..utils import error, output, success
+
 
 @click.group()
 def chain():
@@ -14,10 +16,10 @@ def chain():
     pass
 
 @chain.command()
-@click.option('--type', 'chain_type', type=click.Choice(['main', 'topic', 'private', 'all']), 
+@click.option('--type', 'chain_type', type=click.Choice(['main', 'topic', 'private', 'all']),
               default='all', help='Filter by chain type')
 @click.option('--show-private', is_flag=True, help='Show private chains')
-@click.option('--sort', type=click.Choice(['id', 'size', 'nodes', 'created']), 
+@click.option('--sort', type=click.Choice(['id', 'size', 'nodes', 'created']),
               default='id', help='Sort by field')
 @click.pass_context
 def list(ctx, chain_type, show_private, sort):
@@ -25,7 +27,7 @@ def list(ctx, chain_type, show_private, sort):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         # Get chains
         import asyncio
         chains = asyncio.run(chain_manager.list_chains(
@@ -33,11 +35,11 @@ def list(ctx, chain_type, show_private, sort):
             include_private=show_private,
             sort_by=sort
         ))
-        
+
         if not chains:
             output("No chains found", ctx.obj.get('output_format', 'table'))
             return
-        
+
         # Format output
         chains_data = [
             {
@@ -54,9 +56,9 @@ def list(ctx, chain_type, show_private, sort):
             }
             for chain in chains
         ]
-        
+
         output(chains_data, ctx.obj.get('output_format', 'table'), title="Available Chains")
-        
+
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
         raise click.Abort()
@@ -70,13 +72,13 @@ def status(ctx, chain_id, detailed):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         import asyncio
-        
+
         if chain_id:
             # Get specific chain status
             chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=detailed))
-            
+
             status_data = {
                 "Chain ID": chain_info.id,
                 "Name": chain_info.name,
@@ -86,7 +88,7 @@ def status(ctx, chain_id, detailed):
                 "Active Nodes": chain_info.active_nodes,
                 "Total Nodes": chain_info.node_count
             }
-            
+
             if detailed:
                 status_data.update({
                     "Consensus": chain_info.consensus_algorithm.value,
@@ -94,16 +96,16 @@ def status(ctx, chain_id, detailed):
                     "Gas Price": f"{chain_info.gas_price / 1e9:.1f} gwei",
                     "Memory Usage": f"{chain_info.memory_usage_mb:.1f}MB"
                 })
-            
+
             output(status_data, ctx.obj.get('output_format', 'table'), title=f"Chain Status: {chain_id}")
         else:
             # Get all chains status
             chains = asyncio.run(chain_manager.list_chains())
-            
+
             if not chains:
                 output({"message": "No chains found"}, ctx.obj.get('output_format', 'table'))
                 return
-            
+
             status_list = []
             for chain in chains:
                 status_info = {
@@ -115,10 +117,10 @@ def status(ctx, chain_id, detailed):
                     "Active Nodes": chain.active_nodes
                 }
                 status_list.append(status_info)
-            
+
             # Simple output without formatting
             echo(status_list)
-        
+
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
         raise click.Abort()
@@ -136,10 +138,10 @@ def info(ctx, chain_id, detailed, metrics):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         import asyncio
         chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed, metrics))
-        
+
         # Basic information
         basic_info = {
             "Chain ID": chain_info.id,
@@ -152,9 +154,9 @@ def info(ctx, chain_id, detailed, metrics):
             "Block Height": chain_info.block_height,
             "Size": f"{chain_info.size_mb:.1f}MB"
         }
-        
+
         output(basic_info, ctx.obj.get('output_format', 'table'), title=f"Chain Information: {chain_id}")
-        
+
         if detailed:
             # Network details
             network_info = {
@@ -169,9 +171,9 @@ def info(ctx, chain_id, detailed, metrics):
                 "Privacy": chain_info.privacy.visibility,
                 "Access Control": chain_info.privacy.access_control
             }
-            
+
             output(network_info, ctx.obj.get('output_format', 'table'), title="Network Details")
-        
+
         if metrics:
             # Performance metrics
             performance_info = {
@@ -183,9 +185,9 @@ def info(ctx, chain_id, detailed, metrics):
                 "Memory Usage": f"{chain_info.memory_usage_mb:.1f}MB",
                 "Disk Usage": f"{chain_info.disk_usage_mb:.1f}MB"
             }
-            
+
             output(performance_info, ctx.obj.get('output_format', 'table'), title="Performance Metrics")
-        
+
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
         raise click.Abort()
@@ -202,17 +204,18 @@ def create(ctx, config_file, node, dry_run):
     """Create a new chain from configuration file"""
     try:
         import yaml
+
         from ..models.chain import ChainConfig
-        
+
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         # Load and validate configuration
-        with open(config_file, 'r') as f:
+        with open(config_file) as f:
             config_data = yaml.safe_load(f)
-        
+
         chain_config = ChainConfig(**config_data['chain'])
-        
+
         if dry_run:
             dry_run_info = {
                 "Chain Type": chain_config.type.value,
@@ -223,14 +226,14 @@ def create(ctx, config_file, node, dry_run):
                 "Privacy": chain_config.privacy.visibility,
                 "Target Node": node or "Auto-selected"
             }
-            
+
             output(dry_run_info, ctx.obj.get('output_format', 'table'), title="Dry Run - Chain Creation")
             return
-        
+
         # Create chain
         chain_id = chain_manager.create_chain(chain_config, node)
-        
-        success(f"Chain created successfully!")
+
+        success("Chain created successfully!")
         result = {
             "Chain ID": chain_id,
             "Type": chain_config.type.value,
@@ -238,12 +241,12 @@ def create(ctx, config_file, node, dry_run):
             "Name": chain_config.name,
             "Node": node or "Auto-selected"
         }
-        
+
         output(result, ctx.obj.get('output_format', 'table'))
-        
+
         if chain_config.privacy.visibility == "private":
             success("Private chain created! Use access codes to invite participants.")
-        
+
     except Exception as e:
         error(f"Error creating chain: {str(e)}")
         raise click.Abort()
@@ -258,11 +261,11 @@ def delete(ctx, chain_id, force, confirm):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         # Get chain information for confirmation
         import asyncio
         chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=True))
-        
+
         if not force:
             # Show warning and confirmation
             warning_info = {
@@ -274,23 +277,23 @@ def delete(ctx, chain_id, force, confirm):
                 "Participants": chain_info.client_count,
                 "Transactions": "Multiple"  # Would get actual count
             }
-            
+
             output(warning_info, ctx.obj.get('output_format', 'table'), title="Chain Deletion Warning")
-            
+
             if not confirm:
                 error("To confirm deletion, use --confirm flag")
                 raise click.Abort()
-        
+
         # Delete chain
         import asyncio
         is_success = asyncio.run(chain_manager.delete_chain(chain_id, force))
-        
+
         if is_success:
             success(f"Chain {chain_id} deleted successfully!")
         else:
             error(f"Failed to delete chain {chain_id}")
             raise click.Abort()
-        
+
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
         raise click.Abort()
@@ -307,16 +310,16 @@ def add(ctx, chain_id, node_id):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         import asyncio
         is_success = asyncio.run(chain_manager.add_chain_to_node(chain_id, node_id))
-        
+
         if is_success:
             success(f"Chain {chain_id} added to node {node_id} successfully!")
         else:
             error(f"Failed to add chain {chain_id} to node {node_id}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error adding chain to node: {str(e)}")
         raise click.Abort()
@@ -331,15 +334,15 @@ def remove(ctx, chain_id, node_id, migrate):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         is_success = chain_manager.remove_chain_from_node(chain_id, node_id, migrate)
-        
+
         if is_success:
             success(f"Chain {chain_id} removed from node {node_id} successfully!")
         else:
             error(f"Failed to remove chain {chain_id} from node {node_id}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error removing chain from node: {str(e)}")
         raise click.Abort()
@@ -356,9 +359,9 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         migration_result = chain_manager.migrate_chain(chain_id, from_node, to_node, dry_run)
-        
+
         if dry_run:
             plan_info = {
                 "Chain ID": chain_id,
@@ -368,12 +371,12 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
                 "Estimated Time": f"{migration_result.transfer_time_seconds}s",
                 "Error": migration_result.error or "None"
             }
-            
+
             output(plan_info, ctx.obj.get('output_format', 'table'), title="Migration Plan")
             return
-        
+
         if migration_result.success:
-            success(f"Chain migration completed successfully!")
+            success("Chain migration completed successfully!")
             result = {
                 "Chain ID": chain_id,
                 "Source Node": from_node,
@@ -382,12 +385,12 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
                 "Transfer Time": f"{migration_result.transfer_time_seconds}s",
                 "Verification": "Passed" if migration_result.verification_passed else "Failed"
             }
-            
+
             output(result, ctx.obj.get('output_format', 'table'))
         else:
             error(f"Migration failed: {migration_result.error}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error during migration: {str(e)}")
         raise click.Abort()
@@ -403,11 +406,11 @@ def backup(ctx, chain_id, path, compress, verify):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         import asyncio
         backup_result = asyncio.run(chain_manager.backup_chain(chain_id, path, compress, verify))
-        
-        success(f"Chain backup completed successfully!")
+
+        success("Chain backup completed successfully!")
         result = {
             "Chain ID": chain_id,
             "Backup File": backup_result.backup_file,
@@ -417,9 +420,9 @@ def backup(ctx, chain_id, path, compress, verify):
             "Checksum": backup_result.checksum,
             "Verification": "Passed" if backup_result.verification_passed else "Failed"
         }
-        
+
         output(result, ctx.obj.get('output_format', 'table'))
-        
+
     except Exception as e:
         error(f"Error during backup: {str(e)}")
         raise click.Abort()
@@ -434,20 +437,20 @@ def restore(ctx, backup_file, node, verify):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         import asyncio
         restore_result = asyncio.run(chain_manager.restore_chain(backup_file, node, verify))
-        
-        success(f"Chain restoration completed successfully!")
+
+        success("Chain restoration completed successfully!")
         result = {
             "Chain ID": restore_result.chain_id,
             "Node": restore_result.node_id,
             "Blocks Restored": restore_result.blocks_restored,
             "Verification": "Passed" if restore_result.verification_passed else "Failed"
         }
-        
+
         output(result, ctx.obj.get('output_format', 'table'))
-        
+
     except Exception as e:
         error(f"Error during restoration: {str(e)}")
         raise click.Abort()
@@ -463,33 +466,34 @@ def monitor(ctx, chain_id, realtime, export, interval):
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
-        
+
         if realtime:
             # Real-time monitoring (placeholder implementation)
+            import time
+
             from rich.console import Console
             from rich.layout import Layout
             from rich.live import Live
-            import time
-            
+
             console = Console()
-            
+
             def generate_monitor_layout():
                 try:
                     import asyncio
                     chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=True, metrics=True))
-                    
+
                     layout = Layout()
                     layout.split_column(
                         Layout(name="header", size=3),
                         Layout(name="stats"),
                         Layout(name="activity", size=10)
                     )
-                    
+
                     # Header
                     layout["header"].update(
                         f"Chain Monitor: {chain_id} - {chain_info.status.value.upper()}"
                     )
-                    
+
                     # Stats table
                     stats_data = [
                         ["Block Height", str(chain_info.block_height)],
@@ -499,16 +503,16 @@ def monitor(ctx, chain_id, realtime, export, interval):
                         ["Memory Usage", f"{chain_info.memory_usage_mb:.1f}MB"],
                         ["Disk Usage", f"{chain_info.disk_usage_mb:.1f}MB"]
                     ]
-                    
+
                     layout["stats"].update(str(stats_data))
-                    
+
                     # Recent activity (placeholder)
                     layout["activity"].update("Recent activity would be displayed here")
-                    
+
                     return layout
                 except Exception as e:
                     return f"Error getting chain info: {e}"
-            
+
             with Live(generate_monitor_layout(), refresh_per_second=1) as live:
                 try:
                     while True:
@@ -520,7 +524,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
             # Single snapshot
             import asyncio
             chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=True, metrics=True))
-            
+
             stats_data = [
                 {
                     "Metric": "Block Height",
@@ -547,15 +551,15 @@ def monitor(ctx, chain_id, realtime, export, interval):
                     "Value": f"{chain_info.disk_usage_mb:.1f}MB"
                 }
             ]
-            
+
             output(stats_data, ctx.obj.get('output_format', 'table'), title=f"Chain Statistics: {chain_id}")
-            
+
             if export:
                 import json
                 with open(export, 'w') as f:
                     json.dump(chain_info.dict(), f, indent=2, default=str)
                 success(f"Statistics exported to {export}")
-        
+
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
         raise click.Abort()

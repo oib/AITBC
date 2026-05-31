@@ -1,10 +1,9 @@
 """Tests for event subscribers."""
 
-import pytest
 import asyncio
-import sys
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import Mock
 
+import pytest
 from blockchain_event_bridge.event_subscribers.blocks import BlockEventSubscriber
 from blockchain_event_bridge.event_subscribers.transactions import TransactionEventSubscriber
 
@@ -24,8 +23,8 @@ async def test_block_subscriber_initialization():
 @pytest.mark.asyncio
 async def test_block_subscriber_set_bridge():
     """Test setting bridge on block subscriber."""
-    from blockchain_event_bridge.config import Settings
     from blockchain_event_bridge.bridge import BlockchainEventBridge
+    from blockchain_event_bridge.config import Settings
 
     settings = Settings()
     subscriber = BlockEventSubscriber(settings)

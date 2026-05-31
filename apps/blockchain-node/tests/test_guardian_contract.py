@@ -2,25 +2,18 @@
 
 from __future__ import annotations
 
-import sys
-import pytest
-import tempfile
 import shutil
-from datetime import datetime, timezone, timedelta
+import tempfile
+from collections.abc import Generator
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch, Mock
-from typing import Generator
 
-from aitbc_chain.contracts.guardian_contract import (
-    GuardianContract, 
-    GuardianConfig, 
-    SpendingLimit,
-    TimeLockConfig
-)
+import pytest
+from aitbc_chain.contracts.guardian_contract import GuardianConfig, GuardianContract, SpendingLimit, TimeLockConfig
 
 
 @pytest.fixture
-def temp_storage_dir() -> Generator[Path, None, None]:
+def temp_storage_dir() -> Generator[Path]:
     """Create a temporary directory for contract storage."""
     temp_dir = Path(tempfile.mkdtemp())
     yield temp_dir
@@ -54,10 +47,10 @@ def agent_address() -> str:
 
 @pytest.fixture
 def guardian_contract(
-    agent_address: str, 
-    guardian_config: GuardianConfig, 
+    agent_address: str,
+    guardian_config: GuardianConfig,
     temp_storage_dir: Path
-) -> Generator[GuardianContract, None, None]:
+) -> Generator[GuardianContract]:
     """Create a guardian contract instance."""
     contract = GuardianContract(
         agent_address=agent_address,
@@ -72,9 +65,9 @@ class TestGuardianContract:
     """Test Guardian Contract functionality."""
 
     def test_contract_initialization(
-        self, 
-        agent_address: str, 
-        guardian_config: GuardianConfig, 
+        self,
+        agent_address: str,
+        guardian_config: GuardianConfig,
         temp_storage_dir: Path
     ) -> None:
         """Test contract initialization."""
@@ -83,7 +76,7 @@ class TestGuardianContract:
             config=guardian_config,
             storage_path=str(temp_storage_dir)
         )
-        
+
         assert contract.agent_address == agent_address.lower()
         assert contract.config == guardian_config
         assert contract.storage_dir == temp_storage_dir
@@ -104,7 +97,7 @@ class TestGuardianContract:
         allowed, message = guardian_contract._check_spending_limits(500)
         assert allowed is True
         assert "passed" in message.lower()
-        
+
         # Should fail for amount exceeding limit
         allowed, message = guardian_contract._check_spending_limits(1500)
         assert allowed is False
@@ -113,7 +106,7 @@ class TestGuardianContract:
     def test_spending_limit_check_hourly(self, guardian_contract: GuardianContract) -> None:
         """Test hourly spending limit."""
         # Add some spending history
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.now(UTC)
         guardian_contract.spending_history = [
             {
                 "operation_id": "op1",
@@ -126,12 +119,12 @@ class TestGuardianContract:
                 "nonce": 1
             }
         ]
-        
+
         # Should fail when exceeding hourly limit
         allowed, message = guardian_contract._check_spending_limits(2500, base_time)
         assert allowed is False
         assert "hourly spending" in message
-        
+
         # Should pass for smaller amount
         allowed, message = guardian_contract._check_spending_limits(1500, base_time)
         assert allowed is True
@@ -139,7 +132,7 @@ class TestGuardianContract:
     def test_spending_limit_check_daily(self, guardian_contract: GuardianContract) -> None:
         """Test daily spending limit."""
         # Add spending history across the day
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.now(UTC)
         guardian_contract.spending_history = [
             {
                 "operation_id": "op1",
@@ -152,12 +145,12 @@ class TestGuardianContract:
                 "nonce": 1
             }
         ]
-        
+
         # Should fail when exceeding daily limit
         allowed, message = guardian_contract._check_spending_limits(6000, base_time)
         assert allowed is False
         assert "daily spending" in message
-        
+
         # Should pass for smaller amount
         allowed, message = guardian_contract._check_spending_limits(4000, base_time)
         assert allowed is True
@@ -165,7 +158,7 @@ class TestGuardianContract:
     def test_spending_limit_check_weekly(self, guardian_contract: GuardianContract) -> None:
         """Test weekly spending limit."""
         # Add spending history across the week
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.now(UTC)
         guardian_contract.spending_history = [
             {
                 "operation_id": "op1",
@@ -178,12 +171,12 @@ class TestGuardianContract:
                 "nonce": 1
             }
         ]
-        
+
         # Should fail when exceeding weekly limit
         allowed, message = guardian_contract._check_spending_limits(25000, base_time)
         assert allowed is False
         assert "weekly spending" in message
-        
+
         # Should pass for smaller amount
         allowed, message = guardian_contract._check_spending_limits(15000, base_time)
         assert allowed is True
@@ -193,7 +186,7 @@ class TestGuardianContract:
         # Should require time lock for amounts >= threshold
         assert guardian_contract._requires_time_lock(5000) is True
         assert guardian_contract._requires_time_lock(10000) is True
-        
+
         # Should not require time lock for amounts < threshold
         assert guardian_contract._requires_time_lock(4000) is False
         assert guardian_contract._requires_time_lock(1000) is False
@@ -205,11 +198,11 @@ class TestGuardianContract:
             amount=1000,
             data="test transaction"
         )
-        
+
         assert result["status"] == "approved"
         assert "operation_id" in result
         assert "approved for execution" in result["message"]
-        
+
         # Check operation is stored
         operation_id = result["operation_id"]
         assert operation_id in guardian_contract.pending_operations
@@ -222,14 +215,14 @@ class TestGuardianContract:
             amount=6000,
             data="large transaction"
         )
-        
+
         assert result["status"] == "time_locked"
         assert "operation_id" in result
         assert "unlock_time" in result
         assert "delay_hours" in result
         assert result["delay_hours"] == 24
         assert "time lock" in result["message"].lower()
-        
+
         # Check operation is stored with time lock
         operation_id = result["operation_id"]
         assert operation_id in guardian_contract.pending_operations
@@ -243,7 +236,7 @@ class TestGuardianContract:
             amount=1500,  # Exceeds per-transaction limit
             data="excessive transaction"
         )
-        
+
         assert result["status"] == "rejected"
         assert "exceeds per-transaction limit" in result["message"]
         assert "operation_id" not in result
@@ -256,20 +249,20 @@ class TestGuardianContract:
             amount=1000,
             data="test transaction"
         )
-        
+
         operation_id = init_result["operation_id"]
         signature = "0xsignature"
-        
+
         # Execute the transaction
         result = guardian_contract.execute_transaction(operation_id, signature)
-        
+
         assert result["status"] == "executed"
         assert operation_id in result
         assert "executed successfully" in result["message"]
-        
+
         # Check operation is no longer pending
         assert operation_id not in guardian_contract.pending_operations
-        
+
         # Check it's in spending history
         assert len(guardian_contract.spending_history) > 0
         executed_tx = next(tx for tx in guardian_contract.spending_history if tx["operation_id"] == operation_id)
@@ -280,7 +273,7 @@ class TestGuardianContract:
     def test_execute_transaction_not_found(self, guardian_contract: GuardianContract) -> None:
         """Test executing transaction that doesn't exist."""
         result = guardian_contract.execute_transaction("nonexistent_id", "0xsignature")
-        
+
         assert result["status"] == "error"
         assert "not found" in result["message"].lower()
 
@@ -292,13 +285,13 @@ class TestGuardianContract:
             amount=6000,
             data="large transaction"
         )
-        
+
         operation_id = init_result["operation_id"]
         signature = "0xsignature"
-        
+
         # Try to execute before time lock expires
         result = guardian_contract.execute_transaction(operation_id, signature)
-        
+
         assert result["status"] == "error"
         assert "time locked" in result["message"].lower()
 
@@ -306,7 +299,7 @@ class TestGuardianContract:
         """Test emergency pause functionality."""
         # Emergency pause
         result = guardian_contract.emergency_pause("0xguardian1")
-        
+
         assert result["status"] == "paused"
         assert "Emergency pause activated" in result["message"]
         assert guardian_contract.paused is True
@@ -315,10 +308,10 @@ class TestGuardianContract:
         """Test emergency unpause functionality."""
         # First pause
         guardian_contract.emergency_pause("0xguardian1")
-        
+
         # Then unpause with signatures
         result = guardian_contract.emergency_unpause(["0xguardian1", "0xguardian2"])
-        
+
         assert result["status"] == "active"
         assert "Emergency pause lifted" in result["message"]
         assert guardian_contract.paused is False
@@ -326,7 +319,7 @@ class TestGuardianContract:
     def test_get_spending_status(self, guardian_contract: GuardianContract) -> None:
         """Test getting spending status."""
         status = guardian_contract.get_spending_status()
-        
+
         assert "spent_hour" in status
         assert "spent_day" in status
         assert "spent_week" in status
@@ -338,15 +331,15 @@ class TestGuardianContract:
     def test_period_key_generation(self, guardian_contract: GuardianContract) -> None:
         """Test period key generation for different time periods."""
         base_time = datetime(2023, 6, 15, 14, 30, 0)  # Thursday 2:30 PM
-        
+
         # Hour key should be YYYY-MM-DD-HH
         hour_key = guardian_contract._get_period_key(base_time, "hour")
         assert hour_key == "2023-06-15-14"
-        
+
         # Day key should be YYYY-MM-DD
         day_key = guardian_contract._get_period_key(base_time, "day")
         assert day_key == "2023-06-15"
-        
+
         # Week key should be YYYY-WW (ISO week)
         week_key = guardian_contract._get_period_key(base_time, "week")
         assert week_key.startswith("2023-")  # Should be 2023-W24 for this date
@@ -358,18 +351,18 @@ class TestGuardianContract:
             "amount": 1000,
             "nonce": 1
         }
-        
+
         hash1 = guardian_contract._create_operation_hash(operation)
         hash2 = guardian_contract._create_operation_hash(operation)
-        
+
         # Same operation should produce same hash
         assert hash1 == hash2
         assert len(hash1) == 64  # 64 hex chars (no 0x prefix)
 
     def test_persistence_across_instances(
-        self, 
-        agent_address: str, 
-        guardian_config: GuardianConfig, 
+        self,
+        agent_address: str,
+        guardian_config: GuardianConfig,
         temp_storage_dir: Path
     ) -> None:
         """Test that contract state persists across instances."""
@@ -379,20 +372,20 @@ class TestGuardianContract:
             config=guardian_config,
             storage_path=str(temp_storage_dir)
         )
-        
+
         contract1.initiate_transaction(
             to_address="0xrecipient",
             amount=1000,
             data="persistence test"
         )
-        
+
         # Create second instance and check data is loaded
         contract2 = GuardianContract(
             agent_address=agent_address,
             config=guardian_config,
             storage_path=str(temp_storage_dir)
         )
-        
+
         assert len(contract2.pending_operations) == 1
         assert contract2.nonce == 1
 
@@ -410,14 +403,14 @@ class TestGuardianContract:
     def test_nonce_increment(self, guardian_contract: GuardianContract) -> None:
         """Test that nonce increments properly."""
         initial_nonce = guardian_contract.nonce
-        
+
         # Initiate transaction
         guardian_contract.initiate_transaction(
             to_address="0xrecipient",
             amount=1000,
             data="nonce test"
         )
-        
+
         assert guardian_contract.nonce == initial_nonce + 1
 
     def test_get_pending_operations(self, guardian_contract: GuardianContract) -> None:
@@ -428,15 +421,15 @@ class TestGuardianContract:
             amount=1000,
             data="pending 1"
         )
-        
+
         result2 = guardian_contract.initiate_transaction(
             to_address="0xrecipient2",
             amount=2000,
             data="pending 2"
         )
-        
+
         pending = guardian_contract.get_pending_operations()
-        
+
         assert len(pending) == 2
         assert result1["operation_id"] in pending
         assert result2["operation_id"] in pending

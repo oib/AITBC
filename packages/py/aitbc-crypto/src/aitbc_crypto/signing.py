@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, Any
-
 import base64
-from hashlib import sha256
+from typing import Any
 
 from nacl.signing import SigningKey, VerifyKey
 
@@ -14,7 +12,7 @@ class ReceiptSigner:
     def __init__(self, signing_key: bytes):
         self._key = SigningKey(signing_key)
 
-    def sign(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def sign(self, payload: dict[str, Any]) -> dict[str, Any]:
         message = canonical_json(payload).encode("utf-8")
         signature = self._key.sign(message)
         return {
@@ -28,7 +26,7 @@ class ReceiptVerifier:
     def __init__(self, verify_key: bytes):
         self._key = VerifyKey(verify_key)
 
-    def verify(self, payload: Dict[str, Any], signature: Dict[str, Any]) -> bool:
+    def verify(self, payload: dict[str, Any], signature: dict[str, Any]) -> bool:
         if signature.get("alg") != "Ed25519":
             return False
         sig_bytes = base64.urlsafe_b64decode(signature["sig"] + "==")

@@ -3,7 +3,11 @@
 Create a structured issue via Gitea API.
 Requires GITEA_TOKEN in environment or /opt/aitbc/.gitea_token.sh.
 """
-import os, sys, json, subprocess
+import json
+import os
+import subprocess
+import sys
+
 
 def get_token():
     token_file = '/opt/aitbc/.gitea_token.sh'

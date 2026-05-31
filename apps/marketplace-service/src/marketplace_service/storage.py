@@ -4,8 +4,8 @@ Database session management for Marketplace service
 
 import os
 import traceback
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
@@ -25,17 +25,10 @@ logger.info(f"Storage module loaded: engine={engine}, DATABASE_URL={DATABASE_URL
 
 async def init_db() -> None:
     """Initialize database tables"""
-    from .domain.marketplace import MarketplaceOffer, MarketplaceBid
-    from .domain.global_marketplace import (
-        MarketplaceRegion,
-        GlobalMarketplaceConfig,
-        GlobalMarketplaceOffer,
-        GlobalMarketplaceTransaction,
-    )
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    
+
     logger.info("Marketplace service database initialized")
 
 

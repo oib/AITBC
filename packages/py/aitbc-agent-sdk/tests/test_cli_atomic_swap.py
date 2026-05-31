@@ -2,9 +2,9 @@
 Test atomic swap methods with CLI client
 """
 import asyncio
-import sys
-import os
 import logging
+import os
+import sys
 
 import pytest
 
@@ -26,6 +26,7 @@ sys.modules['aitbc.exceptions'] = type(sys)('aitbc.exceptions')
 sys.modules['aitbc.exceptions'].NetworkError = Exception
 
 from aitbc_agent.contract_integration import ContractConfig, create_agent_contract_integration
+
 
 @pytest.mark.asyncio
 async def test_cli_client():

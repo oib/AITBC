@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from aitbc_sdk.receipts import SignatureValidation
-
 from pydantic import BaseModel
 
 
@@ -17,7 +16,7 @@ class ReceiptVerificationModel(BaseModel):
     job_id: str
     receipt_id: str
     miner_signature: SignatureValidationModel
-    coordinator_attestations: List[SignatureValidationModel]
+    coordinator_attestations: list[SignatureValidationModel]
     all_valid: bool
 
 
@@ -42,27 +41,27 @@ def from_validation_result(result) -> ReceiptVerificationModel:
 
 
 class ReceiptVerificationListResponse(BaseModel):
-    items: List[ReceiptVerificationModel]
+    items: list[ReceiptVerificationModel]
 
 
 class WalletDescriptor(BaseModel):
     wallet_id: str
     chain_id: str
     public_key: str
-    address: Optional[str]
-    metadata: Dict[str, Any]
+    address: str | None
+    metadata: dict[str, Any]
 
 
 class WalletListResponse(BaseModel):
-    items: List[WalletDescriptor]
+    items: list[WalletDescriptor]
 
 
 class WalletCreateRequest(BaseModel):
     chain_id: str
     wallet_id: str
     password: str
-    metadata: Dict[str, Any] = {}
-    secret_key: Optional[str] = None
+    metadata: dict[str, Any] = {}
+    secret_key: str | None = None
 
 
 class WalletCreateResponse(BaseModel):
@@ -102,7 +101,7 @@ class ChainInfo(BaseModel):
 
 
 class ChainListResponse(BaseModel):
-    chains: List[ChainInfo]
+    chains: list[ChainInfo]
     total_chains: int
     active_chains: int
 
@@ -112,7 +111,7 @@ class ChainCreateRequest(BaseModel):
     name: str
     coordinator_url: str
     coordinator_api_key: str
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
 
 
 class ChainCreateResponse(BaseModel):
@@ -124,7 +123,7 @@ class WalletMigrationRequest(BaseModel):
     target_chain_id: str
     wallet_id: str
     password: str
-    new_password: Optional[str] = None
+    new_password: str | None = None
 
 
 class WalletMigrationResponse(BaseModel):
@@ -140,9 +139,9 @@ class WalletTransactionRequest(BaseModel):
     recipient: str
     amount: int
     fee: int = 1000
-    nonce: Optional[int] = None
-    chain_id: Optional[str] = None
-    payload: Optional[Dict[str, Any]] = None
+    nonce: int | None = None
+    chain_id: str | None = None
+    payload: dict[str, Any] | None = None
 
 
 class WalletTransactionResponse(BaseModel):

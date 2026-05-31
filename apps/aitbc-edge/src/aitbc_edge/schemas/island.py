@@ -1,10 +1,11 @@
 """Island-related schemas for Edge API Service"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, Enum as SQLEnum, String
+from sqlalchemy import JSON, Column, String
+from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, SQLModel
 
 
@@ -31,7 +32,7 @@ class IslandMembership(SQLModel, table=True):
         sa_column=Column(SQLEnum(IslandStatus, values_only=True), index=True)
     )
     role: str = Field(default="compute-provider", sa_column=Column(String))  # compute-provider, consumer, hub
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     peer_count: int = Field(default=0)
 
     # Additional metadata
@@ -50,5 +51,5 @@ class BridgeRequest(SQLModel, table=True):
     target_island_id: str = Field(sa_column=Column(String))
     source_node_id: str = Field(sa_column=Column(String))
     status: str = Field(default="pending", sa_column=Column(String, index=True))  # pending, approved, rejected
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -2,9 +2,10 @@
 Tests for badge system
 """
 
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timezone
 
 
 @pytest.mark.unit
@@ -16,7 +17,7 @@ class TestBadgeSystem:
         from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
-        
+
         assert system.badge_categories is not None
         assert len(system.badge_categories) > 0
         assert "performance" in system.badge_categories
@@ -24,11 +25,11 @@ class TestBadgeSystem:
 
     def test_get_metric_value(self):
         """Test getting metric value from reputation"""
-        from app.services.certification.badge_system import BadgeSystem
         from app.domain.reputation import AgentReputation
+        from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
-        
+
         mock_reputation = AgentReputation(
             agent_id="agent123",
             trust_score=750.0,
@@ -44,24 +45,24 @@ class TestBadgeSystem:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=10,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
-        
+
         jobs_completed = system.get_metric_value(mock_reputation, "jobs_completed")
         trust_score = system.get_metric_value(mock_reputation, "trust_score")
-        
+
         assert jobs_completed == 45.0
         assert trust_score == 750.0
 
     @patch('app.services.certification.badge_system.Session')
     async def test_create_badge(self, mock_session):
         """Test badge creation"""
-        from app.services.certification.badge_system import BadgeSystem
         from app.domain.certification import AchievementBadge, BadgeType
+        from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
-        
+
         mock_badge = AchievementBadge(
             badge_id="badge_abc123",
             badge_name="Test Badge",
@@ -77,14 +78,14 @@ class TestBadgeSystem:
             display_properties={},
             is_limited=False,
             max_awards=None,
-            available_from=datetime.now(timezone.utc),
+            available_from=datetime.now(UTC),
             available_until=None
         )
-        
+
         mock_session_instance.add.return_value = None
         mock_session_instance.commit.return_value = None
         mock_session_instance.refresh.return_value = mock_badge
-        
+
         result = await system.create_badge(
             mock_session_instance,
             badge_name="Test Badge",
@@ -93,20 +94,20 @@ class TestBadgeSystem:
             criteria={"required_metrics": ["jobs_completed"], "threshold_values": {"jobs_completed": 10}},
             created_by="system"
         )
-        
+
         assert result.badge_id is not None
         assert result.badge_name == "Test Badge"
 
     @patch('app.services.certification.badge_system.Session')
     async def test_verify_badge_eligibility(self, mock_session):
         """Test badge eligibility verification"""
-        from app.services.certification.badge_system import BadgeSystem
         from app.domain.certification import AchievementBadge, BadgeType
         from app.domain.reputation import AgentReputation
+        from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
-        
+
         # Mock badge
         mock_badge = AchievementBadge(
             badge_id="badge_abc123",
@@ -123,10 +124,10 @@ class TestBadgeSystem:
             display_properties={},
             is_limited=False,
             max_awards=None,
-            available_from=datetime.now(timezone.utc),
+            available_from=datetime.now(UTC),
             available_until=None
         )
-        
+
         # Mock reputation with enough jobs completed
         mock_reputation = AgentReputation(
             agent_id="agent123",
@@ -143,13 +144,13 @@ class TestBadgeSystem:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=10,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
-        
+
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
-        
+
         result = await system.verify_badge_eligibility(mock_session_instance, "agent123", mock_badge)
-        
+
         assert result["eligible"] == True
         assert "metrics" in result
         assert "evidence" in result
@@ -157,12 +158,12 @@ class TestBadgeSystem:
     @patch('app.services.certification.badge_system.Session')
     async def test_award_badge(self, mock_session):
         """Test badge awarding"""
-        from app.services.certification.badge_system import BadgeSystem
         from app.domain.certification import AchievementBadge, AgentBadge, BadgeType
+        from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
-        
+
         # Mock badge
         mock_badge = AchievementBadge(
             badge_id="badge_abc123",
@@ -180,10 +181,10 @@ class TestBadgeSystem:
             is_limited=True,
             max_awards=100,
             current_awards=50,
-            available_from=datetime.now(timezone.utc),
+            available_from=datetime.now(UTC),
             available_until=None
         )
-        
+
         # Mock agent badge
         mock_agent_badge = AgentBadge(
             agent_id="agent123",
@@ -194,18 +195,18 @@ class TestBadgeSystem:
             metrics_at_award={},
             supporting_evidence=[]
         )
-        
+
         mock_session_instance.execute.return_value.first.return_value = None  # No existing badge
         mock_session_instance.add.return_value = None
         mock_session_instance.commit.return_value = None
         mock_session_instance.refresh.return_value = mock_agent_badge
-        
+
         result = await system.award_badge(
             mock_session_instance,
             agent_id="agent123",
             badge_id="badge_abc123",
             awarded_by="system"
         )
-        
+
         assert result[0] == True  # Success
         assert result[1] is not None  # AgentBadge object

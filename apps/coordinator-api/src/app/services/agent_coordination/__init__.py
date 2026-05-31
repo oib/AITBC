@@ -3,7 +3,7 @@ Agent Coordination Bounded Context
 Provides agent management, communication, performance, security, orchestration, and marketplace services.
 """
 
-from .agent_service import AIAgentOrchestrator, AgentStateManager
+from .agent_service import AgentStateManager, AIAgentOrchestrator
 from .communication import AgentCommunicationService
 from .integration import AgentIntegrationManager
 from .marketplace import AgentServiceMarketplace

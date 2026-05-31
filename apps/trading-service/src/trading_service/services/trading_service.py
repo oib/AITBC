@@ -3,13 +3,12 @@ Trading service for managing trading operations
 """
 
 from typing import Any
-
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..domain.trading import TradeRequest, TradeMatch, TradeAgreement
+from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest
 
 
 class TradingService:

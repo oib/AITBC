@@ -2,19 +2,15 @@
 Integration tests for AITBC full workflow
 """
 
+
 import pytest
 import requests
-import asyncio
-import json
-from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
-from fastapi.testclient import TestClient
 
 
 @pytest.mark.integration
 class TestJobToBlockchainWorkflow:
     """Test complete workflow from job creation to blockchain settlement"""
-    
+
     def test_end_to_end_job_execution(self, coordinator_client, blockchain_client):
         """Test complete job execution with blockchain verification"""
         # 1. Create job in coordinator
@@ -30,7 +26,7 @@ class TestJobToBlockchainWorkflow:
             },
             "ttl_seconds": 900
         }
-        
+
         response = coordinator_client.post(
             "/v1/jobs",
             json=job_data,
@@ -42,7 +38,7 @@ class TestJobToBlockchainWorkflow:
         assert response.status_code == 201
         job = response.json()
         job_id = job["job_id"]  # Fixed: response uses "job_id" not "id"
-        
+
         # 2. Get job status
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}",
@@ -50,7 +46,7 @@ class TestJobToBlockchainWorkflow:
         )
         assert response.status_code == 200
         assert response.json()["job_id"] == job_id  # Fixed: use job_id
-        
+
         # 3. Test that we can get receipts (even if empty)
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}/receipts",
@@ -59,16 +55,16 @@ class TestJobToBlockchainWorkflow:
         assert response.status_code == 200
         receipts = response.json()
         assert "items" in receipts
-        
+
         # Test passes if we can create and retrieve the job
         assert True
-    
+
     def test_multi_tenant_isolation(self, coordinator_client):
         """Test that tenant data is properly isolated"""
         # Create jobs for different tenants
         tenant_a_jobs = []
         tenant_b_jobs = []
-        
+
         # Tenant A creates jobs
         for i in range(3):
             response = coordinator_client.post(
@@ -77,7 +73,7 @@ class TestJobToBlockchainWorkflow:
                 headers={"X-Api-Key": "${CLIENT_API_KEY}", "X-Tenant-ID": "tenant-a"}
             )
             tenant_a_jobs.append(response.json()["job_id"])  # Fixed: use job_id
-        
+
         # Tenant B creates jobs
         for i in range(3):
             response = coordinator_client.post(
@@ -86,7 +82,7 @@ class TestJobToBlockchainWorkflow:
                 headers={"X-Api-Key": "${CLIENT_API_KEY}", "X-Tenant-ID": "tenant-b"}
             )
             tenant_b_jobs.append(response.json()["job_id"])  # Fixed: use job_id
-        
+
         # Note: The API doesn't enforce tenant isolation yet, so we'll just verify jobs are created
         # Try to access other tenant's job (currently returns 200, not 404)
         response = coordinator_client.get(
@@ -100,7 +96,7 @@ class TestJobToBlockchainWorkflow:
 @pytest.mark.integration
 class TestWalletToCoordinatorIntegration:
     """Test wallet integration with coordinator"""
-    
+
     def test_job_payment_flow(self, coordinator_client, wallet_client):
         """Test complete job payment flow"""
         # Create a job with payment
@@ -116,7 +112,7 @@ class TestWalletToCoordinatorIntegration:
             "payment_amount": 100,  # 100 AITBC tokens
             "payment_currency": "AITBC"
         }
-        
+
         # Submit job with payment
         response = coordinator_client.post(
             "/v1/jobs",
@@ -129,11 +125,11 @@ class TestWalletToCoordinatorIntegration:
         assert response.status_code == 201
         job = response.json()
         job_id = job["job_id"]
-        
+
         # Verify payment was created
         assert "payment_id" in job
         assert job["payment_status"] in ["pending", "escrowed"]
-        
+
         # Get payment details
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}/payment",
@@ -145,7 +141,7 @@ class TestWalletToCoordinatorIntegration:
         assert payment["amount"] == 100
         assert payment["currency"] == "AITBC"
         assert payment["status"] in ["pending", "escrowed"]
-        
+
         # If payment is in escrow, test release
         if payment["status"] == "escrowed":
             # Simulate job completion
@@ -161,14 +157,14 @@ class TestWalletToCoordinatorIntegration:
             # That's OK for this test
             if response.status_code != 200:
                 print(f"Payment release failed: {response.text}")
-        
+
         print(f"Payment flow test completed for job {job_id}")
 
 
 @pytest.mark.integration
 class TestP2PNetworkSync:
     """Test P2P network synchronization"""
-    
+
     def test_block_propagation(self, blockchain_client):
         """Test block propagation across nodes"""
         # Since blockchain_client is a mock, we'll test the mock behavior
@@ -180,7 +176,7 @@ class TestP2PNetworkSync:
             ],
             "validator": "0xvalidator"
         }
-        
+
         # Submit block to one node
         response = blockchain_client.post(
             "/v1/blocks",
@@ -188,11 +184,11 @@ class TestP2PNetworkSync:
         )
         # Mock client returns 200, not 201
         assert response.status_code == 200
-        
+
         # Verify block is propagated to peers
         response = blockchain_client.get("/v1/network/peers")
         assert response.status_code == 200
-    
+
     def test_transaction_propagation(self, blockchain_client):
         """Test transaction propagation across network"""
         tx_data = {
@@ -201,7 +197,7 @@ class TestP2PNetworkSync:
             "value": "1000",
             "gas": 21000
         }
-        
+
         # Submit transaction to one node
         response = blockchain_client.post(
             "/v1/transactions",
@@ -214,7 +210,7 @@ class TestP2PNetworkSync:
 @pytest.mark.integration
 class TestMarketplaceIntegration:
     """Test marketplace integration with coordinator and wallet"""
-    
+
     def test_service_listing_and_booking(self, marketplace_client, coordinator_client, wallet_client):
         """Test complete marketplace workflow"""
         # Connect to the live marketplace
@@ -224,7 +220,7 @@ class TestMarketplaceIntegration:
             response = requests.get(marketplace_url, timeout=5)
             assert response.status_code == 200
             assert "marketplace" in response.text.lower()
-            
+
             # Try to get services API (may not be available)
             try:
                 response = requests.get(f"{marketplace_url}/api/services", timeout=5)
@@ -234,10 +230,10 @@ class TestMarketplaceIntegration:
             except Exception:
                 # API endpoint might not be available, that's OK
                 pass
-            
+
         except requests.exceptions.RequestException as e:
             pytest.skip(f"Marketplace not accessible: {e}")
-        
+
         # Create a test job in coordinator
         job_data = {
             "payload": {
@@ -249,7 +245,7 @@ class TestMarketplaceIntegration:
             },
             "ttl_seconds": 900
         }
-        
+
         response = coordinator_client.post(
             "/v1/jobs",
             json=job_data,
@@ -263,7 +259,7 @@ class TestMarketplaceIntegration:
 @pytest.mark.integration
 class TestSecurityIntegration:
     """Test security across all components"""
-    
+
     def test_end_to_end_encryption(self, coordinator_client, wallet_client):
         """Test encryption throughout the workflow"""
         # Create a job with ZK proof requirements
@@ -279,7 +275,7 @@ class TestSecurityIntegration:
             },
             "ttl_seconds": 900
         }
-        
+
         # Submit job with ZK proof requirement
         response = coordinator_client.post(
             "/v1/jobs",
@@ -292,11 +288,11 @@ class TestSecurityIntegration:
         assert response.status_code == 201
         job = response.json()
         job_id = job["job_id"]
-        
+
         # Verify job was created with ZK proof enabled
         assert job["job_id"] == job_id
         assert job["state"] == "QUEUED"
-        
+
         # Test that we can retrieve the job securely
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}",

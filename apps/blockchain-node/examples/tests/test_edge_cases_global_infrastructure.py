@@ -1,14 +1,20 @@
 """Edge case and error handling tests for global infrastructure service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, Region, GlobalDeployment, LoadBalancer, PerformanceMetrics, global_regions, deployments, load_balancers, performance_metrics
+from main import (
+    GlobalDeployment,
+    LoadBalancer,
+    PerformanceMetrics,
+    Region,
+    app,
+    deployments,
+    global_regions,
+    load_balancers,
+    performance_metrics,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -93,7 +99,7 @@ def test_performance_metrics_negative_values():
     """Test PerformanceMetrics with negative values"""
     metrics = PerformanceMetrics(
         region_id="us-east-1",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         cpu_usage=-50.5,
         memory_usage=-60.2,
         network_io=-1000.5,

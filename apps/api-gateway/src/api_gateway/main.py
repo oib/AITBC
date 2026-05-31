@@ -3,30 +3,30 @@ API Gateway main application
 Routes requests to microservices
 """
 
-import os
-import hmac
-import httpx
 import asyncio
+import hmac
+import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
-from fastapi import FastAPI, Request, Response, HTTPException, Depends, status
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
     configure_logging,
     get_logger,
-    RequestIDMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestValidationMiddleware,
-    ErrorHandlerMiddleware,
 )
 
 try:
     from slowapi import Limiter
-    from slowapi.util import get_remote_address
     from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
     SLOWAPI_AVAILABLE = True
 except ImportError:
     SLOWAPI_AVAILABLE = False
@@ -216,7 +216,7 @@ async def proxy_with_retry(client, method, url, **kwargs):
     """Proxy request with retry logic for transient failures."""
     max_retries = 3
     retry_delay = 0.5  # seconds
-    
+
     for attempt in range(max_retries):
         try:
             if method == "GET":
@@ -259,28 +259,28 @@ async def proxy_request(
         if path.startswith(config["prefix"].lstrip("/")):
             service_name = name
             break
-    
+
     if not service_name:
         # Default to coordinator-api for unknown paths
         service_name = "coordinator"
-    
+
     # Check circuit breaker
     if not check_circuit_breaker(service_name):
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"error": f"Circuit breaker is open for {service_name}, service temporarily unavailable"},
         )
-    
+
     service_config = SERVICES[service_name]
-    
+
     # Build target URL
     target_path = path
     prefix = service_config["prefix"].lstrip("/")
     if path.startswith(prefix):
         target_path = path[len(prefix):].lstrip("/")
-    
+
     target_url = f"{service_config['base_url']}/{target_path}"
-    
+
     # Proxy the request using pooled HTTP client with retry logic
     client = app.state.http_client
     try:
@@ -288,16 +288,16 @@ async def proxy_request(
         headers = dict(request.headers)
         headers.pop("host", None)
         headers.pop("content-length", None)
-        
+
         # Build kwargs for retry function
         kwargs = {"headers": headers, "params": request.query_params}
         if request.method in ["POST", "PUT", "PATCH"]:
             body = await request.body()
             kwargs["content"] = body
-        
+
         # Use retry logic
         response = await proxy_with_retry(client, request.method, target_url, **kwargs)
-        
+
         # Return the response
         return Response(
             content=response.content,

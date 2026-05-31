@@ -1,13 +1,19 @@
 """Integration tests for agent marketplace service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
+from agent_marketplace import (
+    DealConfirmation,
+    DealRequest,
+    GPUOffering,
+    MinerRegistration,
+    app,
+    chain_offerings,
+    gpu_offerings,
+    marketplace_deals,
+    miner_registrations,
+)
 from fastapi.testclient import TestClient
-
-
-from agent_marketplace import app, GPUOffering, DealRequest, DealConfirmation, MinerRegistration, gpu_offerings, marketplace_deals, miner_registrations, chain_offerings
 
 
 @pytest.fixture(autouse=True)
@@ -73,7 +79,7 @@ def test_register_miner_update_existing():
         gpu_specs={"model": "RTX 4090"}
     )
     client.post("/api/v1/miners/register", json=registration.model_dump())
-    
+
     # Update with new data
     registration.wallet_address = "0xabcdef1234567890"
     response = client.post("/api/v1/miners/register", json=registration.model_dump())
@@ -135,7 +141,7 @@ def test_get_gpu_offerings():
         capabilities=["inference"]
     )
     client.post("/api/v1/offerings/create", json=offering.model_dump())
-    
+
     response = client.get("/api/v1/offerings")
     assert response.status_code == 200
     data = response.json()
@@ -169,7 +175,7 @@ def test_get_gpu_offerings_with_filters():
     )
     client.post("/api/v1/offerings/create", json=offering1.model_dump())
     client.post("/api/v1/offerings/create", json=offering2.model_dump())
-    
+
     response = client.get("/api/v1/offerings?chain=ait-devnet&gpu_model=RTX")
     assert response.status_code == 200
 
@@ -191,7 +197,7 @@ def test_get_gpu_offering():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     response = client.get(f"/api/v1/offerings/{offering_id}")
     assert response.status_code == 200
     data = response.json()
@@ -223,7 +229,7 @@ def test_request_deal():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -268,7 +274,7 @@ def test_request_deal_chain_not_supported():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -296,7 +302,7 @@ def test_confirm_deal():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -305,7 +311,7 @@ def test_confirm_deal():
     )
     deal_response = client.post("/api/v1/deals/request", json=deal_request.model_dump())
     deal_id = deal_response.json()["deal_id"]
-    
+
     confirmation = DealConfirmation(
         deal_id=deal_id,
         miner_confirmation=True,
@@ -335,7 +341,7 @@ def test_confirm_deal_reject():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -344,7 +350,7 @@ def test_confirm_deal_reject():
     )
     deal_response = client.post("/api/v1/deals/request", json=deal_request.model_dump())
     deal_id = deal_response.json()["deal_id"]
-    
+
     confirmation = DealConfirmation(
         deal_id=deal_id,
         miner_confirmation=False,
@@ -396,7 +402,7 @@ def test_get_deals_with_filters():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     deal_request = DealRequest(
         offering_id=offering_id,
         buyer_id="buyer_123",
@@ -404,7 +410,7 @@ def test_get_deals_with_filters():
         chain="ait-devnet"
     )
     client.post("/api/v1/deals/request", json=deal_request.model_dump())
-    
+
     response = client.get("/api/v1/deals?miner_id=miner_123")
     assert response.status_code == 200
 
@@ -425,7 +431,7 @@ def test_get_miner_offerings():
         capabilities=["inference"]
     )
     client.post("/api/v1/offerings/create", json=offering.model_dump())
-    
+
     response = client.get("/api/v1/miners/miner_123/offerings")
     assert response.status_code == 200
     data = response.json()
@@ -448,7 +454,7 @@ def test_get_chain_offerings():
         capabilities=["inference"]
     )
     client.post("/api/v1/offerings/create", json=offering.model_dump())
-    
+
     response = client.get("/api/v1/chains/ait-devnet/offerings")
     assert response.status_code == 200
     data = response.json()
@@ -480,7 +486,7 @@ def test_remove_offering():
     )
     create_response = client.post("/api/v1/offerings/create", json=offering.model_dump())
     offering_id = create_response.json()["offering_id"]
-    
+
     response = client.delete(f"/api/v1/offerings/{offering_id}")
     assert response.status_code == 200
     data = response.json()

@@ -1,14 +1,9 @@
 """Unit tests for miner service"""
 
-import pytest
-import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import subprocess
-
+from unittest.mock import Mock, patch
 
 import production_miner
+import pytest
 
 
 @pytest.mark.unit
@@ -112,7 +107,7 @@ def test_build_gpu_capabilities(mock_arch, mock_cuda, mock_gpu):
     mock_gpu.return_value = {"name": "RTX 4090", "memory_total": 24576}
     mock_cuda.return_value = "12.0"
     mock_arch.return_value = "ada_lovelace"
-    
+
     result = production_miner.build_gpu_capabilities()
     assert result is not None
     assert "gpu" in result
@@ -126,7 +121,7 @@ def test_build_gpu_capabilities(mock_arch, mock_cuda, mock_gpu):
 def test_build_gpu_capabilities_no_gpu(mock_gpu):
     """Test building GPU capabilities when no GPU"""
     mock_gpu.return_value = None
-    
+
     result = production_miner.build_gpu_capabilities()
     assert result is not None
     assert result["gpu"]["model"] == "Unknown GPU"
@@ -138,12 +133,12 @@ def test_build_gpu_capabilities_no_gpu(mock_gpu):
 def test_build_gpu_capabilities_edge_optimized(mock_arch):
     """Test edge optimization flag"""
     mock_arch.return_value = "ada_lovelace"
-    
+
     with patch('production_miner.get_gpu_info') as mock_gpu, \
          patch('production_miner.detect_cuda_version') as mock_cuda:
         mock_gpu.return_value = {"name": "RTX 4090", "memory_total": 24576}
         mock_cuda.return_value = "12.0"
-        
+
         result = production_miner.build_gpu_capabilities()
         assert result["gpu"]["edge_optimized"] is True
 
@@ -153,12 +148,12 @@ def test_build_gpu_capabilities_edge_optimized(mock_arch):
 def test_build_gpu_capabilities_not_edge_optimized(mock_arch):
     """Test edge optimization flag for non-edge GPU"""
     mock_arch.return_value = "pascal"
-    
+
     with patch('production_miner.get_gpu_info') as mock_gpu, \
          patch('production_miner.detect_cuda_version') as mock_cuda:
         mock_gpu.return_value = {"name": "GTX 1080", "memory_total": 8192}
         mock_cuda.return_value = "11.0"
-        
+
         result = production_miner.build_gpu_capabilities()
         assert result["gpu"]["edge_optimized"] is False
 

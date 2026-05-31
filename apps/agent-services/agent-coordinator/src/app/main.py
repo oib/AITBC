@@ -4,7 +4,6 @@ Main entry point for AITBC Agent Coordinator Service
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path to import coordinator

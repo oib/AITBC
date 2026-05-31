@@ -2,32 +2,33 @@
 Gossip-related RPC endpoints.
 """
 
-from typing import List, Optional
+
 from fastapi import Request
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
-from ..database import session_scope
-from ..models import Receipt
-from ..logger import get_logger
-from .utils import get_chain_id
 from aitbc.rate_limiting import rate_limit
+
+from ..database import session_scope
+from ..logger import get_logger
+from ..models import Receipt
+from .utils import get_chain_id
 
 _logger = get_logger(__name__)
 
 
 class GetLogsRequest(BaseModel):
     """Request model for eth_getLogs RPC endpoint."""
-    address: Optional[str] = Field(None, description="Contract address to filter logs")
-    from_block: Optional[int] = Field(None, description="Starting block height")
-    to_block: Optional[int] = Field(None, description="Ending block height")
-    topics: Optional[List[str]] = Field(None, description="Event topics to filter")
+    address: str | None = Field(None, description="Contract address to filter logs")
+    from_block: int | None = Field(None, description="Starting block height")
+    to_block: int | None = Field(None, description="Ending block height")
+    topics: list[str] | None = Field(None, description="Event topics to filter")
 
 
 class LogEntry(BaseModel):
     """Single log entry from smart contract event."""
     address: str
-    topics: List[str]
+    topics: list[str]
     data: str
     block_number: int
     transaction_hash: str
@@ -36,7 +37,7 @@ class LogEntry(BaseModel):
 
 class GetLogsResponse(BaseModel):
     """Response model for eth_getLogs RPC endpoint."""
-    logs: List[LogEntry]
+    logs: list[LogEntry]
     count: int
 
 
@@ -44,7 +45,7 @@ class GetLogsResponse(BaseModel):
 async def get_logs(
     request: Request,
     logs_request: GetLogsRequest,
-    chain_id: Optional[str] = None
+    chain_id: str | None = None
 ) -> GetLogsResponse:
     """
     Query smart contract event logs using eth_getLogs-compatible endpoint.

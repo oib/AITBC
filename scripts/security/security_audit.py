@@ -4,16 +4,14 @@ AITBC Production Security Audit Script
 Comprehensive security assessment for production deployment
 """
 
-import os
-import sys
 import json
-import subprocess
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Any, Tuple
-import hashlib
 import re
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 class SecurityAudit:
     """Comprehensive security audit for AITBC production"""
-    
+
     def __init__(self, project_root: str = "/opt/aitbc"):
         self.project_root = Path(project_root)
         self.results = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "audit_version": "v0.2.0",
             "findings": [],
             "score": 0,
@@ -34,11 +32,11 @@ class SecurityAudit:
             "warnings": [],
             "recommendations": []
         }
-        
-    def run_full_audit(self) -> Dict[str, Any]:
+
+    def run_full_audit(self) -> dict[str, Any]:
         """Run comprehensive security audit"""
         logger.info("Starting AITBC Production Security Audit...")
-        
+
         # Security categories
         categories = [
             ("File Permissions", self.check_file_permissions, 15),
@@ -50,31 +48,31 @@ class SecurityAudit:
             ("Data Protection", self.check_data_protection, 10),
             ("Infrastructure", self.check_infrastructure_security, 10)
         ]
-        
+
         total_score = 0
         total_weight = 0
-        
+
         for category_name, check_function, weight in categories:
             logger.info(f"Checking {category_name}...")
             try:
                 category_score, issues = check_function()
                 total_score += category_score * weight
                 total_weight += weight
-                
+
                 self.results["findings"].append({
                     "category": category_name,
                     "score": category_score,
                     "weight": weight,
                     "issues": issues
                 })
-                
+
                 # Categorize issues
                 for issue in issues:
                     if issue["severity"] == "critical":
                         self.results["critical_issues"].append(issue)
                     elif issue["severity"] == "warning":
                         self.results["warnings"].append(issue)
-                        
+
             except Exception as e:
                 # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
                 logger.error(f"Error in {category_name} check: {type(e).__name__}")
@@ -85,21 +83,21 @@ class SecurityAudit:
                     "issues": [{"type": "check_error", "message": "Check failed", "severity": "critical"}]
                 })
                 total_weight += weight
-        
+
         # Calculate final score
         self.results["score"] = (total_score / total_weight) * 100 if total_weight > 0 else 0
-        
+
         # Generate recommendations
         self.generate_recommendations()
-        
+
         logger.info("Audit completed")
         return self.results
-        
-    def check_file_permissions(self) -> Tuple[float, List[Dict]]:
+
+    def check_file_permissions(self) -> tuple[float, list[dict]]:
         """Check file permissions and access controls"""
         issues = []
         score = 15.0
-        
+
         # Check sensitive file permissions
         sensitive_files = [
             ("*.key", 600),  # Private keys
@@ -108,7 +106,7 @@ class SecurityAudit:
             ("keystore/*", 600),  # Keystore files
             ("*.sh", 755),  # Shell scripts
         ]
-        
+
         for pattern, expected_perm in sensitive_files:
             try:
                 files = list(self.project_root.glob(pattern))
@@ -126,7 +124,7 @@ class SecurityAudit:
                             score -= 1
             except Exception as e:
                 logger.warning(f"Could not check {pattern}: {type(e).__name__}")
-        
+
         # Check for world-writable files
         try:
             result = subprocess.run(
@@ -144,14 +142,14 @@ class SecurityAudit:
                 score -= min(5, len(writable_files))
         except Exception as e:
             logger.warning(f"Could not check world-writable files: {type(e).__name__}")
-        
+
         return max(0, score), issues
-        
-    def check_secret_management(self) -> Tuple[float, List[Dict]]:
+
+    def check_secret_management(self) -> tuple[float, list[dict]]:
         """Check secret management and key storage"""
         issues = []
         score = 20.0
-        
+
         # Check for hardcoded secrets
         secret_patterns = [
             (r'password\s*=\s*["\'][^"\']+["\']', "hardcoded_password"),
@@ -162,14 +160,14 @@ class SecurityAudit:
             (r'0x[a-fA-F0-9]{40}', "ethereum_address"),
             (r'sk-[a-zA-Z0-9]{48}', "openai_api_key"),
         ]
-        
+
         code_files = list(self.project_root.glob("**/*.py")) + list(self.project_root.glob("**/*.js"))
-        
+
         for file_path in code_files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     content = f.read()
-                    
+
                 for pattern, issue_type in secret_patterns:
                     matches = re.findall(pattern, content, re.IGNORECASE)
                     if matches:
@@ -180,9 +178,9 @@ class SecurityAudit:
                             "severity": "critical"
                         })
                         score -= 2
-            except Exception as e:
+            except Exception:
                 continue
-        
+
         # Check for .env files in git
         try:
             result = subprocess.run(
@@ -207,9 +205,9 @@ class SecurityAudit:
                     "severity": "critical"
                 })
                 score -= 5
-        except Exception as e:
+        except Exception:
             logger.warning("Could not check git for secrets")
-        
+
         # Check keystore encryption
         keystore_dir = self.project_root / "keystore"
         if keystore_dir.exists():
@@ -232,16 +230,16 @@ class SecurityAudit:
                             except UnicodeDecodeError:
                                 # File is binary/encrypted, which is good
                                 pass
-                    except Exception as e:
+                    except Exception:
                         continue
-        
+
         return max(0, score), issues
-        
-    def check_code_security(self) -> Tuple[float, List[Dict]]:
+
+    def check_code_security(self) -> tuple[float, list[dict]]:
         """Check code security vulnerabilities"""
         issues = []
         score = 15.0
-        
+
         # Check for dangerous imports
         dangerous_imports = [
             "pickle",  # Insecure deserialization
@@ -250,14 +248,14 @@ class SecurityAudit:
             "subprocess.call",  # Command injection
             "os.system",        # Command injection
         ]
-        
+
         python_files = list(self.project_root.glob("**/*.py"))
-        
+
         for file_path in python_files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     content = f.read()
-                    
+
                 for dangerous in dangerous_imports:
                     if dangerous in content:
                         issues.append({
@@ -267,21 +265,21 @@ class SecurityAudit:
                             "severity": "warning"
                         })
                         score -= 0.5
-            except Exception as e:
+            except Exception:
                 continue
-        
+
         # Check for SQL injection patterns
         sql_patterns = [
             r'execute\s*\(\s*["\'][^"\']*\+',
             r'format.*SELECT.*\+',
             r'%s.*SELECT.*\+',
         ]
-        
+
         for file_path in python_files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     content = f.read()
-                    
+
                 for pattern in sql_patterns:
                     if re.search(pattern, content, re.IGNORECASE):
                         issues.append({
@@ -290,35 +288,35 @@ class SecurityAudit:
                             "severity": "warning"
                         })
                         score -= 1
-            except Exception as e:
+            except Exception:
                 continue
-        
+
         # Check for input validation
         input_validation_files = [
             "apps/coordinator-api/src/app/services/secure_pickle.py",
             "apps/coordinator-api/src/app/middleware/security.py"
         ]
-        
+
         for validation_file in input_validation_files:
             file_path = self.project_root / validation_file
             if file_path.exists():
                 # Positive check - security measures in place
                 score += 1
-        
+
         return max(0, min(15, score)), issues
-        
-    def check_dependencies(self) -> Tuple[float, List[Dict]]:
+
+    def check_dependencies(self) -> tuple[float, list[dict]]:
         """Check dependency security"""
         issues = []
         score = 10.0
-        
+
         # Check pyproject.toml for known vulnerable packages
         pyproject_file = self.project_root / "pyproject.toml"
         if pyproject_file.exists():
             try:
-                with open(pyproject_file, 'r') as f:
+                with open(pyproject_file) as f:
                     content = f.read()
-                    
+
                 # Check for outdated packages (simplified)
                 vulnerable_packages = {
                     "requests": "<2.25.0",
@@ -326,7 +324,7 @@ class SecurityAudit:
                     "cryptography": "<3.4.0",
                     "pyyaml": "<5.4.0"
                 }
-                
+
                 for package, version in vulnerable_packages.items():
                     if package in content:
                         issues.append({
@@ -338,47 +336,47 @@ class SecurityAudit:
                         score -= 1
             except Exception as e:
                 logger.warning(f"Could not analyze dependencies: {type(e).__name__}")
-        
+
         # Check for poetry.lock (Poetry source of truth)
         lock_files = ["poetry.lock"]
         has_lock_file = any((self.project_root / f).exists() for f in lock_files)
-        
+
         if not has_lock_file:
             issues.append({
                 "type": "no_dependency_lock_file",
                 "severity": "warning"
             })
             score -= 2
-        
+
         return max(0, score), issues
-        
-    def check_network_security(self) -> Tuple[float, List[Dict]]:
+
+    def check_network_security(self) -> tuple[float, list[dict]]:
         """Check network security configurations"""
         issues = []
         score = 10.0
-        
+
         # Check for hardcoded URLs and endpoints
         network_files = list(self.project_root.glob("**/*.py")) + list(self.project_root.glob("**/*.js"))
-        
+
         hardcoded_urls = []
         for file_path in network_files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     content = f.read()
-                    
+
                 # Look for hardcoded URLs
                 url_patterns = [
                     r'http://localhost:\d+',
                     r'http://127\.0\.0\.1:\d+',
                     r'https?://[^/\s]+:\d+',
                 ]
-                
+
                 for pattern in url_patterns:
                     matches = re.findall(pattern, content)
                     hardcoded_urls.extend(matches)
-            except Exception as e:
+            except Exception:
                 continue
-        
+
         if hardcoded_urls:
             issues.append({
                 "type": "hardcoded_network_endpoints",
@@ -387,46 +385,46 @@ class SecurityAudit:
                 "severity": "warning"
             })
             score -= min(3, len(hardcoded_urls))
-        
+
         # Check for SSL/TLS usage
         ssl_config_files = [
             "apps/coordinator-api/src/app/config.py",
             "apps/blockchain-node/src/aitbc_chain/config.py"
         ]
-        
+
         ssl_enabled = False
         for config_file in ssl_config_files:
             file_path = self.project_root / config_file
             if file_path.exists():
                 try:
-                    with open(file_path, 'r') as f:
+                    with open(file_path) as f:
                         content = f.read()
                         if "ssl" in content.lower() or "tls" in content.lower():
                             ssl_enabled = True
                             break
-                except Exception as e:
+                except Exception:
                     continue
-        
+
         if not ssl_enabled:
             issues.append({
                 "type": "no_ssl_configuration",
                 "severity": "warning"
             })
             score -= 2
-        
+
         return max(0, score), issues
-        
-    def check_access_control(self) -> Tuple[float, List[Dict]]:
+
+    def check_access_control(self) -> tuple[float, list[dict]]:
         """Check access control mechanisms"""
         issues = []
         score = 10.0
-        
+
         # Check for authentication mechanisms
         auth_files = [
             "apps/coordinator-api/src/app/auth/",
             "apps/coordinator-api/src/app/middleware/auth.py"
         ]
-        
+
         has_auth = any((self.project_root / f).exists() for f in auth_files)
         if not has_auth:
             issues.append({
@@ -434,94 +432,94 @@ class SecurityAudit:
                 "severity": "critical"
             })
             score -= 5
-        
+
         # Check for role-based access control
         rbac_patterns = ["role", "permission", "authorization"]
         rbac_found = False
-        
+
         python_files = list(self.project_root.glob("**/*.py"))
         for file_path in python_files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     content = f.read()
                     if any(pattern in content.lower() for pattern in rbac_patterns):
                         rbac_found = True
                         break
-            except Exception as e:
+            except Exception:
                 continue
-        
+
         if not rbac_found:
             issues.append({
                 "type": "no_role_based_access_control",
                 "severity": "warning"
             })
             score -= 2
-        
+
         return max(0, score), issues
-        
-    def check_data_protection(self) -> Tuple[float, List[Dict]]:
+
+    def check_data_protection(self) -> tuple[float, list[dict]]:
         """Check data protection measures"""
         issues = []
         score = 10.0
-        
+
         # Check for encryption usage
         encryption_patterns = ["encrypt", "decrypt", "cipher", "hash"]
         encryption_found = False
-        
+
         python_files = list(self.project_root.glob("**/*.py"))
         for file_path in python_files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     content = f.read()
                     if any(pattern in content.lower() for pattern in encryption_patterns):
                         encryption_found = True
                         break
-            except Exception as e:
+            except Exception:
                 continue
-        
+
         if not encryption_found:
             issues.append({
                 "type": "no_encryption_mechanism",
                 "severity": "warning"
             })
             score -= 3
-        
+
         # Check for data validation
         validation_patterns = ["validate", "sanitize", "clean"]
         validation_found = False
-        
+
         for file_path in python_files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     content = f.read()
                     if any(pattern in content.lower() for pattern in validation_patterns):
                         validation_found = True
                         break
-            except Exception as e:
+            except Exception:
                 continue
-        
+
         if not validation_found:
             issues.append({
                 "type": "no_data_validation",
                 "severity": "warning"
             })
             score -= 2
-        
+
         return max(0, score), issues
-        
-    def check_infrastructure_security(self) -> Tuple[float, List[Dict]]:
+
+    def check_infrastructure_security(self) -> tuple[float, list[dict]]:
         """Check infrastructure security"""
         issues = []
         score = 10.0
-        
+
         # Check for systemd service files
         service_files = list(self.project_root.glob("**/*.service"))
         if service_files:
             for service_file in service_files:
                 try:
-                    with open(service_file, 'r') as f:
+                    with open(service_file) as f:
                         content = f.read()
-                        
+
                     # Check for running as root
                     if "User=root" in content or "User=root" not in content:
                         issues.append({
@@ -530,10 +528,10 @@ class SecurityAudit:
                             "severity": "warning"
                         })
                         score -= 1
-                        
-                except Exception as e:
+
+                except Exception:
                     continue
-        
+
         # Check for Docker usage (should be none per policy)
         docker_files = list(self.project_root.glob("**/Dockerfile*")) + list(self.project_root.glob("**/docker-compose*"))
         if docker_files:
@@ -543,7 +541,7 @@ class SecurityAudit:
                 "severity": "warning"
             })
             score -= 2
-        
+
         # Check for firewall configuration
         firewall_configs = list(self.project_root.glob("**/firewall*")) + list(self.project_root.glob("**/ufw*"))
         if not firewall_configs:
@@ -552,68 +550,68 @@ class SecurityAudit:
                 "severity": "warning"
             })
             score -= 1
-        
+
         return max(0, score), issues
-        
+
     def generate_recommendations(self):
         """Generate security recommendations based on findings"""
         recommendations = []
-        
+
         # Critical issues recommendations
         critical_types = set(issue["type"] for issue in self.results["critical_issues"])
-        
+
         if "hardcoded_password" in critical_types:
             recommendations.append({
                 "priority": "critical",
                 "action": "Remove all hardcoded passwords and use environment variables or secret management",
                 "files": [issue["file"] for issue in self.results["critical_issues"] if issue["type"] == "hardcoded_password"]
             })
-        
+
         if "secrets_in_git" in critical_types:
             recommendations.append({
                 "priority": "critical",
                 "action": "Remove secrets from git history and configure .gitignore properly",
                 "details": "Use git filter-branch to remove sensitive data from history"
             })
-        
+
         if "unencrypted_keystore" in critical_types:
             recommendations.append({
                 "priority": "critical",
                 "action": "Encrypt all keystore files using AES-GCM encryption",
                 "implementation": "Use the existing keystore.py encryption mechanisms"
             })
-        
+
         if "world_writable_files" in critical_types:
             recommendations.append({
                 "priority": "critical",
                 "action": "Fix world-writable file permissions immediately",
                 "command": "find /opt/aitbc -type f -perm /o+w -exec chmod 644 {} \\;"
             })
-        
+
         # Warning level recommendations
         warning_types = set(issue["type"] for issue in self.results["warnings"])
-        
+
         if "dangerous_import" in warning_types:
             recommendations.append({
                 "priority": "high",
                 "action": "Replace dangerous imports with secure alternatives",
                 "details": "Use json instead of pickle, subprocess.run with shell=False"
             })
-        
+
         if "no_ssl_configuration" in warning_types:
             recommendations.append({
                 "priority": "high",
                 "action": "Implement SSL/TLS configuration for all network services",
                 "implementation": "Configure SSL certificates and HTTPS endpoints"
             })
-        
+
         if "no_authentication_mechanism" in critical_types:
             recommendations.append({
                 "priority": "critical",
                 "action": "Implement proper authentication and authorization",
                 "implementation": "Add JWT-based authentication with role-based access control"
             })
-        
+
         # General recommendations
         if self.results["score"] < 70:
             recommendations.append({
@@ -621,9 +619,9 @@ class SecurityAudit:
                 "action": "Conduct regular security audits and implement security testing in CI/CD",
                 "implementation": "Add automated security scanning to GitHub Actions"
             })
-        
+
         self.results["recommendations"] = recommendations
-        
+
     def save_report(self, output_file: str):
         """Save audit report to file"""
         with open(output_file, 'w') as f:
@@ -633,43 +631,43 @@ class SecurityAudit:
 def main():
     """Main function to run security audit"""
     audit = SecurityAudit()
-    
+
     # Run full audit
     results = audit.run_full_audit()
-    
+
     # Save report
     report_file = "/opt/aitbc/security_audit_report.json"
     audit.save_report(report_file)
-    
+
     # Print summary
     print(f"\n{'='*60}")
-    print(f"AITBC PRODUCTION SECURITY AUDIT REPORT")
+    print("AITBC PRODUCTION SECURITY AUDIT REPORT")
     print(f"{'='*60}")
     print(f"Overall Score: {results['score']:.1f}/100")
     print(f"Critical Issues: {len(results['critical_issues'])}")
     print(f"Warnings: {len(results['warnings'])}")
     print(f"Recommendations: {len(results['recommendations'])}")
-    
+
     if results['critical_issues']:
-        print(f"\n🚨 CRITICAL ISSUES:")
+        print("\n🚨 CRITICAL ISSUES:")
         for issue in results['critical_issues'][:5]:
             # Mask any sensitive data in messages
             message = issue.get('message', 'N/A')
             if any(keyword in message.lower() for keyword in ['key', 'password', 'secret', 'token']):
                 message = '[REDACTED - SENSITIVE DATA]'
             print(f"  - {issue['type']}: {message}")
-    
+
     if results['recommendations']:
-        print(f"\n💡 TOP RECOMMENDATIONS:")
+        print("\n💡 TOP RECOMMENDATIONS:")
         for rec in results['recommendations'][:3]:
             # Mask any sensitive data in recommendations
             action = rec['action']
             if any(keyword in action.lower() for keyword in ['key', 'password', 'secret', 'token']):
                 action = '[REDACTED]'
             print(f"  - [{rec['priority'].upper()}] {action}")
-    
+
     print(f"\n📄 Full report: {report_file}")
-    
+
     # Exit with appropriate code
     if results['score'] < 50:
         sys.exit(2)  # Critical security issues

@@ -1,22 +1,21 @@
 """GPU service for Edge API Service"""
 
-from typing import Dict, List, Optional
 
 from ..clients.gpu_service import GPUServiceClient
-from ..storage import get_session
 from ..schemas.gpu import GPUListing
+from ..storage import get_session
 
 
 class GPUService:
     """Service for GPU operations"""
-    
+
     def __init__(self):
         self.gpu_client = GPUServiceClient()
-    
-    async def list_gpus(self, architecture: str = None, edge_optimized: bool = None, min_memory_gb: int = None) -> List[Dict]:
+
+    async def list_gpus(self, architecture: str = None, edge_optimized: bool = None, min_memory_gb: int = None) -> list[dict]:
         """List GPUs via GPU service"""
         profiles = await self.gpu_client.get_gpu_profiles(architecture, edge_optimized, min_memory_gb)
-        
+
         # Store GPU listings in edge-api database
         async with get_session() as session:
             for profile in profiles:
@@ -31,10 +30,10 @@ class GPUService:
                 )
                 session.add(gpu_listing)
             await session.commit()
-        
+
         return profiles
-    
-    async def get_gpu_listing(self, gpu_id: str) -> Optional[Dict]:
+
+    async def get_gpu_listing(self, gpu_id: str) -> dict | None:
         """Get GPU listing details"""
         # Get from GPU service
         try:
@@ -43,7 +42,7 @@ class GPUService:
                 if profile.get("id") == gpu_id:
                     return profile
             return None
-        except Exception as e:
+        except Exception:
             # Fall back to database
             from sqlmodel import select
             async with get_session() as session:
@@ -60,7 +59,7 @@ class GPUService:
                         "extra_data": gpu.extra_data
                     }
             return None
-    
+
     async def remove_gpu_listing(self, gpu_id: str) -> bool:
         """Remove GPU listing from database"""
         from sqlmodel import delete
@@ -69,13 +68,13 @@ class GPUService:
             result = await session.execute(stmt)
             await session.commit()
             return result.rowcount > 0
-    
-    async def scan_gpus(self, miner_id: str) -> Dict:
+
+    async def scan_gpus(self, miner_id: str) -> dict:
         """Scan GPUs via GPU service"""
         result = await self.gpu_client.scan_gpus(miner_id)
         return result
-    
-    async def get_gpu_metrics(self, gpu_id: str, limit: int = 100) -> List[Dict]:
+
+    async def get_gpu_metrics(self, gpu_id: str, limit: int = 100) -> list[dict]:
         """Get GPU metrics via GPU service"""
         metrics = await self.gpu_client.get_gpu_metrics(gpu_id, limit)
         return metrics

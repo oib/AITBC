@@ -2,8 +2,9 @@
 Tests for staking router
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -24,13 +25,13 @@ class TestStakingRouter:
         }
 
         # Import and test
-        from app.routers.staking import router
         from app.main import create_app
-        
+        from app.routers.staking import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/staking/info")
         assert response.status_code == 200
         data = response.json()
@@ -50,13 +51,13 @@ class TestStakingRouter:
         }
 
         # Import and test
-        from app.routers.staking import router
         from app.main import create_app
-        
+        from app.routers.staking import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.post("/staking/stake", json={
             "amount": 1000.0,
             "validator": "validator1"

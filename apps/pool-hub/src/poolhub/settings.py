@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import AnyHttpUrl, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,7 +16,7 @@ class ScoreWeights(BaseModel):
 
     model_config = SettingsConfigDict(populate_by_name=True)
 
-    def as_vector(self) -> List[float]:
+    def as_vector(self) -> list[float]:
         return [self.capability, self.price, self.latency, self.trust, self.load]
 
 
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     default_score_weights: ScoreWeights = Field(default_factory=ScoreWeights)
 
-    allowed_origins: List[AnyHttpUrl] = Field(default_factory=list)
+    allowed_origins: list[AnyHttpUrl] = Field(default_factory=list)
 
     prometheus_namespace: str = Field(default="poolhub")
 
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     coordinator_api_key: str | None = Field(default=None)
 
     # SLA Configuration
-    sla_thresholds: Dict[str, float] = Field(
+    sla_thresholds: dict[str, float] = Field(
         default_factory=lambda: {
             "uptime_pct": 95.0,
             "response_time_ms": 1000.0,
@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     # SLA Collection Configuration
     sla_collection_interval_seconds: int = Field(default=300)
 
-    def asgi_kwargs(self) -> Dict[str, Any]:
+    def asgi_kwargs(self) -> dict[str, Any]:
         return {
             "title": self.app_name,
         }
