@@ -13,7 +13,7 @@ import requests
 
 # Default configuration
 DEFAULT_COORDINATOR_URL = "http://localhost:8011"
-DEFAULT_POLL_INTERVAL = 2
+DEFAULT_POLL_INTERVAL = 10
 DEFAULT_LOG_LEVEL = "INFO"
 
 
