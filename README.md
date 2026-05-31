@@ -123,7 +123,7 @@ sudo systemctl start aitbc-blockchain-node
 
 Users should focus on the actual documentation in `/opt/aitbc/docs/`:
 
-- **Core docs**: README.md, MASTER_INDEX.md, ROADMAP.md
+- **Core docs**: README.md, MASTER_INDEX.md
 - **Skills**: `/opt/aitbc/docs/skills/aitbc-*.md` (user-facing skills)
 - **Guides**: `/opt/aitbc/docs/guides/getting-started/`
 - **Scenarios**: `/opt/aitbc/docs/scenarios/` (practical usage examples)
