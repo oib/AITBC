@@ -4,17 +4,17 @@ End-to-End GPU Marketplace Workflow
 User (aitbc server) → GPU Bidding → Ollama Task → Blockchain Payment
 """
 
-import requests
-import json
-import time
 import sys
-from typing import Dict, List
+import time
+
+import requests
+
 
 class MarketplaceWorkflow:
     def __init__(self, coordinator_url: str = "http://localhost:8011"):
         self.coordinator_url = coordinator_url
         self.workflow_steps = []
-    
+
     def log_step(self, step: str, status: str, details: str = ""):
         """Log workflow step"""
         timestamp = time.strftime("%H:%M:%S")
@@ -28,8 +28,8 @@ class MarketplaceWorkflow:
         print(f"{timestamp} {status_icon} {step}")
         if details:
             print(f"    {details}")
-    
-    def get_available_gpus(self) -> List[Dict]:
+
+    def get_available_gpus(self) -> list[dict]:
         """Get list of available GPUs"""
         try:
             print(f"🔍 DEBUG: Requesting GPU list from {self.coordinator_url}/v1/marketplace/gpu/list")
@@ -45,8 +45,8 @@ class MarketplaceWorkflow:
             print(f"🔍 DEBUG: Error in get_available_gpus: {str(e)}")
             self.log_step("Get Available GPUs", "error", str(e))
             return []
-    
-    def book_gpu(self, gpu_id: str, duration_hours: int = 2) -> Dict:
+
+    def book_gpu(self, gpu_id: str, duration_hours: int = 2) -> dict:
         """Book a GPU for computation"""
         try:
             print(f"🔍 DEBUG: Attempting to book GPU {gpu_id} for {duration_hours} hours")
@@ -67,8 +67,8 @@ class MarketplaceWorkflow:
             print(f"🔍 DEBUG: Error in book_gpu: {str(e)}")
             self.log_step("Book GPU", "error", str(e))
             return {}
-    
-    def submit_ollama_task(self, gpu_id: str, task_data: Dict) -> Dict:
+
+    def submit_ollama_task(self, gpu_id: str, task_data: dict) -> dict:
         """Submit Ollama task to the booked GPU"""
         try:
             print(f"🔍 DEBUG: Submitting Ollama task to GPU {gpu_id}")
@@ -81,14 +81,14 @@ class MarketplaceWorkflow:
                 "parameters": task_data.get("parameters", {})
             }
             print(f"🔍 DEBUG: Task payload: {task_payload}")
-            
+
             # This would integrate with actual Ollama service
             # For now, simulate task submission
             task_id = f"task_{int(time.time())}"
             print(f"🔍 DEBUG: Generated task ID: {task_id}")
-            
+
             self.log_step("Submit Ollama Task", "success", f"Task {task_id} submitted to GPU {gpu_id}")
-            
+
             return {
                 "task_id": task_id,
                 "gpu_id": gpu_id,
@@ -99,17 +99,17 @@ class MarketplaceWorkflow:
             print(f"🔍 DEBUG: Error in submit_ollama_task: {str(e)}")
             self.log_step("Submit Ollama Task", "error", str(e))
             return {}
-    
-    def process_blockchain_payment(self, booking: Dict, task_result: Dict) -> Dict:
+
+    def process_blockchain_payment(self, booking: dict, task_result: dict) -> dict:
         """Process payment via blockchain"""
         try:
-            print(f"🔍 DEBUG: Processing blockchain payment")
+            print("🔍 DEBUG: Processing blockchain payment")
             print(f"🔍 DEBUG: Booking data: {booking}")
             print(f"🔍 DEBUG: Task result: {task_result}")
             # Calculate payment amount
             payment_amount = booking.get("total_cost", 0.0)
             print(f"🔍 DEBUG: Payment amount: {payment_amount} AITBC")
-            
+
             # Simulate blockchain payment processing
             payment_data = {
                 "from": "aitbc_server_user",
@@ -121,15 +121,15 @@ class MarketplaceWorkflow:
                 "gpu_id": booking.get("gpu_id")
             }
             print(f"🔍 DEBUG: Payment data: {payment_data}")
-            
+
             # This would integrate with actual blockchain service
             # For now, simulate payment
             transaction_id = f"tx_{int(time.time())}"
             print(f"🔍 DEBUG: Generated transaction ID: {transaction_id}")
-            
-            self.log_step("Process Blockchain Payment", "success", 
+
+            self.log_step("Process Blockchain Payment", "success",
                          f"Payment {payment_amount} AITBC processed (TX: {transaction_id})")
-            
+
             return {
                 "transaction_id": transaction_id,
                 "amount": payment_amount,
@@ -140,8 +140,8 @@ class MarketplaceWorkflow:
             print(f"🔍 DEBUG: Error in process_blockchain_payment: {str(e)}")
             self.log_step("Process Blockchain Payment", "error", str(e))
             return {}
-    
-    def release_gpu(self, gpu_id: str) -> Dict:
+
+    def release_gpu(self, gpu_id: str) -> dict:
         """Release the GPU after task completion"""
         try:
             print(f"🔍 DEBUG: Releasing GPU {gpu_id}")
@@ -157,12 +157,12 @@ class MarketplaceWorkflow:
             print(f"🔍 DEBUG: Error in release_gpu: {str(e)}")
             self.log_step("Release GPU", "error", str(e))
             return {}
-    
-    def run_complete_workflow(self, task_data: Dict = None) -> bool:
+
+    def run_complete_workflow(self, task_data: dict = None) -> bool:
         """Run the complete end-to-end workflow"""
         print("🚀 Starting End-to-End GPU Marketplace Workflow")
         print("=" * 60)
-        
+
         # Default task data if not provided
         if not task_data:
             task_data = {
@@ -170,74 +170,74 @@ class MarketplaceWorkflow:
                 "prompt": "Analyze this data and provide insights",
                 "parameters": {"temperature": 0.7, "max_tokens": 100}
             }
-        
+
         # Step 1: Get available GPUs
         self.log_step("Initialize Workflow", "info", "Starting GPU marketplace workflow")
         available_gpus = self.get_available_gpus()
-        
+
         if not available_gpus:
             self.log_step("Workflow Failed", "error", "No available GPUs in marketplace")
             return False
-        
+
         # Select best GPU (lowest price)
         selected_gpu = min(available_gpus, key=lambda x: x["price_per_hour"])
         gpu_id = selected_gpu["id"]
-        
-        self.log_step("Select GPU", "success", 
+
+        self.log_step("Select GPU", "success",
                      f"Selected {selected_gpu['model']} @ ${selected_gpu['price_per_hour']}/hour")
-        
+
         # Step 2: Book GPU
         booking = self.book_gpu(gpu_id, duration_hours=2)
         if not booking:
             return False
-        
+
         # Step 3: Submit Ollama Task
         task_result = self.submit_ollama_task(gpu_id, task_data)
         if not task_result:
             return False
-        
+
         # Simulate task processing time
         self.log_step("Process Task", "info", "Simulating Ollama task execution...")
         time.sleep(2)  # Simulate processing
-        
+
         # Step 4: Process Blockchain Payment
         payment = self.process_blockchain_payment(booking, task_result)
         if not payment:
             return False
-        
+
         # Step 5: Release GPU
         release_result = self.release_gpu(gpu_id)
         if not release_result:
             return False
-        
+
         # Workflow Summary
         self.print_workflow_summary()
         return True
-    
+
     def print_workflow_summary(self):
         """Print workflow execution summary"""
         print("\n📊 WORKFLOW EXECUTION SUMMARY")
         print("=" * 60)
-        
+
         successful_steps = sum(1 for step in self.workflow_steps if step["status"] == "success")
         total_steps = len(self.workflow_steps)
-        
+
         print(f"✅ Successful Steps: {successful_steps}/{total_steps}")
         print(f"📈 Success Rate: {successful_steps/total_steps*100:.1f}%")
-        
-        print(f"\n📋 Step-by-Step Details:")
+
+        print("\n📋 Step-by-Step Details:")
         for step in self.workflow_steps:
             status_icon = "✅" if step["status"] == "success" else "❌" if step["status"] == "error" else "🔄"
             print(f"  {step['timestamp']} {status_icon} {step['step']}")
             if step["details"]:
                 print(f"    {step['details']}")
-        
+
         print(f"\n🎉 Workflow Status: {'✅ COMPLETED' if successful_steps == total_steps else '❌ FAILED'}")
 
 def main():
     """Main execution function"""
     workflow = MarketplaceWorkflow()
-    
+
     # Example task data
     task_data = {
         "model": "llama2",
@@ -248,10 +248,10 @@ def main():
             "top_p": 0.9
         }
     }
-    
+
     # Run the complete workflow
     success = workflow.run_complete_workflow(task_data)
-    
+
     if success:
         print("\n🎊 End-to-End GPU Marketplace Workflow completed successfully!")
         print("✅ User bid on GPU → Ollama task executed → Blockchain payment processed")

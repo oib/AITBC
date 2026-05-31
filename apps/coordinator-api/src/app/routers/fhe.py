@@ -8,14 +8,13 @@ Provides REST API for:
 - Encrypted inference
 """
 
-from typing import Any, Dict, List, Optional
-import numpy as np
+from typing import Any
 
+import numpy as np
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..services.fhe_enhanced import get_fhe_provider
-
 
 router = APIRouter(prefix="/fhe", tags=["fhe"])
 
@@ -30,35 +29,35 @@ class GenerateContextRequest(BaseModel):
 class EncryptRequest(BaseModel):
     """Request to encrypt data"""
     context_id: str
-    data: List[float]
+    data: list[float]
 
 
 class DecryptRequest(BaseModel):
     """Request to decrypt data"""
-    encrypted_data: Dict[str, Any]
+    encrypted_data: dict[str, Any]
 
 
 class HomomorphicOpRequest(BaseModel):
     """Request for homomorphic operation"""
     context_id: str
-    encrypted_a: Dict[str, Any]
-    encrypted_b: Optional[Dict[str, Any]] = None
-    scalar: Optional[float] = None
-    plain_data: Optional[List[float]] = None
+    encrypted_a: dict[str, Any]
+    encrypted_b: dict[str, Any] | None = None
+    scalar: float | None = None
+    plain_data: list[float] | None = None
 
 
 class InferenceRequest(BaseModel):
     """Request for encrypted inference"""
     context_id: str
-    encrypted_input: Dict[str, Any]
-    model: Dict[str, Any]
+    encrypted_input: dict[str, Any]
+    model: dict[str, Any]
 
 
 @router.post("/context/generate", summary="Generate FHE context")
 async def generate_context(
     request: Request,
     req: GenerateContextRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate a new FHE encryption context with keys"""
     try:
         provider = get_fhe_provider()
@@ -82,7 +81,7 @@ async def generate_context(
 async def encrypt_data(
     request: Request,
     req: EncryptRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Encrypt plaintext data using FHE"""
     try:
         provider = get_fhe_provider()
@@ -109,15 +108,15 @@ async def encrypt_data(
 async def decrypt_data(
     request: Request,
     req: DecryptRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Decrypt FHE-encrypted data"""
     try:
         from ..services.fhe_enhanced import EncryptedVector
-        
+
         provider = get_fhe_provider()
         encrypted = EncryptedVector.deserialize(req.encrypted_data)
         decrypted = provider.decrypt(encrypted)
-        
+
         return {
             "success": True,
             "data": decrypted.tolist(),
@@ -137,7 +136,7 @@ async def decrypt_data(
 async def homomorphic_add(
     request: Request,
     req: HomomorphicOpRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Perform homomorphic addition.
     
@@ -145,10 +144,10 @@ async def homomorphic_add(
     """
     try:
         from ..services.fhe_enhanced import EncryptedVector
-        
+
         provider = get_fhe_provider()
         encrypted_a = EncryptedVector.deserialize(req.encrypted_a)
-        
+
         if req.encrypted_b:
             # Ciphertext + Ciphertext
             encrypted_b = EncryptedVector.deserialize(req.encrypted_b)
@@ -164,7 +163,7 @@ async def homomorphic_add(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either encrypted_b or plain_data required"
             )
-        
+
         return {
             "success": True,
             "result": result.serialize(),
@@ -183,21 +182,21 @@ async def homomorphic_add(
 async def homomorphic_multiply(
     request: Request,
     req: HomomorphicOpRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Perform homomorphic multiplication by scalar: E(a) * s = E(a*s)"""
     try:
         from ..services.fhe_enhanced import EncryptedVector
-        
+
         if req.scalar is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="scalar required"
             )
-        
+
         provider = get_fhe_provider()
         encrypted = EncryptedVector.deserialize(req.encrypted_a)
         result = provider.multiply_cipher_scalar(encrypted, req.scalar)
-        
+
         return {
             "success": True,
             "result": result.serialize(),
@@ -217,16 +216,16 @@ async def homomorphic_multiply(
 async def encrypted_inference(
     request: Request,
     req: InferenceRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Perform ML inference on encrypted data"""
     try:
         from ..services.fhe_enhanced import EncryptedVector
-        
+
         provider = get_fhe_provider()
         encrypted_input = EncryptedVector.deserialize(req.encrypted_input)
-        
+
         result = provider.encrypted_inference(req.model, encrypted_input)
-        
+
         return {
             "success": True,
             "encrypted_output": result.serialize(),
@@ -245,7 +244,7 @@ async def encrypted_inference(
 async def get_context_info(
     request: Request,
     context_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get information about an FHE context"""
     try:
         provider = get_fhe_provider()
@@ -258,7 +257,7 @@ async def get_context_info(
 
 
 @router.get("/health", summary="Health check")
-async def fhe_health(request: Request) -> Dict[str, Any]:
+async def fhe_health(request: Request) -> dict[str, Any]:
     """Check FHE service health"""
     return {
         "status": "healthy",

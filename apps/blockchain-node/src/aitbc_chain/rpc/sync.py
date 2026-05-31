@@ -4,19 +4,19 @@ Sync-related RPC endpoints.
 
 import asyncio
 import json
-import re
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
-from fastapi import HTTPException, Request
-from sqlmodel import select, delete
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlparse
 
-from ..database import session_scope
-from ..models import Account, Block, Transaction
-from ..logger import get_logger
-from .utils import get_chain_id
+from fastapi import HTTPException, Request
+from sqlmodel import delete, select
+
 from aitbc.rate_limiting import rate_limit
+
+from ..database import session_scope
+from ..logger import get_logger
+from ..models import Account, Block, Transaction
+from .utils import get_chain_id
 
 _logger = get_logger(__name__)
 
@@ -25,7 +25,7 @@ _last_import_time = 0
 _import_lock = asyncio.Lock()
 
 
-def _serialize_optional_timestamp(value: Any) -> Optional[str]:
+def _serialize_optional_timestamp(value: Any) -> str | None:
     if value is None:
         return None
     if isinstance(value, str):
@@ -35,7 +35,7 @@ def _serialize_optional_timestamp(value: Any) -> Optional[str]:
     return str(value)
 
 
-def _parse_datetime_value(value: Any, field_name: str) -> Optional[datetime]:
+def _parse_datetime_value(value: Any, field_name: str) -> datetime | None:
     if value in (None, ""):
         return None
     if isinstance(value, datetime):
@@ -48,13 +48,13 @@ def _parse_datetime_value(value: Any, field_name: str) -> Optional[datetime]:
     raise HTTPException(status_code=400, detail=f"Invalid {field_name} type: {type(value).__name__}")
 
 
-def _select_export_blocks(session, chain_id: str) -> List[Block]:
+def _select_export_blocks(session, chain_id: str) -> list[Block]:
     blocks_result = session.execute(
         select(Block)
         .where(Block.chain_id == chain_id)
         .order_by(Block.height.asc(), Block.id.desc())
     )
-    blocks: List[Block] = []
+    blocks: list[Block] = []
     seen_heights = set()
     duplicate_count = 0
     for block in blocks_result.scalars().all():
@@ -68,8 +68,8 @@ def _select_export_blocks(session, chain_id: str) -> List[Block]:
     return blocks
 
 
-def _dedupe_import_blocks(blocks: List[Dict[str, Any]], chain_id: str) -> List[Dict[str, Any]]:
-    latest_by_height: Dict[int, Dict[str, Any]] = {}
+def _dedupe_import_blocks(blocks: list[dict[str, Any]], chain_id: str) -> list[dict[str, Any]]:
+    latest_by_height: dict[int, dict[str, Any]] = {}
     duplicate_count = 0
     for block_data in blocks:
         if "height" not in block_data:
@@ -98,27 +98,27 @@ def _dedupe_import_blocks(blocks: List[Dict[str, Any]], chain_id: str) -> List[D
 @rate_limit(rate=200, per=60)
 async def export_chain(
     request: Request, chain_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export full chain state as JSON for manual synchronization"""
     chain_id = get_chain_id(chain_id)
     try:
         with session_scope() as session:
             blocks = _select_export_blocks(session, chain_id)
-            
+
             accounts_result = session.execute(
                 select(Account)
                 .where(Account.chain_id == chain_id)
                 .order_by(Account.address)
             )
             accounts = list(accounts_result.scalars().all())
-            
+
             txs_result = session.execute(
                 select(Transaction)
                 .where(Transaction.chain_id == chain_id)
                 .order_by(Transaction.block_height, Transaction.id)
             )
             transactions = list(txs_result.scalars().all())
-            
+
             export_data = {
                 "chain_id": chain_id,
                 "export_timestamp": datetime.now().isoformat(),
@@ -168,7 +168,7 @@ async def export_chain(
                     for t in transactions
                 ]
             }
-            
+
             return {
                 "success": True,
                 "export_data": export_data,
@@ -184,7 +184,7 @@ async def export_chain(
 @rate_limit(rate=50, per=60)
 async def import_chain(
     request: Request, import_data: dict
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Import chain state from JSON for manual synchronization"""
     async with _import_lock:
         try:
@@ -220,7 +220,7 @@ async def import_chain(
                     session.execute(delete(Account).where(Account.chain_id == chain_id))
                 _logger.info(f"Clearing existing blocks for chain {chain_id}")
                 session.execute(delete(Block).where(Block.chain_id == chain_id))
-                
+
                 import_hashes = {block_data["hash"] for block_data in unique_blocks}
                 if import_hashes:
                     hash_conflict_result = session.execute(
@@ -232,14 +232,14 @@ async def import_chain(
                         conflict_chains = {chain_id for _, chain_id in hash_conflicts}
                         _logger.warning(f"Clearing {len(hash_conflicts)} blocks with conflicting hashes across chains: {conflict_chains}")
                         session.execute(delete(Block).where(Block.hash.in_(import_hashes)))
-                
+
                 session.commit()
                 session.expire_all()
 
                 _logger.info(f"Importing {len(unique_blocks)} unique blocks (filtered from {len(blocks)} total)")
 
                 for block_data in unique_blocks:
-                    block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(timezone.utc)
+                    block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(UTC)
                     block = Block(
                         chain_id=chain_id,
                         height=block_data["height"],
@@ -316,7 +316,7 @@ async def import_chain(
 @rate_limit(rate=50, per=60)
 async def force_sync(
     request: Request, peer_data: dict
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
     try:
         peer_url = peer_data.get("peer_url")
@@ -329,7 +329,7 @@ async def force_sync(
         parsed = urlparse(peer_url)
         if not parsed.scheme or parsed.scheme not in ['http', 'https']:
             raise HTTPException(status_code=400, detail="Invalid URL scheme")
-        
+
         # Block private/internal IPs
         hostname = parsed.hostname
         if hostname:

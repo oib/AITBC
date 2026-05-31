@@ -2,7 +2,7 @@
 API endpoints for confidential transactions
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from aitbc import get_logger
@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
 
 from aitbc.rate_limiting import rate_limit
+
 from ....auth import get_api_key
 from ....schemas import (
     AccessLogQuery,
@@ -44,8 +45,9 @@ def get_encryption_service() -> EncryptionService:
     global encryption_service
     if encryption_service is None:
         # Initialize with key manager
-        from ....contexts.security.services.key_management import FileKeyStorage
         import tempfile
+
+        from ....contexts.security.services.key_management import FileKeyStorage
 
         key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
         key_manager = KeyManager(key_storage)
@@ -57,8 +59,9 @@ def get_key_manager() -> KeyManager:
     """Get key manager instance"""
     global key_manager
     if key_manager is None:
-        from ....contexts.security.services.key_management import FileKeyStorage
         import tempfile
+
+        from ....contexts.security.services.key_management import FileKeyStorage
 
         key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
         key_manager = KeyManager(key_storage)
@@ -84,13 +87,13 @@ async def create_confidential_transaction(
     """Create a new confidential transaction with optional encryption"""
     try:
         # Generate transaction ID
-        transaction_id = f"ctx-{datetime.now(timezone.utc).timestamp()}"
+        transaction_id = f"ctx-{datetime.now(UTC).timestamp()}"
 
         # Create base transaction
         transaction = ConfidentialTransaction(
             transaction_id=transaction_id,
             job_id=request.job_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             status="created",
             amount=request.amount,
             pricing=request.pricing,
@@ -184,7 +187,7 @@ async def access_confidential_data(
         transaction = ConfidentialTransaction(
             transaction_id=transaction_id,
             job_id="test-job",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             status="completed",
             confidential=True,
             participants=["client-456", "miner-789"],
@@ -211,7 +214,7 @@ async def access_confidential_data(
             return ConfidentialAccessResponse(
                 success=True,
                 data={"amount": "1000", "pricing": {"rate": "0.1"}},
-                access_id=f"access-{datetime.now(timezone.utc).timestamp()}",
+                access_id=f"access-{datetime.now(UTC).timestamp()}",
             )
 
         # Decrypt data
@@ -236,7 +239,7 @@ async def access_confidential_data(
             )
 
             return ConfidentialAccessResponse(
-                success=True, data=decrypted_data, access_id=f"access-{datetime.now(timezone.utc).timestamp()}"
+                success=True, data=decrypted_data, access_id=f"access-{datetime.now(UTC).timestamp()}"
             )
 
         except Exception as e:
@@ -262,7 +265,7 @@ async def audit_access_confidential_data(
         transaction = ConfidentialTransaction(
             transaction_id=transaction_id,
             job_id="test-job",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             status="completed",
             confidential=True,
         )
@@ -291,7 +294,7 @@ async def audit_access_confidential_data(
             )
 
             return ConfidentialAccessResponse(
-                success=True, data=decrypted_data, access_id=f"audit-{datetime.now(timezone.utc).timestamp()}"
+                success=True, data=decrypted_data, access_id=f"audit-{datetime.now(UTC).timestamp()}"
             )
 
         except Exception as e:
@@ -324,7 +327,7 @@ async def register_encryption_key(
                     success=True,
                     participant_id=request.participant_id,  # type: ignore[attr-defined]
                     key_version=1,  # Would get from storage
-                    registered_at=datetime.now(timezone.utc),
+                    registered_at=datetime.now(UTC),
                     error=None,
                 )
         except Exception:
@@ -344,7 +347,7 @@ async def register_encryption_key(
     except KeyManagementError as e:
         logger.error(f"Key registration failed: {e}")
         return KeyRegistrationResponse(
-            success=False, participant_id=request.participant_id, key_version=0, registered_at=datetime.now(timezone.utc), error=str(e)  # type: ignore[attr-defined]
+            success=False, participant_id=request.participant_id, key_version=0, registered_at=datetime.now(UTC), error=str(e)  # type: ignore[attr-defined]
         )
     except Exception as e:
         logger.error(f"Failed to register key: {e}")

@@ -6,15 +6,15 @@ Service for managing multi-jurisdictional DAOs, regional councils, and global tr
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+import logging
+from datetime import UTC, datetime, timedelta
 
-from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from ...blockchain.contract_interactions import ContractInteractionService
 from ....domain.dao_governance import DAOMember, DAOProposal, ProposalState, ProposalType, TreasuryAllocation, Vote
 from ....schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate
+from ...blockchain.contract_interactions import ContractInteractionService
 
 logger = logging.getLogger(__name__)  # type: ignore[name-defined]
 
@@ -53,7 +53,7 @@ class DAOGovernanceService:
         if request.target_region and not (proposer.is_council_member and proposer.council_region == request.target_region):
             raise HTTPException(status_code=403, detail="Only regional council members can create regional proposals")
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         end_time = start_time + timedelta(days=request.voting_period_days)
 
         proposal = DAOProposal(
@@ -89,7 +89,7 @@ class DAOGovernanceService:
         if proposal.status != ProposalState.ACTIVE:
             raise HTTPException(status_code=400, detail="Proposal is not active")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if now < proposal.start_time or now > proposal.end_time:
             proposal.status = ProposalState.EXPIRED
             self.session.commit()
@@ -133,7 +133,7 @@ class DAOGovernanceService:
         if proposal.status != ProposalState.ACTIVE:
             raise HTTPException(status_code=400, detail=f"Cannot execute proposal in state {proposal.status}")
 
-        if datetime.now(timezone.utc) <= proposal.end_time:
+        if datetime.now(UTC) <= proposal.end_time:
             raise HTTPException(status_code=400, detail="Voting period has not ended yet")
 
         if proposal.for_votes > proposal.against_votes:

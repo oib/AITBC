@@ -4,6 +4,7 @@ Centralized constants for AITBC system paths and configuration
 """
 
 from pathlib import Path
+
 from ._version import __version__
 
 # AITBC System Paths

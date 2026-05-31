@@ -5,16 +5,14 @@ This module implements the ComputeProvider interface for CPU operations,
 providing a fallback when GPU acceleration is not available.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Any, Tuple
-import time
 import logging
 import multiprocessing as mp
+import time
+from typing import Any
 
-from .compute_provider import (
-    ComputeProvider, ComputeDevice, ComputeBackend, 
-    ComputeTask, ComputeResult
-)
+import numpy as np
+
+from .compute_provider import ComputeBackend, ComputeDevice, ComputeProvider
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -22,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class CPUDevice(ComputeDevice):
     """CPU device information."""
-    
+
     def __init__(self):
         """Initialize CPU device info."""
         super().__init__(
@@ -34,7 +32,7 @@ class CPUDevice(ComputeDevice):
             is_available=True
         )
         self._update_utilization()
-    
+
     def _get_total_memory(self) -> int:
         """Get total system memory in bytes."""
         try:
@@ -43,7 +41,7 @@ class CPUDevice(ComputeDevice):
         except ImportError:
             # Fallback: estimate 16GB
             return 16 * 1024 * 1024 * 1024
-    
+
     def _get_available_memory(self) -> int:
         """Get available system memory in bytes."""
         try:
@@ -52,7 +50,7 @@ class CPUDevice(ComputeDevice):
         except ImportError:
             # Fallback: estimate 8GB available
             return 8 * 1024 * 1024 * 1024
-    
+
     def _update_utilization(self):
         """Update CPU utilization."""
         try:
@@ -60,7 +58,7 @@ class CPUDevice(ComputeDevice):
             self.utilization = psutil.cpu_percent(interval=1)
         except ImportError:
             self.utilization = 0.0
-    
+
     def update_temperature(self):
         """Update CPU temperature."""
         try:
@@ -81,14 +79,14 @@ class CPUDevice(ComputeDevice):
 
 class CPUComputeProvider(ComputeProvider):
     """CPU implementation of ComputeProvider."""
-    
+
     def __init__(self):
         """Initialize CPU compute provider."""
         self.device = CPUDevice()
         self.initialized = False
         self.memory_allocations = {}
         self.allocation_counter = 0
-        
+
     def initialize(self) -> bool:
         """Initialize the CPU provider."""
         try:
@@ -98,7 +96,7 @@ class CPUComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"CPU initialization failed: {e}")
             return False
-    
+
     def shutdown(self) -> None:
         """Shutdown the CPU provider."""
         try:
@@ -108,42 +106,42 @@ class CPUComputeProvider(ComputeProvider):
             logger.info("CPU provider shutdown complete")
         except Exception as e:
             logger.error(f"CPU shutdown failed: {e}")
-    
-    def get_available_devices(self) -> List[ComputeDevice]:
+
+    def get_available_devices(self) -> list[ComputeDevice]:
         """Get list of available CPU devices."""
         return [self.device]
-    
+
     def get_device_count(self) -> int:
         """Get number of available CPU devices."""
         return 1
-    
+
     def set_device(self, device_id: int) -> bool:
         """Set the active CPU device (always 0 for CPU)."""
         return device_id == 0
-    
-    def get_device_info(self, device_id: int) -> Optional[ComputeDevice]:
+
+    def get_device_info(self, device_id: int) -> ComputeDevice | None:
         """Get information about the CPU device."""
         if device_id == 0:
             self.device._update_utilization()
             self.device.update_temperature()
             return self.device
         return None
-    
-    def allocate_memory(self, size: int, device_id: Optional[int] = None) -> Any:
+
+    def allocate_memory(self, size: int, device_id: int | None = None) -> Any:
         """Allocate memory on CPU (returns numpy array)."""
         if not self.initialized:
             raise RuntimeError("CPU provider not initialized")
-        
+
         # Create a numpy array as "memory allocation"
         allocation_id = self.allocation_counter
         self.allocation_counter += 1
-        
+
         # Allocate bytes as uint8 array
         memory_array = np.zeros(size, dtype=np.uint8)
         self.memory_allocations[allocation_id] = memory_array
-        
+
         return allocation_id
-    
+
     def free_memory(self, memory_handle: Any) -> None:
         """Free allocated CPU memory."""
         try:
@@ -151,7 +149,7 @@ class CPUComputeProvider(ComputeProvider):
                 del self.memory_allocations[memory_handle]
         except Exception as e:
             logger.warning(f"Failed to free CPU memory: {e}")
-    
+
     def copy_to_device(self, host_data: Any, device_data: Any) -> None:
         """Copy data from host to CPU (no-op, already on host)."""
         # For CPU, this is just a copy between numpy arrays
@@ -161,7 +159,7 @@ class CPUComputeProvider(ComputeProvider):
                 # Copy data to the allocated array
                 data_bytes = host_data.tobytes()
                 device_array[:len(data_bytes)] = np.frombuffer(data_bytes, dtype=np.uint8)
-    
+
     def copy_to_host(self, device_data: Any, host_data: Any) -> None:
         """Copy data from CPU to host (no-op, already on host)."""
         # For CPU, this is just a copy between numpy arrays
@@ -171,19 +169,19 @@ class CPUComputeProvider(ComputeProvider):
                 # Copy data from the allocated array
                 data_bytes = device_array.tobytes()[:host_data.nbytes]
                 host_data.flat[:] = np.frombuffer(data_bytes, dtype=host_data.dtype)
-    
+
     def execute_kernel(
         self,
         kernel_name: str,
-        grid_size: Tuple[int, int, int],
-        block_size: Tuple[int, int, int],
-        args: List[Any],
+        grid_size: tuple[int, int, int],
+        block_size: tuple[int, int, int],
+        args: list[Any],
         shared_memory: int = 0
     ) -> bool:
         """Execute a CPU "kernel" (simulated)."""
         if not self.initialized:
             return False
-        
+
         # CPU doesn't have kernels, but we can simulate some operations
         try:
             if kernel_name == "field_add":
@@ -198,28 +196,28 @@ class CPUComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"CPU kernel execution failed: {e}")
             return False
-    
+
     def _cpu_field_add(self, a_ptr, b_ptr, result_ptr, count):
         """CPU implementation of field addition."""
         # Convert pointers to actual arrays (simplified)
         # In practice, this would need proper memory management
         return True
-    
+
     def _cpu_field_mul(self, a_ptr, b_ptr, result_ptr, count):
         """CPU implementation of field multiplication."""
         # Convert pointers to actual arrays (simplified)
         return True
-    
+
     def _cpu_field_inverse(self, a_ptr, result_ptr, count):
         """CPU implementation of field inversion."""
         # Convert pointers to actual arrays (simplified)
         return True
-    
+
     def synchronize(self) -> None:
         """Synchronize CPU operations (no-op)."""
         pass
-    
-    def get_memory_info(self, device_id: Optional[int] = None) -> Tuple[int, int]:
+
+    def get_memory_info(self, device_id: int | None = None) -> tuple[int, int]:
         """Get CPU memory information."""
         try:
             import psutil
@@ -227,19 +225,19 @@ class CPUComputeProvider(ComputeProvider):
             return (memory.available, memory.total)
         except ImportError:
             return (8 * 1024**3, 16 * 1024**3)  # 8GB free, 16GB total
-    
-    def get_utilization(self, device_id: Optional[int] = None) -> float:
+
+    def get_utilization(self, device_id: int | None = None) -> float:
         """Get CPU utilization."""
         self.device._update_utilization()
         return self.device.utilization
-    
-    def get_temperature(self, device_id: Optional[int] = None) -> Optional[float]:
+
+    def get_temperature(self, device_id: int | None = None) -> float | None:
         """Get CPU temperature."""
         self.device.update_temperature()
         return self.device.temperature
-    
+
     # ZK-specific operations (CPU implementations)
-    
+
     def zk_field_add(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """Perform field addition using CPU."""
         try:
@@ -250,7 +248,7 @@ class CPUComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"CPU field add failed: {e}")
             return False
-    
+
     def zk_field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """Perform field multiplication using CPU."""
         try:
@@ -261,7 +259,7 @@ class CPUComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"CPU field mul failed: {e}")
             return False
-    
+
     def zk_field_inverse(self, a: np.ndarray, result: np.ndarray) -> bool:
         """Perform field inversion using CPU."""
         try:
@@ -277,11 +275,11 @@ class CPUComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"CPU field inverse failed: {e}")
             return False
-    
+
     def zk_multi_scalar_mul(
         self,
-        scalars: List[np.ndarray],
-        points: List[np.ndarray],
+        scalars: list[np.ndarray],
+        points: list[np.ndarray],
         result: np.ndarray
     ) -> bool:
         """Perform multi-scalar multiplication using CPU."""
@@ -290,21 +288,21 @@ class CPUComputeProvider(ComputeProvider):
             # In practice, this would implement proper multi-scalar multiplication
             if len(scalars) != len(points):
                 return False
-            
+
             # Initialize result to zero
             result.fill(0)
-            
+
             # Simple accumulation (not cryptographically correct)
             for scalar, point in zip(scalars, points):
                 # Multiply scalar by point and add to result
                 temp = np.multiply(scalar, point, dtype=result.dtype)
                 np.add(result, temp, out=result, dtype=result.dtype)
-            
+
             return True
         except Exception as e:
             logger.error(f"CPU multi-scalar mul failed: {e}")
             return False
-    
+
     def zk_pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray) -> bool:
         """Perform pairing operation using CPU."""
         # Simplified pairing implementation
@@ -316,27 +314,27 @@ class CPUComputeProvider(ComputeProvider):
         except Exception as e:
             logger.error(f"CPU pairing failed: {e}")
             return False
-    
+
     # Performance and monitoring
-    
-    def benchmark_operation(self, operation: str, iterations: int = 100) -> Dict[str, float]:
+
+    def benchmark_operation(self, operation: str, iterations: int = 100) -> dict[str, float]:
         """Benchmark a CPU operation."""
         if not self.initialized:
             return {"error": "CPU provider not initialized"}
-        
+
         try:
             # Create test data
             test_size = 1024
             a = np.random.randint(0, 2**32, size=test_size, dtype=np.uint64)
             b = np.random.randint(0, 2**32, size=test_size, dtype=np.uint64)
             result = np.zeros_like(a)
-            
+
             # Warm up
             if operation == "add":
                 self.zk_field_add(a, b, result)
             elif operation == "mul":
                 self.zk_field_mul(a, b, result)
-            
+
             # Benchmark
             start_time = time.time()
             for _ in range(iterations):
@@ -345,31 +343,31 @@ class CPUComputeProvider(ComputeProvider):
                 elif operation == "mul":
                     self.zk_field_mul(a, b, result)
             end_time = time.time()
-            
+
             total_time = end_time - start_time
             avg_time = total_time / iterations
             ops_per_second = iterations / total_time
-            
+
             return {
                 "total_time": total_time,
                 "average_time": avg_time,
                 "operations_per_second": ops_per_second,
                 "iterations": iterations
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
-    
-    def get_performance_metrics(self) -> Dict[str, Any]:
+
+    def get_performance_metrics(self) -> dict[str, Any]:
         """Get CPU performance metrics."""
         if not self.initialized:
             return {"error": "CPU provider not initialized"}
-        
+
         try:
             free_mem, total_mem = self.get_memory_info()
             utilization = self.get_utilization()
             temperature = self.get_temperature()
-            
+
             return {
                 "backend": "cpu",
                 "device_count": 1,
@@ -393,11 +391,12 @@ class CPUComputeProvider(ComputeProvider):
                     }
                 ]
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
 
 
 # Register the CPU provider
 from .compute_provider import ComputeProviderFactory
+
 ComputeProviderFactory.register_provider(ComputeBackend.CPU, CPUComputeProvider)

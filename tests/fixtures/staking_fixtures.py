@@ -4,22 +4,19 @@ Reusable fixtures for service and integration tests to avoid duplication
 """
 
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from datetime import UTC, datetime, timezone, timedelta
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 # Add paths for imports
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "coordinator-api" / "src"))
 
-from app.domain.bounty import (
-    AgentStake, AgentMetrics, StakingPool, 
-    StakeStatus, PerformanceTier
-)
+from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 from app.services.staking_service import StakingService
 
 
@@ -258,7 +255,7 @@ def completed_stake(db_session, agent_wallet, staker_address):
 def multiple_stakes(db_session, agent_wallet, staker_address):
     """Create multiple stakes for testing"""
     stakes = []
-    
+
     # Stake 1: Active, 30-day lock
     stake1 = AgentStake(
         stake_id="stake_test_001",
@@ -276,7 +273,7 @@ def multiple_stakes(db_session, agent_wallet, staker_address):
         performance_multiplier=1.5,
         auto_compound=False
     )
-    
+
     # Stake 2: Active, 90-day lock with auto-compound
     stake2 = AgentStake(
         stake_id="stake_test_002",
@@ -294,14 +291,14 @@ def multiple_stakes(db_session, agent_wallet, staker_address):
         performance_multiplier=1.5,
         auto_compound=True
     )
-    
+
     db_session.add_all([stake1, stake2])
     db_session.commit()
-    
+
     for stake in [stake1, stake2]:
         db_session.refresh(stake)
         stakes.append(stake)
-    
+
     return stakes
 
 

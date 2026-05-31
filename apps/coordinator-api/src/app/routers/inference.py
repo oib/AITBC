@@ -10,15 +10,14 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, AsyncGenerator
-import httpx
 import json
+from collections.abc import AsyncGenerator
+from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-
-
 
 router = APIRouter(prefix="/inference", tags=["inference"])
 
@@ -30,17 +29,17 @@ class InferenceRequest(BaseModel):
     """Request for model inference"""
     model: str = Field(default="llama2", description="Model name to use")
     prompt: str = Field(..., min_length=1, description="Input prompt")
-    system: Optional[str] = Field(default=None, description="System message")
+    system: str | None = Field(default=None, description="System message")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, ge=1, le=8192)
     stream: bool = Field(default=False, description="Stream response")
-    context: Optional[List[int]] = Field(default=None, description="Conversation context")
+    context: list[int] | None = Field(default=None, description="Conversation context")
 
 
 class BatchInferenceRequest(BaseModel):
     """Request for batch inference"""
     model: str = Field(default="llama2")
-    prompts: List[str] = Field(..., min_length=1, max_length=10)
+    prompts: list[str] = Field(..., min_length=1, max_length=10)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, ge=1, le=8192)
 
@@ -58,7 +57,7 @@ class ModelInfo(BaseModel):
 async def generate(
     request: Request,
     req: InferenceRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate text using an AI model via Ollama.
     
@@ -81,7 +80,7 @@ async def generate_stream(  # type: ignore[no-untyped-def]
     
     Returns Server-Sent Events (SSE) stream of tokens.
     """
-    async def stream_generator() -> AsyncGenerator[str, None]:
+    async def stream_generator() -> AsyncGenerator[str]:
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 payload = {
@@ -93,10 +92,10 @@ async def generate_stream(  # type: ignore[no-untyped-def]
                         "num_predict": req.max_tokens
                     }
                 }
-                
+
                 if req.system:
                     payload["system"] = req.system
-                
+
                 async with client.stream(
                     "POST",
                     f"{OLLAMA_BASE_URL}/api/generate",
@@ -109,16 +108,16 @@ async def generate_stream(  # type: ignore[no-untyped-def]
                                 token = data.get("response", "")
                                 if token:
                                     yield f"data: {json.dumps({'token': token})}\n\n"
-                                
+
                                 if data.get("done"):
                                     yield f"data: {json.dumps({'done': True, 'context': data.get('context')})}\n\n"
                                     break
                             except json.JSONDecodeError:
                                 continue
-                            
+
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
-    
+
     return StreamingResponse(
         stream_generator(),
         media_type="text/event-stream"
@@ -129,13 +128,13 @@ async def generate_stream(  # type: ignore[no-untyped-def]
 async def batch_generate(
     request: Request,
     req: BatchInferenceRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Run inference on multiple prompts in batch.
     """
     results = []
     errors = []
-    
+
     try:
         async with httpx.AsyncClient(timeout=300.0) as client:
             for i, prompt in enumerate(req.prompts):
@@ -149,12 +148,12 @@ async def batch_generate(
                             "num_predict": req.max_tokens
                         }
                     }
-                    
+
                     response = await client.post(
                         f"{OLLAMA_BASE_URL}/api/generate",
                         json=payload
                     )
-                    
+
                     if response.status_code == 200:
                         result = response.json()
                         results.append({
@@ -168,13 +167,13 @@ async def batch_generate(
                             "index": i,
                             "error": f"HTTP {response.status_code}"
                         })
-                        
+
                 except Exception as e:
                     errors.append({
                         "index": i,
                         "error": str(e)
                     })
-        
+
         return {
             "success": True,
             "model": req.model,
@@ -184,7 +183,7 @@ async def batch_generate(
             "results": results,
             "errors": errors
         }
-        
+
     except httpx.ConnectError:
         raise HTTPException(
             status_code=503,
@@ -198,7 +197,7 @@ async def batch_generate(
 
 
 @router.get("/models", summary="List available models")
-async def list_models(request: Request) -> Dict[str, Any]:
+async def list_models(request: Request) -> dict[str, Any]:
     """List all available AI models in Ollama"""
     return {
         "models": [],
@@ -210,7 +209,7 @@ async def list_models(request: Request) -> Dict[str, Any]:
 async def pull_model(
     request: Request,
     model_name: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Pull a model from Ollama registry"""
     try:
         return {
@@ -225,7 +224,7 @@ async def pull_model(
 
 
 @router.get("/health", summary="Health check")
-async def inference_health(request: Request) -> Dict[str, Any]:
+async def inference_health(request: Request) -> dict[str, Any]:
     """Check inference service health"""
     return {
         "status": "healthy",

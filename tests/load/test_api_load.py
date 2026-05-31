@@ -4,8 +4,8 @@ Canonical load test entry point for AITBC APIs.
 Combines marketplace and blockchain load testing in a single Locust run.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Determine repo root - try multiple methods for robustness
@@ -24,9 +24,10 @@ sys.path.insert(0, str(repo_root))
 
 # Import base user classes from existing load test files
 try:
-    from locust import HttpUser, task, between
-    from datetime import datetime, timezone, timedelta
     import random
+    from datetime import datetime, timedelta, timezone
+
+    from locust import HttpUser, between, task
 except ImportError:
     # Skip this module if locust is not installed (e.g., during pytest collection)
     raise ImportError("locust is required for load tests. Install with: pip install locust")
@@ -34,34 +35,34 @@ except ImportError:
 # Inline blockchain load test (from tests/load_test.py)
 class BlockchainLoadUser(HttpUser):
     """Blockchain RPC user for load testing."""
-    
+
     wait_time = between(1, 3)
     weight = 5
-    
+
     def on_start(self):
         """Setup test - check if blockchain RPC is available."""
         self.client.get("/health")
-    
+
     @task(3)
     def check_blockchain_health(self):
         """Check blockchain health endpoint."""
         self.client.get("/health")
-    
+
     @task(2)
     def get_blockchain_head(self):
         """Get current block head."""
         self.client.get("/rpc/head")
-    
+
     @task(2)
     def get_mempool_status(self):
         """Get mempool status."""
         self.client.get("/rpc/mempool")
-    
+
     @task(1)
     def get_blockchain_info(self):
         """Get blockchain information."""
         self.client.get("/docs")
-    
+
     @task(1)
     def test_transaction_submission(self):
         """Test transaction submission endpoint availability."""
@@ -73,11 +74,11 @@ class BlockchainLoadUser(HttpUser):
 # Simple marketplace load test (minimal working version)
 class SimpleMarketplaceUser(HttpUser):
     """Simple marketplace user for load testing."""
-    
+
     host = "http://localhost:8102"
     wait_time = between(1, 3)
     weight = 10
-    
+
     @task(1)
     def browse_offers(self):
         """Browse marketplace offers."""
@@ -88,7 +89,6 @@ class SimpleMarketplaceUser(HttpUser):
 BlockchainLoadUser.host = "http://localhost:8006"
 
 # Allow hosts to be overridden via environment variables
-import os
 if os.getenv('MARKETPLACE_HOST'):
     SimpleMarketplaceUser.host = os.getenv('MARKETPLACE_HOST')
 

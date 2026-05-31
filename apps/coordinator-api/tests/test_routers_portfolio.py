@@ -68,12 +68,12 @@ class TestPortfolioIntegration:
         # For now, just verify the structure is correct
         response = client.get("/portfolio/user/multi-wallet-user")
         data = response.json()
-        
+
         # Verify totals are calculated
         assert "total_balance_usd" in data
         assert "total_staked_usd" in data
         assert "total_rewards_usd" in data
-        
+
         # Verify chain breakdown sums match totals
         if data.get("chains"):
             chain_sum = sum(c.get("balance_usd", 0) for c in data["chains"])

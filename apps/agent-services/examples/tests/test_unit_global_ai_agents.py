@@ -1,13 +1,9 @@
 """Unit tests for global AI agents service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-from datetime import datetime, timezone
-
-
-from main import app, Agent, AgentMessage, CollaborationSession, AgentPerformance
+from main import Agent, AgentMessage, AgentPerformance, CollaborationSession, app
 
 
 @pytest.mark.unit
@@ -67,7 +63,7 @@ def test_agent_message_model():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert message.message_id == "msg_123"
     assert message.sender_id == "agent_123"
@@ -87,7 +83,7 @@ def test_agent_message_broadcast():
         content={"data": "test"},
         priority="medium",
         language="english",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert message.recipient_id is None
 
@@ -100,8 +96,8 @@ def test_collaboration_session_model():
         participants=["agent_123", "agent_456"],
         session_type="task_force",
         objective="Complete trading task",
-        created_at=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC),
         status="active"
     )
     assert session.session_id == "session_123"
@@ -117,8 +113,8 @@ def test_collaboration_session_empty_participants():
         participants=[],
         session_type="research",
         objective="Research task",
-        created_at=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC),
         status="active"
     )
     assert session.participants == []
@@ -129,7 +125,7 @@ def test_agent_performance_model():
     """Test AgentPerformance model"""
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=0.95,
@@ -147,7 +143,7 @@ def test_agent_performance_negative_values():
     """Test AgentPerformance with negative values"""
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         tasks_completed=-10,
         response_time_ms=-50.5,
         accuracy_score=-0.95,

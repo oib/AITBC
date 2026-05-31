@@ -4,7 +4,7 @@ Blockchain service for AITBC token operations
 
 import re
 
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 

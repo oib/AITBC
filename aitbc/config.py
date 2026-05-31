@@ -4,12 +4,12 @@ Base configuration classes for AITBC applications
 """
 
 from pathlib import Path
-from typing import Optional, List
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator
 
-from .constants import DATA_DIR, CONFIG_DIR, LOG_DIR, ENV_FILE
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from .aitbc_logging import get_logger
+from .constants import CONFIG_DIR, DATA_DIR, ENV_FILE, LOG_DIR
 
 logger = get_logger(__name__)
 
@@ -51,7 +51,7 @@ class BaseAITBCConfig(BaseSettings):
     workers: int = Field(default=1, description="Number of worker processes")
 
     # Database settings
-    database_url: Optional[str] = Field(default=None, description="Database connection URL")
+    database_url: str | None = Field(default=None, description="Database connection URL")
     database_pool_size: int = Field(default=10, description="Database connection pool size")
     database_max_overflow: int = Field(default=20, description="Maximum overflow connections")
     database_pool_recycle: int = Field(default=3600, description="Connection recycle time in seconds")
@@ -59,13 +59,13 @@ class BaseAITBCConfig(BaseSettings):
     database_echo: bool = Field(default=False, description="Enable SQL query logging")
 
     # Redis settings (if applicable)
-    redis_url: Optional[str] = Field(default=None, description="Redis connection URL")
+    redis_url: str | None = Field(default=None, description="Redis connection URL")
     redis_max_connections: int = Field(default=10, description="Redis max connections")
     redis_timeout: int = Field(default=5, description="Redis timeout in seconds")
 
     # Security settings
-    secret_key: Optional[str] = Field(default=None, description="Application secret key")
-    jwt_secret: Optional[str] = Field(default=None, description="JWT secret key")
+    secret_key: str | None = Field(default=None, description="Application secret key")
+    jwt_secret: str | None = Field(default=None, description="JWT secret key")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expiration_hours: int = Field(default=24, description="JWT token expiration in hours")
 
@@ -78,7 +78,7 @@ class BaseAITBCConfig(BaseSettings):
     rate_limit_window_seconds: int = Field(default=60, description="Rate limit window in seconds")
 
     # CORS settings
-    allow_origins: List[str] = Field(default_factory=list, description="CORS allowed origins")
+    allow_origins: list[str] = Field(default_factory=list, description="CORS allowed origins")
 
     def validate_secrets(self) -> None:
         """Validate that all required secrets are provided."""
@@ -94,7 +94,7 @@ class BaseAITBCConfig(BaseSettings):
 
     @field_validator("secret_key", "jwt_secret", mode="before")
     @classmethod
-    def validate_secret_length(cls, v: Optional[str]) -> Optional[str]:
+    def validate_secret_length(cls, v: str | None) -> str | None:
         """Validate secret key length in production."""
         import os
         if os.getenv("APP_ENV", "development") != "production" and not v:

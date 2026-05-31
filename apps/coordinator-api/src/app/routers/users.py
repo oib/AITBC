@@ -9,10 +9,10 @@ User Management Router for AITBC
 import hashlib
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
 from aitbc.rate_limiting import rate_limit
@@ -73,8 +73,8 @@ async def register_user(user_data: UserCreate, request: Request, session: Annota
         id=str(uuid.uuid4()),
         email=user_data.email,
         username=user_data.username,
-        created_at=datetime.now(timezone.utc),
-        last_login=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        last_login=datetime.now(UTC),
     )
 
     session.add(user)
@@ -82,7 +82,7 @@ async def register_user(user_data: UserCreate, request: Request, session: Annota
     session.refresh(user)
 
     # Create wallet for user
-    wallet = Wallet(user_id=user.id, address=f"aitbc_{user.id[:8]}", balance=0.0, created_at=datetime.now(timezone.utc))
+    wallet = Wallet(user_id=user.id, address=f"aitbc_{user.id[:8]}", balance=0.0, created_at=datetime.now(UTC))
 
     session.add(wallet)
     session.commit()
@@ -116,8 +116,8 @@ async def login_user(login_data: UserLogin, request: Request, session: Annotated
             id=str(uuid.uuid4()),
             email=f"{login_data.wallet_address}@aitbc.local",
             username=f"user_{login_data.wallet_address[-8:]}_{str(uuid.uuid4())[:8]}",
-            created_at=datetime.now(timezone.utc),
-            last_login=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            last_login=datetime.now(UTC),
         )
 
         session.add(user)
@@ -125,14 +125,14 @@ async def login_user(login_data: UserLogin, request: Request, session: Annotated
         session.refresh(user)
 
         # Create wallet
-        wallet = Wallet(user_id=user.id, address=login_data.wallet_address, balance=0.0, created_at=datetime.now(timezone.utc))  # type: ignore[assignment]
+        wallet = Wallet(user_id=user.id, address=login_data.wallet_address, balance=0.0, created_at=datetime.now(UTC))  # type: ignore[assignment]
 
         session.add(wallet)
         session.commit()
     else:
         # Update last login
         user = session.execute(select(User).where(User.id == wallet.user_id)).first()  # type: ignore[assignment]
-        user.last_login = datetime.now(timezone.utc)
+        user.last_login = datetime.now(UTC)
         session.commit()
 
     # Create session token

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from prometheus_client import Counter, Histogram, Gauge, Info
+from prometheus_client import Counter, Gauge, Histogram
 
 # Block Processing Metrics
 block_processing_duration = Histogram(
@@ -67,7 +67,7 @@ rpc_requests_total = Counter(
 # Legacy MetricsRegistry for backward compatibility
 from dataclasses import dataclass
 from threading import Lock
-from typing import Dict
+
 
 @dataclass
 class MetricValue:
@@ -76,9 +76,9 @@ class MetricValue:
 
 class MetricsRegistry:
     def __init__(self) -> None:
-        self._counters: Dict[str, float] = {}
-        self._gauges: Dict[str, float] = {}
-        self._summaries: Dict[str, tuple[float, float]] = {}
+        self._counters: dict[str, float] = {}
+        self._gauges: dict[str, float] = {}
+        self._summaries: dict[str, tuple[float, float]] = {}
         self._lock = Lock()
 
     def increment(self, name: str, amount: float = 1.0) -> None:

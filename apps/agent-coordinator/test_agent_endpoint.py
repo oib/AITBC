@@ -3,11 +3,12 @@ Simple test agent endpoint to verify task distribution
 Listens on port 9997 and accepts task execution requests
 """
 
+from datetime import datetime
+from typing import Any
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
-import uvicorn
-from datetime import datetime
 
 app = FastAPI(title="Test Agent Endpoint")
 
@@ -16,13 +17,13 @@ class TaskMessage(BaseModel):
     """Task message structure"""
     id: str
     sender_id: str
-    receiver_id: Optional[str]
+    receiver_id: str | None
     message_type: str
     priority: str
     timestamp: str
-    payload: Dict[str, Any]
-    correlation_id: Optional[str]
-    reply_to: Optional[str]
+    payload: dict[str, Any]
+    correlation_id: str | None
+    reply_to: str | None
     ttl: int
 
 
@@ -32,7 +33,7 @@ class TaskResponse(BaseModel):
     task_id: str
     agent_id: str
     executed_at: str
-    result: Dict[str, Any]
+    result: dict[str, Any]
 
 
 @app.get("/")
@@ -64,18 +65,18 @@ async def execute_task(task: TaskMessage):
         print(f"  Type: {task.message_type}")
         print(f"  Priority: {task.priority}")
         print(f"  Payload: {task.payload}")
-        
+
         # Simulate task processing
         task_data = task.payload.get("task_data", {})
         task_type = task_data.get("task_type", "unknown")
-        
+
         # Simple task simulation
         result = {
             "status": "completed",
             "output": f"Task {task_type} executed successfully",
             "processing_time_ms": 100
         }
-        
+
         response = TaskResponse(
             status="success",
             task_id=task.id,
@@ -83,10 +84,10 @@ async def execute_task(task: TaskMessage):
             executed_at=datetime.utcnow().isoformat(),
             result=result
         )
-        
+
         print(f"[{datetime.utcnow()}] Task executed successfully")
         return response
-        
+
     except Exception as e:
         print(f"[{datetime.utcnow()}] Error executing task: {e}")
         raise HTTPException(status_code=500, detail=str(e))

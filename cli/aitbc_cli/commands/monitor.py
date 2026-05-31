@@ -1,17 +1,17 @@
 """Monitoring and dashboard commands for AITBC CLI"""
 
-import click
 import json
 import time
-from pathlib import Path
-from typing import Optional
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import click
 from rich.console import Console
 
-from ..utils import output, error, success
-
 # Import shared modules
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, get_logger
+
+from ..utils import error, output, success
 
 # Initialize logger and console
 logger = get_logger(__name__)
@@ -47,7 +47,7 @@ def dashboard(ctx, refresh: int, duration: int):
                 http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=5)
                 # Get dashboard data
                 url = "/api/v1/dashboard"
-                dashboard = http_http_client.get(
+                dashboard = http_client.get(
                     url,
                     headers={"X-Api-Key": config.api_key or ""}
                 )
@@ -68,7 +68,7 @@ def dashboard(ctx, refresh: int, duration: int):
                     console.print(f"  Health: {health_pct:.1f}%")
             except Exception as e:
                 console.print(f"[red]Error fetching data: {e}[/red]")
-            console.print(f"\n[dim]Press Ctrl+C to exit[/dim]")
+            console.print("\n[dim]Press Ctrl+C to exit[/dim]")
             time.sleep(refresh)
 
     except KeyboardInterrupt:
@@ -77,7 +77,7 @@ def dashboard(ctx, refresh: int, duration: int):
 @click.option("--period", default="24h", help="Time period (1h, 24h, 7d, 30d)")
 @click.option("--export", "export_path", type=click.Path(), help="Export metrics to file")
 @click.pass_context
-def metrics(ctx, period: str, export_path: Optional[str]):
+def metrics(ctx, period: str, export_path: str | None):
     """Collect and display system metrics"""
     config = ctx.obj['config']
 
@@ -167,9 +167,10 @@ def metrics(ctx, period: str, export_path: Optional[str]):
 @click.option("--threshold", type=float, help="Alert threshold value")
 @click.option("--webhook", help="Webhook URL for notifications")
 @click.pass_context
-def alerts(ctx, action: str, name: Optional[str], alert_type: Optional[str],
-           threshold: Optional[float], webhook: Optional[str]):
+def alerts(ctx, action: str, name: str | None, alert_type: str | None,
+           threshold: float | None, webhook: str | None):
     """Configure monitoring alerts"""
+    config = ctx.obj['config']
     alerts_dir = Path.home() / ".aitbc" / "alerts"
     alerts_dir.mkdir(parents=True, exist_ok=True)
     alerts_file = alerts_dir / "alerts.json"
@@ -227,7 +228,7 @@ def alerts(ctx, action: str, name: Optional[str], alert_type: Optional[str],
                 resp = http_client.post(alert["webhook"], json={
                     "alert": name,
                     "type": alert["type"],
-                    "message": f"Test alert from AITBC CLI",
+                    "message": "Test alert from AITBC CLI",
                     "timestamp": datetime.now().isoformat()
                 })
                 output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
@@ -291,8 +292,9 @@ def history(ctx, period: str):
 @click.option("--url", help="Webhook URL")
 @click.option("--events", help="Comma-separated event types (job_completed,miner_offline,alert)")
 @click.pass_context
-def webhooks(ctx, action: str, name: Optional[str], url: Optional[str], events: Optional[str]):
+def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | None):
     """Manage webhook notifications"""
+    config = ctx.obj['config']
     webhooks_dir = Path.home() / ".aitbc" / "webhooks"
     webhooks_dir.mkdir(parents=True, exist_ok=True)
     webhooks_file = webhooks_dir / "webhooks.json"
@@ -427,7 +429,7 @@ def campaigns(ctx, status: str):
 @monitor.command(name="campaign-stats")
 @click.argument("campaign_id", required=False)
 @click.pass_context
-def campaign_stats(ctx, campaign_id: Optional[str]):
+def campaign_stats(ctx, campaign_id: str | None):
     """Campaign performance metrics (TVL, participants, rewards)"""
     campaigns_file = _ensure_campaigns()
     with open(campaigns_file) as f:

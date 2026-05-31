@@ -5,7 +5,7 @@ Provides unified agent identification and cross-chain compatibility
 
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -92,7 +92,7 @@ class AgentIdentityCore:
             if hasattr(identity, field):
                 setattr(identity, field, value)
 
-        identity.updated_at = datetime.now(timezone.utc)
+        identity.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(identity)
@@ -135,7 +135,7 @@ class AgentIdentityCore:
         # Update identity's supported chains
         if chain_id not in identity.supported_chains:
             identity.supported_chains.append(str(chain_id))
-            identity.updated_at = datetime.now(timezone.utc)
+            identity.updated_at = datetime.now(UTC)
             self.session.commit()
 
         logger.info(f"Registered cross-chain identity: {identity_id} -> {chain_id}:{chain_address}")
@@ -194,7 +194,7 @@ class AgentIdentityCore:
 
         # Update mapping verification status
         mapping.is_verified = True
-        mapping.verified_at = datetime.now(timezone.utc)
+        mapping.verified_at = datetime.now(UTC)
         mapping.verification_proof = proof_data
         self.session.commit()
 
@@ -202,7 +202,7 @@ class AgentIdentityCore:
         identity = await self.get_identity(identity_id)
         if identity and chain_id == identity.primary_chain:
             identity.is_verified = True
-            identity.verified_at = datetime.now(timezone.utc)
+            identity.verified_at = datetime.now(UTC)
             identity.verification_level = verification_type
             self.session.commit()
 
@@ -247,7 +247,7 @@ class AgentIdentityCore:
                 else:
                     setattr(mapping, field, value)
 
-        mapping.updated_at = datetime.now(timezone.utc)
+        mapping.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(mapping)
@@ -265,11 +265,11 @@ class AgentIdentityCore:
         # Update identity status
         identity.status = IdentityStatus.REVOKED
         identity.is_verified = False
-        identity.updated_at = datetime.now(timezone.utc)
+        identity.updated_at = datetime.now(UTC)
 
         # Add revocation reason to identity_data
         identity.identity_data["revocation_reason"] = reason
-        identity.identity_data["revoked_at"] = datetime.now(timezone.utc).isoformat()
+        identity.identity_data["revoked_at"] = datetime.now(UTC).isoformat()
 
         self.session.commit()
 
@@ -285,11 +285,11 @@ class AgentIdentityCore:
 
         # Update identity status
         identity.status = IdentityStatus.SUSPENDED
-        identity.updated_at = datetime.now(timezone.utc)
+        identity.updated_at = datetime.now(UTC)
 
         # Add suspension reason to identity_data
         identity.identity_data["suspension_reason"] = reason
-        identity.identity_data["suspended_at"] = datetime.now(timezone.utc).isoformat()
+        identity.identity_data["suspended_at"] = datetime.now(UTC).isoformat()
 
         self.session.commit()
 
@@ -308,7 +308,7 @@ class AgentIdentityCore:
 
         # Update identity status
         identity.status = IdentityStatus.ACTIVE
-        identity.updated_at = datetime.now(timezone.utc)
+        identity.updated_at = datetime.now(UTC)
 
         # Clear suspension identity_data
         if "suspension_reason" in identity.identity_data:
@@ -341,8 +341,8 @@ class AgentIdentityCore:
         volume_factor = min(amount / 1000.0, 1.0)  # Cap at 1.0 for amounts > 1000
         identity.reputation_score = base_score * (0.7 + 0.3 * volume_factor)
 
-        identity.last_activity = datetime.now(timezone.utc)
-        identity.updated_at = datetime.now(timezone.utc)
+        identity.last_activity = datetime.now(UTC)
+        identity.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(identity)
@@ -460,7 +460,7 @@ class AgentIdentityCore:
             "owner_address": identity.owner_address,
             "chain_id": chain_id,
             "chain_address": mapping.chain_address,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "nonce": str(uuid4()),
         }
 
@@ -471,5 +471,5 @@ class AgentIdentityCore:
         return {
             "proof_data": proof_data,
             "proof_hash": proof_hash,
-            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
+            "expires_at": (datetime.now(UTC) + timedelta(hours=24)).isoformat(),
         }

@@ -9,14 +9,14 @@ Provides REST API endpoints for:
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from ..services.zk_proofs_enhanced import get_enhanced_zk_service
 from aitbc.rate_limiting import rate_limit
 
+from ..services.zk_proofs_enhanced import get_enhanced_zk_service
 
 router = APIRouter(prefix="/zk", tags=["zk-proofs"])
 
@@ -25,8 +25,8 @@ class GenerateProofRequest(BaseModel):
     """Request to generate a ZK proof"""
     job_id: str
     miner_id: str
-    input_data: Dict[str, Any]
-    output_data: Dict[str, Any]
+    input_data: dict[str, Any]
+    output_data: dict[str, Any]
     result_value: int
     pricing_rate: int
     privacy_level: str = "basic"
@@ -34,13 +34,13 @@ class GenerateProofRequest(BaseModel):
 
 class VerifyProofRequest(BaseModel):
     """Request to verify a ZK proof"""
-    proof: Dict[str, Any]
+    proof: dict[str, Any]
 
 
 class ProofResponse(BaseModel):
     """Response containing proof data"""
     success: bool
-    proof: Dict[str, Any]
+    proof: dict[str, Any]
     commitment: str
     timestamp: str
 
@@ -70,7 +70,7 @@ async def generate_proof(
     """
     try:
         zk_service = get_enhanced_zk_service()
-        
+
         result = await zk_service.generate_proof(
             job_id=req.job_id,
             miner_id=req.miner_id,
@@ -80,20 +80,20 @@ async def generate_proof(
             pricing_rate=req.pricing_rate,
             privacy_level=req.privacy_level
         )
-        
+
         if not result.get("success"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=result.get("error", "Proof generation failed")
             )
-        
+
         return ProofResponse(
             success=True,
             proof=result["proof"],
             commitment=result["commitment"],
             timestamp=result["timestamp"]
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -120,9 +120,9 @@ async def verify_proof(
     """
     try:
         zk_service = get_enhanced_zk_service()
-        
+
         result = await zk_service.verify_proof(req.proof)
-        
+
         return VerificationResponse(
             verified=result["verified"],
             computation_correct=result["computation_correct"],
@@ -130,7 +130,7 @@ async def verify_proof(
             reason=result.get("reason", result.get("error", "Unknown")),
             commitment=result.get("commitment", "unknown")
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -140,7 +140,7 @@ async def verify_proof(
 
 @router.get("/info", summary="Get circuit information")
 @rate_limit(rate=100, per=60)
-async def get_circuit_info(request: Request) -> Dict[str, Any]:
+async def get_circuit_info(request: Request) -> dict[str, Any]:
     """Get information about the ZK circuit and setup parameters"""
     try:
         zk_service = get_enhanced_zk_service()
@@ -153,7 +153,7 @@ async def get_circuit_info(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/health", summary="ZK service health check")
-async def health_check(request: Request) -> Dict[str, Any]:
+async def health_check(request: Request) -> dict[str, Any]:
     """Check if ZK proof service is operational"""
     try:
         zk_service = get_enhanced_zk_service()

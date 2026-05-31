@@ -1,31 +1,30 @@
 """Database service for Edge API Service"""
 
-from typing import Dict, Optional, List
 from datetime import datetime
-from uuid import uuid4
 
-from ..storage import get_session
+from sqlmodel import delete, select
+
 from ..schemas.database import EdgeDatabase
-from sqlmodel import select, delete
+from ..storage import get_session
 
 
 class DatabaseService:
     """Service for edge database operations"""
-    
-    async def init_database(self, database_id: str, island_id: str, capacity_gb: int) -> Dict:
+
+    async def init_database(self, database_id: str, island_id: str, capacity_gb: int) -> dict:
         """Initialize edge database"""
         async with get_session() as session:
             # Check if database already exists
             result = await session.execute(select(EdgeDatabase).where(EdgeDatabase.database_id == database_id))
             existing_db = result.scalar_one_or_none()
-            
+
             if existing_db:
                 return {
                     "success": False,
                     "message": f"Database {database_id} already exists",
                     "database": existing_db.database_id
                 }
-            
+
             # Create new database record
             db = EdgeDatabase(
                 database_id=database_id,
@@ -38,20 +37,20 @@ class DatabaseService:
             )
             session.add(db)
             await session.commit()
-            
+
             return {
                 "success": True,
                 "message": f"Database {database_id} initialized",
                 "database": database_id,
                 "id": db.id
             }
-    
-    async def get_database(self, database_id: str) -> Optional[Dict]:
+
+    async def get_database(self, database_id: str) -> dict | None:
         """Get database details"""
         async with get_session() as session:
             result = await session.execute(select(EdgeDatabase).where(EdgeDatabase.database_id == database_id))
             db = result.scalar_one_or_none()
-            
+
             if db:
                 return {
                     "id": db.id,
@@ -68,7 +67,7 @@ class DatabaseService:
                     "extra_data": db.extra_data
                 }
             return None
-    
+
     async def delete_database(self, database_id: str) -> bool:
         """Delete database"""
         async with get_session() as session:
@@ -76,38 +75,38 @@ class DatabaseService:
             result = await session.execute(stmt)
             await session.commit()
             return result.rowcount > 0
-    
-    async def sync_database(self, database_id: str) -> Dict:
+
+    async def sync_database(self, database_id: str) -> dict:
         """Sync database from source"""
         async with get_session() as session:
             result = await session.execute(select(EdgeDatabase).where(EdgeDatabase.database_id == database_id))
             db = result.scalar_one_or_none()
-            
+
             if not db:
                 return {
                     "success": False,
                     "message": f"Database {database_id} not found"
                 }
-            
+
             # Update sync status in single transaction
             db.sync_status = "syncing"
             db.updated_at = datetime.utcnow()
-            
+
             # Simulate sync process (in production, this would actually sync data)
             db.sync_status = "idle"
             db.last_sync_at = datetime.utcnow()
             db.records_synced = db.records_synced + 100  # Simulated
             db.updated_at = datetime.utcnow()
-            
+
             await session.commit()
-            
+
             return {
                 "success": True,
                 "message": f"Database {database_id} synced",
                 "records_synced": db.records_synced
             }
-    
-    async def list_databases(self, island_id: str = None) -> List[Dict]:
+
+    async def list_databases(self, island_id: str = None) -> list[dict]:
         """List databases, optionally filtered by island_id"""
         async with get_session() as session:
             if island_id:
@@ -115,7 +114,7 @@ class DatabaseService:
             else:
                 result = await session.execute(select(EdgeDatabase))
             databases = result.scalars().all()
-            
+
             return [
                 {
                     "id": db.id,

@@ -9,7 +9,6 @@ Validates that all dependencies (stage and resource) are satisfied before runnin
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Set
 
 STAGE_ORDER = [
     "stage0_environment_setup",
@@ -28,7 +27,7 @@ STAGE_ORDER = [
 class PrerequisiteChecker:
     def __init__(self, stages_dir: Path):
         self.stages_dir = stages_dir
-        self.stages: Dict[str, dict] = {}
+        self.stages: dict[str, dict] = {}
         self.errors = []
         self.warnings = []
 
@@ -163,33 +162,33 @@ class PrerequisiteChecker:
         resource_depends = stage_data.get("resource_depends", [])
 
         script_lines = [
-            f"#!/bin/bash",
+            "#!/bin/bash",
             f"# Prerequisite checks for {stage_name}",
-            f"#",
-            f"# This script validates that all prerequisites are satisfied",
-            f"# before starting the training stage.",
-            f"",
-            f"set -e",
-            f"",
+            "#",
+            "# This script validates that all prerequisites are satisfied",
+            "# before starting the training stage.",
+            "",
+            "set -e",
+            "",
             f'echo "Checking prerequisites for {stage_name}..."',
         ]
 
         # Check stage dependencies
         if depends_on:
-            script_lines.append(f"# Stage dependencies")
+            script_lines.append("# Stage dependencies")
             for dep_stage in depends_on:
                 script_lines.extend([
                     f"if [ ! -f \"$(dirname \"$0\")/{dep_stage}.json\" ]; then",
                     f'  echo "❌ Missing prerequisite stage: {dep_stage}"',
-                    f"  exit 1",
-                    f"fi",
+                    "  exit 1",
+                    "fi",
                     f'echo "✅ Prerequisite stage found: {dep_stage}"',
-                    f"",
+                    "",
                 ])
 
         # Check resource dependencies
         if resource_depends:
-            script_lines.append(f"# Resource dependencies")
+            script_lines.append("# Resource dependencies")
             for res_dep in resource_depends:
                 resource_type = res_dep.get("resource", "")
                 condition = res_dep.get("condition", "")
@@ -197,12 +196,12 @@ class PrerequisiteChecker:
                     f"# Check {resource_type}: {condition}",
                     f"# TODO: Implement resource check for {resource_type}",
                     f'echo "⚠️  Resource check not implemented: {resource_type}"',
-                    f"",
+                    "",
                 ])
 
         script_lines.extend([
             f'echo "✅ All prerequisites satisfied for {stage_name}"',
-            f"exit 0",
+            "exit 0",
         ])
 
         return "\n".join(script_lines)

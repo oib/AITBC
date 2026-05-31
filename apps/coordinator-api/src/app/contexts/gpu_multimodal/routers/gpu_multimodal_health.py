@@ -7,15 +7,15 @@ Provides health monitoring for CUDA-optimized multi-modal processing
 
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from aitbc.rate_limiting import rate_limit
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,7 @@ async def gpu_multimodal_health(request: Request, session: Annotated[Session, De
             "status": "healthy" if gpu_info["available"] else "degraded",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -92,7 +92,7 @@ async def gpu_multimodal_health(request: Request, session: Annotated[Session, De
             "status": "unhealthy",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -119,7 +119,7 @@ async def gpu_multimodal_deep_health(request: Request, session: Annotated[Sessio
                 "speedup": "10x",
                 "memory_usage": "2.1GB",
             }
-        except Exception as e:
+        except Exception:
             cuda_tests["cross_modal_attention"] = {"status": "fail", "error": "Test failed"}
 
         # Test multi-modal fusion
@@ -132,7 +132,7 @@ async def gpu_multimodal_deep_health(request: Request, session: Annotated[Sessio
                 "speedup": "20x",
                 "memory_usage": "1.8GB",
             }
-        except Exception as e:
+        except Exception:
             cuda_tests["multi_modal_fusion"] = {"status": "fail", "error": "Test failed"}
 
         # Test feature extraction
@@ -145,14 +145,14 @@ async def gpu_multimodal_deep_health(request: Request, session: Annotated[Sessio
                 "speedup": "20x",
                 "memory_usage": "2.5GB",
             }
-        except Exception as e:
+        except Exception:
             cuda_tests["feature_extraction"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy" if gpu_info["available"] else "degraded",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "gpu_info": gpu_info,
             "cuda_tests": cuda_tests,
             "overall_health": (
@@ -168,7 +168,7 @@ async def gpu_multimodal_deep_health(request: Request, session: Annotated[Sessio
             "status": "unhealthy",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "error": "Deep health check failed",
         }
 
@@ -204,5 +204,5 @@ async def check_gpu_availability() -> dict[str, Any]:
 
         return {"available": False, "error": "GPU not detected or nvidia-smi failed"}
 
-    except Exception as e:
+    except Exception:
         return {"available": False, "error": "GPU check failed"}

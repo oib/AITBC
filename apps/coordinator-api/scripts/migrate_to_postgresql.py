@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Migration script for Coordinator API from SQLite to PostgreSQL"""
 
-import os
 import sys
 from pathlib import Path
 
@@ -10,12 +9,11 @@ from aitbc.constants import DATA_DIR
 # Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-import sqlite3
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from datetime import datetime
-from decimal import Decimal
 import json
+import sqlite3
+from decimal import Decimal
+
+import psycopg2
 
 # Database configurations
 SQLITE_DB = str(DATA_DIR / "data/coordinator.db")
@@ -29,12 +27,12 @@ PG_CONFIG = {
 
 def create_pg_schema():
     """Create PostgreSQL schema with optimized types"""
-    
+
     conn = psycopg2.connect(**PG_CONFIG)
     cursor = conn.cursor()
-    
+
     print("Creating PostgreSQL schema...")
-    
+
     # Drop existing tables
     cursor.execute("DROP TABLE IF EXISTS jobreceipt CASCADE")
     cursor.execute("DROP TABLE IF EXISTS marketplacebid CASCADE")
@@ -45,7 +43,7 @@ def create_pg_schema():
     cursor.execute("DROP TABLE IF EXISTS miner CASCADE")
     cursor.execute("DROP TABLE IF EXISTS transaction CASCADE")
     cursor.execute("DROP TABLE IF EXISTS user CASCADE")
-    
+
     # Create user table
     cursor.execute("""
         CREATE TABLE user (
@@ -58,7 +56,7 @@ def create_pg_schema():
             last_login TIMESTAMP WITH TIME ZONE
         )
     """)
-    
+
     # Create wallet table
     cursor.execute("""
         CREATE TABLE wallet (
@@ -70,7 +68,7 @@ def create_pg_schema():
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         )
     """)
-    
+
     # Create usersession table
     cursor.execute("""
         CREATE TABLE usersession (
@@ -82,7 +80,7 @@ def create_pg_schema():
             last_used TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         )
     """)
-    
+
     # Create miner table
     cursor.execute("""
         CREATE TABLE miner (
@@ -103,7 +101,7 @@ def create_pg_schema():
             last_receipt_id VARCHAR(255)
         )
     """)
-    
+
     # Create job table
     cursor.execute("""
         CREATE TABLE job (
@@ -122,7 +120,7 @@ def create_pg_schema():
             error TEXT
         )
     """)
-    
+
     # Create marketplaceoffer table
     cursor.execute("""
         CREATE TABLE marketplaceoffer (
@@ -136,7 +134,7 @@ def create_pg_schema():
             attributes JSONB
         )
     """)
-    
+
     # Create marketplacebid table
     cursor.execute("""
         CREATE TABLE marketplacebid (
@@ -149,7 +147,7 @@ def create_pg_schema():
             submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         )
     """)
-    
+
     # Create jobreceipt table
     cursor.execute("""
         CREATE TABLE jobreceipt (
@@ -160,7 +158,7 @@ def create_pg_schema():
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         )
     """)
-    
+
     # Create transaction table
     cursor.execute("""
         CREATE TABLE transaction (
@@ -173,7 +171,7 @@ def create_pg_schema():
             metadata JSONB
         )
     """)
-    
+
     # Create indexes for performance
     print("Creating indexes...")
     cursor.execute("CREATE INDEX idx_job_state ON job(state)")
@@ -187,25 +185,25 @@ def create_pg_schema():
     cursor.execute("CREATE INDEX idx_marketplaceoffer_status ON marketplaceoffer(status)")
     cursor.execute("CREATE INDEX idx_marketplaceoffer_provider ON marketplaceoffer(provider)")
     cursor.execute("CREATE INDEX idx_marketplacebid_provider ON marketplacebid(provider)")
-    
+
     conn.commit()
     conn.close()
     print("✅ PostgreSQL schema created successfully!")
 
 def migrate_data():
     """Migrate data from SQLite to PostgreSQL"""
-    
+
     print("\nStarting data migration...")
-    
+
     # Connect to SQLite
     sqlite_conn = sqlite3.connect(SQLITE_DB)
     sqlite_conn.row_factory = sqlite3.Row
     sqlite_cursor = sqlite_conn.cursor()
-    
+
     # Connect to PostgreSQL
     pg_conn = psycopg2.connect(**PG_CONFIG)
     pg_cursor = pg_conn.cursor()
-    
+
     # Migration order respecting foreign keys
     migrations = [
         ('user', '''
@@ -252,25 +250,25 @@ def migrate_data():
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         ''')
     ]
-    
+
     for table_name, insert_sql in migrations:
         # Validate table name to prevent SQL injection
         allowed_tables = ['user', 'wallet', 'transaction', 'agent', 'job', 'receipt', 'marketplace_listing']
         if table_name not in allowed_tables:
             print(f"Skipping table {table_name} (not in allowed list)")
             continue
-        
+
         print(f"Migrating {table_name}...")
         sqlite_cursor.execute(f"SELECT * FROM \"{table_name}\"")
         rows = sqlite_cursor.fetchall()
-        
+
         count = 0
         for row in rows:
             # Convert row to dict and handle JSON fields
             values = []
             for key in row.keys():
                 value = row[key]
-                if key in ['payload', 'constraints', 'result', 'receipt', 'capabilities', 
+                if key in ['payload', 'constraints', 'result', 'receipt', 'capabilities',
                           'extra_metadata', 'sla', 'attributes', 'metadata']:
                     # Handle JSON fields
                     if isinstance(value, str):
@@ -283,36 +281,36 @@ def migrate_data():
                     if value is not None:
                         value = Decimal(str(value))
                 values.append(value)
-            
+
             pg_cursor.execute(insert_sql, values)
             count += 1
-        
+
         print(f"  - Migrated {count} {table_name} records")
-    
+
     pg_conn.commit()
-    
-    print(f"\n✅ Migration complete!")
+
+    print("\n✅ Migration complete!")
     sqlite_conn.close()
     pg_conn.close()
 
 def main():
     """Main migration process"""
-    
+
     print("=" * 60)
     print("AITBC Coordinator API SQLite to PostgreSQL Migration")
     print("=" * 60)
-    
+
     # Check if SQLite DB exists
     if not Path(SQLITE_DB).exists():
         print(f"❌ SQLite database '{SQLITE_DB}' not found!")
         return
-    
+
     # Create PostgreSQL schema
     create_pg_schema()
-    
+
     # Migrate data
     migrate_data()
-    
+
     print("\n" + "=" * 60)
     print("Migration completed successfully!")
     print("=" * 60)

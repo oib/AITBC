@@ -4,16 +4,16 @@ Manages hub operations, peer list sharing, and hub registration for federated me
 """
 
 import asyncio
-import time
 import json
 import os
 import socket
-from typing import Dict, List, Optional, Set
-from dataclasses import dataclass, field, asdict
+import time
+from dataclasses import asdict, dataclass
 from enum import Enum
-from ..config import settings
 
-from aitbc import get_logger, DATA_DIR, KEYSTORE_DIR
+from aitbc import DATA_DIR, KEYSTORE_DIR, get_logger
+
+from ..config import settings
 
 logger = get_logger(__name__)
 
@@ -33,8 +33,8 @@ class HubInfo:
     port: int
     island_id: str
     island_name: str
-    public_address: Optional[str] = None
-    public_port: Optional[int] = None
+    public_address: str | None = None
+    public_port: int | None = None
     registered_at: float = 0
     last_seen: float = 0
     peer_count: int = 0
@@ -48,15 +48,15 @@ class PeerInfo:
     port: int
     island_id: str
     is_hub: bool
-    public_address: Optional[str] = None
-    public_port: Optional[int] = None
+    public_address: str | None = None
+    public_port: int | None = None
     last_seen: float = 0
 
 
 class HubManager:
     """Manages hub operations for federated mesh"""
 
-    def __init__(self, local_node_id: str, local_address: str, local_port: int, island_id: str, island_name: str, redis_url: Optional[str] = None):
+    def __init__(self, local_node_id: str, local_address: str, local_port: int, island_id: str, island_name: str, redis_url: str | None = None):
         self.local_node_id = local_node_id
         self.local_address = local_address
         self.local_port = local_port
@@ -68,23 +68,23 @@ class HubManager:
         # Hub registration status
         self.is_hub = False
         self.hub_status = HubStatus.UNREGISTERED
-        self.registered_at: Optional[float] = None
+        self.registered_at: float | None = None
 
         # Known hubs
-        self.known_hubs: Dict[str, HubInfo] = {}  # node_id -> HubInfo
+        self.known_hubs: dict[str, HubInfo] = {}  # node_id -> HubInfo
 
         # Peer registry (for providing peer lists)
-        self.peer_registry: Dict[str, PeerInfo] = {}  # node_id -> PeerInfo
+        self.peer_registry: dict[str, PeerInfo] = {}  # node_id -> PeerInfo
 
         # Island peers (island_id -> set of node_ids)
-        self.island_peers: Dict[str, Set[str]] = {}
+        self.island_peers: dict[str, set[str]] = {}
 
         self.running = False
         self._redis = None
 
         # Initialize island peers for our island
         self.island_peers[self.island_id] = set()
-    
+
     async def _connect_redis(self):
         """Connect to Redis"""
         try:
@@ -134,7 +134,7 @@ class HubManager:
             logger.error(f"Failed to remove hub registration: {e}")
             return False
 
-    async def _load_hub_registration(self) -> Optional[HubInfo]:
+    async def _load_hub_registration(self) -> HubInfo | None:
         """Load hub registration from Redis"""
         try:
             if not self._redis:
@@ -166,7 +166,7 @@ class HubManager:
             ]
             for genesis_path in genesis_candidates:
                 if os.path.exists(genesis_path):
-                    with open(genesis_path, 'r') as f:
+                    with open(genesis_path) as f:
                         genesis_data = json.load(f)
                         if 'blocks' in genesis_data and len(genesis_data['blocks']) > 0:
                             genesis_block = genesis_data['blocks'][0]
@@ -177,7 +177,7 @@ class HubManager:
             # Get genesis address from keystore
             keystore_path = str(KEYSTORE_DIR / 'validator_keys.json')
             if os.path.exists(keystore_path):
-                with open(keystore_path, 'r') as f:
+                with open(keystore_path) as f:
                     keys = json.load(f)
                     # Get first key's address
                     for key_id, key_data in keys.items():
@@ -202,7 +202,7 @@ class HubManager:
             logger.error(f"Failed to get blockchain credentials: {e}")
             return {}
 
-    async def handle_join_request(self, join_request: dict) -> Optional[dict]:
+    async def handle_join_request(self, join_request: dict) -> dict | None:
         """
         Handle island join request from a new node
 
@@ -303,19 +303,19 @@ class HubManager:
             order_id = order_data.get('order_id')
             if order_id:
                 self.exchange_orders[order_id] = order_data
-                
+
                 # Update order book
                 pair = order_data.get('pair')
                 side = order_data.get('side')
                 if pair and side:
                     if pair not in self.exchange_order_books:
                         self.exchange_order_books[pair] = {'bids': [], 'asks': []}
-                    
+
                     if side == 'buy':
                         self.exchange_order_books[pair]['bids'].append(order_data)
                     elif side == 'sell':
                         self.exchange_order_books[pair]['asks'].append(order_data)
-                
+
                 logger.info(f"Registered exchange order: {order_id}")
                 return True
         except Exception as e:
@@ -338,7 +338,7 @@ class HubManager:
         """Get order book for a specific trading pair"""
         return self.exchange_order_books.get(pair, {'bids': [], 'asks': []})
 
-    async def register_as_hub(self, public_address: Optional[str] = None, public_port: Optional[int] = None) -> bool:
+    async def register_as_hub(self, public_address: str | None = None, public_port: int | None = None) -> bool:
         """Register this node as a hub"""
         if self.is_hub:
             logger.warning("Already registered as hub")
@@ -367,7 +367,7 @@ class HubManager:
 
         logger.info(f"Registered as hub for island {self.island_id}")
         return True
-    
+
     async def unregister_as_hub(self) -> bool:
         """Unregister this node as a hub"""
         if not self.is_hub:
@@ -387,172 +387,172 @@ class HubManager:
 
         logger.info(f"Unregistered as hub for island {self.island_id}")
         return True
-    
+
     def register_peer(self, peer_info: PeerInfo) -> bool:
         """Register a peer in the registry"""
         self.peer_registry[peer_info.node_id] = peer_info
-        
+
         # Add to island peers
         if peer_info.island_id not in self.island_peers:
             self.island_peers[peer_info.island_id] = set()
         self.island_peers[peer_info.island_id].add(peer_info.node_id)
-        
+
         # Update hub peer count if peer is a hub
         if peer_info.is_hub and peer_info.node_id in self.known_hubs:
             self.known_hubs[peer_info.node_id].peer_count = len(self.island_peers.get(peer_info.island_id, set()))
-        
+
         logger.debug(f"Registered peer {peer_info.node_id} in island {peer_info.island_id}")
         return True
-    
+
     def unregister_peer(self, node_id: str) -> bool:
         """Unregister a peer from the registry"""
         if node_id not in self.peer_registry:
             return False
-        
+
         peer_info = self.peer_registry[node_id]
-        
+
         # Remove from island peers
         if peer_info.island_id in self.island_peers:
             self.island_peers[peer_info.island_id].discard(node_id)
-        
+
         del self.peer_registry[node_id]
-        
+
         # Update hub peer count
         if node_id in self.known_hubs:
             self.known_hubs[node_id].peer_count = len(self.island_peers.get(self.known_hubs[node_id].island_id, set()))
-        
+
         logger.debug(f"Unregistered peer {node_id}")
         return True
-    
+
     def add_known_hub(self, hub_info: HubInfo):
         """Add a known hub to the registry"""
         self.known_hubs[hub_info.node_id] = hub_info
         logger.info(f"Added known hub {hub_info.node_id} for island {hub_info.island_id}")
-    
+
     def remove_known_hub(self, node_id: str) -> bool:
         """Remove a known hub from the registry"""
         if node_id not in self.known_hubs:
             return False
-        
+
         del self.known_hubs[node_id]
         logger.info(f"Removed known hub {node_id}")
         return True
-    
-    def get_peer_list(self, island_id: str) -> List[PeerInfo]:
+
+    def get_peer_list(self, island_id: str) -> list[PeerInfo]:
         """Get peer list for a specific island"""
         peers = []
         for node_id, peer_info in self.peer_registry.items():
             if peer_info.island_id == island_id:
                 peers.append(peer_info)
         return peers
-    
-    def get_hub_list(self, island_id: Optional[str] = None) -> List[HubInfo]:
+
+    def get_hub_list(self, island_id: str | None = None) -> list[HubInfo]:
         """Get list of known hubs, optionally filtered by island"""
         hubs = []
         for hub_info in self.known_hubs.values():
             if island_id is None or hub_info.island_id == island_id:
                 hubs.append(hub_info)
         return hubs
-    
-    def get_island_peers(self, island_id: str) -> Set[str]:
+
+    def get_island_peers(self, island_id: str) -> set[str]:
         """Get set of peer node IDs in an island"""
         return self.island_peers.get(island_id, set()).copy()
-    
+
     def get_peer_count(self, island_id: str) -> int:
         """Get number of peers in an island"""
         return len(self.island_peers.get(island_id, set()))
-    
-    def get_hub_info(self, node_id: str) -> Optional[HubInfo]:
+
+    def get_hub_info(self, node_id: str) -> HubInfo | None:
         """Get information about a specific hub"""
         return self.known_hubs.get(node_id)
-    
-    def get_peer_info(self, node_id: str) -> Optional[PeerInfo]:
+
+    def get_peer_info(self, node_id: str) -> PeerInfo | None:
         """Get information about a specific peer"""
         return self.peer_registry.get(node_id)
-    
+
     def update_peer_last_seen(self, node_id: str):
         """Update the last seen time for a peer"""
         if node_id in self.peer_registry:
             self.peer_registry[node_id].last_seen = time.time()
-        
+
         if node_id in self.known_hubs:
             self.known_hubs[node_id].last_seen = time.time()
-    
+
     async def start(self):
         """Start hub manager"""
         self.running = True
         logger.info(f"Starting hub manager for node {self.local_node_id}")
-        
+
         # Start background tasks
         tasks = [
             asyncio.create_task(self._hub_health_check()),
             asyncio.create_task(self._peer_cleanup())
         ]
-        
+
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
             logger.error(f"Hub manager error: {e}")
         finally:
             self.running = False
-    
+
     async def stop(self):
         """Stop hub manager"""
         self.running = False
         logger.info("Stopping hub manager")
-    
+
     async def _hub_health_check(self):
         """Check health of known hubs"""
         while self.running:
             try:
                 current_time = time.time()
-                
+
                 # Check for offline hubs (not seen for 10 minutes)
                 offline_hubs = []
                 for node_id, hub_info in self.known_hubs.items():
                     if current_time - hub_info.last_seen > 600:
                         offline_hubs.append(node_id)
                         logger.warning(f"Hub {node_id} appears to be offline")
-                
+
                 # Remove offline hubs (keep self if we're a hub)
                 for node_id in offline_hubs:
                     if node_id != self.local_node_id:
                         self.remove_known_hub(node_id)
-                
+
                 await asyncio.sleep(60)  # Check every minute
-                
+
             except Exception as e:
                 logger.error(f"Hub health check error: {e}")
                 await asyncio.sleep(10)
-    
+
     async def _peer_cleanup(self):
         """Clean up stale peer entries"""
         while self.running:
             try:
                 current_time = time.time()
-                
+
                 # Remove peers not seen for 5 minutes
                 stale_peers = []
                 for node_id, peer_info in self.peer_registry.items():
                     if current_time - peer_info.last_seen > 300:
                         stale_peers.append(node_id)
-                
+
                 for node_id in stale_peers:
                     self.unregister_peer(node_id)
                     logger.debug(f"Removed stale peer {node_id}")
-                
+
                 await asyncio.sleep(60)  # Check every minute
-                
+
             except Exception as e:
                 logger.error(f"Peer cleanup error: {e}")
                 await asyncio.sleep(10)
 
 
 # Global hub manager instance
-hub_manager_instance: Optional[HubManager] = None
+hub_manager_instance: HubManager | None = None
 
 
-def get_hub_manager() -> Optional[HubManager]:
+def get_hub_manager() -> HubManager | None:
     """Get global hub manager instance"""
     return hub_manager_instance
 

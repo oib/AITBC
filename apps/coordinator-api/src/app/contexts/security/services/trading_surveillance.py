@@ -5,11 +5,12 @@ Detects market manipulation, unusual trading patterns, and suspicious activities
 """
 
 import asyncio
-import numpy as np
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
+import numpy as np
 
 from aitbc import get_logger
 

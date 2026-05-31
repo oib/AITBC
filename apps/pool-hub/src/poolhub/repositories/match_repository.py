@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import datetime as dt
+from datetime import timezone
 import json
-from typing import Iterable, List, Optional, Sequence
+from collections.abc import Sequence
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -25,7 +26,7 @@ class MatchRepository:
         *,
         job_id: str,
         requirements: dict[str, object],
-        hints: Optional[dict[str, object]] = None,
+        hints: dict[str, object] | None = None,
         top_k: int = 1,
         enqueue: bool = True,
     ) -> MatchRequest:
@@ -56,8 +57,8 @@ class MatchRepository:
         request_id: UUID,
         candidates: Sequence[dict[str, object]],
         publish: bool = True,
-    ) -> List[MatchResult]:
-        results: List[MatchResult] = []
+    ) -> list[MatchResult]:
+        results: list[MatchResult] = []
         created_at = dt.datetime.now(timezone.utc)
         for candidate in candidates:
             result = MatchResult(
@@ -87,10 +88,10 @@ class MatchRepository:
                         await self._redis.publish(channel, payload)
         return results
 
-    async def get_request(self, request_id: UUID) -> Optional[MatchRequest]:
+    async def get_request(self, request_id: UUID) -> MatchRequest | None:
         return await self._session.get(MatchRequest, request_id)
 
-    async def list_recent_requests(self, limit: int = 20) -> List[MatchRequest]:
+    async def list_recent_requests(self, limit: int = 20) -> list[MatchRequest]:
         stmt: Select[MatchRequest] = (
             select(MatchRequest)
             .order_by(MatchRequest.created_at.desc())
@@ -99,7 +100,7 @@ class MatchRepository:
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
-    async def list_results_for_job(self, job_id: str, limit: int = 10) -> List[MatchResult]:
+    async def list_results_for_job(self, job_id: str, limit: int = 10) -> list[MatchResult]:
         stmt: Select[MatchResult] = (
             select(MatchResult)
             .join(MatchRequest)

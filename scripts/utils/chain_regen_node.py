@@ -5,13 +5,12 @@ import argparse
 import glob
 import hashlib
 import json
-import os
 import shutil
 import socket
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,12 +21,11 @@ if str(REPO_DIR) not in sys.path:
 if str(BLOCKCHAIN_SRC) not in sys.path:
     sys.path.insert(0, str(BLOCKCHAIN_SRC))
 
-from sqlmodel import Session, create_engine, select
-from sqlalchemy.exc import SQLAlchemyError
-
 from aitbc_chain.config import ChainSettings
 from aitbc_chain.models import Account, Block, Transaction
 from aitbc_chain.state.merkle_patricia_trie import StateManager
+from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import Session, create_engine, select
 
 SERVICE_NAME = "aitbc-blockchain-node.service"
 DATA_ROOT = Path("/var/lib/aitbc/data")
@@ -190,7 +188,7 @@ def snapshot(chain_id: str, service_name: str) -> dict[str, Any]:
     data: dict[str, Any] = {
         "host": socket.gethostname(),
         "chain_id": chain_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "repo_revision": _git_revision(),
         "service": _service_state(service_name),
         "db_path": str(db_path),
@@ -209,7 +207,7 @@ def snapshot(chain_id: str, service_name: str) -> dict[str, Any]:
 
 
 def backup(chain_id: str, service_name: str, backup_root: Path, timestamp: str | None) -> dict[str, Any]:
-    stamp = timestamp or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = timestamp or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     target = backup_root / stamp / socket.gethostname() / chain_id
     target.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, Any] = {

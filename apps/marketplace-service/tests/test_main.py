@@ -4,7 +4,6 @@ Test Marketplace service main application
 
 import pytest
 from fastapi.testclient import TestClient
-
 from marketplace_service.main import app
 
 

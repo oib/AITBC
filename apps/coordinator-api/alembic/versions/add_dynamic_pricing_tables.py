@@ -5,9 +5,8 @@ Revises: initial_migration
 Create Date: 2026-02-28 22:00:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_dynamic_pricing_tables'
@@ -18,7 +17,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create dynamic pricing tables"""
-    
+
     # Create pricing_history table
     op.create_table(
         'pricing_history',
@@ -54,7 +53,7 @@ def upgrade() -> None:
         sa.Index('idx_pricing_history_timestamp', 'timestamp'),
         sa.Index('idx_pricing_history_provider', 'provider_id')
     )
-    
+
     # Create provider_pricing_strategies table
     op.create_table(
         'provider_pricing_strategies',
@@ -95,7 +94,7 @@ def upgrade() -> None:
         sa.Index('idx_provider_strategies_active', 'is_active'),
         sa.Index('idx_provider_strategies_resource', 'resource_type', 'provider_id')
     )
-    
+
     # Create market_metrics table
     op.create_table(
         'market_metrics',
@@ -138,7 +137,7 @@ def upgrade() -> None:
         sa.Index('idx_market_metrics_supply', 'supply_level'),
         sa.Index('idx_market_metrics_composite', 'region', 'resource_type', 'timestamp')
     )
-    
+
     # Create price_forecasts table
     op.create_table(
         'price_forecasts',
@@ -173,7 +172,7 @@ def upgrade() -> None:
         sa.Index('idx_price_forecasts_created', 'created_at'),
         sa.Index('idx_price_forecasts_horizon', 'forecast_horizon_hours')
     )
-    
+
     # Create pricing_optimizations table
     op.create_table(
         'pricing_optimizations',
@@ -217,7 +216,7 @@ def upgrade() -> None:
         sa.Index('idx_pricing_opt_status', 'status'),
         sa.Index('idx_pricing_opt_created', 'created_at')
     )
-    
+
     # Create pricing_alerts table
     op.create_table(
         'pricing_alerts',
@@ -259,7 +258,7 @@ def upgrade() -> None:
         sa.Index('idx_pricing_alerts_severity', 'severity'),
         sa.Index('idx_pricing_alerts_created', 'created_at')
     )
-    
+
     # Create pricing_rules table
     op.create_table(
         'pricing_rules',
@@ -300,7 +299,7 @@ def upgrade() -> None:
         sa.Index('idx_pricing_rules_active', 'is_active'),
         sa.Index('idx_pricing_rules_priority', 'priority')
     )
-    
+
     # Create pricing_audit_log table
     op.create_table(
         'pricing_audit_log',
@@ -343,7 +342,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop dynamic pricing tables"""
-    
+
     # Drop tables in reverse order of creation
     op.drop_table('pricing_audit_log')
     op.drop_table('pricing_rules')
@@ -353,7 +352,7 @@ def downgrade() -> None:
     op.drop_table('market_metrics')
     op.drop_table('provider_pricing_strategies')
     op.drop_table('pricing_history')
-    
+
     # Drop enums
     op.execute('DROP TYPE IF EXISTS pricetrend')
     op.execute('DROP TYPE IF EXISTS pricingstrategytype')

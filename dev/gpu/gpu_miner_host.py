@@ -3,15 +3,14 @@
 Real GPU Miner Client for AITBC - runs on host with actual GPU
 """
 
-import json
-import time
-import httpx
 import logging
-import sys
-import subprocess
 import os
-from datetime import datetime, timezone
-from typing import Dict, Optional
+import subprocess
+import sys
+import time
+from datetime import UTC, datetime
+
+import httpx
 
 # Configuration
 COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8001")
@@ -72,7 +71,7 @@ def classify_architecture(name: str) -> str:
     return "unknown"
 
 
-def detect_cuda_version() -> Optional[str]:
+def detect_cuda_version() -> str | None:
     try:
         result = subprocess.run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
                                 capture_output=True, text=True, timeout=5)
@@ -83,7 +82,7 @@ def detect_cuda_version() -> Optional[str]:
     return None
 
 
-def build_gpu_capabilities() -> Dict:
+def build_gpu_capabilities() -> dict:
     gpu_info = get_gpu_info()
     cuda_version = detect_cuda_version() or "unknown"
     model = gpu_info["name"] if gpu_info else "Unknown GPU"
@@ -120,8 +119,8 @@ def measure_coordinator_latency() -> float:
 def get_gpu_info():
     """Get real GPU information"""
     try:
-        result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,memory.used,utilization.gpu', 
-                               '--format=csv,noheader,nounits'], 
+        result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,memory.used,utilization.gpu',
+                               '--format=csv,noheader,nounits'],
                               capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             info = result.stdout.strip().split(', ')
@@ -161,10 +160,10 @@ def wait_for_coordinator():
                 return True
         except Exception:
             pass
-        
+
         logger.info(f"Waiting for coordinator... ({i+1}/{MAX_RETRIES})")
         time.sleep(RETRY_DELAY)
-    
+
     logger.error("Coordinator not available after max retries")
     return False
 
@@ -175,12 +174,12 @@ def register_miner():
         "concurrency": 1,
         "region": "localhost"
     }
-    
+
     headers = {
         "X-Api-Key": AUTH_TOKEN,
         "Content-Type": "application/json"
     }
-    
+
     try:
         response = httpx.post(
             f"{COORDINATOR_URL}/v1/miners/register?miner_id={MINER_ID}",
@@ -188,7 +187,7 @@ def register_miner():
             headers=headers,
             timeout=10
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             logger.info(f"Successfully registered miner: {data}")
@@ -196,7 +195,7 @@ def register_miner():
         else:
             logger.error(f"Registration failed: {response.status_code} - {response.text}")
             return None
-            
+
     except Exception as e:
         logger.error(f"Registration error: {e}")
         return None
@@ -206,12 +205,12 @@ def send_heartbeat():
     gpu_info = get_gpu_info()
     arch = classify_architecture(gpu_info["name"]) if gpu_info else "unknown"
     latency_ms = measure_coordinator_latency()
-    
+
     if gpu_info:
         heartbeat_data = {
             "status": "active",
             "current_jobs": 0,
-            "last_seen": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": gpu_info["utilization"],
             "memory_used": gpu_info["memory_used"],
             "memory_total": gpu_info["memory_total"],
@@ -223,7 +222,7 @@ def send_heartbeat():
         heartbeat_data = {
             "status": "active",
             "current_jobs": 0,
-            "last_seen": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": 0,
             "memory_used": 0,
             "memory_total": 0,
@@ -231,12 +230,12 @@ def send_heartbeat():
             "edge_optimized": False,
             "network_latency_ms": latency_ms,
         }
-    
+
     headers = {
         "X-Api-Key": AUTH_TOKEN,
         "Content-Type": "application/json"
     }
-    
+
     try:
         response = httpx.post(
             f"{COORDINATOR_URL}/v1/miners/heartbeat?miner_id={MINER_ID}",
@@ -244,12 +243,12 @@ def send_heartbeat():
             headers=headers,
             timeout=5
         )
-        
+
         if response.status_code == 200:
             logger.info(f"Heartbeat sent (GPU: {gpu_info['utilization'] if gpu_info else 'N/A'}%)")
         else:
             logger.error(f"Heartbeat failed: {response.status_code} - {response.text}")
-            
+
     except Exception as e:
         logger.error(f"Heartbeat error: {e}")
 
@@ -257,15 +256,15 @@ def execute_job(job, available_models):
     """Execute a job using real GPU resources"""
     job_id = job.get('job_id')
     payload = job.get('payload', {})
-    
+
     logger.info(f"Executing job {job_id}: {payload}")
-    
+
     try:
         if payload.get('type') == 'inference':
             # Get the prompt and model
             prompt = payload.get('prompt', '')
             model = payload.get('model', 'llama3.2:latest')
-            
+
             # Check if model is available
             if model not in available_models:
                 # Use first available model
@@ -274,11 +273,11 @@ def execute_job(job, available_models):
                     logger.info(f"Using available model: {model}")
                 else:
                     raise Exception("No models available in Ollama")
-            
+
             # Call Ollama API for real GPU inference
             logger.info(f"Running inference on GPU with model: {model}")
             start_time = time.time()
-            
+
             ollama_response = httpx.post(
                 "http://localhost:11434/api/generate",
                 json={
@@ -288,15 +287,15 @@ def execute_job(job, available_models):
                 },
                 timeout=60
             )
-            
+
             if ollama_response.status_code == 200:
                 result = ollama_response.json()
                 output = result.get('response', '')
                 execution_time = time.time() - start_time
-                
+
                 # Get GPU stats after execution
                 gpu_after = get_gpu_info()
-                
+
                 # Submit result back to coordinator
                 submit_result(job_id, {
                     "result": {
@@ -313,7 +312,7 @@ def execute_job(job, available_models):
                         "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048)
                     }
                 })
-                
+
                 logger.info(f"Job {job_id} completed in {execution_time:.2f}s")
                 return True
             else:
@@ -335,7 +334,7 @@ def execute_job(job, available_models):
                 }
             })
             return False
-            
+
     except Exception as e:
         logger.error(f"Job execution error: {e}")
         submit_result(job_id, {
@@ -352,7 +351,7 @@ def submit_result(job_id, result):
         "X-Api-Key": AUTH_TOKEN,
         "Content-Type": "application/json"
     }
-    
+
     try:
         response = httpx.post(
             f"{COORDINATOR_URL}/v1/miners/{job_id}/result",
@@ -360,12 +359,12 @@ def submit_result(job_id, result):
             headers=headers,
             timeout=10
         )
-        
+
         if response.status_code == 200:
             logger.info(f"Result submitted for job {job_id}")
         else:
             logger.error(f"Result submission failed: {response.status_code} - {response.text}")
-            
+
     except Exception as e:
         logger.error(f"Result submission error: {e}")
 
@@ -374,12 +373,12 @@ def poll_for_jobs():
     poll_data = {
         "max_wait_seconds": 5
     }
-    
+
     headers = {
         "X-Api-Key": AUTH_TOKEN,
         "Content-Type": "application/json"
     }
-    
+
     try:
         response = httpx.post(
             f"{COORDINATOR_URL}/v1/miners/poll",
@@ -387,7 +386,7 @@ def poll_for_jobs():
             headers=headers,
             timeout=10
         )
-        
+
         if response.status_code == 200:
             job = response.json()
             logger.info(f"Received job: {job}")
@@ -397,7 +396,7 @@ def poll_for_jobs():
         else:
             logger.error(f"Poll failed: {response.status_code} - {response.text}")
             return None
-            
+
     except Exception as e:
         logger.error(f"Error polling for jobs: {e}")
         return None
@@ -405,15 +404,15 @@ def poll_for_jobs():
 def main():
     """Main miner loop"""
     logger.info("Starting Real GPU Miner Client on Host...")
-    
+
     # Check GPU availability
     gpu_info = get_gpu_info()
     if not gpu_info:
         logger.error("GPU not available, exiting")
         sys.exit(1)
-    
+
     logger.info(f"GPU detected: {gpu_info['name']} ({gpu_info['memory_total']}MB)")
-    
+
     # Check Ollama
     ollama_available, models = check_ollama()
     if not ollama_available:
@@ -421,32 +420,32 @@ def main():
         sys.exit(1)
 
     logger.info(f"Ollama models available: {', '.join(models)}")
-    
+
     # Wait for coordinator
     if not wait_for_coordinator():
         sys.exit(1)
-    
+
     # Register with coordinator
     session_token = register_miner()
     if not session_token:
         logger.error("Failed to register, exiting")
         sys.exit(1)
-    
+
     logger.info("Miner registered successfully, starting main loop...")
-    
+
     # Main loop
     last_heartbeat = 0
     last_poll = 0
-    
+
     try:
         while True:
             current_time = time.time()
-            
+
             # Send heartbeat
             if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
                 send_heartbeat()
                 last_heartbeat = current_time
-            
+
             # Poll for jobs
             if current_time - last_poll >= 3:
                 job = poll_for_jobs()
@@ -454,9 +453,9 @@ def main():
                     # Execute the job with real GPU
                     execute_job(job, models)
                 last_poll = current_time
-            
+
             time.sleep(1)
-            
+
     except KeyboardInterrupt:
         logger.info("Shutting down miner...")
     except Exception as e:

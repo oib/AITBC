@@ -2,7 +2,6 @@
 Tests for caching utilities
 """
 
-import pytest
 import time
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -11,12 +10,12 @@ from aitbc.caching import (
     CacheEntry,
     LRUCache,
     TTLCache,
+    _generate_cache_key,
     cached,
     cached_lru,
-    _generate_cache_key,
+    clear_global_caches,
     get_global_lru_cache,
     get_global_ttl_cache,
-    clear_global_caches,
 )
 
 
@@ -135,7 +134,7 @@ class TestLRUCache:
         cache.set("key1", "value1")
         cache.get("key1")
         cache.get("key2")  # miss
-        
+
         stats = cache.get_stats()
         assert stats["capacity"] == 10
         assert stats["size"] == 1
@@ -163,10 +162,10 @@ class TestLRUCache:
         cache.set("key1", "value1")
         cache.set("key2", "value2")
         cache.set("key3", "value3")
-        
+
         # Access key1 to make it recently used
         cache.get("key1")
-        
+
         # Add key4, should evict key2 (not key1)
         cache.set("key4", "value4")
         assert cache.get("key1") == "value1"  # Still in cache
@@ -243,10 +242,10 @@ class TestTTLCache:
         cache = TTLCache(default_ttl=60)
         cache.set("key1", "value1")
         cache.set("key2", "value2")
-        
+
         # Expire key1
         cache.cache["key1"].expires_at = datetime.now() - timedelta(seconds=1)
-        
+
         removed = cache.cleanup_expired()
         assert removed == 1
         assert cache.get("key1") is None
@@ -265,7 +264,7 @@ class TestTTLCache:
         cache.set("key1", "value1")
         cache.get("key1")
         cache.get("key2")  # miss
-        
+
         stats = cache.get_stats()
         assert stats["size"] == 1
         assert stats["default_ttl"] == 60
@@ -280,17 +279,17 @@ class TestCacheDecorators:
     def test_cached_decorator(self):
         """Test cached decorator"""
         call_count = [0]
-        
+
         @cached(ttl=60)
         def expensive_function(x):
             call_count[0] += 1
             return x * 2
-        
+
         # First call executes function
         result1 = expensive_function(5)
         assert result1 == 10
         assert call_count[0] == 1
-        
+
         # Second call uses cache
         result2 = expensive_function(5)
         assert result2 == 10
@@ -299,12 +298,12 @@ class TestCacheDecorators:
     def test_cached_decorator_different_args(self):
         """Test cached decorator with different arguments"""
         call_count = [0]
-        
+
         @cached(ttl=60)
         def expensive_function(x):
             call_count[0] += 1
             return x * 2
-        
+
         expensive_function(5)
         expensive_function(10)
         assert call_count[0] == 2  # Different args, different cache keys
@@ -313,12 +312,12 @@ class TestCacheDecorators:
         """Test cached decorator with custom cache instance"""
         call_count = [0]
         custom_cache = TTLCache(default_ttl=60)
-        
+
         @cached(ttl=60, cache_instance=custom_cache)
         def expensive_function(x):
             call_count[0] += 1
             return x * 2
-        
+
         expensive_function(5)
         expensive_function(5)
         assert call_count[0] == 1
@@ -326,12 +325,12 @@ class TestCacheDecorators:
     def test_cached_lru_decorator(self):
         """Test cached_lru decorator"""
         call_count = [0]
-        
+
         @cached_lru(capacity=10)
         def expensive_function(x):
             call_count[0] += 1
             return x * 2
-        
+
         expensive_function(5)
         expensive_function(5)
         assert call_count[0] == 1
@@ -339,16 +338,16 @@ class TestCacheDecorators:
     def test_cached_lru_decorator_with_ttl(self):
         """Test cached_lru decorator with TTL"""
         call_count = [0]
-        
+
         @cached_lru(capacity=10, ttl=1)
         def expensive_function(x):
             call_count[0] += 1
             return x * 2
-        
+
         expensive_function(5)
         expensive_function(5)
         assert call_count[0] == 1
-        
+
         # Wait for expiration
         time.sleep(1.1)
         expensive_function(5)
@@ -357,12 +356,12 @@ class TestCacheDecorators:
     def test_cached_lru_decorator_eviction(self):
         """Test cached_lru decorator eviction"""
         call_count = [0]
-        
+
         @cached_lru(capacity=2)
         def expensive_function(x):
             call_count[0] += 1
             return x * 2
-        
+
         expensive_function(1)
         expensive_function(2)
         expensive_function(3)  # Should evict least recently used
@@ -374,7 +373,7 @@ class TestCacheDecorators:
         @cached(ttl=60)
         def func(x):
             return x * 2
-        
+
         assert hasattr(func, 'cache')
         assert isinstance(func.cache, TTLCache)
 
@@ -441,12 +440,12 @@ class TestGlobalCaches:
         """Test clear all global caches"""
         lru_cache = get_global_lru_cache()
         ttl_cache = get_global_ttl_cache()
-        
+
         lru_cache.set("key1", "value1")
         ttl_cache.set("key2", "value2")
-        
+
         clear_global_caches()
-        
+
         assert lru_cache.get("key1") is None
         assert ttl_cache.get("key2") is None
 

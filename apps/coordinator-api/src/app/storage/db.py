@@ -62,9 +62,6 @@ def get_engine() -> Engine:
 
 # Import only essential models for database initialization
 # This avoids loading all domain models which causes 2+ minute startup delays
-from ..domain import Job
-from ..contexts.marketplace.domain.gpu_marketplace import GPUBooking
-from ..contexts.payments.domain.payment import JobPayment
 
 
 def init_db() -> Engine:
@@ -118,7 +115,7 @@ def session_scope() -> Generator[Session]:
 # Dependency for FastAPI
 
 
-def get_session() -> Generator[Session, None, None]:
+def get_session() -> Generator[Session]:
     """Get a database session."""
     engine = get_engine()
     with Session(engine) as session:

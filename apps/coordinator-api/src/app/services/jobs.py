@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict
 
 from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 
+from ..contexts.payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
-from ..contexts.payments.services.payments import PaymentService
 
 
 class JobService:
@@ -214,34 +214,34 @@ class JobService:
         try:
             statement = select(Job).where(Job.id == job_id)
             job = self.session.scalars(statement).first()
-            
+
             if not job:
                 raise ValueError(f"Job {job_id} not found")
-            
+
             if job.state != JobState.running:
                 raise ValueError(f"Job {job_id} is not in running state")
-            
+
             # Update job with results
             job.state = JobState.completed
             job.result = result.get("output")
             job.receipt = result.get("receipt")
             job.completed_at = datetime.now()
-            
+
             self.session.add(job)
             self.session.commit()
             self.session.refresh(job)
-            
+
             logger.info(f"Job {job_id} executed successfully", extra={
                 "job_id": job_id,
                 "result_size": len(str(result)) if result else 0
             })
-            
+
             return job
-            
+
         except Exception as e:
             logger.error(f"Failed to execute job {job_id}: {e}")
             self.session.rollback()
-            
+
             # Mark job as failed
             try:
                 statement = select(Job).where(Job.id == job_id)
@@ -253,5 +253,5 @@ class JobService:
                     self.session.commit()
             except Exception:
                 pass
-                
+
             raise

@@ -3,9 +3,10 @@ API utilities for AITBC
 Provides standard response formatters, pagination helpers, error response builders, and rate limit headers helpers
 """
 
-from typing import Any, Optional, List, Dict, Union
-from datetime import datetime, timezone
-from fastapi import HTTPException, status
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 
@@ -13,13 +14,13 @@ class APIResponse(BaseModel):
     """Standard API response model"""
     success: bool
     message: str
-    data: Optional[Any] = None
-    error: Optional[str] = None
+    data: Any | None = None
+    error: str | None = None
     timestamp: str = None
-    
+
     def __init__(self, **data):
         if 'timestamp' not in data:
-            data['timestamp'] = datetime.now(timezone.utc).isoformat()
+            data['timestamp'] = datetime.now(UTC).isoformat()
         super().__init__(**data)
 
 
@@ -27,22 +28,22 @@ class PaginatedResponse(BaseModel):
     """Paginated API response model"""
     success: bool
     message: str
-    data: List[Any]
-    pagination: Dict[str, Any]
+    data: list[Any]
+    pagination: dict[str, Any]
     timestamp: str = None
-    
+
     def __init__(self, **data):
         if 'timestamp' not in data:
-            data['timestamp'] = datetime.now(timezone.utc).isoformat()
+            data['timestamp'] = datetime.now(UTC).isoformat()
         super().__init__(**data)
 
 
-def success_response(message: str = "Success", data: Optional[Any] = None) -> APIResponse:
+def success_response(message: str = "Success", data: Any | None = None) -> APIResponse:
     """Create a success response"""
     return APIResponse(success=True, message=message, data=data)
 
 
-def error_response(message: str, error: Optional[str] = None, status_code: int = 400) -> HTTPException:
+def error_response(message: str, error: str | None = None, status_code: int = 400) -> HTTPException:
     """Create an error response"""
     return HTTPException(
         status_code=status_code,
@@ -77,7 +78,7 @@ def forbidden_response(message: str = "Forbidden") -> HTTPException:
     )
 
 
-def validation_error_response(errors: List[str]) -> HTTPException:
+def validation_error_response(errors: list[str]) -> HTTPException:
     """Create a validation error response"""
     return error_response(
         message="Validation failed",
@@ -106,30 +107,30 @@ def internal_error_response(message: str = "Internal server error") -> HTTPExcep
 
 class PaginationParams:
     """Pagination parameters"""
-    
+
     def __init__(self, page: int = 1, page_size: int = 10, max_page_size: int = 100):
         """Initialize pagination parameters"""
         self.page = max(1, page)
         self.page_size = min(max_page_size, max(1, page_size))
         self.offset = (self.page - 1) * self.page_size
-    
+
     def get_limit(self) -> int:
         """Get SQL limit"""
         return self.page_size
-    
+
     def get_offset(self) -> int:
         """Get SQL offset"""
         return self.offset
 
 
-def paginate_items(items: List[Any], page: int = 1, page_size: int = 10) -> Dict[str, Any]:
+def paginate_items(items: list[Any], page: int = 1, page_size: int = 10) -> dict[str, Any]:
     """Paginate a list of items"""
     total = len(items)
     params = PaginationParams(page, page_size)
-    
+
     paginated_items = items[params.offset:params.offset + params.page_size]
     total_pages = (total + params.page_size - 1) // params.page_size
-    
+
     return {
         "items": paginated_items,
         "pagination": {
@@ -144,14 +145,14 @@ def paginate_items(items: List[Any], page: int = 1, page_size: int = 10) -> Dict
 
 
 def build_paginated_response(
-    items: List[Any],
+    items: list[Any],
     page: int = 1,
     page_size: int = 10,
     message: str = "Success"
 ) -> PaginatedResponse:
     """Build a paginated API response"""
     pagination_data = paginate_items(items, page, page_size)
-    
+
     return PaginatedResponse(
         success=True,
         message=message,
@@ -162,14 +163,14 @@ def build_paginated_response(
 
 class RateLimitHeaders:
     """Rate limit headers helper"""
-    
+
     @staticmethod
     def get_headers(
         limit: int,
         remaining: int,
         reset: int,
         window: int
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Get rate limit headers"""
         return {
             "X-RateLimit-Limit": str(limit),
@@ -177,19 +178,19 @@ class RateLimitHeaders:
             "X-RateLimit-Reset": str(reset),
             "X-RateLimit-Window": str(window)
         }
-    
+
     @staticmethod
-    def get_retry_after(retry_after: int) -> Dict[str, str]:
+    def get_retry_after(retry_after: int) -> dict[str, str]:
         """Get retry after header"""
         return {"Retry-After": str(retry_after)}
 
 
 def build_cors_headers(
-    allowed_origins: List[str] = ["*"],
-    allowed_methods: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowed_headers: List[str] = ["*"],
+    allowed_origins: list[str] = ["*"],
+    allowed_methods: list[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowed_headers: list[str] = ["*"],
     max_age: int = 3600
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Build CORS headers"""
     return {
         "Access-Control-Allow-Origin": ", ".join(allowed_origins),
@@ -201,24 +202,24 @@ def build_cors_headers(
 
 def build_standard_headers(
     content_type: str = "application/json",
-    cache_control: Optional[str] = None,
-    x_request_id: Optional[str] = None
-) -> Dict[str, str]:
+    cache_control: str | None = None,
+    x_request_id: str | None = None
+) -> dict[str, str]:
     """Build standard response headers"""
     headers = {
         "Content-Type": content_type,
     }
-    
+
     if cache_control:
         headers["Cache-Control"] = cache_control
-    
+
     if x_request_id:
         headers["X-Request-ID"] = x_request_id
-    
+
     return headers
 
 
-def validate_sort_field(field: str, allowed_fields: List[str]) -> str:
+def validate_sort_field(field: str, allowed_fields: list[str]) -> str:
     """Validate and return sort field"""
     if field not in allowed_fields:
         raise ValueError(f"Invalid sort field: {field}. Allowed fields: {', '.join(allowed_fields)}")
@@ -234,10 +235,10 @@ def validate_sort_order(order: str) -> str:
 
 
 def build_sort_params(
-    sort_by: Optional[str] = None,
+    sort_by: str | None = None,
     sort_order: str = "ASC",
-    allowed_fields: Optional[List[str]] = None
-) -> Dict[str, Any]:
+    allowed_fields: list[str] | None = None
+) -> dict[str, Any]:
     """Build sort parameters"""
     if sort_by and allowed_fields:
         sort_by = validate_sort_field(sort_by, allowed_fields)
@@ -246,21 +247,21 @@ def build_sort_params(
     return {}
 
 
-def filter_fields(data: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
+def filter_fields(data: dict[str, Any], fields: list[str]) -> dict[str, Any]:
     """Filter dictionary to only include specified fields"""
     return {k: v for k, v in data.items() if k in fields}
 
 
-def exclude_fields(data: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
+def exclude_fields(data: dict[str, Any], fields: list[str]) -> dict[str, Any]:
     """Exclude specified fields from dictionary"""
     return {k: v for k, v in data.items() if k not in fields}
 
 
-def sanitize_response(data: Any, sensitive_fields: List[str] = None) -> Any:
+def sanitize_response(data: Any, sensitive_fields: list[str] = None) -> Any:
     """Sanitize response by masking sensitive fields"""
     if sensitive_fields is None:
         sensitive_fields = ["password", "token", "api_key", "secret", "private_key"]
-    
+
     if isinstance(data, dict):
         return {
             k: "***" if any(sensitive in k.lower() for sensitive in sensitive_fields) else sanitize_response(v, sensitive_fields)
@@ -272,10 +273,10 @@ def sanitize_response(data: Any, sensitive_fields: List[str] = None) -> Any:
         return data
 
 
-def merge_responses(*responses: Union[APIResponse, Dict[str, Any]]) -> Dict[str, Any]:
+def merge_responses(*responses: APIResponse | dict[str, Any]) -> dict[str, Any]:
     """Merge multiple responses into one"""
     merged = {"data": {}}
-    
+
     for response in responses:
         if isinstance(response, APIResponse):
             if response.data:
@@ -289,7 +290,7 @@ def merge_responses(*responses: Union[APIResponse, Dict[str, Any]]) -> Dict[str,
                     merged["data"].update(response["data"])
                 else:
                     merged["data"] = response["data"]
-    
+
     return merged
 
 
@@ -299,11 +300,11 @@ def get_client_ip(request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
-    
+
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         return real_ip
-    
+
     return request.client.host if request.client else "unknown"
 
 
@@ -312,11 +313,11 @@ def get_user_agent(request) -> str:
     return request.headers.get("User-Agent", "unknown")
 
 
-def build_request_metadata(request) -> Dict[str, str]:
+def build_request_metadata(request) -> dict[str, str]:
     """Build request metadata"""
     return {
         "client_ip": get_client_ip(request),
         "user_agent": get_user_agent(request),
         "request_id": request.headers.get("X-Request-ID", "unknown"),
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(UTC).isoformat()
     }

@@ -3,10 +3,10 @@ Portfolio Management API Endpoints
 REST API for unified portfolio management across AITBC services
 """
 
-from typing import Annotated, Optional
+from datetime import UTC
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -25,7 +25,7 @@ portfolio_service = PortfolioAggregationService()
 class PortfolioSummaryResponse(BaseModel):
     """Response model for unified portfolio summary"""
     timestamp: str
-    agent_address: Optional[str]
+    agent_address: str | None
     wallet: dict
     exchange: dict
     marketplace: dict
@@ -47,7 +47,7 @@ class PortfolioHealthResponse(BaseModel):
 @rate_limit(rate=100, per=60)
 async def get_unified_portfolio(
     request: Request,
-    agent_address: Optional[str] = Query(default=None, description="Filter by agent address"),
+    agent_address: str | None = Query(default=None, description="Filter by agent address"),
 ) -> PortfolioSummaryResponse:
     """
     Get unified portfolio view aggregating data from all AITBC services
@@ -71,10 +71,10 @@ async def get_unified_portfolio(
 @rate_limit(rate=200, per=60)
 async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
     """Health check for portfolio aggregation service and dependencies"""
-    
+
     services_status = {}
     overall_status = "healthy"
-    
+
     # Check wallet service
     try:
         wallet_data = await portfolio_service._get_wallet_balances()
@@ -84,7 +84,7 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
     except Exception:
         services_status["wallet"] = "unhealthy"
         overall_status = "degraded"
-    
+
     # Check exchange service
     try:
         exchange_data = await portfolio_service._get_exchange_rates()
@@ -94,7 +94,7 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
     except Exception:
         services_status["exchange"] = "unhealthy"
         overall_status = "degraded"
-    
+
     # Check marketplace service
     try:
         marketplace_data = await portfolio_service._get_marketplace_stats()
@@ -104,7 +104,7 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
     except Exception:
         services_status["marketplace"] = "unhealthy"
         overall_status = "degraded"
-    
+
     # Check trading service
     try:
         trading_data = await portfolio_service._get_trading_analytics()
@@ -114,7 +114,7 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
     except Exception:
         services_status["trading"] = "unhealthy"
         overall_status = "degraded"
-    
+
     # Check AI service
     try:
         ai_data = await portfolio_service._get_ai_trade_signals()
@@ -124,13 +124,13 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
     except Exception:
         services_status["ai"] = "unhealthy"
         overall_status = "degraded"
-    
-    from datetime import datetime, timezone
-    
+
+    from datetime import datetime
+
     return PortfolioHealthResponse(
         status=overall_status,
         services=services_status,
-        timestamp=datetime.now(timezone.utc).isoformat()
+        timestamp=datetime.now(UTC).isoformat()
     )
 
 
@@ -138,10 +138,10 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
 @rate_limit(rate=200, per=60)
 async def get_portfolio_summary_only(
     request: Request,
-    agent_address: Optional[str] = Query(default=None, description="Filter by agent address"),
+    agent_address: str | None = Query(default=None, description="Filter by agent address"),
 ) -> dict:
     """Get only the portfolio summary metrics without full details"""
-    
+
     try:
         portfolio_data = await portfolio_service.get_unified_portfolio(agent_address)
         return {

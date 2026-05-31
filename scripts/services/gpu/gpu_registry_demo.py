@@ -3,26 +3,27 @@
 Simple GPU Registry Server for demonstration
 """
 
+from datetime import UTC, datetime
+from typing import Any
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
-import uvicorn
-from datetime import datetime, timezone
 
 app = FastAPI(title="GPU Registry Demo")
 
 # In-memory storage
-registered_gpus: Dict[str, Dict] = {}
+registered_gpus: dict[str, dict] = {}
 
 class GPURegistration(BaseModel):
-    capabilities: Dict[str, Any]
+    capabilities: dict[str, Any]
     concurrency: int = 1
-    region: Optional[str] = None
+    region: str | None = None
 
 class Heartbeat(BaseModel):
     inflight: int = 0
     status: str = "ONLINE"
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
 
 @app.get("/")
 async def root():
@@ -37,8 +38,8 @@ async def register_gpu(miner_id: str, gpu_data: GPURegistration):
     """Register a GPU miner"""
     registered_gpus[miner_id] = {
         "id": miner_id,
-        "registered_at": datetime.now(timezone.utc).isoformat(),
-        "last_heartbeat": datetime.now(timezone.utc).isoformat(),
+        "registered_at": datetime.now(UTC).isoformat(),
+        "last_heartbeat": datetime.now(UTC).isoformat(),
         **gpu_data.dict()
     }
     return {"status": "ok", "message": f"GPU {miner_id} registered successfully"}
@@ -48,11 +49,11 @@ async def heartbeat(miner_id: str, heartbeat_data: Heartbeat):
     """Receive heartbeat from GPU miner"""
     if miner_id not in registered_gpus:
         raise HTTPException(status_code=404, detail="GPU not registered")
-    
-    registered_gpus[miner_id]["last_heartbeat"] = datetime.now(timezone.utc).isoformat()
+
+    registered_gpus[miner_id]["last_heartbeat"] = datetime.now(UTC).isoformat()
     registered_gpus[miner_id]["status"] = heartbeat_data.status
     registered_gpus[miner_id]["metadata"] = heartbeat_data.metadata
-    
+
     return {"status": "ok"}
 
 @app.get("/miners/list")

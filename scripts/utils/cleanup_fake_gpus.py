@@ -3,8 +3,9 @@
 Script to clean up fake GPU entries from the marketplace
 """
 
+
 import requests
-import sys
+
 
 def delete_fake_gpu(gpu_id):
     """Delete a fake GPU from the marketplace"""
@@ -23,26 +24,26 @@ def delete_fake_gpu(gpu_id):
 def main():
     """Main cleanup function"""
     print("=== CLEANING UP FAKE GPU OFFERS ===")
-    
+
     # List of fake GPU IDs to delete
     fake_gpus = [
         "gpu_1bdf8e86",
-        "gpu_1b7da9e0", 
+        "gpu_1b7da9e0",
         "gpu_9cff5bc2",
         "gpu_ebef80a5",
         "gpu_979b24b8",
         "gpu_e5ab817d"
     ]
-    
+
     print(f"Found {len(fake_gpus)} fake GPUs to delete")
-    
+
     deleted_count = 0
     for gpu_id in fake_gpus:
         if delete_fake_gpu(gpu_id):
             deleted_count += 1
-    
+
     print(f"\n🎉 Cleanup complete! Deleted {deleted_count}/{len(fake_gpus)} fake GPUs")
-    
+
     # Show remaining GPUs
     print("\n📋 Remaining GPUs in marketplace:")
     try:

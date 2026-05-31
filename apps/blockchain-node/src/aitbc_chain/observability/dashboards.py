@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable
 
 
 def _timeseries_panel(
@@ -14,7 +14,7 @@ def _timeseries_panel(
     grid_x: int,
     grid_y: int,
     datasource_uid: str,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     return {
         "datasource": {"type": "prometheus", "uid": datasource_uid},
         "fieldConfig": {
@@ -56,7 +56,7 @@ def _stat_panel(
     grid_x: int,
     grid_y: int,
     datasource_uid: str,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     return {
         "datasource": {"type": "prometheus", "uid": datasource_uid},
         "fieldConfig": {
@@ -95,7 +95,7 @@ def _stat_panel(
     }
 
 
-def _coordinator_dashboard(datasource_uid: str) -> Dict[str, object]:
+def _coordinator_dashboard(datasource_uid: str) -> dict[str, object]:
     return {
         "uid": "aitbc-coordinator",
         "title": "AITBC Coordinator Overview",
@@ -171,7 +171,7 @@ def _coordinator_dashboard(datasource_uid: str) -> Dict[str, object]:
     }
 
 
-def _node_dashboard(datasource_uid: str) -> Dict[str, object]:
+def _node_dashboard(datasource_uid: str) -> dict[str, object]:
     return {
         "uid": "aitbc-node",
         "title": "AITBC Blockchain Node",
@@ -239,7 +239,7 @@ def _node_dashboard(datasource_uid: str) -> Dict[str, object]:
     }
 
 
-def _dashboard_payloads(datasource_uid: str) -> Iterable[tuple[str, Dict[str, object]]]:
+def _dashboard_payloads(datasource_uid: str) -> Iterable[tuple[str, dict[str, object]]]:
     return (
         ("coordinator-overview.json", _coordinator_dashboard(datasource_uid)),
         ("blockchain-node-overview.json", _node_dashboard(datasource_uid)),

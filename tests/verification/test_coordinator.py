@@ -3,8 +3,9 @@
 Test GPU registration with mock coordinator
 """
 
-import httpx
 import json
+
+import httpx
 
 COORDINATOR_URL = "http://localhost:8090"
 

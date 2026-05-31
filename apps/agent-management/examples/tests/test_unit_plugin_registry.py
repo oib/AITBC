@@ -1,13 +1,9 @@
 """Unit tests for plugin registry service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-from datetime import datetime, timezone
-
-
-from main import app, PluginRegistration, PluginVersion, SecurityScan
+from main import PluginRegistration, PluginVersion, SecurityScan, app
 
 
 @pytest.mark.unit
@@ -72,7 +68,7 @@ def test_plugin_version_model():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0", "1.1.0"],
-        release_date=datetime.now(timezone.utc)
+        release_date=datetime.now(UTC)
     )
     assert version.version == "1.0.0"
     assert version.changelog == "Initial release"
@@ -88,7 +84,7 @@ def test_security_scan_model():
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.now(timezone.utc),
+        scan_date=datetime.now(UTC),
         vulnerabilities=[{"severity": "low", "description": "Test"}],
         risk_score="low",
         passed=True

@@ -4,7 +4,7 @@ Implements meta-learning, resource optimization, and performance enhancement for
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -109,7 +109,7 @@ class MetaLearningEngine:
             model.training_time = training_results["training_time"]
             model.computational_cost = training_results["computational_cost"]
             model.status = "ready"
-            model.trained_at = datetime.now(timezone.utc)
+            model.trained_at = datetime.now(UTC)
 
             session.commit()
 
@@ -351,7 +351,7 @@ class ResourceManager:
             network_bandwidth=optimized_allocation[ResourceType.NETWORK],
             optimization_target=optimization_target,
             status="allocated",
-            allocated_at=datetime.now(timezone.utc),
+            allocated_at=datetime.now(UTC),
         )
 
         session.add(allocation)
@@ -601,7 +601,7 @@ class PerformanceOptimizer:
             optimization.convergence_achieved = optimization_results["converged"]
             optimization.optimization_applied = True
             optimization.status = "completed"
-            optimization.completed_at = datetime.now(timezone.utc)
+            optimization.completed_at = datetime.now(UTC)
 
             session.commit()
 
@@ -619,7 +619,7 @@ class PerformanceOptimizer:
     ) -> dict[str, Any]:
         """Run comprehensive optimization process"""
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         # Step 1: Analyze current performance
         analysis_results = self.analyze_current_performance(current_performance, target_metric)
@@ -636,7 +636,7 @@ class PerformanceOptimizer:
         # Step 5: Calculate improvements
         improvements = self.calculate_improvements(current_performance, applied_performance)
 
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         duration = (end_time - start_time).total_seconds()
 
         return {
@@ -865,7 +865,7 @@ class AgentPerformanceService:
             expertise_levels={},
             performance_history=[],
             benchmark_scores={},
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         self.session.add(profile)
@@ -892,7 +892,7 @@ class AgentPerformanceService:
             profile.performance_metrics.update(new_metrics)
 
             # Add to performance history
-            history_entry = {"timestamp": datetime.now(timezone.utc).isoformat(), "metrics": new_metrics, "context": task_context or {}}
+            history_entry = {"timestamp": datetime.now(UTC).isoformat(), "metrics": new_metrics, "context": task_context or {}}
             profile.performance_history.append(history_entry)
 
             # Calculate overall score
@@ -901,8 +901,8 @@ class AgentPerformanceService:
             # Update trends
             profile.improvement_trends = self.calculate_improvement_trends(profile.performance_history)
 
-            profile.updated_at = datetime.now(timezone.utc)
-            profile.last_assessed = datetime.now(timezone.utc)
+            profile.updated_at = datetime.now(UTC)
+            profile.last_assessed = datetime.now(UTC)
 
             self.session.commit()
 

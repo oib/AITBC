@@ -3,10 +3,8 @@ End-to-End Test for Job Lifecycle
 Tests complete job submission and processing workflow
 """
 
+
 import pytest
-import asyncio
-from datetime import datetime, timedelta
-import httpx
 
 
 @pytest.mark.e2e

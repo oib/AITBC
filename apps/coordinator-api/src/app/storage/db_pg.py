@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .config_pg import settings
 
@@ -240,6 +240,6 @@ def check_db_health() -> dict[str, Any]:
     try:
         adapter = get_db_adapter()
         adapter.execute_query("SELECT 1 as health_check")
-        return {"status": "healthy", "database": "postgresql", "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {"status": "healthy", "database": "postgresql", "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {"status": "unhealthy", "error": str(e), "timestamp": datetime.now(UTC).isoformat()}

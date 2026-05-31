@@ -1,14 +1,20 @@
 """Edge case and error handling tests for multi-region load balancer service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, LoadBalancingRule, RegionHealth, LoadBalancingMetrics, GeographicRule, load_balancing_rules, region_health_status, balancing_metrics, geographic_rules
+from main import (
+    GeographicRule,
+    LoadBalancingMetrics,
+    LoadBalancingRule,
+    RegionHealth,
+    app,
+    balancing_metrics,
+    geographic_rules,
+    load_balancing_rules,
+    region_health_status,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -50,7 +56,7 @@ def test_region_health_negative_success_rate():
         response_time_ms=45.5,
         success_rate=-0.5,
         active_connections=100,
-        last_check=datetime.now(timezone.utc)
+        last_check=datetime.now(UTC)
     )
     assert health.success_rate == -0.5
 
@@ -64,7 +70,7 @@ def test_region_health_negative_connections():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=-100,
-        last_check=datetime.now(timezone.utc)
+        last_check=datetime.now(UTC)
     )
     assert health.active_connections == -100
 
@@ -74,7 +80,7 @@ def test_load_balancing_metrics_negative_requests():
     """Test LoadBalancingMetrics with negative requests"""
     metrics = LoadBalancingMetrics(
         balancer_id="lb_123",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         total_requests=-1000,
         requests_per_region={},
         average_response_time=50.5,
@@ -89,7 +95,7 @@ def test_load_balancing_metrics_negative_response_time():
     """Test LoadBalancingMetrics with negative response time"""
     metrics = LoadBalancingMetrics(
         balancer_id="lb_123",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         total_requests=1000,
         requests_per_region={},
         average_response_time=-50.5,
@@ -174,7 +180,7 @@ def test_get_balancing_metrics_hours_parameter():
         session_affinity=False
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
-    
+
     response = client.get("/api/v1/metrics/rule_123?hours=12")
     assert response.status_code == 200
     data = response.json()

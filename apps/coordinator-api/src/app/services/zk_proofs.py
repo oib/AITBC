@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from aitbc import get_logger
+
 from ..schemas import JobResult, Receipt
 
 logger = get_logger(__name__)
@@ -136,7 +137,7 @@ class ZKProofService:
         try:
             if not self.enabled:
                 return {"verified": False, "error": "ZK proof service not enabled"}
-            
+
             # Test mode: accept mock proofs for development
             if test_mode:
                 logger.info("Test mode enabled: accepting mock proof without cryptographic verification")
@@ -154,11 +155,11 @@ class ZKProofService:
                 # Try to load from the first available circuit's verification key
                 if not self.available_circuits:
                     return {"verified": False, "error": "No circuits available for verification"}
-                
+
                 # Use the first available circuit's verification key
                 first_circuit = list(self.available_circuits.values())[0]
                 vkey_path = first_circuit["vkey_path"]
-                
+
                 try:
                     with open(vkey_path) as f:
                         vkey = json.load(f)

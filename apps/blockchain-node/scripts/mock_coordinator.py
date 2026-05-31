@@ -7,25 +7,23 @@ import asyncio
 import contextlib
 import random
 from collections import deque
-from typing import Deque, Dict, List
 
+from aitbc_chain.metrics import metrics_registry
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 
-from aitbc_chain.metrics import metrics_registry
-
 app = FastAPI(title="Mock Coordinator API", version="v0.2.2")
 
-SIMULATED_MINERS: List[str] = ["miner-alpha", "miner-beta", "miner-gamma"]
-SIMULATED_CLIENTS: List[str] = ["client-labs", "client-trading", "client-research"]
+SIMULATED_MINERS: list[str] = ["miner-alpha", "miner-beta", "miner-gamma"]
+SIMULATED_CLIENTS: list[str] = ["client-labs", "client-trading", "client-research"]
 
-MOCK_JOBS: Dict[str, Dict[str, str]] = {
+MOCK_JOBS: dict[str, dict[str, str]] = {
     "job_1": {"status": "complete", "price": "50000", "compute_units": 2500},
     "job_2": {"status": "complete", "price": "25000", "compute_units": 1200},
 }
 
 _simulation_task: asyncio.Task | None = None
-_job_rollup: Deque[str] = deque(maxlen=120)
+_job_rollup: deque[str] = deque(maxlen=120)
 
 
 def _simulate_miner_metrics() -> None:
@@ -91,12 +89,12 @@ async def _shutdown() -> None:
 
 
 @app.get("/health")
-def health() -> Dict[str, str]:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.post("/attest/receipt")
-def attest_receipt(payload: Dict[str, str]) -> Dict[str, str | bool]:
+def attest_receipt(payload: dict[str, str]) -> dict[str, str | bool]:
     job_id = payload.get("job_id")
     if job_id in MOCK_JOBS:
         metrics_registry.increment("miner_receipts_attested_total")

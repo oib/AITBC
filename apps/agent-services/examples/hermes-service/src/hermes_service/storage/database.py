@@ -2,8 +2,10 @@
 
 import os
 from contextlib import contextmanager
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
+
 from .schema import Base
 
 # Database path

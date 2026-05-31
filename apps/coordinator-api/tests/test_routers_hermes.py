@@ -17,7 +17,7 @@ class TestHermesRouter:
             "public_key": "abc123def456",
             "capabilities": ["ai", "gpu", "messaging"]
         }
-        
+
         response = client.post("/hermes/agents/register", json=agent_data)
         assert response.status_code == 200
         data = response.json()
@@ -38,7 +38,7 @@ class TestHermesRouter:
             "public_key": "receiver-key",
             "capabilities": ["messaging"]
         })
-        
+
         # Send message
         message_data = {
             "sender": "sender-001",
@@ -47,7 +47,7 @@ class TestHermesRouter:
             "message_type": "direct",
             "encrypted": False
         }
-        
+
         response = client.post("/hermes/messages/send", json=message_data)
         assert response.status_code == 200
         data = response.json()
@@ -63,7 +63,7 @@ class TestHermesRouter:
             "recipient": "receiver-001",
             "content": "Test message"
         }
-        
+
         response = client.post("/hermes/messages/send", json=message_data)
         assert response.status_code == 400
 
@@ -76,14 +76,14 @@ class TestHermesRouter:
                 "public_key": f"key-{i}",
                 "capabilities": ["messaging"]
             })
-        
+
         # Broadcast
         broadcast_data = {
             "sender": "agent-0",
             "content": "Broadcast message to all agents!",
             "encrypted": False
         }
-        
+
         response = client.post("/hermes/messages/broadcast", json=broadcast_data)
         assert response.status_code == 200
         data = response.json()
@@ -103,14 +103,14 @@ class TestHermesRouter:
             "public_key": "sender-key",
             "capabilities": ["messaging"]
         })
-        
+
         # Send message
         client.post("/hermes/messages/send", json={
             "sender": "msg-sender",
             "recipient": "msg-receiver",
             "content": "Test message content"
         })
-        
+
         # Get messages
         response = client.get("/hermes/messages/msg-receiver")
         assert response.status_code == 200
@@ -132,7 +132,7 @@ class TestHermesRouter:
             "public_key": "key2",
             "capabilities": ["messaging"]
         })
-        
+
         # Send message
         send_response = client.post("/hermes/messages/send", json={
             "sender": "read-test-sender",
@@ -140,7 +140,7 @@ class TestHermesRouter:
             "content": "Message to mark as read"
         })
         message_id = send_response.json()["message"]["id"]
-        
+
         # Mark as read
         read_data = {
             "agent_id": "read-test-receiver",
@@ -166,7 +166,7 @@ class TestHermesRouter:
             "public_key": "profile-key",
             "capabilities": ["ai", "gpu"]
         })
-        
+
         response = client.get("/hermes/agents/profile-agent/profile")
         assert response.status_code == 200
         data = response.json()
@@ -181,7 +181,7 @@ class TestHermesRouter:
             "public_key": "hb-key",
             "capabilities": ["messaging"]
         })
-        
+
         # Send heartbeat
         response = client.post("/hermes/agents/heartbeat-agent/heartbeat")
         assert response.status_code == 200
@@ -222,7 +222,7 @@ class TestHermesIntegration:
             "public_key": "bob-key",
             "capabilities": ["messaging"]
         })
-        
+
         # Alice sends message to Bob
         msg1 = client.post("/hermes/messages/send", json={
             "sender": "alice",
@@ -230,7 +230,7 @@ class TestHermesIntegration:
             "content": "Hi Bob!",
             "message_type": "direct"
         }).json()["message"]
-        
+
         # Bob replies
         msg2 = client.post("/hermes/messages/send", json={
             "sender": "bob",
@@ -239,10 +239,10 @@ class TestHermesIntegration:
             "message_type": "direct",
             "reply_to": msg1["id"]
         }).json()["message"]
-        
+
         # Verify both received messages
         alice_msgs = client.get("/hermes/messages/alice").json()
         bob_msgs = client.get("/hermes/messages/bob").json()
-        
+
         assert any(m["sender"] == "bob" for m in alice_msgs["messages"])
         assert any(m["sender"] == "alice" for m in bob_msgs["messages"])

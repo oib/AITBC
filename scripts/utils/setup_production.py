@@ -41,7 +41,7 @@ def main():
     # 1. Keystore directory and password
     run(f"mkdir -p {KEYS_DIR}")
     run(f"chown -R root:root {KEYS_DIR}")
-    
+
     # SECURITY FIX: Use credential system instead of writing password to disk
     # Password is stored in /etc/aitbc/credentials/keystore_password with 600 permissions
     password = os.environ.get("AITBC_KEYSTORE_PASSWORD")

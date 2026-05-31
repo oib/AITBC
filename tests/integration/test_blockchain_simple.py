@@ -4,9 +4,8 @@ Simple test to verify blockchain nodes are working independently
 and demonstrate how to configure them for networking
 """
 
+
 import httpx
-import json
-import time
 
 # Node URLs
 NODES = {
@@ -18,18 +17,18 @@ def test_node_basic_functionality():
     """Test basic functionality of each node"""
     print("Testing Blockchain Node Functionality")
     print("=" * 60)
-    
+
     for name, url in NODES.items():
         print(f"\nTesting {name}:")
-        
+
         # Check if node is responsive
         try:
             response = httpx.get(f"{url}/openapi.json", timeout=5)
-            print(f"  ✅ Node responsive")
+            print("  ✅ Node responsive")
         except Exception:
-            print(f"  ❌ Node not responding")
+            print("  ❌ Node not responding")
             continue
-        
+
         # Get chain head
         try:
             response = httpx.get(f"{url}/rpc/head", timeout=5)
@@ -37,10 +36,10 @@ def test_node_basic_functionality():
                 head = response.json()
                 print(f"  ✅ Chain height: {head.get('height', 'unknown')}")
             else:
-                print(f"  ❌ Failed to get chain head")
+                print("  ❌ Failed to get chain head")
         except Exception:
-            print(f"  ❌ Error getting chain head")
-        
+            print("  ❌ Error getting chain head")
+
         # Test faucet
         try:
             response = httpx.post(
@@ -49,17 +48,17 @@ def test_node_basic_functionality():
                 timeout=5
             )
             if response.status_code == 200:
-                print(f"  ✅ Faucet working")
+                print("  ✅ Faucet working")
             else:
                 print(f"  ❌ Faucet failed: {response.status_code}")
         except Exception:
-            print(f"  ❌ Error testing faucet")
+            print("  ❌ Error testing faucet")
 
 def show_networking_config():
     """Show how to configure nodes for networking"""
     print("\n\nNetworking Configuration")
     print("=" * 60)
-    
+
     print("""
 To connect the blockchain nodes in a network, you need to:
 

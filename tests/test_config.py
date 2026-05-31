@@ -2,12 +2,10 @@
 Tests for AITBC configuration classes
 """
 
-import os
-import pytest
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
-from aitbc.config import BaseAITBCConfig, AITBCConfig
+from aitbc.config import AITBCConfig, BaseAITBCConfig
 
 
 class TestBaseAITBCConfig:

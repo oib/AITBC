@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import os
-import logging
 import asyncio
-from datetime import datetime, timezone
+import logging
+import os
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import FastAPI
 import httpx
+from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 app = FastAPI(
@@ -82,7 +82,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
         overall_metrics = calculate_overall_metrics(health_data)
 
         dashboard_data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "overall_status": overall_metrics["overall_status"],
             "services": health_data,
             "metrics": overall_metrics,
@@ -91,7 +91,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
                 "healthy_services": len([s for s in health_data.values() if s.get("status") == "healthy"]),
                 "degraded_services": len([s for s in health_data.values() if s.get("status") == "degraded"]),
                 "unhealthy_services": len([s for s in health_data.values() if s.get("status") == "unhealthy"]),
-                "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "last_updated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
             },
         }
 
@@ -102,7 +102,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
         logger.error(f"Failed to generate monitoring dashboard: {e}")
         return {
             "error": "Failed to generate dashboard",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "services": SERVICES,
             "overall_status": "error",
             "summary": {
@@ -110,7 +110,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
                 "healthy_services": 0,
                 "degraded_services": 0,
                 "unhealthy_services": len(SERVICES),
-                "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "last_updated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
             },
         }
 
@@ -123,7 +123,7 @@ async def services_summary() -> dict[str, Any]:
     try:
         health_data = await collect_all_health_data()
 
-        summary = {"timestamp": datetime.now(timezone.utc).isoformat(), "services": {}}
+        summary = {"timestamp": datetime.now(UTC).isoformat(), "services": {}}
 
         for service_id, service_info in SERVICES.items():
             health = health_data.get(service_id, {})
@@ -139,7 +139,7 @@ async def services_summary() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to generate services summary: {e}")
-        return {"error": "Failed to generate summary", "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {"error": "Failed to generate summary", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @app.get("/dashboard/metrics")
@@ -159,7 +159,7 @@ async def system_metrics() -> dict[str, Any]:
         network = psutil.net_io_counters()
 
         metrics = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "system": {
                 "cpu_percent": cpu_percent,
                 "cpu_count": psutil.cpu_count(),
@@ -186,7 +186,7 @@ async def system_metrics() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to collect system metrics: {e}")
-        return {"error": "Failed to collect metrics", "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {"error": "Failed to collect metrics", "timestamp": datetime.now(UTC).isoformat()}
 
 
 async def collect_all_health_data() -> dict[str, Any]:
@@ -206,7 +206,7 @@ async def collect_all_health_data() -> dict[str, Any]:
             health_data[service_id] = {
                 "status": "unhealthy",
                 "error": str(result),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         else:
             health_data[service_id] = result
@@ -225,7 +225,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
             return {
                 "status": "healthy",
                 "response_time": 0.1,
-                "last_check": datetime.now(timezone.utc).isoformat(),
+                "last_check": datetime.now(UTC).isoformat(),
                 "details": response.json(),
             }
     except Exception as e:
@@ -233,7 +233,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
         return {
             "status": "unhealthy",
             "error": str(e),
-            "last_check": datetime.now(timezone.utc).isoformat(),
+            "last_check": datetime.now(UTC).isoformat(),
         }
 
 

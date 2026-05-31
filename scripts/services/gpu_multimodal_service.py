@@ -3,8 +3,9 @@
 Simple FastAPI service for AITBC GPU Multimodal (Port 8011)
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
 
 import uvicorn
@@ -15,8 +16,8 @@ app = FastAPI(title='AITBC GPU Multimodal Service', version='1.0.0')
 @app.get('/health')
 def health():
     return {
-        'status': 'ok', 
-        'service': 'gpu-multimodal', 
+        'status': 'ok',
+        'service': 'gpu-multimodal',
         'port': 8011,
         'python_version': sys.version.split()[0]
     }
@@ -24,7 +25,7 @@ def health():
 @app.get('/gpu/multimodal')
 def gpu_multimodal():
     return {
-        'gpu_available': True, 
+        'gpu_available': True,
         'multimodal_capabilities': True,
         'service': 'gpu-multimodal',
         'features': ['text_processing', 'image_processing', 'audio_processing']

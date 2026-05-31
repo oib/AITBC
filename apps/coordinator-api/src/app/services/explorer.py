@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlmodel import Session, select
 
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 from ..config import settings
 from ..domain import Job, JobReceipt
 from ..schemas import (
@@ -75,7 +76,7 @@ class ExplorerService:
                     )
                 next_offset = offset + len(items) if len(items) == limit else None
                 return BlockListResponse(items=items, next_offset=next_offset)
-            except NetworkError as e:
+            except NetworkError:
                 return BlockListResponse(items=[], next_offset=None)
         except Exception as e:
             # Fallback to fake data if RPC is unavailable

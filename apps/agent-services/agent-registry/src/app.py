@@ -4,17 +4,16 @@ AITBC Agent Registry Service
 Central agent discovery and registration system
 """
 
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
 import json
-import time
-import uuid
 import os
-from datetime import datetime, timezone, timedelta
 import sqlite3
-from contextlib import contextmanager
-from contextlib import asynccontextmanager
+import uuid
+from contextlib import asynccontextmanager, contextmanager
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 # Database path - use DATA_DIR environment variable or fallback to /var/lib/aitbc
 DATA_DIR = os.environ.get('DATA_DIR', '/var/lib/aitbc')
@@ -67,18 +66,18 @@ class Agent(BaseModel):
     id: str
     name: str
     type: str
-    capabilities: List[str]
+    capabilities: list[str]
     chain_id: str
     endpoint: str
-    metadata: Optional[Dict[str, Any]] = {}
+    metadata: dict[str, Any] | None = {}
 
 class AgentRegistration(BaseModel):
     name: str
     type: str
-    capabilities: List[str]
+    capabilities: list[str]
     chain_id: str
     endpoint: str
-    metadata: Optional[Dict[str, Any]] = {}
+    metadata: dict[str, Any] | None = {}
 
 # API Endpoints
 
@@ -86,7 +85,7 @@ class AgentRegistration(BaseModel):
 async def register_agent(agent: AgentRegistration):
     """Register a new agent"""
     agent_id = str(uuid.uuid4())
-    
+
     with get_db_connection() as conn:
         conn.execute('''
             INSERT INTO agents (id, name, type, capabilities, chain_id, endpoint, metadata)
@@ -97,7 +96,7 @@ async def register_agent(agent: AgentRegistration):
             agent.endpoint, json.dumps(agent.metadata)
         ))
         conn.commit()
-    
+
     return Agent(
         id=agent_id,
         name=agent.name,
@@ -108,31 +107,31 @@ async def register_agent(agent: AgentRegistration):
         metadata=agent.metadata
     )
 
-@app.get("/api/agents", response_model=List[Agent])
+@app.get("/api/agents", response_model=list[Agent])
 async def list_agents(
-    agent_type: Optional[str] = None,
-    chain_id: Optional[str] = None,
-    capability: Optional[str] = None
+    agent_type: str | None = None,
+    chain_id: str | None = None,
+    capability: str | None = None
 ):
     """List registered agents with optional filters"""
     with get_db_connection() as conn:
         query = "SELECT * FROM agents WHERE status = 'active'"
         params = []
-        
+
         if agent_type:
             query += " AND type = ?"
             params.append(agent_type)
-        
+
         if chain_id:
             query += " AND chain_id = ?"
             params.append(chain_id)
-        
+
         if capability:
             query += " AND capabilities LIKE ?"
             params.append(f'%{capability}%')
-        
+
         agents = conn.execute(query, params).fetchall()
-        
+
         return [
             Agent(
                 id=agent["id"],
@@ -149,7 +148,7 @@ async def list_agents(
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.now(timezone.utc)}
+    return {"status": "ok", "timestamp": datetime.now(UTC)}
 
 if __name__ == "__main__":
     import uvicorn

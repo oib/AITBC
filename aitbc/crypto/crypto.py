@@ -3,13 +3,13 @@ Cryptographic utilities for AITBC
 Provides Ethereum-specific cryptographic operations and security functions
 """
 
-from typing import Any, Optional
+import base64
+import hashlib
+import os
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import base64
-import os
-import hashlib
 
 
 def derive_ethereum_address(private_key: str) -> str:
@@ -19,7 +19,7 @@ def derive_ethereum_address(private_key: str) -> str:
         # Remove 0x prefix if present
         if private_key.startswith("0x"):
             private_key = private_key[2:]
-        
+
         account = Account.from_key(private_key)
         return account.address
     except ImportError:
@@ -37,7 +37,7 @@ def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
             private_key = private_key[2:]
         if transaction_hash.startswith("0x"):
             transaction_hash = transaction_hash[2:]
-        
+
         account = Account.from_key(private_key)
         signed_message = account.sign_hash(bytes.fromhex(transaction_hash))
         return signed_message.signature.hex()
@@ -52,7 +52,7 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
     try:
         from eth_account import Account
         from eth_utils import to_bytes
-        
+
         # Remove 0x prefixes if present
         if message_hash.startswith("0x"):
             message_hash = message_hash[2:]
@@ -60,10 +60,10 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
             signature = signature[2:]
         if address.startswith("0x"):
             address = address[2:]
-        
+
         message_bytes = to_bytes(hexstr=message_hash)
         signature_bytes = to_bytes(hexstr=signature)
-        
+
         recovered_address = Account.recover_message(message_bytes, signature_bytes)
         return recovered_address.lower() == address.lower()
     except ImportError:
@@ -85,11 +85,11 @@ def encrypt_private_key(private_key: str, password: str) -> str:
             iterations=100000,
         )
         key = base64.urlsafe_b64encode(kdf.derive(password_bytes))
-        
+
         # Encrypt private key
         fernet = Fernet(key)
         encrypted_key = fernet.encrypt(private_key.encode('utf-8'))
-        
+
         # Combine salt and encrypted key
         combined = salt + encrypted_key
         return base64.urlsafe_b64encode(combined).decode('utf-8')
@@ -102,11 +102,11 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
     try:
         # Decode combined salt + encrypted data
         combined = base64.urlsafe_b64decode(encrypted_key.encode('utf-8'))
-        
+
         # Extract salt (first 16 bytes) and encrypted data (remaining bytes)
         salt = combined[:16]
         encrypted_data = combined[16:]
-        
+
         # Derive same encryption key from password using stored salt
         # Must use identical parameters as encryption for successful decryption
         password_bytes = password.encode('utf-8')
@@ -117,7 +117,7 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
             iterations=100000,
         )
         key = base64.urlsafe_b64encode(kdf.derive(password_bytes))
-        
+
         # Decrypt private key using derived key
         fernet = Fernet(key)
         decrypted_key = fernet.decrypt(encrypted_data)

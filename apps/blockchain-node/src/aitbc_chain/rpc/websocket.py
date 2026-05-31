@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-from typing import AsyncIterator, Dict
-
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..gossip import gossip_broker

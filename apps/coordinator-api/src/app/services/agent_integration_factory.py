@@ -3,19 +3,19 @@ Factory for creating shared AgentIntegrationService with app-specific adapters.
 This enables gradual migration from duplicated code to shared implementation.
 """
 
+from aitbc_agent_core import AgentIntegrationService
 from sqlmodel import Session
 
-from aitbc_agent_core import AgentIntegrationService
 from ..adapters.agent_core_adapters import (
-    AgentSecurityManagerAdapter,
     AgentAuditorAdapter,
     AgentOrchestratorAdapter,
-    ZKProofServiceAdapter,
+    AgentSecurityManagerAdapter,
     SessionProviderAdapter,
+    ZKProofServiceAdapter,
 )
-from .agent_coordination.security import AgentSecurityManager, AgentAuditor
-from .agent_coordination.agent_service import AIAgentOrchestrator, CoordinatorClient
 from ..storage.db import get_session
+from .agent_coordination.agent_service import AIAgentOrchestrator, CoordinatorClient
+from .agent_coordination.security import AgentAuditor, AgentSecurityManager
 
 
 def create_agent_integration_service(session: Session) -> AgentIntegrationService:
@@ -53,6 +53,7 @@ def get_shared_agent_integration_service() -> AgentIntegrationService:
     global _shared_service
     if _shared_service is None:
         from sqlmodel import Session as SQLModelSession
+
         from ..storage.db import get_engine
         with SQLModelSession(get_engine()) as _sess:
             _shared_service = create_agent_integration_service(_sess)

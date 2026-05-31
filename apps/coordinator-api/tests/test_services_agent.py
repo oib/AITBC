@@ -2,8 +2,9 @@
 Tests for agent service
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 @pytest.mark.unit
@@ -25,7 +26,7 @@ class TestAgentService:
 
         # Import and test
         from app.services.agent_service import get_agent_status
-        
+
         result = get_agent_status("agent1")
         assert result["id"] == "agent1"
         assert result["status"] == "active"
@@ -44,7 +45,7 @@ class TestAgentService:
 
         # Import and test
         from app.services.agent_service import register_agent
-        
+
         result = register_agent({"name": "Agent 2", "type": "compute"})
         assert result["id"] == "agent2"
         assert result["status"] == "registered"

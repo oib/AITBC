@@ -3,12 +3,11 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 from ..core.config import ServiceSettings
 
 
-def setup_logging(settings: Optional[ServiceSettings] = None, level: str = None) -> logging.Logger:
+def setup_logging(settings: ServiceSettings | None = None, level: str = None) -> logging.Logger:
     """Configure structured logging for the service.
 
     Args:

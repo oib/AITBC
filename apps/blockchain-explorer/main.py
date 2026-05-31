@@ -4,20 +4,18 @@ AITBC Blockchain Explorer - Enhanced Version
 Advanced web interface with search, analytics, and export capabilities
 """
 
-import httpx
-import json
 import csv
 import io
+import json
 import re
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
-import os
+from datetime import datetime
+from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse, HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+import httpx
 import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 # Import data layer for toggle between mock and real data
 try:
@@ -68,7 +66,7 @@ def list_chains():
 # Configuration - Multi-chain support
 BLOCKCHAIN_RPC_URLS = {
     "ait-devnet": "http://localhost:8025",
-    "ait-testnet": "http://localhost:8026", 
+    "ait-testnet": "http://localhost:8026",
     "ait-mainnet": "http://aitbc.keisanki.net:8082"
 }
 DEFAULT_CHAIN = "ait-devnet"
@@ -76,27 +74,27 @@ EXTERNAL_RPC_URL = "http://aitbc.keisanki.net:8082"  # External access
 
 # Pydantic models for API
 class TransactionSearch(BaseModel):
-    address: Optional[str] = None
-    amount_min: Optional[float] = None
-    amount_max: Optional[float] = None
-    tx_type: Optional[str] = None
-    since: Optional[str] = None
-    until: Optional[str] = None
+    address: str | None = None
+    amount_min: float | None = None
+    amount_max: float | None = None
+    tx_type: str | None = None
+    since: str | None = None
+    until: str | None = None
     limit: int = Field(default=50, ge=1, le=1000)
     offset: int = Field(default=0, ge=0)
 
 class BlockSearch(BaseModel):
-    validator: Optional[str] = None
-    since: Optional[str] = None
-    until: Optional[str] = None
-    min_tx: Optional[int] = None
+    validator: str | None = None
+    since: str | None = None
+    until: str | None = None
+    min_tx: int | None = None
     limit: int = Field(default=50, ge=1, le=1000)
     offset: int = Field(default=0, ge=0)
 
 class AnalyticsRequest(BaseModel):
     period: str = Field(default="24h", pattern="^(1h|24h|7d|30d)$")
-    granularity: Optional[str] = None
-    metrics: List[str] = Field(default_factory=list)
+    granularity: str | None = None
+    metrics: list[str] = Field(default_factory=list)
 
 # HTML Template
 HTML_TEMPLATE = r"""
@@ -931,7 +929,7 @@ HTML_TEMPLATE = r"""
 """
 
 
-async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
+async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
     """Get chain head from specified chain"""
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
@@ -944,10 +942,10 @@ async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
     return {}
 
 
-async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
+async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
     """Get transaction by hash from specified chain"""
     if not validate_tx_hash(tx_hash) or not validate_chain_id(chain_id):
-        print(f"Invalid tx_hash or chain_id format")
+        print("Invalid tx_hash or chain_id format")
         return {}
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
@@ -960,10 +958,10 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> Dict[s
     return {}
 
 
-async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
+async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
     """Get a specific block by height from specified chain"""
     if not validate_chain_id(chain_id):
-        print(f"Invalid chain_id format")
+        print("Invalid chain_id format")
         return {}
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
@@ -989,20 +987,20 @@ async def web_interface():
 
 
 @app.get("/api/chain/head")
-async def api_chain_head(chain_id: Optional[str] = DEFAULT_CHAIN):
+async def api_chain_head(chain_id: str | None = DEFAULT_CHAIN):
     """API endpoint for chain head"""
     return await get_chain_head(chain_id)
 
 
 @app.get("/api/blocks/{height}")
-async def api_block(height: int, chain_id: Optional[str] = DEFAULT_CHAIN):
+async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN):
     """API endpoint for block data"""
     return await get_block(height, chain_id)
 
 
 
 @app.get("/api/transactions/{tx_hash}")
-async def api_transaction(tx_hash: str, chain_id: Optional[str] = DEFAULT_CHAIN):
+async def api_transaction(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN):
     """API endpoint for transaction data, normalized for frontend"""
     tx = await get_transaction(tx_hash, chain_id)
     payload = tx.get("payload", {})
@@ -1021,15 +1019,15 @@ async def api_transaction(tx_hash: str, chain_id: Optional[str] = DEFAULT_CHAIN)
 # Enhanced API endpoints
 @app.get("/api/search/transactions")
 async def search_transactions(
-    address: Optional[str] = None,
-    amount_min: Optional[float] = None,
-    amount_max: Optional[float] = None,
-    tx_type: Optional[str] = None,
-    since: Optional[str] = None,
-    until: Optional[str] = None,
+    address: str | None = None,
+    amount_min: float | None = None,
+    amount_max: float | None = None,
+    tx_type: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    chain_id: Optional[str] = DEFAULT_CHAIN
+    chain_id: str | None = DEFAULT_CHAIN
 ):
     """Advanced transaction search"""
     try:
@@ -1060,7 +1058,7 @@ async def search_transactions(
             params["limit"] = limit
             params["offset"] = offset
             params["chain_id"] = chain_id
-            
+
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
@@ -1080,13 +1078,13 @@ async def search_transactions(
 
 @app.get("/api/search/blocks")
 async def search_blocks(
-    validator: Optional[str] = None,
-    since: Optional[str] = None,
-    until: Optional[str] = None,
-    min_tx: Optional[int] = None,
+    validator: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    min_tx: int | None = None,
     limit: int = 50,
     offset: int = 0,
-    chain_id: Optional[str] = DEFAULT_CHAIN
+    chain_id: str | None = DEFAULT_CHAIN
 ):
     """Advanced block search"""
     try:
@@ -1111,7 +1109,7 @@ async def search_blocks(
             params["limit"] = limit
             params["offset"] = offset
             params["chain_id"] = chain_id
-            
+
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
@@ -1142,7 +1140,7 @@ async def analytics_overview(period: str = "24h"):
             # Original implementation without data layer
             rpc_url = BLOCKCHAIN_RPC_URLS.get(DEFAULT_CHAIN)
             params = {"period": period}
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/analytics/overview", params=params)
                 if response.status_code == 200:
@@ -1169,9 +1167,9 @@ async def export_search(
     try:
         if not data:
             raise HTTPException(status_code=400, detail="No data to export")
-        
+
         results = json.loads(data)
-        
+
         if format == "csv":
             output = io.StringIO()
             if type == "transactions":
@@ -1198,24 +1196,24 @@ async def export_search(
                         block.get("tx_count", ""),
                         block.get("timestamp", "")
                     ])
-            
+
             output.seek(0)
             return StreamingResponse(
                 io.BytesIO(output.getvalue().encode()),
                 media_type="text/csv",
                 headers={"Content-Disposition": f"attachment; filename=search_results.{format}"}
             )
-        
+
         elif format == "json":
             return StreamingResponse(
                 io.BytesIO(json.dumps(results, indent=2).encode()),
                 media_type="application/json",
                 headers={"Content-Disposition": f"attachment; filename=search_results.{format}"}
             )
-        
+
         else:
             raise HTTPException(status_code=400, detail="Unsupported format")
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
@@ -1225,7 +1223,7 @@ async def export_blocks(format: str = "csv"):
     try:
         # Get latest blocks
         blocks = await get_latest_blocks(50)
-        
+
         if format == "csv":
             output = io.StringIO()
             writer = csv.writer(output)
@@ -1238,29 +1236,29 @@ async def export_blocks(format: str = "csv"):
                     block.get("tx_count", ""),
                     block.get("timestamp", "")
                 ])
-            
+
             output.seek(0)
             return StreamingResponse(
                 io.BytesIO(output.getvalue().encode()),
                 media_type="text/csv",
                 headers={"Content-Disposition": f"attachment; filename=latest_blocks.{format}"}
             )
-        
+
         elif format == "json":
             return StreamingResponse(
                 io.BytesIO(json.dumps(blocks, indent=2).encode()),
                 media_type="application/json",
                 headers={"Content-Disposition": f"attachment; filename=latest_blocks.{format}"}
             )
-        
+
         else:
             raise HTTPException(status_code=400, detail="Unsupported format")
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 # Helper functions
-async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> List[Dict]:
+async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> list[dict]:
     """Get latest blocks"""
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
@@ -1295,7 +1293,7 @@ async def health():
             node_status = "ok" if response.status_code == 200 else "error"
     except Exception:
         node_status = "error"
-    
+
     return {
         "status": "ok" if node_status == "ok" else "degraded",
         "node_status": node_status,

@@ -4,11 +4,8 @@ AITBC Client CLI Tool - Submit jobs and check status
 """
 
 import argparse
+
 import httpx
-import json
-import sys
-from datetime import datetime
-from typing import Optional
 
 # Configuration
 DEFAULT_COORDINATOR = "http://localhost:8000"
@@ -19,8 +16,8 @@ class AITBCClient:
         self.coordinator_url = coordinator_url
         self.api_key = api_key
         self.client = httpx.Client()
-        
-    def submit_job(self, job_type: str, task_data: dict, ttl: int = 900) -> Optional[str]:
+
+    def submit_job(self, job_type: str, task_data: dict, ttl: int = 900) -> str | None:
         """Submit a job to the coordinator"""
         job_payload = {
             "payload": {
@@ -29,7 +26,7 @@ class AITBCClient:
             },
             "ttl_seconds": ttl
         }
-        
+
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/jobs",
@@ -39,7 +36,7 @@ class AITBCClient:
                 },
                 json=job_payload
             )
-            
+
             if response.status_code == 201:
                 job = response.json()
                 return job['job_id']
@@ -47,12 +44,12 @@ class AITBCClient:
                 print(f"❌ Error submitting job: {response.status_code}")
                 print(f"   Response: {response.text}")
                 return None
-                
+
         except Exception as e:
             print(f"❌ Error: {e}")
             return None
 
-    def list_transactions(self, limit: int = 10) -> Optional[list]:
+    def list_transactions(self, limit: int = 10) -> list | None:
         """List recent transactions"""
         try:
             response = self.client.get(
@@ -70,7 +67,7 @@ class AITBCClient:
             print(f"❌ Error: {e}")
             return None
 
-    def list_receipts(self, limit: int = 10, job_id: Optional[str] = None) -> Optional[list]:
+    def list_receipts(self, limit: int = 10, job_id: str | None = None) -> list | None:
         """List recent receipts"""
         params = {"limit": limit}
         if job_id:
@@ -90,37 +87,37 @@ class AITBCClient:
         except Exception as e:
             print(f"❌ Error: {e}")
             return None
-    
-    def get_job_status(self, job_id: str) -> Optional[dict]:
+
+    def get_job_status(self, job_id: str) -> dict | None:
         """Get job status"""
         try:
             response = self.client.get(
                 f"{self.coordinator_url}/v1/jobs/{job_id}",
                 headers={"X-Api-Key": self.api_key}
             )
-            
+
             if response.status_code == 200:
                 return response.json()
             else:
                 print(f"❌ Error getting status: {response.status_code}")
                 return None
-                
+
         except Exception as e:
             print(f"❌ Error: {e}")
             return None
-    
-    def list_blocks(self, limit: int = 10) -> Optional[list]:
+
+    def list_blocks(self, limit: int = 10) -> list | None:
         """List recent blocks"""
         try:
             response = self.client.get(f"{self.coordinator_url}/v1/explorer/blocks")
-            
+
             if response.status_code == 200:
                 blocks = response.json()
                 return blocks['items'][:limit]
             else:
                 print(f"❌ Error listing blocks: {response.status_code}")
                 return None
-                
+
         except Exception as e:
             print(f"❌ Error: {e}")
             return None
@@ -129,9 +126,9 @@ def main():
     parser = argparse.ArgumentParser(description="AITBC Client CLI")
     parser.add_argument("--url", default=DEFAULT_COORDINATOR, help="Coordinator URL")
     parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key")
-    
+
     subparsers = parser.add_subparsers(dest="command", help="Commands")
-    
+
     # Submit job command
     submit_parser = subparsers.add_parser("submit", help="Submit a job")
     submit_parser.add_argument("type", help="Job type (e.g., inference, training)")
@@ -139,11 +136,11 @@ def main():
     submit_parser.add_argument("--model", help="Model to use")
     submit_parser.add_argument("--prompt", help="Prompt for inference")
     submit_parser.add_argument("--ttl", type=int, default=900, help="TTL in seconds")
-    
+
     # Status command
     status_parser = subparsers.add_parser("status", help="Check job status")
     status_parser.add_argument("job_id", help="Job ID to check")
-    
+
     # Blocks command
     blocks_parser = subparsers.add_parser("blocks", help="List recent blocks")
     blocks_parser.add_argument("--limit", type=int, default=10, help="Number of blocks")
@@ -154,18 +151,18 @@ def main():
     browser_parser.add_argument("--tx-limit", type=int, default=5, help="Number of transactions")
     browser_parser.add_argument("--receipt-limit", type=int, default=10, help="Number of receipts")
     browser_parser.add_argument("--job-id", help="Filter receipts by job ID")
-    
+
     # Quick demo command
     demo_parser = subparsers.add_parser("demo", help="Submit a demo job")
-    
+
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
         return
-    
+
     client = AITBCClient(args.url, args.api_key)
-    
+
     if args.command == "submit":
         task_data = {}
         if args.task:
@@ -175,32 +172,32 @@ def main():
         if args.prompt:
             task_data["prompt"] = args.prompt
             task_data["parameters"] = {"prompt": args.prompt}
-        
+
         print(f"📤 Submitting {args.type} job...")
         job_id = client.submit_job(args.type, task_data, args.ttl)
-        
+
         if job_id:
-            print(f"✅ Job submitted successfully!")
+            print("✅ Job submitted successfully!")
             print(f"   Job ID: {job_id}")
             print(f"   Track with: python3 cli/client.py status {job_id}")
-    
+
     elif args.command == "status":
         print(f"🔍 Checking status for job {args.job_id}...")
         status = client.get_job_status(args.job_id)
-        
+
         if status:
-            print(f"📊 Job Status:")
+            print("📊 Job Status:")
             print(f"   ID: {status['job_id']}")
             print(f"   State: {status['state']}")
             print(f"   Miner: {status.get('assigned_miner_id', 'None')}")
             print(f"   Created: {status['requested_at']}")
             if status.get('expires_at'):
                 print(f"   Expires: {status['expires_at']}")
-    
+
     elif args.command == "blocks":
         print(f"📦 Recent blocks (last {args.limit}):")
         blocks = client.list_blocks(args.limit)
-        
+
         if blocks:
             for i, block in enumerate(blocks, 1):
                 print(f"\n{i}. Height: {block['height']}")
@@ -262,7 +259,7 @@ def main():
             if total_units:
                 unit_suffix = f" {unit_type}" if unit_type else ""
                 print(f"   Total Units: {total_units}{unit_suffix}")
-    
+
     elif args.command == "demo":
         print("🎭 Submitting demo inference job...")
         job_id = client.submit_job("inference", {
@@ -271,11 +268,11 @@ def main():
             "prompt": "What is AITBC?",
             "parameters": {"max_tokens": 100}
         })
-        
+
         if job_id:
-            print(f"✅ Demo job submitted!")
+            print("✅ Demo job submitted!")
             print(f"   Job ID: {job_id}")
-            
+
             # Check status after a moment
             import time
             time.sleep(2)

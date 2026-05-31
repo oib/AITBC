@@ -2,9 +2,9 @@
 Tests for multi-modal fusion engine
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timezone
 
 
 @pytest.mark.unit
@@ -16,7 +16,7 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         assert engine.device is not None
         assert engine.fusion_models == {}
         assert engine.performance_history == {}
@@ -28,10 +28,10 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         modalities = ["text", "image", "audio"]
         weights = engine.calculate_modality_weights(modalities)
-        
+
         assert len(weights) == 3
         assert "text" in weights
         assert "image" in weights
@@ -43,15 +43,15 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         # Test high synergy modalities
         score1 = engine.calculate_synergy_score(["text", "video"])
         assert score1 > 0.8
-        
+
         # Test low synergy modalities
         score2 = engine.calculate_synergy_score(["audio", "structured"])
         assert score2 < 0.6
-        
+
         # Test single modality
         score3 = engine.calculate_synergy_score(["text"])
         assert score3 == 0.5
@@ -61,11 +61,11 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         # Low complexity
         complexity1 = engine.estimate_complexity(["model1", "model2"], ["text"])
         assert complexity1 == "low"
-        
+
         # High complexity
         complexity2 = engine.estimate_complexity(["model1", "model2", "model3", "model4"], ["text", "image", "video"])
         assert complexity2 in ["high", "very_high"]
@@ -75,10 +75,10 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         memory1 = engine.estimate_memory_requirement(["model1", "model2"], "ensemble")
         memory2 = engine.estimate_memory_requirement(["model1", "model2"], "multi_modal")
-        
+
         assert memory2 > memory1  # multi-modal should require more memory
 
     def test_prepare_batch_modal_data(self):
@@ -86,12 +86,12 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         modal_data = {"text": "sample text", "image": "sample image"}
         batch_size = 8
-        
+
         batch_data = engine.prepare_batch_modal_data(modal_data, batch_size)
-        
+
         assert "text" in batch_data
         assert "image" in batch_data
         assert batch_data["text"].shape[0] == batch_size
@@ -101,10 +101,10 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         base_models = ["model1", "model2", "model3"]
         weights = engine.calculate_model_weights(base_models)
-        
+
         assert len(weights) == 3
         for model in base_models:
             assert model in weights
@@ -116,12 +116,12 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         modal_data = {"text": "sample", "image": "sample"}
         performance_requirements = {"accuracy": 0.9, "efficiency": 0.8}
-        
+
         result = await engine.adaptive_fusion_selection(modal_data, performance_requirements)
-        
+
         assert "selected_strategy" in result
         assert "strategy_scores" in result
         assert "recommendation" in result
@@ -131,14 +131,14 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         # Test text modality
         result = engine.process_modality("sample text", "text")
         assert "features" in result
         assert "embeddings" in result
         assert "confidence" in result
         assert result["confidence"] == 0.85
-        
+
         # Test image modality
         result = engine.process_modality("sample image", "image")
         assert result["confidence"] == 0.80
@@ -148,7 +148,7 @@ class TestMultiModalFusionEngine:
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         results = {
             "modality1": {
                 "result": {"features": {"feature1": 0.5, "feature2": 0.5}},
@@ -161,9 +161,9 @@ class TestMultiModalFusionEngine:
                 "confidence": 0.9
             }
         }
-        
+
         combined = engine.weighted_combination(results)
-        
+
         assert "features" in combined
         assert "confidence" in combined
         assert "feature1" in combined["features"]
@@ -172,12 +172,12 @@ class TestMultiModalFusionEngine:
     @patch('app.services.multi_modal_fusion.fusion_engine.Session')
     async def test_create_fusion_model(self, mock_session):
         """Test fusion model creation"""
-        from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
         from app.domain.agent_performance import FusionModel
+        from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
         mock_session_instance = MagicMock()
-        
+
         mock_fusion_model = FusionModel(
             fusion_id="fusion_abc123",
             model_name="Test Fusion Model",
@@ -191,11 +191,11 @@ class TestMultiModalFusionEngine:
             memory_requirement=4.0,
             status="training"
         )
-        
+
         mock_session_instance.add.return_value = None
         mock_session_instance.commit.return_value = None
         mock_session_instance.refresh.return_value = mock_fusion_model
-        
+
         result = await engine.create_fusion_model(
             mock_session_instance,
             model_name="Test Fusion Model",
@@ -204,7 +204,7 @@ class TestMultiModalFusionEngine:
             input_modalities=["text", "image"],
             fusion_strategy="ensemble_fusion"
         )
-        
+
         assert result.fusion_id is not None
         assert result.model_name == "Test Fusion Model"
         assert result.status == "training"
@@ -212,11 +212,11 @@ class TestMultiModalFusionEngine:
     @patch('app.services.multi_modal_fusion.fusion_engine.Session')
     async def test_simulate_fusion_training(self, mock_session):
         """Test fusion training simulation"""
-        from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
         from app.domain.agent_performance import FusionModel
+        from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
-        
+
         mock_fusion_model = FusionModel(
             fusion_id="fusion_abc123",
             model_name="Test Fusion Model",
@@ -230,9 +230,9 @@ class TestMultiModalFusionEngine:
             memory_requirement=4.0,
             status="training"
         )
-        
+
         result = await engine.simulate_fusion_training(mock_fusion_model)
-        
+
         assert "performance" in result
         assert "synergy" in result
         assert "robustness" in result

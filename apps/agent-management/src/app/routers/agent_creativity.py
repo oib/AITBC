@@ -17,8 +17,10 @@ from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-from app.domain.agent_performance import CreativeCapability
 from sqlmodel import select
+
+from app.domain.agent_performance import CreativeCapability
+
 from ..services.creative_capabilities_service import (
     CreativityEnhancementEngine,
     CrossDomainCreativeIntegrator,

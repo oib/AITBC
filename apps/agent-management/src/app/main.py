@@ -3,12 +3,13 @@
 
 import uvicorn
 from fastapi import FastAPI
+
 from aitbc import get_logger
 
 # Local imports
 from .core.config import settings
-from .core.logging import setup_logging, get_logger
 from .core.database import Base, get_engine, get_sessionmaker
+from .core.logging import get_logger, setup_logging
 
 # Setup logging
 setup_logging(settings)
@@ -41,14 +42,8 @@ def get_db():
         db.close()
 
 # Include routers
-from .routers import (
-    agent_router,
-    agent_integration_router,
-    agent_performance,
-    agent_creativity,
-    agent_security_router,
-    services as agent_services_router
-)
+from .routers import agent_creativity, agent_integration_router, agent_performance, agent_router, agent_security_router
+from .routers import services as agent_services_router
 
 # Mount routers with prefix
 app.include_router(agent_router.router, prefix=f"{settings.api_prefix}/agents")

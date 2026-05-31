@@ -3,12 +3,11 @@ Distributed tracing utilities for AITBC
 Provides OpenTelemetry integration for distributed tracing
 """
 
-from typing import Optional, Dict, Any, Callable
-from functools import wraps
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
-import uuid
+from functools import wraps
+from typing import Any
 
 from .aitbc_logging import get_logger
 
@@ -16,12 +15,12 @@ logger = get_logger(__name__)
 
 try:
     from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.sdk.resources import Resource
     from opentelemetry.exporter.jaeger.thrift import JaegerExporter
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
@@ -33,7 +32,7 @@ class SpanContext:
     """Span context for distributed tracing"""
     trace_id: str
     span_id: str
-    parent_span_id: Optional[str] = None
+    parent_span_id: str | None = None
 
 
 class TracingManager:
@@ -41,7 +40,7 @@ class TracingManager:
     Distributed tracing manager using OpenTelemetry.
     Provides distributed tracing capabilities across services.
     """
-    
+
     def __init__(
         self,
         service_name: str,
@@ -64,10 +63,10 @@ class TracingManager:
         self.enabled = enabled and OPENTELEMETRY_AVAILABLE
         self._tracer = None
         self._provider = None
-        
+
         if self.enabled:
             self._initialize_tracing()
-    
+
     def _initialize_tracing(self) -> None:
         """Initialize OpenTelemetry tracing"""
         try:
@@ -77,47 +76,47 @@ class TracingManager:
                 "service.version": "1.0.0",
                 "deployment.environment": "production"
             })
-            
+
             # Create tracer provider
             self._provider = TracerProvider(resource=resource)
-            
+
             # Create Jaeger exporter
             jaeger_exporter = JaegerExporter(
                 agent_host_name=self.jaeger_host,
                 agent_port=self.jaeger_port,
             )
-            
+
             # Add span processor
             self._provider.add_span_processor(
                 BatchSpanProcessor(jaeger_exporter)
             )
-            
+
             # Set global tracer provider
             trace.set_tracer_provider(self._provider)
-            
+
             # Get tracer
             self._tracer = trace.get_tracer(__name__)
-            
+
             # Instrument HTTP client
             try:
                 HTTPXClientInstrumentor().instrument()
                 logger.info("Instrumented HTTPX client for tracing")
             except Exception as e:
                 logger.warning(f"Failed to instrument HTTPX: {e}")
-            
+
             # Instrument SQLAlchemy
             try:
                 SQLAlchemyInstrumentor().instrument()
                 logger.info("Instrumented SQLAlchemy for tracing")
             except Exception as e:
                 logger.warning(f"Failed to instrument SQLAlchemy: {e}")
-            
+
             logger.info(f"OpenTelemetry tracing initialized for {self.service_name}")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize OpenTelemetry: {e}")
             self.enabled = False
-    
+
     def get_tracer(self):
         """
         Get OpenTelemetry tracer
@@ -126,8 +125,8 @@ class TracingManager:
             Tracer instance or None if not enabled
         """
         return self._tracer if self.enabled else None
-    
-    def start_span(self, name: str, attributes: Optional[Dict[str, Any]] = None):
+
+    def start_span(self, name: str, attributes: dict[str, Any] | None = None):
         """
         Start a new span
         
@@ -140,10 +139,10 @@ class TracingManager:
         """
         if not self.enabled or not self._tracer:
             return None
-        
+
         span = self._tracer.start_span(name, attributes=attributes or {})
         return span
-    
+
     def end_span(self, span) -> None:
         """
         End a span
@@ -153,9 +152,9 @@ class TracingManager:
         """
         if span:
             span.end()
-    
+
     @contextmanager
-    def trace(self, name: str, attributes: Optional[Dict[str, Any]] = None):
+    def trace(self, name: str, attributes: dict[str, Any] | None = None):
         """
         Context manager for tracing code blocks
         
@@ -171,7 +170,7 @@ class TracingManager:
             yield span
         finally:
             self.end_span(span)
-    
+
     def shutdown(self) -> None:
         """Shutdown tracing provider"""
         if self._provider:
@@ -179,7 +178,7 @@ class TracingManager:
             logger.info("OpenTelemetry tracing shutdown")
 
 
-def traced(name: Optional[str] = None, attributes: Optional[Dict[str, Any]] = None):
+def traced(name: str | None = None, attributes: dict[str, Any] | None = None):
     """
     Decorator to trace function execution
     
@@ -195,10 +194,10 @@ def traced(name: Optional[str] = None, attributes: Optional[Dict[str, Any]] = No
         def wrapper(*args, **kwargs):
             if not OPENTELEMETRY_AVAILABLE:
                 return func(*args, **kwargs)
-            
+
             tracer = trace.get_tracer(__name__)
             span_name = name or f"{func.__module__}.{func.__name__}"
-            
+
             with tracer.start_as_current_span(span_name, attributes=attributes or {}):
                 try:
                     result = func(*args, **kwargs)
@@ -210,9 +209,9 @@ def traced(name: Optional[str] = None, attributes: Optional[Dict[str, Any]] = No
                         current_span.record_exception(e)
                         current_span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                     raise
-        
+
         return wrapper
-    
+
     return decorator
 
 
@@ -221,7 +220,7 @@ class TraceContext:
     Trace context for manual tracing.
     Provides methods for manual span creation and context propagation.
     """
-    
+
     @staticmethod
     def get_current_span():
         """
@@ -233,9 +232,9 @@ class TraceContext:
         if not OPENTELEMETRY_AVAILABLE:
             return None
         return trace.get_current_span()
-    
+
     @staticmethod
-    def add_event(name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def add_event(name: str, attributes: dict[str, Any] | None = None) -> None:
         """
         Add event to current span
         
@@ -245,11 +244,11 @@ class TraceContext:
         """
         if not OPENTELEMETRY_AVAILABLE:
             return
-        
+
         span = trace.get_current_span()
         if span:
             span.add_event(name, attributes=attributes or {})
-    
+
     @staticmethod
     def set_attribute(key: str, value: Any) -> None:
         """
@@ -261,11 +260,11 @@ class TraceContext:
         """
         if not OPENTELEMETRY_AVAILABLE:
             return
-        
+
         span = trace.get_current_span()
         if span:
             span.set_attribute(key, value)
-    
+
     @staticmethod
     def set_error(exception: Exception) -> None:
         """
@@ -276,7 +275,7 @@ class TraceContext:
         """
         if not OPENTELEMETRY_AVAILABLE:
             return
-        
+
         span = trace.get_current_span()
         if span:
             span.record_exception(exception)
@@ -284,7 +283,7 @@ class TraceContext:
 
 
 # Global tracing manager instance
-_global_tracing_manager: Optional[TracingManager] = None
+_global_tracing_manager: TracingManager | None = None
 
 
 def initialize_tracing(
@@ -312,7 +311,7 @@ def initialize_tracing(
     return _global_tracing_manager
 
 
-def get_tracing_manager() -> Optional[TracingManager]:
+def get_tracing_manager() -> TracingManager | None:
     """
     Get global tracing manager instance
     

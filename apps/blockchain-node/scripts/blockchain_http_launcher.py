@@ -3,8 +3,6 @@
 Blockchain HTTP Launcher for AITBC Production
 """
 
-import os
-import sys
 import subprocess
 
 from aitbc import get_logger
@@ -14,7 +12,7 @@ logger = get_logger(__name__)
 def main():
     """Main blockchain HTTP launcher function"""
     logger.info("Starting AITBC Blockchain HTTP Launcher")
-    
+
     try:
         # Launch blockchain HTTP service
         logger.info("Launching blockchain HTTP API")

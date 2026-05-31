@@ -2,15 +2,15 @@
 Marketplace Service domain models
 """
 
-from .marketplace import MarketplaceOffer, MarketplaceBid
 from .global_marketplace import (
-    MarketplaceStatus,
-    RegionStatus,
-    MarketplaceRegion,
     GlobalMarketplaceConfig,
     GlobalMarketplaceOffer,
     GlobalMarketplaceTransaction,
+    MarketplaceRegion,
+    MarketplaceStatus,
+    RegionStatus,
 )
+from .marketplace import MarketplaceBid, MarketplaceOffer
 
 __all__ = [
     "MarketplaceOffer",

@@ -4,10 +4,10 @@ Setup systemd credentials for AITBC services
 Stores secrets in /etc/aitbc/credentials with proper permissions
 """
 
-import sys
 import os
 from pathlib import Path
 from secrets import token_hex
+
 
 def main():
     credentials_dir = Path('/etc/aitbc/credentials')
@@ -19,7 +19,7 @@ def main():
     # Read current .env values
     env_vars = {}
     if env_file.exists():
-        with open(env_file, 'r') as f:
+        with open(env_file) as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#') and '=' in line:

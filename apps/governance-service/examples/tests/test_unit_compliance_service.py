@@ -1,14 +1,16 @@
 """Unit tests for compliance service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
-from datetime import datetime, timezone
-
-
-from main import app, KYCRequest, ComplianceReport, TransactionMonitoring, calculate_transaction_risk, check_suspicious_patterns
+from main import (
+    ComplianceReport,
+    KYCRequest,
+    TransactionMonitoring,
+    app,
+    calculate_transaction_risk,
+    check_suspicious_patterns,
+)
 
 
 @pytest.mark.unit
@@ -62,7 +64,7 @@ def test_transaction_monitoring_model():
         amount=1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert tx.transaction_id == "tx123"
     assert tx.user_id == "user123"
@@ -125,7 +127,7 @@ def test_check_suspicious_patterns_high_value():
         amount=100000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     flags = check_suspicious_patterns(tx)
     assert "high_value_transaction" in flags
@@ -140,7 +142,7 @@ def test_check_suspicious_patterns_high_risk_counterparty():
         amount=1000.0,
         currency="BTC",
         counterparty="high_risk_entity_1",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     flags = check_suspicious_patterns(tx)
     assert "high_risk_counterparty" in flags
@@ -155,7 +157,7 @@ def test_check_suspicious_patterns_none():
         amount=1000.0,
         currency="BTC",
         counterparty="safe_counterparty",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     flags = check_suspicious_patterns(tx)
     assert len(flags) == 0

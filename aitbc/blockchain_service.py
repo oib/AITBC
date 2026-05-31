@@ -4,12 +4,11 @@ Provides high-level blockchain interaction services with abstraction over RPC ca
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
-from datetime import datetime
+from typing import Any
 
-from aitbc.network.http_client import AITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
+from aitbc.network.http_client import AITBCHTTPClient
 
 logger = get_logger(__name__)
 
@@ -21,10 +20,10 @@ class Block:
     hash: str
     parent_hash: str
     timestamp: int
-    transactions: List[Dict[str, Any]]
-    miner: Optional[str] = None
-    gas_used: Optional[int] = None
-    gas_limit: Optional[int] = None
+    transactions: list[dict[str, Any]]
+    miner: str | None = None
+    gas_used: int | None = None
+    gas_limit: int | None = None
 
 
 @dataclass
@@ -36,11 +35,11 @@ class Transaction:
     value: str
     nonce: int
     gas: int
-    gas_price: Optional[str] = None
-    input_data: Optional[str] = None
-    block_hash: Optional[str] = None
-    block_number: Optional[int] = None
-    status: Optional[str] = None
+    gas_price: str | None = None
+    input_data: str | None = None
+    block_hash: str | None = None
+    block_number: int | None = None
+    status: str | None = None
 
 
 @dataclass
@@ -75,12 +74,12 @@ class BlockchainService(ABC):
         pass
 
     @abstractmethod
-    def send_transaction(self, tx_data: Dict[str, Any]) -> str:
+    def send_transaction(self, tx_data: dict[str, Any]) -> str:
         """Send transaction and return transaction hash"""
         pass
 
     @abstractmethod
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get blockchain node status"""
         pass
 
@@ -119,10 +118,10 @@ class RPCBlockchainService(BlockchainService):
                 endpoint = f"/rpc/blocks/{block_identifier}"
             else:
                 endpoint = f"/rpc/block/{block_identifier}"
-            
+
             response = self.client.get(endpoint)
             data = response.json()
-            
+
             return Block(
                 height=data.get("height", 0),
                 hash=data.get("hash", ""),
@@ -150,7 +149,7 @@ class RPCBlockchainService(BlockchainService):
         try:
             response = self.client.get("/rpc/head")
             data = response.json()
-            
+
             return Block(
                 height=data.get("height", 0),
                 hash=data.get("hash", ""),
@@ -182,7 +181,7 @@ class RPCBlockchainService(BlockchainService):
         try:
             response = self.client.get(f"/rpc/transaction/{tx_hash}")
             data = response.json()
-            
+
             return Transaction(
                 hash=data.get("hash", ""),
                 from_address=data.get("from", ""),
@@ -217,7 +216,7 @@ class RPCBlockchainService(BlockchainService):
         try:
             response = self.client.get(f"/rpc/account/{address}")
             data = response.json()
-            
+
             return Account(
                 address=address,
                 balance=int(data.get("balance", 0)),
@@ -227,7 +226,7 @@ class RPCBlockchainService(BlockchainService):
             logger.error(f"Failed to get account balance for {address}: {e}")
             raise
 
-    def send_transaction(self, tx_data: Dict[str, Any]) -> str:
+    def send_transaction(self, tx_data: dict[str, Any]) -> str:
         """
         Send transaction and return transaction hash
         
@@ -244,18 +243,18 @@ class RPCBlockchainService(BlockchainService):
         try:
             response = self.client.post("/rpc/sendTx", json=tx_data)
             data = response.json()
-            
+
             tx_hash = data.get("hash") or data.get("tx_hash")
             if not tx_hash:
                 raise ValueError("Transaction hash not found in response")
-            
+
             logger.info(f"Transaction sent successfully: {tx_hash}")
             return tx_hash
         except Exception as e:
             logger.error(f"Failed to send transaction: {e}")
             raise
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get blockchain node status
         

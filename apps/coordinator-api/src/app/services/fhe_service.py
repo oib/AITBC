@@ -1,8 +1,9 @@
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Any
+
 import numpy as np
-import sys
 
 from aitbc import get_logger
 
@@ -18,8 +19,8 @@ class FHEContext:
     coeff_modulus: list
     scale: float
     public_key: bytes
-    private_key: Optional[bytes] = None
-    provider_specific: Optional[Dict[str, Any]] = None
+    private_key: bytes | None = None
+    provider_specific: dict[str, Any] | None = None
 
 
 @dataclass
@@ -53,7 +54,7 @@ class FHEProvider(ABC):
         pass
 
     @abstractmethod
-    def encrypted_inference(self, model: Dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
+    def encrypted_inference(self, model: dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
         """Perform inference on encrypted data"""
         pass
 
@@ -79,11 +80,11 @@ class MockFHEProvider(FHEProvider):
 
     def encrypt(self, data: np.ndarray, context: FHEContext) -> EncryptedData:
         """Mock encryption - just serialize data"""
-        
+
         # Simple mock encryption: serialize the data
         import pickle
         ciphertext = pickle.dumps(data)
-        
+
         return EncryptedData(
             ciphertext=ciphertext,
             context=context,
@@ -97,11 +98,11 @@ class MockFHEProvider(FHEProvider):
         data = pickle.loads(encrypted_data.ciphertext)
         return np.array(data).reshape(encrypted_data.shape)
 
-    def encrypted_inference(self, model: Dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
+    def encrypted_inference(self, model: dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
         """Mock encrypted inference - perform computation on plaintext"""
         # Decrypt for mock computation
         plaintext_input = self.decrypt(encrypted_input)
-        
+
         # Perform simple linear layer computation
         weights = model.get("weights")
         biases = model.get("biases")
@@ -111,17 +112,17 @@ class MockFHEProvider(FHEProvider):
                 weights = np.array(weights)
             if isinstance(biases, list):
                 biases = np.array(biases)
-            
+
             # Simple matrix multiplication: y = Wx + b
             weights_array = weights.flatten()
             biases_array = biases.flatten()
-            
+
             # Reshape input for matrix multiplication
             input_flat = plaintext_input.flatten()
-            
+
             # Compute result
             result = np.dot(input_flat, weights_array) + biases_array[0]
-            
+
             # Re-encrypt the result
             result_array = np.array([result])
             return self.encrypt(result_array, encrypted_input.context)
@@ -135,7 +136,7 @@ class TenSEALProvider(FHEProvider):
     def __init__(self) -> None:
         self.available = False
         self.ts: Any = None
-        
+
         try:
             import tenseal as ts
             self.ts = ts
@@ -149,7 +150,7 @@ class TenSEALProvider(FHEProvider):
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
         assert self.ts is not None
-            
+
         if scheme.lower() == "ckks":
             context = self.ts.context(
                 self.ts.SCHEME_TYPE.CKKS,
@@ -222,7 +223,7 @@ class TenSEALProvider(FHEProvider):
         result = encrypted_tensor.decrypt()
         return np.array(result).reshape(encrypted_data.shape)
 
-    def encrypted_inference(self, model: Dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
+    def encrypted_inference(self, model: dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
         """Perform basic encrypted inference"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
@@ -242,18 +243,18 @@ class TenSEALProvider(FHEProvider):
                 weights = np.array(weights)
             if isinstance(biases, list):
                 biases = np.array(biases)
-            
+
             # Encrypt weights and biases
             weights_array = weights.flatten()
             biases_array = biases.flatten()
-            
+
             encrypted_weights = self.ts.ckks_vector(ts_context, weights_array)
             encrypted_biases = self.ts.ckks_vector(ts_context, biases_array)
 
             # Perform encrypted matrix multiplication (simplified)
             # Note: Full matrix multiplication requires more complex FHE operations
             result = encrypted_tensor.dot(encrypted_weights)
-            
+
             # Add bias - use plain addition since both are encrypted vectors
             # This will add element-wise, which is acceptable for our simplified use case
             result = result + encrypted_biases
@@ -274,7 +275,7 @@ class ConcreteMLProvider(FHEProvider):
     def __init__(self) -> None:
         self.available = False
         self.cnp: Any = None
-        
+
         # Concrete ML requires Python < 3.13
         if sys.version_info >= (3, 13):
             logger.warning(
@@ -293,7 +294,7 @@ class ConcreteMLProvider(FHEProvider):
         """Generate Concrete ML context"""
         if not self.available:
             raise RuntimeError("Concrete ML provider is not available")
-            
+
         # Concrete ML uses compilation-based approach
         # Context is created during circuit compilation
         return FHEContext(
@@ -321,7 +322,7 @@ class ConcreteMLProvider(FHEProvider):
 
         # Convert data to appropriate format for Concrete ML
         encrypted_data = self.cnp.encrypt(data, p=p)
-        
+
         return EncryptedData(
             ciphertext=str(encrypted_data).encode(),
             context=context,
@@ -333,24 +334,24 @@ class ConcreteMLProvider(FHEProvider):
         """Decrypt Concrete ML data"""
         if not self.available:
             raise RuntimeError("Concrete ML provider is not available")
-            
+
         # Concrete ML decryption happens during circuit execution
         # This is a simplified placeholder
         logger.warning("Concrete ML decryption requires circuit execution context")
         return np.array([0.0])
 
-    def encrypted_inference(self, model: Dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
+    def encrypted_inference(self, model: dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
         """Perform Concrete ML inference"""
         if not self.available:
             raise RuntimeError("Concrete ML provider is not available")
-            
+
         # Concrete ML requires circuit compilation and execution
         # This is a simplified placeholder for the API interface
         logger.warning(
             "Concrete ML inference requires circuit compilation. "
             "Use the compile_and_execute method for full functionality."
         )
-        
+
         return encrypted_input
 
 
@@ -358,7 +359,7 @@ class FHEService:
     """Main FHE service for AITBC"""
 
     def __init__(self) -> None:
-        self.providers: Dict[str, FHEProvider] = {}
+        self.providers: dict[str, FHEProvider] = {}
         self.default_provider: str = "mock"
 
         # Mock provider (always available as fallback)
@@ -384,7 +385,7 @@ class FHEService:
 
         logger.info(f"Available FHE providers: {list(self.providers.keys())}")
 
-    def get_provider(self, provider_name: Optional[str] = None) -> FHEProvider:
+    def get_provider(self, provider_name: str | None = None) -> FHEProvider:
         """Get FHE provider"""
         provider_name = provider_name or self.default_provider
         if provider_name not in self.providers:
@@ -395,28 +396,28 @@ class FHEService:
             )
         return self.providers[provider_name]
 
-    def generate_fhe_context(self, scheme: str = "ckks", provider: Optional[str] = None, **kwargs: Any) -> FHEContext:
+    def generate_fhe_context(self, scheme: str = "ckks", provider: str | None = None, **kwargs: Any) -> FHEContext:
         """Generate FHE context"""
         fhe_provider = self.get_provider(provider)
         return fhe_provider.generate_context(scheme, **kwargs)
 
-    def encrypt_ml_data(self, data: np.ndarray, context: FHEContext, provider: Optional[str] = None) -> EncryptedData:
+    def encrypt_ml_data(self, data: np.ndarray, context: FHEContext, provider: str | None = None) -> EncryptedData:
         """Encrypt ML data for FHE computation"""
         fhe_provider = self.get_provider(provider)
         return fhe_provider.encrypt(data, context)
 
-    def decrypt_ml_data(self, encrypted_data: EncryptedData, provider: Optional[str] = None) -> np.ndarray:
+    def decrypt_ml_data(self, encrypted_data: EncryptedData, provider: str | None = None) -> np.ndarray:
         """Decrypt FHE data"""
         fhe_provider = self.get_provider(provider)
         return fhe_provider.decrypt(encrypted_data)
 
     def encrypted_inference(
-        self, model: Dict[str, Any], encrypted_input: EncryptedData, provider: Optional[str] = None
+        self, model: dict[str, Any], encrypted_input: EncryptedData, provider: str | None = None
     ) -> EncryptedData:
         """Perform inference on encrypted data"""
         fhe_provider = self.get_provider(provider)
         return fhe_provider.encrypted_inference(model, encrypted_input)
 
-    def list_providers(self) -> Dict[str, bool]:
+    def list_providers(self) -> dict[str, bool]:
         """List available FHE providers"""
         return {name: provider.available for name, provider in self.providers.items()}

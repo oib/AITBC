@@ -3,13 +3,14 @@ Staking Management Service
 Business logic for AI agent staking system with reputation-based yield farming
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
+
 from ....domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
 logger = get_logger(__name__)
@@ -26,8 +27,8 @@ class StakingService:
         if value is None:
             return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
     def _normalize_stake_datetimes(self, stake: AgentStake) -> AgentStake:
         stake.start_time = self._ensure_utc_datetime(stake.start_time)  # type: ignore[assignment]
@@ -63,7 +64,7 @@ class StakingService:
             current_apy = await self.calculate_apy(agent_wallet, lock_period)
 
             # Calculate end time
-            end_time = datetime.now(timezone.utc) + timedelta(days=lock_period)
+            end_time = datetime.now(UTC) + timedelta(days=lock_period)
 
             stake = AgentStake(
                 staker_address=staker_address,
@@ -203,14 +204,14 @@ class StakingService:
             if stake.status != StakeStatus.ACTIVE:
                 raise ValueError("Stake is not active")
 
-            if datetime.now(timezone.utc) < stake.end_time:
+            if datetime.now(UTC) < stake.end_time:
                 raise ValueError("Lock period has not ended")
 
             # Calculate final rewards
             await self._calculate_rewards(stake_id)
 
             stake.status = StakeStatus.UNBONDING
-            stake.unbonding_time = datetime.now(timezone.utc)
+            stake.unbonding_time = datetime.now(UTC)
 
             self.session.commit()
             self.session.refresh(stake)
@@ -237,7 +238,7 @@ class StakingService:
             penalty = 0.0
             total_amount = stake.amount
 
-            if stake.unbonding_time and datetime.now(timezone.utc) < stake.unbonding_time + timedelta(days=30):
+            if stake.unbonding_time and datetime.now(UTC) < stake.unbonding_time + timedelta(days=30):
                 penalty = total_amount * 0.10  # 10% early unbond penalty
                 total_amount -= penalty
 
@@ -279,7 +280,7 @@ class StakingService:
                 return stake.accumulated_rewards
 
             # Calculate time-based rewards
-            time_elapsed = datetime.now(timezone.utc) - stake.last_reward_time
+            time_elapsed = datetime.now(UTC) - stake.last_reward_time
             yearly_rewards = (stake.amount * stake.current_apy) / 100
             current_rewards = (yearly_rewards * time_elapsed.total_seconds()) / (365 * 24 * 3600)
 
@@ -398,7 +399,7 @@ class StakingService:
                 # Update APY for all active stakes on this agent
                 await self._update_stake_apy_for_agent(agent_wallet, new_tier)
 
-            agent_metrics.last_update_time = datetime.now(timezone.utc)
+            agent_metrics.last_update_time = datetime.now(UTC)
 
             self.session.commit()
             self.session.refresh(agent_metrics)
@@ -446,7 +447,7 @@ class StakingService:
 
             # Update pool metrics
             pool.total_rewards += total_distributed
-            pool.last_distribution_time = datetime.now(timezone.utc)
+            pool.last_distribution_time = datetime.now(UTC)
 
             # Update agent metrics
             agent_metrics = await self.get_agent_metrics(agent_wallet)
@@ -507,15 +508,15 @@ class StakingService:
         try:
             # Calculate time period
             if period == "hourly":
-                start_date = datetime.now(timezone.utc) - timedelta(hours=1)
+                start_date = datetime.now(UTC) - timedelta(hours=1)
             elif period == "daily":
-                start_date = datetime.now(timezone.utc) - timedelta(days=1)
+                start_date = datetime.now(UTC) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
+                start_date = datetime.now(UTC) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(timezone.utc) - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             else:
-                start_date = datetime.now(timezone.utc) - timedelta(days=1)
+                start_date = datetime.now(UTC) - timedelta(days=1)
 
             # Get total staked
             total_staked_stmt = select(func.sum(AgentStake.amount)).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
@@ -573,13 +574,13 @@ class StakingService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(timezone.utc) - timedelta(days=1)
+                start_date = datetime.now(UTC) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
+                start_date = datetime.now(UTC) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(timezone.utc) - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             else:
-                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
+                start_date = datetime.now(UTC) - timedelta(weeks=1)
 
             if metric == "total_staked":
                 stmt = (
@@ -632,13 +633,13 @@ class StakingService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(timezone.utc) - timedelta(days=1)
+                start_date = datetime.now(UTC) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
+                start_date = datetime.now(UTC) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(timezone.utc) - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             else:
-                start_date = datetime.now(timezone.utc) - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
 
             # Get user's stakes
             stmt = select(AgentStake).where(
@@ -681,7 +682,7 @@ class StakingService:
 
                 total_rewards += stake.accumulated_rewards
                 stake.accumulated_rewards = 0.0
-                stake.last_reward_time = datetime.now(timezone.utc)
+                stake.last_reward_time = datetime.now(UTC)
 
             self.session.commit()
 
@@ -771,12 +772,12 @@ class StakingService:
             if not stake or stake.status != StakeStatus.ACTIVE:
                 return
 
-            time_elapsed = datetime.now(timezone.utc) - stake.last_reward_time
+            time_elapsed = datetime.now(UTC) - stake.last_reward_time
             yearly_rewards = (stake.amount * stake.current_apy) / 100
             current_rewards = (yearly_rewards * time_elapsed.total_seconds()) / (365 * 24 * 3600)
 
             stake.accumulated_rewards += current_rewards
-            stake.last_reward_time = datetime.now(timezone.utc)
+            stake.last_reward_time = datetime.now(UTC)
 
             # Auto-compound if enabled
             if stake.auto_compound and current_rewards >= 100.0:

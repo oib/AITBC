@@ -1,15 +1,16 @@
 """Configuration commands for AITBC CLI"""
 
-import click
+import json
 import os
 import shlex
 import subprocess
-import yaml
-import json
 from pathlib import Path
-from typing import Optional, Dict, Any
+
+import click
+import yaml
+
 from ..config import get_config
-from ..utils import output, error, success
+from ..utils import error, output, success
 
 
 @click.group()
@@ -23,14 +24,14 @@ def config():
 def show(ctx):
     """Show current configuration"""
     config = ctx.obj['config']
-    
+
     config_dict = {
         "coordinator_url": config.coordinator_url,
         "api_key": "***REDACTED***" if config.api_key else None,
         "timeout": getattr(config, 'timeout', 30),
         "config_file": getattr(config, 'config_file', None)
     }
-    
+
     output(config_dict, ctx.obj['output'])
 
 
@@ -49,7 +50,7 @@ def get(ctx):
 def set(ctx, key: str, value: str, global_config: bool):
     """Set configuration value"""
     config = ctx.obj['config']
-    
+
     # Determine config file path
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
@@ -57,14 +58,14 @@ def set(ctx, key: str, value: str, global_config: bool):
         config_file = config_dir / "config.yaml"
     else:
         config_file = Path.cwd() / ".aitbc.yaml"
-    
+
     # Load existing config
     if config_file.exists():
         with open(config_file) as f:
             config_data = yaml.safe_load(f) or {}
     else:
         config_data = {}
-    
+
     # Set the value
     if key == "api_key":
         config_data["api_key"] = value
@@ -85,11 +86,11 @@ def set(ctx, key: str, value: str, global_config: bool):
     else:
         error(f"Unknown configuration key: {key}")
         ctx.exit(1)
-    
+
     # Save config
     with open(config_file, 'w') as f:
         yaml.dump(config_data, f, default_flow_style=False)
-    
+
     output({
         "config_file": str(config_file),
         "key": key,
@@ -106,7 +107,7 @@ def path(global_config: bool):
         config_file = config_dir / "config.yaml"
     else:
         config_file = Path.cwd() / ".aitbc.yaml"
-    
+
     output({
         "config_file": str(config_file),
         "exists": config_file.exists()
@@ -125,7 +126,7 @@ def edit(ctx, global_config: bool):
         config_file = config_dir / "config.yaml"
     else:
         config_file = Path.cwd() / ".aitbc.yaml"
-    
+
     # Create if doesn't exist
     if not config_file.exists():
         config = ctx.obj['config']
@@ -135,7 +136,7 @@ def edit(ctx, global_config: bool):
         }
         with open(config_file, 'w') as f:
             yaml.dump(config_data, f, default_flow_style=False)
-    
+
     # Open in editor
     editor = os.getenv('EDITOR', 'nano').strip() or 'nano'
     editor_cmd = shlex.split(editor)
@@ -153,14 +154,14 @@ def reset(ctx, global_config: bool):
         config_file = config_dir / "config.yaml"
     else:
         config_file = Path.cwd() / ".aitbc.yaml"
-    
+
     if not config_file.exists():
         output({"message": "No configuration file found"})
         return
-    
+
     if not click.confirm(f"Reset configuration at {config_file}?"):
         return
-    
+
     # Remove config file
     config_file.unlink()
     success("Configuration reset to defaults")
@@ -178,18 +179,18 @@ def export(ctx, output_format: str, global_config: bool):
         config_file = config_dir / "config.yaml"
     else:
         config_file = Path.cwd() / ".aitbc.yaml"
-    
+
     if not config_file.exists():
         error("No configuration file found")
         ctx.exit(1)
-    
+
     with open(config_file) as f:
         config_data = yaml.safe_load(f) or {}
-    
+
     # Redact sensitive data
     if 'api_key' in config_data:
         config_data['api_key'] = "***REDACTED***"
-    
+
     if output_format == 'json':
         click.echo(json.dumps(config_data, indent=2))
     else:
@@ -204,11 +205,11 @@ def export(ctx, output_format: str, global_config: bool):
 def import_config(ctx, file_path: str, merge: bool, global_config: bool):
     """Import configuration from file"""
     import_file = Path(file_path)
-    
+
     if not import_file.exists():
         error(f"File not found: {file_path}")
         ctx.exit(1)
-    
+
     # Load import file
     try:
         with open(import_file) as f:
@@ -222,7 +223,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
     except Exception as e:
         error(f"Failed to parse file: {e}")
         ctx.exit(1)
-    
+
     # Determine target config file
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
@@ -230,7 +231,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
         config_file = config_dir / "config.yaml"
     else:
         config_file = Path.cwd() / ".aitbc.yaml"
-    
+
     # Load existing config if merging
     if merge and config_file.exists():
         with open(config_file) as f:
@@ -238,11 +239,11 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
         config_data.update(import_data)
     else:
         config_data = import_data
-    
+
     # Save config
     with open(config_file, 'w') as f:
         yaml.dump(config_data, f, default_flow_style=False)
-    
+
     if ctx.obj['output'] == 'table':
         success(f"Configuration imported to {config_file}")
 
@@ -252,34 +253,34 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
 def validate(ctx):
     """Validate configuration"""
     config = ctx.obj['config']
-    
+
     errors = []
     warnings = []
-    
+
     # Validate coordinator URL
     if not config.coordinator_url:
         errors.append("Coordinator URL is not set")
     elif not config.coordinator_url.startswith(('http://', 'https://')):
         errors.append("Coordinator URL must start with http:// or https://")
-    
+
     # Validate API key
     if not config.api_key:
         warnings.append("API key is not set")
     elif len(config.api_key) < 10:
         errors.append("API key appears to be too short")
-    
+
     # Validate timeout
     timeout = getattr(config, 'timeout', 30)
     if not isinstance(timeout, (int, float)) or timeout <= 0:
         errors.append("Timeout must be a positive number")
-    
+
     # Output results
     result = {
         "valid": len(errors) == 0,
         "errors": errors,
         "warnings": warnings
     }
-    
+
     if errors:
         error("Configuration validation failed")
         ctx.exit(1)
@@ -289,7 +290,7 @@ def validate(ctx):
     else:
         if ctx.obj['output'] == 'table':
             success("Configuration is valid")
-    
+
     output(result, ctx.obj['output'])
 
 
@@ -305,7 +306,7 @@ def environments():
         'MINER_API_KEY',
         'ADMIN_API_KEY'
     ]
-    
+
     env_data = {}
     for var in env_vars:
         value = os.getenv(var)
@@ -313,7 +314,7 @@ def environments():
             if 'API_KEY' in var:
                 value = "***REDACTED***"
             env_data[var] = value
-    
+
     output({
         "environment_variables": env_data,
         "note": "Use export VAR=value to set environment variables"
@@ -333,22 +334,22 @@ def save(ctx, name: str):
     """Save current configuration as a profile"""
     # Build profile data from current config or ctx.obj
     config = get_config()
-    
+
     # Create profiles directory
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
     profiles_dir.mkdir(parents=True, exist_ok=True)
-    
+
     profile_file = profiles_dir / f"{name}.yaml"
-    
+
     # Save profile (without API key)
     profile_data = {
         "coordinator_url": config.coordinator_url,
         "timeout": getattr(config, 'timeout', 30)
     }
-    
+
     with open(profile_file, 'w') as f:
         yaml.dump(profile_data, f, default_flow_style=False)
-    
+
     if ctx.obj['output'] == 'table':
         success(f"Profile '{name}' saved")
 
@@ -357,22 +358,22 @@ def save(ctx, name: str):
 def list():
     """List available profiles"""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
-    
+
     if not profiles_dir.exists():
         output({"profiles": []})
         return
-    
+
     profiles = []
     for profile_file in profiles_dir.glob("*.yaml"):
         with open(profile_file) as f:
             profile_data = yaml.safe_load(f)
-        
+
         profiles.append({
             "name": profile_file.stem,
             "coordinator_url": profile_data.get("coordinator_url"),
             "timeout": profile_data.get("timeout", 30)
         })
-    
+
     output({"profiles": profiles})
 
 
@@ -383,20 +384,20 @@ def load(ctx, name: str):
     """Load a configuration profile"""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
     profile_file = profiles_dir / f"{name}.yaml"
-    
+
     if not profile_file.exists():
         error(f"Profile '{name}' not found")
         ctx.exit(1)
-    
+
     with open(profile_file) as f:
         profile_data = yaml.safe_load(f)
-    
+
     # Load to current config
     config_file = Path.cwd() / ".aitbc.yaml"
-    
+
     with open(config_file, 'w') as f:
         yaml.dump(profile_data, f, default_flow_style=False)
-    
+
     if ctx.obj['output'] == 'table':
         success(f"Profile '{name}' loaded")
 
@@ -408,14 +409,14 @@ def delete(ctx, name: str):
     """Delete a configuration profile"""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
     profile_file = profiles_dir / f"{name}.yaml"
-    
+
     if not profile_file.exists():
         error(f"Profile '{name}' not found")
         ctx.exit(1)
-    
+
     if not click.confirm(f"Delete profile '{name}'?"):
         return
-    
+
     profile_file.unlink()
     if ctx.obj['output'] == 'table':
         success(f"Profile '{name}' deleted")
@@ -428,24 +429,24 @@ def delete(ctx, name: str):
 def set_secret(ctx, key: str, value: str):
     """Set an encrypted configuration value"""
     from ..utils import encrypt_value
-    
+
     config_dir = Path.home() / ".config" / "aitbc"
     config_dir.mkdir(parents=True, exist_ok=True)
     secrets_file = config_dir / "secrets.json"
-    
+
     secrets = {}
     if secrets_file.exists():
         with open(secrets_file) as f:
             secrets = json.load(f)
-    
+
     secrets[key] = encrypt_value(value)
-    
+
     with open(secrets_file, "w") as f:
         json.dump(secrets, f, indent=2)
-    
+
     # Restrict file permissions
     secrets_file.chmod(0o600)
-    
+
     if ctx.obj['output'] == 'table':
         success(f"Secret '{key}' saved (encrypted)")
     output({"key": key, "status": "encrypted"}, ctx.obj['output'])
@@ -457,22 +458,22 @@ def set_secret(ctx, key: str, value: str):
 def get_secret(ctx, key: str):
     """Get a decrypted configuration value"""
     from ..utils import decrypt_value
-    
+
     secrets_file = Path.home() / ".config" / "aitbc" / "secrets.json"
-    
+
     if not secrets_file.exists():
         error("No secrets file found")
         ctx.exit(1)
         return
-    
+
     with open(secrets_file) as f:
         secrets = json.load(f)
-    
+
     if key not in secrets:
         error(f"Secret '{key}' not found")
         ctx.exit(1)
         return
-    
+
     decrypted = decrypt_value(secrets[key])
     output({"key": key, "value": decrypted}, ctx.obj['output'])
 

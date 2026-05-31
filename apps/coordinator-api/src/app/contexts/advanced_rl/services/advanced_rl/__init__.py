@@ -11,9 +11,9 @@ This module provides a modular structure for RL algorithms:
 The original advanced_reinforcement_learning.py has been deprecated in favor of this modular structure.
 """
 
+from .agents import PPOAgent, RainbowDQNAgent, SACAgent
 from .engine import AdvancedReinforcementLearningEngine
 from .marketplace_optimizer import MarketplaceStrategyOptimizer
-from .agents import PPOAgent, SACAgent, RainbowDQNAgent
 
 __all__ = [
     'AdvancedReinforcementLearningEngine',

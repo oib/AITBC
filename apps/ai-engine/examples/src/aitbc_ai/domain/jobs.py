@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
@@ -33,19 +33,19 @@ class Job(SQLModel, table=True):
     state: JobState = Field(default=JobState.PENDING, index=True)
     result: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     error: str | None = Field(default=None)
-    
+
     # Payment information
     payment_id: str | None = Field(default=None, index=True)
     payment_amount: float = Field(default=0.0)
     payment_status: str = Field(default="none", index=True)
-    
+
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
     requested_at: datetime | None = Field(default=None)
     started_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     expires_at: datetime | None = Field(default=None)
-    
+
     # Metadata
     priority: int = Field(default=0)
     assigned_miner_id: str | None = Field(default=None, index=True)
@@ -65,4 +65,4 @@ class JobReceipt(SQLModel, table=True):
     result: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     metrics: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     signature: str = Field(default="")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)

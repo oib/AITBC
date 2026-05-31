@@ -5,15 +5,14 @@ import json
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
 
 from .config import settings
-from .consensus import PoAProposer, ProposerConfig, CircuitBreaker
+from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
+from .gossip import create_backend, gossip_broker
 from .logger import get_logger
-from .gossip import gossip_broker, create_backend
-from .sync import ChainSync
 from .mempool import init_mempool
+from .sync import ChainSync
 
 logger = get_logger(__name__)
 
@@ -36,7 +35,7 @@ def _load_keystore_password() -> str:
         return env_pwd
     raise RuntimeError(f"Keystore password not found. Set in {pwd_file} or KEYSTORE_PASSWORD env.")
 
-def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_address: Optional[str] = None) -> Optional[bytes]:
+def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_address: str | None = None) -> bytes | None:
     """Load an ed25519 private key from the keystore.
     If target_address is given, find the keystore file with matching address.
     Otherwise, return the first key found.
@@ -54,11 +53,11 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
                 logger.info(f"Address mismatch: {addr} != {target_address}")
                 continue
             # Decrypt
-            from cryptography.hazmat.primitives.asymmetric import ed25519
-            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-            from cryptography.hazmat.primitives import hashes
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
             from cryptography.hazmat.backends import default_backend
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.asymmetric import ed25519
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
             logger.info(f"Attempting to decrypt keystore file: {kf.name}")
             crypto = data["crypto"]
@@ -106,7 +105,7 @@ class BlockchainNode:
         self._proposers: dict[str, PoAProposer] = {}
 
     @staticmethod
-    def _env_value(*names: str) -> Optional[str]:
+    def _env_value(*names: str) -> str | None:
         for name in names:
             value = os.getenv(name)
             if value is not None:
@@ -143,10 +142,10 @@ class BlockchainNode:
 
     async def _setup_gossip_subscribers(self) -> None:
         logger.info("Setting up gossip subscribers")
-        
+
         # Parse supported chains
         chains = self._supported_chains()
-        
+
         # Transactions (single topic for all chains)
         try:
             tx_sub = await gossip_broker.subscribe("transactions")
@@ -154,7 +153,7 @@ class BlockchainNode:
         except Exception as e:
             logger.error(f"Failed to subscribe to transactions: {e}")
             return
-        
+
         async def process_txs():
             from .mempool import get_mempool
             from .rpc.utils import normalize_transaction_data
@@ -171,7 +170,7 @@ class BlockchainNode:
                     mempool.add(tx_data, chain_id=chain_id)
                 except Exception as exc:
                     logger.error(f"Error processing transaction from gossip: {exc}")
-                    
+
         asyncio.create_task(process_txs())
 
         # Blocks (chain-specific topics for each chain)
@@ -180,7 +179,7 @@ class BlockchainNode:
                 block_topic = f"blocks.{chain_id}"
                 block_sub = await gossip_broker.subscribe(block_topic)
                 logger.info(f"Successfully subscribed to {block_topic} topic")
-                
+
                 async def process_blocks_for_chain(chain_id_param=chain_id, block_sub_param=block_sub):
                     last_bulk_sync_time = 0
                     logger.info(f"Block processing task started for chain {chain_id_param}")
@@ -195,7 +194,7 @@ class BlockchainNode:
                             sync = ChainSync(session_factory=lambda cid=chain_id_param: session_scope(cid), chain_id=chain_id_param)
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                             logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
-                            
+
                             # Automatic bulk sync on gap detection
                             if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
                                 # Parse gap size from reason string
@@ -204,26 +203,26 @@ class BlockchainNode:
                                     our_height = int(reason_parts[1].strip().split(",")[0].replace("our height: ", ""))
                                     received_height = int(reason_parts[2].strip().replace("received: ", "").replace(")", ""))
                                     gap_size = received_height - our_height
-                                    
+
                                     if gap_size > settings.auto_sync_threshold:
                                         current_time = asyncio.get_event_loop().time()
                                         time_since_last_sync = current_time - last_bulk_sync_time
-                                        
+
                                         if time_since_last_sync >= settings.min_bulk_sync_interval:
                                             logger.warning(f"Gap detected: {gap_size} blocks, triggering automatic bulk sync (chain={chain_id_param})")
-                                            
+
                                             # Get source URL from block metadata if available
                                             source_url = block_data.get("source_url")
                                             if not source_url:
                                                 # Fallback to default peer RPC URL
                                                 source_url = settings.default_peer_rpc_url
-                                            
+
                                             if source_url:
                                                 try:
                                                     imported = await sync.bulk_import_from(source_url)
                                                     logger.info(f"Bulk sync completed: {imported} blocks imported (chain={chain_id_param})")
                                                     last_bulk_sync_time = current_time
-                                                    
+
                                                     # Retry block import after bulk sync
                                                     res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                                                     logger.info(f"Retry import result: accepted={res.accepted}, reason={res.reason}")
@@ -237,16 +236,16 @@ class BlockchainNode:
                                     logger.error(f"Failed to parse gap size from reason: {res.reason}, error: {parse_exc}")
                         except Exception as exc:
                             logger.error(f"Error processing block from gossip for chain {chain_id}: {exc}")
-                
+
                 asyncio.create_task(process_blocks_for_chain(chain_id_param=chain_id, block_sub_param=block_sub))
             except Exception as e:
                 logger.error(f"Failed to subscribe to blocks.{chain_id}: {e}")
-                    
+
         logger.info("Gossip subscribers setup completed")
 
     async def start(self) -> None:
         logger.info("Starting blockchain node", extra={"supported_chains": getattr(settings, 'supported_chains', settings.chain_id)})
-        
+
         # Initialize Gossip Backend
         backend = create_backend(
             settings.gossip_backend,
@@ -255,16 +254,16 @@ class BlockchainNode:
         logger.info(f"Initializing gossip backend: {settings.gossip_backend}, url: {settings.gossip_broadcast_url}")
         await gossip_broker.set_backend(backend)
         logger.info("Gossip backend initialized successfully")
-        
+
         # Parse supported chains
         chains = self._supported_chains()
         logger.info(f"Initializing databases for chains: {chains}")
-        
+
         # Initialize database for each supported chain
         for chain_id in chains:
             init_db(chain_id)
             logger.info(f"Initialized database for chain: {chain_id}")
-        
+
         init_mempool(
             backend=settings.mempool_backend,
             db_url=settings.mempool_db_url,
@@ -306,19 +305,19 @@ class BlockchainNode:
 
     def _start_proposers(self) -> None:
         chains = self._supported_chains()
-        
+
         # Get chains that should produce blocks (if specified, otherwise all supported chains)
         production_chains_str = self._env_value("AITBC_FORCE_BLOCK_PRODUCTION_CHAINS", "BLOCK_PRODUCTION_CHAINS", "block_production_chains")
         if production_chains_str is None:
             production_chains_str = getattr(settings, 'block_production_chains', ",".join(chains))
         production_chains = [c.strip() for c in production_chains_str.split(",") if c.strip()]
-        
+
         for chain_id in chains:
             # Only start proposer if chain is in production chains
             if chain_id not in production_chains:
                 logger.info(f"Skipping block production for chain {chain_id} (not in block_production_chains)")
                 continue
-                
+
             if chain_id in self._proposers:
                 continue
 

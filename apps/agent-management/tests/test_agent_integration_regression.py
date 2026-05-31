@@ -3,14 +3,12 @@ Regression tests for agent_integration.py
 These tests capture current behavior before extracting shared logic.
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from datetime import datetime, timezone
-from uuid import uuid4
+from unittest.mock import Mock
 
+import pytest
 from app.services.agent_integration import (
-    DeploymentStatus,
     AgentDeploymentConfig,
+    DeploymentStatus,
     ZKProofService,
 )
 
@@ -39,7 +37,7 @@ class TestAgentDeploymentConfig:
             workflow_id="test_workflow",
             deployment_name="test_deployment"
         )
-        
+
         assert config.id.startswith("deploy_")
         assert config.workflow_id == "test_workflow"
         assert config.deployment_name == "test_deployment"
@@ -75,7 +73,7 @@ class TestAgentDeploymentConfig:
             auto_scaling=False,
             rollout_strategy="blue-green"
         )
-        
+
         assert config.version == "2.0.0"
         assert config.min_cpu_cores == 4.0
         assert config.min_memory_mb == 8192
@@ -96,9 +94,9 @@ class TestZKProofService:
         """Test ZK proof generation"""
         mock_session = Mock()
         service = ZKProofService(mock_session)
-        
+
         result = await service.generate_zk_proof("test_circuit", {"input": "value"})
-        
+
         assert "proof_id" in result
         assert result["circuit_name"] == "test_circuit"
         assert result["inputs"] == {"input": "value"}
@@ -110,9 +108,9 @@ class TestZKProofService:
         """Test ZK proof verification"""
         mock_session = Mock()
         service = ZKProofService(mock_session)
-        
+
         result = await service.verify_proof("test_proof_id")
-        
+
         assert result["verified"] is True
         assert result["verification_time"] == 0.05
         assert "details" in result

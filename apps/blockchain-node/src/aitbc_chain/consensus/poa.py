@@ -2,9 +2,10 @@ import asyncio
 import hashlib
 import json
 import re
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, ContextManager, Optional
+from typing import ContextManager
 
 from sqlmodel import Session, select
 
@@ -13,10 +14,10 @@ from ..logger import get_logger
 from ..state.merkle_patricia_trie import StateManager
 
 logger = get_logger(__name__)
-from ..state.state_transition import get_state_transition
 from ..config import ProposerConfig
 from ..metrics import metrics_registry
-from ..models import Block, Account
+from ..models import Account, Block
+from ..state.state_transition import get_state_transition
 
 _METRIC_KEY_SANITIZE = re.compile(r"[^a-zA-Z0-9_]")
 
@@ -30,18 +31,18 @@ def _compute_state_root(session: Session, chain_id: str) -> str:
     """Compute state root from current account state."""
     try:
         state_manager = StateManager()
-        
+
         # Get all accounts for this chain
         accounts = session.exec(
             select(Account).where(Account.chain_id == chain_id)
         ).all()
-        
+
         # Convert to dictionary
         account_dict = {acc.address: acc for acc in accounts}
-        
+
         # Compute state root
         root = state_manager.compute_state_root(account_dict)
-        
+
         # Return as hex string
         return '0x' + root.hex()
     except Exception as e:
@@ -53,6 +54,7 @@ def _compute_state_root(session: Session, chain_id: str) -> str:
 
 
 import time
+
 
 class CircuitBreaker:
     def __init__(self, threshold: int, timeout: int):
@@ -105,11 +107,11 @@ class PoAProposer:
         self._session_factory = session_factory
         self._logger = get_logger(__name__)
         self._stop_event = asyncio.Event()
-        self._task: Optional[asyncio.Task[None]] = None
-        self._last_proposer_id: Optional[str] = None
-        self._last_block_timestamp: Optional[datetime] = None
+        self._task: asyncio.Task[None] | None = None
+        self._last_proposer_id: str | None = None
+        self._last_block_timestamp: datetime | None = None
 
-    def _fetch_chain_head(self) -> Optional[Block]:
+    def _fetch_chain_head(self) -> Block | None:
         """Fetch the current chain head block from the database."""
         with self._session_factory() as session:
             return session.exec(
@@ -164,13 +166,13 @@ class PoAProposer:
                         check_interval = self._config.interval_seconds / 4
                         try:
                             await asyncio.wait_for(self._stop_event.wait(), timeout=check_interval)
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             pass
                     else:
                         # Regular interval for other modes
                         try:
                             await asyncio.wait_for(self._stop_event.wait(), timeout=self._config.interval_seconds)
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             pass
             except Exception as exc:  # pragma: no cover - defensive logging
                 self._logger.exception("Failed to propose block", extra={"error": str(exc)})
@@ -180,23 +182,23 @@ class PoAProposer:
         head = self._fetch_chain_head()
         if head is None:
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Ensure head.timestamp is timezone-aware
-        head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=timezone.utc)
+        head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
         elapsed = (now - head_timestamp).total_seconds()
         sleep_for = max(self._config.interval_seconds - elapsed, 0.1)
         if sleep_for <= 0:
             sleep_for = 0.1
         try:
             await asyncio.wait_for(self._stop_event.wait(), timeout=sleep_for)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return
 
     async def _propose_block(self) -> bool:
         # Check internal mempool and include transactions
-        from ..mempool import get_mempool
-        from ..models import Transaction, Account
         from ..config import settings
+        from ..mempool import get_mempool
+        from ..models import Account, Transaction
         mempool = get_mempool()
 
         # Hybrid block generation logic
@@ -216,8 +218,8 @@ class PoAProposer:
                 # Hybrid mode: check heartbeat interval
                 if self._last_block_timestamp:
                     # Ensure last_block_timestamp is timezone-aware
-                    last_timestamp = self._last_block_timestamp if self._last_block_timestamp.tzinfo is not None else self._last_block_timestamp.replace(tzinfo=timezone.utc)
-                    time_since_last_block = (datetime.now(timezone.utc) - last_timestamp).total_seconds()
+                    last_timestamp = self._last_block_timestamp if self._last_block_timestamp.tzinfo is not None else self._last_block_timestamp.replace(tzinfo=UTC)
+                    time_since_last_block = (datetime.now(UTC) - last_timestamp).total_seconds()
                     if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
                         self._logger.debug(f"[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain={self._config.chain_id}, mode=hybrid, idle_time={time_since_last_block:.1f}s)")
                         metrics_registry.increment("sync_empty_blocks_skipped_total")
@@ -236,16 +238,16 @@ class PoAProposer:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
             next_height = 0
             parent_hash = "0x00"
-            interval_seconds: Optional[float] = None
+            interval_seconds: float | None = None
             if head is not None:
                 next_height = head.height + 1
                 parent_hash = head.hash
                 # Ensure head.timestamp is timezone-aware
-                head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=timezone.utc)
-                interval_seconds = (datetime.now(timezone.utc) - head_timestamp).total_seconds()
+                head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
+                interval_seconds = (datetime.now(UTC) - head_timestamp).total_seconds()
 
-            timestamp = datetime.now(timezone.utc)
-            
+            timestamp = datetime.now(UTC)
+
             # Pull transactions from mempool
             max_txs = self._config.max_txs_per_block
             max_bytes = self._config.max_block_size_bytes
@@ -301,7 +303,7 @@ class PoAProposer:
                     success, error_msg = state_transition.apply_transaction(
                         session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
                     )
-                    
+
                     if not success:
                         self._logger.warning(f"[PROPOSE] Failed to apply transaction {tx.tx_hash}: {error_msg}")
                         continue
@@ -325,10 +327,10 @@ class PoAProposer:
                         tx_type = tx_type.upper()
                     else:
                         tx_type = "TRANSFER"
-                    
+
                     # Store only the original payload, not the full normalized data
                     original_payload = tx.content.get("payload", {})
-                    
+
                     transaction = Transaction(
                         chain_id=self._config.chain_id,
                         tx_hash=tx.tx_hash,
@@ -399,7 +401,7 @@ class PoAProposer:
                     "proposer": block.proposer,
                 },
             )
-            
+
             # Broadcast the new block
             tx_list = [tx.content for tx in processed_txs] if processed_txs else []
             gossip_topic = f"blocks.{self._config.chain_id}"
@@ -436,17 +438,17 @@ class PoAProposer:
             # Try RPC bootstrap for genesis block first
             self._logger.info(f"Attempting RPC bootstrap for genesis block for chain {self._config.chain_id}")
             rpc_genesis_data = await self._load_genesis_block_from_rpc()
-            
+
             if rpc_genesis_data:
                 # Use RPC-provided genesis block data
                 self._logger.info(f"Using RPC-provided genesis block data for chain {self._config.chain_id}")
                 genesis_allocations = rpc_genesis_data.get("allocations", [])
                 genesis_hash = rpc_genesis_data.get("genesis_hash")
                 genesis_state_root = rpc_genesis_data.get("genesis_state_root")
-                
+
                 if genesis_hash and genesis_state_root:
                     # Create genesis block with RPC-provided data
-                    timestamp = datetime.now(timezone.utc)
+                    timestamp = datetime.now(UTC)
                     genesis = Block(
                         chain_id=self._config.chain_id,
                         height=0,
@@ -462,7 +464,7 @@ class PoAProposer:
                     try:
                         session.commit()
                         self._logger.info(f"Successfully created genesis block from RPC bootstrap: hash={genesis_hash}, state_root={genesis_state_root}")
-                        
+
                         # Initialize accounts from RPC-provided allocations
                         if genesis_allocations:
                             self._create_accounts_from_allocations(session, genesis_allocations)
@@ -472,29 +474,29 @@ class PoAProposer:
                         self._logger.warning(f"Failed to create genesis block from RPC bootstrap: {e}, falling back to local creation")
                         session.rollback()
                 else:
-                    self._logger.warning(f"RPC bootstrap returned incomplete genesis data, falling back to local creation")
+                    self._logger.warning("RPC bootstrap returned incomplete genesis data, falling back to local creation")
 
             # Fall back to local genesis block creation from genesis.json file
             self._logger.info(f"Loading genesis block from local file for chain {self._config.chain_id}")
-            
+
             # Load genesis data from file
             local_genesis_data = self._load_genesis_data_from_file()
-            
+
             if not local_genesis_data:
                 self._logger.error(f"Genesis file not found at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json. Cannot create genesis block without genesis.json file.")
                 raise RuntimeError(f"Genesis file required but not found for chain {self._config.chain_id}. Please create genesis.json at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json")
-            
+
             # Extract genesis data from file (support both flat and nested formats)
             block_data = local_genesis_data.get("block", {})
             genesis_hash = local_genesis_data.get("genesis_hash") or block_data.get("hash")
             genesis_timestamp = local_genesis_data.get("timestamp") or block_data.get("timestamp")
             genesis_state_root = local_genesis_data.get("state_root") or block_data.get("state_root")
             genesis_allocations = local_genesis_data.get("allocations", block_data.get("allocations", []))
-            
+
             if not genesis_hash or not genesis_timestamp or not genesis_state_root:
-                self._logger.error(f"Genesis file missing required fields: genesis_hash, timestamp, or state_root")
+                self._logger.error("Genesis file missing required fields: genesis_hash, timestamp, or state_root")
                 raise RuntimeError(f"Genesis file at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json is missing required fields (genesis_hash, timestamp, state_root)")
-            
+
             # Parse timestamp from string to datetime
             try:
                 if isinstance(genesis_timestamp, str):
@@ -504,7 +506,7 @@ class PoAProposer:
             except Exception as e:
                 self._logger.error(f"Failed to parse genesis timestamp: {e}")
                 raise RuntimeError(f"Invalid timestamp format in genesis file: {e}")
-            
+
             # Create genesis block using data from genesis.json
             genesis = Block(
                 chain_id=self._config.chain_id,
@@ -521,7 +523,7 @@ class PoAProposer:
             try:
                 session.commit()
                 self._logger.info(f"Successfully created genesis block from genesis.json: hash={genesis_hash}, state_root={genesis_state_root}, timestamp={timestamp}")
-                
+
                 # Initialize accounts from genesis allocations
                 if genesis_allocations:
                     self._create_accounts_from_allocations(session, genesis_allocations)
@@ -549,7 +551,7 @@ class PoAProposer:
     async def _initialize_genesis_allocations(self, session: Session) -> None:
         """Create Account entries from the genesis allocations file or RPC bootstrap."""
         self._logger.info(f"Initializing genesis allocations for chain: {self._config.chain_id}")
-        
+
         # Try local file first
         local_genesis_data = self._load_genesis_data_from_file()
         if local_genesis_data:
@@ -557,7 +559,7 @@ class PoAProposer:
             self._logger.info(f"Using local genesis file for chain {self._config.chain_id}")
             self._create_accounts_from_allocations(session, local_allocations)
             return
-        
+
         # Try RPC bootstrap
         self._logger.info(f"Local genesis file not found for chain {self._config.chain_id}, attempting RPC bootstrap")
         try:
@@ -565,7 +567,7 @@ class PoAProposer:
             if rpc_allocations:
                 self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap for chain {self._config.chain_id}")
                 self._create_accounts_from_allocations(session, rpc_allocations)
-                
+
                 # Store the RPC genesis state_root for use in genesis block creation
                 if rpc_genesis_state_root:
                     self._rpc_genesis_state_root = rpc_genesis_state_root
@@ -576,22 +578,22 @@ class PoAProposer:
                 self._logger.warning(f"RPC bootstrap returned no allocations for chain {self._config.chain_id}, skipping account initialization")
         except Exception as e:
             self._logger.warning(f"RPC bootstrap failed for chain {self._config.chain_id}: {e}, skipping account initialization")
-    
+
     def _load_genesis_data_from_file(self) -> dict:
         """Load complete genesis data from local file."""
         genesis_paths = [
             Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
         ]
-        
+
         genesis_path = None
         for path in genesis_paths:
             if path.exists():
                 genesis_path = path
                 break
-        
+
         if not genesis_path:
             return {}
-        
+
         try:
             with open(genesis_path) as f:
                 genesis_data = json.load(f)
@@ -612,7 +614,7 @@ class PoAProposer:
             Dict with genesis block data (allocations, genesis_hash, genesis_state_root) or None if failed
         """
         import httpx
-        
+
         # Try multiple trusted peers
         trusted_peers = []
         if self._config.default_peer_rpc_url:
@@ -623,9 +625,9 @@ class PoAProposer:
             peer_url = f"http://{peer_url}"
             trusted_peers.append(peer_url)
         # Don't add localhost as default bootstrap peer - hub nodes should create their own genesis
-        
+
         self._logger.info(f"Attempting RPC bootstrap for genesis block from peers: {trusted_peers}")
-        
+
         for peer_url in trusted_peers:
             try:
                 self._logger.info(f"Trying to fetch genesis block from {peer_url}")
@@ -641,18 +643,18 @@ class PoAProposer:
             except Exception as e:
                 self._logger.error(f"Failed to fetch genesis block from {peer_url}: {e}")
                 continue
-        
+
         self._logger.error("RPC bootstrap for genesis block failed for all peers")
         return None
 
-    async def _load_genesis_allocations_from_rpc(self) -> tuple[list, Optional[str]]:
+    async def _load_genesis_allocations_from_rpc(self) -> tuple[list, str | None]:
         """Load genesis allocations and state_root from trusted peer via RPC.
         
         Returns:
             Tuple of (allocations list, genesis_state_root string or None)
         """
         import httpx
-        
+
         # Try multiple trusted peers
         trusted_peers = []
         if self._config.default_peer_rpc_url:
@@ -663,9 +665,9 @@ class PoAProposer:
             peer_url = f"http://{peer_url}"
             trusted_peers.append(peer_url)
         # Don't add localhost as default bootstrap peer - hub nodes should create their own genesis
-        
+
         self._logger.info(f"Attempting RPC bootstrap from peers: {trusted_peers}")
-        
+
         for peer_url in trusted_peers:
             try:
                 self._logger.info(f"Trying to fetch allocations from {peer_url}")
@@ -689,7 +691,7 @@ class PoAProposer:
             except Exception as e:
                 self._logger.error(f"Failed to fetch allocations from {peer_url}: {e}")
                 continue
-        
+
         self._logger.error("RPC bootstrap failed for all peers")
         return [], None
 
@@ -706,7 +708,7 @@ class PoAProposer:
             ).first()
             if existing:
                 continue
-            
+
             account = Account(
                 chain_id=self._config.chain_id,
                 address=addr,
@@ -715,7 +717,7 @@ class PoAProposer:
             )
             session.add(account)
             created += 1
-        
+
         session.commit()
         self._logger.info(f"Created {created} accounts from genesis allocations")
 

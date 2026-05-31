@@ -5,93 +5,94 @@ these adapters wrap the shared coordinator-api implementations.
 """
 
 from typing import Any
-from sqlmodel import Session
+
+from aitbc_agent_core.protocols.database import ISessionProvider
+from aitbc_agent_core.protocols.domain import (
+    AgentStatus as ProtocolAgentStatus,
+)
+from aitbc_agent_core.protocols.domain import (
+    IAgentExecution,
+    IAgentStepExecution,
+)
+from aitbc_agent_core.protocols.domain import (
+    StepType as ProtocolStepType,
+)
+from aitbc_agent_core.protocols.domain import (
+    VerificationLevel as ProtocolVerificationLevel,
+)
+from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator
+from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
+from aitbc_agent_core.protocols.zk_proof import IZKProofService
 
 # Import from coordinator-api domain (shared via symlink)
 from app.domain.agent import (
     AgentExecution,
     AgentStepExecution,
-    VerificationLevel,
-    AgentStatus,
-    StepType,
-)
-
-# Import from coordinator-api services
-from app.services.agent_coordination.security import (
-    AgentSecurityManager,
-    AgentAuditor,
-    AuditEventType,
-    SecurityLevel,
 )
 from app.services.agent_coordination.agent_service import AIAgentOrchestrator
 
-from aitbc_agent_core.protocols.domain import (
-    IAgentExecution,
-    IAgentStepExecution,
-    AgentStatus as ProtocolAgentStatus,
-    VerificationLevel as ProtocolVerificationLevel,
-    StepType as ProtocolStepType,
+# Import from coordinator-api services
+from app.services.agent_coordination.security import (
+    AgentAuditor,
+    AgentSecurityManager,
 )
-from aitbc_agent_core.protocols.security import ISecurityManager, IAuditor
-from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator
-from aitbc_agent_core.protocols.zk_proof import IZKProofService
-from aitbc_agent_core.protocols.database import ISessionProvider
+from sqlmodel import Session
 
 
 class AgentExecutionAdapter(IAgentExecution):
     """Adapter for AgentExecution domain model"""
-    
+
     def __init__(self, execution: AgentExecution):
         self._execution = execution
-    
+
     @property
     def id(self) -> str:
         return self._execution.id
-    
+
     @property
     def workflow_id(self) -> str:
         return self._execution.workflow_id
-    
+
     @property
     def status(self) -> ProtocolAgentStatus:
         return ProtocolAgentStatus(self._execution.status)
-    
+
     @property
     def verification_level(self) -> ProtocolVerificationLevel:
         return ProtocolVerificationLevel(self._execution.verification_level)
-    
+
     def to_dict(self) -> dict[str, Any]:
         return self._execution.model_dump()
 
 
 class AgentStepExecutionAdapter(IAgentStepExecution):
     """Adapter for AgentStepExecution domain model"""
-    
+
     def __init__(self, step_execution: AgentStepExecution):
         self._step_execution = step_execution
-    
+
     @property
     def id(self) -> str:
         return self._step_execution.id
-    
+
     @property
     def execution_id(self) -> str:
         return self._step_execution.execution_id
-    
+
     @property
     def step_type(self) -> ProtocolStepType:
         return ProtocolStepType(self._step_execution.step_type)
-    
+
     def to_dict(self) -> dict[str, Any]:
         return self._step_execution.model_dump()
 
 
 class AgentSecurityManagerAdapter(ISecurityManager):
     """Adapter for AgentSecurityManager"""
-    
+
     def __init__(self, manager: AgentSecurityManager):
         self._manager = manager
-    
+
     async def validate_operation(self, operation: str, context: dict[str, Any]) -> bool:
         # Delegate to app-specific implementation
         # Assuming AgentSecurityManager has a validate_operation method
@@ -105,7 +106,7 @@ class AgentSecurityManagerAdapter(ISecurityManager):
         except Exception:
             # Fail closed on errors
             return False
-    
+
     async def audit_event(self, event_type: str, details: dict[str, Any]) -> None:
         # Delegate to app-specific implementation
         if hasattr(self._manager, 'audit_event'):
@@ -114,10 +115,10 @@ class AgentSecurityManagerAdapter(ISecurityManager):
 
 class AgentAuditorAdapter(IAuditor):
     """Adapter for AgentAuditor"""
-    
+
     def __init__(self, auditor: AgentAuditor):
         self._auditor = auditor
-    
+
     async def log_audit(self, event_type: str, details: dict[str, Any]) -> None:
         # Delegate to app-specific implementation
         if hasattr(self._auditor, 'log_audit'):
@@ -128,10 +129,10 @@ class AgentAuditorAdapter(IAuditor):
 
 class AgentOrchestratorAdapter(IAgentOrchestrator):
     """Adapter for AIAgentOrchestrator"""
-    
+
     def __init__(self, orchestrator: AIAgentOrchestrator):
         self._orchestrator = orchestrator
-    
+
     async def execute_workflow(
         self,
         workflow_id: str,
@@ -146,7 +147,7 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
             "status": "completed",
             "result": inputs,
         }
-    
+
     async def get_status(self, execution_id: str) -> dict[str, Any]:
         # Delegate to app-specific implementation
         if hasattr(self._orchestrator, 'get_status'):
@@ -160,10 +161,10 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
 
 class ZKProofServiceAdapter(IZKProofService):
     """Adapter for ZK proof service (mock implementation)"""
-    
+
     def __init__(self, session: Session):
         self._session = session
-    
+
     async def generate_zk_proof(
         self,
         circuit_name: str,
@@ -178,7 +179,7 @@ class ZKProofServiceAdapter(IZKProofService):
             "proof_size": 1024,
             "generation_time": 0.1,
         }
-    
+
     async def verify_proof(self, proof_id: str) -> dict[str, Any]:
         """Mock ZK proof verification"""
         return {
@@ -190,12 +191,12 @@ class ZKProofServiceAdapter(IZKProofService):
 
 class SessionProviderAdapter(ISessionProvider):
     """Adapter for SQLModel session management"""
-    
+
     def __init__(self, session_factory):
         self._session_factory = session_factory
-    
+
     def get_session(self) -> Session:
         return self._session_factory()
-    
+
     def close_session(self, session: Session) -> None:
         session.close()

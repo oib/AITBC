@@ -2,8 +2,9 @@
 Tests for marketplace service
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 @pytest.mark.unit
@@ -26,7 +27,7 @@ class TestMarketplaceService:
 
         # Import and test
         from app.services.marketplace import list_marketplace_items
-        
+
         result = list_marketplace_items()
         assert result["total"] == 2
         assert len(result["items"]) == 2
@@ -46,7 +47,7 @@ class TestMarketplaceService:
 
         # Import and test
         from app.services.marketplace import create_marketplace_item
-        
+
         result = create_marketplace_item({"name": "GPU 3", "price": 1.00})
         assert result["id"] == 3
         assert result["status"] == "active"

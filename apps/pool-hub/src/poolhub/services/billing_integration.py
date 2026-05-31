@@ -4,16 +4,16 @@ Integrates pool-hub usage data with coordinator-api's billing system.
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Dict, List, Optional, Any
-
-from aitbc import get_logger, AsyncAITBCHTTPClient, NetworkError
+from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from ..models import Miner, ServiceConfig, MatchRequest, MatchResult, Feedback
+from aitbc import AsyncAITBCHTTPClient, NetworkError, get_logger
+
+from ..models import MatchRequest, MatchResult, Miner
 from ..settings import settings
 
 logger = get_logger(__name__)
@@ -53,10 +53,10 @@ class BillingIntegration:
         tenant_id: str,
         resource_type: str,
         quantity: Decimal,
-        unit_price: Optional[Decimal] = None,
-        job_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        unit_price: Decimal | None = None,
+        job_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Record usage data to coordinator-api billing system"""
 
         # Use fallback pricing if not provided
@@ -76,7 +76,7 @@ class BillingIntegration:
             "unit_price": float(unit_price),
             "total_amount": float(total_cost),
             "currency": "USD",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "metadata": metadata or {},
         }
 
@@ -98,7 +98,7 @@ class BillingIntegration:
 
     async def sync_miner_usage(
         self, miner_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Sync usage data for a miner to coordinator-api billing"""
 
         # Get miner information
@@ -136,10 +136,10 @@ class BillingIntegration:
 
     async def sync_all_miners_usage(
         self, hours_back: int = 24
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Sync usage data for all miners to coordinator-api billing"""
 
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(UTC)
         start_date = end_date - timedelta(hours=hours_back)
 
         # Get all miners
@@ -173,7 +173,7 @@ class BillingIntegration:
 
     async def _collect_miner_usage(
         self, miner_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Collect usage data for a miner from pool-hub"""
 
         usage_data = {
@@ -222,7 +222,7 @@ class BillingIntegration:
 
         return usage_data
 
-    async def _send_billing_event(self, billing_event: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_billing_event(self, billing_event: dict[str, Any]) -> dict[str, Any]:
         """Send billing event to coordinator-api"""
 
         url = f"{self.coordinator_billing_url}/api/billing/usage"
@@ -240,8 +240,8 @@ class BillingIntegration:
             raise NetworkError("Failed to send billing event")
 
     async def get_billing_metrics(
-        self, tenant_id: Optional[str] = None, hours: int = 24
-    ) -> Dict[str, Any]:
+        self, tenant_id: str | None = None, hours: int = 24
+    ) -> dict[str, Any]:
         """Get billing metrics from coordinator-api"""
 
         headers = {}
@@ -262,7 +262,7 @@ class BillingIntegration:
 
     async def trigger_invoice_generation(
         self, tenant_id: str, period_start: datetime, period_end: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Trigger invoice generation in coordinator-api"""
 
         payload = {

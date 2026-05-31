@@ -1,14 +1,10 @@
 """Edge case and error handling tests for trading engine service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, Order, order_books, orders, trades
+from main import Order, app, order_books, orders, trades
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +30,7 @@ def test_order_zero_quantity():
         quantity=0.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert order.quantity == 0.0
 
@@ -50,7 +46,7 @@ def test_order_negative_quantity():
         quantity=-100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert order.quantity == -100.0
 
@@ -66,7 +62,7 @@ def test_order_negative_price():
         quantity=100.0,
         price=-0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert order.price == -0.00001
 
@@ -82,7 +78,7 @@ def test_order_empty_symbol():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     assert order.symbol == ""
 
@@ -99,13 +95,13 @@ def test_cancel_filled_order():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
-    
+
     # Manually mark as filled
     orders["order_129"]["status"] = "filled"
-    
+
     response = client.delete("/api/v1/orders/order_129")
     assert response.status_code == 400
 
@@ -122,7 +118,7 @@ def test_submit_order_with_slash_in_symbol():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
     assert response.status_code == 200
@@ -140,7 +136,7 @@ def test_submit_order_with_hyphen_in_symbol():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
     assert response.status_code == 200
@@ -188,10 +184,10 @@ def test_order_book_depth_parameter():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/orderbook/AITBC-BTC?depth=5")
     assert response.status_code == 200
     data = response.json()

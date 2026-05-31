@@ -19,7 +19,6 @@ from aitbc_chain.logger import get_logger
 from aitbc_chain.sync import ChainSync
 
 logger = get_logger(__name__)
-from aitbc_chain.sync import ChainSync
 
 
 async def main() -> None:

@@ -5,7 +5,7 @@ Implements sophisticated royalty distribution, model licensing, and advanced ver
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -67,8 +67,8 @@ class EnhancedMarketplaceService:
             "offer_id": offer_id,
             "tiers": royalty_tiers,
             "dynamic_rates": dynamic_rates,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
 
         # Store in offer metadata
@@ -136,8 +136,8 @@ class EnhancedMarketplaceService:
             "terms": terms,
             "usage_rights": usage_rights,
             "custom_terms": custom_terms or {},
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
 
         # Store license in offer metadata
@@ -161,7 +161,7 @@ class EnhancedMarketplaceService:
             "offer_id": offer_id,
             "verification_type": verification_type,
             "status": VerificationStatus.PENDING.value,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "checks": {},
         }
 
@@ -216,7 +216,7 @@ class EnhancedMarketplaceService:
     async def get_marketplace_analytics(self, period_days: int = 30, metrics: list[str] = None) -> dict[str, Any]:  # type: ignore[assignment]
         """Get comprehensive marketplace analytics"""
 
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(UTC)
         start_date = end_date - timedelta(days=period_days)
 
         analytics = {

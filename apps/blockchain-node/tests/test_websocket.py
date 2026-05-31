@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import ExitStack
-import sys
-
-from fastapi.testclient import TestClient
 
 from aitbc_chain.app import create_app
 from aitbc_chain.gossip import gossip_broker
+from fastapi.testclient import TestClient
 
 
 def _publish(topic: str, message: dict) -> None:

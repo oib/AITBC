@@ -3,11 +3,13 @@ AITBC Common Decorators
 Reusable decorators for common patterns in AITBC applications
 """
 
-import time
 import functools
-from typing import Callable, Type, Any
-from .exceptions import AITBCError
+import time
+from collections.abc import Callable
+from typing import Any
+
 from .aitbc_logging import get_logger
+from .exceptions import AITBCError
 
 logger = get_logger(__name__)
 
@@ -16,7 +18,7 @@ def retry(
     max_attempts: int = 3,
     delay: float = 1.0,
     backoff: float = 2.0,
-    exceptions: tuple[Type[Exception], ...] = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
     on_failure: Callable[[Exception], Any] = None
 ):
     """
@@ -37,7 +39,7 @@ def retry(
         def wrapper(*args, **kwargs):
             last_exception = None
             current_delay = delay
-            
+
             for attempt in range(max_attempts):
                 try:
                     return func(*args, **kwargs)
@@ -50,9 +52,9 @@ def retry(
                         if on_failure:
                             on_failure(e)
                         raise
-            
+
             raise last_exception if last_exception else AITBCError("Retry failed")
-        
+
         return wrapper
     return decorator
 
@@ -75,7 +77,7 @@ def timing(func: Callable) -> Callable:
         execution_time = end_time - start_time
         logger.info(f"{func.__name__} executed in {execution_time:.4f} seconds")
         return result
-    
+
     return wrapper
 
 
@@ -90,25 +92,25 @@ def cache_result(ttl: int = 300):
         Decorated function with caching
     """
     cache = {}
-    
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Create cache key from function name and arguments
             cache_key = (func.__name__, args, frozenset(kwargs.items()))
             current_time = time.time()
-            
+
             # Check if cached result exists and is not expired
             if cache_key in cache:
                 result, timestamp = cache[cache_key]
                 if current_time - timestamp < ttl:
                     return result
-            
+
             # Call function and cache result
             result = func(*args, **kwargs)
             cache[cache_key] = (result, current_time)
             return result
-        
+
         return wrapper
     return decorator
 
@@ -129,7 +131,7 @@ def validate_args(*validators: Callable):
             for validator in validators:
                 validator(*args, **kwargs)
             return func(*args, **kwargs)
-        
+
         return wrapper
     return decorator
 
@@ -137,7 +139,7 @@ def validate_args(*validators: Callable):
 def handle_exceptions(
     default_return: Any = None,
     log_errors: bool = True,
-    raise_on: tuple[Type[Exception], ...] = ()
+    raise_on: tuple[type[Exception], ...] = ()
 ):
     """
     Decorator to handle exceptions gracefully.
@@ -155,13 +157,13 @@ def handle_exceptions(
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except raise_on as e:
+            except raise_on:
                 raise
             except Exception as e:
                 if log_errors:
                     logger.error(f"Error in {func.__name__}: {e}")
                 return default_return
-        
+
         return wrapper
     return decorator
 
@@ -184,5 +186,5 @@ def async_timing(func: Callable) -> Callable:
         execution_time = end_time - start_time
         logger.info(f"{func.__name__} executed in {execution_time:.4f} seconds")
         return result
-    
+
     return wrapper

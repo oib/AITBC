@@ -3,14 +3,15 @@
 Simple FastAPI backend for the AITBC Trade Exchange (Python 3.13 compatible)
 """
 
-import sqlite3
 import json
-from datetime import datetime, timezone, timedelta
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import urllib.parse
 import random
-from aitbc.constants import DATA_DIR
+import sqlite3
+import urllib.parse
+from datetime import UTC, datetime, timedelta
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from aitbc import get_logger
+from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
 
@@ -19,12 +20,12 @@ def get_db_path():
     """Get database path and ensure directory exists"""
     import os
     db_path = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db").replace("sqlite://///", "")
-    
+
     # Create directory if it doesn't exist
     db_dir = os.path.dirname(db_path)
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
-    
+
     return db_path
 
 def init_db():
@@ -32,7 +33,7 @@ def init_db():
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     # Create tables
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS trades (
@@ -43,7 +44,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,7 +60,7 @@ def init_db():
             tx_hash TEXT
         )
     ''')
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS marketplace_offers (
             id TEXT PRIMARY KEY,
@@ -72,7 +73,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS marketplace_orders (
             id TEXT PRIMARY KEY,
@@ -84,18 +85,18 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
     # Add columns if they don't exist (for existing databases)
     try:
         cursor.execute('ALTER TABLE orders ADD COLUMN user_address TEXT')
     except Exception:
         pass
-    
+
     try:
         cursor.execute('ALTER TABLE orders ADD COLUMN tx_hash TEXT')
     except Exception:
         pass
-    
+
     conn.commit()
     conn.close()
 
@@ -104,13 +105,13 @@ def create_mock_trades():
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     # Check if we have trades
     cursor.execute('SELECT COUNT(*) FROM trades')
     if cursor.fetchone()[0] > 0:
         conn.close()
         return
-    
+
     # Create mock trades
     now = datetime.now(UTC)
     for i in range(20):
@@ -118,12 +119,12 @@ def create_mock_trades():
         price = random.uniform(0.000009, 0.000012)
         total = amount * price
         created_at = now - timedelta(minutes=random.randint(0, 60))
-        
+
         cursor.execute('''
             INSERT INTO trades (amount, price, total, created_at)
             VALUES (?, ?, ?, ?)
         ''', (amount, price, total, created_at))
-    
+
     conn.commit()
     conn.close()
 
@@ -134,10 +135,10 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         if not self.path or self.path.startswith(('//', '\\\\', '..')):
             self.send_error(400, "Invalid path")
             return
-        
+
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        
+
         if path == '/health' or path == '/api/health':
             self.health_check()
         elif path.startswith('/api/trades/recent'):
@@ -158,12 +159,12 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.handle_marketplace_orders(parsed)
         else:
             self.send_error(404, "Not Found")
-    
+
     def do_POST(self):
         """Handle POST requests"""
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        
+
         if path == '/api/orders':
             self.handle_place_order()
         elif path == '/api/wallet/connect':
@@ -174,18 +175,18 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.handle_marketplace_book_offer(path)
         else:
             self.send_error(404, "Not Found")
-    
+
     def do_DELETE(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        
+
         if path.startswith('/v1/marketplace/orders/'):
             self.handle_marketplace_delete_order(path)
         elif path.startswith('/v1/marketplace/offers/'):
             self.handle_marketplace_delete_offer(path)
         else:
             self.send_error(404, "Not Found")
-    
+
     def _read_json_body(self):
         content_length = int(self.headers.get('Content-Length', 0))
         if content_length <= 0:
@@ -194,10 +195,10 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         if not post_data:
             return {}
         return json.loads(post_data.decode('utf-8'))
-    
+
     def _new_marketplace_id(self, prefix):
         return f"{prefix}_{int(datetime.now(UTC).timestamp() * 1000)}{random.randint(100, 999)}"
-    
+
     def _marketplace_offer_row(self, row):
         return {
             "id": row[0],
@@ -213,7 +214,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             "created_at": row[7],
             "deployed_at": row[7],
         }
-    
+
     def _marketplace_order_row(self, row):
         return {
             "id": row[0],
@@ -224,7 +225,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             "status": row[5],
             "created_at": row[6],
         }
-    
+
     def handle_marketplace_offers(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
         status_filter = query.get('status', [None])[0]
@@ -247,7 +248,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         offers = [self._marketplace_offer_row(row) for row in cursor.fetchall()]
         conn.close()
         self.send_json_response(offers)
-    
+
     def handle_marketplace_offer(self, path):
         offer_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
         db_path = get_db_path()
@@ -264,7 +265,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response(self._marketplace_offer_row(row))
         else:
             self.send_error(404, "Offer not found")
-    
+
     def handle_marketplace_create_offer(self):
         try:
             data = self._read_json_body()
@@ -298,7 +299,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response(offer, status=201)
         except Exception as e:
             self.send_json_response({"success": False, "error": str(e)}, status=400)
-    
+
     def handle_marketplace_book_offer(self, path):
         try:
             offer_id = urllib.parse.unquote(path[len('/v1/marketplace/offers/'): -len('/book')])
@@ -331,7 +332,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({"success": True, "order": order, "order_id": order_id}, status=201)
         except Exception as e:
             self.send_json_response({"success": False, "error": str(e)}, status=400)
-    
+
     def handle_marketplace_orders(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
         wallet = query.get('wallet', [None])[0]
@@ -354,7 +355,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         orders = [self._marketplace_order_row(row) for row in cursor.fetchall()]
         conn.close()
         self.send_json_response({"orders": orders})
-    
+
     def handle_marketplace_delete_order(self, path):
         order_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
         db_path = get_db_path()
@@ -365,7 +366,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         deleted = cursor.rowcount
         conn.close()
         self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})
-    
+
     def handle_marketplace_delete_offer(self, path):
         offer_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
         db_path = get_db_path()
@@ -376,23 +377,23 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         deleted = cursor.rowcount
         conn.close()
         self.send_json_response({"success": True, "offer_id": offer_id, "deleted": deleted})
-    
+
     def get_recent_trades(self, parsed):
         """Get recent trades"""
         query = urllib.parse.parse_qs(parsed.query)
         limit = int(query.get('limit', [20])[0])
-        
+
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             SELECT id, amount, price, total, created_at
             FROM trades
             ORDER BY created_at DESC
             LIMIT ?
         ''', (limit,))
-        
+
         trades = []
         for row in cursor.fetchall():
             trades.append({
@@ -402,17 +403,17 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 'total': row[3],
                 'created_at': row[4]
             })
-        
+
         conn.close()
-        
+
         self.send_json_response(trades)
-    
+
     def get_orderbook(self):
         """Get order book"""
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
+
         # Get sell orders
         cursor.execute('''
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
@@ -421,7 +422,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             ORDER BY price ASC
             LIMIT 20
         ''')
-        
+
         sells = []
         for row in cursor.fetchall():
             sells.append({
@@ -435,7 +436,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 'status': row[7],
                 'created_at': row[8]
             })
-        
+
         # Get buy orders
         cursor.execute('''
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
@@ -444,7 +445,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             ORDER BY price DESC
             LIMIT 20
         ''')
-        
+
         buys = []
         for row in cursor.fetchall():
             buys.append({
@@ -458,36 +459,36 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 'status': row[7],
                 'created_at': row[8]
             })
-        
+
         conn.close()
-        
+
         self.send_json_response({'buys': buys, 'sells': sells})
-    
+
     def handle_place_order(self):
         """Place a new order on the blockchain"""
         content_length = int(self.headers.get('Content-Length', 0))
         post_data = self.rfile.read(content_length)
-        
+
         try:
             data = json.loads(post_data.decode('utf-8'))
             order_type = data.get('order_type')
             amount = data.get('amount')
             price = data.get('price')
             user_address = data.get('user_address')
-            
+
             if not all([order_type, amount, price, user_address]):
                 self.send_error(400, "Missing required fields")
                 return
-            
+
             if order_type not in ['BUY', 'SELL']:
                 self.send_error(400, "Invalid order type")
                 return
-            
+
             # Create order transaction on blockchain
             try:
-                import urllib.request
                 import urllib.parse
-                
+                import urllib.request
+
                 # Prepare transaction data
                 tx_data = {
                     "from": user_address,
@@ -497,39 +498,39 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     "price": str(price),
                     "nonce": 0  # Would get actual nonce from wallet
                 }
-                
+
                 # Send transaction to blockchain
                 tx_url = "http://localhost:9080/rpc/sendTx"
                 encoded_data = urllib.parse.urlencode(tx_data).encode('utf-8')
-                
+
                 req = urllib.request.Request(
                     tx_url,
                     data=encoded_data,
                     headers={'Content-Type': 'application/x-www-form-urlencoded'}
                 )
-                
+
                 with urllib.request.urlopen(req) as response:
                     tx_result = json.loads(response.read().decode())
-                
+
                 # Store order in local database for orderbook
                 total = amount * price
-                
+
                 db_path = get_db_path()
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
-                
+
                 cursor.execute('''
                     INSERT INTO orders (order_type, amount, price, total, remaining, user_address, tx_hash)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (order_type, amount, price, total, amount, user_address, tx_result.get('tx_hash', '')))
-                
+
                 order_id = cursor.lastrowid
                 conn.commit()
-                
+
                 # Get the created order
                 cursor.execute('SELECT * FROM orders WHERE id = ?', (order_id,))
                 row = cursor.fetchone()
-                
+
                 order = {
                     'id': row[0],
                     'order_type': row[1],
@@ -543,34 +544,34 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     'user_address': row[9],
                     'tx_hash': row[10]
                 }
-                
+
                 conn.close()
-                
+
                 # Try to match orders
                 self.match_orders(order)
-                
+
                 self.send_json_response(order)
-                
-            except Exception as e:
+
+            except Exception:
                 # Fallback to database-only if blockchain is down
                 total = amount * price
-                
+
                 db_path = get_db_path()
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
-                
+
                 cursor.execute('''
                     INSERT INTO orders (order_type, amount, price, total, remaining, user_address)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ''', (order_type, amount, price, total, amount, user_address))
-                
+
                 order_id = cursor.lastrowid
                 conn.commit()
-                
+
                 # Get the created order
                 cursor.execute('SELECT * FROM orders WHERE id = ?', (order_id,))
                 row = cursor.fetchone()
-                
+
                 order = {
                     'id': row[0],
                     'order_type': row[1],
@@ -583,14 +584,14 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     'created_at': row[8],
                     'user_address': row[9] if len(row) > 9 else None
                 }
-                
+
                 conn.close()
-                
+
                 # Try to match orders
                 self.match_orders(order)
-                
+
                 self.send_json_response(order)
-                
+
         except Exception as e:
             # Fallback to hardcoded values if blockchain is down
             self.send_json_response({
@@ -600,112 +601,29 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 "source": "fallback",
                 "error": str(e)
             })
-            # Match with sell orders
-            cursor.execute('''
-                SELECT * FROM orders
-                WHERE order_type = 'SELL' AND status = 'open' AND price <= ?
-                ORDER BY price ASC, created_at ASC
-            ''', (new_order['price'],))
-        else:
-            # Match with buy orders
-            cursor.execute('''
-                SELECT * FROM orders
-                WHERE order_type = 'BUY' AND status = 'open' AND price >= ?
-                ORDER BY price DESC, created_at ASC
-            ''', (new_order['price'],))
-        
-        matching_orders = cursor.fetchall()
-        
-        for order_row in matching_orders:
-            if new_order['remaining'] <= 0:
-                break
-                
-            # Calculate trade amount
-            trade_amount = min(new_order['remaining'], order_row[6])  # remaining
-            
-            if trade_amount > 0:
-                # Create trade on blockchain
-                try:
-                    import urllib.request
-                    import urllib.parse
-                    
-                    trade_price = order_row[3]  # Use the existing order's price
-                    trade_data = {
-                        "type": "TRADE",
-                        "buy_order": new_order['id'] if new_order['order_type'] == 'BUY' else order_row[0],
-                        "sell_order": order_row[0] if new_order['order_type'] == 'BUY' else new_order['id'],
-                        "amount": str(trade_amount),
-                        "price": str(trade_price)
-                    }
-                    
-                    # Record trade in database
-                    cursor.execute('''
-                        INSERT INTO trades (amount, price, total)
-                        VALUES (?, ?, ?)
-                    ''', (trade_amount, trade_price, trade_amount * trade_price))
-                    
-                    # Update orders
-                    new_order['remaining'] -= trade_amount
-                    new_order['filled'] = new_order.get('filled', 0) + trade_amount
-                    
-                    # Update matching order
-                    new_remaining = order_row[6] - trade_amount
-                    cursor.execute('''
-                        UPDATE orders SET remaining = ?, filled = filled + ?
-                        WHERE id = ?
-                    ''', (new_remaining, trade_amount, order_row[0]))
-                    
-                    # Close order if fully filled
-                    if new_remaining <= 0:
-                        cursor.execute('''
-                            UPDATE orders SET status = 'filled' WHERE id = ?
-                        ''', (order_row[0],))
-                    
-                except Exception as e:
-                    logger.error(f"Failed to create trade on blockchain: {e}")
-                    # Still record the trade in database
-                    cursor.execute('''
-                        INSERT INTO trades (amount, price, total)
-                        VALUES (?, ?, ?)
-                    ''', (trade_amount, order_row[3], trade_amount * order_row[3]))
-        
-        # Update new order in database
-        if new_order['remaining'] <= 0:
-            cursor.execute('''
-                UPDATE orders SET status = 'filled', remaining = 0, filled = ?
-                WHERE id = ?
-            ''', (new_order['filled'], new_order['id']))
-        else:
-            cursor.execute('''
-                UPDATE orders SET remaining = ?, filled = ?
-                WHERE id = ?
-            ''', (new_order['remaining'], new_order['filled'], new_order['id']))
-        
-        conn.commit()
-        conn.close()
-    
+
     def handle_treasury_balance(self):
         """Get exchange treasury balance from blockchain"""
         try:
-            import urllib.request
             import json
-            
+            import urllib.request
+
             # Treasury address from genesis
             treasury_address = "aitbcexchange00000000000000000000000000000000"
             blockchain_url = f"http://localhost:9080/rpc/getBalance/{treasury_address}"
-            
+
             try:
                 with urllib.request.urlopen(blockchain_url) as response:
                     balance_data = json.loads(response.read().decode())
                     treasury_balance = balance_data.get('balance', 0)
-                    
+
                 self.send_json_response({
                     "address": treasury_address,
                     "balance": str(treasury_balance),
                     "available_for_sale": str(treasury_balance),  # All treasury tokens available
                     "source": "blockchain"
                 })
-            except Exception as e:
+            except Exception:
                 # If blockchain query fails, show the genesis amount
                 self.send_json_response({
                     "address": treasury_address,
@@ -714,24 +632,24 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     "source": "genesis",
                     "note": "Genesis amount - blockchain may need restart"
                 })
-                
+
         except Exception as e:
             self.send_error(500, str(e))
-    
+
     def health_check(self):
         """Health check"""
         self.send_json_response({
             'status': 'ok',
             'timestamp': datetime.now(UTC).isoformat()
         })
-    
+
     def handle_wallet_balance(self):
         """Handle wallet balance request"""
-        from urllib.parse import urlparse, parse_qs
+        from urllib.parse import parse_qs, urlparse
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
         address = params.get('address', [''])[0]
-        
+
         if not address:
             self.send_json_response({
                 "btc": "0.00000000",
@@ -739,28 +657,28 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 "address": "unknown"
             })
             return
-        
+
         try:
             # Query real blockchain for balance
-            import urllib.request
             import json
-            
+            import urllib.request
+
             # Get AITBC balance from blockchain
             blockchain_url = f"http://localhost:9080/rpc/getBalance/{address}"
             with urllib.request.urlopen(blockchain_url) as response:
                 balance_data = json.loads(response.read().decode())
-            
+
             # For BTC, we'll query a Bitcoin API (simplified for now)
             # In production, you'd integrate with a real Bitcoin node API
             btc_balance = "0.00000000"  # Placeholder - would query real Bitcoin network
-            
+
             self.send_json_response({
                 "btc": btc_balance,
                 "aitbc": str(balance_data.get('balance', 0)),
                 "address": address,
                 "nonce": balance_data.get('nonce', 0)
             })
-        except Exception as e:
+        except Exception:
             # Fallback to error if blockchain is down
             self.send_json_response({
                 "btc": "0.00000000",
@@ -768,19 +686,19 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 "address": address,
                 "error": "Failed to fetch balance from blockchain"
             })
-    
+
     def handle_wallet_connect(self):
         """Handle wallet connection request"""
         import secrets
         content_length = int(self.headers.get('Content-Length', 0))
         post_data = self.rfile.read(content_length)
-        
+
         mock_address = "aitbc" + secrets.token_hex(20)
         self.send_json_response({
             "address": mock_address,
             "status": "connected"
         })
-    
+
     def send_json_response(self, data, status=200):
         """Send JSON response"""
         self.send_response(status)
@@ -790,7 +708,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
-    
+
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
         self.send_response(200)
@@ -801,16 +719,16 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
 class WalletAPIHandler(BaseHTTPRequestHandler):
     """Handle wallet API requests"""
-    
+
     def do_GET(self):
         """Handle GET requests"""
         if self.path.startswith('/api/wallet/balance'):
             # Parse address from query params
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import parse_qs, urlparse
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
             address = params.get('address', [''])[0]
-            
+
             # Return mock balance for now
             self.send_json_response({
                 "btc": "0.12345678",
@@ -819,7 +737,7 @@ class WalletAPIHandler(BaseHTTPRequestHandler):
             })
         else:
             self.send_error(404)
-    
+
     def do_POST(self):
         """Handle POST requests"""
         if self.path == '/wallet/connect':
@@ -831,7 +749,7 @@ class WalletAPIHandler(BaseHTTPRequestHandler):
             })
         else:
             self.send_error(404)
-    
+
     def send_json_response(self, data, status=200):
         """Send JSON response"""
         self.send_response(status)
@@ -841,7 +759,7 @@ class WalletAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
-    
+
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
         self.send_response(200)
@@ -854,10 +772,10 @@ def run_server(port=8001):
     """Run the server"""
     init_db()
     # Removed mock trades - now using only real blockchain data
-    
+
     server = HTTPServer(('localhost', port), ExchangeAPIHandler)
     logger.info("AITBC Exchange API Server started", port=port, url=f"http://localhost:{port}")
-    
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -2,8 +2,8 @@
 """Register test clients for payment integration testing"""
 
 import asyncio
+
 import httpx
-import json
 
 # Configuration
 COORDINATOR_URL = "http://127.0.0.1:8000/v1"

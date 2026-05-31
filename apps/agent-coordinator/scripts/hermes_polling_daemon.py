@@ -4,13 +4,12 @@ AITBC Hermes Polling Daemon
 Polls the Coordinator API for Hermes messages and processes them with configurable handlers.
 """
 
-import sys
-import time
-import requests
 import argparse
 import logging
-from typing import Dict, Set, Callable, Optional
-from datetime import datetime
+import time
+from collections.abc import Callable
+
+import requests
 
 # Default configuration
 DEFAULT_COORDINATOR_URL = "http://localhost:8011"
@@ -32,8 +31,8 @@ class HermesPollingDaemon:
         self.coordinator_url = coordinator_url.rstrip("/")
         self.agent_id = agent_id
         self.poll_interval = poll_interval
-        self.processed_messages: Set[str] = set()
-        self.message_handlers: Dict[str, Callable] = {}
+        self.processed_messages: set[str] = set()
+        self.message_handlers: dict[str, Callable] = {}
         self.hermes_service_url = hermes_service_url.rstrip("/")
         self.running = True
 
@@ -110,7 +109,7 @@ class HermesPollingDaemon:
                 timeout=10
             )
             if response.status_code == 200:
-                self.logger.info(f"Message forwarded successfully to Hermes service")
+                self.logger.info("Message forwarded successfully to Hermes service")
             else:
                 self.logger.error(f"Failed to forward message to Hermes service: {response.text}")
         except requests.RequestException as e:

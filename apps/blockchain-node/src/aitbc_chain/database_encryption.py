@@ -8,16 +8,14 @@ encryption/decryption operations, and detection of encrypted databases.
 from __future__ import annotations
 
 import os
+import secrets
 import stat
 from pathlib import Path
-from typing import Optional
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
-import secrets
-
 
 # Magic header to identify encrypted databases
 ENCRYPTION_MAGIC = b"AITBCENC"
@@ -26,7 +24,7 @@ ENCRYPTION_VERSION = 1
 
 class KeyManager:
     """Manages encryption key generation, storage, and retrieval."""
-    
+
     def __init__(self, key_path: Path):
         """Initialize key manager.
         
@@ -34,9 +32,9 @@ class KeyManager:
             key_path: Path to the key file.
         """
         self.key_path = key_path
-        self._key: Optional[bytes] = None
-    
-    def generate_key(self, password: Optional[str] = None) -> bytes:
+        self._key: bytes | None = None
+
+    def generate_key(self, password: str | None = None) -> bytes:
         """Generate a new encryption key.
         
         Args:
@@ -61,7 +59,7 @@ class KeyManager:
         else:
             # Generate random key
             return secrets.token_bytes(32)
-    
+
     def save_key(self, key: bytes) -> None:
         """Save encryption key to file with restricted permissions.
         
@@ -70,15 +68,15 @@ class KeyManager:
         """
         # Ensure parent directory exists
         self.key_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Write key with restricted permissions
         with open(self.key_path, 'wb') as f:
             f.write(key)
-        
+
         # Set file permissions to 600 (owner read/write only)
         os.chmod(self.key_path, stat.S_IRUSR | stat.S_IWUSR)
-    
-    def load_key(self) -> Optional[bytes]:
+
+    def load_key(self) -> bytes | None:
         """Load encryption key from file.
         
         Returns:
@@ -86,11 +84,11 @@ class KeyManager:
         """
         if not self.key_path.exists():
             return None
-        
+
         with open(self.key_path, 'rb') as f:
             return f.read()
-    
-    def get_or_generate_key(self, password: Optional[str] = None) -> bytes:
+
+    def get_or_generate_key(self, password: str | None = None) -> bytes:
         """Get existing key or generate a new one.
         
         Args:
@@ -104,7 +102,7 @@ class KeyManager:
             key = self.generate_key(password)
             self.save_key(key)
         return key
-    
+
     def ensure_key_permissions(self) -> bool:
         """Ensure key file has restricted permissions.
         
@@ -113,14 +111,14 @@ class KeyManager:
         """
         if not self.key_path.exists():
             return True
-        
+
         mode = self.key_path.stat().st_mode
         return mode & 0o777 == 0o600
 
 
 class DatabaseEncryptor:
     """Handles encryption and decryption of database files."""
-    
+
     def __init__(self, key: bytes):
         """Initialize encryptor with encryption key.
         
@@ -137,11 +135,11 @@ class DatabaseEncryptor:
         else:
             salt = key[:16] if len(key) > 32 else b''
             actual_key = key[:32] if len(key) >= 32 else key
-        
+
         self.key = actual_key
         self.salt = salt if len(key) > 32 else None
         self.aesgcm = AESGCM(actual_key)
-    
+
     def encrypt_file(self, input_path: Path, output_path: Path) -> None:
         """Encrypt a database file.
         
@@ -152,20 +150,20 @@ class DatabaseEncryptor:
         # Read plaintext database
         with open(input_path, 'rb') as f:
             plaintext = f.read()
-        
+
         # Generate nonce
         nonce = secrets.token_bytes(12)
-        
+
         # Encrypt data
         ciphertext = self.aesgcm.encrypt(nonce, plaintext, None)
-        
+
         # Write encrypted file with magic header
         with open(output_path, 'wb') as f:
             f.write(ENCRYPTION_MAGIC)
             f.write(bytes([ENCRYPTION_VERSION]))
             f.write(nonce)
             f.write(ciphertext)
-    
+
     def decrypt_file(self, input_path: Path, output_path: Path) -> None:
         """Decrypt an encrypted database file.
         
@@ -176,28 +174,28 @@ class DatabaseEncryptor:
         # Read encrypted file
         with open(input_path, 'rb') as f:
             data = f.read()
-        
+
         # Verify magic header
         if not data.startswith(ENCRYPTION_MAGIC):
             raise ValueError("File is not an encrypted database")
-        
+
         # Extract version, nonce, and ciphertext
         version = data[len(ENCRYPTION_MAGIC)]
         if version != ENCRYPTION_VERSION:
             raise ValueError(f"Unsupported encryption version: {version}")
-        
+
         nonce_start = len(ENCRYPTION_MAGIC) + 1
         nonce_end = nonce_start + 12
         nonce = data[nonce_start:nonce_end]
         ciphertext = data[nonce_end:]
-        
+
         # Decrypt data
         plaintext = self.aesgcm.decrypt(nonce, ciphertext, None)
-        
+
         # Write decrypted file
         with open(output_path, 'wb') as f:
             f.write(plaintext)
-    
+
     def is_encrypted(self, file_path: Path) -> bool:
         """Check if a database file is encrypted.
         
@@ -209,14 +207,14 @@ class DatabaseEncryptor:
         """
         if not file_path.exists():
             return False
-        
+
         with open(file_path, 'rb') as f:
             header = f.read(len(ENCRYPTION_MAGIC))
-        
+
         return header == ENCRYPTION_MAGIC
 
 
-def get_encryption_key(key_path: Path) -> Optional[bytes]:
+def get_encryption_key(key_path: Path) -> bytes | None:
     """Get encryption key from file or generate new one.
     
     Args:
@@ -245,7 +243,7 @@ def encrypt_database(db_path: Path, key: bytes) -> Path:
     return encrypted_path
 
 
-def decrypt_database(encrypted_path: Path, key: bytes, output_path: Optional[Path] = None) -> Path:
+def decrypt_database(encrypted_path: Path, key: bytes, output_path: Path | None = None) -> Path:
     """Decrypt an encrypted database file.
     
     Args:
@@ -274,9 +272,9 @@ def is_database_encrypted(db_path: Path) -> bool:
     """
     if not db_path.exists():
         return False
-    
+
     # Check for magic header
     with open(db_path, 'rb') as f:
         header = f.read(len(ENCRYPTION_MAGIC))
-    
+
     return header == ENCRYPTION_MAGIC

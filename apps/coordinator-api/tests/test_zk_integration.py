@@ -12,8 +12,6 @@ import sys
 import hashlib
 import json
 import time
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _poseidon_hash_stub(*inputs):

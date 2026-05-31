@@ -3,20 +3,23 @@
 AITBC CLI - Minimal Version with Working Commands Only
 """
 
-import click
 import sys
-import os
 from pathlib import Path
+
+import click
 
 # Add CLI directory to Python path
 CLI_DIR = Path(__file__).parent
 sys.path.insert(0, str(CLI_DIR))
+# Import config function
+from config import get_config
 
 # Import only working commands
-from .commands.wallet import wallet
-from .commands.config import config
 from .commands.blockchain import blockchain
 from .commands.compliance import compliance
+from .commands.config import config
+from .commands.wallet import wallet
+
 
 @click.group()
 @click.option('--url', help='Coordinator API URL (overrides config)')
@@ -38,7 +41,7 @@ def cli(ctx, url, api_key, output, verbose, debug, config_file, test_mode, dry_r
     """
     # Ensure that ctx.obj exists and is a dict
     ctx.ensure_object(dict)
-    
+
     # Initialize config
     try:
         config = get_config(config_file)
@@ -48,7 +51,7 @@ def cli(ctx, url, api_key, output, verbose, debug, config_file, test_mode, dry_r
             config.api_key = api_key
         if timeout:
             config.timeout = timeout
-    except Exception as e:
+    except Exception:
         # Create a minimal config if loading fails
         config = type('Config', (), {
             'coordinator_url': url or 'http://127.0.0.1:8000',
@@ -56,7 +59,7 @@ def cli(ctx, url, api_key, output, verbose, debug, config_file, test_mode, dry_r
             'timeout': timeout or 30,
             'config_file': config_file
         })()
-    
+
     # Store global options and config in context
     ctx.obj.update({
         'url': url,

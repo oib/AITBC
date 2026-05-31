@@ -1,13 +1,10 @@
 """Edge case and error handling tests for miner service"""
 
-import pytest
-import sys
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-
+import subprocess
 import production_miner
+import pytest
 
 
 @pytest.mark.unit
@@ -60,7 +57,7 @@ def test_build_gpu_capabilities_negative_memory(mock_gpu):
          patch('production_miner.classify_architecture') as mock_arch:
         mock_cuda.return_value = "12.0"
         mock_arch.return_value = "ada_lovelace"
-        
+
         result = production_miner.build_gpu_capabilities()
         assert result["gpu"]["memory_gb"] == -24576
 
@@ -74,7 +71,7 @@ def test_build_gpu_capabilities_zero_memory(mock_gpu):
          patch('production_miner.classify_architecture') as mock_arch:
         mock_cuda.return_value = "12.0"
         mock_arch.return_value = "ada_lovelace"
-        
+
         result = production_miner.build_gpu_capabilities()
         assert result["gpu"]["memory_gb"] == 0
 
@@ -105,7 +102,7 @@ def test_check_ollama_malformed_response(mock_get):
 def test_execute_job_empty_payload(mock_post, mock_submit):
     """Test executing job with empty payload"""
     mock_post.return_value = Mock(status_code=200, json=lambda: {"response": "test"})
-    
+
     job = {"job_id": "job_123", "payload": {}}
     result = production_miner.execute_job(job, ["llama3.2:latest"])
     assert result is False
@@ -126,7 +123,7 @@ def test_execute_job_missing_job_id(mock_submit):
 def test_execute_job_model_fallback(mock_post, mock_submit):
     """Test executing job with model fallback to first available"""
     mock_post.return_value = Mock(status_code=200, json=lambda: {"response": "test"})
-    
+
     job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "nonexistent"}}
     result = production_miner.execute_job(job, ["llama3.2:latest"])
     assert result is True
@@ -137,7 +134,7 @@ def test_execute_job_model_fallback(mock_post, mock_submit):
 def test_execute_job_timeout(mock_submit):
     """Test executing job with timeout"""
     job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "llama3.2:latest"}}
-    
+
     with patch('production_miner.httpx.post') as mock_post:
         mock_post.side_effect = Exception("Timeout")
         result = production_miner.execute_job(job, ["llama3.2:latest"])

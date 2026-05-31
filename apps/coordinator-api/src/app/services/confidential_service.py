@@ -2,12 +2,12 @@
 Confidential Transaction Service - Wrapper for existing confidential functionality
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from ..models.confidential import ConfidentialTransactionDB as ConfidentialTransaction
 from ..contexts.security.services.encryption import EncryptionService
 from ..contexts.security.services.key_management import KeyManager, MockHSMStorage
+from ..models.confidential import ConfidentialTransactionDB as ConfidentialTransaction
 
 
 class ConfidentialTransactionService:
@@ -41,7 +41,7 @@ class ConfidentialTransactionService:
             encrypted_data=str(encrypted.to_dict()).encode(),
             status="created",
             confidential=True,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
     def decrypt_transaction(self, transaction: ConfidentialTransaction, viewing_key: str) -> dict[str, Any]:

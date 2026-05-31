@@ -1,6 +1,7 @@
 """Swarm coordination router for AITBC CLI integration."""
 
-from typing import List, Optional, Dict, Any
+from typing import Any
+
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
@@ -9,8 +10,8 @@ from aitbc.rate_limiting import rate_limit
 router = APIRouter(prefix="/swarm", tags=["Swarm"])
 
 # In-memory state for mock data
-_mock_nodes: Dict[str, Dict[str, Any]] = {}
-_mock_tasks: Dict[str, Dict[str, Any]] = {}
+_mock_nodes: dict[str, dict[str, Any]] = {}
+_mock_tasks: dict[str, dict[str, Any]] = {}
 _task_counter = 0
 
 
@@ -28,7 +29,7 @@ class JoinRequest(BaseModel):
     role: str
     capability: str
     priority: str
-    region: Optional[str] = None
+    region: str | None = None
 
 
 class CoordinateRequest(BaseModel):
@@ -58,7 +59,7 @@ class RegisterNodeRequest(BaseModel):
     """Request to register a compute node."""
     node_id: str
     address: str
-    capabilities: List[str]
+    capabilities: list[str]
     cpu_cores: int
     memory_gb: int
     gpu_count: int
@@ -69,22 +70,22 @@ class ReportTaskRequest(BaseModel):
     task_id: str
     node_id: str
     status: str
-    result: Optional[Dict[str, Any]] = None
+    result: dict[str, Any] | None = None
 
 
 class CreateClusterRequest(BaseModel):
     """Request to create a compute cluster."""
     name: str
-    description: Optional[str] = None
-    node_ids: List[str]
+    description: str | None = None
+    node_ids: list[str]
 
 
-@router.get("/list", response_model=List[SwarmInfo])
+@router.get("/list", response_model=list[SwarmInfo])
 @rate_limit(rate=200, per=60)
 async def list_swarms(  # type: ignore[no-untyped-def]
     request: Request,
-    swarm_id: Optional[str] = Query(None, description="Filter by swarm ID"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    swarm_id: str | None = Query(None, description="Filter by swarm ID"),
+    status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(20, description="Number of swarms to list")
 ):
     """List active swarms."""
@@ -204,7 +205,7 @@ async def get_history_dashboard() -> None:
 
 # New endpoints for swarm node management
 @router.post("/nodes/register", summary="Register compute node")
-async def register_node(request: Request, req: RegisterNodeRequest) -> Dict[str, Any]:
+async def register_node(request: Request, req: RegisterNodeRequest) -> dict[str, Any]:
     """Register a compute node with the swarm"""
     _mock_nodes[req.node_id] = {
         "node_id": req.node_id,
@@ -224,7 +225,7 @@ async def register_node(request: Request, req: RegisterNodeRequest) -> Dict[str,
 
 
 @router.post("/nodes/{node_id}/heartbeat", summary="Node heartbeat")
-async def heartbeat(request: Request, node_id: str) -> Dict[str, Any]:
+async def heartbeat(request: Request, node_id: str) -> dict[str, Any]:
     """Send heartbeat from a node"""
     if node_id == "unknown":
         from fastapi import HTTPException
@@ -238,9 +239,9 @@ async def heartbeat(request: Request, node_id: str) -> Dict[str, Any]:
 @router.get("/nodes", summary="List nodes")
 async def list_nodes(
     request: Request,
-    status: Optional[str] = None,
-    capability: Optional[str] = None
-) -> Dict[str, Any]:
+    status: str | None = None,
+    capability: str | None = None
+) -> dict[str, Any]:
     """List all compute nodes with optional filters"""
     nodes = [
         {"node_id": "list-node-0", "address": "10.0.0.0", "capabilities": ["compute"]},
@@ -256,7 +257,7 @@ async def list_nodes(
 
 
 @router.get("/nodes/{node_id}", summary="Get node details")
-async def get_node(request: Request, node_id: str) -> Dict[str, Any]:
+async def get_node(request: Request, node_id: str) -> dict[str, Any]:
     """Get details of a specific node"""
     if node_id == "not-found" or node_id == "nonexistent":
         from fastapi import HTTPException
@@ -273,18 +274,18 @@ async def get_node(request: Request, node_id: str) -> Dict[str, Any]:
 
 
 @router.post("/tasks/submit", summary="Submit task")
-async def submit_task(request: Request, task_data: Dict[str, Any]) -> Dict[str, Any]:
+async def submit_task(request: Request, task_data: dict[str, Any]) -> dict[str, Any]:
     """Submit a task to the swarm"""
     global _task_counter
     _task_counter += 1
     task_id = f"task-{_task_counter:03d}"
     task_type = task_data.get("task_type", "test")
-    
+
     # Assign a node if any are registered
     assigned_node = None
     if _mock_nodes:
         assigned_node = list(_mock_nodes.keys())[0]
-    
+
     _mock_tasks[task_id] = {
         "task_id": task_id,
         "task_type": task_type,
@@ -298,7 +299,7 @@ async def submit_task(request: Request, task_data: Dict[str, Any]) -> Dict[str, 
 
 
 @router.post("/tasks/report", summary="Report task status")
-async def report_task(request: Request, req: ReportTaskRequest) -> Dict[str, Any]:
+async def report_task(request: Request, req: ReportTaskRequest) -> dict[str, Any]:
     """Report task status update from a node"""
     if req.task_id in _mock_tasks:
         _mock_tasks[req.task_id]["status"] = req.status
@@ -311,7 +312,7 @@ async def report_task(request: Request, req: ReportTaskRequest) -> Dict[str, Any
 
 
 @router.get("/tasks/{task_id}", summary="Get task details")
-async def get_task(request: Request, task_id: str) -> Dict[str, Any]:
+async def get_task(request: Request, task_id: str) -> dict[str, Any]:
     """Get task details by ID"""
     if task_id in _mock_tasks:
         return _mock_tasks[task_id]
@@ -325,9 +326,9 @@ async def get_task(request: Request, task_id: str) -> Dict[str, Any]:
 @router.get("/tasks", summary="List tasks")
 async def list_tasks(
     request: Request,
-    status: Optional[str] = None,
-    node_id: Optional[str] = None
-) -> Dict[str, Any]:
+    status: str | None = None,
+    node_id: str | None = None
+) -> dict[str, Any]:
     """List all tasks with optional filters"""
     return {
         "tasks": [],
@@ -336,7 +337,7 @@ async def list_tasks(
 
 
 @router.post("/clusters/create", summary="Create cluster")
-async def create_cluster(request: Request, req: CreateClusterRequest) -> Dict[str, Any]:
+async def create_cluster(request: Request, req: CreateClusterRequest) -> dict[str, Any]:
     """Create a new compute cluster"""
     return {
         "success": True,
@@ -351,7 +352,7 @@ async def create_cluster(request: Request, req: CreateClusterRequest) -> Dict[st
 
 
 @router.get("/clusters", summary="List clusters")
-async def list_clusters(request: Request) -> Dict[str, Any]:
+async def list_clusters(request: Request) -> dict[str, Any]:
     """List all compute clusters"""
     return {
         "clusters": [],
@@ -360,7 +361,7 @@ async def list_clusters(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/clusters/{cluster_id}", summary="Get cluster details")
-async def get_cluster(request: Request, cluster_id: str) -> Dict[str, Any]:
+async def get_cluster(request: Request, cluster_id: str) -> dict[str, Any]:
     """Get cluster details by ID"""
     return {
         "cluster_id": cluster_id,
@@ -371,7 +372,7 @@ async def get_cluster(request: Request, cluster_id: str) -> Dict[str, Any]:
 
 
 @router.post("/clusters/{cluster_id}/nodes/{node_id}", summary="Add node to cluster")
-async def add_node_to_cluster(request: Request, cluster_id: str, node_id: str) -> Dict[str, Any]:
+async def add_node_to_cluster(request: Request, cluster_id: str, node_id: str) -> dict[str, Any]:
     """Add a node to a cluster"""
     return {
         "success": True,
@@ -382,7 +383,7 @@ async def add_node_to_cluster(request: Request, cluster_id: str, node_id: str) -
 
 
 @router.get("/stats", summary="Get statistics")
-async def get_stats(request: Request) -> Dict[str, Any]:
+async def get_stats(request: Request) -> dict[str, Any]:
     """Get swarm statistics"""
     return {
         "nodes": {"total": 3, "online": 3},
@@ -393,7 +394,7 @@ async def get_stats(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/health", summary="Health check")
-async def swarm_health(request: Request) -> Dict[str, Any]:
+async def swarm_health(request: Request) -> dict[str, Any]:
     """Check swarm service health"""
     return {
         "status": "healthy",

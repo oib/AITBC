@@ -1,16 +1,16 @@
 """Exchange integration commands for AITBC CLI"""
 
-import click
 import json
-import os
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timezone
-from ..utils import output, error, success, warning
-from ..config import get_config
+
+import click
 
 # Import shared modules
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
+from ..config import get_config
+from ..utils import error, output, success, warning
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -29,10 +29,10 @@ def exchange():
 @click.option("--sandbox", is_flag=True, help="Use sandbox/testnet environment")
 @click.option("--description", help="Exchange description")
 @click.pass_context
-def register(ctx, name: str, api_key: str, secret_key: Optional[str], sandbox: bool, description: Optional[str]):
+def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool, description: str | None):
     """Register a new exchange integration"""
     config = get_config()
-    
+
     # Create exchange configuration
     exchange_config = {
         "name": name,
@@ -40,29 +40,29 @@ def register(ctx, name: str, api_key: str, secret_key: Optional[str], sandbox: b
         "secret_key": secret_key or "NOT_SET",
         "sandbox": sandbox,
         "description": description or f"{name} exchange integration",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "status": "active",
         "trading_pairs": [],
         "last_sync": None
     }
-    
+
     # Store exchange configuration
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     exchanges_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Load existing exchanges
     exchanges = {}
     if exchanges_file.exists():
-        with open(exchanges_file, 'r') as f:
+        with open(exchanges_file) as f:
             exchanges = json.load(f)
-    
+
     # Add new exchange
     exchanges[name.lower()] = exchange_config
-    
+
     # Save exchanges
     with open(exchanges_file, 'w') as f:
         json.dump(exchanges, f, indent=2)
-    
+
     success(f"Exchange '{name}' registered successfully")
     output({
         "exchange": name,
@@ -83,20 +83,20 @@ def register(ctx, name: str, api_key: str, secret_key: Optional[str], sandbox: b
 def create_pair(ctx, base_asset: str, quote_asset: str, exchange: str, min_order_size: float, price_precision: int, quantity_precision: int):
     """Create a new trading pair"""
     pair_symbol = f"{base_asset}/{quote_asset}"
-    
+
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered. Use 'aitbc exchange register' first.")
         return
-    
-    with open(exchanges_file, 'r') as f:
+
+    with open(exchanges_file) as f:
         exchanges = json.load(f)
-    
+
     if exchange.lower() not in exchanges:
         error(f"Exchange '{exchange}' not registered.")
         return
-    
+
     # Create trading pair configuration
     pair_config = {
         "symbol": pair_symbol,
@@ -107,17 +107,17 @@ def create_pair(ctx, base_asset: str, quote_asset: str, exchange: str, min_order
         "price_precision": price_precision,
         "quantity_precision": quantity_precision,
         "status": "active",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "trading_enabled": False
     }
-    
+
     # Update exchange with new pair
     exchanges[exchange.lower()]["trading_pairs"].append(pair_config)
-    
+
     # Save exchanges
     with open(exchanges_file, 'w') as f:
         json.dump(exchanges, f, indent=2)
-    
+
     success(f"Trading pair '{pair_symbol}' created on {exchange}")
     output({
         "pair": pair_symbol,
@@ -135,22 +135,22 @@ def create_pair(ctx, base_asset: str, quote_asset: str, exchange: str, min_order
 @click.option("--quote-liquidity", type=float, default=10000, help="Quote asset liquidity amount")
 @click.option("--exchange", help="Exchange name (if not specified, uses first available)")
 @click.pass_context
-def start_trading(ctx, pair: str, price: Optional[float], base_liquidity: float, quote_liquidity: float, exchange: Optional[str]):
+def start_trading(ctx, pair: str, price: float | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
     """Start trading for a specific pair"""
-    
+
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered. Use 'aitbc exchange register' first.")
         return
-    
-    with open(exchanges_file, 'r') as f:
+
+    with open(exchanges_file) as f:
         exchanges = json.load(f)
-    
+
     # Find the pair
     target_exchange = None
     target_pair = None
-    
+
     for exchange_name, exchange_data in exchanges.items():
         for pair_config in exchange_data.get("trading_pairs", []):
             if pair_config["symbol"] == pair:
@@ -159,22 +159,22 @@ def start_trading(ctx, pair: str, price: Optional[float], base_liquidity: float,
                 break
         if target_pair:
             break
-    
+
     if not target_pair:
         error(f"Trading pair '{pair}' not found. Create it first with 'aitbc exchange create-pair'.")
         return
-    
+
     # Update pair to enable trading
     target_pair["trading_enabled"] = True
-    target_pair["started_at"] = datetime.now(timezone.utc).isoformat()
+    target_pair["started_at"] = datetime.now(UTC).isoformat()
     target_pair["initial_price"] = price or 0.00001  # Default price for AITBC
     target_pair["base_liquidity"] = base_liquidity
     target_pair["quote_liquidity"] = quote_liquidity
-    
+
     # Save exchanges
     with open(exchanges_file, 'w') as f:
         json.dump(exchanges, f, indent=2)
-    
+
     success(f"Trading started for pair '{pair}' on {target_exchange}")
     output({
         "pair": pair,
@@ -193,29 +193,29 @@ def start_trading(ctx, pair: str, price: Optional[float], base_liquidity: float,
 @click.option("--real-time", is_flag=True, help="Enable real-time monitoring")
 @click.option("--interval", type=int, default=60, help="Update interval in seconds")
 @click.pass_context
-def monitor(ctx, pair: Optional[str], exchange: Optional[str], real_time: bool, interval: int):
+def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interval: int):
     """Monitor exchange trading activity"""
-    
+
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered. Use 'aitbc exchange register' first.")
         return
-    
-    with open(exchanges_file, 'r') as f:
+
+    with open(exchanges_file) as f:
         exchanges = json.load(f)
-    
+
     # Filter exchanges and pairs
     monitoring_data = []
-    
+
     for exchange_name, exchange_data in exchanges.items():
         if exchange and exchange_name != exchange.lower():
             continue
-            
+
         for pair_config in exchange_data.get("trading_pairs", []):
             if pair and pair_config["symbol"] != pair:
                 continue
-                
+
             monitoring_data.append({
                 "exchange": exchange_name,
                 "pair": pair_config["symbol"],
@@ -226,11 +226,11 @@ def monitor(ctx, pair: Optional[str], exchange: Optional[str], real_time: bool, 
                 "base_liquidity": pair_config.get("base_liquidity"),
                 "quote_liquidity": pair_config.get("quote_liquidity")
             })
-    
+
     if not monitoring_data:
         error("No trading pairs found for monitoring.")
         return
-    
+
     # Display monitoring data
     output({
         "monitoring_active": True,
@@ -239,7 +239,7 @@ def monitor(ctx, pair: Optional[str], exchange: Optional[str], real_time: bool, 
         "pairs": monitoring_data,
         "total_pairs": len(monitoring_data)
     })
-    
+
     if real_time:
         warning(f"Real-time monitoring enabled. Updates every {interval} seconds.")
         # Note: In a real implementation, this would start a background monitoring process
@@ -251,26 +251,26 @@ def monitor(ctx, pair: Optional[str], exchange: Optional[str], real_time: bool, 
 @click.option("--side", type=click.Choice(['buy', 'sell']), default='both', help="Side to provide liquidity")
 @click.option("--exchange", help="Exchange name")
 @click.pass_context
-def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: Optional[str]):
+def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: str | None):
     """Add liquidity to a trading pair"""
-    
+
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered. Use 'aitbc exchange register' first.")
         return
-    
-    with open(exchanges_file, 'r') as f:
+
+    with open(exchanges_file) as f:
         exchanges = json.load(f)
-    
+
     # Find the pair
     target_exchange = None
     target_pair = None
-    
+
     for exchange_name, exchange_data in exchanges.items():
         if exchange and exchange_name != exchange.lower():
             continue
-            
+
         for pair_config in exchange_data.get("trading_pairs", []):
             if pair_config["symbol"] == pair:
                 target_exchange = exchange_name
@@ -278,23 +278,23 @@ def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: Optional[s
                 break
         if target_pair:
             break
-    
+
     if not target_pair:
         error(f"Trading pair '{pair}' not found.")
         return
-    
+
     # Add liquidity
     if side == 'buy' or side == 'both':
         target_pair["quote_liquidity"] = target_pair.get("quote_liquidity", 0) + amount
     if side == 'sell' or side == 'both':
         target_pair["base_liquidity"] = target_pair.get("base_liquidity", 0) + amount
-    
-    target_pair["liquidity_updated_at"] = datetime.now(timezone.utc).isoformat()
-    
+
+    target_pair["liquidity_updated_at"] = datetime.now(UTC).isoformat()
+
     # Save exchanges
     with open(exchanges_file, 'w') as f:
         json.dump(exchanges, f, indent=2)
-    
+
     success(f"Added {amount} liquidity to {pair} on {target_exchange} ({side} side)")
     output({
         "pair": pair,
@@ -311,16 +311,16 @@ def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: Optional[s
 @click.pass_context
 def list(ctx):
     """List all registered exchanges and trading pairs"""
-    
+
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         warning("No exchanges registered.")
         return
-    
-    with open(exchanges_file, 'r') as f:
+
+    with open(exchanges_file) as f:
         exchanges = json.load(f)
-    
+
     # Format output
     exchange_list = []
     for exchange_name, exchange_data in exchanges.items():
@@ -332,7 +332,7 @@ def list(ctx):
             "created_at": exchange_data["created_at"]
         }
         exchange_list.append(exchange_info)
-    
+
     output({
         "exchanges": exchange_list,
         "total_exchanges": len(exchange_list),
@@ -345,22 +345,22 @@ def list(ctx):
 @click.pass_context
 def status(ctx, exchange_name: str):
     """Get detailed status of a specific exchange"""
-    
+
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered.")
         return
-    
-    with open(exchanges_file, 'r') as f:
+
+    with open(exchanges_file) as f:
         exchanges = json.load(f)
-    
+
     if exchange_name.lower() not in exchanges:
         error(f"Exchange '{exchange_name}' not found.")
         return
-    
+
     exchange_data = exchanges[exchange_name.lower()]
-    
+
     output({
         "exchange": exchange_data["name"],
         "status": exchange_data["status"],
@@ -371,10 +371,10 @@ def status(ctx, exchange_name: str):
         "last_sync": exchange_data.get("last_sync")
     })
     config = ctx.obj['config']
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-        rates_data = http_client.get(f"/exchange/rates")
+        rates_data = http_client.get("/exchange/rates")
         success("Current exchange rates:")
         output(rates_data, ctx.obj['output_format'])
     except NetworkError as e:
@@ -389,46 +389,46 @@ def status(ctx, exchange_name: str):
 @click.option("--user-id", help="User ID for the payment")
 @click.option("--notes", help="Additional notes for the payment")
 @click.pass_context
-def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[float], 
-                  user_id: Optional[str], notes: Optional[str]):
+def create_payment(ctx, aitbc_amount: float | None, btc_amount: float | None,
+                  user_id: str | None, notes: str | None):
     """Create a Bitcoin payment request for AITBC purchase"""
     config = ctx.obj['config']
-    
+
     # Validate input
     if aitbc_amount is not None and aitbc_amount <= 0:
         error("AITBC amount must be greater than 0")
         return
-    
+
     if btc_amount is not None and btc_amount <= 0:
         error("BTC amount must be greater than 0")
         return
-    
+
     if not aitbc_amount and not btc_amount:
         error("Either --aitbc-amount or --btc-amount must be specified")
         return
-    
+
     # Get exchange rates to calculate missing amount
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         rates = http_client.get("/exchange/rates")
         btc_to_aitbc = rates.get('btc_to_aitbc', 100000)
-        
+
         # Calculate missing amount
         if aitbc_amount and not btc_amount:
             btc_amount = aitbc_amount / btc_to_aitbc
         elif btc_amount and not aitbc_amount:
             aitbc_amount = btc_amount * btc_to_aitbc
-        
+
         # Prepare payment request
         payment_data = {
             "user_id": user_id or "cli_user",
             "aitbc_amount": aitbc_amount,
             "btc_amount": btc_amount
         }
-        
+
         if notes:
             payment_data["notes"] = notes
-        
+
         # Create payment
         payment = http_client.post("/exchange/create-payment", json=payment_data)
         success(f"Payment created: {payment.get('payment_id')}")
@@ -447,12 +447,12 @@ def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[floa
 def payment_status(ctx, payment_id: str):
     """Check payment confirmation status"""
     config = ctx.obj['config']
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         status_data = http_client.get(f"/exchange/payment-status/{payment_id}")
         status = status_data.get('status', 'unknown')
-        
+
         if status == 'confirmed':
             success(f"Payment {payment_id} is confirmed!")
             success(f"AITBC amount: {status_data.get('aitbc_amount', 0)}")
@@ -462,7 +462,7 @@ def payment_status(ctx, payment_id: str):
             error(f"Payment {payment_id} has expired")
         else:
             success(f"Payment {payment_id} status: {status}")
-        
+
         output(status_data, ctx.obj['output_format'])
     except NetworkError as e:
         error(f"Network error: {e}")
@@ -475,7 +475,7 @@ def payment_status(ctx, payment_id: str):
 def market_stats(ctx):
     """Get exchange market statistics"""
     config = ctx.obj['config']
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         stats = http_client.get("/exchange/market-stats")
@@ -498,7 +498,7 @@ def wallet():
 def balance(ctx):
     """Get Bitcoin wallet balance"""
     config = ctx.obj['config']
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         balance_data = http_client.get("/exchange/wallet/balance")
@@ -515,7 +515,7 @@ def balance(ctx):
 def info(ctx):
     """Get comprehensive Bitcoin wallet information"""
     config = ctx.obj['config']
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         wallet_info = http_client.get("/exchange/wallet/info")
@@ -533,19 +533,19 @@ def info(ctx):
 @click.option("--api-secret", help="API secret for exchange integration")
 @click.option("--sandbox", is_flag=True, default=False, help="Use sandbox/testnet environment")
 @click.pass_context
-def register(ctx, name: str, api_key: str, api_secret: Optional[str], sandbox: bool):
+def register(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool):
     """Register a new exchange integration"""
     config = ctx.obj['config']
-    
+
     exchange_data = {
         "name": name,
         "api_key": api_key,
         "sandbox": sandbox
     }
-    
+
     if api_secret:
         exchange_data["api_secret"] = api_secret
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         result = http_client.post("/exchange/register", json=exchange_data)
@@ -567,12 +567,12 @@ def register(ctx, name: str, api_key: str, api_secret: Optional[str], sandbox: b
 @click.option("--price-precision", type=int, default=8, help="Price decimal precision")
 @click.option("--size-precision", type=int, default=8, help="Size decimal precision")
 @click.pass_context
-def create_pair(ctx, pair: str, base_asset: str, quote_asset: str, 
-                min_order_size: Optional[float], max_order_size: Optional[float],
+def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
+                min_order_size: float | None, max_order_size: float | None,
                 price_precision: int, size_precision: int):
     """Create a new trading pair"""
     config = ctx.obj['config']
-    
+
     pair_data = {
         "pair": pair,
         "base_asset": base_asset,
@@ -580,12 +580,12 @@ def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
         "price_precision": price_precision,
         "size_precision": size_precision
     }
-    
+
     if min_order_size is not None:
         pair_data["min_order_size"] = min_order_size
     if max_order_size is not None:
         pair_data["max_order_size"] = max_order_size
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         result = http_client.post("/exchange/create-pair", json=pair_data)
@@ -601,21 +601,21 @@ def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
 @exchange.command()
 @click.option("--pair", required=True, help="Trading pair to start trading")
 @click.option("--exchange", help="Specific exchange to enable")
-@click.option("--order-type", multiple=True, default=["limit", "market"], 
+@click.option("--order-type", multiple=True, default=["limit", "market"],
               help="Order types to enable (limit, market, stop_limit)")
 @click.pass_context
-def start_trading(ctx, pair: str, exchange: Optional[str], order_type: tuple):
+def start_trading(ctx, pair: str, exchange: str | None, order_type: tuple):
     """Start trading for a specific pair"""
     config = ctx.obj['config']
-    
+
     trading_data = {
         "pair": pair,
         "order_types": list(order_type)
     }
-    
+
     if exchange:
         trading_data["exchange"] = exchange
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         result = http_client.post("/exchange/start-trading", json=trading_data)
@@ -633,10 +633,10 @@ def start_trading(ctx, pair: str, exchange: Optional[str], order_type: tuple):
 @click.option("--exchange", help="Filter by exchange")
 @click.option("--status", help="Filter by status (active, inactive, suspended)")
 @click.pass_context
-def list_pairs(ctx, pair: Optional[str], exchange: Optional[str], status: Optional[str]):
+def list_pairs(ctx, pair: str | None, exchange: str | None, status: str | None):
     """List all trading pairs"""
     config = ctx.obj['config']
-    
+
     params = {}
     if pair:
         params["pair"] = pair
@@ -644,7 +644,7 @@ def list_pairs(ctx, pair: Optional[str], exchange: Optional[str], status: Option
         params["exchange"] = exchange
     if status:
         params["status"] = status
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         pairs = http_client.get("/exchange/pairs", params=params)
@@ -663,26 +663,26 @@ def list_pairs(ctx, pair: Optional[str], exchange: Optional[str], status: Option
 @click.option("--sandbox", is_flag=True, default=True, help="Use sandbox/testnet environment")
 @click.option("--passphrase", help="API passphrase (for Coinbase)")
 @click.pass_context
-def connect(ctx, exchange: str, api_key: str, secret: str, sandbox: bool, passphrase: Optional[str]):
+def connect(ctx, exchange: str, api_key: str, secret: str, sandbox: bool, passphrase: str | None):
     """Connect to a real exchange API"""
     try:
         # Import the real exchange integration
         import sys
         exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
         sys.path.append(exchange_path)
-        from real_exchange_integration import connect_to_exchange
-        
         # Run async connection
         import asyncio
+
+        from real_exchange_integration import connect_to_exchange
         success = asyncio.run(connect_to_exchange(exchange, api_key, secret, sandbox, passphrase))
-        
+
         if success:
             success(f"✅ Successfully connected to {exchange}")
             if sandbox:
                 success("🧪 Using sandbox/testnet environment")
         else:
             error(f"❌ Failed to connect to {exchange}")
-            
+
     except ImportError:
         error("❌ Real exchange integration not available. Install ccxt library.")
     except Exception as e:
@@ -692,32 +692,32 @@ def connect(ctx, exchange: str, api_key: str, secret: str, sandbox: bool, passph
 @exchange.command()
 @click.option("--exchange", help="Check specific exchange (default: all)")
 @click.pass_context
-def status(ctx, exchange: Optional[str]):
+def status(ctx, exchange: str | None):
     """Check exchange connection status"""
     try:
         # Import the real exchange integration
         import sys
         exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
         sys.path.append(exchange_path)
-        from real_exchange_integration import get_exchange_status
-        
         # Run async status check
         import asyncio
+
+        from real_exchange_integration import get_exchange_status
         status_data = asyncio.run(get_exchange_status(exchange))
-        
+
         # Display status
         for exchange_name, health in status_data.items():
             status_icon = "🟢" if health.status.value == "connected" else "🔴" if health.status.value == "error" else "🟡"
-            
+
             success(f"{status_icon} {exchange_name.upper()}")
             success(f"   Status: {health.status.value}")
             success(f"   Latency: {health.latency_ms:.2f}ms")
             success(f"   Last Check: {health.last_check.strftime('%H:%M:%S')}")
-            
+
             if health.error_message:
                 error(f"   Error: {health.error_message}")
             click.echo("")
-            
+
     except ImportError:
         error("❌ Real exchange integration not available. Install ccxt library.")
     except Exception as e:
@@ -734,17 +734,17 @@ def disconnect(ctx, exchange: str):
         import sys
         exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
         sys.path.append(exchange_path)
-        from real_exchange_integration import disconnect_from_exchange
-        
         # Run async disconnection
         import asyncio
+
+        from real_exchange_integration import disconnect_from_exchange
         success = asyncio.run(disconnect_from_exchange(exchange))
-        
+
         if success:
             success(f"🔌 Disconnected from {exchange}")
         else:
             error(f"❌ Failed to disconnect from {exchange}")
-            
+
     except ImportError:
         error("❌ Real exchange integration not available. Install ccxt library.")
     except Exception as e:
@@ -763,40 +763,40 @@ def orderbook(ctx, exchange: str, symbol: str, limit: int):
         import sys
         exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
         sys.path.append(exchange_path)
-        from real_exchange_integration import exchange_manager
-        
         # Run async order book fetch
         import asyncio
+
+        from real_exchange_integration import exchange_manager
         orderbook = asyncio.run(exchange_manager.get_order_book(exchange, symbol, limit))
-        
+
         # Display order book
         success(f"📊 Order Book for {symbol} on {exchange.upper()}")
-        
+
         # Display bids (buy orders)
         if 'bids' in orderbook and orderbook['bids']:
             success("\n🟢 Bids (Buy Orders):")
             for i, bid in enumerate(orderbook['bids'][:10]):
                 price, amount = bid
                 success(f"  {i+1}. ${price:.8f} x {amount:.6f}")
-        
+
         # Display asks (sell orders)
         if 'asks' in orderbook and orderbook['asks']:
             success("\n🔴 Asks (Sell Orders):")
             for i, ask in enumerate(orderbook['asks'][:10]):
                 price, amount = ask
                 success(f"  {i+1}. ${price:.8f} x {amount:.6f}")
-        
+
         # Spread
         if 'bids' in orderbook and 'asks' in orderbook and orderbook['bids'] and orderbook['asks']:
             best_bid = orderbook['bids'][0][0]
             best_ask = orderbook['asks'][0][0]
             spread = best_ask - best_bid
             spread_pct = (spread / best_bid) * 100
-            
+
             success(f"\n📈 Spread: ${spread:.8f} ({spread_pct:.4f}%)")
             success(f"🎯 Best Bid: ${best_bid:.8f}")
             success(f"🎯 Best Ask: ${best_ask:.8f}")
-            
+
     except ImportError:
         error("❌ Real exchange integration not available. Install ccxt library.")
     except Exception as e:
@@ -813,28 +813,28 @@ def balance(ctx, exchange: str):
         import sys
         exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
         sys.path.append(exchange_path)
-        from real_exchange_integration import exchange_manager
-        
         # Run async balance fetch
         import asyncio
+
+        from real_exchange_integration import exchange_manager
         balance_data = asyncio.run(exchange_manager.get_balance(exchange))
-        
+
         # Display balance
         success(f"💰 Account Balance on {exchange.upper()}")
-        
+
         if 'total' in balance_data:
             for asset, amount in balance_data['total'].items():
                 if amount > 0:
                     available = balance_data.get('free', {}).get(asset, 0)
                     used = balance_data.get('used', {}).get(asset, 0)
-                    
+
                     success(f"\n{asset}:")
                     success(f"  Total: {amount:.8f}")
                     success(f"  Available: {available:.8f}")
                     success(f"  In Orders: {used:.8f}")
         else:
             warning("No balance data available")
-            
+
     except ImportError:
         error("❌ Real exchange integration not available. Install ccxt library.")
     except Exception as e:
@@ -851,16 +851,16 @@ def pairs(ctx, exchange: str):
         import sys
         exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
         sys.path.append(exchange_path)
-        from real_exchange_integration import exchange_manager
-        
         # Run async pairs fetch
         import asyncio
+
+        from real_exchange_integration import exchange_manager
         pairs = asyncio.run(exchange_manager.get_supported_pairs(exchange))
-        
+
         # Display pairs
         success(f"📋 Supported Trading Pairs on {exchange.upper()}")
         success(f"Found {len(pairs)} trading pairs:\n")
-        
+
         # Group by base currency
         base_currencies = {}
         for pair in pairs:
@@ -868,13 +868,13 @@ def pairs(ctx, exchange: str):
             if base not in base_currencies:
                 base_currencies[base] = []
             base_currencies[base].append(pair)
-        
+
         # Display organized pairs
         for base in sorted(base_currencies.keys()):
             success(f"\n🔹 {base}:")
             for pair in sorted(base_currencies[base][:10]):  # Show first 10 per base
                 success(f"  • {pair}")
-            
+
             if len(base_currencies[base]) > 10:
                 success(f"  ... and {len(base_currencies[base]) - 10} more")
     except Exception as e:
@@ -887,7 +887,7 @@ def pairs(ctx, exchange: str):
 def order(ctx, order_id: str):
     """Get specific order details from exchange-service"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         order_data = http_client.get(f"/exchange/order/{order_id}")
@@ -904,10 +904,10 @@ def order(ctx, order_id: str):
 @click.option('--status', help='Filter by status')
 @click.option('--limit', type=int, default=20, help='Number of orders to return')
 @click.pass_context
-def orders(ctx, pair: Optional[str], status: Optional[str], limit: int):
+def orders(ctx, pair: str | None, status: str | None, limit: int):
     """List orders from exchange-service"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         params = {"limit": limit}
@@ -915,7 +915,7 @@ def orders(ctx, pair: Optional[str], status: Optional[str], limit: int):
             params["pair"] = pair
         if status:
             params["status"] = status
-        
+
         orders_data = http_client.get("/exchange/orders", params=params)
         success("Orders:")
         output(orders_data, ctx.obj.get("output_format", "table"))
@@ -932,7 +932,7 @@ def orders(ctx, pair: Optional[str], status: Optional[str], limit: int):
 def book(ctx, pair: str, limit: int):
     """Get order book from exchange-service"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         book_data = http_client.get("/exchange/orderbook", params={"pair": pair, "limit": limit})
@@ -948,16 +948,16 @@ def book(ctx, pair: str, limit: int):
 @click.option('--pair', help='Filter by trading pair')
 @click.option('--limit', type=int, default=50, help='Number of history entries')
 @click.pass_context
-def history(ctx, pair: Optional[str], limit: int):
+def history(ctx, pair: str | None, limit: int):
     """Get trade history from exchange-service"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         params = {"limit": limit}
         if pair:
             params["pair"] = pair
-        
+
         history_data = http_client.get("/exchange/history", params=params)
         success("Trade History:")
         output(history_data, ctx.obj.get("output_format", "table"))
@@ -977,16 +977,16 @@ def list_exchanges(ctx):
         exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'apps' / 'exchange')
         sys.path.append(exchange_path)
         from real_exchange_integration import exchange_manager
-        
+
         success("🏢 Supported Exchanges:")
         for exchange in exchange_manager.supported_exchanges:
             success(f"  • {exchange.title()}")
-        
+
         success("\n📝 Usage:")
         success("  aitbc exchange connect --exchange binance --api-key <key> --secret <secret>")
         success("  aitbc exchange status --exchange binance")
         success("  aitbc exchange orderbook --exchange binance --symbol BTC/USDT")
-        
+
     except ImportError:
         error("❌ Real exchange integration not available. Install ccxt library.")
     except Exception as e:

@@ -4,12 +4,15 @@ Simple script to create genesis block
 """
 
 import sys
+
 sys.path.insert(0, 'src')
 
-from aitbc_chain.database import session_scope, init_db
-from aitbc_chain.models import Block
-from datetime import datetime, timezone
 import hashlib
+from datetime import UTC, datetime
+
+from aitbc_chain.database import init_db, session_scope
+from aitbc_chain.models import Block
+
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime) -> str:
     """Compute block hash"""
@@ -19,19 +22,19 @@ def compute_block_hash(height: int, parent_hash: str, timestamp: datetime) -> st
 def create_genesis():
     """Create the genesis block"""
     print("Creating genesis block...")
-    
+
     # Initialize database
     init_db()
-    
+
     # Check if genesis already exists
     with session_scope() as session:
         existing = session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
         if existing:
             print(f"Genesis block already exists: #{existing.height}")
             return
-        
+
         # Create genesis block
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         genesis_hash = compute_block_hash(0, "0x00", timestamp)
         genesis = Block(
             height=0,

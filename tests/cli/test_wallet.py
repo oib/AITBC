@@ -1,14 +1,14 @@
 """Tests for wallet CLI commands"""
 
-import pytest
 import json
+import os
 import re
 import tempfile
-import os
-from pathlib import Path
-from click.testing import CliRunner
 from unittest.mock import Mock, patch
+
+import pytest
 from aitbc_cli.commands.wallet import wallet
+from click.testing import CliRunner
 
 
 def extract_json_from_output(output):
@@ -54,9 +54,9 @@ def temp_wallet():
         }
         json.dump(wallet_data, f)
         temp_path = f.name
-    
+
     yield temp_path
-    
+
     # Cleanup
     os.unlink(temp_path)
 
@@ -72,35 +72,35 @@ def mock_config():
 
 class TestWalletCommands:
     """Test wallet command group"""
-    
+
     def test_balance_command(self, runner, temp_wallet, mock_config):
         """Test wallet balance command"""
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'balance'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data['balance'] == 100.0
         assert data['address'] == 'aitbc1test'
-    
+
     def test_balance_new_wallet(self, runner, mock_config, tmp_path):
         """Test balance with new wallet (auto-creation)"""
         wallet_path = tmp_path / "new_wallet.json"
-        
+
         result = runner.invoke(wallet, [
             '--wallet-path', str(wallet_path),
             'balance'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         assert wallet_path.exists()
-        
+
         data = json.loads(result.output)
         assert data['balance'] == 0.0
         assert 'address' in data
-    
+
     def test_earn_command(self, runner, temp_wallet, mock_config):
         """Test earning command"""
         result = runner.invoke(wallet, [
@@ -110,18 +110,18 @@ class TestWalletCommands:
             'job_456',
             '--desc', 'Another test job'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['new_balance'] == 125.5  # 100 + 25.5
         assert data['job_id'] == 'job_456'
-        
+
         # Verify wallet file updated
         with open(temp_wallet) as f:
             wallet_data = json.load(f)
         assert wallet_data['balance'] == 125.5
         assert len(wallet_data['transactions']) == 2
-    
+
     def test_spend_command_success(self, runner, temp_wallet, mock_config):
         """Test successful spend command"""
         result = runner.invoke(wallet, [
@@ -130,12 +130,12 @@ class TestWalletCommands:
             '30.0',
             'GPU rental'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['new_balance'] == 70.0  # 100 - 30
         assert data['description'] == 'GPU rental'
-    
+
     def test_spend_insufficient_balance(self, runner, temp_wallet, mock_config):
         """Test spend with insufficient balance"""
         result = runner.invoke(wallet, [
@@ -144,10 +144,10 @@ class TestWalletCommands:
             '200.0',
             'Too much'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
-    
+
     def test_history_command(self, runner, temp_wallet, mock_config):
         """Test transaction history"""
         result = runner.invoke(wallet, [
@@ -155,31 +155,31 @@ class TestWalletCommands:
             'history',
             '--limit', '5'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'transactions' in data
         assert len(data['transactions']) == 1
         assert data['transactions'][0]['amount'] == 50.0
-    
+
     def test_address_command(self, runner, temp_wallet, mock_config):
         """Test address command"""
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'address'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data['address'] == 'aitbc1test'
-    
+
     def test_stats_command(self, runner, temp_wallet, mock_config):
         """Test wallet statistics"""
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'stats'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data['current_balance'] == 100.0
@@ -187,7 +187,7 @@ class TestWalletCommands:
         assert data['total_spent'] == 0.0
         assert data['jobs_completed'] == 1
         assert data['transaction_count'] == 1
-    
+
     @patch('aitbc_cli.commands.wallet.httpx.Client')
     def test_send_command_success(self, mock_client_class, runner, temp_wallet, mock_config):
         """Test successful send command"""
@@ -198,7 +198,7 @@ class TestWalletCommands:
         mock_response.status_code = 201
         mock_response.json.return_value = {"hash": "0xabc123"}
         mock_client.post.return_value = mock_response
-        
+
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'send',
@@ -206,19 +206,19 @@ class TestWalletCommands:
             '25.0',
             '--description', 'Payment'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['new_balance'] == 75.0  # 100 - 25
         assert data['tx_hash'] == '0xabc123'
-        
+
         # Verify API call
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args
         assert '/transactions' in call_args[0][0]
         assert call_args[1]['json']['amount'] == 25.0
         assert call_args[1]['json']['to'] == 'aitbc1recipient'
-    
+
     def test_request_payment_command(self, runner, temp_wallet, mock_config):
         """Test payment request command"""
         result = runner.invoke(wallet, [
@@ -228,14 +228,14 @@ class TestWalletCommands:
             '50.0',
             '--description', 'Service payment'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'payment_request' in data
         assert data['payment_request']['from_address'] == 'aitbc1payer'
         assert data['payment_request']['to_address'] == 'aitbc1test'
         assert data['payment_request']['amount'] == 50.0
-    
+
     @patch('aitbc_cli.commands.wallet.httpx.Client')
     def test_send_insufficient_balance(self, mock_client_class, runner, temp_wallet, mock_config):
         """Test send with insufficient balance"""
@@ -245,24 +245,24 @@ class TestWalletCommands:
             'aitbc1recipient',
             '200.0'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
-    
+
     def test_wallet_file_creation(self, runner, mock_config, tmp_path):
         """Test wallet file is created in correct directory"""
         wallet_dir = tmp_path / "wallets"
         wallet_path = wallet_dir / "test_wallet.json"
-        
+
         result = runner.invoke(wallet, [
             '--wallet-path', str(wallet_path),
             'balance'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         assert wallet_path.exists()
         assert wallet_path.parent.exists()
-    
+
     def test_stake_command(self, runner, temp_wallet, mock_config):
         """Test staking tokens"""
         result = runner.invoke(wallet, [
@@ -271,7 +271,7 @@ class TestWalletCommands:
             '50.0',
             '--duration', '30'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['amount'] == 50.0
@@ -279,14 +279,14 @@ class TestWalletCommands:
         assert data['new_balance'] == 50.0  # 100 - 50
         assert 'stake_id' in data
         assert 'apy' in data
-        
+
         # Verify wallet file updated
         with open(temp_wallet) as f:
             wallet_data = json.load(f)
         assert wallet_data['balance'] == 50.0
         assert len(wallet_data['staking']) == 1
         assert wallet_data['staking'][0]['status'] == 'active'
-    
+
     def test_stake_insufficient_balance(self, runner, temp_wallet, mock_config):
         """Test staking with insufficient balance"""
         result = runner.invoke(wallet, [
@@ -294,10 +294,10 @@ class TestWalletCommands:
             'stake',
             '200.0'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
-    
+
     def test_unstake_command(self, runner, temp_wallet, mock_config):
         """Test unstaking tokens"""
         # First stake
@@ -310,14 +310,14 @@ class TestWalletCommands:
         assert result.exit_code == 0
         stake_data = extract_json_from_output(result.output)
         stake_id = stake_data['stake_id']
-        
+
         # Then unstake
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'unstake',
             stake_id
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['stake_id'] == stake_id
@@ -325,7 +325,7 @@ class TestWalletCommands:
         assert 'rewards' in data
         assert data['total_returned'] >= 50.0
         assert data['new_balance'] >= 100.0  # Got back principal + rewards
-    
+
     def test_unstake_invalid_id(self, runner, temp_wallet, mock_config):
         """Test unstaking with invalid stake ID"""
         result = runner.invoke(wallet, [
@@ -333,10 +333,10 @@ class TestWalletCommands:
             'unstake',
             'nonexistent_stake'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert 'not found' in result.output
-    
+
     def test_staking_info_command(self, runner, temp_wallet, mock_config):
         """Test staking info command"""
         # Stake first
@@ -344,19 +344,19 @@ class TestWalletCommands:
             '--wallet-path', temp_wallet,
             'stake', '30.0', '--duration', '60'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Check staking info
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'staking-info'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data['total_staked'] == 30.0
         assert data['active_stakes'] == 1
         assert len(data['stakes']) == 1
-    
+
     def test_liquidity_stake_command(self, runner, temp_wallet, mock_config):
         """Test liquidity pool staking"""
         result = runner.invoke(wallet, [
@@ -365,7 +365,7 @@ class TestWalletCommands:
             '--pool', 'main',
             '--lock-days', '0'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['amount'] == 40.0
@@ -374,7 +374,7 @@ class TestWalletCommands:
         assert data['apy'] == 3.0
         assert data['new_balance'] == 60.0
         assert 'stake_id' in data
-    
+
     def test_liquidity_stake_gold_tier(self, runner, temp_wallet, mock_config):
         """Test liquidity staking with gold tier (30+ day lock)"""
         result = runner.invoke(wallet, [
@@ -382,22 +382,22 @@ class TestWalletCommands:
             'liquidity-stake', '30.0',
             '--lock-days', '30'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['tier'] == 'gold'
         assert data['apy'] == 8.0
-    
+
     def test_liquidity_stake_insufficient_balance(self, runner, temp_wallet, mock_config):
         """Test liquidity staking with insufficient balance"""
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-stake', '500.0'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert 'Insufficient balance' in result.output
-    
+
     def test_liquidity_unstake_command(self, runner, temp_wallet, mock_config):
         """Test liquidity pool unstaking with rewards"""
         # Stake first (no lock)
@@ -409,30 +409,30 @@ class TestWalletCommands:
         ], obj={'config': mock_config, 'output': 'json'})
         assert result.exit_code == 0
         stake_id = extract_json_from_output(result.output)['stake_id']
-        
+
         # Unstake
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-unstake', stake_id
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data['stake_id'] == stake_id
         assert data['principal'] == 50.0
         assert 'rewards' in data
         assert data['total_returned'] >= 50.0
-    
+
     def test_liquidity_unstake_invalid_id(self, runner, temp_wallet, mock_config):
         """Test liquidity unstaking with invalid ID"""
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-unstake', 'nonexistent'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert 'not found' in result.output
-    
+
     def test_rewards_command(self, runner, temp_wallet, mock_config):
         """Test rewards summary command"""
         # Stake some tokens first
@@ -440,17 +440,17 @@ class TestWalletCommands:
             '--wallet-path', temp_wallet,
             'stake', '20.0', '--duration', '30'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'liquidity-stake', '20.0', '--pool', 'main'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         result = runner.invoke(wallet, [
             '--wallet-path', temp_wallet,
             'rewards'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert 'staking_active_amount' in data

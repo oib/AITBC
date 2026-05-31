@@ -9,10 +9,10 @@ from sqlmodel import Field, SQLModel
 
 class EdgeMetrics(SQLModel, table=True):
     """Edge performance metrics"""
-    
+
     __tablename__ = "edge_metrics"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"edge_metric_{uuid4().hex[:8]}", primary_key=True)
     metric_id: str = Field(index=True)
     gpu_id: str = Field(index=True)

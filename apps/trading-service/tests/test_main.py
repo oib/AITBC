@@ -4,7 +4,6 @@ Test Trading service main application
 
 import pytest
 from fastapi.testclient import TestClient
-
 from trading_service.main import app
 
 

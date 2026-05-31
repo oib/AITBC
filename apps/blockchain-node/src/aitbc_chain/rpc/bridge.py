@@ -2,12 +2,14 @@
 Bridge-related RPC endpoints.
 """
 
-from typing import Any, Dict, List
+from typing import Any
+
 from fastapi import HTTPException, Request
+
+from aitbc.rate_limiting import rate_limit
 
 from ..logger import get_logger
 from .utils import get_chain_id
-from aitbc.rate_limiting import rate_limit
 
 _logger = get_logger(__name__)
 
@@ -16,7 +18,7 @@ _logger = get_logger(__name__)
 async def bridge_lock(
     request: Request,
     lock_data: dict
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Initiate a cross-chain bridge transfer by locking funds.
     
@@ -28,23 +30,23 @@ async def bridge_lock(
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
         bridge = get_cross_chain_bridge()
-        
+
         if not bridge:
             raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
-        
+
         source_chain = lock_data.get("source_chain", get_chain_id(None))
         target_chain = lock_data.get("target_chain")
         sender = lock_data.get("sender")
         recipient = lock_data.get("recipient")
         amount = lock_data.get("amount", 0)
         asset = lock_data.get("asset", "native")
-        
+
         if not all([target_chain, sender, recipient]):
             raise HTTPException(status_code=400, detail="Missing required fields: target_chain, sender, recipient")
-        
+
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be positive")
-        
+
         # Execute lock
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
@@ -54,7 +56,7 @@ async def bridge_lock(
             amount=amount,
             asset=asset
         )
-        
+
         return {
             "success": True,
             "transfer_id": transfer.transfer_id,
@@ -68,7 +70,7 @@ async def bridge_lock(
             "lock_time": transfer.lock_time.isoformat() if transfer.lock_time else None,
             "message": "Funds locked successfully. Use /bridge/confirm to complete."
         }
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -80,7 +82,7 @@ async def bridge_lock(
 async def bridge_confirm(
     request: Request,
     confirm_data: dict
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Confirm a cross-chain bridge transfer and release funds.
     
@@ -92,19 +94,19 @@ async def bridge_confirm(
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
         bridge = get_cross_chain_bridge()
-        
+
         if not bridge:
             raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
-        
+
         transfer_id = confirm_data.get("transfer_id")
         proof = confirm_data.get("proof")
-        
+
         if not transfer_id or not proof:
             raise HTTPException(status_code=400, detail="Missing required fields: transfer_id, proof")
-        
+
         # Execute confirmation
         transfer = bridge.confirm_transfer(transfer_id, proof)
-        
+
         return {
             "success": True,
             "transfer_id": transfer.transfer_id,
@@ -118,7 +120,7 @@ async def bridge_confirm(
             "confirm_time": transfer.confirm_time.isoformat() if transfer.confirm_time else None,
             "message": "Cross-chain transfer completed successfully"
         }
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -130,19 +132,19 @@ async def bridge_confirm(
 async def get_bridge_transfer(
     request: Request,
     transfer_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get the status of a cross-chain transfer"""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
         bridge = get_cross_chain_bridge()
-        
+
         if not bridge:
             raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
-        
+
         transfer = bridge.get_transfer(transfer_id)
         if not transfer:
             raise HTTPException(status_code=404, detail=f"Transfer {transfer_id} not found")
-        
+
         return {
             "success": True,
             "transfer_id": transfer.transfer_id,
@@ -158,7 +160,7 @@ async def get_bridge_transfer(
             "lock_time": transfer.lock_time.isoformat() if transfer.lock_time else None,
             "confirm_time": transfer.confirm_time.isoformat() if transfer.confirm_time else None
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -170,18 +172,18 @@ async def get_bridge_transfer(
 async def list_pending_transfers(
     request: Request,
     chain_id: str = None
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List all pending cross-chain transfers"""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
         bridge = get_cross_chain_bridge()
-        
+
         if not bridge:
             raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
-        
+
         chain_id = get_chain_id(chain_id)
         transfers = bridge.list_pending_transfers(chain_id)
-        
+
         return [
             {
                 "transfer_id": t.transfer_id,
@@ -195,7 +197,7 @@ async def list_pending_transfers(
             }
             for t in transfers
         ]
-        
+
     except Exception as e:
         _logger.error(f"List pending transfers failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to list transfers: {str(e)}")

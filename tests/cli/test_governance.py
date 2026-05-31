@@ -1,12 +1,11 @@
 """Tests for governance CLI commands"""
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-import shutil
-from pathlib import Path
-from click.testing import CliRunner
-from unittest.mock import patch, MagicMock
 from aitbc_cli.commands.operations import operations
+from click.testing import CliRunner
 
 
 def extract_json_from_output(output_text):

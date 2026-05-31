@@ -2,7 +2,6 @@
 Rainbow DQN Agent implementation
 """
 
-import torch
 import torch.nn as nn
 
 

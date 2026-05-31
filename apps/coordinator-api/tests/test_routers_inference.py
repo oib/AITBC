@@ -21,7 +21,7 @@ class TestInferenceRouter:
         """Test listing available models"""
         response = client.get("/inference/models")
         assert response.status_code in [200, 503]  # 503 if Ollama not running
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "models" in data
@@ -36,7 +36,7 @@ class TestInferenceRouter:
             "max_tokens": 100,
             "stream": False
         }
-        
+
         response = client.post("/inference/generate", json=generate_data)
         # May fail if Ollama not running
         if response.status_code == 200:
@@ -55,7 +55,7 @@ class TestInferenceRouter:
             "system": "You are a helpful AI assistant.",
             "temperature": 0.5
         }
-        
+
         response = client.post("/inference/generate", json=generate_data)
         if response.status_code == 503:
             pytest.skip("Ollama not available")
@@ -67,7 +67,7 @@ class TestInferenceRouter:
             "model": "nonexistent-model-xyz",
             "prompt": "Test"
         }
-        
+
         response = client.post("/inference/generate", json=generate_data)
         # Should fail gracefully
         assert response.status_code in [200, 400, 404, 503, 500]
@@ -84,11 +84,11 @@ class TestInferenceRouter:
             "temperature": 0.7,
             "max_tokens": 50
         }
-        
+
         response = client.post("/inference/batch", json=batch_data)
         if response.status_code == 503:
             pytest.skip("Ollama not available")
-        
+
         if response.status_code == 200:
             data = response.json()
             assert data["success"] is True
@@ -102,7 +102,7 @@ class TestInferenceRouter:
             "model": "llama2",
             "prompts": []
         }
-        
+
         response = client.post("/inference/batch", json=batch_data)
         assert response.status_code == 422  # Validation error
 
@@ -112,7 +112,7 @@ class TestInferenceRouter:
             "model": "llama2",
             "prompts": ["test"] * 20  # Too many
         }
-        
+
         response = client.post("/inference/batch", json=batch_data)
         assert response.status_code == 422  # Validation error
 
@@ -133,7 +133,7 @@ class TestInferenceIntegration:
         # 1. List models
         models_response = client.get("/inference/models")
         assert models_response.status_code == 200
-        
+
         # 2. Generate text
         generate_response = client.post("/inference/generate", json={
             "model": "llama2",
@@ -144,7 +144,7 @@ class TestInferenceIntegration:
         assert generate_response.status_code == 200
         data = generate_response.json()
         assert len(data["response"]) > 0
-        
+
         # 3. Verify metrics
         assert "eval_count" in data
         assert "total_duration" in data

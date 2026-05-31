@@ -4,9 +4,10 @@ Provides fixtures for testing the coordinator API
 """
 
 import sys
-import pytest
 from pathlib import Path
 from unittest.mock import Mock
+
+import pytest
 
 project_root = Path(__file__).parent.parent.parent
 
@@ -15,21 +16,22 @@ project_root = Path(__file__).parent.parent.parent
 def coordinator_client():
     """Create a test client for coordinator API"""
     from fastapi.testclient import TestClient
+
     from aitbc.testing import MockResponse
-    
+
     try:
         # Import the coordinator app specifically
         coordinator_path = str(project_root / "apps" / "coordinator-api" / "src")
         if coordinator_path not in sys.path[:1]:
             sys.path.insert(0, coordinator_path)
-        
+
         from app.main import app as coordinator_app
         print("✅ Using real coordinator API client")
         return TestClient(coordinator_app)
     except ImportError as e:
         # Create a mock client if imports fail
         print(f"Warning: Using mock coordinator_client due to import error: {e}")
-        
+
         mock_response = MockResponse(
             status_code=201,
             json_data={
@@ -43,10 +45,10 @@ def coordinator_client():
                 "payment_status": "escrowed"
             }
         )
-        
+
         mock_client = Mock()
         mock_client.post.return_value = mock_response
-        
+
         mock_get_response = MockResponse(
             status_code=200,
             json_data={
@@ -61,7 +63,7 @@ def coordinator_client():
             }
         )
         mock_client.get.return_value = mock_get_response
-        
+
         mock_receipts_response = MockResponse(
             status_code=200,
             json_data={
@@ -69,7 +71,7 @@ def coordinator_client():
                 "total": 0
             }
         )
-        
+
         def mock_get_side_effect(url, headers=None):
             if "receipts" in url:
                 return mock_receipts_response
@@ -93,7 +95,7 @@ def coordinator_client():
                     }
                 )
             return mock_get_response
-        
+
         mock_client.get.side_effect = mock_get_side_effect
         mock_client.patch.return_value = MockResponse(status_code=200, json_data={"status": "updated"})
         return mock_client

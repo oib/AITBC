@@ -23,7 +23,7 @@ class AuthManager:
         self._store[key] = api_key
         success(f"Credential '{name}' stored for environment '{environment}'")
 
-    def get_credential(self, name: str, environment: str = "default") -> Optional[str]:
+    def get_credential(self, name: str, environment: str = "default") -> str | None:
         key = (environment, name)
         value = self._store.get(key)
         if value is None:
@@ -38,7 +38,7 @@ class AuthManager:
         else:
             warning(f"Credential '{name}' not found for environment '{environment}'")
 
-    def list_credentials(self, environment: str = None) -> Dict[str, str]:
+    def list_credentials(self, environment: str = None) -> dict[str, str]:
         envs = [environment] if environment else ["default", "dev", "staging", "prod"]
         names = ["client", "miner", "admin"]
         credentials = []

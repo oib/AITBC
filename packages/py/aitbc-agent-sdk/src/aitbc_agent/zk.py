@@ -1,18 +1,19 @@
 """ZK operations using CLI commands"""
 
-from typing import Dict
-from .command_executor import CommandExecutor
+
 from aitbc.aitbc_logging import get_logger
+
+from .command_executor import CommandExecutor
 
 logger = get_logger(__name__)
 
 
 class ZKOperations:
     """Zero-knowledge operations via CLI"""
-    
+
     def __init__(self, cli_path: str = "/opt/aitbc/aitbc-click"):
         self.executor = CommandExecutor(cli_path)
-    
+
     def generate_proof(self, input_data: str, circuit_id: str) -> str:
         """Generate ZK proof"""
         try:
@@ -26,7 +27,7 @@ class ZKOperations:
         except Exception as e:
             logger.error(f"generate_proof failed: {e}")
             raise
-    
+
     def verify_proof(self, proof: str, public_inputs: str) -> bool:
         """Verify ZK proof"""
         try:
@@ -40,8 +41,8 @@ class ZKOperations:
         except Exception as e:
             logger.error(f"verify_proof failed: {e}")
             raise
-    
-    def create_receipt(self, proof: str, metadata: Dict = None) -> str:
+
+    def create_receipt(self, proof: str, metadata: dict = None) -> str:
         """Create receipt from proof"""
         try:
             import json
@@ -57,8 +58,8 @@ class ZKOperations:
         except Exception as e:
             logger.error(f"create_receipt failed: {e}")
             raise
-    
-    def submit_performance_proof(self, receipt: str, metrics: Dict = None) -> str:
+
+    def submit_performance_proof(self, receipt: str, metrics: dict = None) -> str:
         """Submit performance proof"""
         try:
             import json

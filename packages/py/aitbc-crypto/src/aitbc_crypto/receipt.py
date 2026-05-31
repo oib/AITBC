@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict
-
 import json
 from hashlib import sha256
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -27,10 +25,10 @@ class Receipt(BaseModel):
     coordinator_id: str | None = None
     nonce: str | None = None
     chain_id: int | None = None
-    metadata: Dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
 
 
-def canonical_json(receipt: Dict[str, Any]) -> str:
+def canonical_json(receipt: dict[str, Any]) -> str:
     def remove_none(obj: Any) -> Any:
         if isinstance(obj, dict):
             return {k: remove_none(v) for k, v in obj.items() if v is not None}
@@ -42,6 +40,6 @@ def canonical_json(receipt: Dict[str, Any]) -> str:
     return json.dumps(cleaned, separators=(",", ":"), sort_keys=True)
 
 
-def receipt_hash(receipt: Dict[str, Any]) -> bytes:
+def receipt_hash(receipt: dict[str, Any]) -> bytes:
     data = canonical_json(receipt).encode("utf-8")
     return sha256(data).digest()

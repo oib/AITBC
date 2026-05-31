@@ -1,18 +1,19 @@
 """Extended Agent SDK operations using CLI commands"""
 
-from typing import Dict, List, Optional
-from .command_executor import CommandExecutor
+
 from aitbc.aitbc_logging import get_logger
+
+from .command_executor import CommandExecutor
 
 logger = get_logger(__name__)
 
 
 class ExtendedOperations:
     """Extended operations via CLI commands"""
-    
+
     def __init__(self, cli_path: str = "/opt/aitbc/aitbc-click"):
         self.executor = CommandExecutor(cli_path)
-    
+
     def submit_ai_test(self, model_id: str, test_data: str) -> str:
         """Submit AI test job"""
         try:
@@ -26,8 +27,8 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"submit_ai_test failed: {e}")
             raise
-    
-    def list_gpu(self, filters: Dict = None) -> List[dict]:
+
+    def list_gpu(self, filters: dict = None) -> list[dict]:
         """List available GPU resources"""
         try:
             args = ["list"]
@@ -43,7 +44,7 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"list_gpu failed: {e}")
             raise
-    
+
     def create_swarm(self, name: str, max_agents: int) -> str:
         """Create agent swarm"""
         try:
@@ -57,8 +58,8 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"create_swarm failed: {e}")
             raise
-    
-    def add_stake(self, amount: float, validator_id: Optional[str] = None) -> str:
+
+    def add_stake(self, amount: float, validator_id: str | None = None) -> str:
         """Add stake to validator"""
         try:
             args = ["manage", "--action", "add-stake", "--amount", str(amount)]
@@ -73,7 +74,7 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"add_stake failed: {e}")
             raise
-    
+
     def create_island_bridge(self, name: str, source_chain: str, target_chain: str) -> str:
         """Create island bridge"""
         try:
@@ -87,7 +88,7 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"create_island_bridge failed: {e}")
             raise
-    
+
     def execute_bridge_transfer(self, bridge_id: str, amount: float, token: str) -> str:
         """Execute bridge transfer"""
         try:
@@ -101,7 +102,7 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"execute_bridge_transfer failed: {e}")
             raise
-    
+
     def create_database(self, name: str, schema: str = "") -> str:
         """Create database"""
         try:
@@ -117,8 +118,8 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"create_database failed: {e}")
             raise
-    
-    def query_database(self, database_id: str, query: str) -> List[dict]:
+
+    def query_database(self, database_id: str, query: str) -> list[dict]:
         """Query database"""
         try:
             args = ["query", "--database-id", database_id, "--query", query]
@@ -131,7 +132,7 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"query_database failed: {e}")
             raise
-    
+
     def submit_training_job(self, model_id: str, dataset: str) -> str:
         """Submit training job"""
         try:
@@ -145,8 +146,8 @@ class ExtendedOperations:
         except Exception as e:
             logger.error(f"submit_training_job failed: {e}")
             raise
-    
-    def query_analytics(self, metrics: List[str], time_range: str = "24h") -> Dict:
+
+    def query_analytics(self, metrics: list[str], time_range: str = "24h") -> dict:
         """Query analytics"""
         try:
             args = ["query", "--metrics", ",".join(metrics), "--time-range", time_range]

@@ -3,8 +3,6 @@
 Real Marketplace Launcher for AITBC Production
 """
 
-import os
-import sys
 import subprocess
 
 from aitbc import get_logger
@@ -14,7 +12,7 @@ logger = get_logger(__name__)
 def main():
     """Main real marketplace launcher function"""
     logger.info("Starting AITBC Real Marketplace Launcher")
-    
+
     try:
         # Launch real marketplace service
         logger.info("Launching real marketplace service")

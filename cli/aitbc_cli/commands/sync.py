@@ -1,8 +1,9 @@
 """Sync commands for AITBC CLI"""
 
-import click
 import subprocess
 from pathlib import Path
+
+import click
 
 
 @click.group()
@@ -24,14 +25,14 @@ def bulk(source, import_url, batch_size, poll_interval):
     aitbc_root = cli_dir.parent
     blockchain_dir = aitbc_root / 'apps' / 'blockchain-node'
     src_dir = blockchain_dir / 'src'
-    
+
     # Use the main AITBC venv at /opt/aitbc/venv
     venv_python = aitbc_root / 'venv' / 'bin' / 'python3'
-    
+
     # Fallback to blockchain-node .venv if main venv doesn't exist
     if not venv_python.exists():
         venv_python = blockchain_dir / '.venv' / 'bin' / 'python3'
-    
+
     sync_cli = src_dir / 'aitbc_chain' / 'sync_cli.py'
 
     if not sync_cli.exists():
@@ -54,7 +55,7 @@ def bulk(source, import_url, batch_size, poll_interval):
     }
 
     click.echo(f"Running bulk sync from {source} to {import_url} (batch size: {batch_size})")
-    
+
     try:
         result = subprocess.run(cmd, env=env, capture_output=False)
         if result.returncode != 0:

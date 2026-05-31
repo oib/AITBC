@@ -10,15 +10,12 @@ Provides:
 
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -40,34 +37,34 @@ class TrainingJob:
     job_id: str
     model_type: str
     dataset_id: str
-    hyperparameters: Dict[str, Any]
+    hyperparameters: dict[str, Any]
     status: TrainingStatus
-    
+
     # Resources
     gpu_count: int
     memory_gb: int
-    
+
     # Progress
     current_epoch: int = 0
     total_epochs: int = 10
     current_step: int = 0
     total_steps: int = 1000
-    
+
     # Metrics
     loss: float = 0.0
     accuracy: float = 0.0
     validation_loss: float = 0.0
-    
+
     # Timestamps
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
     # Results
-    model_checkpoint: Optional[str] = None
-    logs: List[str] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    model_checkpoint: str | None = None
+    logs: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "job_id": self.job_id,
             "model_type": self.model_type,
@@ -110,19 +107,19 @@ class TrainingService:
     - Progress tracking
     - Model checkpointing
     """
-    
+
     def __init__(self, session: Any = None) -> None:
-        self._jobs: Dict[str, TrainingJob] = {}
+        self._jobs: dict[str, TrainingJob] = {}
         self._job_counter = 0
         self._active_jobs: set = set()
         self._max_concurrent = 3
         self.session = session
-    
+
     def create_training_job(
         self,
         model_type: str,
         dataset_id: str,
-        hyperparameters: Optional[Dict[str, Any]] = None,
+        hyperparameters: dict[str, Any] | None = None,
         epochs: int = 10,
         gpu_count: int = 1,
         memory_gb: int = 16
@@ -143,10 +140,10 @@ class TrainingService:
         """
         self._job_counter += 1
         job_id = f"TRAIN-{self._job_counter:06d}"
-        
+
         # Estimate steps based on dataset size (simplified)
         estimated_steps = 1000  # Would calculate from dataset
-        
+
         job = TrainingJob(
             job_id=job_id,
             model_type=model_type,
@@ -162,41 +159,41 @@ class TrainingService:
             total_epochs=epochs,
             total_steps=estimated_steps * epochs
         )
-        
+
         self._jobs[job_id] = job
-        
+
         logger.info(f"Training job created: {job_id} ({model_type} on {dataset_id})")
-        
+
         # Auto-start if capacity available
         if len(self._active_jobs) < self._max_concurrent:
             self.start_training(job_id)
         else:
             job.status = TrainingStatus.queued
             logger.info(f"Training job {job_id} queued (max concurrent reached)")
-        
+
         return job
-    
+
     def start_training(self, job_id: str) -> TrainingJob:
         """Start a training job"""
         if job_id not in self._jobs:
             raise ValueError(f"Job {job_id} not found")
-        
+
         job = self._jobs[job_id]
-        
+
         if job.status not in [TrainingStatus.pending, TrainingStatus.queued]:
             raise ValueError(f"Cannot start job with status: {job.status.value}")
-        
+
         job.status = TrainingStatus.running
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.now(UTC)
         self._active_jobs.add(job_id)
-        
+
         logger.info(f"Training started: {job_id}")
-        
+
         # Simulate training progress in background
         # In production, this would coordinate with actual training workers
-        
+
         return job
-    
+
     def update_progress(
         self,
         job_id: str,
@@ -209,91 +206,91 @@ class TrainingService:
         """Update training progress"""
         if job_id not in self._jobs:
             raise ValueError(f"Job {job_id} not found")
-        
+
         job = self._jobs[job_id]
-        
+
         if job.status != TrainingStatus.running:
             raise ValueError(f"Job is not running: {job.status.value}")
-        
+
         job.current_epoch = epoch
         job.current_step = step
         job.loss = loss
         job.accuracy = accuracy
         job.validation_loss = validation_loss
-        
+
         # Log progress
         log_entry = f"Epoch {epoch}/{job.total_epochs}, Step {step}, Loss: {loss:.4f}, Acc: {accuracy:.2%}"
         job.logs.append(log_entry)
-        
+
         # Check if complete
         if epoch >= job.total_epochs:
             self.complete_training(job_id)
-        
+
         return job
-    
-    def complete_training(self, job_id: str, checkpoint_url: Optional[str] = None) -> TrainingJob:
+
+    def complete_training(self, job_id: str, checkpoint_url: str | None = None) -> TrainingJob:
         """Mark training as complete"""
         if job_id not in self._jobs:
             raise ValueError(f"Job {job_id} not found")
-        
+
         job = self._jobs[job_id]
-        
+
         job.status = TrainingStatus.completed
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)
         job.model_checkpoint = checkpoint_url or f"checkpoint://{job_id}/final"
         job.current_epoch = job.total_epochs
-        
+
         if job_id in self._active_jobs:
             self._active_jobs.remove(job_id)
-        
+
         # Start next queued job
         self._process_queue()
-        
+
         logger.info(f"Training completed: {job_id}")
-        
+
         return job
-    
+
     def fail_training(self, job_id: str, error: str) -> TrainingJob:
         """Mark training as failed"""
         if job_id not in self._jobs:
             raise ValueError(f"Job {job_id} not found")
-        
+
         job = self._jobs[job_id]
         job.status = TrainingStatus.failed
         job.logs.append(f"ERROR: {error}")
-        
+
         if job_id in self._active_jobs:
             self._active_jobs.remove(job_id)
-        
+
         # Start next queued job
         self._process_queue()
-        
+
         logger.info(f"Training failed: {job_id} - {error}")
-        
+
         return job
-    
+
     def cancel_training(self, job_id: str) -> TrainingJob:
         """Cancel a training job"""
         if job_id not in self._jobs:
             raise ValueError(f"Job {job_id} not found")
-        
+
         job = self._jobs[job_id]
-        
+
         if job.status == TrainingStatus.completed:
             raise ValueError("Cannot cancel completed job")
-        
+
         job.status = TrainingStatus.cancelled
-        
+
         if job_id in self._active_jobs:
             self._active_jobs.remove(job_id)
-        
+
         # Start next queued job
         self._process_queue()
-        
+
         logger.info(f"Training cancelled: {job_id}")
-        
+
         return job
-    
+
     def _process_queue(self) -> None:
         """Process queued jobs"""
         # Find next queued job
@@ -302,46 +299,46 @@ class TrainingService:
                 if len(self._active_jobs) < self._max_concurrent:
                     self.start_training(job_id)
                 break
-    
-    def get_job(self, job_id: str) -> Optional[TrainingJob]:
+
+    def get_job(self, job_id: str) -> TrainingJob | None:
         """Get training job by ID"""
         return self._jobs.get(job_id)
-    
+
     def list_jobs(
         self,
-        status: Optional[str] = None,
-        model_type: Optional[str] = None
-    ) -> List[TrainingJob]:
+        status: str | None = None,
+        model_type: str | None = None
+    ) -> list[TrainingJob]:
         """List training jobs with filters"""
         jobs = list(self._jobs.values())
-        
+
         if status:
             jobs = [j for j in jobs if j.status.value == status]
-        
+
         if model_type:
             jobs = [j for j in jobs if j.model_type == model_type]
-        
+
         # Sort by created, newest first
         jobs.sort(key=lambda j: j.created_at, reverse=True)
-        
+
         return jobs
-    
-    def get_job_logs(self, job_id: str, limit: int = 100) -> List[str]:
+
+    def get_job_logs(self, job_id: str, limit: int = 100) -> list[str]:
         """Get training logs"""
         job = self._jobs.get(job_id)
         if not job:
             return []
-        
+
         return job.logs[-limit:]
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get training statistics"""
         total = len(self._jobs)
         running = len([j for j in self._jobs.values() if j.status == TrainingStatus.running])
         completed = len([j for j in self._jobs.values() if j.status == TrainingStatus.completed])
         failed = len([j for j in self._jobs.values() if j.status == TrainingStatus.failed])
         queued = len([j for j in self._jobs.values() if j.status == TrainingStatus.queued])
-        
+
         return {
             "total_jobs": total,
             "running": running,
@@ -354,7 +351,7 @@ class TrainingService:
 
 
 # Global instance
-_training_service: Optional[TrainingService] = None
+_training_service: TrainingService | None = None
 
 
 def get_training_service() -> TrainingService:

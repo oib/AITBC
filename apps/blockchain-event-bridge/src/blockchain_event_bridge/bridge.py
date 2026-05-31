@@ -1,24 +1,24 @@
 """Core bridge logic for blockchain event to hermes agent trigger mapping."""
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
+from .action_handlers.agent_daemon import AgentDaemonHandler
+from .action_handlers.coordinator_api import CoordinatorAPIHandler
+from .action_handlers.marketplace import MarketplaceHandler
 from .config import Settings
 from .event_subscribers.blocks import BlockEventSubscriber
-from .event_subscribers.transactions import TransactionEventSubscriber
 from .event_subscribers.contracts import ContractEventSubscriber
-from .action_handlers.coordinator_api import CoordinatorAPIHandler
-from .action_handlers.agent_daemon import AgentDaemonHandler
-from .action_handlers.marketplace import MarketplaceHandler
+from .event_subscribers.transactions import TransactionEventSubscriber
 from .metrics import (
-    events_received_total,
-    events_processed_total,
-    actions_triggered_total,
-    actions_failed_total,
-    event_processing_duration_seconds,
     action_execution_duration_seconds,
+    actions_failed_total,
+    actions_triggered_total,
+    event_processing_duration_seconds,
+    events_processed_total,
+    events_received_total,
 )
 
 logger = get_logger(__name__)
@@ -33,14 +33,14 @@ class BlockchainEventBridge:
         self._tasks: set[asyncio.Task] = set()
 
         # Event subscribers
-        self.block_subscriber: Optional[BlockEventSubscriber] = None
-        self.transaction_subscriber: Optional[TransactionEventSubscriber] = None
-        self.contract_subscriber: Optional[ContractEventSubscriber] = None
+        self.block_subscriber: BlockEventSubscriber | None = None
+        self.transaction_subscriber: TransactionEventSubscriber | None = None
+        self.contract_subscriber: ContractEventSubscriber | None = None
 
         # Action handlers
-        self.coordinator_handler: Optional[CoordinatorAPIHandler] = None
-        self.agent_daemon_handler: Optional[AgentDaemonHandler] = None
-        self.marketplace_handler: Optional[MarketplaceHandler] = None
+        self.coordinator_handler: CoordinatorAPIHandler | None = None
+        self.agent_daemon_handler: AgentDaemonHandler | None = None
+        self.marketplace_handler: MarketplaceHandler | None = None
 
     async def start(self) -> None:
         """Start the bridge service."""
@@ -119,7 +119,7 @@ class BlockchainEventBridge:
         """Check if the bridge is running."""
         return self._running
 
-    async def handle_block_event(self, block_data: Dict[str, Any]) -> None:
+    async def handle_block_event(self, block_data: dict[str, Any]) -> None:
         """Handle a new block event."""
         event_type = "block"
         events_received_total.labels(event_type=event_type).inc()
@@ -143,7 +143,7 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
                 logger.error(f"Error processing block event: {e}", exc_info=True)
 
-    async def handle_transaction_event(self, tx_data: Dict[str, Any]) -> None:
+    async def handle_transaction_event(self, tx_data: dict[str, Any]) -> None:
         """Handle a transaction event."""
         event_type = "transaction"
         events_received_total.labels(event_type=event_type).inc()
@@ -164,7 +164,7 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
                 logger.error(f"Error processing transaction event: {e}", exc_info=True)
 
-    async def _trigger_coordinator_actions(self, block_data: Dict[str, Any], transactions: list) -> None:
+    async def _trigger_coordinator_actions(self, block_data: dict[str, Any], transactions: list) -> None:
         """Trigger coordinator API actions based on block data."""
         if not self.coordinator_handler:
             return
@@ -177,7 +177,7 @@ class BlockchainEventBridge:
                 actions_failed_total.labels(action_type="coordinator_api").inc()
                 logger.error(f"Error triggering coordinator API actions: {e}", exc_info=True)
 
-    async def _trigger_marketplace_actions(self, block_data: Dict[str, Any], transactions: list) -> None:
+    async def _trigger_marketplace_actions(self, block_data: dict[str, Any], transactions: list) -> None:
         """Trigger marketplace actions based on block data."""
         if not self.marketplace_handler:
             return
@@ -190,7 +190,7 @@ class BlockchainEventBridge:
                 actions_failed_total.labels(action_type="marketplace").inc()
                 logger.error(f"Error triggering marketplace actions: {e}", exc_info=True)
 
-    async def _trigger_agent_daemon_actions(self, tx_data: Dict[str, Any]) -> None:
+    async def _trigger_agent_daemon_actions(self, tx_data: dict[str, Any]) -> None:
         """Trigger agent daemon actions based on transaction data."""
         if not self.agent_daemon_handler:
             return
@@ -203,7 +203,7 @@ class BlockchainEventBridge:
                 actions_failed_total.labels(action_type="agent_daemon").inc()
                 logger.error(f"Error triggering agent daemon actions: {e}", exc_info=True)
 
-    async def _trigger_coordinator_transaction_actions(self, tx_data: Dict[str, Any]) -> None:
+    async def _trigger_coordinator_transaction_actions(self, tx_data: dict[str, Any]) -> None:
         """Trigger coordinator API actions based on transaction data."""
         if not self.coordinator_handler:
             return
@@ -217,7 +217,7 @@ class BlockchainEventBridge:
                 logger.error(f"Error triggering coordinator API transaction actions: {e}", exc_info=True)
 
     # Phase 2: Contract event handlers
-    async def handle_staking_event(self, event_log: Dict[str, Any]) -> None:
+    async def handle_staking_event(self, event_log: dict[str, Any]) -> None:
         """Handle AgentStaking contract event."""
         event_type = "staking_event"
         events_received_total.labels(event_type=event_type).inc()
@@ -231,7 +231,7 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
                 logger.error(f"Error processing staking event: {e}", exc_info=True)
 
-    async def handle_performance_event(self, event_log: Dict[str, Any]) -> None:
+    async def handle_performance_event(self, event_log: dict[str, Any]) -> None:
         """Handle PerformanceVerifier contract event."""
         event_type = "performance_event"
         events_received_total.labels(event_type=event_type).inc()
@@ -245,7 +245,7 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
                 logger.error(f"Error processing performance event: {e}", exc_info=True)
 
-    async def handle_marketplace_event(self, event_log: Dict[str, Any]) -> None:
+    async def handle_marketplace_event(self, event_log: dict[str, Any]) -> None:
         """Handle AgentServiceMarketplace contract event."""
         event_type = "marketplace_event"
         events_received_total.labels(event_type=event_type).inc()
@@ -259,7 +259,7 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
                 logger.error(f"Error processing marketplace event: {e}", exc_info=True)
 
-    async def handle_bounty_event(self, event_log: Dict[str, Any]) -> None:
+    async def handle_bounty_event(self, event_log: dict[str, Any]) -> None:
         """Handle BountyIntegration contract event."""
         event_type = "bounty_event"
         events_received_total.labels(event_type=event_type).inc()
@@ -273,7 +273,7 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
                 logger.error(f"Error processing bounty event: {e}", exc_info=True)
 
-    async def handle_bridge_event(self, event_log: Dict[str, Any]) -> None:
+    async def handle_bridge_event(self, event_log: dict[str, Any]) -> None:
         """Handle CrossChainBridge contract event."""
         event_type = "bridge_event"
         events_received_total.labels(event_type=event_type).inc()

@@ -10,14 +10,14 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ..services.governance_service import get_governance_service
 from aitbc.rate_limiting import rate_limit
 
+from ..services.governance_service import get_governance_service
 
 router = APIRouter(prefix="/governance", tags=["governance"])
 
@@ -28,7 +28,7 @@ class CreateProposalRequest(BaseModel):
     description: str = Field(..., min_length=10)
     proposer: str
     proposal_type: str = "parameter_change"
-    call_data: Optional[Dict[str, Any]] = None
+    call_data: dict[str, Any] | None = None
 
 
 class CastVoteRequest(BaseModel):
@@ -50,7 +50,7 @@ class ExecuteProposalRequest(BaseModel):
 async def create_proposal(
     request: Request,
     req: CreateProposalRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a new governance proposal.
     
@@ -60,7 +60,7 @@ async def create_proposal(
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         # Verify proposer has minimum stake
         proposer_power = service.get_voting_power(req.proposer)
         if proposer_power < service.MIN_PROPOSAL_STAKE:
@@ -68,7 +68,7 @@ async def create_proposal(
                 status_code=400,
                 detail=f"Insufficient stake: {proposer_power} < {service.MIN_PROPOSAL_STAKE}"
             )
-        
+
         proposal = service.create_proposal(
             title=req.title,
             description=req.description,
@@ -76,12 +76,12 @@ async def create_proposal(
             proposal_type=req.proposal_type,
             call_data=req.call_data
         )
-        
+
         return {
             "success": True,
             **proposal.to_dict()
         }
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -95,13 +95,13 @@ async def create_proposal(
 async def cast_vote(
     request: Request,
     req: CastVoteRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Cast a vote on an active proposal"""
     try:
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         # Verify voting power matches
         actual_power = service.get_voting_power(req.voter)
         if req.voting_power > actual_power:
@@ -109,14 +109,14 @@ async def cast_vote(
                 status_code=400,
                 detail=f"Insufficient voting power: {actual_power} < {req.voting_power}"
             )
-        
+
         success = service.cast_vote(
             proposal_id=req.proposal_id,
             voter=req.voter,
             choice=req.choice,
             voting_power=req.voting_power
         )
-        
+
         return {
             "success": success,
             "proposal_id": req.proposal_id,
@@ -124,7 +124,7 @@ async def cast_vote(
             "choice": req.choice,
             "power": req.voting_power
         }
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -138,15 +138,15 @@ async def cast_vote(
 async def execute_proposal(
     request: Request,
     req: ExecuteProposalRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute a proposal that has passed voting"""
     try:
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         success = service.execute_proposal(req.proposal_id, req.executor)
-        
+
         return {
             "success": success,
             "proposal_id": req.proposal_id,
@@ -155,7 +155,7 @@ async def execute_proposal(
                 __import__('datetime').timezone.utc
             ).isoformat()
         }
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -169,19 +169,19 @@ async def execute_proposal(
 async def get_proposal(
     request: Request,
     proposal_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get detailed information about a specific proposal"""
     try:
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         proposal = service.get_proposal(proposal_id)
         if not proposal:
             raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
-        
+
         return proposal.to_dict()
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -192,17 +192,17 @@ async def get_proposal(
 @rate_limit(rate=50, per=60)
 async def list_proposals(
     request: Request,
-    status: Optional[str] = None,
-    proposer: Optional[str] = None
-) -> Dict[str, Any]:
+    status: str | None = None,
+    proposer: str | None = None
+) -> dict[str, Any]:
     """List governance proposals with optional filters"""
     try:
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         proposals = service.list_proposals(status=status, proposer=proposer)
-        
+
         return {
             "proposals": [p.to_dict() for p in proposals],
             "count": len(proposals),
@@ -211,7 +211,7 @@ async def list_proposals(
                 "proposer": proposer
             }
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list proposals: {str(e)}")
 
@@ -221,15 +221,15 @@ async def list_proposals(
 async def get_votes(
     request: Request,
     proposal_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get all votes cast on a proposal"""
     try:
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         votes = service.get_votes(proposal_id)
-        
+
         return {
             "proposal_id": proposal_id,
             "votes": [
@@ -243,22 +243,22 @@ async def get_votes(
             ],
             "count": len(votes)
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get votes: {str(e)}")
 
 
 @router.get("/params", summary="Get governance parameters")
 @rate_limit(rate=100, per=60)
-async def get_params(request: Request) -> Dict[str, Any]:
+async def get_params(request: Request) -> dict[str, Any]:
     """Get current governance system parameters"""
     try:
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         return service.get_governance_params()
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get params: {str(e)}")
 
@@ -268,41 +268,41 @@ async def get_params(request: Request) -> Dict[str, Any]:
 async def get_voting_power(
     request: Request,
     address: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get stake-weighted voting power for an address"""
     try:
         service = get_governance_service()
         if not service:
             raise HTTPException(status_code=503, detail="Governance service not initialized")
-        
+
         power = service.get_voting_power(address)
-        
+
         return {
             "address": address,
             "voting_power": power,
             "can_create_proposal": power >= service.MIN_PROPOSAL_STAKE
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get voting power: {str(e)}")
 
 
 @router.get("/health", summary="Governance health check")
-async def health_check(request: Request) -> Dict[str, Any]:
+async def health_check(request: Request) -> dict[str, Any]:
     """Check governance service health"""
     try:
         service = get_governance_service()
         if not service:
             return {"status": "unhealthy", "error": "Service not initialized"}
-        
+
         params = service.get_governance_params()
-        
+
         return {
             "status": "healthy",
             "total_proposals": params["total_proposals"],
             "active_proposals": params["active_proposals"]
         }
-        
+
     except Exception as e:
         return {
             "status": "unhealthy",

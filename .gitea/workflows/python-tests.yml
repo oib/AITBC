@@ -62,7 +62,7 @@ jobs:
           cd "${{ env.WORKSPACE }}/repo"
 
           if venv/bin/python -m ruff --version >/dev/null 2>&1; then
-            venv/bin/python -m ruff check apps/ packages/py/ --select E,F --ignore E501 -q || echo "⚠️ Ruff warnings"
+            venv/bin/python -m ruff check apps/ packages/py/ --select E,F --ignore E501 -q
           fi
 
           echo "✅ Linting completed"

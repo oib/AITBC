@@ -3,7 +3,7 @@ Multi-Modal Fusion Engine - Main service for multi-modal fusion operations
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 from sqlmodel import Session, select
 
 from ...domain.agent_performance import FusionModel
-from .neural_modules import CrossModalAttention, MultiModalTransformer, AdaptiveModalityWeighting
+from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
 
 
 class MultiModalFusionEngine:
@@ -364,7 +364,7 @@ class MultiModalFusionEngine:
             fusion_model.robustness_score = training_results["robustness"]
             fusion_model.inference_time = training_results["inference_time"]
             fusion_model.status = "ready"
-            fusion_model.trained_at = datetime.now(timezone.utc)
+            fusion_model.trained_at = datetime.now(UTC)
 
             session.commit()
 

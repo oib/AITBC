@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Annotated, Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from ..config import settings
+
 from ..deps import get_miner_id, require_miner_key
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
@@ -90,8 +90,8 @@ async def submit_result(
     duration_ms = metrics.get("duration_ms")
     if duration_ms is None and job.requested_at:
         # Ensure both datetimes are timezone-aware or both are offset-naive
-        now = datetime.now(timezone.utc)
-        requested_at = job.requested_at if job.requested_at.tzinfo else job.requested_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(UTC)
+        requested_at = job.requested_at if job.requested_at.tzinfo else job.requested_at.replace(tzinfo=UTC)
         duration_ms = int((now - requested_at).total_seconds() * 1000)
         metrics["duration_ms"] = duration_ms
 
@@ -295,8 +295,8 @@ class FailJobRequest(BaseModel):
 
 
 class CompleteJobRequest(BaseModel):
-    output: Dict[str, Any]
-    receipt: Optional[Dict[str, Any]] = None
+    output: dict[str, Any]
+    receipt: dict[str, Any] | None = None
 
 
 @router.post("/miners/{miner_id}/jobs/{job_id}/complete", summary="Complete job execution")
@@ -317,22 +317,22 @@ async def complete_job(
     """
     try:
         job_service = JobService(session)
-        
+
         # Build result dictionary
         result = {
             "output": complete_req.output,
             "receipt": complete_req.receipt or {}
         }
-        
+
         # Execute job completion (updates state to completed)
         job = job_service.execute_job(job_id, result)
-        
+
         logger.info(f"Job {job_id} completed by miner {miner_id}", extra={
             "job_id": job_id,
             "miner_id": miner_id,
             "output_size": len(str(complete_req.output))
         })
-        
+
         return {
             "job_id": job_id,
             "status": "completed",
@@ -340,7 +340,7 @@ async def complete_job(
             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
             "receipt_hash": complete_req.receipt.get("hash", "")[:16] if complete_req.receipt else None
         }
-        
+
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
     except ValueError as e:

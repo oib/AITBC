@@ -5,13 +5,13 @@ Settlement router for cross-chain settlements
 import asyncio
 from typing import Any
 
+from app.settlement.manager import BridgeManager
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import get_api_key
-from app.settlement.manager import BridgeManager
 
 router = APIRouter(prefix="/settlement", tags=["settlement"])
 

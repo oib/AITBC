@@ -1,20 +1,14 @@
 """Tests for mempool implementations (InMemory and Database-backed)"""
 
-import json
-import os
-import sys
-import tempfile
 import time
-import pytest
 
+import pytest
 from aitbc_chain.mempool import (
-    InMemoryMempool,
     DatabaseMempool,
-    PendingTransaction,
+    InMemoryMempool,
     compute_tx_hash,
-    _estimate_size,
-    init_mempool,
     get_mempool,
+    init_mempool,
 )
 from aitbc_chain.metrics import metrics_registry
 

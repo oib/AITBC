@@ -4,9 +4,11 @@ Aggregates portfolio data from wallet, exchange, marketplace, trading, and AI se
 """
 
 import os
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
+
 import httpx
+
 from aitbc import get_logger
 
 logger = get_logger(__name__)
@@ -27,7 +29,7 @@ class PortfolioAggregationService:
         verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
         self.http_client = httpx.AsyncClient(timeout=10.0, verify=verify_ssl)
 
-    async def get_unified_portfolio(self, agent_address: str | None = None) -> Dict[str, Any]:
+    async def get_unified_portfolio(self, agent_address: str | None = None) -> dict[str, Any]:
         """
         Get unified portfolio view by aggregating data from all services
 
@@ -52,7 +54,7 @@ class PortfolioAggregationService:
             )
 
             return {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "agent_address": agent_address,
                 "wallet": wallet_data,
                 "exchange": exchange_data,
@@ -66,7 +68,7 @@ class PortfolioAggregationService:
             logger.error(f"Error aggregating portfolio data: {str(e)}")
             raise
 
-    async def _get_wallet_balances(self, agent_address: str | None = None) -> Dict[str, Any]:
+    async def _get_wallet_balances(self, agent_address: str | None = None) -> dict[str, Any]:
         """Fetch wallet balances from wallet service"""
         try:
             # Use the wallets endpoint instead of non-existent balances endpoint
@@ -91,7 +93,7 @@ class PortfolioAggregationService:
             logger.error(f"Error fetching wallet balances: {str(e)}")
             return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": str(e)}
 
-    async def _get_exchange_rates(self) -> Dict[str, Any]:
+    async def _get_exchange_rates(self) -> dict[str, Any]:
         """Fetch exchange rates from exchange service"""
         try:
             response = await self.http_client.get(f"{self.exchange_service_url}/v1/exchange/rates")
@@ -104,7 +106,7 @@ class PortfolioAggregationService:
             logger.error(f"Error fetching exchange rates: {str(e)}")
             return {"rates": {}, "error": str(e)}
 
-    async def _get_marketplace_stats(self) -> Dict[str, Any]:
+    async def _get_marketplace_stats(self) -> dict[str, Any]:
         """Fetch marketplace statistics from marketplace service"""
         try:
             # Use the analytics endpoint instead of non-existent stats endpoint
@@ -125,7 +127,7 @@ class PortfolioAggregationService:
             logger.error(f"Error fetching marketplace stats: {str(e)}")
             return {"offers": 0, "bids": 0, "capacity": 0, "error": str(e)}
 
-    async def _get_trading_analytics(self, agent_address: str | None = None) -> Dict[str, Any]:
+    async def _get_trading_analytics(self, agent_address: str | None = None) -> dict[str, Any]:
         """Fetch trading analytics from trading service"""
         try:
             url = f"{self.trading_service_url}/v1/trading/analytics"
@@ -141,7 +143,7 @@ class PortfolioAggregationService:
             logger.error(f"Error fetching trading analytics: {str(e)}")
             return {"trades": [], "analytics": {}, "error": str(e)}
 
-    async def _get_ai_trade_signals(self) -> Dict[str, Any]:
+    async def _get_ai_trade_signals(self) -> dict[str, Any]:
         """Fetch AI trade signals from AI service"""
         try:
             # Use the AI trade endpoint to get trading decisions as signals
@@ -177,12 +179,12 @@ class PortfolioAggregationService:
 
     def _calculate_portfolio_summary(
         self,
-        wallet_data: Dict[str, Any],
-        exchange_data: Dict[str, Any],
-        marketplace_data: Dict[str, Any],
-        trading_data: Dict[str, Any],
-        ai_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        wallet_data: dict[str, Any],
+        exchange_data: dict[str, Any],
+        marketplace_data: dict[str, Any],
+        trading_data: dict[str, Any],
+        ai_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Calculate portfolio summary metrics from aggregated data"""
         try:
             # Calculate total portfolio value in AITBC

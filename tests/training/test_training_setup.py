@@ -2,11 +2,12 @@
 Integration tests for training environment setup.
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from aitbc.training_setup import TrainingEnvironment, TrainingSetupError, FundingError, MessagingError
+import pytest
+
+from aitbc.training_setup import FundingError, MessagingError, TrainingEnvironment, TrainingSetupError
 
 
 class TestTrainingEnvironment:
@@ -133,14 +134,14 @@ class TestTrainingEnvWithMockSubprocess:
     def mock_env(self):
         """Create training environment with subprocess mocked"""
         env = TrainingEnvironment()
-        
+
         def mock_run(*args, **kwargs):
             mock_result = MagicMock()
             mock_result.returncode = 0
             mock_result.stdout = "success"
             mock_result.stderr = ""
             return mock_result
-        
+
         with patch('subprocess.run', side_effect=mock_run):
             yield env
 
@@ -151,7 +152,7 @@ class TestTrainingEnvWithMockSubprocess:
             mock_result.returncode = 1
             mock_result.stderr = "Funding failed"
             return mock_result
-        
+
         with patch('subprocess.run', side_effect=mock_run_fail):
             with pytest.raises(FundingError):
                 mock_env.fund_training_wallet("test-wallet")
@@ -163,7 +164,7 @@ class TestTrainingEnvWithMockSubprocess:
             mock_result.returncode = 1
             mock_result.stderr = "Messaging failed"
             return mock_result
-        
+
         with patch('subprocess.run', side_effect=mock_run_fail):
             with pytest.raises(MessagingError):
                 mock_env.configure_messaging_auth("test-wallet")

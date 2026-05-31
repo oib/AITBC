@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
 from ..deps import require_admin_key
 from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 from ..schemas.marketplace_enhanced import (
@@ -25,7 +26,6 @@ from ..schemas.marketplace_enhanced import (
     RoyaltyDistributionRequest,
     RoyaltyDistributionResponse,
 )
-from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
 from ..storage import get_session
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Enhanced Marketplace"])

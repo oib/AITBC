@@ -1,14 +1,23 @@
 """Unit tests for agent marketplace service"""
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add app src to path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "apps" / "marketplace"))
 
-from agent_marketplace import app, GPUOffering, DealRequest, DealConfirmation, MinerRegistration, DEFAULT_CORS_ORIGINS, get_cors_origins
+from agent_marketplace import (
+    DEFAULT_CORS_ORIGINS,
+    DealConfirmation,
+    DealRequest,
+    GPUOffering,
+    MinerRegistration,
+    app,
+    get_cors_origins,
+)
 
 
 @pytest.mark.unit

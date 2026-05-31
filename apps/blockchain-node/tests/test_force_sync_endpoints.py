@@ -2,12 +2,10 @@ import hashlib
 from contextlib import contextmanager
 from datetime import datetime
 
-import sys
 import pytest
-from sqlmodel import Session, SQLModel, create_engine, select
-
 from aitbc_chain.models import Account, Block, Transaction
 from aitbc_chain.rpc import router as rpc_router
+from sqlmodel import Session, SQLModel, create_engine, select
 
 
 def _hex(value: str) -> str:
@@ -244,7 +242,6 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
 async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine):
     """Test that import-chain clears blocks with conflicting hashes across different chains."""
     from aitbc_chain.rpc import router as rpc_router
-    from aitbc_chain.database import get_engine
 
     with Session(isolated_engine) as session:
         session.add(

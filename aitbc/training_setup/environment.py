@@ -5,19 +5,13 @@ Provides Python-based training environment setup with proper error handling,
 logging, and integration with existing AITBC patterns.
 """
 
-import subprocess
-import json
-import os
 import logging
+import subprocess
 from pathlib import Path
-from typing import Optional, Dict, List, Any
-from datetime import datetime
+from typing import Any
 
 from .exceptions import (
-    TrainingSetupError,
     FundingError,
-    MessagingError,
-    FaucetError,
     PrerequisitesError,
 )
 from .stage_runner import StageRunner
@@ -51,19 +45,19 @@ class TrainingEnvironment:
         self.genesis_allocation = genesis_allocation
         self.wallet_prefix = wallet_prefix
         self.genesis_password_path = Path(genesis_password_path)
-        
+
         # Load genesis password
         self.genesis_password = self._load_genesis_password()
-        
+
         # Stage runner for schema-driven execution
         self.stage_runner = StageRunner(str(self.aitbc_dir / "aitbc-cli"))
-        
+
         # Ensure directories exist
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Setup logging
         self._setup_logging()
-        
+
         log.info("TrainingEnvironment initialized")
         log.info(f"AITBC directory: {self.aitbc_dir}")
         log.info(f"Log directory: {self.log_dir}")
@@ -104,14 +98,14 @@ class TrainingEnvironment:
             True if prerequisites are met, raises PrerequisitesError otherwise
         """
         log.info("Checking prerequisites...")
-        
+
         # Check AITBC CLI exists
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         if not aitbc_cli.exists():
             raise PrerequisitesError(f"AITBC CLI not found at {aitbc_cli}")
-        
+
         log.info("✓ AITBC CLI found")
-        
+
         # Check AITBC node status
         try:
             result = subprocess.run(
@@ -129,11 +123,11 @@ class TrainingEnvironment:
             log.warning("AITBC node check timed out")
         except Exception as e:
             log.warning(f"AITBC node check failed: {e}")
-        
+
         log.info("Prerequisites check completed")
         return True
 
-    def create_genesis_allocation(self) -> Dict[str, Any]:
+    def create_genesis_allocation(self) -> dict[str, Any]:
         """
         Check genesis wallet and blockchain status.
         Genesis block already exists, so we skip initialization.
@@ -142,9 +136,9 @@ class TrainingEnvironment:
             Dictionary with allocation status
         """
         log.info("Checking genesis wallet and blockchain status...")
-        
+
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
-        
+
         # Check if genesis wallet exists
         try:
             result = subprocess.run(
@@ -160,7 +154,7 @@ class TrainingEnvironment:
                 log.warning("Genesis wallet not found, may need manual setup")
         except Exception as e:
             log.warning(f"Genesis wallet check failed: {e}")
-        
+
         # Check genesis balance
         try:
             result = subprocess.run(
@@ -176,13 +170,13 @@ class TrainingEnvironment:
                 log.warning(f"Genesis balance check: {result.stderr}")
         except Exception as e:
             log.warning(f"Genesis balance check failed: {e}")
-        
+
         # Note: Genesis initialization skipped as block already exists
         log.info("Genesis block already exists, initialization skipped")
-        
+
         return {"status": "completed", "note": "Genesis block already exists"}
 
-    def setup_faucet_wallet(self) -> Dict[str, Any]:
+    def setup_faucet_wallet(self) -> dict[str, Any]:
         """
         Check genesis wallet status for funding.
         Genesis wallet is pre-funded with 999,999,890 AIT and used as funding source.
@@ -191,9 +185,9 @@ class TrainingEnvironment:
             Dictionary with funding source status
         """
         log.info("Checking genesis wallet as funding source...")
-        
+
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
-        
+
         # Check genesis wallet balance
         try:
             result = subprocess.run(
@@ -211,10 +205,10 @@ class TrainingEnvironment:
                 log.warning(f"Genesis balance check: {result.stderr}")
         except Exception as e:
             log.warning(f"Genesis balance check failed: {e}")
-        
+
         return {"status": "completed", "funding_source": "genesis", "note": "Genesis wallet used as funding source"}
 
-    def fund_training_wallet(self, wallet_name: str, password: str = "training123") -> Dict[str, Any]:
+    def fund_training_wallet(self, wallet_name: str, password: str = "training123") -> dict[str, Any]:
         """
         Fund a training wallet from genesis.
         
@@ -226,9 +220,9 @@ class TrainingEnvironment:
             Dictionary with funding status
         """
         log.info(f"Funding training wallet: {wallet_name}")
-        
+
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
-        
+
         # Create wallet if it doesn't exist
         try:
             result = subprocess.run(
@@ -252,7 +246,7 @@ class TrainingEnvironment:
                     log.warning(f"Wallet creation: {create_result.stderr}")
         except Exception as e:
             log.warning(f"Wallet creation check failed: {e}")
-        
+
         # Fund from genesis (pre-funded wallet) - use actual genesis password (positional format)
         try:
             result = subprocess.run(
@@ -270,7 +264,7 @@ class TrainingEnvironment:
         except Exception as e:
             log.error(f"Funding failed: {e}")
             raise
-        
+
         # Verify balance
         try:
             result = subprocess.run(
@@ -284,7 +278,7 @@ class TrainingEnvironment:
                 log.info(f"✓ Wallet {wallet_name} balance: {result.stdout.strip()}")
         except Exception as e:
             log.warning(f"Balance check failed: {e}")
-        
+
         return {"status": "completed", "wallet": wallet_name, "amount": self.faucet_amount, "source": "genesis"}
 
     def generate_auth_token(self) -> str:
@@ -295,12 +289,12 @@ class TrainingEnvironment:
             Generated token
         """
         import secrets
-        
+
         token = secrets.token_hex(32)
         log.info("✓ Authentication token generated")
         return token
 
-    def configure_messaging_auth(self, wallet_name: str, password: str = "training123") -> Dict[str, Any]:
+    def configure_messaging_auth(self, wallet_name: str, password: str = "training123") -> dict[str, Any]:
         """
         Configure messaging authentication for a wallet.
         
@@ -312,17 +306,17 @@ class TrainingEnvironment:
             Dictionary with configuration status
         """
         log.info(f"Configuring messaging authentication for: {wallet_name}")
-        
+
         # Generate auth token
         token = self.generate_auth_token()
-        
+
         # Store token
         auth_token_file = Path("/var/lib/aitbc/messaging-auth.token")
         auth_token_file.parent.mkdir(parents=True, exist_ok=True)
         auth_token_file.write_text(token)
         auth_token_file.chmod(0o600)
         log.info(f"✓ Auth token stored at {auth_token_file}")
-        
+
         # Configure wallet for messaging
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
@@ -349,7 +343,7 @@ class TrainingEnvironment:
         except Exception as e:
             log.warning(f"Messaging configuration failed: {e}")
             # Don't raise exception, messaging is optional
-        
+
         return {"status": "completed", "wallet": wallet_name, "token_file": str(auth_token_file)}
 
     def test_messaging_connectivity(self) -> bool:
@@ -360,7 +354,7 @@ class TrainingEnvironment:
             True if connectivity test passes
         """
         log.info("Testing messaging connectivity...")
-        
+
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
             result = subprocess.run(
@@ -380,7 +374,7 @@ class TrainingEnvironment:
             log.warning(f"Messaging connectivity test error: {e}")
             return False
 
-    def verify_environment(self) -> Dict[str, Any]:
+    def verify_environment(self) -> dict[str, Any]:
         """
         Verify training environment is properly configured.
         
@@ -388,10 +382,10 @@ class TrainingEnvironment:
             Dictionary with verification results
         """
         log.info("Verifying training environment...")
-        
+
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         results = {}
-        
+
         # Check wallet list
         try:
             result = subprocess.run(
@@ -408,7 +402,7 @@ class TrainingEnvironment:
         except Exception as e:
             log.warning(f"Wallet list check failed: {e}")
             results["wallets"] = "error"
-        
+
         # Check blockchain status
         try:
             result = subprocess.run(
@@ -424,11 +418,11 @@ class TrainingEnvironment:
         except Exception as e:
             log.warning(f"Blockchain status check failed: {e}")
             results["blockchain"] = "error"
-        
+
         log.info("Environment verification completed")
         return results
 
-    def setup_full_environment(self) -> Dict[str, Any]:
+    def setup_full_environment(self) -> dict[str, Any]:
         """
         Setup complete training environment.
         
@@ -436,9 +430,9 @@ class TrainingEnvironment:
             Dictionary with setup status
         """
         log.info("Starting full training environment setup...")
-        
+
         results = {}
-        
+
         # Check prerequisites
         try:
             self.check_prerequisites()
@@ -447,7 +441,7 @@ class TrainingEnvironment:
             log.error(f"Prerequisites check failed: {e}")
             results["prerequisites"] = "failed"
             return results
-        
+
         # Setup genesis and faucet
         try:
             self.create_genesis_allocation()
@@ -456,7 +450,7 @@ class TrainingEnvironment:
         except Exception as e:
             log.error(f"Funding setup failed: {e}")
             results["funding"] = "failed"
-        
+
         # Fund training wallets
         try:
             self.fund_training_wallet("training-wallet")
@@ -465,7 +459,7 @@ class TrainingEnvironment:
         except Exception as e:
             log.error(f"Training wallet funding failed: {e}")
             results["wallets_funded"] = "failed"
-        
+
         # Configure messaging
         try:
             self.configure_messaging_auth("training-wallet")
@@ -475,7 +469,7 @@ class TrainingEnvironment:
         except Exception as e:
             log.error(f"Messaging configuration failed: {e}")
             results["messaging"] = "failed"
-        
+
         # Verify environment
         try:
             verification = self.verify_environment()
@@ -483,7 +477,7 @@ class TrainingEnvironment:
         except Exception as e:
             log.error(f"Environment verification failed: {e}")
             results["verification"] = "error"
-        
+
         log.info("Training environment setup completed")
         return results
 
@@ -499,7 +493,7 @@ class TrainingEnvironment:
         """
         return f"{self.wallet_prefix}{index}"
 
-    def run_stage_from_json(self, json_path: str) -> Dict[str, Any]:
+    def run_stage_from_json(self, json_path: str) -> dict[str, Any]:
         """
         Execute a training stage from JSON schema definition.
         

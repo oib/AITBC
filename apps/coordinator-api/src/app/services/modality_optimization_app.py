@@ -10,8 +10,12 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..contexts.multimodal.routers.modality_optimization_health import router as health_router
+from ..contexts.multimodal.services.modality_optimization import (
+    ModalityOptimizationManager,
+    ModalityType,
+    OptimizationStrategy,
+)
 from ..storage import get_session
-from ..contexts.multimodal.services.modality_optimization import ModalityOptimizationManager, ModalityType, OptimizationStrategy
 
 app = FastAPI(
     title="AITBC Modality Optimization Service",

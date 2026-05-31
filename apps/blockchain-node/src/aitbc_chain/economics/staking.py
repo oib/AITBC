@@ -3,13 +3,11 @@ Staking Mechanism Implementation
 Handles validator staking, delegation, and stake management
 """
 
-import asyncio
 import time
-import json
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict
-from enum import Enum
+from dataclasses import dataclass
 from decimal import Decimal
+from enum import Enum
+
 
 class StakingStatus(Enum):
     ACTIVE = "active"
@@ -41,46 +39,46 @@ class ValidatorStakeInfo:
 
 class StakingManager:
     """Manages validator staking and delegation"""
-    
+
     def __init__(self, min_stake_amount: float = 1000.0):
         self.min_stake_amount = Decimal(str(min_stake_amount))
-        self.stake_positions: Dict[str, StakePosition] = {}  # key: validator:delegator
-        self.validator_info: Dict[str, ValidatorStakeInfo] = {}
-        self.unstaking_requests: Dict[str, float] = {}  # key: validator:delegator, value: request_time
-        self.slashing_events: List[Dict] = []
-        
+        self.stake_positions: dict[str, StakePosition] = {}  # key: validator:delegator
+        self.validator_info: dict[str, ValidatorStakeInfo] = {}
+        self.unstaking_requests: dict[str, float] = {}  # key: validator:delegator, value: request_time
+        self.slashing_events: list[dict] = []
+
         # Staking parameters
         self.unstaking_period = 21  # days
         self.max_delegators_per_validator = 100
         self.commission_range = (0.01, 0.10)  # 1% to 10%
-        
-    def stake(self, validator_address: str, delegator_address: str, amount: float, 
-              lock_period: int = 30) -> Tuple[bool, str]:
+
+    def stake(self, validator_address: str, delegator_address: str, amount: float,
+              lock_period: int = 30) -> tuple[bool, str]:
         """Stake tokens for validator"""
         try:
             amount_decimal = Decimal(str(amount))
-            
+
             # Validate amount
             if amount_decimal < self.min_stake_amount:
                 return False, f"Amount must be at least {self.min_stake_amount}"
-            
+
             # Check if validator exists and is active
             validator_info = self.validator_info.get(validator_address)
             if not validator_info or not validator_info.is_active:
                 return False, "Validator not found or not active"
-            
+
             # Check delegator limit
             if delegator_address != validator_address:
                 delegator_count = len([
                     pos for pos in self.stake_positions.values()
-                    if pos.validator_address == validator_address and 
+                    if pos.validator_address == validator_address and
                     pos.delegator_address == delegator_address and
                     pos.status == StakingStatus.ACTIVE
                 ])
-                
+
                 if delegator_count >= 1:  # One stake per delegator per validator
                     return False, "Already staked to this validator"
-                
+
                 # Check total delegators limit
                 total_delegators = len([
                     pos for pos in self.stake_positions.values()
@@ -88,10 +86,10 @@ class StakingManager:
                     pos.delegator_address != validator_address and
                     pos.status == StakingStatus.ACTIVE
                 ])
-                
+
                 if total_delegators >= self.max_delegators_per_validator:
                     return False, "Validator has reached maximum delegator limit"
-            
+
             # Create stake position
             position_key = f"{validator_address}:{delegator_address}"
             stake_position = StakePosition(
@@ -104,90 +102,90 @@ class StakingManager:
                 rewards=Decimal('0'),
                 slash_count=0
             )
-            
+
             self.stake_positions[position_key] = stake_position
-            
+
             # Update validator info
             self._update_validator_stake_info(validator_address)
-            
+
             return True, "Stake successful"
-            
+
         except Exception as e:
             return False, f"Staking failed: {str(e)}"
-    
-    def unstake(self, validator_address: str, delegator_address: str) -> Tuple[bool, str]:
+
+    def unstake(self, validator_address: str, delegator_address: str) -> tuple[bool, str]:
         """Request unstaking (start unlock period)"""
         position_key = f"{validator_address}:{delegator_address}"
         position = self.stake_positions.get(position_key)
-        
+
         if not position:
             return False, "Stake position not found"
-        
+
         if position.status != StakingStatus.ACTIVE:
             return False, f"Cannot unstake from {position.status.value} position"
-        
+
         # Check lock period
         if time.time() - position.staked_at < (position.lock_period * 24 * 3600):
             return False, "Stake is still in lock period"
-        
+
         # Start unstaking
         position.status = StakingStatus.UNSTAKING
         self.unstaking_requests[position_key] = time.time()
-        
+
         # Update validator info
         self._update_validator_stake_info(validator_address)
-        
+
         return True, "Unstaking request submitted"
-    
-    def withdraw(self, validator_address: str, delegator_address: str) -> Tuple[bool, str, float]:
+
+    def withdraw(self, validator_address: str, delegator_address: str) -> tuple[bool, str, float]:
         """Withdraw unstaked tokens"""
         position_key = f"{validator_address}:{delegator_address}"
         position = self.stake_positions.get(position_key)
-        
+
         if not position:
             return False, "Stake position not found", 0.0
-        
+
         if position.status != StakingStatus.UNSTAKING:
             return False, f"Position not in unstaking status: {position.status.value}", 0.0
-        
+
         # Check unstaking period
         request_time = self.unstaking_requests.get(position_key, 0)
         if time.time() - request_time < (self.unstaking_period * 24 * 3600):
             remaining_time = (self.unstaking_period * 24 * 3600) - (time.time() - request_time)
             return False, f"Unstaking period not completed. {remaining_time/3600:.1f} hours remaining", 0.0
-        
+
         # Calculate withdrawal amount (including rewards)
         withdrawal_amount = float(position.amount + position.rewards)
-        
+
         # Update position status
         position.status = StakingStatus.WITHDRAWN
-        
+
         # Clean up
         self.unstaking_requests.pop(position_key, None)
-        
+
         # Update validator info
         self._update_validator_stake_info(validator_address)
-        
+
         return True, "Withdrawal successful", withdrawal_amount
-    
-    def register_validator(self, validator_address: str, self_stake: float, 
-                          commission_rate: float = 0.05) -> Tuple[bool, str]:
+
+    def register_validator(self, validator_address: str, self_stake: float,
+                          commission_rate: float = 0.05) -> tuple[bool, str]:
         """Register a new validator"""
         try:
             self_stake_decimal = Decimal(str(self_stake))
-            
+
             # Validate self stake
             if self_stake_decimal < self.min_stake_amount:
                 return False, f"Self stake must be at least {self.min_stake_amount}"
-            
+
             # Validate commission rate
             if not (self.commission_range[0] <= commission_rate <= self.commission_range[1]):
                 return False, f"Commission rate must be between {self.commission_range[0]} and {self.commission_range[1]}"
-            
+
             # Check if already registered
             if validator_address in self.validator_info:
                 return False, "Validator already registered"
-            
+
             # Create validator info
             self.validator_info[validator_address] = ValidatorStakeInfo(
                 validator_address=validator_address,
@@ -199,7 +197,7 @@ class StakingManager:
                 performance_score=1.0,
                 is_active=True
             )
-            
+
             # Create self-stake position
             position_key = f"{validator_address}:{validator_address}"
             stake_position = StakePosition(
@@ -212,21 +210,21 @@ class StakingManager:
                 rewards=Decimal('0'),
                 slash_count=0
             )
-            
+
             self.stake_positions[position_key] = stake_position
-            
+
             return True, "Validator registered successfully"
-            
+
         except Exception as e:
             return False, f"Validator registration failed: {str(e)}"
-    
-    def unregister_validator(self, validator_address: str) -> Tuple[bool, str]:
+
+    def unregister_validator(self, validator_address: str) -> tuple[bool, str]:
         """Unregister validator (if no delegators)"""
         validator_info = self.validator_info.get(validator_address)
-        
+
         if not validator_info:
             return False, "Validator not found"
-        
+
         # Check for delegators
         delegator_positions = [
             pos for pos in self.stake_positions.values()
@@ -234,38 +232,38 @@ class StakingManager:
             pos.delegator_address != validator_address and
             pos.status == StakingStatus.ACTIVE
         ]
-        
+
         if delegator_positions:
             return False, "Cannot unregister validator with active delegators"
-        
+
         # Unstake self stake
         success, message = self.unstake(validator_address, validator_address)
         if not success:
             return False, f"Cannot unstake self stake: {message}"
-        
+
         # Mark as inactive
         validator_info.is_active = False
-        
+
         return True, "Validator unregistered successfully"
-    
-    def slash_validator(self, validator_address: str, slash_percentage: float, 
-                       reason: str) -> Tuple[bool, str]:
+
+    def slash_validator(self, validator_address: str, slash_percentage: float,
+                       reason: str) -> tuple[bool, str]:
         """Slash validator for misbehavior"""
         try:
             validator_info = self.validator_info.get(validator_address)
             if not validator_info:
                 return False, "Validator not found"
-            
+
             # Get all stake positions for this validator
             validator_positions = [
                 pos for pos in self.stake_positions.values()
                 if pos.validator_address == validator_address and
                 pos.status in [StakingStatus.ACTIVE, StakingStatus.UNSTAKING]
             ]
-            
+
             if not validator_positions:
                 return False, "No active stakes found for validator"
-            
+
             # Apply slash to all positions
             total_slashed = Decimal('0')
             for position in validator_positions:
@@ -274,11 +272,11 @@ class StakingManager:
                 position.rewards = Decimal('0')  # Reset rewards
                 position.slash_count += 1
                 total_slashed += slash_amount
-                
+
                 # Mark as slashed if amount is too low
                 if position.amount < self.min_stake_amount:
                     position.status = StakingStatus.SLASHED
-            
+
             # Record slashing event
             self.slashing_events.append({
                 'validator_address': validator_address,
@@ -288,81 +286,81 @@ class StakingManager:
                 'total_slashed': float(total_slashed),
                 'affected_positions': len(validator_positions)
             })
-            
+
             # Update validator info
             validator_info.performance_score = max(0.0, validator_info.performance_score - 0.1)
             self._update_validator_stake_info(validator_address)
-            
+
             return True, f"Slashed {len(validator_positions)} stake positions"
-            
+
         except Exception as e:
             return False, f"Slashing failed: {str(e)}"
-    
-    def calculate_epoch_rewards(self, total_reward: float = 1000.0) -> Dict[str, float]:
+
+    def calculate_epoch_rewards(self, total_reward: float = 1000.0) -> dict[str, float]:
         """Calculate epoch rewards for all validators"""
         rewards = {}
-        
+
         # Get total active stake
         total_stake = self.get_total_staked()
         if total_stake == 0:
             return rewards
-        
+
         # Calculate rewards proportional to stake
         for validator_address, info in self.validator_info.items():
             if info.is_active:
                 stake_share = float(info.total_stake) / float(total_stake)
                 reward = total_reward * stake_share
                 rewards[validator_address] = reward
-        
+
         return rewards
-    
-    def complete_validator_exit(self, validator_address: str) -> Tuple[bool, str]:
+
+    def complete_validator_exit(self, validator_address: str) -> tuple[bool, str]:
         """Complete validator exit process after unstaking period"""
         try:
             validator_info = self.validator_info.get(validator_address)
             if not validator_info:
                 return False, "Validator not found"
-            
+
             # Find all unstaking positions for this validator
             unstaking_positions = [
                 pos for pos in self.stake_positions.values()
                 if pos.validator_address == validator_address and
                 pos.status == StakingStatus.UNSTAKING
             ]
-            
+
             if not unstaking_positions:
                 return False, "No unstaking positions found"
-            
+
             # Check if unstaking period has elapsed
             current_time = time.time()
             for position in unstaking_positions:
                 request_key = f"{validator_address}:{position.delegator_address}"
                 request_time = self.unstaking_requests.get(request_key, 0)
-                
+
                 if current_time - request_time < self.unstaking_period * 86400:
                     return False, "Unstaking period not yet elapsed"
-                
+
                 # Complete unstake
                 position.status = StakingStatus.WITHDRAWN
                 del self.unstaking_requests[request_key]
-            
+
             # Mark validator as inactive
             validator_info.is_active = False
             self._update_validator_stake_info(validator_address)
-            
+
             return True, f"Completed exit for {len(unstaking_positions)} positions"
-            
+
         except Exception as e:
             return False, f"Exit completion failed: {str(e)}"
-    
-    def distribute_rewards(self, total_reward: float = 1000.0) -> Tuple[bool, str]:
+
+    def distribute_rewards(self, total_reward: float = 1000.0) -> tuple[bool, str]:
         """Distribute rewards to validators"""
         try:
             rewards = self.calculate_epoch_rewards(total_reward)
-            
+
             if not rewards:
                 return False, "No rewards to distribute"
-            
+
             # Add rewards to validator stake positions
             for validator_address, reward_amount in rewards.items():
                 validator_positions = [
@@ -370,34 +368,34 @@ class StakingManager:
                     if pos.validator_address == validator_address and
                     pos.status == StakingStatus.ACTIVE
                 ]
-                
+
                 if not validator_positions:
                     continue
-                
+
                 # Distribute reward proportionally among positions
                 total_stake = sum(pos.amount for pos in validator_positions)
                 if total_stake == 0:
                     continue
-                
+
                 for position in validator_positions:
                     share = float(position.amount) / float(total_stake)
                     position.rewards += Decimal(str(reward_amount * share))
-            
+
             return True, f"Distributed rewards to {len(rewards)} validators"
-            
+
         except Exception as e:
             return False, f"Reward distribution failed: {str(e)}"
-    
+
     def get_validator_rewards(self, validator_address: str) -> float:
         """Get total rewards for a validator"""
         validator_positions = [
             pos for pos in self.stake_positions.values()
             if pos.validator_address == validator_address
         ]
-        
+
         total_rewards = sum(pos.rewards for pos in validator_positions)
         return float(total_rewards)
-    
+
     def _update_validator_stake_info(self, validator_address: str):
         """Update validator stake information"""
         validator_positions = [
@@ -405,53 +403,53 @@ class StakingManager:
             if pos.validator_address == validator_address and
             pos.status == StakingStatus.ACTIVE
         ]
-        
+
         if not validator_positions:
             if validator_address in self.validator_info:
                 self.validator_info[validator_address].total_stake = Decimal('0')
                 self.validator_info[validator_address].delegated_stake = Decimal('0')
                 self.validator_info[validator_address].delegators_count = 0
             return
-        
+
         validator_info = self.validator_info.get(validator_address)
         if not validator_info:
             return
-        
+
         # Calculate stakes
         self_stake = Decimal('0')
         delegated_stake = Decimal('0')
         delegators = set()
-        
+
         for position in validator_positions:
             if position.delegator_address == validator_address:
                 self_stake += position.amount
             else:
                 delegated_stake += position.amount
                 delegators.add(position.delegator_address)
-        
+
         validator_info.self_stake = self_stake
         validator_info.delegated_stake = delegated_stake
         validator_info.total_stake = self_stake + delegated_stake
         validator_info.delegators_count = len(delegators)
-    
-    def get_stake_position(self, validator_address: str, delegator_address: str) -> Optional[StakePosition]:
+
+    def get_stake_position(self, validator_address: str, delegator_address: str) -> StakePosition | None:
         """Get stake position"""
         position_key = f"{validator_address}:{delegator_address}"
         return self.stake_positions.get(position_key)
-    
-    def get_validator_stake_info(self, validator_address: str) -> Optional[ValidatorStakeInfo]:
+
+    def get_validator_stake_info(self, validator_address: str) -> ValidatorStakeInfo | None:
         """Get validator stake information"""
         return self.validator_info.get(validator_address)
-    
-    def get_all_validators(self) -> List[ValidatorStakeInfo]:
+
+    def get_all_validators(self) -> list[ValidatorStakeInfo]:
         """Get all registered validators"""
         return list(self.validator_info.values())
-    
-    def get_active_validators(self) -> List[ValidatorStakeInfo]:
+
+    def get_active_validators(self) -> list[ValidatorStakeInfo]:
         """Get active validators"""
         return [v for v in self.validator_info.values() if v.is_active]
-    
-    def get_delegators(self, validator_address: str) -> List[StakePosition]:
+
+    def get_delegators(self, validator_address: str) -> list[StakePosition]:
         """Get delegators for validator"""
         return [
             pos for pos in self.stake_positions.values()
@@ -459,25 +457,25 @@ class StakingManager:
             pos.delegator_address != validator_address and
             pos.status == StakingStatus.ACTIVE
         ]
-    
+
     def get_total_staked(self) -> Decimal:
         """Get total amount staked across all validators"""
         return sum(
             pos.amount for pos in self.stake_positions.values()
             if pos.status == StakingStatus.ACTIVE
         )
-    
-    def get_staking_statistics(self) -> Dict:
+
+    def get_staking_statistics(self) -> dict:
         """Get staking system statistics"""
         active_positions = [
             pos for pos in self.stake_positions.values()
             if pos.status == StakingStatus.ACTIVE
         ]
-        
+
         return {
             'total_validators': len(self.get_active_validators()),
             'total_staked': float(self.get_total_staked()),
-            'total_delegators': len(set(pos.delegator_address for pos in active_positions 
+            'total_delegators': len(set(pos.delegator_address for pos in active_positions
                                  if pos.delegator_address != pos.validator_address)),
             'average_stake_per_validator': float(sum(v.total_stake for v in self.get_active_validators()) / len(self.get_active_validators())) if self.get_active_validators() else 0,
             'total_slashing_events': len(self.slashing_events),
@@ -485,9 +483,9 @@ class StakingManager:
         }
 
 # Global staking manager
-staking_manager: Optional[StakingManager] = None
+staking_manager: StakingManager | None = None
 
-def get_staking_manager() -> Optional[StakingManager]:
+def get_staking_manager() -> StakingManager | None:
     """Get global staking manager"""
     return staking_manager
 

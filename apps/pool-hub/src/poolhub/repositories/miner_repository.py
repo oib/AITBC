@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import List, Optional, Tuple
+from datetime import timezone
 
 from redis.asyncio import Redis
 from sqlalchemy import select, update
@@ -27,14 +27,14 @@ class MinerRepository:
         addr: str,
         proto: str,
         gpu_vram_gb: float,
-        gpu_name: Optional[str],
+        gpu_name: str | None,
         cpu_cores: int,
         ram_gb: float,
         max_parallel: int,
         base_price: float,
         tags: dict[str, str],
         capabilities: list[str],
-        region: Optional[str],
+        region: str | None,
     ) -> Miner:
         miner = await self._session.get(Miner, miner_id)
         if miner is None:
@@ -79,11 +79,11 @@ class MinerRepository:
         self,
         miner_id: str,
         *,
-        queue_len: Optional[int] = None,
-        busy: Optional[bool] = None,
-        avg_latency_ms: Optional[int] = None,
-        temp_c: Optional[int] = None,
-        mem_free_gb: Optional[float] = None,
+        queue_len: int | None = None,
+        busy: bool | None = None,
+        avg_latency_ms: int | None = None,
+        temp_c: int | None = None,
+        mem_free_gb: float | None = None,
     ) -> None:
         stmt = (
             update(MinerStatus)
@@ -119,20 +119,20 @@ class MinerRepository:
         await self._session.flush()
         await self._sync_miner_to_redis(miner_id)
 
-    async def get_miner(self, miner_id: str) -> Optional[Miner]:
+    async def get_miner(self, miner_id: str) -> Miner | None:
         return await self._session.get(Miner, miner_id)
 
-    async def iter_miners(self) -> List[Miner]:
+    async def iter_miners(self) -> list[Miner]:
         result = await self._session.execute(select(Miner))
         return list(result.scalars().all())
 
-    async def get_status(self, miner_id: str) -> Optional[MinerStatus]:
+    async def get_status(self, miner_id: str) -> MinerStatus | None:
         return await self._session.get(MinerStatus, miner_id)
 
-    async def list_active_miners(self) -> List[Tuple[Miner, Optional[MinerStatus], float]]:
+    async def list_active_miners(self) -> list[tuple[Miner, MinerStatus | None, float]]:
         stmt = select(Miner, MinerStatus).join(MinerStatus, MinerStatus.miner_id == Miner.miner_id, isouter=True)
         result = await self._session.execute(stmt)
-        records: List[Tuple[Miner, Optional[MinerStatus], float]] = []
+        records: list[tuple[Miner, MinerStatus | None, float]] = []
         for miner, status in result.all():
             score = self._compute_score(miner, status)
             records.append((miner, status, score))
@@ -167,7 +167,7 @@ class MinerRepository:
         await self._redis.zadd(ranking_key, {miner_id: score})
         await self._redis.expire(ranking_key, settings.session_ttl_seconds + settings.heartbeat_grace_seconds)
 
-    def _compute_score(self, miner: Miner, status: Optional[MinerStatus]) -> float:
+    def _compute_score(self, miner: Miner, status: MinerStatus | None) -> float:
         load_factor = 1.0
         if status and miner.max_parallel:
             utilization = min(status.queue_len / max(miner.max_parallel, 1), 1.0)

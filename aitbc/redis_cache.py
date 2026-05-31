@@ -3,9 +3,9 @@ Redis caching utilities for AITBC applications
 Provides distributed caching with Redis backend
 """
 
-from typing import Optional, Any, List
-import json
 import hashlib
+import json
+from typing import Any
 
 from .aitbc_logging import get_logger
 
@@ -23,10 +23,10 @@ class RedisCache:
     """
     Redis cache implementation for distributed caching
     """
-    
+
     def __init__(
         self,
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
         max_connections: int = 10,
         timeout: int = 5,
         default_ttl: int = 3600
@@ -45,7 +45,7 @@ class RedisCache:
         self.timeout = timeout
         self.default_ttl = default_ttl
         self._client = None
-        
+
         if REDIS_AVAILABLE and redis_url:
             try:
                 self._client = redis.Redis.from_url(
@@ -63,12 +63,12 @@ class RedisCache:
                 self._client = None
         else:
             logger.info("Redis caching disabled (Redis not available or no URL provided)")
-    
+
     def is_available(self) -> bool:
         """Check if Redis cache is available"""
         return self._client is not None
-    
-    def get(self, key: str) -> Optional[Any]:
+
+    def get(self, key: str) -> Any | None:
         """
         Get value from cache
         
@@ -80,7 +80,7 @@ class RedisCache:
         """
         if not self.is_available():
             return None
-        
+
         try:
             value = self._client.get(key)
             if value:
@@ -89,12 +89,12 @@ class RedisCache:
         except Exception as e:
             logger.error(f"Redis get error: {e}")
             return None
-    
+
     def set(
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None
+        ttl: int | None = None
     ) -> bool:
         """
         Set value in cache
@@ -109,7 +109,7 @@ class RedisCache:
         """
         if not self.is_available():
             return False
-        
+
         try:
             serialized = json.dumps(value)
             expiry = ttl if ttl is not None else self.default_ttl
@@ -118,7 +118,7 @@ class RedisCache:
         except Exception as e:
             logger.error(f"Redis set error: {e}")
             return False
-    
+
     def delete(self, key: str) -> bool:
         """
         Delete value from cache
@@ -131,14 +131,14 @@ class RedisCache:
         """
         if not self.is_available():
             return False
-        
+
         try:
             self._client.delete(key)
             return True
         except Exception as e:
             logger.error(f"Redis delete error: {e}")
             return False
-    
+
     def exists(self, key: str) -> bool:
         """
         Check if key exists in cache
@@ -151,13 +151,13 @@ class RedisCache:
         """
         if not self.is_available():
             return False
-        
+
         try:
             return self._client.exists(key) == 1
         except Exception as e:
             logger.error(f"Redis exists error: {e}")
             return False
-    
+
     def clear(self) -> bool:
         """
         Clear all cached values
@@ -167,15 +167,15 @@ class RedisCache:
         """
         if not self.is_available():
             return False
-        
+
         try:
             self._client.flushdb()
             return True
         except Exception as e:
             logger.error(f"Redis clear error: {e}")
             return False
-    
-    def get_many(self, keys: List[str]) -> dict[str, Any]:
+
+    def get_many(self, keys: list[str]) -> dict[str, Any]:
         """
         Get multiple values from cache
         
@@ -187,7 +187,7 @@ class RedisCache:
         """
         if not self.is_available():
             return {}
-        
+
         try:
             values = self._client.mget(keys)
             result = {}
@@ -198,8 +198,8 @@ class RedisCache:
         except Exception as e:
             logger.error(f"Redis get_many error: {e}")
             return {}
-    
-    def set_many(self, mapping: dict[str, Any], ttl: Optional[int] = None) -> bool:
+
+    def set_many(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
         """
         Set multiple values in cache
         
@@ -212,7 +212,7 @@ class RedisCache:
         """
         if not self.is_available():
             return False
-        
+
         try:
             pipe = self._client.pipeline()
             expiry = ttl if ttl is not None else self.default_ttl
@@ -224,8 +224,8 @@ class RedisCache:
         except Exception as e:
             logger.error(f"Redis set_many error: {e}")
             return False
-    
-    def delete_many(self, keys: List[str]) -> bool:
+
+    def delete_many(self, keys: list[str]) -> bool:
         """
         Delete multiple values from cache
         
@@ -237,7 +237,7 @@ class RedisCache:
         """
         if not self.is_available():
             return False
-        
+
         try:
             if keys:
                 self._client.delete(*keys)
@@ -245,8 +245,8 @@ class RedisCache:
         except Exception as e:
             logger.error(f"Redis delete_many error: {e}")
             return False
-    
-    def increment(self, key: str, amount: int = 1) -> Optional[int]:
+
+    def increment(self, key: str, amount: int = 1) -> int | None:
         """
         Increment a counter in cache
         
@@ -259,13 +259,13 @@ class RedisCache:
         """
         if not self.is_available():
             return None
-        
+
         try:
             return self._client.incrby(key, amount)
         except Exception as e:
             logger.error(f"Redis increment error: {e}")
             return None
-    
+
     def close(self) -> None:
         """Close Redis connection"""
         if self._client:
@@ -274,11 +274,11 @@ class RedisCache:
 
 
 # Global cache instance
-_global_cache: Optional[RedisCache] = None
+_global_cache: RedisCache | None = None
 
 
 def get_cache(
-    redis_url: Optional[str] = None,
+    redis_url: str | None = None,
     max_connections: int = 10,
     timeout: int = 5,
     default_ttl: int = 3600
@@ -296,7 +296,7 @@ def get_cache(
         RedisCache instance
     """
     global _global_cache
-    
+
     if _global_cache is None and redis_url:
         _global_cache = RedisCache(
             redis_url=redis_url,
@@ -304,7 +304,7 @@ def get_cache(
             timeout=timeout,
             default_ttl=default_ttl
         )
-    
+
     return _global_cache or RedisCache()  # Return disabled cache if no URL
 
 
