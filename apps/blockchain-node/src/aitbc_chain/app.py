@@ -22,7 +22,7 @@ from .metrics import (
 )
 from .network.island_manager import create_island_manager
 from .rpc.router import router as rpc_router
-from .rpc.router import set_poa_proposer
+from .rpc.utils import set_poa_proposer
 from .rpc.websocket import router as websocket_router
 
 # from .escrow_routes import router as escrow_router  # Not yet implemented

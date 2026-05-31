@@ -288,7 +288,7 @@ class HardwareValidator:
         """Get list of services compatible with miner hardware"""
         try:
             # Get all services from registry
-            response = requests.get(f"{self.registry_url}/services")
+            response = requests.get(f"{self.registry_url}/services", timeout=30)
             if response.status_code != 200:
                 return []
 

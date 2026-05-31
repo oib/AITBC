@@ -39,12 +39,16 @@ repos:
       - id: ruff-format
         args: [--line-length=127]
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.0.0
+  # Local hook: mypy on changed files only (gradual type checking approach)
+  - repo: local
     hooks:
-      - id: mypy
-        additional_dependencies: [types-requests, types-python-dateutil]
-        args: [--ignore-missing-imports]
+      - id: mypy-changed-files
+        name: mypy-changed-files
+        entry: bash scripts/ci/check-mypy-changed.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.9.4

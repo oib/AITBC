@@ -67,6 +67,44 @@ jobs:
 
           echo "✅ Linting completed"
 
+      - name: Mypy type check (changed files only - gradual approach)
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          # For shallow clones, we need to fetch a bit more history to compare
+          git fetch --depth=2 origin main 2>/dev/null || true
+          
+          # Get changed Python files from the push/PR
+          CHANGED_FILES=$(git diff --name-only HEAD~1 -- '*.py' 2>/dev/null || true)
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "✅ No Python files changed - skipping mypy check"
+            exit 0
+          fi
+          
+          echo "📁 Changed files:"
+          echo "$CHANGED_FILES"
+          echo ""
+          
+          FAILED=0
+          for file in $CHANGED_FILES; do
+            if [ -f "$file" ]; then
+              echo "🔎 Checking: $file"
+              if ! venv/bin/python -m mypy "$file" --follow-imports=skip --ignore-missing-imports 2>&1; then
+                echo "❌ Type errors in: $file"
+                FAILED=1
+              fi
+            fi
+          done
+          
+          if [ $FAILED -eq 0 ]; then
+            echo "✅ All changed files passed type checking"
+          else
+            echo "⚠️  Type errors found in changed files"
+            echo "Note: This enforces types only on new/modified code (gradual approach)"
+            exit 1
+          fi
+
       - name: Run repository tests with coverage
         run: |
           cd "${{ env.WORKSPACE }}/repo"
