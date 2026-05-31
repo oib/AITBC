@@ -160,6 +160,12 @@ ignore_missing_imports = true
 # Tech debt: these modules still have type errors that require per-file annotation work.
 # Tracked in gap analysis. Remove entries as each module is fixed.
 # Clean (no override needed): domain.*, schemas.*, auth, exceptions, models.*, storage.*, utils.*
+#
+# GRADUAL TYPE CHECKING APPROACH (2026-05-31):
+# - Critical apps (coordinator-api, blockchain-node, agent-coordinator) have ~1,325 type errors
+# - Instead of fixing all at once, we enforce types on NEW/MODIFIED files only
+# - Developers should add type annotations to any files they touch
+# - Use `mypy --follow-imports=skip <file>` to check individual files during development
 
 [[tool.mypy.overrides]]
 module = [
