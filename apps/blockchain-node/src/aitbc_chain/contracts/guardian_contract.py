@@ -10,15 +10,14 @@ wallets from unlimited spending in case of compromise. It provides:
 - Multi-signature recovery for critical operations
 """
 
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
 import json
 import os
 import sqlite3
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from eth_account import Account
-from eth_utils import to_checksum_address, keccak
+
+from eth_utils import keccak, to_checksum_address
 
 
 @dataclass
@@ -28,7 +27,7 @@ class SpendingLimit:
     per_hour: int         # Maximum per hour
     per_day: int          # Maximum per day
     per_week: int         # Maximum per week
-    
+
 @dataclass
 class TimeLockConfig:
     """Time lock configuration for large withdrawals"""
@@ -42,7 +41,7 @@ class GuardianConfig:
     """Complete guardian configuration"""
     limits: SpendingLimit
     time_lock: TimeLockConfig
-    guardians: List[str]  # Guardian addresses for recovery
+    guardians: list[str]  # Guardian addresses for recovery
     pause_enabled: bool = True
     emergency_mode: bool = False
 
@@ -51,41 +50,41 @@ class GuardianContract:
     """
     Guardian contract implementation for agent wallet protection
     """
-    
+
     def __init__(self, agent_address: str, config: GuardianConfig, storage_path: str = None):
         self.agent_address = to_checksum_address(agent_address)
         self.config = config
-        
+
         # CRITICAL SECURITY FIX: Use persistent storage instead of in-memory
         if storage_path is None:
             storage_path = os.path.join(os.path.expanduser("~"), ".aitbc", "guardian_contracts")
-        
+
         self.storage_dir = Path(storage_path)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Database file for this contract
         self.db_path = self.storage_dir / f"guardian_{self.agent_address}.db"
-        
+
         # Initialize persistent storage
         self._init_storage()
-        
+
         # Load state from storage
         self._load_state()
-        
+
         # In-memory cache for performance (synced with storage)
-        self.spending_history: List[Dict] = []
-        self.pending_operations: Dict[str, Dict] = {}
+        self.spending_history: list[dict] = []
+        self.pending_operations: dict[str, dict] = {}
         self.paused = False
         self.emergency_mode = False
-        
+
         # Contract state
         self.nonce = 0
-        self.guardian_approvals: Dict[str, bool] = {}
-        
+        self.guardian_approvals: dict[str, bool] = {}
+
         # Load data from persistent storage
         self._load_spending_history()
         self._load_pending_operations()
-        
+
     def _init_storage(self):
         """Initialize SQLite database for persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
@@ -104,7 +103,7 @@ class GuardianContract:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS pending_operations (
                     operation_id TEXT PRIMARY KEY,
@@ -115,7 +114,7 @@ class GuardianContract:
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS contract_state (
                     agent_address TEXT PRIMARY KEY,
@@ -125,9 +124,9 @@ class GuardianContract:
                     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             conn.commit()
-    
+
     def _load_state(self):
         """Load contract state from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
@@ -136,7 +135,7 @@ class GuardianContract:
                 (self.agent_address,)
             )
             row = cursor.fetchone()
-            
+
             if row:
                 self.nonce, self.paused, self.emergency_mode = row
             else:
@@ -146,7 +145,7 @@ class GuardianContract:
                     (self.agent_address, 0, False, False)
                 )
                 conn.commit()
-    
+
     def _save_state(self):
         """Save contract state to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
@@ -155,7 +154,7 @@ class GuardianContract:
                 (self.nonce, self.paused, self.emergency_mode, self.agent_address)
             )
             conn.commit()
-    
+
     def _load_spending_history(self):
         """Load spending history from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
@@ -163,7 +162,7 @@ class GuardianContract:
                 'SELECT operation_id, to_address, amount, data, timestamp, executed_at, status, nonce FROM spending_history WHERE agent_address = ? ORDER BY timestamp DESC',
                 (self.agent_address,)
             )
-            
+
             self.spending_history = []
             for row in cursor:
                 self.spending_history.append({
@@ -176,8 +175,8 @@ class GuardianContract:
                     "status": row[6],
                     "nonce": row[7]
                 })
-    
-    def _save_spending_record(self, record: Dict):
+
+    def _save_spending_record(self, record: dict):
         """Save spending record to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -197,7 +196,7 @@ class GuardianContract:
                 )
             )
             conn.commit()
-    
+
     def _load_pending_operations(self):
         """Load pending operations from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
@@ -205,14 +204,14 @@ class GuardianContract:
                 'SELECT operation_id, operation_data, status FROM pending_operations WHERE agent_address = ?',
                 (self.agent_address,)
             )
-            
+
             self.pending_operations = {}
             for row in cursor:
                 operation_data = json.loads(row[1])
                 operation_data["status"] = row[2]
                 self.pending_operations[row[0]] = operation_data
-    
-    def _save_pending_operation(self, operation_id: str, operation: Dict):
+
+    def _save_pending_operation(self, operation_id: str, operation: dict):
         """Save pending operation to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -222,7 +221,7 @@ class GuardianContract:
                 (operation_id, self.agent_address, json.dumps(operation), operation["status"])
             )
             conn.commit()
-    
+
     def _remove_pending_operation(self, operation_id: str):
         """Remove pending operation from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
@@ -231,7 +230,7 @@ class GuardianContract:
                 (operation_id, self.agent_address)
             )
             conn.commit()
-        
+
     def _get_period_key(self, timestamp: datetime, period: str) -> str:
         """Generate period key for spending tracking"""
         if period == "hour":
@@ -244,60 +243,60 @@ class GuardianContract:
             return f"{timestamp.year}-W{week_num:02d}"
         else:
             raise ValueError(f"Invalid period: {period}")
-    
+
     def _get_spent_in_period(self, period: str, timestamp: datetime = None) -> int:
         """Calculate total spent in given period"""
         if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
-            
+            timestamp = datetime.now(UTC)
+
         period_key = self._get_period_key(timestamp, period)
-        
+
         total = 0
         for record in self.spending_history:
             record_time = datetime.fromisoformat(record["timestamp"])
             record_period = self._get_period_key(record_time, period)
-            
+
             if record_period == period_key and record["status"] == "completed":
                 total += record["amount"]
-                
+
         return total
-    
-    def _check_spending_limits(self, amount: int, timestamp: datetime = None) -> Tuple[bool, str]:
+
+    def _check_spending_limits(self, amount: int, timestamp: datetime = None) -> tuple[bool, str]:
         """Check if amount exceeds spending limits"""
         if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
-            
+            timestamp = datetime.now(UTC)
+
         # Check per-transaction limit
         if amount > self.config.limits.per_transaction:
             return False, f"Amount {amount} exceeds per-transaction limit {self.config.limits.per_transaction}"
-        
+
         # Check per-hour limit
         spent_hour = self._get_spent_in_period("hour", timestamp)
         if spent_hour + amount > self.config.limits.per_hour:
             return False, f"Hourly spending {spent_hour + amount} would exceed limit {self.config.limits.per_hour}"
-        
+
         # Check per-day limit
         spent_day = self._get_spent_in_period("day", timestamp)
         if spent_day + amount > self.config.limits.per_day:
             return False, f"Daily spending {spent_day + amount} would exceed limit {self.config.limits.per_day}"
-        
+
         # Check per-week limit
         spent_week = self._get_spent_in_period("week", timestamp)
         if spent_week + amount > self.config.limits.per_week:
             return False, f"Weekly spending {spent_week + amount} would exceed limit {self.config.limits.per_week}"
-        
+
         return True, "Spending limits check passed"
-    
+
     def _requires_time_lock(self, amount: int) -> bool:
         """Check if amount requires time lock"""
         return amount >= self.config.time_lock.threshold
-    
-    def _create_operation_hash(self, operation: Dict) -> str:
+
+    def _create_operation_hash(self, operation: dict) -> str:
         """Create hash for operation identification"""
         operation_str = json.dumps(operation, sort_keys=True)
         return keccak(operation_str.encode()).hex()
-    
-    def initiate_transaction(self, to_address: str, amount: int, data: str = "") -> Dict:
+
+    def initiate_transaction(self, to_address: str, amount: int, data: str = "") -> dict:
         """
         Initiate a transaction with guardian protection
         
@@ -316,15 +315,15 @@ class GuardianContract:
                 "reason": "Guardian contract is paused",
                 "operation_id": None
             }
-        
+
         # Check emergency mode
         if self.emergency_mode:
             return {
-                "status": "rejected", 
+                "status": "rejected",
                 "reason": "Emergency mode activated",
                 "operation_id": None
             }
-        
+
         # Validate address
         try:
             to_address = to_checksum_address(to_address)
@@ -334,7 +333,7 @@ class GuardianContract:
                 "reason": "Invalid recipient address",
                 "operation_id": None
             }
-        
+
         # Check spending limits
         limits_ok, limits_reason = self._check_spending_limits(amount)
         if not limits_ok:
@@ -343,30 +342,30 @@ class GuardianContract:
                 "reason": limits_reason,
                 "operation_id": None
             }
-        
+
         # Create operation
         operation = {
             "type": "transaction",
             "to": to_address,
             "amount": amount,
             "data": data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "nonce": self.nonce,
             "status": "pending"
         }
-        
+
         operation_id = self._create_operation_hash(operation)
         operation["operation_id"] = operation_id
-        
+
         # Check if time lock is required
         if self._requires_time_lock(amount):
-            unlock_time = datetime.now(timezone.utc) + timedelta(hours=self.config.time_lock.delay_hours)
+            unlock_time = datetime.now(UTC) + timedelta(hours=self.config.time_lock.delay_hours)
             operation["unlock_time"] = unlock_time.isoformat()
             operation["status"] = "time_locked"
-            
+
             # Store for later execution
             self.pending_operations[operation_id] = operation
-            
+
             return {
                 "status": "time_locked",
                 "operation_id": operation_id,
@@ -374,17 +373,17 @@ class GuardianContract:
                 "delay_hours": self.config.time_lock.delay_hours,
                 "message": f"Transaction requires {self.config.time_lock.delay_hours}h time lock"
             }
-        
+
         # Immediate execution for smaller amounts
         self.pending_operations[operation_id] = operation
-        
+
         return {
             "status": "approved",
             "operation_id": operation_id,
             "message": "Transaction approved for execution"
         }
-    
-    def execute_transaction(self, operation_id: str, signature: str) -> Dict:
+
+    def execute_transaction(self, operation_id: str, signature: str) -> dict:
         """
         Execute a previously approved transaction
         
@@ -400,20 +399,20 @@ class GuardianContract:
                 "status": "error",
                 "reason": "Operation not found"
             }
-        
+
         operation = self.pending_operations[operation_id]
-        
+
         # Check if operation is time locked
         if operation["status"] == "time_locked":
             unlock_time = datetime.fromisoformat(operation["unlock_time"])
-            if datetime.now(timezone.utc) < unlock_time:
+            if datetime.now(UTC) < unlock_time:
                 return {
                     "status": "error",
                     "reason": f"Operation locked until {unlock_time.isoformat()}"
                 }
-            
+
             operation["status"] = "ready"
-        
+
         # Verify signature (simplified - in production, use proper verification)
         try:
             # In production, verify the signature matches the agent address
@@ -424,7 +423,7 @@ class GuardianContract:
                 "status": "error",
                 "reason": f"Invalid signature: {str(e)}"
             }
-        
+
         # Record the transaction
         record = {
             "operation_id": operation_id,
@@ -432,30 +431,30 @@ class GuardianContract:
             "amount": operation["amount"],
             "data": operation.get("data", ""),
             "timestamp": operation["timestamp"],
-            "executed_at": datetime.now(timezone.utc).isoformat(),
+            "executed_at": datetime.now(UTC).isoformat(),
             "status": "completed",
             "nonce": operation["nonce"]
         }
-        
+
         # CRITICAL SECURITY FIX: Save to persistent storage
         self._save_spending_record(record)
         self.spending_history.append(record)
         self.nonce += 1
         self._save_state()
-        
+
         # Remove from pending storage
         self._remove_pending_operation(operation_id)
         if operation_id in self.pending_operations:
             del self.pending_operations[operation_id]
-        
+
         return {
             "status": "executed",
             "operation_id": operation_id,
             "transaction_hash": f"0x{keccak(f'{operation_id}{signature}'.encode()).hex()}",
             "executed_at": record["executed_at"]
         }
-    
-    def emergency_pause(self, guardian_address: str) -> Dict:
+
+    def emergency_pause(self, guardian_address: str) -> dict:
         """
         Emergency pause function (guardian only)
         
@@ -470,21 +469,21 @@ class GuardianContract:
                 "status": "rejected",
                 "reason": "Not authorized: guardian address not recognized"
             }
-        
+
         self.paused = True
         self.emergency_mode = True
-        
+
         # CRITICAL SECURITY FIX: Save state to persistent storage
         self._save_state()
-        
+
         return {
             "status": "paused",
-            "paused_at": datetime.now(timezone.utc).isoformat(),
+            "paused_at": datetime.now(UTC).isoformat(),
             "guardian": guardian_address,
             "message": "Emergency pause activated - all operations halted"
         }
-    
-    def emergency_unpause(self, guardian_signatures: List[str]) -> Dict:
+
+    def emergency_unpause(self, guardian_signatures: list[str]) -> dict:
         """
         Emergency unpause function (requires multiple guardian signatures)
         
@@ -501,23 +500,23 @@ class GuardianContract:
                 "status": "rejected",
                 "reason": f"Requires {required_signatures} guardian signatures, got {len(guardian_signatures)}"
             }
-        
+
         # Verify signatures (simplified)
         # In production, verify each signature matches a guardian address
-        
+
         self.paused = False
         self.emergency_mode = False
-        
+
         # CRITICAL SECURITY FIX: Save state to persistent storage
         self._save_state()
-        
+
         return {
             "status": "unpaused",
-            "unpaused_at": datetime.now(timezone.utc).isoformat(),
+            "unpaused_at": datetime.now(UTC).isoformat(),
             "message": "Emergency pause lifted - operations resumed"
         }
-    
-    def update_limits(self, new_limits: SpendingLimit, guardian_address: str) -> Dict:
+
+    def update_limits(self, new_limits: SpendingLimit, guardian_address: str) -> dict:
         """
         Update spending limits (guardian only)
         
@@ -533,22 +532,22 @@ class GuardianContract:
                 "status": "rejected",
                 "reason": "Not authorized: guardian address not recognized"
             }
-        
+
         old_limits = self.config.limits
         self.config.limits = new_limits
-        
+
         return {
             "status": "updated",
             "old_limits": old_limits,
             "new_limits": new_limits,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "guardian": guardian_address
         }
-    
-    def get_spending_status(self) -> Dict:
+
+    def get_spending_status(self) -> dict:
         """Get current spending status and limits"""
-        now = datetime.now(timezone.utc)
-        
+        now = datetime.now(UTC)
+
         return {
             "agent_address": self.agent_address,
             "current_limits": self.config.limits,
@@ -567,12 +566,12 @@ class GuardianContract:
             "emergency_mode": self.emergency_mode,
             "nonce": self.nonce
         }
-    
-    def get_operation_history(self, limit: int = 50) -> List[Dict]:
+
+    def get_operation_history(self, limit: int = 50) -> list[dict]:
         """Get operation history"""
         return sorted(self.spending_history, key=lambda x: x["timestamp"], reverse=True)[:limit]
-    
-    def get_pending_operations(self) -> List[Dict]:
+
+    def get_pending_operations(self) -> list[dict]:
         """Get all pending operations"""
         return list(self.pending_operations.values())
 
@@ -586,7 +585,7 @@ def create_guardian_contract(
     per_week: int = 100000,
     time_lock_threshold: int = 10000,
     time_lock_delay: int = 24,
-    guardians: List[str] = None
+    guardians: list[str] = None
 ) -> GuardianContract:
     """
     Create a guardian contract with default security parameters
@@ -613,43 +612,43 @@ def create_guardian_contract(
             "❌ CRITICAL: Guardians are required for security. "
             "Provide at least 3 trusted guardian addresses different from the agent address."
         )
-    
+
     # Validate that guardians are different from agent address
     agent_checksum = to_checksum_address(agent_address)
     guardian_checksums = [to_checksum_address(g) for g in guardians]
-    
+
     if agent_checksum in guardian_checksums:
         raise ValueError(
             "❌ CRITICAL: Agent address cannot be used as guardian. "
             "Guardians must be independent trusted addresses."
         )
-    
+
     # Require minimum number of guardians for security
     if len(guardian_checksums) < 3:
         raise ValueError(
             f"❌ CRITICAL: At least 3 guardians required for security, got {len(guardian_checksums)}. "
             "Consider using a multi-sig wallet or trusted service providers."
         )
-    
+
     limits = SpendingLimit(
         per_transaction=per_transaction,
         per_hour=per_hour,
         per_day=per_day,
         per_week=per_week
     )
-    
+
     time_lock = TimeLockConfig(
         threshold=time_lock_threshold,
         delay_hours=time_lock_delay,
         max_delay_hours=168  # 1 week max
     )
-    
+
     config = GuardianConfig(
         limits=limits,
         time_lock=time_lock,
         guardians=[to_checksum_address(g) for g in guardians]
     )
-    
+
     return GuardianContract(agent_address, config)
 
 

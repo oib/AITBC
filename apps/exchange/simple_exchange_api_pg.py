@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """AITBC Exchange API with PostgreSQL Support"""
 
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
 import json
+import logging
+import random
 import urllib.request
+from datetime import UTC, datetime
+from decimal import Decimal
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime, timezone
-from decimal import Decimal
-import random
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def init_db():
     try:
         conn = get_pg_connection()
         cursor = conn.cursor()
-        
+
         # Check if tables exist
         cursor.execute("""
             SELECT EXISTS (
@@ -40,7 +41,7 @@ def init_db():
                 WHERE table_name IN ('trades', 'orders')
             )
         """)
-        
+
         if not cursor.fetchone()[0]:
             logger.info("Creating PostgreSQL tables...")
             create_pg_schema()
@@ -53,7 +54,7 @@ def create_pg_schema():
     """Create PostgreSQL schema"""
     conn = get_pg_connection()
     cursor = conn.cursor()
-    
+
     # Create trades table
     cursor.execute("""
         CREATE TABLE trades (
@@ -67,7 +68,7 @@ def create_pg_schema():
             taker_address VARCHAR(66)
         )
     """)
-    
+
     # Create orders table
     cursor.execute("""
         CREATE TABLE orders (
@@ -85,13 +86,13 @@ def create_pg_schema():
             tx_hash VARCHAR(66)
         )
     """)
-    
+
     # Create indexes
     cursor.execute("CREATE INDEX idx_trades_created_at ON trades(created_at DESC)")
     cursor.execute("CREATE INDEX idx_orders_type ON orders(order_type)")
     cursor.execute("CREATE INDEX idx_orders_price ON orders(price)")
     cursor.execute("CREATE INDEX idx_orders_status ON orders(status)")
-    
+
     conn.commit()
     conn.close()
 
@@ -103,7 +104,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
-    
+
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
         self.send_response(200)
@@ -111,14 +112,14 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
-    
+
     def do_GET(self):
         """Handle GET requests"""
         # Validate path to prevent SSRF
         if not self.path or self.path.startswith(('//', '\\\\', '..')):
             self.send_error(400, "Invalid path")
             return
-        
+
         if self.path == '/api/health':
             self.health_check()
         elif self.path.startswith('/api/trades/recent'):
@@ -132,7 +133,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.handle_treasury_balance()
         else:
             self.send_error(404)
-    
+
     def do_POST(self):
         """Handle POST requests"""
         if self.path == '/api/orders':
@@ -141,7 +142,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.handle_wallet_connect()
         else:
             self.send_error(404)
-    
+
     def health_check(self):
         """Health check"""
         try:
@@ -150,34 +151,34 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             cursor.execute("SELECT 1")
             cursor.close()
             conn.close()
-            
+
             self.send_json_response({
                 'status': 'ok',
                 'database': 'postgresql',
-                'timestamp': datetime.now(timezone.utc).isoformat()
+                'timestamp': datetime.now(UTC).isoformat()
             })
         except Exception as e:
             self.send_json_response({
                 'status': 'error',
                 'error': str(e)
             }, 500)
-    
+
     def get_recent_trades(self, parsed):
         """Get recent trades from PostgreSQL"""
         try:
             conn = get_pg_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
+
             # Get limit from query params
             params = parse_qs(parsed.query)
             limit = int(params.get('limit', [10])[0])
-            
+
             cursor.execute("""
                 SELECT * FROM trades 
                 ORDER BY created_at DESC 
                 LIMIT %s
             """, (limit,))
-            
+
             trades = []
             for row in cursor.fetchall():
                 trades.append({
@@ -188,21 +189,21 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     'created_at': row['created_at'].isoformat(),
                     'tx_hash': row['tx_hash']
                 })
-            
+
             cursor.close()
             conn.close()
-            
+
             self.send_json_response(trades)
-            
+
         except Exception as e:
             self.send_error(500, str(e))
-    
+
     def get_orderbook(self):
         """Get order book from PostgreSQL"""
         try:
             conn = get_pg_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
+
             # Get sell orders (asks)
             cursor.execute("""
                 SELECT * FROM orders 
@@ -218,7 +219,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     'price': float(row['price']),
                     'total': float(row['remaining'] * row['price'])
                 })
-            
+
             # Get buy orders (bids)
             cursor.execute("""
                 SELECT * FROM orders 
@@ -234,35 +235,35 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     'price': float(row['price']),
                     'total': float(row['remaining'] * row['price'])
                 })
-            
+
             cursor.close()
             conn.close()
-            
+
             self.send_json_response({
                 'buys': buys,
                 'sells': sells
             })
-            
+
         except Exception as e:
             self.send_error(500, str(e))
-    
+
     def handle_wallet_connect(self):
         """Handle wallet connection"""
         # Generate a mock wallet address for demo
         address = f"aitbc{''.join(random.choices('0123456789abcdef', k=64))}"
-        
+
         self.send_json_response({
             "address": address,
             "status": "connected"
         })
-    
+
     def handle_wallet_balance(self):
         """Handle wallet balance request"""
-        from urllib.parse import urlparse, parse_qs
+        from urllib.parse import parse_qs, urlparse
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
         address = params.get('address', [''])[0]
-        
+
         try:
             # Query blockchain for balance
             blockchain_url = f"http://localhost:9080/rpc/getBalance/{address}"
@@ -273,24 +274,24 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         except Exception:
             aitbc_balance = 0
             nonce = 0
-        
+
         self.send_json_response({
             "btc": "0.00000000",
             "aitbc": str(aitbc_balance),
             "address": address or "unknown",
             "nonce": nonce
         })
-    
+
     def handle_treasury_balance(self):
         """Get exchange treasury balance"""
         try:
             treasury_address = "aitbcexchange00000000000000000000000000000000"
             blockchain_url = f"http://localhost:9080/rpc/getBalance/{treasury_address}"
-            
+
             with urllib.request.urlopen(blockchain_url) as response:
                 balance_data = json.loads(response.read().decode())
                 treasury_balance = balance_data.get('balance', 0)
-                
+
             self.send_json_response({
                 "address": treasury_address,
                 "balance": str(treasury_balance),
@@ -299,14 +300,14 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self.send_error(500, str(e))
-    
+
     def handle_place_order(self):
         """Handle placing an order"""
         try:
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             order_data = json.loads(post_data.decode())
-            
+
             # Validate order data
             required_fields = ['order_type', 'amount', 'price']
             for field in required_fields:
@@ -315,11 +316,11 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                         "error": f"Missing required field: {field}"
                     }, 400)
                     return
-            
+
             # Insert order into PostgreSQL
             conn = get_pg_connection()
             cursor = conn.cursor()
-            
+
             cursor.execute("""
                 INSERT INTO orders (order_type, amount, price, total, remaining, user_address)
                 VALUES (%s, %s, %s, %s, %s, %s)
@@ -332,15 +333,15 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 Decimal(str(order_data['amount'])),
                 order_data.get('user_address', 'aitbcexchange00000000000000000000000000000000')
             ))
-            
+
             result = cursor.fetchone()
             order_id = result[0]
             created_at = result[1]
-            
+
             conn.commit()
             cursor.close()
             conn.close()
-            
+
             self.send_json_response({
                 "id": order_id,
                 "order_type": order_data['order_type'],
@@ -349,7 +350,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 "status": "OPEN",
                 "created_at": created_at.isoformat()
             })
-            
+
         except Exception as e:
             self.send_json_response({
                 "error": str(e)
@@ -358,7 +359,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 def run_server(port=8008):
     """Run the server"""
     init_db()
-    
+
     server = HTTPServer(('localhost', port), ExchangeAPIHandler)
     logger.info("AITBC Exchange API Server started", port=port, url=f"http://localhost:{port}", database="PostgreSQL")
     server.serve_forever()

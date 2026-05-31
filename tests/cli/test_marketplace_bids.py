@@ -1,10 +1,11 @@
 """Tests for marketplace bid CLI commands"""
 
-import pytest
 import json
-from click.testing import CliRunner
 from unittest.mock import Mock, patch
+
+import pytest
 from aitbc_cli.commands.marketplace_cmd import marketplace
+from click.testing import CliRunner
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def mock_config():
 
 class TestMarketplaceBidCommands:
     """Test marketplace bid command group"""
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_submit_success(self, mock_client_class, runner, mock_config):
         """Test successful bid submission"""
@@ -38,7 +39,7 @@ class TestMarketplaceBidCommands:
             "status": "pending"
         }
         mock_client.post.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'bid',
@@ -48,7 +49,7 @@ class TestMarketplaceBidCommands:
             '--price', '0.05',
             '--notes', 'Need GPU capacity for AI training'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         # Extract JSON from output (success message + JSON)
@@ -56,7 +57,7 @@ class TestMarketplaceBidCommands:
         import re
         clean_output = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
         lines = clean_output.strip().split('\n')
-        
+
         # Find JSON part (multiline JSON with ANSI codes removed)
         json_lines = []
         in_json = False
@@ -69,12 +70,12 @@ class TestMarketplaceBidCommands:
                 json_lines.append(stripped)
                 if stripped.endswith('}'):
                     break
-        
+
         json_str = '\n'.join(json_lines)
         assert json_str, "No JSON found in output"
         data = json.loads(json_str)
         assert data['id'] == 'bid123'
-        
+
         # Verify API call
         mock_client.post.assert_called_once_with(
             'http://test:8000/v1/marketplace/bids',
@@ -89,7 +90,7 @@ class TestMarketplaceBidCommands:
                 "X-Api-Key": "test_api_key"
             }
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_submit_validation_error(self, mock_client_class, runner, mock_config):
         """Test bid submission with invalid capacity"""
@@ -101,14 +102,14 @@ class TestMarketplaceBidCommands:
             '--capacity', '0',  # Invalid: must be > 0
             '--price', '0.05'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         assert 'Capacity must be greater than 0' in result.output
-        
+
         # Verify no API call was made
         mock_client_class.assert_not_called()
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_submit_price_validation_error(self, mock_client_class, runner, mock_config):
         """Test bid submission with invalid price"""
@@ -120,14 +121,14 @@ class TestMarketplaceBidCommands:
             '--capacity', '100',
             '--price', '-0.05'  # Invalid: must be > 0
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         assert 'Price must be greater than 0' in result.output
-        
+
         # Verify no API call was made
         mock_client_class.assert_not_called()
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_submit_api_error(self, mock_client_class, runner, mock_config):
         """Test bid submission with API error"""
@@ -138,7 +139,7 @@ class TestMarketplaceBidCommands:
         mock_response.status_code = 400
         mock_response.text = "Invalid provider"
         mock_client.post.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'bid',
@@ -147,12 +148,12 @@ class TestMarketplaceBidCommands:
             '--capacity', '100',
             '--price', '0.05'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         assert 'Failed to submit bid: 400' in result.output
         assert 'Invalid provider' in result.output
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_list_all(self, mock_client_class, runner, mock_config):
         """Test listing all bids"""
@@ -182,27 +183,27 @@ class TestMarketplaceBidCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'bid',
             'list'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data['bids']) == 2
         assert data['bids'][0]['provider'] == 'miner1'
         assert data['bids'][0]['status'] == 'pending'
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/bids',
             params={"limit": 20},
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_list_with_filters(self, mock_client_class, runner, mock_config):
         """Test listing bids with filters"""
@@ -224,7 +225,7 @@ class TestMarketplaceBidCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command with filters
         result = runner.invoke(marketplace, [
             'bid',
@@ -233,17 +234,17 @@ class TestMarketplaceBidCommands:
             '--provider', 'miner123',
             '--limit', '10'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
-        
+
         # Verify API call with filters
         mock_client.get.assert_called_once()
         call_args = mock_client.get.call_args
         assert call_args[1]['params']['status'] == 'pending'
         assert call_args[1]['params']['provider'] == 'miner123'
         assert call_args[1]['params']['limit'] == 10
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_details(self, mock_client_class, runner, mock_config):
         """Test getting bid details"""
@@ -262,14 +263,14 @@ class TestMarketplaceBidCommands:
             "submitted_at": "2024-01-01T00:00:00"
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'bid',
             'details',
             'bid123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -279,13 +280,13 @@ class TestMarketplaceBidCommands:
         assert data['price'] == 0.05
         assert data['notes'] == 'Need GPU capacity for AI training'
         assert data['status'] == 'pending'
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/bids/bid123',
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_bid_details_not_found(self, mock_client_class, runner, mock_config):
         """Test getting details for non-existent bid"""
@@ -295,14 +296,14 @@ class TestMarketplaceBidCommands:
         mock_response = Mock()
         mock_response.status_code = 404
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'bid',
             'details',
             'nonexistent'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         assert 'Bid not found: 404' in result.output
@@ -310,7 +311,7 @@ class TestMarketplaceBidCommands:
 
 class TestMarketplaceOffersCommands:
     """Test marketplace offers command group"""
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_offers_list_all(self, mock_client_class, runner, mock_config):
         """Test listing all offers"""
@@ -332,7 +333,7 @@ class TestMarketplaceOffersCommands:
                     "region": "us-west"
                 },
                 {
-                    "id": "offer2", 
+                    "id": "offer2",
                     "provider": "miner2",
                     "capacity": 100,
                     "price": 0.08,
@@ -344,27 +345,27 @@ class TestMarketplaceOffersCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'offers',
             'list'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data['offers']) == 2
         assert data['offers'][0]['gpu_model'] == 'RTX4090'
         assert data['offers'][0]['status'] == 'open'
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/offers',
             params={"limit": 20},
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_offers_list_with_filters(self, mock_client_class, runner, mock_config):
         """Test listing offers with filters"""
@@ -388,7 +389,7 @@ class TestMarketplaceOffersCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command with filters
         result = runner.invoke(marketplace, [
             'offers',
@@ -400,10 +401,10 @@ class TestMarketplaceOffersCommands:
             '--region', 'us-west',
             '--limit', '10'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
-        
+
         # Verify API call with filters
         mock_client.get.assert_called_once()
         call_args = mock_client.get.call_args
@@ -418,13 +419,13 @@ class TestMarketplaceOffersCommands:
 
 class TestMarketplaceBidIntegration:
     """Test marketplace bid integration workflows"""
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_complete_bid_workflow(self, mock_client_class, runner, mock_config):
         """Test complete workflow: list offers -> submit bid -> track status"""
         mock_client = Mock()
         mock_client_class.return_value.__enter__.return_value = mock_client
-        
+
         # Step 1: List offers
         offers_response = Mock()
         offers_response.status_code = 200
@@ -440,7 +441,7 @@ class TestMarketplaceBidIntegration:
                 }
             ]
         }
-        
+
         # Step 2: Submit bid
         bid_response = Mock()
         bid_response.status_code = 202
@@ -448,7 +449,7 @@ class TestMarketplaceBidIntegration:
             "id": "bid123",
             "status": "pending"
         }
-        
+
         # Step 3: Get bid details
         bid_details_response = Mock()
         bid_details_response.status_code = 200
@@ -460,11 +461,11 @@ class TestMarketplaceBidIntegration:
             "status": "pending",
             "submitted_at": "2024-01-01T00:00:00"
         }
-        
+
         # Configure mock to return different responses for different calls
         mock_client.get.side_effect = [offers_response, bid_details_response]
         mock_client.post.return_value = bid_response
-        
+
         # Execute workflow
         # List offers
         result1 = runner.invoke(marketplace, [
@@ -473,7 +474,7 @@ class TestMarketplaceBidIntegration:
             '--status', 'open'
         ], obj={'config': mock_config, 'output': 'json'})
         assert result1.exit_code == 0
-        
+
         # Submit bid
         result2 = runner.invoke(marketplace, [
             'bid',
@@ -483,7 +484,7 @@ class TestMarketplaceBidIntegration:
             '--price', '0.05'
         ], obj={'config': mock_config, 'output': 'json'})
         assert result2.exit_code == 0
-        
+
         # Check bid details
         result3 = runner.invoke(marketplace, [
             'bid',
@@ -491,7 +492,7 @@ class TestMarketplaceBidIntegration:
             'bid123'
         ], obj={'config': mock_config, 'output': 'json'})
         assert result3.exit_code == 0
-        
+
         # Verify all API calls were made
         assert mock_client.get.call_count == 2
         assert mock_client.post.call_count == 1

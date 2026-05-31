@@ -6,12 +6,14 @@ Service for managing the developer ecosystem, bounties, certifications, and regi
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from aitbc import get_logger
+
+from ..contexts.blockchain.services.blockchain import get_balance, mint_tokens
 from ..domain.developer_platform import (
     BountyStatus,
     BountySubmission,
@@ -22,7 +24,6 @@ from ..domain.developer_platform import (
     RegionalHub,
 )
 from ..schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
-from ..contexts.blockchain.services.blockchain import get_balance, mint_tokens
 
 logger = get_logger(__name__)
 
@@ -150,7 +151,7 @@ class DeveloperPlatformService:
         submission.is_approved = True
         submission.review_notes = review_notes
         submission.reviewer_address = reviewer_address
-        submission.reviewed_at = datetime.now(timezone.utc)
+        submission.reviewed_at = datetime.now(UTC)
 
         bounty.status = BountyStatus.COMPLETED
         bounty.assigned_developer_id = developer.id
@@ -185,7 +186,7 @@ class DeveloperPlatformService:
             if hasattr(profile, key):
                 setattr(profile, key, value)
 
-        profile.updated_at = datetime.now(timezone.utc)
+        profile.updated_at = datetime.now(UTC)
         self.session.commit()
         self.session.refresh(profile)
 
@@ -306,7 +307,7 @@ class DeveloperPlatformService:
             "amount_staked": amount,
             "apy": 5.0 + (developer.reputation_score / 100),  # Base APY + reputation bonus
             "staking_id": f"stake_{staker_address[:8]}_{developer_address[:8]}",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         logger.info(f"Staked {amount} AITBC on developer {developer_address} by {staker_address}")
@@ -332,7 +333,7 @@ class DeveloperPlatformService:
             "amount_unstaked": amount,
             "rewards_earned": 25.5,
             "tx_hash": "0xmock_unstake_tx_hash",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
         }
 
         logger.info(f"Unstaked {amount} AITBC from staking position {staking_id}")
@@ -345,8 +346,8 @@ class DeveloperPlatformService:
             "address": address,
             "pending_rewards": 45.75,
             "claimed_rewards": 250.25,
-            "last_claim_time": (datetime.now(timezone.utc) - timedelta(days=7)).isoformat(),
-            "next_claim_time": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+            "last_claim_time": (datetime.now(UTC) - timedelta(days=7)).isoformat(),
+            "next_claim_time": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
         }
 
     async def claim_rewards(self, address: str) -> dict:
@@ -367,7 +368,7 @@ class DeveloperPlatformService:
             "address": address,
             "amount_claimed": rewards["pending_rewards"],
             "tx_hash": "0xmock_claim_tx_hash",
-            "claimed_at": datetime.now(timezone.utc).isoformat(),
+            "claimed_at": datetime.now(UTC).isoformat(),
         }
 
         logger.info(f"Claimed {rewards['pending_rewards']} AITBC rewards for {address}")

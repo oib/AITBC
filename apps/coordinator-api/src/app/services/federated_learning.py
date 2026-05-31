@@ -6,11 +6,12 @@ Service for managing cross-agent knowledge sharing and collaborative model train
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
+
+from aitbc import get_logger
 
 from ..blockchain.contract_interactions import ContractInteractionService
 from ..domain.federated_learning import (
@@ -178,7 +179,7 @@ class FederatedLearningService:
 
         current_round.aggregated_model_cid = new_global_cid
         current_round.status = "completed"
-        current_round.completed_at = datetime.now(timezone.utc)
+        current_round.completed_at = datetime.now(UTC)
         current_round.metrics = {
             "loss": 0.5 - (current_round.round_number * 0.05),
             "accuracy": 0.7 + (current_round.round_number * 0.02),

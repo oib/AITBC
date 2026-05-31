@@ -8,7 +8,7 @@ ZK Applications Router - Privacy-preserving features for AITBC
 
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -74,7 +74,7 @@ async def create_identity_commitment(
     commitment_input = f"{user.email}:{salt}"
     commitment = hashlib.sha256(commitment_input.encode()).hexdigest()
 
-    return {"commitment": commitment, "salt": salt, "user_id": user.user_id, "created_at": datetime.now(timezone.utc).isoformat()}
+    return {"commitment": commitment, "salt": salt, "user_id": user.user_id, "created_at": datetime.now(UTC).isoformat()}
 
 
 @router.post("/zk/membership/verify")
@@ -118,7 +118,7 @@ async def verify_group_membership(
         "group_id": request.group_id,
         "verified": True,
         "nullifier": request.nullifier,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -147,7 +147,7 @@ async def submit_private_bid(request: PrivateBidRequest, session: Annotated[Sess
         "auction_id": request.auction_id,
         "commitment": request.bid_commitment,
         "status": "submitted",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -200,7 +200,7 @@ async def verify_computation_proof(
         "result_hash": request.result_hash,
         "public_inputs": request.public_inputs,
         "verification_key": "demo_vk_12345",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
     return verification_result
@@ -225,7 +225,7 @@ async def create_private_receipt(
         "user_address": user_address,
         "commitment": commitment,
         "privacy_level": privacy_level,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "verified": True,
     }
 

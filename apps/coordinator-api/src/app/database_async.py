@@ -1,9 +1,11 @@
 """Async database module with connection pooling for Coordinator API."""
 
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
 from .config import settings
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -40,18 +42,18 @@ def _build_async_url(url: str) -> str:
 def init_async_db() -> None:
     """Initialize async database engine and session factory."""
     global _async_engine, _async_session_factory
-    
+
     if _async_engine is not None:
         logger.warning("Async database already initialized")
         return
-        
+
     try:
         # Build async URL from sync settings
         sync_url = str(settings.database.effective_url)
         async_url = _build_async_url(sync_url)
-        
+
         logger.info(f"Initializing async database connection: {async_url.split('://')[0]}://...")
-        
+
         # Create async engine with pooling
         _async_engine = create_async_engine(
             async_url,
@@ -61,16 +63,16 @@ def init_async_db() -> None:
             pool_pre_ping=getattr(settings.database, 'pool_pre_ping', True),
             pool_recycle=getattr(settings.database, 'pool_recycle', 3600),
         )
-        
+
         # Create session factory
         _async_session_factory = sessionmaker(
             _async_engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
-        
+
         logger.info("Async database initialized successfully")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize async database: {e}")
         raise
@@ -84,14 +86,14 @@ def get_async_db() -> AsyncSession:
     """
     if _async_session_factory is None:
         raise RuntimeError("Async database not initialized. Call init_async_db() first.")
-    
+
     async def _get_async_db() -> AsyncSession:
         async with _async_session_factory() as session:
             try:
                 yield session
             finally:
                 await session.close()
-    
+
     return _get_async_db()
 
 
@@ -108,7 +110,7 @@ def get_sync_engine():
 async def close_async_db() -> None:
     """Close async database connections."""
     global _async_engine, _async_session_factory
-    
+
     if _async_engine is not None:
         logger.info("Closing async database connections...")
         await _async_engine.dispose()

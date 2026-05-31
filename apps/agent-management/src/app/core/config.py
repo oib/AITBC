@@ -1,6 +1,5 @@
 """Configuration for Agent Management Service"""
 
-from typing import List, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,7 +9,7 @@ class DatabaseConfig(BaseSettings):
     """Database configuration with adapter selection."""
 
     adapter: str = "sqlite"  # sqlite, postgresql
-    url: Optional[str] = None
+    url: str | None = None
     pool_size: int = 10
     max_overflow: int = 20
     pool_pre_ping: bool = True
@@ -61,9 +60,9 @@ class ServiceSettings(BaseSettings):
     enable_health_check: bool = True
 
     # API Keys (comma-separated in env)
-    admin_api_keys: List[str] = Field(default_factory=list)
-    client_api_keys: List[str] = Field(default_factory=list)
-    miner_api_keys: List[str] = Field(default_factory=list)
+    admin_api_keys: list[str] = Field(default_factory=list)
+    client_api_keys: list[str] = Field(default_factory=list)
+    miner_api_keys: list[str] = Field(default_factory=list)
 
 
 # Global settings instance

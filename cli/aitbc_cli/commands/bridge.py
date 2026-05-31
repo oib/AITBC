@@ -1,8 +1,10 @@
 """Bridge commands for AITBC CLI"""
 
 import click
-from ..utils import output, error, success
+
 from aitbc import AITBCHTTPClient, NetworkError
+
+from ..utils import error, output
 
 
 @click.group()
@@ -20,7 +22,7 @@ def start(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/bridge/start")
         output(result, ctx.obj.get('output_format', 'table'), title="Bridge Started")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         result = {
             "status": "simulated",
@@ -42,7 +44,7 @@ def status(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         status = http_client.get("/rpc/bridge/status")
         output(status, ctx.obj.get('output_format', 'table'), title="Bridge Status")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         status = {
             "status": "simulated",
@@ -64,7 +66,7 @@ def stop(ctx, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/bridge/stop")
         output(result, ctx.obj.get('output_format', 'table'), title="Bridge Stopped")
-    except NetworkError as e:
+    except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
         result = {
             "status": "simulated",

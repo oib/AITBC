@@ -1,33 +1,31 @@
 """REQUEST_COINS message handler with approval workflow."""
 
 import os
+import json
 import re
 from datetime import datetime, timedelta
-from typing import Dict, Any
-from .base_handler import BaseHandler
-from .strategies import (
-    ManualApprovalStrategy,
-    AutomaticApprovalStrategy,
-    AIApprovalStrategy
-)
-from ..storage import get_db_session, CoinRequest, CoinRequestStatus, init_db
+from typing import Any
+
 from ..services import TransactionService
+from ..storage import CoinRequest, CoinRequestStatus, get_db_session, init_db
+from .base_handler import BaseHandler
+from .strategies import AIApprovalStrategy, AutomaticApprovalStrategy, ManualApprovalStrategy
 
 
 class RequestCoinsHandler(BaseHandler):
     """Handler for REQUEST_COINS messages with approval workflow."""
-    
+
     def __init__(self, coordinator_url: str, agent_id: str):
         super().__init__(coordinator_url, agent_id)
         # Initialize database
         init_db()
-        
+
         # Initialize transaction service
         self.transaction_service = TransactionService()
-        
+
         # Get approval mode
         self.approval_mode = os.getenv("COIN_APPROVAL_MODE", "manual").lower()
-        
+
         # Initialize appropriate strategy
         if self.approval_mode == "automatic":
             self.strategy = AutomaticApprovalStrategy(coordinator_url, agent_id)
@@ -35,14 +33,14 @@ class RequestCoinsHandler(BaseHandler):
             self.strategy = AIApprovalStrategy(coordinator_url, agent_id)
         else:
             self.strategy = ManualApprovalStrategy(coordinator_url, agent_id)
-        
+
         self.logger.info(f"RequestCoinsHandler initialized with mode: {self.approval_mode}")
-    
+
     def can_handle(self, content: str) -> bool:
         """Check if content contains REQUEST_COINS."""
         return "REQUEST_COINS" in content.upper() or "request coins" in content.lower()
-    
-    def parse_request(self, content: str) -> Dict[str, Any]:
+
+    def parse_request(self, content: str) -> dict[str, Any]:
         """Parse REQUEST_COINS message to extract amount and wallet address."""
         # Try JSON format first
         import json
@@ -55,43 +53,43 @@ class RequestCoinsHandler(BaseHandler):
                 }
         except (json.JSONDecodeError, ValueError):
             pass
-        
+
         # Fallback to regex parsing (natural language)
         # Try to extract amount (e.g., "2000 ait coins")
         amount_match = re.search(r'(\d+)\s*(?:ait\s+)?coins?', content, re.IGNORECASE)
         amount = int(amount_match.group(1)) if amount_match else 0
-        
+
         # Try to extract wallet address (e.g., "to address 0x..." or "to 0x...")
         address_match = re.search(r'(?:to\s+address|to)\s+([a-zA-Z0-9]+)', content, re.IGNORECASE)
         wallet_address = address_match.group(1) if address_match else ""
-        
+
         return {
             "amount": amount,
             "wallet_address": wallet_address
         }
-    
-    async def handle(self, message: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def handle(self, message: dict[str, Any]) -> dict[str, Any]:
         """Handle REQUEST_COINS message with approval workflow."""
         sender = message.get("sender", "unknown")
         content = message.get("content", "")
         msg_id = message.get("id", "")
-        
+
         self.logger.info(f"REQUEST_COINS detected from {sender}")
-        
+
         # Parse request details
         request_details = self.parse_request(content)
         amount = request_details["amount"]
         wallet_address = request_details["wallet_address"]
-        
+
         if amount == 0:
             return {"status": "error", "error": "Could not parse amount from request"}
-        
+
         if not wallet_address:
             return {"status": "error", "error": "Could not parse wallet address from request"}
-        
+
         # Create request ID
         request_id = f"req-{msg_id}" if msg_id else f"req-{datetime.utcnow().timestamp()}"
-        
+
         # Prepare request for approval
         approval_request = {
             "id": request_id,
@@ -101,10 +99,10 @@ class RequestCoinsHandler(BaseHandler):
             "wallet_address": wallet_address,
             "created_at": datetime.utcnow()
         }
-        
+
         # Get approval decision
         approval_decision = self.strategy.approve(approval_request)
-        
+
         # Generate signed transaction if approved
         signed_transaction = None
         if approval_decision["approved"]:
@@ -115,7 +113,7 @@ class RequestCoinsHandler(BaseHandler):
             if signed_tx:
                 signed_transaction = json.dumps(signed_tx)
                 approval_decision["signed_transaction"] = signed_transaction
-        
+
         # Store in database
         with get_db_session() as session:
             coin_request = CoinRequest(
@@ -135,18 +133,18 @@ class RequestCoinsHandler(BaseHandler):
                 audit_log=f"Mode: {self.approval_mode}, Decision: {approval_decision['approved']}, Reason: {approval_decision['reason']}"
             )
             session.add(coin_request)
-        
+
         # Send response based on approval
         if approval_decision["approved"]:
             response_content = f"Coin request approved: {amount} AIT to {wallet_address}. Transaction pending execution."
         else:
             response_content = f"Coin request received: {amount} AIT to {wallet_address}. Status: {approval_decision['reason']}"
-        
+
         response = self.send_response(
             recipient=sender,
             content=response_content
         )
-        
+
         if response.get("status") == "success":
             return {
                 "status": "coin_request_processed",

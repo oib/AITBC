@@ -1,4 +1,5 @@
 from typing import Annotated, Any
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -7,7 +8,7 @@ Agent Security API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for security management and auditing
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -67,7 +68,7 @@ async def scan_security(
     scan_type: str = Query(default="quick", description="Scan type: quick, full, or custom")
 ) -> dict[str, Any]:
     """Perform security scan on target"""
-    
+
     try:
         # Simplified scan for testing
         return {
@@ -263,21 +264,21 @@ async def list_audit_logs(
         if workflow_id:
             query = query.where(AgentAuditLog.workflow_id == workflow_id)
         if execution_id:
-            query = query.where(AgentLog.execution_id == execution_id)  # type: ignore[name-defined]
+            query = query.where(AgentAuditLog.execution_id == execution_id)  # type: ignore[name-defined]
         if user_id:
-            query = query.where(AuditLog.user_id == user_id)  # type: ignore[name-defined]
+            query = query.where(AgentAuditLog.user_id == user_id)  # type: ignore[name-defined]
         if security_level:
-            query = query.where(AuditLog.security_level == security_level)  # type: ignore[name-defined]
+            query = query.where(AgentAuditLog.security_level == security_level)  # type: ignore[name-defined]
         if requires_investigation is not None:
-            query = query.where(AuditLog.requires_investigation == requires_investigation)  # type: ignore[name-defined]
+            query = query.where(AgentAuditLog.requires_investigation == requires_investigation)  # type: ignore[name-defined]
         if risk_score_min is not None:
-            query = query.where(AuditLog.risk_score >= risk_score_min)  # type: ignore[name-defined]
+            query = query.where(AgentAuditLog.risk_score >= risk_score_min)  # type: ignore[name-defined]
         if risk_score_max is not None:
-            query = query.where(AuditLog.risk_score <= risk_score_max)  # type: ignore[name-defined]
+            query = query.where(AgentAuditLog.risk_score <= risk_score_max)  # type: ignore[name-defined]
 
         # Apply pagination
         query = query.offset(offset).limit(limit)
-        query = query.order_by(AuditLog.timestamp.desc())  # type: ignore[name-defined]
+        query = query.order_by(AgentAuditLog.timestamp.desc())  # type: ignore[name-defined]
 
         audit_logs = session.execute(query).all()
         return audit_logs  # type: ignore[return-value]
@@ -299,7 +300,7 @@ async def get_audit_log(
 
     try:
 
-        audit_log = session.get(AuditLog, audit_id)  # type: ignore[name-defined]
+        audit_log = session.get(AgentAuditLog, audit_id)  # type: ignore[name-defined]
         if not audit_log:
             raise HTTPException(status_code=404, detail="Audit log not found")
 
@@ -566,22 +567,22 @@ async def get_security_dashboard(
 
         # Get high-risk events
         high_risk_events = session.execute(
-            select(AuditLog).where(AuditLog.requires_investigation).order_by(AuditLog.timestamp.desc()).limit(10)  # type: ignore[name-defined]
+            select(AgentAuditLog).where(AgentAuditLog.requires_investigation).order_by(AgentAuditLog.timestamp.desc()).limit(10)  # type: ignore[name-defined]
         ).all()
 
         # Get trust score statistics
-        trust_scores = session.execute(select(ActivityTrustScore)).all()  # type: ignore[name-defined]
+        trust_scores = session.execute(select(AgentTrustScore)).all()  # type: ignore[name-defined]
         avg_trust_score = sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0
 
         # Get active sandboxes
         active_sandboxes = session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()
 
         # Get security statistics
-        total_audits = session.execute(select(AuditLog)).count()  # type: ignore[attr-defined,name-defined]
-        high_risk_count = session.execute(select(AuditLog).where(AuditLog.requires_investigation)).count()  # type: ignore[attr-defined,name-defined]
+        total_audits = session.execute(select(AgentAuditLog)).count()  # type: ignore[attr-defined,name-defined]
+        high_risk_count = session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).count()  # type: ignore[attr-defined,name-defined]
 
         security_violations = session.execute(  # type: ignore[attr-defined]
-            select(AuditLog).where(AuditLog.event_type == AuditEventType.SECURITY_VIOLATION)  # type: ignore[name-defined]
+            select(AgentAuditLog).where(AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION)  # type: ignore[name-defined]
         ).count()
 
         return {
@@ -618,16 +619,16 @@ async def get_security_statistics(
         from ..services.agent_coordination.security import AgentTrustScore
 
         # Audit statistics
-        total_audits = session.execute(select(AuditLog)).count()  # type: ignore[attr-defined,name-defined]
+        total_audits = session.execute(select(AgentAuditLog)).count()  # type: ignore[attr-defined,name-defined]
         event_type_counts = {}
         for event_type in AuditEventType:
-            count = session.execute(select(AuditLog).where(AuditLog.event_type == event_type)).count()  # type: ignore[attr-defined,name-defined]
+            count = session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == event_type)).count()  # type: ignore[attr-defined,name-defined]
             event_type_counts[event_type.value] = count
 
         # Risk score distribution
         risk_score_distribution = {"low": 0, "medium": 0, "high": 0, "critical": 0}  # 0-30  # 31-70  # 71-100  # 90-100
 
-        all_audits = session.execute(select(AuditLog)).all()  # type: ignore[name-defined]
+        all_audits = session.execute(select(AgentAuditLog)).all()  # type: ignore[name-defined]
         for audit in all_audits:
             if audit.risk_score <= 30:
                 risk_score_distribution["low"] += 1

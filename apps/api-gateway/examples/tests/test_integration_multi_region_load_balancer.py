@@ -1,14 +1,20 @@
 """Integration tests for multi-region load balancer service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, LoadBalancingRule, RegionHealth, LoadBalancingMetrics, GeographicRule, load_balancing_rules, region_health_status, balancing_metrics, geographic_rules
+from main import (
+    GeographicRule,
+    LoadBalancingMetrics,
+    LoadBalancingRule,
+    RegionHealth,
+    app,
+    balancing_metrics,
+    geographic_rules,
+    load_balancing_rules,
+    region_health_status,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +89,7 @@ def test_create_duplicate_rule():
         session_affinity=False
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
-    
+
     response = client.post("/api/v1/rules/create", json=rule.model_dump())
     assert response.status_code == 400
 
@@ -114,7 +120,7 @@ def test_get_load_balancing_rule():
         session_affinity=False
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
-    
+
     response = client.get("/api/v1/rules/rule_123")
     assert response.status_code == 200
     data = response.json()
@@ -144,7 +150,7 @@ def test_update_rule_weights():
         session_affinity=False
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
-    
+
     new_weights = {"us-east-1": 0.7, "eu-west-1": 0.3}
     response = client.post("/api/v1/rules/rule_123/update-weights", json=new_weights)
     assert response.status_code == 200
@@ -177,7 +183,7 @@ def test_update_rule_weights_zero_total():
         session_affinity=False
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
-    
+
     new_weights = {"us-east-1": 0.0}
     response = client.post("/api/v1/rules/rule_123/update-weights", json=new_weights)
     assert response.status_code == 400
@@ -193,7 +199,7 @@ def test_register_region_health():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=100,
-        last_check=datetime.now(timezone.utc)
+        last_check=datetime.now(UTC)
     )
     response = client.post("/api/v1/health/register", json=health.model_dump(mode='json'))
     assert response.status_code == 200
@@ -241,7 +247,7 @@ def test_create_duplicate_geographic_rule():
         latency_threshold_ms=50.0
     )
     client.post("/api/v1/geographic-rules/create", json=rule.model_dump())
-    
+
     response = client.post("/api/v1/geographic-rules/create", json=rule.model_dump())
     assert response.status_code == 400
 
@@ -273,7 +279,7 @@ def test_get_optimal_region_with_rule():
         session_affinity=False
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
-    
+
     response = client.get("/api/v1/route/us-east?rule_id=rule_123")
     assert response.status_code == 200
     data = response.json()
@@ -286,7 +292,7 @@ def test_record_balancing_metrics():
     client = TestClient(app)
     metrics = LoadBalancingMetrics(
         balancer_id="lb_123",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         total_requests=1000,
         requests_per_region={"us-east-1": 500},
         average_response_time=50.5,
@@ -316,7 +322,7 @@ def test_get_balancing_metrics():
         session_affinity=False
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
-    
+
     response = client.get("/api/v1/metrics/rule_123")
     assert response.status_code == 200
     data = response.json()

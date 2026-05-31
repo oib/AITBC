@@ -3,11 +3,12 @@ AITBC Metrics Module
 Provides Prometheus metrics for monitoring
 """
 
-from prometheus_client import Counter, Histogram, Gauge, Info
-from prometheus_client import make_asgi_app
-from functools import wraps
 import time
-from typing import Callable, Any
+from collections.abc import Callable
+from functools import wraps
+from typing import Any
+
+from prometheus_client import Counter, Gauge, Histogram, Info, make_asgi_app
 
 # Service Information
 service_info = Info(

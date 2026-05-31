@@ -10,13 +10,11 @@ After migration is complete, duplicated code will be removed.
 import asyncio
 import os
 import subprocess
-import tempfile
-from pathlib import Path
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -24,11 +22,10 @@ from uuid import uuid4
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from ...domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
-from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
 from .agent_service import AIAgentOrchestrator
+from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
 
 # Import shared service factory for gradual migration
-from ..agent_integration_factory import get_shared_agent_integration_service
 
 
 # Mock ZKProofService for testing
@@ -117,8 +114,8 @@ class AgentDeploymentConfig(SQLModel, table=True):
     last_health_check: datetime | None = Field(default=None)
 
     # Metadata
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class AgentDeploymentInstance(SQLModel, table=True):
@@ -162,8 +159,8 @@ class AgentDeploymentInstance(SQLModel, table=True):
     health_check_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class AgentIntegrationManager:
@@ -393,7 +390,7 @@ class AgentDeploymentManager:
 
             # Update deployment status
             config.status = DeploymentStatus.DEPLOYING
-            config.deployment_time = datetime.now(timezone.utc)
+            config.deployment_time = datetime.now(UTC)
             self.session.commit()
 
             deployment_result: dict[str, Any] = {
@@ -477,7 +474,7 @@ class AgentDeploymentManager:
                 instance.status = DeploymentStatus.DEPLOYED
                 instance.health_status = "healthy"
                 instance.endpoint_url = f"http://localhost:{instance.port}"
-                instance.last_health_check = datetime.now(timezone.utc)
+                instance.last_health_check = datetime.now(UTC)
             except Exception as deploy_error:
                 logger.error(f"Systemd deployment failed for {instance_id}: {deploy_error}")
                 instance.status = DeploymentStatus.FAILED
@@ -556,7 +553,7 @@ class AgentDeploymentManager:
         """Deploy agent instance using systemd service"""
         service_name = f"aitbc-agent-{instance.instance_id}"
         service_file = f"/etc/systemd/system/{service_name}.service"
-        
+
         # Generate systemd service file
         service_content = f"""[Unit]
 Description=AITBC Agent Instance {instance.instance_id}
@@ -590,20 +587,20 @@ ProtectHome=true
 [Install]
 WantedBy=multi-user.target
 """
-        
+
         try:
             # Write systemd service file
             with open(service_file, 'w') as f:
                 f.write(service_content)
             os.chmod(service_file, 0o644)
-            
+
             # Reload systemd daemon
             subprocess.run(['systemctl', 'daemon-reload'], check=True, capture_output=True)
-            
+
             # Enable and start service
             subprocess.run(['systemctl', 'enable', service_name], check=True, capture_output=True)
             subprocess.run(['systemctl', 'start', service_name], check=True, capture_output=True)
-            
+
             # Wait for service to become active
             max_wait = 30
             for i in range(max_wait):
@@ -618,9 +615,9 @@ WantedBy=multi-user.target
                 await asyncio.sleep(1)
             else:
                 raise RuntimeError(f"Service {service_name} did not become active within {max_wait}s")
-            
+
             logger.info(f"Successfully deployed agent instance {instance.instance_id} via systemd")
-            
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to deploy systemd service {service_name}: {e.stderr}")
             raise RuntimeError(f"Systemd deployment failed: {e.stderr}")
@@ -639,22 +636,22 @@ WantedBy=multi-user.target
                 capture_output=True,
                 text=True
             )
-            
+
             service_active = result.stdout.strip() == 'active'
-            
+
             # HTTP health check endpoint
             health_status = "unhealthy"
             response_time = 0.0
-            
+
             if service_active and instance.endpoint_url:
                 try:
                     import httpx
-                    start_time = datetime.now(timezone.utc)
+                    start_time = datetime.now(UTC)
                     async with httpx.AsyncClient(timeout=5.0) as client:
                         response = await client.get(f"{instance.endpoint_url}/health")
-                        end_time = datetime.now(timezone.utc)
+                        end_time = datetime.now(UTC)
                         response_time = (end_time - start_time).total_seconds()
-                        
+
                         if response.status_code == 200:
                             health_data = response.json()
                             if health_data.get("status") == "healthy":
@@ -671,11 +668,11 @@ WantedBy=multi-user.target
 
             # Update instance health status
             instance.health_status = health_status
-            instance.last_health_check = datetime.now(timezone.utc)
+            instance.last_health_check = datetime.now(UTC)
 
             # Add to health check history
             health_check_record = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "status": health_status,
                 "response_time": response_time,
                 "service_active": service_active,
@@ -700,7 +697,7 @@ WantedBy=multi-user.target
 
             # Mark as unhealthy
             instance.health_status = "unhealthy"
-            instance.last_health_check = datetime.now(timezone.utc)
+            instance.last_health_check = datetime.now(UTC)
             instance.consecutive_failures += 1
             self.session.commit()
 
@@ -774,19 +771,19 @@ WantedBy=multi-user.target
                 # Remove systemd service
                 service_name = f"aitbc-agent-{instance.instance_id}"
                 service_file = f"/etc/systemd/system/{service_name}.service"
-                
+
                 try:
                     # Stop and disable service
                     subprocess.run(['systemctl', 'stop', service_name], check=True, capture_output=True)
                     subprocess.run(['systemctl', 'disable', service_name], check=True, capture_output=True)
-                    
+
                     # Remove service file
                     if os.path.exists(service_file):
                         os.remove(service_file)
-                    
+
                     # Reload systemd daemon
                     subprocess.run(['systemctl', 'daemon-reload'], check=True, capture_output=True)
-                    
+
                     logger.info(f"Removed systemd service: {service_name}")
                 except subprocess.CalledProcessError as e:
                     logger.warning(f"Failed to remove systemd service {service_name}: {e.stderr}")
@@ -835,15 +832,15 @@ WantedBy=multi-user.target
                     if getattr(config, "previous_version", None):
                         # Remove current instance
                         await self._remove_deployment_instance(instance.id)
-                        
+
                         # Redeploy with previous version
                         previous_config = config
-                        setattr(previous_config, "agent_version", getattr(config, "previous_version", getattr(config, "agent_version", "")))
-                        
+                        previous_config.agent_version = getattr(config, "previous_version", getattr(config, "agent_version", ""))
+
                         # Recreate instance with previous version
                         instance_number = int(instance.instance_id.split("-")[-1])
                         await self._create_deployment_instance(previous_config, instance.environment, instance_number)
-                        
+
                         rollback_result["rolled_back_instances"].append(
                             {"instance_id": instance.instance_id, "status": "rolled_back"}
                         )
@@ -973,9 +970,9 @@ class AgentMonitoringManager:
                 "instance_id": instance.instance_id,
                 "status": instance.status,
                 "health_status": instance.health_status,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
-            
+
             # Try to fetch metrics from agent instance if endpoint is available
             if instance.endpoint_url:
                 try:
@@ -1023,9 +1020,9 @@ class AgentMonitoringManager:
                     "average_response_time": instance.average_response_time,
                     "uptime_percentage": instance.uptime_percentage,
                 })
-            
+
             metrics_data["last_health_check"] = instance.last_health_check.isoformat() if instance.last_health_check else None
-            
+
             return metrics_data
 
         except Exception as e:
@@ -1059,7 +1056,7 @@ class AgentMonitoringManager:
 
             # Configure alert channels
             alert_channels = alerting_rules.get("channels", ["log"])
-            
+
             alerting_result = {
                 "deployment_id": deployment_config_id,
                 "alerting_rules": alerting_rules,

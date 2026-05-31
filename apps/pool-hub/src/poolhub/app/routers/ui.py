@@ -2,10 +2,11 @@
 UI router for serving static HTML pages
 """
 
+import os
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-import os
 
 router = APIRouter(tags=["ui"])
 

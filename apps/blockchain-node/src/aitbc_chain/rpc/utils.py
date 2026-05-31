@@ -2,13 +2,13 @@
 Utility functions for blockchain RPC endpoints.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import HTTPException
 
 from ..config import settings
 
-_poa_proposers: Dict[str, Any] = {}
+_poa_proposers: dict[str, Any] = {}
 
 
 def set_poa_proposer(proposer, chain_id: str = None):
@@ -37,7 +37,7 @@ def validate_chain_id(chain_id: str) -> bool:
     return chain_id in supported_chains
 
 
-def get_supported_chains() -> List[str]:
+def get_supported_chains() -> list[str]:
     """Get list of supported chain IDs"""
     chains = [chain.strip() for chain in settings.supported_chains.split(",") if chain.strip()]
     if not chains and settings.chain_id:
@@ -55,7 +55,7 @@ def get_chain_db(chain_id: str = None):
     return get_engine(resolved_chain_id)
 
 
-def normalize_transaction_data(tx_data: Dict[str, Any], chain_id: str) -> Dict[str, Any]:
+def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[str, Any]:
     """Normalize and validate transaction data"""
     sender = tx_data.get("from")
     recipient = tx_data.get("to")

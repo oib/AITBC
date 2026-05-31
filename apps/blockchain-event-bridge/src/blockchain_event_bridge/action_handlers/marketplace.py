@@ -1,9 +1,10 @@
 """Marketplace action handler for triggering marketplace state updates."""
 
-from typing import Any, Dict, List
-from aitbc.network.http_client import AsyncAITBCHTTPClient
+from typing import Any
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,7 @@ class MarketplaceHandler:
         """Close HTTP client."""
         self._client = None
 
-    async def handle_block(self, block_data: Dict[str, Any], transactions: List[Dict[str, Any]]) -> None:
+    async def handle_block(self, block_data: dict[str, Any], transactions: list[dict[str, Any]]) -> None:
         """Handle a new block by updating marketplace state."""
         logger.info(f"Processing block {block_data.get('height')} for marketplace updates")
 
@@ -44,7 +45,7 @@ class MarketplaceHandler:
         if marketplace_txs:
             await self._sync_marketplace_state(marketplace_txs)
 
-    def _filter_marketplace_transactions(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _filter_marketplace_transactions(self, transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter transactions that affect marketplace state."""
         marketplace_txs = []
 
@@ -62,7 +63,7 @@ class MarketplaceHandler:
 
         return marketplace_txs
 
-    async def _sync_marketplace_state(self, transactions: List[Dict[str, Any]]) -> None:
+    async def _sync_marketplace_state(self, transactions: list[dict[str, Any]]) -> None:
         """Synchronize marketplace state with blockchain."""
         try:
             client = await self._get_client()
@@ -81,7 +82,7 @@ class MarketplaceHandler:
             logger.error(f"Error syncing marketplace state: {e}", exc_info=True)
 
     # Phase 2: Contract event handlers
-    async def handle_contract_event(self, event_log: Dict[str, Any]) -> None:
+    async def handle_contract_event(self, event_log: dict[str, Any]) -> None:
         """Handle AgentServiceMarketplace contract event."""
         event_type = event_log.get("topics", [""])[0] if event_log.get("topics") else "Unknown"
         logger.info(f"Handling marketplace contract event: {event_type}")
@@ -92,7 +93,7 @@ class MarketplaceHandler:
         elif "ServicePurchased" in event_type:
             await self._handle_service_purchased(event_log)
 
-    async def _handle_service_listed(self, event_log: Dict[str, Any]) -> None:
+    async def _handle_service_listed(self, event_log: dict[str, Any]) -> None:
         """Handle ServiceListed event."""
         try:
             data = event_log.get("data", "{}")
@@ -104,7 +105,7 @@ class MarketplaceHandler:
         except Exception as e:
             logger.error(f"Error handling ServiceListed event: {e}", exc_info=True)
 
-    async def _handle_service_purchased(self, event_log: Dict[str, Any]) -> None:
+    async def _handle_service_purchased(self, event_log: dict[str, Any]) -> None:
         """Handle ServicePurchased event."""
         try:
             data = event_log.get("data", "{}")

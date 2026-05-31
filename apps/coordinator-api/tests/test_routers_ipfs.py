@@ -2,9 +2,9 @@
 Tests for IPFS router (decentralized storage)
 """
 
+
 import pytest
 from fastapi.testclient import TestClient
-from io import BytesIO
 
 
 @pytest.mark.unit
@@ -47,7 +47,7 @@ class TestIPFSRouter:
             data={"content": "Test content for retrieval", "filename": "retrieve.txt"}
         )
         cid = upload_response.json()["cid"]
-        
+
         # Retrieve it
         response = client.get(f"/ipfs/content/{cid}")
         assert response.status_code == 200
@@ -69,7 +69,7 @@ class TestIPFSRouter:
             data={"content": "Content to pin", "filename": "pin.txt"}
         )
         cid = upload_response.json()["cid"]
-        
+
         # Pin it
         response = client.post(f"/ipfs/pin/{cid}")
         assert response.status_code == 200
@@ -87,7 +87,7 @@ class TestIPFSRouter:
         )
         cid = upload_response.json()["cid"]
         client.post(f"/ipfs/pin/{cid}")
-        
+
         # Unpin it
         response = client.post(f"/ipfs/unpin/{cid}")
         assert response.status_code == 200
@@ -127,22 +127,22 @@ class TestIPFSIntegration:
         )
         assert upload_response.status_code == 200
         cid = upload_response.json()["cid"]
-        
+
         # 2. Pin the content
         pin_response = client.post(f"/ipfs/pin/{cid}")
         assert pin_response.status_code == 200
-        
+
         # 3. Verify it's in pins list
         pins_response = client.get("/ipfs/pins")
         assert pins_response.status_code == 200
         pinned_cids = [p["cid"] for p in pins_response.json()["pins"]]
         assert cid in pinned_cids
-        
+
         # 4. Get gateway URL
         gateway_response = client.get(f"/ipfs/gateway/{cid}")
         assert gateway_response.status_code == 200
         assert "gateway_url" in gateway_response.json()
-        
+
         # 5. Unpin
         unpin_response = client.post(f"/ipfs/unpin/{cid}")
         assert unpin_response.status_code == 200

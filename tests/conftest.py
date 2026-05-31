@@ -13,62 +13,25 @@ sys.path.insert(0, str(project_root / "cli"))
 
 # Import fixtures from dedicated fixture files
 # Common fixtures (environment setup, data generators)
-from tests.fixtures.common import (
-    setup_test_environment,
-    mock_optional_dependencies,
-    mock_aitbc_crypto,
-    sample_tenant,
-    sample_job_data,
-    mock_db,
-    mock_cache,
-    test_user_data,
-    test_transaction_data,
-    test_wallet_data,
-    test_ethereum_address,
-)
 
 # Coordinator API fixtures
-from tests.fixtures.coordinator import coordinator_client
 
 # Blockchain fixtures
-from tests.fixtures.blockchain import (
-    blockchain_client,
-    wallet_client,
-    marketplace_client,
-)
 
 # Training fixtures (kept here as they're specific to training tests)
-from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
-
 # Auth fixtures
-from tests.fixtures.auth_fixtures import (
-    mock_jwt_secret,
-    test_user_token,
-    test_admin_token,
-    expired_token,
-    invalid_token,
-    auth_headers,
-    admin_auth_headers,
-    mock_user,
-    mock_admin_user,
-    mock_auth_service,
-    permission_checker,
-    api_key_headers,
-    mock_api_keys,
-)
-
 # Test data factory
-from tests.fixtures.test_data_factory import TestDataFactory
-
 import pytest
 from click.testing import CliRunner
+
+from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
 
 
 @pytest.fixture(autouse=True)
 def mock_ctx_obj(monkeypatch):
     """Auto-use fixture that patches CliRunner.invoke to set ctx.obj"""
     original_invoke = CliRunner.invoke
-    
+
     def patched_invoke(self, cli, args, **kwargs):
         # Ensure obj is set with default context values
         if 'obj' not in kwargs or kwargs['obj'] is None:
@@ -80,7 +43,7 @@ def mock_ctx_obj(monkeypatch):
                 'debug': False
             }
         return original_invoke(self, cli, args, **kwargs)
-    
+
     monkeypatch.setattr(CliRunner, 'invoke', patched_invoke)
 
 
@@ -104,17 +67,17 @@ def training_env_mock():
     Function-scoped fixture for mocked training environment.
     Uses mocked subprocess calls for faster, isolated tests.
     """
-    from unittest.mock import patch, MagicMock
-    
+    from unittest.mock import MagicMock, patch
+
     env = TrainingEnvironment()
-    
+
     def mock_subprocess_run(*args, **kwargs):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "success"
         mock_result.stderr = ""
         return mock_result
-    
+
     with patch('subprocess.run', side_effect=mock_subprocess_run):
         yield env
 

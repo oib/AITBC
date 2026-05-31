@@ -28,7 +28,7 @@ class TestBountyRouter:
             "requirements": ["Python", "FastAPI"],
             "tags": ["backend", "api"]
         }
-        
+
         response = client.post("/bounty/create", json=bounty_data)
         assert response.status_code == 200
         data = response.json()
@@ -48,7 +48,7 @@ class TestBountyRouter:
         }
         create_response = client.post("/bounty/create", json=bounty_data)
         bounty_id = create_response.json()["bounty"]["id"]
-        
+
         # Get the bounty
         response = client.get(f"/bounty/{bounty_id}")
         assert response.status_code == 200
@@ -72,7 +72,7 @@ class TestBountyRouter:
         }
         create_response = client.post("/bounty/create", json=bounty_data)
         bounty_id = create_response.json()["bounty"]["id"]
-        
+
         # Claim the bounty
         claim_data = {
             "bounty_id": bounty_id,
@@ -95,12 +95,12 @@ class TestBountyRouter:
         }
         create_response = client.post("/bounty/create", json=bounty_data)
         bounty_id = create_response.json()["bounty"]["id"]
-        
+
         client.post("/bounty/claim", json={
             "bounty_id": bounty_id,
             "hunter": "0x2222222222222222222222222222222222222222"
         })
-        
+
         # Submit solution
         solution_data = {
             "bounty_id": bounty_id,
@@ -149,19 +149,19 @@ class TestBountyIntegration:
         create_response = client.post("/bounty/create", json=create_data)
         assert create_response.status_code == 200
         bounty_id = create_response.json()["bounty"]["id"]
-        
+
         # 2. List bounties
         list_response = client.get("/bounty/list")
         assert list_response.status_code == 200
         assert any(b["id"] == bounty_id for b in list_response.json()["bounties"])
-        
+
         # 3. Claim bounty
         claim_response = client.post("/bounty/claim", json={
             "bounty_id": bounty_id,
             "hunter": "0xHUNTER456"
         })
         assert claim_response.status_code == 200
-        
+
         # 4. Submit solution
         submit_response = client.post("/bounty/submit", json={
             "bounty_id": bounty_id,
@@ -169,7 +169,7 @@ class TestBountyIntegration:
             "solution_url": "https://solution.example.com"
         })
         assert submit_response.status_code == 200
-        
+
         # 5. Verify solution
         verify_response = client.post("/bounty/verify", json={
             "bounty_id": bounty_id,

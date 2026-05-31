@@ -2,7 +2,7 @@
 Badge System - Achievement and recognition badge system
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -10,10 +10,9 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from sqlmodel import Session, and_, select
-
 from app.domain.certification import AchievementBadge, AgentBadge, BadgeType
 from app.domain.reputation import AgentReputation
+from sqlmodel import Session, and_, select
 
 
 class BadgeSystem:
@@ -75,7 +74,7 @@ class BadgeSystem:
             display_properties=criteria.get("display_properties", {}),
             is_limited=criteria.get("is_limited", False),
             max_awards=criteria.get("max_awards"),
-            available_from=datetime.now(timezone.utc),
+            available_from=datetime.now(UTC),
             available_until=criteria.get("available_until"),
         )
 
@@ -187,7 +186,7 @@ class BadgeSystem:
             "context": {
                 "badge_name": badge.badge_name,
                 "badge_type": badge.badge_type.value,
-                "verification_date": datetime.now(timezone.utc).isoformat(),
+                "verification_date": datetime.now(UTC).isoformat(),
             },
         }
 

@@ -34,7 +34,7 @@ def _load_cli_module() -> ModuleType:
     if not cli_path.exists():
         # Fallback to old location
         cli_path = REPO_ROOT / "aitbc_cli" / "core" / "main.py"
-    
+
     spec = importlib.util.spec_from_file_location("aitbc_cli_unified", cli_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Unable to load CLI entrypoint from {cli_path}")
@@ -49,17 +49,17 @@ def main(argv=None):
     # Directly execute unified_cli without circular import
     import sys
     sys.path.insert(0, str(CLI_DIR))
-    
+
     # Import unified_cli module directly
     import unified_cli
-    
+
     # Create a mock core dict for the CLI
     from aitbc.constants import BLOCKCHAIN_RPC_PORT
-    
+
     # Stub handler functions for all parser handlers
     def stub_handler(*args, **kwargs):
         return None
-    
+
     core = {
         "DEFAULT_RPC_URL": f"http://localhost:{BLOCKCHAIN_RPC_PORT}",
         "DEFAULT_COORDINATOR_URL": "http://localhost:8011",
@@ -105,7 +105,7 @@ def main(argv=None):
         "handle_market_orders": stub_handler,
         "handle_market_list_plugins": stub_handler,
     }
-    
+
     return unified_cli.run_cli(argv, core)
 
 

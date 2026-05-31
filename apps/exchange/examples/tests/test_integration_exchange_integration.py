@@ -1,17 +1,15 @@
 """Integration tests for exchange integration service"""
 
-import pytest
 import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
-from fastapi.testclient import TestClient
+from unittest.mock import Mock
 
+import pytest
+from fastapi.testclient import TestClient
 
 # Mock aiohttp before importing
 sys.modules['aiohttp'] = Mock()
 
-from main import app, ExchangeRegistration, TradingPair, OrderRequest, exchanges, trading_pairs, orders
+from main import ExchangeRegistration, OrderRequest, TradingPair, app, exchanges, orders, trading_pairs
 
 
 @pytest.fixture(autouse=True)
@@ -75,10 +73,10 @@ def test_register_duplicate_exchange():
         name="TestExchange",
         api_key="test_key_123"
     )
-    
+
     # First registration
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
-    
+
     # Second registration should fail
     response = client.post("/api/v1/exchanges/register", json=registration.model_dump())
     assert response.status_code == 400
@@ -92,10 +90,10 @@ def test_connect_exchange():
         name="TestExchange",
         api_key="test_key_123"
     )
-    
+
     # Register exchange first
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
-    
+
     # Connect to exchange
     response = client.post("/api/v1/exchanges/testexchange/connect")
     assert response.status_code == 200
@@ -144,10 +142,10 @@ def test_create_duplicate_trading_pair():
         price_precision=8,
         quantity_precision=6
     )
-    
+
     # First creation
     client.post("/api/v1/pairs/create", json=pair.model_dump())
-    
+
     # Second creation should fail
     response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert response.status_code == 400
@@ -176,10 +174,10 @@ def test_get_trading_pair():
         price_precision=8,
         quantity_precision=6
     )
-    
+
     # Create pair first
     client.post("/api/v1/pairs/create", json=pair.model_dump())
-    
+
     # Get pair with lowercase symbol as pair_id
     response = client.get("/api/v1/pairs/aitbc-btc")
     assert response.status_code == 200
@@ -199,7 +197,7 @@ def test_get_nonexistent_trading_pair():
 def test_create_order():
     """Test creating order"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC/BTC",
@@ -210,7 +208,7 @@ def test_create_order():
         quantity_precision=6
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
-    
+
     # Create order
     order = OrderRequest(
         symbol="AITBC/BTC",
@@ -258,7 +256,7 @@ def test_list_orders():
 def test_get_order():
     """Test getting specific order"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC/BTC",
@@ -269,7 +267,7 @@ def test_get_order():
         quantity_precision=6
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
-    
+
     # Create order
     order = OrderRequest(
         symbol="AITBC/BTC",
@@ -280,7 +278,7 @@ def test_get_order():
     )
     create_response = client.post("/api/v1/orders", json=order.model_dump())
     order_id = create_response.json()["order_id"]
-    
+
     # Get order
     response = client.get(f"/api/v1/orders/{order_id}")
     assert response.status_code == 200
@@ -315,10 +313,10 @@ def test_get_exchange():
         name="TestExchange",
         api_key="test_key_123"
     )
-    
+
     # Register exchange first
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
-    
+
     # Get exchange
     response = client.get("/api/v1/exchanges/testexchange")
     assert response.status_code == 200
@@ -338,7 +336,7 @@ def test_get_nonexistent_exchange():
 def test_update_market_price():
     """Test updating market price"""
     client = TestClient(app)
-    
+
     # Create trading pair first
     pair = TradingPair(
         symbol="AITBC-BTC",
@@ -349,7 +347,7 @@ def test_update_market_price():
         quantity_precision=6
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
-    
+
     # Update price
     price_data = {"price": 0.000015, "volume": 50000.0}
     response = client.post("/api/v1/market-data/aitbc-btc/price", json=price_data)

@@ -260,21 +260,21 @@ async def list_audit_logs(
         if workflow_id:
             query = query.where(AgentAuditLog.workflow_id == workflow_id)
         if execution_id:
-            query = query.where(AgentLog.execution_id == execution_id)
+            query = query.where(AgentAuditLog.execution_id == execution_id)
         if user_id:
-            query = query.where(AuditLog.user_id == user_id)
+            query = query.where(AgentAuditLog.user_id == user_id)
         if security_level:
-            query = query.where(AuditLog.security_level == security_level)
+            query = query.where(AgentAuditLog.security_level == security_level)
         if requires_investigation is not None:
-            query = query.where(AuditLog.requires_investigation == requires_investigation)
+            query = query.where(AgentAuditLog.requires_investigation == requires_investigation)
         if risk_score_min is not None:
-            query = query.where(AuditLog.risk_score >= risk_score_min)
+            query = query.where(AgentAuditLog.risk_score >= risk_score_min)
         if risk_score_max is not None:
-            query = query.where(AuditLog.risk_score <= risk_score_max)
+            query = query.where(AgentAuditLog.risk_score <= risk_score_max)
 
         # Apply pagination
         query = query.offset(offset).limit(limit)
-        query = query.order_by(AuditLog.timestamp.desc())
+        query = query.order_by(AgentAuditLog.timestamp.desc())
 
         audit_logs = session.execute(query).all()
         return audit_logs
@@ -296,7 +296,7 @@ async def get_audit_log(
 
     try:
 
-        audit_log = session.get(AuditLog, audit_id)
+        audit_log = session.get(AgentAuditLog, audit_id)
         if not audit_log:
             raise HTTPException(status_code=404, detail="Audit log not found")
 
@@ -564,22 +564,22 @@ async def get_security_dashboard(
 
         # Get high-risk events
         high_risk_events = session.execute(
-            select(AuditLog).where(AuditLog.requires_investigation).order_by(AuditLog.timestamp.desc()).limit(10)
+            select(AgentAuditLog).where(AgentAuditLog.requires_investigation).order_by(AgentAuditLog.timestamp.desc()).limit(10)
         ).all()
 
         # Get trust score statistics
-        trust_scores = session.execute(select(ActivityTrustScore)).all()
+        trust_scores = session.execute(select(AgentTrustScore)).all()
         avg_trust_score = sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0
 
         # Get active sandboxes
         active_sandboxes = session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()
 
         # Get security statistics
-        total_audits = session.execute(select(AuditLog)).count()
-        high_risk_count = session.execute(select(AuditLog).where(AuditLog.requires_investigation)).count()
+        total_audits = session.execute(select(AgentAuditLog)).count()
+        high_risk_count = session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).count()
 
         security_violations = session.execute(
-            select(AuditLog).where(AuditLog.event_type == AuditEventType.SECURITY_VIOLATION)
+            select(AgentAuditLog).where(AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION)
         ).count()
 
         return {
@@ -617,16 +617,16 @@ async def get_security_statistics(
         from ..services.agent_security import AgentTrustScore
 
         # Audit statistics
-        total_audits = session.execute(select(AuditLog)).count()
+        total_audits = session.execute(select(AgentAuditLog)).count()
         event_type_counts = {}
         for event_type in AuditEventType:
-            count = session.execute(select(AuditLog).where(AuditLog.event_type == event_type)).count()
+            count = session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == event_type)).count()
             event_type_counts[event_type.value] = count
 
         # Risk score distribution
         risk_score_distribution = {"low": 0, "medium": 0, "high": 0, "critical": 0}  # 0-30  # 31-70  # 71-100  # 90-100
 
-        all_audits = session.execute(select(AuditLog)).all()
+        all_audits = session.execute(select(AgentAuditLog)).all()
         for audit in all_audits:
             if audit.risk_score <= 30:
                 risk_score_distribution["low"] += 1

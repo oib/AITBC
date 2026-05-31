@@ -2,17 +2,18 @@
 Transaction-related RPC endpoints.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import select
 
-from ..database import session_scope
-from ..models import Account, Transaction
-from ..logger import get_logger
-from .utils import get_chain_id, normalize_transaction_data
 from aitbc.rate_limiting import rate_limit
+
+from ..database import session_scope
+from ..logger import get_logger
+from ..models import Account, Transaction
+from .utils import get_chain_id, normalize_transaction_data
 
 _logger = get_logger(__name__)
 
@@ -25,28 +26,28 @@ class TransactionRequest(BaseModel):
     fee: int = 10
     nonce: int = 0
     type: str = "TRANSFER"
-    payload: Dict[str, Any] = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
     sig: str = Field(..., alias="signature")
 
     @model_validator(mode="before")
     @classmethod
-    def validate_payload(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_payload(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Ensure payload contains recipient and amount"""
         payload = values.get("payload", {})
         if not isinstance(payload, dict):
             payload = {}
-        
+
         # Set recipient/to in payload if not present
         if "to" not in payload and "recipient" in values:
             payload["to"] = values["recipient"]
         if "amount" not in payload and "amount" in values:
             payload["amount"] = values["amount"]
-        
+
         values["payload"] = payload
         return values
 
 
-def _validate_transaction_admission(tx_data: Dict[str, Any], mempool: Any) -> None:
+def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
     """Validate transaction can be admitted to mempool"""
     from ..mempool import compute_tx_hash
 
@@ -80,7 +81,7 @@ def _validate_transaction_admission(tx_data: Dict[str, Any], mempool: Any) -> No
 @rate_limit(rate=50, per=60)
 async def submit_transaction(
     request: Request, tx_data: TransactionRequest
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Submit a new transaction to the mempool"""
     from ..mempool import get_mempool
 
@@ -119,93 +120,93 @@ async def submit_transaction(
 @rate_limit(rate=200, per=60)
 async def get_mempool(
     request: Request, chain_id: str = None, limit: int = 100
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get pending transactions from mempool"""
     from ..mempool import get_mempool
-    
+
     try:
         mempool = get_mempool()
         pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
-        
+
         return {
             "success": True,
             "transactions": pending_txs,
             "count": len(pending_txs)
         }
     except Exception as e:
-        _logger.error(f"Failed to get mempool", extra={"error": str(e)})
+        _logger.error("Failed to get mempool", extra={"error": str(e)})
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}")
 
 
 @rate_limit(rate=50, per=60)
 async def submit_marketplace_transaction(
-    request: Request, tx_data: Dict[str, Any]
-) -> Dict[str, Any]:
+    request: Request, tx_data: dict[str, Any]
+) -> dict[str, Any]:
     """Submit a marketplace transaction"""
     from ..mempool import get_mempool
-    
+
     try:
         mempool = get_mempool()
         chain_id = get_chain_id(tx_data.get("chain_id"))
-        
+
         # Normalize transaction data
         tx_data_dict = normalize_transaction_data(tx_data, chain_id)
         _validate_transaction_admission(tx_data_dict, mempool)
-        
+
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
-        
+
         return {
             "success": True,
             "transaction_hash": tx_hash,
             "message": "Marketplace transaction submitted"
         }
     except Exception as e:
-        _logger.error(f"Failed to submit marketplace transaction", extra={"error": str(e)})
+        _logger.error("Failed to submit marketplace transaction", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail=f"Failed to submit marketplace transaction: {str(e)}")
 
 
 @rate_limit(rate=200, per=60)
 async def query_transactions(
     request: Request,
-    transaction_type: Optional[str] = None,
-    island_id: Optional[str] = None,
-    pair: Optional[str] = None,
-    status: Optional[str] = None,
-    order_id: Optional[str] = None,
-    limit: Optional[int] = 100,
+    transaction_type: str | None = None,
+    island_id: str | None = None,
+    pair: str | None = None,
+    status: str | None = None,
+    order_id: str | None = None,
+    limit: int | None = 100,
     chain_id: str = None
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     chain_id = get_chain_id(chain_id)
-    
+
     with session_scope() as session:
         query = select(Transaction).where(Transaction.chain_id == chain_id)
-        
+
         # Apply filters based on payload fields
         transactions = session.exec(query).all()
-        
+
         results = []
         for tx in transactions:
             # Filter by transaction type in payload
             if transaction_type and tx.payload.get('type') != transaction_type:
                 continue
-            
+
             # Filter by island_id in payload
             if island_id and tx.payload.get('island_id') != island_id:
                 continue
-            
+
             # Filter by pair in payload
             if pair and tx.payload.get('pair') != pair:
                 continue
-            
+
             # Filter by status in payload
             if status and tx.payload.get('status') != status:
                 continue
-            
+
             # Filter by order_id in payload
             if order_id and tx.payload.get('order_id') != order_id and tx.payload.get('offer_id') != order_id and tx.payload.get('bid_id') != order_id:
                 continue
-            
+
             results.append({
                 "transaction_id": tx.id,
                 "tx_hash": tx.tx_hash,
@@ -219,9 +220,9 @@ async def query_transactions(
                 "value": tx.value,
                 "fee": tx.fee
             })
-        
+
         # Apply limit
         if limit:
             results = results[:limit]
-        
+
         return results

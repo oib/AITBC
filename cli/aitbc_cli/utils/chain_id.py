@@ -4,9 +4,8 @@ This module provides functions for auto-detecting and validating chain IDs
 from blockchain nodes, supporting multichain operations.
 """
 
-from typing import Optional
-from aitbc import AITBCHTTPClient, NetworkError
 
+from aitbc import AITBCHTTPClient, NetworkError
 
 # Known chain IDs
 KNOWN_CHAINS = ["ait-mainnet", "ait-devnet", "ait-testnet", "ait-healthchain"]
@@ -43,7 +42,7 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout)
         health_data = http_client.get("/health")
         supported_chains = health_data.get("supported_chains", [])
-        
+
         if supported_chains:
             # Return the first supported chain (typically the primary chain)
             return supported_chains[0]
@@ -51,12 +50,12 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
         pass
     except Exception:
         pass
-    
+
     # Fallback to default if detection fails
     return get_default_chain_id()
 
 
-def get_chain_id(rpc_url: str, override: Optional[str] = None, timeout: int = 5) -> str:
+def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5) -> str:
     """Get chain ID with override support and auto-detection fallback.
     
     Args:
@@ -73,6 +72,6 @@ def get_chain_id(rpc_url: str, override: Optional[str] = None, timeout: int = 5)
             return override
         # If unknown, still use it (user may be testing new chains)
         return override
-    
+
     # Otherwise, auto-detect from health endpoint
     return get_chain_id_from_health(rpc_url, timeout)

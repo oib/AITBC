@@ -3,13 +3,13 @@ Authentication and authorization test fixtures
 Provides fixtures for testing auth flows, JWT tokens, and permissions
 """
 
-import sys
-from pathlib import Path
 from datetime import UTC, datetime, timedelta
-from typing import Dict, Any, Optional
+from pathlib import Path
+from typing import Any
 from unittest.mock import Mock
-import pytest
+
 import jwt
+import pytest
 
 project_root = Path(__file__).parent.parent.parent
 
@@ -110,14 +110,14 @@ def mock_admin_user():
 def mock_auth_service():
     """Mock authentication service"""
     service = Mock()
-    
-    def mock_verify_token(token: str) -> Optional[Dict[str, Any]]:
+
+    def mock_verify_token(token: str) -> dict[str, Any] | None:
         try:
             decoded = jwt.decode(token, "test_secret_key_for_jwt_signing_please_change_in_production", algorithms=["HS256"])
             return decoded
         except Exception:
             return None
-    
+
     def mock_generate_token(user_id: str, role: str = "user") -> str:
         payload = {
             "user_id": user_id,
@@ -126,7 +126,7 @@ def mock_auth_service():
             "iat": datetime.now(UTC)
         }
         return jwt.encode(payload, "test_secret_key_for_jwt_signing_please_change_in_production", algorithm="HS256")
-    
+
     service.verify_token = mock_verify_token
     service.generate_token = mock_generate_token
     service.get_user = Mock(return_value=Mock(user_id="test-user-123", email="test@example.com"))
@@ -137,12 +137,12 @@ def mock_auth_service():
 def permission_checker():
     """Mock permission checker for authorization"""
     checker = Mock()
-    
+
     def mock_has_permission(user: Any, permission: str) -> bool:
         if not hasattr(user, 'permissions'):
             return False
         return permission in user.permissions
-    
+
     checker.has_permission = mock_has_permission
     checker.check_role = Mock(return_value=True)
     return checker

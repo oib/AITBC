@@ -1,14 +1,13 @@
 """Contract event subscriber for smart contract event monitoring."""
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
-from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 
 from ..config import Settings
-from ..metrics import event_queue_size
 
 if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
@@ -23,11 +22,11 @@ class ContractEventSubscriber:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._running = False
-        self._bridge: "BlockchainEventBridge | None" = None
-        self._client: Optional[AsyncAITBCHTTPClient] = None
+        self._bridge: BlockchainEventBridge | None = None
+        self._client: AsyncAITBCHTTPClient | None = None
 
         # Contract addresses from configuration
-        self.contract_addresses: Dict[str, str] = {
+        self.contract_addresses: dict[str, str] = {
             "AgentStaking": settings.agent_staking_address or "",
             "PerformanceVerifier": settings.performance_verifier_address or "",
             "AgentServiceMarketplace": settings.marketplace_address or "",
@@ -36,7 +35,7 @@ class ContractEventSubscriber:
         }
 
         # Event topics/signatures for each contract
-        self.event_topics: Dict[str, list[str]] = {
+        self.event_topics: dict[str, list[str]] = {
             "AgentStaking": [
                 "StakeCreated",
                 "RewardsDistributed",
@@ -62,7 +61,7 @@ class ContractEventSubscriber:
         }
 
         # Track last processed block for each contract
-        self.last_processed_blocks: Dict[str, int] = {}
+        self.last_processed_blocks: dict[str, int] = {}
 
     def set_bridge(self, bridge: "BlockchainEventBridge") -> None:
         """Set the bridge instance for event handling."""
@@ -161,7 +160,7 @@ class ContractEventSubscriber:
             except Exception as e:
                 logger.error(f"Error polling events for {contract_name}: {e}", exc_info=True)
 
-    async def _process_contract_event(self, contract_name: str, log: Dict[str, Any]) -> None:
+    async def _process_contract_event(self, contract_name: str, log: dict[str, Any]) -> None:
         """Process a contract event."""
         event_type = log.get("topics", [""])[0] if log.get("topics") else "Unknown"
 
@@ -180,27 +179,27 @@ class ContractEventSubscriber:
             elif contract_name == "CrossChainBridge":
                 await self._handle_bridge_event(log)
 
-    async def _handle_staking_event(self, log: Dict[str, Any]) -> None:
+    async def _handle_staking_event(self, log: dict[str, Any]) -> None:
         """Handle AgentStaking contract event."""
         if self._bridge:
             await self._bridge.handle_staking_event(log)
 
-    async def _handle_performance_event(self, log: Dict[str, Any]) -> None:
+    async def _handle_performance_event(self, log: dict[str, Any]) -> None:
         """Handle PerformanceVerifier contract event."""
         if self._bridge:
             await self._bridge.handle_performance_event(log)
 
-    async def _handle_marketplace_event(self, log: Dict[str, Any]) -> None:
+    async def _handle_marketplace_event(self, log: dict[str, Any]) -> None:
         """Handle AgentServiceMarketplace contract event."""
         if self._bridge:
             await self._bridge.handle_marketplace_event(log)
 
-    async def _handle_bounty_event(self, log: Dict[str, Any]) -> None:
+    async def _handle_bounty_event(self, log: dict[str, Any]) -> None:
         """Handle BountyIntegration contract event."""
         if self._bridge:
             await self._bridge.handle_bounty_event(log)
 
-    async def _handle_bridge_event(self, log: Dict[str, Any]) -> None:
+    async def _handle_bridge_event(self, log: dict[str, Any]) -> None:
         """Handle CrossChainBridge contract event."""
         if self._bridge:
             await self._bridge.handle_bridge_event(log)

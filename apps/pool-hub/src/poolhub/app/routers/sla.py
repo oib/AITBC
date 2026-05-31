@@ -3,19 +3,20 @@ SLA and Billing API Endpoints for Pool-Hub
 Provides endpoints for SLA metrics, capacity planning, and billing integration.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Any
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
-from aitbc import get_logger
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
+
 from ..database import get_db
-from ..services.sla_collector import SLACollector
+from ..models import CapacitySnapshot
 from ..services.billing_integration import BillingIntegration
-from ..models import SLAMetric, SLAViolation, CapacitySnapshot
+from ..services.sla_collector import SLACollector
 
 logger = get_logger(__name__)
 
@@ -31,7 +32,7 @@ class SLAMetricResponse(BaseModel):
     threshold: float
     is_violation: bool
     timestamp: datetime
-    metadata: Dict[str, str]
+    metadata: dict[str, str]
 
     class Config:
         from_attributes = True
@@ -45,7 +46,7 @@ class SLAViolationResponse(BaseModel):
     metric_value: float
     threshold: float
     created_at: datetime
-    resolved_at: Optional[datetime]
+    resolved_at: datetime | None
 
     class Config:
         from_attributes = True
@@ -68,7 +69,7 @@ class CapacitySnapshotResponse(BaseModel):
 
 
 class UsageSyncRequest(BaseModel):
-    miner_id: Optional[str] = None
+    miner_id: str | None = None
     hours_back: int = Field(default=24, ge=1, le=168)
 
 
@@ -76,9 +77,9 @@ class UsageRecordRequest(BaseModel):
     tenant_id: str
     resource_type: str
     quantity: Decimal
-    unit_price: Optional[Decimal] = None
-    job_id: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    unit_price: Decimal | None = None
+    job_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class InvoiceGenerationRequest(BaseModel):
@@ -97,7 +98,7 @@ def get_billing_integration(db: Session = Depends(get_db)) -> BillingIntegration
 
 
 # SLA Metrics Endpoints
-@router.get("/metrics/{miner_id}", response_model=List[SLAMetricResponse])
+@router.get("/metrics/{miner_id}", response_model=list[SLAMetricResponse])
 async def get_miner_sla_metrics(
     miner_id: str,
     hours: int = Query(default=24, ge=1, le=168),
@@ -112,7 +113,7 @@ async def get_miner_sla_metrics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/metrics", response_model=List[SLAMetricResponse])
+@router.get("/metrics", response_model=list[SLAMetricResponse])
 async def get_all_sla_metrics(
     hours: int = Query(default=24, ge=1, le=168),
     sla_collector: SLACollector = Depends(get_sla_collector),
@@ -126,9 +127,9 @@ async def get_all_sla_metrics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/violations", response_model=List[SLAViolationResponse])
+@router.get("/violations", response_model=list[SLAViolationResponse])
 async def get_sla_violations(
-    miner_id: Optional[str] = Query(default=None),
+    miner_id: str | None = Query(default=None),
     resolved: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
@@ -158,14 +159,14 @@ async def collect_sla_metrics(
 
 
 # Capacity Planning Endpoints
-@router.get("/capacity/snapshots", response_model=List[CapacitySnapshotResponse])
+@router.get("/capacity/snapshots", response_model=list[CapacitySnapshotResponse])
 async def get_capacity_snapshots(
     hours: int = Query(default=24, ge=1, le=168),
     db: Session = Depends(get_db),
 ):
     """Get capacity planning snapshots"""
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
         stmt = (
             db.query(CapacitySnapshot)
             .filter(CapacitySnapshot.timestamp >= cutoff)
@@ -227,7 +228,7 @@ async def get_scaling_recommendations(
 
 @router.post("/capacity/alerts/configure")
 async def configure_capacity_alerts(
-    alert_config: Dict[str, Any],
+    alert_config: dict[str, Any],
     db: Session = Depends(get_db),
 ):
     """Configure capacity alerts"""
@@ -236,7 +237,7 @@ async def configure_capacity_alerts(
         return {
             "status": "configured",
             "alert_config": alert_config,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error configuring capacity alerts: {e}")
@@ -246,7 +247,7 @@ async def configure_capacity_alerts(
 # Billing Integration Endpoints
 @router.get("/billing/usage")
 async def get_billing_usage(
-    tenant_id: Optional[str] = Query(default=None),
+    tenant_id: str | None = Query(default=None),
     hours: int = Query(default=24, ge=1, le=168),
     billing_integration: BillingIntegration = Depends(get_billing_integration),
 ):
@@ -270,7 +271,7 @@ async def sync_billing_usage(
     try:
         if request.miner_id:
             # Sync specific miner
-            end_date = datetime.now(timezone.utc)
+            end_date = datetime.now(UTC)
             start_date = end_date - timedelta(hours=request.hours_back)
             result = await billing_integration.sync_miner_usage(
                 miner_id=request.miner_id, start_date=start_date, end_date=end_date
@@ -350,7 +351,7 @@ async def get_sla_status(db: Session = Depends(get_db)):
             "status": status,
             "active_violations": len(active_violations),
             "recent_metrics_count": len(recent_metrics),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting SLA status: {e}")

@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..domain.governance import GovernanceProfile, Proposal, Vote, DaoTreasury
+from ..domain.governance import DaoTreasury, GovernanceProfile, Proposal, Vote
 
 
 class GovernanceService:

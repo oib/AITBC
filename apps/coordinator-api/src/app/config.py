@@ -6,10 +6,11 @@ Provides environment-based adapter selection and consolidated settings.
 
 import os
 
-from aitbc.config import BaseAITBCConfig
-from aitbc.constants import DATA_DIR, LOG_DIR
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from aitbc.config import BaseAITBCConfig
+from aitbc.constants import DATA_DIR, LOG_DIR
 
 
 class DatabaseConfig(BaseSettings):
@@ -171,5 +172,5 @@ if os.getenv("TEST_MODE") == "true":
     if os.getenv("TEST_DATABASE_URL"):
         settings.test_database_url = os.getenv("TEST_DATABASE_URL")
 
-# Validate secrets on import
-settings.validate_secrets()
+# Note: Secret validation moved to application startup (create_app() or main entry point)
+# to allow importing config without production .env files during testing

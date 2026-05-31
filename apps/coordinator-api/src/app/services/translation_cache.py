@@ -5,7 +5,7 @@ Translation cache service with optional HMAC integrity protection.
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,7 @@ class TranslationCache:
         self.last_updated = datetime.fromisoformat(last_iso) if last_iso else None
 
     def _save(self) -> None:
-        payload = {"cache": self.cache, "last_updated": (self.last_updated or datetime.now(timezone.utc)).isoformat()}
+        payload = {"cache": self.cache, "last_updated": (self.last_updated or datetime.now(UTC)).isoformat()}
         if self.hmac_key:
             raw = json.dumps(payload, separators=(",", ":")).encode()
             mac = hmac.new(self.hmac_key, raw, hashlib.sha256).digest()
@@ -52,7 +52,7 @@ class TranslationCache:
 
     def set(self, source_text: str, source_lang: str, target_lang: str, translation: str) -> None:
         key = f"{source_lang}:{target_lang}:{source_text}"
-        self.cache[key] = {"translation": translation, "timestamp": datetime.now(timezone.utc).isoformat()}
+        self.cache[key] = {"translation": translation, "timestamp": datetime.now(UTC).isoformat()}
         self._save()
 
     def clear(self) -> None:

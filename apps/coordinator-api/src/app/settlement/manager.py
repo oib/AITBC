@@ -4,7 +4,7 @@ Bridge manager for cross-chain settlements
 
 import asyncio
 from dataclasses import asdict
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .bridges.base import BridgeAdapter, BridgeConfig, BridgeError, BridgeStatus, SettlementMessage, SettlementResult
@@ -240,9 +240,9 @@ class BridgeManager:
     async def _monitor_settlement(self, message_id: str) -> None:
         """Monitor settlement until completion"""
         max_wait_time = timedelta(hours=1)
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
-        while datetime.now(timezone.utc) - start_time < max_wait_time:
+        while datetime.now(UTC) - start_time < max_wait_time:
             # Check status
             result = await self.get_settlement_status(message_id)
 

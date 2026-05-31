@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import os
 import logging
-from datetime import datetime, timezone
-from typing import Annotated
+import os
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
 
-from .storage import get_session
 from .domain.jobs import Job, JobState
+from .storage import get_session
 
 logger = logging.getLogger(__name__)
 app = FastAPI(
@@ -88,13 +88,13 @@ async def submit_job(
             payment_amount=req.payment_amount,
             priority=req.priority,
             state=JobState.PENDING,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
-        
+
         session.add(job)
         await session.commit()
         await session.refresh(job)
-        
+
         return JobView(
             id=job.id,
             client_id=job.client_id,
@@ -124,10 +124,10 @@ async def get_job(
             select(Job).where(Job.id == job_id, Job.client_id == client_id)
         )
         job = result.scalar_one_or_none()
-        
+
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        
+
         return JobView(
             id=job.id,
             client_id=job.client_id,
@@ -159,13 +159,13 @@ async def get_job_result(
             select(Job).where(Job.id == job_id, Job.client_id == client_id)
         )
         job = result.scalar_one_or_none()
-        
+
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        
+
         if job.state not in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELED, JobState.EXPIRED}:
             raise HTTPException(status_code=425, detail="Job not ready")
-        
+
         return JobResult(
             id=job.id,
             result=job.result,
@@ -192,19 +192,19 @@ async def cancel_job(
             select(Job).where(Job.id == job_id, Job.client_id == client_id)
         )
         job = result.scalar_one_or_none()
-        
+
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        
+
         if job.state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELED, JobState.EXPIRED}:
             raise HTTPException(status_code=400, detail="Job already completed")
-        
+
         job.state = JobState.CANCELED
-        job.completed_at = datetime.now(timezone.utc)
-        
+        job.completed_at = datetime.now(UTC)
+
         await session.commit()
         await session.refresh(job)
-        
+
         return JobView(
             id=job.id,
             client_id=job.client_id,
@@ -234,15 +234,15 @@ async def list_jobs(
     """List jobs with filtering."""
     try:
         query = select(Job).where(Job.client_id == client_id)
-        
+
         if state:
             query = query.where(Job.state == state)
-        
+
         query = query.order_by(Job.created_at.desc()).limit(limit)
-        
+
         result = await session.execute(query)
         jobs = result.scalars().all()
-        
+
         return {
             "jobs": [
                 JobView(
@@ -308,7 +308,7 @@ async def multimodal_health() -> dict[str, Any]:
     return {
         "status": "healthy",
         "service": "multimodal-agent",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "capabilities": {
             "text_processing": True,
             "image_processing": True,
@@ -335,7 +335,7 @@ async def multimodal_deep_health() -> dict[str, Any]:
     return {
         "status": "healthy",
         "service": "multimodal-agent",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "modality_tests": {
             "text": {"status": "pass", "processing_time": "0.02s", "accuracy": "92%"},
             "image": {"status": "pass", "processing_time": "0.15s", "accuracy": "87%"},
@@ -386,7 +386,7 @@ async def optimization_health() -> dict[str, Any]:
     return {
         "status": "healthy",
         "service": "modality-optimization",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "capabilities": {
             "text_optimization": True,
             "image_optimization": True,

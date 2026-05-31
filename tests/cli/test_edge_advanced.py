@@ -4,13 +4,15 @@ These tests require edge-api running and validate advanced edge operations
 including island leave/bridge, GPU operations, database operations, serve operations, and metrics.
 """
 
-import pytest
 import json
+from unittest.mock import MagicMock, Mock, patch
+
 import httpx
-from click.testing import CliRunner
-from unittest.mock import Mock, patch, MagicMock
+import pytest
 from aitbc_cli.commands.edge import edge
-from aitbc import AITBCHTTPClient, NetworkError
+from click.testing import CliRunner
+
+from aitbc import AITBCHTTPClient
 
 
 @pytest.fixture
@@ -55,7 +57,7 @@ class TestEdgeAdvancedCommands:
             'island', 'leave',
             '--island-id', 'test_island_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'island_id' in data or 'status' in data
@@ -67,7 +69,7 @@ class TestEdgeAdvancedCommands:
             '--source', 'island_a',
             '--target', 'island_b'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'bridge_id' in data or 'status' in data
@@ -78,7 +80,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'gpus' in data or isinstance(data, list)
@@ -89,7 +91,7 @@ class TestEdgeAdvancedCommands:
             'gpu', 'get_gpu',
             '--gpu-id', 'gpu_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'gpu_id' in data or 'status' in data
@@ -100,7 +102,7 @@ class TestEdgeAdvancedCommands:
             'gpu', 'remove_gpu',
             '--gpu-id', 'gpu_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'gpu_id' in data or 'status' in data
@@ -110,7 +112,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'gpu', 'scan_gpus'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'gpus' in data or 'scan_results' in data
@@ -121,7 +123,7 @@ class TestEdgeAdvancedCommands:
             'gpu', 'gpu_metrics',
             '--gpu-id', 'gpu_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'metrics' in data or 'gpu_id' in data
@@ -133,7 +135,7 @@ class TestEdgeAdvancedCommands:
             'database', 'init_db',
             '--db-name', 'test_db'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'db_id' in data or 'status' in data
@@ -143,7 +145,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'database', 'list_dbs'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'databases' in data or isinstance(data, list)
@@ -154,7 +156,7 @@ class TestEdgeAdvancedCommands:
             'database', 'get_db',
             '--db-id', 'db_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'db_id' in data or 'status' in data
@@ -165,7 +167,7 @@ class TestEdgeAdvancedCommands:
             'database', 'delete_db',
             '--db-id', 'db_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'db_id' in data or 'status' in data
@@ -176,7 +178,7 @@ class TestEdgeAdvancedCommands:
             'database', 'sync_db',
             '--db-id', 'db_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'db_id' in data or 'sync_status' in data
@@ -189,7 +191,7 @@ class TestEdgeAdvancedCommands:
             '--request-type', 'compute',
             '--parameters', '{"gpu_count": 2}'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'request_id' in data or 'status' in data
@@ -199,7 +201,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'serve', 'list_requests'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'requests' in data or isinstance(data, list)
@@ -210,7 +212,7 @@ class TestEdgeAdvancedCommands:
             'serve', 'get_request',
             '--request-id', 'req_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'request_id' in data or 'status' in data
@@ -221,7 +223,7 @@ class TestEdgeAdvancedCommands:
             'serve', 'cancel_request',
             '--request-id', 'req_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'request_id' in data or 'status' in data
@@ -232,7 +234,7 @@ class TestEdgeAdvancedCommands:
             'serve', 'get_result',
             '--request-id', 'req_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'result' in data or 'request_id' in data
@@ -245,7 +247,7 @@ class TestEdgeAdvancedCommands:
             '--metric-name', 'test_metric',
             '--value', '100'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'metric_id' in data or 'status' in data
@@ -255,7 +257,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'metrics', 'list_metrics'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'metrics' in data or isinstance(data, list)
@@ -266,7 +268,7 @@ class TestEdgeAdvancedCommands:
             'metrics', 'get_metric',
             '--metric-id', 'metric_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'metric_id' in data or 'value' in data
@@ -277,7 +279,7 @@ class TestEdgeAdvancedCommands:
             'metrics', 'delete_metric',
             '--metric-id', 'metric_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'metric_id' in data or 'status' in data
@@ -289,7 +291,7 @@ class TestEdgeAdvancedCommands:
             'island', 'leave',
             '--island-id', 'nonexistent_island'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should handle gracefully
         assert result.exit_code != 0 or 'not found' in result.output.lower()
 
@@ -299,7 +301,7 @@ class TestEdgeAdvancedCommands:
             'gpu', 'get_gpu',
             '--gpu-id', 'nonexistent_gpu'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should handle gracefully
         assert result.exit_code != 0 or 'not found' in result.output.lower()
 
@@ -307,11 +309,11 @@ class TestEdgeAdvancedCommands:
         """Test edge command handles edge-api errors gracefully"""
         # Use invalid edge URL to trigger error
         mock_config.coordinator_url = "http://invalid:9999"
-        
+
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should either fail gracefully or skip with appropriate message
         assert result.exit_code != 0 or 'error' in result.output.lower() or 'unavailable' in result.output.lower()
 
@@ -321,7 +323,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'GPU' in result.output or 'gpus' in result.output.lower()
 
@@ -330,7 +332,7 @@ class TestEdgeAdvancedCommands:
         result = runner.invoke(edge, [
             'database', 'list_dbs'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert 'Database' in result.output or 'databases' in result.output.lower()
 
@@ -342,7 +344,7 @@ class TestEdgeAdvancedCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.get.return_value = {
@@ -351,9 +353,9 @@ class TestEdgeAdvancedCommands:
                 {"id": "gpu_2", "type": "NVIDIA", "memory": 32}
             ]
         }
-        
+
         result = runner.invoke(edge, [
             'gpu', 'list_gpus'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0

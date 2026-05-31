@@ -9,9 +9,7 @@ Generates:
 """
 
 import json
-import os
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 CERT_DIR = Path(__file__).parent / ".training_state" / "certificates"
@@ -39,7 +37,7 @@ def generate_markdown_badge(stage_num: int, cert_data: dict) -> str:
     badge_label = f"Stage {stage_num}"
     badge_message = "Completed"
     badge_color = "brightgreen"
-    
+
     # URL encode spaces
     badge_url = f"https://img.shields.io/badge/{badge_label.replace(' ', '%20')}-{badge_message.replace(' ', '%20')}-{badge_color}?style=flat-square"
     markdown = f"[![Stage {stage_num}]({badge_url})]({CERT_DIR}/stage{stage_num}_certificate.json)"
@@ -49,10 +47,10 @@ def generate_markdown_badge(stage_num: int, cert_data: dict) -> str:
 def generate_html_certificate(stage_num: int, cert_data: dict) -> str:
     """Generate HTML certificate for a stage."""
     stage_name = cert_data.get("stage_name", f"Stage {stage_num}")
-    timestamp = cert_data.get("completion_timestamp", datetime.now(timezone.utc).isoformat())
+    timestamp = cert_data.get("completion_timestamp", datetime.now(UTC).isoformat())
     wallet = cert_data.get("wallet_name", "Unknown")
     cert_id = cert_data.get("certificate_id", "Unknown")
-    
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -155,7 +153,7 @@ def generate_html_certificate(stage_num: int, cert_data: dict) -> str:
         </div>
         
         <div class="footer">
-            Generated on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
+            Generated on {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}
         </div>
     </div>
 </body>
@@ -170,7 +168,7 @@ def generate_summary_certificate(completed_stages: list) -> str:
         cert = load_certificate(stage)
         stage_name = cert.get("stage_name", f"Stage {stage}") if cert else f"Stage {stage}"
         stages_html += f'            <div class="stage-badge">Stage {stage}: {stage_name}</div>\n'
-    
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -249,7 +247,7 @@ def generate_summary_certificate(completed_stages: list) -> str:
         </div>
         
         <div class="footer">
-            Generated on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}<br>
+            Generated on {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}<br>
             Total Stages Completed: {len(completed_stages)} / 11
         </div>
     </div>
@@ -262,14 +260,14 @@ def generate_markdown_summary(completed_stages: list) -> str:
     """Generate Markdown summary with all badges."""
     markdown = "# AITBC Training Certificates\n\n"
     markdown += f"Completed {len(completed_stages)} / 11 stages\n\n"
-    
+
     markdown += "## Badges\n\n"
     for stage in sorted(completed_stages):
         cert = load_certificate(stage)
         if cert:
             badge = generate_markdown_badge(stage, cert)
             markdown += f"{badge} "
-    
+
     markdown += "\n\n## Stages Completed\n\n"
     for stage in sorted(completed_stages):
         cert = load_certificate(stage)
@@ -277,35 +275,35 @@ def generate_markdown_summary(completed_stages: list) -> str:
             stage_name = cert.get("stage_name", f"Stage {stage}")
             timestamp = cert.get("completion_timestamp", "Unknown")
             markdown += f"- **Stage {stage}: {stage_name}** - Completed {timestamp}\n"
-    
+
     return markdown
 
 
 def main():
     """Main function."""
     ensure_dirs()
-    
+
     # Find all completed stages
     completed_stages = []
     for i in range(11):  # Stages 0-10
         cert = load_certificate(i)
         if cert:
             completed_stages.append(i)
-            
+
             # Generate markdown badge
             badge_md = generate_markdown_badge(i, cert)
             badge_file = BADGE_DIR / f"stage{i}_badge.md"
             with open(badge_file, 'w') as f:
                 f.write(badge_md)
-            
+
             # Generate HTML certificate
             html = generate_html_certificate(i, cert)
             html_file = HTML_DIR / f"stage{i}_certificate.html"
             with open(html_file, 'w') as f:
                 f.write(html)
-            
+
             print(f"✓ Generated badge and HTML certificate for Stage {i}")
-    
+
     # Generate summary certificate if all stages completed
     if len(completed_stages) == 11:
         summary_html = generate_summary_certificate(completed_stages)
@@ -313,7 +311,7 @@ def main():
         with open(summary_file, 'w') as f:
             f.write(summary_html)
         print(f"✓ Generated Mastery Certificate: {summary_file}")
-    
+
     # Generate Markdown summary
     if completed_stages:
         md_summary = generate_markdown_summary(completed_stages)
@@ -321,7 +319,7 @@ def main():
         with open(summary_md_file, 'w') as f:
             f.write(md_summary)
         print(f"✓ Generated Markdown summary: {summary_md_file}")
-    
+
     print(f"\nTotal completed stages: {len(completed_stages)} / 11")
     print(f"Badges directory: {BADGE_DIR}")
     print(f"HTML certificates: {HTML_DIR}")

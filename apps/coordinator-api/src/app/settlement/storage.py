@@ -4,7 +4,7 @@ Storage layer for cross-chain settlements
 
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .bridges.base import BridgeStatus, SettlementMessage
@@ -49,7 +49,7 @@ class SettlementStorage:
                 message.signature,
                 bridge_name,
                 status.value,
-                message.created_at or datetime.now(timezone.utc),
+                message.created_at or datetime.now(UTC),
             ),
         )
 
@@ -90,7 +90,7 @@ class SettlementStorage:
             return
 
         updates.append(f"updated_at = ${param_count}")
-        params.append(datetime.now(timezone.utc))
+        params.append(datetime.now(UTC))
         param_count += 1
 
         params.append(message_id)
@@ -258,8 +258,8 @@ class InMemorySettlementStorage(SettlementStorage):
                 "signature": message.signature,
                 "bridge_name": bridge_name,
                 "status": status.value,
-                "created_at": message.created_at or datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc),
+                "created_at": message.created_at or datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
             }
 
     async def update_settlement(
@@ -285,7 +285,7 @@ class InMemorySettlementStorage(SettlementStorage):
             if completed_at is not None:
                 settlement["completed_at"] = completed_at
 
-            settlement["updated_at"] = datetime.now(timezone.utc)
+            settlement["updated_at"] = datetime.now(UTC)
 
     async def get_settlement(self, message_id: str) -> dict[str, Any] | None:
         async with self._lock:
@@ -316,7 +316,7 @@ class InMemorySettlementStorage(SettlementStorage):
 
                 # Time range filtering
                 if time_range is not None:
-                    cutoff = datetime.now(timezone.utc) - timedelta(hours=time_range)
+                    cutoff = datetime.now(UTC) - timedelta(hours=time_range)
                     if settlement["created_at"] < cutoff:
                         continue
 
@@ -345,7 +345,7 @@ class InMemorySettlementStorage(SettlementStorage):
 
     async def cleanup_old_settlements(self, days: int = 30) -> int:
         async with self._lock:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff = datetime.now(UTC) - timedelta(days=days)
 
             to_delete = [
                 msg_id

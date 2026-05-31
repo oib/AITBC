@@ -1,11 +1,11 @@
 """Network status and peer management handlers."""
 
-import json
+import logging
 import sys
 from urllib.parse import urlparse
 
 import requests
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,17 +68,17 @@ def handle_network_force_sync(args, default_rpc_url, render_mapping):
     """Handle network force sync command."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     if not args.peer:
         logger.error("Error: --peer is required")
         sys.exit(1)
-    
+
     sync_data = {
         "peer": args.peer,
     }
     if chain_id:
         sync_data["chain_id"] = chain_id
-    
+
     logger.info(f"Forcing sync to peer {args.peer} on {rpc_url}...")
     try:
         response = requests.post(f"{rpc_url}/rpc/force-sync", json=sync_data, timeout=60)

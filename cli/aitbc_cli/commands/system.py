@@ -3,13 +3,16 @@
 System commands for AITBC CLI
 """
 
-import click
 import os
 import subprocess
 from pathlib import Path
-from ..utils import output, error, success
+
+import click
+
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 from ..config import get_config
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from ..utils import error, output, success
 
 logger = get_logger(__name__)
 
@@ -64,7 +67,7 @@ def check(service):
 def restart(ctx, service: str):
     """Restart a systemd service"""
     service_name = f"aitbc-{service}" if not service.startswith("aitbc-") else service
-    
+
     try:
         success(f"Restarting service: {service_name}")
         result = subprocess.run(
@@ -73,7 +76,7 @@ def restart(ctx, service: str):
             text=True,
             timeout=30
         )
-        
+
         if result.returncode == 0:
             success(f"Service {service_name} restarted successfully")
             output({"service": service_name, "status": "restarted"}, ctx.obj.get("output_format", "table"))
@@ -90,7 +93,7 @@ def restart(ctx, service: str):
 def status(ctx):
     """Get system status from coordinator-api"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
         status_data = http_client.get("/api/v1/status")
@@ -108,15 +111,15 @@ def status(ctx):
 def config(ctx, show_secrets: bool):
     """Display system configuration from /etc/aitbc/blockchain.env"""
     config_path = Path("/etc/aitbc/blockchain.env")
-    
+
     if not config_path.exists():
         error(f"Configuration file not found: {config_path}")
         return
-    
+
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path) as f:
             config_lines = f.readlines()
-        
+
         config_data = {}
         for line in config_lines:
             line = line.strip()
@@ -126,7 +129,7 @@ def config(ctx, show_secrets: bool):
                 if not show_secrets and any(secret in key.lower() for secret in ['key', 'secret', 'password', 'token']):
                     value = '***HIDDEN***'
                 config_data[key.strip()] = value.strip()
-        
+
         success("System Configuration:")
         output(config_data, ctx.obj.get("output_format", "table"))
     except Exception as e:

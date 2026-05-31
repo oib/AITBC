@@ -27,3 +27,6 @@ keyring>=23.0.0
 # Development Utilities
 tqdm>=4.66.0
 ipython>=8.0.0
+
+# Authentication
+PyJWT[crypto]>=2.8.0

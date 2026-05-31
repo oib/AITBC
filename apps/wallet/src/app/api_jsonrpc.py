@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 import base64
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from .deps import get_receipt_service, get_keystore, get_ledger
-from .models import ReceiptVerificationModel, from_validation_result
-from .keystore.persistent_service import PersistentKeystoreService
+from .deps import get_keystore, get_ledger, get_receipt_service
+from .keystore.service import KeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
+from .models import from_validation_result
 from .receipts.service import ReceiptVerifierService
 
 router = APIRouter(tags=["jsonrpc"])
 
 
-def _response(result: Optional[Dict[str, Any]] = None, error: Optional[Dict[str, Any]] = None, *, request_id: Any = None) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {"jsonrpc": "2.0", "id": request_id}
+def _response(result: dict[str, Any] | None = None, error: dict[str, Any] | None = None, *, request_id: Any = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {"jsonrpc": "2.0", "id": request_id}
     if error is not None:
         payload["error"] = error
     else:
@@ -25,11 +25,11 @@ def _response(result: Optional[Dict[str, Any]] = None, error: Optional[Dict[str,
 
 @router.post("/rpc", summary="JSON-RPC endpoint")
 def handle_jsonrpc(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     service: ReceiptVerifierService = Depends(get_receipt_service),
     keystore: KeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     method = request.get("method")
     params = request.get("params") or {}
     request_id = request.get("id")

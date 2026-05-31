@@ -4,21 +4,22 @@ Tests ensure that validation functions maintain expected properties across rando
 """
 
 import pytest
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
+from aitbc.exceptions import ValidationError
 from aitbc.utils.validation import (
     validate_address,
-    validate_hash,
-    validate_url,
-    validate_port,
+    validate_chain_id,
     validate_email,
+    validate_hash,
     validate_non_empty,
+    validate_port,
     validate_positive_number,
     validate_range,
-    validate_chain_id,
-    validate_uuid
+    validate_url,
+    validate_uuid,
 )
-from aitbc.exceptions import ValidationError
 
 
 class TestValidationProperties:

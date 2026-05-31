@@ -4,11 +4,8 @@ GPU Exchange Integration Demo
 Shows how the GPU miner is integrated with the exchange
 """
 
-import json
+
 import httpx
-import subprocess
-import time
-from datetime import datetime
 
 print("🔗 AITBC GPU Exchange Integration")
 print("=" * 50)
@@ -21,9 +18,9 @@ try:
         data = response.json()
         gpus = data.get("gpus", [])
         print(f"   Found {len(gpus)} registered GPU(s)")
-        
+
         for gpu in gpus:
-            print(f"\n   🎮 GPU Details:")
+            print("\n   🎮 GPU Details:")
             print(f"      Model: {gpu['capabilities']['gpu']['model']}")
             print(f"      Memory: {gpu['capabilities']['gpu']['memory_gb']} GB")
             print(f"      CUDA: {gpu['capabilities']['gpu']['cuda_version']}")
@@ -52,7 +49,7 @@ try:
     response = httpx.get("http://localhost:8003/rpc/head")
     if response.status_code == 200:
         data = response.json()
-        print(f"   ✅ Blockchain Node active")
+        print("   ✅ Blockchain Node active")
         print(f"      Block Height: {data.get('height', 'Unknown')}")
         print(f"      Block Hash: {data.get('hash', 'Unknown')[:16]}...")
     else:

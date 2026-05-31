@@ -3,15 +3,13 @@ Shared agent integration logic using protocol-based dependency injection.
 This module contains pure business logic with no app-specific dependencies.
 """
 
-from typing import Any, Optional
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import UTC, datetime
+from typing import Any
 
-from .protocols.domain import IAgentExecution, IAgentStepExecution, AgentStatus, VerificationLevel
-from .protocols.security import ISecurityManager, IAuditor
-from .protocols.orchestrator import IAgentOrchestrator
-from .protocols.zk_proof import IZKProofService
 from .protocols.database import ISessionProvider
+from .protocols.orchestrator import IAgentOrchestrator
+from .protocols.security import IAuditor, ISecurityManager
+from .protocols.zk_proof import IZKProofService
 
 
 class AgentIntegrationService:
@@ -19,14 +17,14 @@ class AgentIntegrationService:
     Shared agent integration service with injected dependencies.
     All app-specific logic is abstracted through protocols.
     """
-    
+
     def __init__(
         self,
         session_provider: ISessionProvider,
         security_manager: ISecurityManager,
         auditor: IAuditor,
         orchestrator: IAgentOrchestrator,
-        zk_proof_service: Optional[IZKProofService] = None,
+        zk_proof_service: IZKProofService | None = None,
     ):
         """
         Initialize the agent integration service with injected dependencies.
@@ -43,12 +41,12 @@ class AgentIntegrationService:
         self._auditor = auditor
         self._orchestrator = orchestrator
         self._zk_proof_service = zk_proof_service
-    
+
     async def deploy_agent(
         self,
         workflow_id: str,
         deployment_config: dict[str, Any],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Deploy an agent with the given configuration.
@@ -68,25 +66,25 @@ class AgentIntegrationService:
             {"workflow_id": workflow_id, **(context or {})}
         ):
             raise PermissionError("Operation not authorized")
-        
+
         # Execute deployment using orchestrator
         result = await self._orchestrator.execute_workflow(
             workflow_id,
             deployment_config
         )
-        
+
         # Audit the deployment
         await self._auditor.audit_event(
             "agent_deployed",
             {
                 "workflow_id": workflow_id,
                 "deployment_id": result.get("deployment_id"),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
-        
+
         return result
-    
+
     async def generate_verification_proof(
         self,
         execution_id: str,
@@ -106,9 +104,9 @@ class AgentIntegrationService:
         """
         if not self._zk_proof_service:
             raise RuntimeError("ZK proof service not configured")
-        
+
         proof = await self._zk_proof_service.generate_zk_proof(circuit_name, inputs)
-        
+
         await self._auditor.audit_event(
             "proof_generated",
             {
@@ -117,9 +115,9 @@ class AgentIntegrationService:
                 "circuit_name": circuit_name,
             }
         )
-        
+
         return proof
-    
+
     async def verify_execution_proof(
         self,
         proof_id: str,
@@ -135,9 +133,9 @@ class AgentIntegrationService:
         """
         if not self._zk_proof_service:
             raise RuntimeError("ZK proof service not configured")
-        
+
         verification = await self._zk_proof_service.verify_proof(proof_id)
-        
+
         await self._auditor.audit_event(
             "proof_verified",
             {
@@ -145,9 +143,9 @@ class AgentIntegrationService:
                 "verified": verification.get("verified", False),
             }
         )
-        
+
         return verification
-    
+
     async def get_execution_status(
         self,
         execution_id: str,

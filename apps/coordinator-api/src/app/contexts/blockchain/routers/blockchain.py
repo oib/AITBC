@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ async def blockchain_status() -> dict[str, Any]:
             "timestamp": response.get("timestamp", ""),
             "tx_count": response.get("tx_count", 0),
         }
-    except NetworkError as e:
+    except NetworkError:
         # Return mock data if RPC is unavailable
         return {
             "status": "synced",
@@ -36,7 +36,7 @@ async def blockchain_status() -> dict[str, Any]:
             "proposer": "genesis",
             "note": "RPC unavailable - returning mock data"
         }
-    except Exception as e:
+    except Exception:
         return {"status": "error", "error": "Failed to get blockchain status"}
 
 
@@ -60,7 +60,7 @@ async def blockchain_sync_status() -> dict[str, Any]:
     except NetworkError as e:
         logger.error(f"RPC connection failed: {e}")
         return {"status": "error", "error": "RPC connection failed"}
-    except Exception as e:
+    except Exception:
         return {"status": "error", "error": "Failed to get sync status"}
 
 @router.get("/blocks/{height}")

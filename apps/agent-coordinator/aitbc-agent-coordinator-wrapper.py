@@ -4,8 +4,8 @@ Wrapper script for aitbc-agent-coordinator service
 Uses centralized aitbc utilities for path configuration
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add aitbc to path
@@ -22,6 +22,7 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Create required directories
 from aitbc.utils.paths import ensure_dir
+
 ensure_dir(DATA_DIR / "agent-coordinator")
 ensure_dir(LOG_DIR / "agent-coordinator")
 

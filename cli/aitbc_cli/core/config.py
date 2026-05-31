@@ -3,9 +3,10 @@ Multi-chain configuration management for AITBC CLI
 """
 
 from pathlib import Path
-from typing import Dict, Any, Optional
+
 import yaml
 from pydantic import BaseModel, Field
+
 
 class NodeConfig(BaseModel):
     """Configuration for a specific node"""
@@ -25,47 +26,47 @@ class ChainConfig(BaseModel):
 
 class MultiChainConfig(BaseModel):
     """Multi-chain configuration"""
-    nodes: Dict[str, NodeConfig] = Field(default_factory=dict, description="Node configurations")
+    nodes: dict[str, NodeConfig] = Field(default_factory=dict, description="Node configurations")
     chains: ChainConfig = Field(default_factory=ChainConfig, description="Chain configuration")
     logging_level: str = Field(default="INFO", description="Logging level")
     enable_caching: bool = Field(default=True, description="Enable response caching")
     cache_ttl: int = Field(default=300, description="Cache TTL in seconds")
 
-def load_multichain_config(config_path: Optional[str] = None) -> MultiChainConfig:
+def load_multichain_config(config_path: str | None = None) -> MultiChainConfig:
     """Load multi-chain configuration from file"""
     if config_path is None:
         config_path = Path.home() / ".aitbc" / "multichain_config.yaml"
-    
+
     config_file = Path(config_path)
-    
+
     if not config_file.exists():
         # Create default configuration
         default_config = MultiChainConfig()
         save_multichain_config(default_config, config_path)
         return default_config
-    
+
     try:
-        with open(config_file, 'r') as f:
+        with open(config_file) as f:
             config_data = yaml.safe_load(f)
-        
+
         return MultiChainConfig(**config_data)
     except Exception as e:
         raise ValueError(f"Failed to load configuration from {config_path}: {e}")
 
-def save_multichain_config(config: MultiChainConfig, config_path: Optional[str] = None) -> None:
+def save_multichain_config(config: MultiChainConfig, config_path: str | None = None) -> None:
     """Save multi-chain configuration to file"""
     if config_path is None:
         config_path = Path.home() / ".aitbc" / "multichain_config.yaml"
-    
+
     config_file = Path(config_path)
     config_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         # Convert Path objects to strings for YAML serialization
         config_dict = config.dict()
         if 'chains' in config_dict and 'backup_path' in config_dict['chains']:
             config_dict['chains']['backup_path'] = str(config_dict['chains']['backup_path'])
-        
+
         with open(config_file, 'w') as f:
             yaml.dump(config_dict, f, default_flow_style=False, indent=2)
     except Exception as e:
@@ -92,10 +93,10 @@ def remove_node_config(config: MultiChainConfig, node_id: str) -> MultiChainConf
         del config.nodes[node_id]
     return config
 
-def get_node_config(config: MultiChainConfig, node_id: str) -> Optional[NodeConfig]:
+def get_node_config(config: MultiChainConfig, node_id: str) -> NodeConfig | None:
     """Get a specific node configuration"""
     return config.nodes.get(node_id)
 
-def list_node_configs(config: MultiChainConfig) -> Dict[str, NodeConfig]:
+def list_node_configs(config: MultiChainConfig) -> dict[str, NodeConfig]:
     """List all node configurations"""
     return config.nodes.copy()

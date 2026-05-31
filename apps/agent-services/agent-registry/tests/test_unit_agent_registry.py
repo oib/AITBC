@@ -1,12 +1,8 @@
 """Unit tests for agent registry service"""
 
+
 import pytest
-import sys
-import sys
-from pathlib import Path
-
-
-from app import app, Agent, AgentRegistration
+from app import Agent, AgentRegistration, app
 
 
 @pytest.mark.unit

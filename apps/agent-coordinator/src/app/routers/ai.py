@@ -1,25 +1,12 @@
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse
 
-from .. import state
-from ..auth.jwt_handler import api_key_manager, jwt_handler
-from ..auth.middleware import get_current_user, require_role
-from ..auth.permissions import Permission, Role, permission_manager
 from ..ai.advanced_ai import ai_integration
 from ..ai.realtime_learning import learning_system
-from ..consensus.distributed_consensus import distributed_consensus
-from ..models import AgentRegistrationRequest, AgentStatusUpdate, MessageRequest, TaskSubmission
-from ..monitoring.alerting import alert_manager
-from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
-from ..protocols.communication import MessageType, create_protocol
-from ..protocols.message_types import create_task_message
-from ..routing.agent_discovery import create_agent_info
-from ..routing.load_balancer import LoadBalancingStrategy, TaskPriority
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -28,7 +15,7 @@ router = APIRouter()
 @router.post("/ai/learning/experience")
 @rate_limit(rate=50, per=60)
 async def record_learning_experience(
-    request: Request, experience_data: Dict[str, Any]
+    request: Request, experience_data: dict[str, Any]
 ):
     """Record a learning experience for the AI system"""
     try:
@@ -54,7 +41,7 @@ async def get_learning_statistics(
 @router.post("/ai/learning/predict")
 @rate_limit(rate=100, per=60)
 async def predict_performance(
-    request: Request, context: Dict[str, Any], action: str = Query(...)
+    request: Request, context: dict[str, Any], action: str = Query(...)
 ):
     """Predict performance for a given action"""
     try:
@@ -67,7 +54,7 @@ async def predict_performance(
 @router.post("/ai/learning/recommend")
 @rate_limit(rate=100, per=60)
 async def recommend_action(
-    request: Request, context: Dict[str, Any], available_actions: List[str]
+    request: Request, context: dict[str, Any], available_actions: list[str]
 ):
     """Get AI-recommended action"""
     try:
@@ -80,7 +67,7 @@ async def recommend_action(
 @router.post("/ai/neural-network/create")
 @rate_limit(rate=50, per=60)
 async def create_neural_network(
-    request: Request, config: Dict[str, Any]
+    request: Request, config: dict[str, Any]
 ):
     """Create a new neural network"""
     try:
@@ -93,7 +80,7 @@ async def create_neural_network(
 @router.post("/ai/neural-network/{network_id}/train")
 @rate_limit(rate=50, per=60)
 async def train_neural_network(
-    request: Request, network_id: str, training_data: List[Dict[str, Any]], epochs: int = 100
+    request: Request, network_id: str, training_data: list[dict[str, Any]], epochs: int = 100
 ):
     """Train a neural network"""
     try:
@@ -106,7 +93,7 @@ async def train_neural_network(
 @router.post("/ai/neural-network/{network_id}/predict")
 @rate_limit(rate=100, per=60)
 async def predict_with_neural_network(
-    request: Request, network_id: str, features: List[float]
+    request: Request, network_id: str, features: list[float]
 ):
     """Make prediction with neural network"""
     try:
@@ -119,7 +106,7 @@ async def predict_with_neural_network(
 @router.post("/ai/ml-model/create")
 @rate_limit(rate=50, per=60)
 async def create_ml_model(
-    request: Request, config: Dict[str, Any]
+    request: Request, config: dict[str, Any]
 ):
     """Create a new ML model"""
     try:
@@ -132,7 +119,7 @@ async def create_ml_model(
 @router.post("/ai/ml-model/{model_id}/train")
 @rate_limit(rate=50, per=60)
 async def train_ml_model(
-    request: Request, model_id: str, training_data: List[Dict[str, Any]]
+    request: Request, model_id: str, training_data: list[dict[str, Any]]
 ):
     """Train an ML model"""
     try:
@@ -145,7 +132,7 @@ async def train_ml_model(
 @router.post("/ai/ml-model/{model_id}/predict")
 @rate_limit(rate=100, per=60)
 async def predict_with_ml_model(
-    request: Request, model_id: str, features: List[float]
+    request: Request, model_id: str, features: list[float]
 ):
     """Make prediction with ML model"""
     try:

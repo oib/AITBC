@@ -5,13 +5,13 @@ Implements proper Ethereum cryptography and secure key storage
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
-
-from aitbc import get_logger
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlmodel import Session
+
+from aitbc import get_logger
 
 # from ...blockchain.services.contract_interactions import ContractInteractionService
 from ....domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
@@ -89,7 +89,7 @@ class SecureWalletService:
                 metadata=request.metadata,
                 encrypted_private_key=encrypted_data,
                 encryption_version="1.0",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
 
             self.session.add(wallet)
@@ -224,7 +224,7 @@ class SecureWalletService:
             # Update wallet
             wallet.encrypted_private_key = new_encrypted_data  # type: ignore[assignment]
             wallet.encryption_version = "1.0"
-            wallet.updated_at = datetime.now(timezone.utc)
+            wallet.updated_at = datetime.now(UTC)
 
             self.session.commit()
             self.session.refresh(wallet)
@@ -253,14 +253,14 @@ class SecureWalletService:
 
         if record:
             record.balance = balance
-            record.updated_at = datetime.now(timezone.utc)
+            record.updated_at = datetime.now(UTC)
         else:
             record = TokenBalance(  # type: ignore[assignment]
                 wallet_id=wallet_id,
                 chain_id=chain_id,
                 token_address=token_address,
                 balance=balance,
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
             )
             self.session.add(record)
 
@@ -294,7 +294,7 @@ class SecureWalletService:
             chain_id=request.chain_id,
             data=request.data or "",
             status=TransactionStatus.PENDING,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         self.session.add(transaction)
@@ -320,7 +320,7 @@ class SecureWalletService:
             # Update transaction with signed data
             transaction.signed_data = signed_tx
             transaction.status = TransactionStatus.SIGNED  # type: ignore[attr-defined]
-            transaction.updated_at = datetime.now(timezone.utc)
+            transaction.updated_at = datetime.now(UTC)
             self.session.commit()
 
             # Submit transaction to blockchain
@@ -329,7 +329,7 @@ class SecureWalletService:
             # Update transaction with submission result
             transaction.tx_hash = tx_hash
             transaction.status = TransactionStatus.SUBMITTED
-            transaction.updated_at = datetime.now(timezone.utc)
+            transaction.updated_at = datetime.now(UTC)
             self.session.commit()
 
             logger.info(f"Created and submitted transaction {transaction.id} with hash {tx_hash}")
@@ -337,7 +337,7 @@ class SecureWalletService:
             logger.error(f"Failed to sign/submit transaction {transaction.id}: {e}")
             transaction.status = TransactionStatus.FAILED
             transaction.error_message = str(e)
-            transaction.updated_at = datetime.now(timezone.utc)
+            transaction.updated_at = datetime.now(UTC)
             self.session.commit()
             raise
 
@@ -350,7 +350,7 @@ class SecureWalletService:
             return False
 
         wallet.is_active = False
-        wallet.updated_at = datetime.now(timezone.utc)
+        wallet.updated_at = datetime.now(UTC)
         wallet.deactivation_reason = reason
 
         self.session.commit()

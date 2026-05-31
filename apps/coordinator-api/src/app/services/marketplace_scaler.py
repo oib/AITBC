@@ -3,11 +3,11 @@ Marketplace Adaptive Resource Scaler
 Implements predictive and reactive auto-scaling of marketplace resources based on demand.
 """
 
-import time
 import asyncio
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timezone, timedelta
 import math
+import time
+from datetime import UTC, datetime
+from typing import Any
 
 from aitbc import get_logger
 
@@ -35,43 +35,43 @@ class ScalingPolicy:
 
 class ResourceScaler:
     """Adaptive resource scaling engine for the AITBC marketplace"""
-    
-    def __init__(self, policy: Optional[ScalingPolicy] = None):
+
+    def __init__(self, policy: ScalingPolicy | None = None):
         self.policy = policy or ScalingPolicy()
-        
+
         # Current state
         self.current_nodes = self.policy.min_nodes
         self.active_gpu_nodes = 0
         self.active_cpu_nodes = self.policy.min_nodes
-        
+
         self.last_scaling_action_time = 0
         self.scaling_history = []  # type: ignore[var-annotated]
-        
+
         # Historical demand tracking for predictive scaling
         # Format: hour_of_week (0-167) -> avg_utilization
         self.historical_demand = {}  # type: ignore[var-annotated]
-        
+
         self.is_running = False
         self._scaler_task = None
-        
+
     async def start(self) -> None:
         if self.is_running:
             return
         self.is_running = True
         self._scaler_task = asyncio.create_task(self._scaling_loop())  # type: ignore[assignment]
         logger.info(f"Resource Scaler started (Min: {self.policy.min_nodes}, Max: {self.policy.max_nodes})")
-        
+
     async def stop(self) -> None:
         self.is_running = False
         if self._scaler_task:
             self._scaler_task.cancel()  # type: ignore[unreachable]
         logger.info("Resource Scaler stopped")
-        
+
     def update_historical_demand(self, utilization: float) -> None:
         """Update historical data for predictive scaling"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         hour_of_week = now.weekday() * 24 + now.hour
-        
+
         if hour_of_week not in self.historical_demand:
             self.historical_demand[hour_of_week] = utilization
         else:
@@ -83,22 +83,22 @@ class ResourceScaler:
         """Predict expected utilization based on historical patterns"""
         if not self.policy.predictive_scaling or not self.historical_demand:
             return 0.0
-            
-        now = datetime.now(timezone.utc)
+
+        now = datetime.now(UTC)
         target_hour = (now.weekday() * 24 + now.hour + lookahead_hours) % 168
-        
+
         # If we have exact data for that hour
         if target_hour in self.historical_demand:
             return self.historical_demand[target_hour]  # type: ignore[no-any-return]
-            
+
         # Find nearest available data points
         available_hours = sorted(self.historical_demand.keys())
         if not available_hours:
             return 0.0
-            
+
         # Simplistic interpolation
         return sum(self.historical_demand.values()) / len(self.historical_demand)  # type: ignore[no-any-return]
-        
+
     async def _scaling_loop(self) -> None:
         """Background task that evaluates scaling rules periodically"""
         while self.is_running:
@@ -107,57 +107,57 @@ class ResourceScaler:
                 # Here we simulate fetching current metrics
                 current_utilization = self._get_current_utilization()
                 current_queue_depth = self._get_queue_depth()
-                
+
                 self.update_historical_demand(current_utilization)
-                
+
                 await self.evaluate_scaling(current_utilization, current_queue_depth)
-                
+
                 # Check every 10 seconds
                 await asyncio.sleep(10.0)
-                
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in scaling loop: {e}")
                 await asyncio.sleep(10.0)
 
-    async def evaluate_scaling(self, current_utilization: float, queue_depth: int) -> Optional[Dict[str, Any]]:
+    async def evaluate_scaling(self, current_utilization: float, queue_depth: int) -> dict[str, Any] | None:
         """Evaluate if scaling action is needed and execute if necessary"""
         now = time.time()
-        
+
         # Check cooldown
         if now - self.last_scaling_action_time < self.policy.cooldown_period_sec:
             return None
-            
+
         predicted_utilization = self._predict_demand()
-        
+
         # Determine target node count
         target_nodes = self.current_nodes
         action = None
         reason = ""
-        
+
         # Scale UP conditions
         if current_utilization > self.policy.scale_up_threshold or queue_depth > self.current_nodes * 5:
             # Reactive scale up
             desired_increase = math.ceil(self.current_nodes * (current_utilization / self.policy.target_utilization - 1.0))
             # Ensure we add at least 1, but bounded by queue depth and max_nodes
             nodes_to_add = max(1, min(desired_increase, max(1, queue_depth // 2)))
-            
+
             target_nodes = min(self.policy.max_nodes, self.current_nodes + nodes_to_add)
-            
+
             if target_nodes > self.current_nodes:
                 action = "scale_up"
                 reason = f"High utilization ({current_utilization*100:.1f}%) or queue depth ({queue_depth})"
-                
+
         elif self.policy.predictive_scaling and predicted_utilization > self.policy.scale_up_threshold:
             # Predictive scale up (proactive)
             # Add nodes more conservatively for predictive scaling
             target_nodes = min(self.policy.max_nodes, self.current_nodes + 1)
-            
+
             if target_nodes > self.current_nodes:
                 action = "scale_up"
                 reason = f"Predictive scaling (expected {predicted_utilization*100:.1f}% util)"
-                
+
         # Scale DOWN conditions
         elif current_utilization < self.policy.scale_down_threshold and queue_depth == 0:
             # Only scale down if predicted utilization is also low
@@ -165,19 +165,19 @@ class ResourceScaler:
                 # Remove nodes conservatively
                 nodes_to_remove = max(1, int(self.current_nodes * 0.2))
                 target_nodes = max(self.policy.min_nodes, self.current_nodes - nodes_to_remove)
-                
+
                 if target_nodes < self.current_nodes:
                     action = "scale_down"
                     reason = f"Low utilization ({current_utilization*100:.1f}%)"
-                    
+
         # Execute scaling if needed
         if action and target_nodes != self.current_nodes:
             diff = abs(target_nodes - self.current_nodes)
-            
+
             result = await self._execute_scaling(action, diff, target_nodes)
-            
+
             record = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "action": action,
                 "nodes_changed": diff,
                 "new_total": target_nodes,
@@ -188,18 +188,18 @@ class ResourceScaler:
                     "predicted_utilization": predicted_utilization
                 }
             }
-            
+
             self.scaling_history.append(record)
             # Keep history manageable
             if len(self.scaling_history) > 1000:
                 self.scaling_history = self.scaling_history[-1000:]
-                
+
             self.last_scaling_action_time = now  # type: ignore[assignment]
             self.current_nodes = target_nodes
-            
+
             logger.info(f"Auto-scaler: {action.upper()} to {target_nodes} nodes. Reason: {reason}")
             return record
-            
+
         return None
 
     async def _execute_scaling(self, action: str, count: int, new_total: int) -> bool:
@@ -207,10 +207,10 @@ class ResourceScaler:
         # In this implementation, we simulate the scaling delay
         # In production, this would call cloud APIs (AWS AutoScaling, K8s Scale, etc.)
         logger.debug(f"Executing {action} by {count} nodes...")
-        
+
         # Simulate API delay
         await asyncio.sleep(2.0)
-        
+
         if action == "scale_up":
             # Simulate provisioning new instances
             # We assume a mix of CPU and GPU instances based on demand
@@ -223,10 +223,10 @@ class ResourceScaler:
             # Prefer removing CPU nodes first if we have GPU ones
             remove_cpus = min(count, max(0, self.active_cpu_nodes - self.policy.min_nodes))
             remove_gpus = count - remove_cpus
-            
+
             self.active_cpu_nodes -= remove_cpus
             self.active_gpu_nodes = max(0, self.active_gpu_nodes - remove_gpus)
-            
+
         return True
 
     # --- Simulation helpers ---
@@ -237,7 +237,7 @@ class ResourceScaler:
         # Base utilization with some noise
         base = 0.6
         return max(0.1, min(0.99, base + random.uniform(-0.2, 0.3)))
-        
+
     def _get_queue_depth(self) -> int:
         """Simulate getting current queue depth"""
         import random
@@ -245,7 +245,7 @@ class ResourceScaler:
             return random.randint(10, 50)
         return random.randint(0, 5)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get current scaler status"""
         return {
             "status": "running" if self.is_running else "stopped",

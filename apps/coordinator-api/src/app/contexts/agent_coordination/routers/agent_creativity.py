@@ -16,14 +16,15 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from ....domain.agent_performance import CreativeCapability
 from sqlmodel import select
+
+from ....domain.agent_performance import CreativeCapability
+from ....storage import get_session
 from ..services.creative_capabilities_service import (
     CreativityEnhancementEngine,
     CrossDomainCreativeIntegrator,
     IdeationAlgorithm,
 )
-from ....storage import get_session
 
 router = APIRouter(prefix="/v1/agent-creativity", tags=["agent-creativity"])
 

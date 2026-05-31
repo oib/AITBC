@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 import sys
+from importlib import import_module
 
 __version__ = "0.1.0"
 __author__ = "AITBC Team"
@@ -27,8 +27,8 @@ def __getattr__(name: str):
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
     # core/ is now a proper subpackage of aitbc_cli/, so we can import normally
-    from aitbc_cli.core.main import main, cli
-    
+    from aitbc_cli.core.main import cli, main
+
     value = cli if name == "cli" else main
     globals()[name] = value
     return value

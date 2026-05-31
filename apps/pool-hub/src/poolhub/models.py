@@ -1,23 +1,23 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Dict, List, Optional, Any
+from datetime import timezone
 from enum import Enum
+from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
-    Column,
     DateTime,
     Float,
     ForeignKey,
     Integer,
-    JSON,
     String,
     Text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from uuid import uuid4
 
 
 class ServiceType(str, Enum):
@@ -42,24 +42,24 @@ class Miner(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
     )
-    last_seen_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     addr: Mapped[str] = mapped_column(String(256))
     proto: Mapped[str] = mapped_column(String(32))
     gpu_vram_gb: Mapped[float] = mapped_column(Float)
-    gpu_name: Mapped[Optional[str]] = mapped_column(String(128))
+    gpu_name: Mapped[str | None] = mapped_column(String(128))
     cpu_cores: Mapped[int] = mapped_column(Integer)
     ram_gb: Mapped[float] = mapped_column(Float)
     max_parallel: Mapped[int] = mapped_column(Integer)
     base_price: Mapped[float] = mapped_column(Float)
-    tags: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
-    capabilities: Mapped[List[str]] = mapped_column(JSON, default=list)
+    tags: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+    capabilities: Mapped[list[str]] = mapped_column(JSON, default=list)
     trust_score: Mapped[float] = mapped_column(Float, default=0.5)
-    region: Mapped[Optional[str]] = mapped_column(String(64))
+    region: Mapped[str | None] = mapped_column(String(64))
 
-    status: Mapped["MinerStatus"] = relationship(
+    status: Mapped[MinerStatus] = relationship(
         back_populates="miner", cascade="all, delete-orphan", uselist=False
     )
-    feedback: Mapped[List["Feedback"]] = relationship(
+    feedback: Mapped[list[Feedback]] = relationship(
         back_populates="miner", cascade="all, delete-orphan"
     )
 
@@ -72,11 +72,11 @@ class MinerStatus(Base):
     )
     queue_len: Mapped[int] = mapped_column(Integer, default=0)
     busy: Mapped[bool] = mapped_column(Boolean, default=False)
-    avg_latency_ms: Mapped[Optional[int]] = mapped_column(Integer)
-    temp_c: Mapped[Optional[int]] = mapped_column(Integer)
-    mem_free_gb: Mapped[Optional[float]] = mapped_column(Float)
-    uptime_pct: Mapped[Optional[float]] = mapped_column(Float)  # SLA metric
-    last_heartbeat_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
+    avg_latency_ms: Mapped[int | None] = mapped_column(Integer)
+    temp_c: Mapped[int | None] = mapped_column(Integer)
+    mem_free_gb: Mapped[float | None] = mapped_column(Float)
+    uptime_pct: Mapped[float | None] = mapped_column(Float)  # SLA metric
+    last_heartbeat_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc), onupdate=dt.datetime.now(timezone.utc)
     )
@@ -91,14 +91,14 @@ class MatchRequest(Base):
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    requirements: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False)
-    hints: Mapped[Dict[str, object]] = mapped_column(JSON, default=dict)
+    requirements: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    hints: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     top_k: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
     )
 
-    results: Mapped[List["MatchResult"]] = relationship(
+    results: Mapped[list[MatchResult]] = relationship(
         back_populates="request", cascade="all, delete-orphan"
     )
 
@@ -114,9 +114,9 @@ class MatchResult(Base):
     )
     miner_id: Mapped[str] = mapped_column(String(64))
     score: Mapped[float] = mapped_column(Float)
-    explain: Mapped[Optional[str]] = mapped_column(Text)
-    eta_ms: Mapped[Optional[int]] = mapped_column(Integer)
-    price: Mapped[Optional[float]] = mapped_column(Float)
+    explain: Mapped[str | None] = mapped_column(Text)
+    eta_ms: Mapped[int | None] = mapped_column(Integer)
+    price: Mapped[float | None] = mapped_column(Float)
 
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
@@ -136,9 +136,9 @@ class Feedback(Base):
         ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False
     )
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
-    latency_ms: Mapped[Optional[int]] = mapped_column(Integer)
-    fail_code: Mapped[Optional[str]] = mapped_column(String(64))
-    tokens_spent: Mapped[Optional[float]] = mapped_column(Float)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    fail_code: Mapped[str | None] = mapped_column(String(64))
+    tokens_spent: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
     )
@@ -159,9 +159,9 @@ class ServiceConfig(Base):
     )
     service_type: Mapped[str] = mapped_column(String(32), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
-    pricing: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
-    capabilities: Mapped[List[str]] = mapped_column(JSON, default=list)
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    pricing: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    capabilities: Mapped[list[str]] = mapped_column(JSON, default=list)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
@@ -194,7 +194,7 @@ class SLAMetric(Base):
     timestamp: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
     )
-    meta_data: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
+    meta_data: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     miner: Mapped[Miner] = relationship(backref="sla_metrics")
 
@@ -214,12 +214,12 @@ class SLAViolation(Base):
     severity: Mapped[str] = mapped_column(String(16), nullable=False)  # critical, high, medium, low
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
-    violation_duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
-    resolved_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
+    violation_duration_ms: Mapped[int | None] = mapped_column(Integer)
+    resolved_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
     )
-    meta_data: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
+    meta_data: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     miner: Mapped[Miner] = relationship(backref="sla_violations")
 
@@ -243,4 +243,4 @@ class CapacitySnapshot(Base):
     timestamp: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(timezone.utc)
     )
-    meta_data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

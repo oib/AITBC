@@ -2,13 +2,11 @@
 Platform Builder - factory for constructing AITBC agent platform configurations
 """
 
-from typing import Dict, List, Any, Optional
-from .agent import Agent, AgentCapabilities, AgentIdentity
-from .compute_provider import ComputeProvider
-from .compute_consumer import ComputeConsumer
-from .swarm_coordinator import SwarmCoordinator
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+
+from .agent import Agent
 
 logger = get_logger(__name__)
 
@@ -18,16 +16,16 @@ class PlatformBuilder:
 
     def __init__(self, platform_name: str = "default") -> None:
         self.platform_name = platform_name
-        self.agents: List[Agent] = []
-        self.config: Dict[str, Any] = {}
+        self.agents: list[Agent] = []
+        self.config: dict[str, Any] = {}
 
-    def with_config(self, config: Dict[str, Any]) -> "PlatformBuilder":
+    def with_config(self, config: dict[str, Any]) -> "PlatformBuilder":
         """Set platform configuration"""
         self.config.update(config)
         return self
 
     def add_provider(
-        self, name: str, capabilities: Dict[str, Any]
+        self, name: str, capabilities: dict[str, Any]
     ) -> "PlatformBuilder":
         """Add a compute provider agent"""
         agent = Agent.create(name, "compute_provider", capabilities)
@@ -36,7 +34,7 @@ class PlatformBuilder:
         return self
 
     def add_consumer(
-        self, name: str, capabilities: Dict[str, Any]
+        self, name: str, capabilities: dict[str, Any]
     ) -> "PlatformBuilder":
         """Add a compute consumer agent"""
         agent = Agent.create(name, "compute_consumer", capabilities)
@@ -44,7 +42,7 @@ class PlatformBuilder:
         logger.info(f"Added consumer: {name}")
         return self
 
-    def build(self) -> Dict[str, Any]:
+    def build(self) -> dict[str, Any]:
         """Build and return the platform configuration"""
         return {
             "platform_name": self.platform_name,

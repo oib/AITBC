@@ -3,13 +3,13 @@
 
 import subprocess
 import sys
-import os
 from pathlib import Path
+
 
 def run_cli_test():
     """Run basic CLI functionality tests."""
     print("🧪 Running CLI Tests with Virtual Environment...")
-    
+
     # Set up environment
     cli_dir = Path(__file__).resolve().parent.parent
     cli_bin = cli_dir.parent / "aitbc-cli"
@@ -22,12 +22,12 @@ def run_cli_test():
             timeout=10,
             cwd=str(cli_dir),
         )
-    
+
     # Test 1: CLI help command
     print("\n1. Testing CLI help command...")
     try:
         result = run_command("--help")
-        
+
         if result.returncode == 0 and "AITBC CLI" in result.stdout:
             print("✅ CLI help command working")
         else:
@@ -36,12 +36,12 @@ def run_cli_test():
     except Exception as e:
         print(f"❌ CLI help command error: {e}")
         return False
-    
+
     # Test 2: CLI list command
     print("\n2. Testing CLI list command...")
     try:
         result = run_command("wallet", "list")
-        
+
         if result.returncode == 0:
             print("✅ CLI list command working")
         else:
@@ -50,7 +50,7 @@ def run_cli_test():
     except Exception as e:
         print(f"❌ CLI list command error: {e}")
         return False
-    
+
     # Test 3: CLI blockchain command (optional - skip if no blockchain node)
     print("\n3. Testing CLI blockchain command...")
     try:
@@ -67,12 +67,12 @@ def run_cli_test():
     except Exception as e:
         print(f"❌ CLI blockchain command error: {e}")
         return False
-    
+
     # Test 4: CLI invalid command handling
     print("\n4. Testing CLI invalid command handling...")
     try:
         result = run_command("invalid-command")
-        
+
         if result.returncode != 0:
             print("✅ CLI invalid command handling working")
         else:
@@ -81,7 +81,7 @@ def run_cli_test():
     except Exception as e:
         print(f"❌ CLI invalid command error: {e}")
         return False
-    
+
     print("\n✅ All CLI tests passed!")
     return True
 

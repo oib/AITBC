@@ -4,6 +4,7 @@
 hermes Enhanced Service - FastAPI Entry Point
 """
 
+from datetime import UTC
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -55,15 +56,15 @@ async def health(request: Request) -> dict[str, str]:
 async def detailed_health(request: Request) -> dict[str, Any]:
     """Simple health check without database dependency"""
     try:
+        from datetime import datetime
+
         import psutil
-        import logging
-        from datetime import datetime, timezone
-        
+
         return {
             "status": "healthy",
             "service": "hermes-enhanced",
             "port": 8014,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": "3.13.5",
             "system": {
                 "cpu_percent": psutil.cpu_percent(),
@@ -99,7 +100,7 @@ async def detailed_health(request: Request) -> dict[str, Any]:
                 "resource_manager": "available"
             }
         }
-    except Exception as e:
+    except Exception:
         return {"status": "error", "error": "Failed to get status"}
 
 

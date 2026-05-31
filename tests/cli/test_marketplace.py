@@ -1,10 +1,11 @@
 """Tests for marketplace CLI commands"""
 
-import pytest
 import json
-from click.testing import CliRunner
 from unittest.mock import Mock, patch
+
+import pytest
 from aitbc_cli.commands.marketplace_cmd import marketplace
+from click.testing import CliRunner
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def mock_config():
 
 class TestMarketplaceCommands:
     """Test marketplace command group"""
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_gpu_list_all(self, mock_client_class, runner, mock_config):
         """Test listing all GPUs"""
@@ -54,27 +55,27 @@ class TestMarketplaceCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'gpu',
             'list'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data['gpus']) == 2
         assert data['gpus'][0]['model'] == 'RTX4090'
         assert data['gpus'][0]['available'] == True
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/gpu/list',
             params={"limit": 20},
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_gpu_list_available(self, mock_client_class, runner, mock_config):
         """Test listing only available GPUs"""
@@ -96,27 +97,27 @@ class TestMarketplaceCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'gpu',
             'list',
             '--available'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data['gpus']) == 1
         assert data['gpus'][0]['available'] == True
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/gpu/list',
             params={"available": "true", "limit": 20},
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_gpu_list_with_filters(self, mock_client_class, runner, mock_config):
         """Test listing GPUs with filters"""
@@ -138,7 +139,7 @@ class TestMarketplaceCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command with filters
         result = runner.invoke(marketplace, [
             'gpu',
@@ -147,17 +148,17 @@ class TestMarketplaceCommands:
             '--memory-min', '16',
             '--price-max', '1.0'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
-        
+
         # Verify API call with filters
         mock_client.get.assert_called_once()
         call_args = mock_client.get.call_args
         assert call_args[1]['params']['model'] == 'RTX4090'
         assert call_args[1]['params']['memory_min'] == 16
         assert call_args[1]['params']['price_max'] == 1.0
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_gpu_details(self, mock_client_class, runner, mock_config):
         """Test getting GPU details"""
@@ -182,14 +183,14 @@ class TestMarketplaceCommands:
             "rating": 4.8
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'gpu',
             'details',
             'gpu1'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -197,13 +198,13 @@ class TestMarketplaceCommands:
         assert data['model'] == 'RTX4090'
         assert data['specs']['cuda_cores'] == 16384
         assert data['rating'] == 4.8
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/gpu/gpu1',
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_gpu_book(self, mock_client_class, runner, mock_config):
         """Test booking a GPU"""
@@ -220,7 +221,7 @@ class TestMarketplaceCommands:
             "status": "booked"
         }
         mock_client.post.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'gpu',
@@ -228,7 +229,7 @@ class TestMarketplaceCommands:
             'gpu1',
             '--hours', '2'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         # Extract JSON from output (success message + JSON)
@@ -236,7 +237,7 @@ class TestMarketplaceCommands:
         import re
         clean_output = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
         lines = clean_output.strip().split('\n')
-        
+
         # Find all lines that contain JSON and join them
         json_lines = []
         in_json = False
@@ -249,14 +250,14 @@ class TestMarketplaceCommands:
                 json_lines.append(stripped)
                 if stripped.endswith('}'):
                     break
-        
+
         json_str = '\n'.join(json_lines)
         assert json_str, "No JSON found in output"
         data = json.loads(json_str)
         assert data['booking_id'] == 'booking123'
         assert data['status'] == 'booked'
         assert data['total_cost'] == 1.0
-        
+
         # Verify API call
         mock_client.post.assert_called_once_with(
             'http://test:8000/v1/marketplace/gpu/gpu1/book',
@@ -266,7 +267,7 @@ class TestMarketplaceCommands:
                 "X-Api-Key": "test_api_key"
             }
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_gpu_release(self, mock_client_class, runner, mock_config):
         """Test releasing a GPU"""
@@ -282,14 +283,14 @@ class TestMarketplaceCommands:
             "message": "GPU gpu1 released successfully"
         }
         mock_client.post.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'gpu',
             'release',
             'gpu1'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         # Extract JSON from output (success message + JSON)
@@ -297,7 +298,7 @@ class TestMarketplaceCommands:
         import re
         clean_output = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
         lines = clean_output.strip().split('\n')
-        
+
         # Find all lines that contain JSON and join them
         json_lines = []
         in_json = False
@@ -310,19 +311,19 @@ class TestMarketplaceCommands:
                 json_lines.append(stripped)
                 if stripped.endswith('}'):
                     break
-        
+
         json_str = '\n'.join(json_lines)
         assert json_str, "No JSON found in output"
         data = json.loads(json_str)
         assert data['status'] == 'released'
         assert data['gpu_id'] == 'gpu1'
-        
+
         # Verify API call
         mock_client.post.assert_called_once_with(
             'http://test:8000/v1/marketplace/gpu/gpu1/release',
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_orders_list(self, mock_client_class, runner, mock_config):
         """Test listing orders"""
@@ -343,19 +344,19 @@ class TestMarketplaceCommands:
                 }
             ]
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'orders'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         # Extract JSON from output
         import re
         clean_output = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
         lines = clean_output.strip().split('\n')
-        
+
         # Find all lines that contain JSON and join them
         json_lines = []
         in_json = False
@@ -368,20 +369,20 @@ class TestMarketplaceCommands:
                 json_lines.append(stripped)
                 if stripped.endswith(']'):
                     break
-        
+
         json_str = '\n'.join(json_lines)
         assert json_str, "No JSON found in output"
         data = json.loads(json_str)
         assert len(data) == 1
         assert data[0]['status'] == 'active'
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/orders',
             params={"limit": 10},
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_pricing_info(self, mock_client_class, runner, mock_config):
         """Test getting pricing information"""
@@ -403,26 +404,26 @@ class TestMarketplaceCommands:
             }
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'pricing',
             'RTX4090'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data['average_price'] == 0.4
         assert data['price_range']['min'] == 0.2
         assert data['price_by_model']['RTX4090'] == 0.5
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/pricing/RTX4090',
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_reviews_list(self, mock_client_class, runner, mock_config):
         """Test listing reviews for a GPU"""
@@ -450,26 +451,26 @@ class TestMarketplaceCommands:
             ]
         }
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'reviews',
             'gpu1'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data['reviews']) == 2
         assert data['reviews'][0]['rating'] == 5
-        
+
         # Verify API call
         mock_client.get.assert_called_once_with(
             'http://test:8000/v1/marketplace/gpu/gpu1/reviews',
             params={"limit": 10},
             headers={"X-Api-Key": "test_api_key"}
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_add_review(self, mock_client_class, runner, mock_config):
         """Test adding a review for a GPU"""
@@ -485,7 +486,7 @@ class TestMarketplaceCommands:
             "average_rating": 5.0
         }
         mock_client.post.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'review',
@@ -493,7 +494,7 @@ class TestMarketplaceCommands:
             '--rating', '5',
             '--comment', 'Amazing GPU!'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0
         # Extract JSON from output (success message + JSON)
@@ -501,7 +502,7 @@ class TestMarketplaceCommands:
         import re
         clean_output = re.sub(r'\x1b\[[0-9;]*m', '', result.output)
         lines = clean_output.strip().split('\n')
-        
+
         # Find all lines that contain JSON and join them
         json_lines = []
         in_json = False
@@ -514,13 +515,13 @@ class TestMarketplaceCommands:
                 json_lines.append(stripped)
                 if stripped.endswith('}'):
                     break
-        
+
         json_str = '\n'.join(json_lines)
         assert json_str, "No JSON found in output"
         data = json.loads(json_str)
         assert data['status'] == 'review_added'
         assert data['gpu_id'] == 'gpu1'
-        
+
         # Verify API call
         mock_client.post.assert_called_once_with(
             'http://test:8000/v1/marketplace/gpu/gpu1/reviews',
@@ -530,7 +531,7 @@ class TestMarketplaceCommands:
                 "X-Api-Key": "test_api_key"
             }
         )
-    
+
     @patch('aitbc_cli.commands.marketplace.httpx.Client')
     def test_api_error_handling(self, mock_client_class, runner, mock_config):
         """Test API error handling"""
@@ -540,14 +541,14 @@ class TestMarketplaceCommands:
         mock_response = Mock()
         mock_response.status_code = 404
         mock_client.get.return_value = mock_response
-        
+
         # Run command
         result = runner.invoke(marketplace, [
             'gpu',
             'details',
             'nonexistent'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Assertions
         assert result.exit_code == 0  # The command doesn't exit on error
         assert 'not found' in result.output

@@ -1,17 +1,14 @@
 """Unit tests for simple explorer service"""
 
-import pytest
 import sys
-import sys
-from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock
-from datetime import datetime
+from unittest.mock import Mock
 
+import pytest
 
 # Mock httpx before importing
 sys.modules['httpx'] = Mock()
 
-from main import app, BLOCKCHAIN_RPC_URL, HTML_TEMPLATE
+from main import BLOCKCHAIN_RPC_URL, HTML_TEMPLATE, app
 
 
 @pytest.mark.unit

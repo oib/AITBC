@@ -2,11 +2,10 @@
 Tests for Island Join functionality
 """
 
-import sys
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import pytest
-import asyncio
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from aitbc_chain.network.hub_manager import HubManager, HubInfo, PeerInfo
+from aitbc_chain.network.hub_manager import HubManager, PeerInfo
 from aitbc_chain.p2p_network import P2PNetworkService
 
 
@@ -192,7 +191,7 @@ class TestP2PNetworkJoin:
         with patch('aitbc_chain.p2p_network.asyncio.open_connection') as mock_open:
             # Mock reader that times out
             mock_reader = AsyncMock()
-            mock_reader.readline = AsyncMock(side_effect=asyncio.TimeoutError())
+            mock_reader.readline = AsyncMock(side_effect=TimeoutError())
             mock_writer = AsyncMock()
             mock_writer.close = AsyncMock()
             mock_writer.wait_closed = AsyncMock()

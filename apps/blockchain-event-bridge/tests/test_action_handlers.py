@@ -1,11 +1,10 @@
 """Tests for action handlers."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
-import sys
+from unittest.mock import AsyncMock, patch
 
-from blockchain_event_bridge.action_handlers.coordinator_api import CoordinatorAPIHandler
+import pytest
 from blockchain_event_bridge.action_handlers.agent_daemon import AgentDaemonHandler
+from blockchain_event_bridge.action_handlers.coordinator_api import CoordinatorAPIHandler
 from blockchain_event_bridge.action_handlers.marketplace import MarketplaceHandler
 
 

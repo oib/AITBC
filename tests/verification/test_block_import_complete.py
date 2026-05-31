@@ -4,10 +4,10 @@ Comprehensive test for block import endpoint
 Tests all functionality including validation, conflicts, and transaction import
 """
 
-import json
 import hashlib
+
 import requests
-from datetime import datetime, timezone
+
 from aitbc import AITBCHTTPClient
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
@@ -20,19 +20,19 @@ def compute_block_hash(height, parent_hash, timestamp):
 
 def test_block_import_complete():
     """Complete test suite for block import endpoint"""
-    
+
     print("=" * 60)
     print("BLOCK IMPORT ENDPOINT TEST SUITE")
     print("=" * 60)
-    
+
     results = []
     client = AITBCHTTPClient()
-    
+
     # Get current head to use for dynamic height calculation
     response = requests.get(f"{BASE_URL}/head")
     head = response.json()
     base_height = head["height"] + 10000000
-    
+
     # Test 1: Invalid height (0)
     print("\n[TEST 1] Invalid height (0)...")
     response = client.post(
@@ -53,7 +53,7 @@ def test_block_import_complete():
     else:
         print(f"❌ FAIL: Expected 422, got {response.status_code}")
         results.append(False)
-    
+
     # Test 2: Invalid hash format (should be rejected before any conflict check)
     print("\n[TEST 2] Invalid hash format rejection...")
     response = requests.post(
@@ -74,12 +74,12 @@ def test_block_import_complete():
     else:
         print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.json()}")
         results.append(False)
-    
+
     # Test 3: Import existing block with correct hash
     print("\n[TEST 3] Import existing block with correct hash...")
     response = requests.get(f"{BASE_URL}/head")
     head = response.json()
-    
+
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
@@ -98,12 +98,12 @@ def test_block_import_complete():
     else:
         print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}")
         results.append(False)
-    
+
     # Test 4: Invalid block hash
     print("\n[TEST 4] Invalid block hash...")
     response = requests.get(f"{BASE_URL}/head")
     head = response.json()
-    
+
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
@@ -122,7 +122,7 @@ def test_block_import_complete():
     else:
         print(f"❌ FAIL: Expected 400, got {response.status_code}")
         results.append(False)
-    
+
     # Test 5: Parent not found
     print("\n[TEST 5] Parent block not found...")
     response = requests.post(
@@ -143,15 +143,15 @@ def test_block_import_complete():
     else:
         print(f"❌ FAIL: Expected 400, got {response.status_code}")
         results.append(False)
-    
+
     # Test 6: Import block without transactions
     print("\n[TEST 6] Import block without transactions...")
     response = requests.get(f"{BASE_URL}/head")
     head = response.json()
-    
+
     height = base_height + 10
     block_hash = compute_block_hash(height, head["hash"], "2026-01-29T10:20:00")
-    
+
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
@@ -171,15 +171,15 @@ def test_block_import_complete():
     else:
         print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}")
         results.append(False)
-    
+
     # Test 7: Import block with transactions (KNOWN ISSUE)
     print("\n[TEST 7] Import block with transactions...")
     print("⚠️  KNOWN ISSUE: Transaction import currently fails with database constraint error")
     print("    This appears to be a bug in the transaction field mapping")
-    
+
     height = base_height + 11
     block_hash = compute_block_hash(height, head["hash"], "2026-01-29T10:20:00")
-    
+
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
@@ -205,33 +205,33 @@ def test_block_import_complete():
     else:
         print(f"❓ UNEXPECTED: Got {response.status_code} instead of expected 500")
         results.append(None)
-    
+
     # Summary
     print("\n" + "=" * 60)
     print("TEST SUMMARY")
     print("=" * 60)
-    
+
     passed = sum(1 for r in results if r is True)
     failed = sum(1 for r in results if r is False)
     known_issues = sum(1 for r in results if r is None)
-    
+
     print(f"✅ Passed: {passed}")
     print(f"❌ Failed: {failed}")
     if known_issues > 0:
         print(f"⚠️  Known Issues: {known_issues}")
-    
+
     print("\nFUNCTIONALITY STATUS:")
     print("- ✅ Input validation (height, hash, parent)")
     print("- ✅ Conflict detection")
     print("- ✅ Block import without transactions")
     print("- ❌ Block import with transactions (database constraint issue)")
-    
+
     if failed == 0:
         print("\n🎉 All core functionality is working!")
         print("   The block import endpoint is functional for basic use.")
     else:
         print(f"\n⚠️  {failed} test(s) failed - review required")
-    
+
     return passed, failed, known_issues
 
 if __name__ == "__main__":

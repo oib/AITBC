@@ -5,63 +5,61 @@ and daemon-based wallet operations, allowing seamless switching between modes.
 """
 
 import json
-import shutil
 import sys
-from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, "/opt/aitbc/cli")
-from utils.wallet_daemon_client import WalletDaemonClient, WalletInfo, WalletBalance, ChainInfo, WalletMigrationResult
-from aitbc_cli.config import CLIConfig as Config
-from utils import error, success, output
+from utils import error, success
+from utils.wallet_daemon_client import WalletDaemonClient
 
 
 class DualModeWalletAdapter:
     """Adapter supporting both file-based and daemon-based wallet operations"""
-    
-    def __init__(self, config=None, use_daemon: bool = False, chain_id: Optional[str] = None):
+
+    def __init__(self, config=None, use_daemon: bool = False, chain_id: str | None = None):
         self.config = config
         self.use_daemon = use_daemon
         self.chain_id = chain_id
         self.wallet_dir = Path.home() / ".aitbc" / "wallets"
         self.wallet_dir.mkdir(parents=True, exist_ok=True)
-        
+
         if use_daemon and config:
             self.daemon_client = WalletDaemonClient(config)
         else:
             self.daemon_client = None
-    
+
     def is_daemon_available(self) -> bool:
         """Check if daemon is available"""
         if not self.daemon_client:
             return False
         return self.daemon_client.is_available()
-    
-    def get_daemon_status(self) -> Dict[str, Any]:
+
+    def get_daemon_status(self) -> dict[str, Any]:
         """Get daemon status"""
         if not self.daemon_client:
             return {"status": "disabled", "message": "Daemon mode not enabled"}
         return self.daemon_client.get_status()
-    
-    def create_wallet(self, wallet_name: str, password: str, wallet_type: str = "hd", 
-                     metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+
+    def create_wallet(self, wallet_name: str, password: str, wallet_type: str = "hd",
+                     metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         """Create a wallet using the appropriate mode"""
         if self.use_daemon:
             return self._create_wallet_daemon(wallet_name, password, metadata)
         else:
             return self._create_wallet_file(wallet_name, password, wallet_type)
-    
-    def _create_wallet_daemon(self, wallet_name: str, password: str, 
-                            metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+
+    def _create_wallet_daemon(self, wallet_name: str, password: str,
+                            metadata: dict[str, Any] | None) -> dict[str, Any]:
         """Create wallet using daemon"""
         try:
             if not self.is_daemon_available():
                 error("Wallet daemon is not available")
                 raise Exception("Daemon unavailable")
-            
+
             wallet_info = self.daemon_client.create_wallet(wallet_name, password, metadata)
-            
+
             success(f"Created daemon wallet: {wallet_name}")
             return {
                 "mode": "daemon",
@@ -75,17 +73,17 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to create daemon wallet: {str(e)}")
             raise
-    
-    def _create_wallet_file(self, wallet_name: str, password: str, wallet_type: str) -> Dict[str, Any]:
+
+    def _create_wallet_file(self, wallet_name: str, password: str, wallet_type: str) -> dict[str, Any]:
         """Create wallet using file-based storage"""
         from .commands.wallet import _save_wallet
-        
+
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
-        
+
         if wallet_path.exists():
             error(f"Wallet '{wallet_name}' already exists")
             raise Exception("Wallet exists")
-        
+
         # Generate wallet data
         if wallet_type == "simple":
             # Simple wallet with deterministic key for testing
@@ -95,7 +93,7 @@ class DualModeWalletAdapter:
             # HD wallet (placeholder for real implementation)
             private_key = f"hd_key_{wallet_name}_{datetime.now().isoformat()}"
             address = f"aitbc1{wallet_name}_hd"
-        
+
         wallet_data = {
             "name": wallet_name,
             "address": address,
@@ -106,11 +104,11 @@ class DualModeWalletAdapter:
             "created_at": datetime.now().isoformat(),
             "wallet_type": wallet_type
         }
-        
+
         # Save wallet
         save_password = password if password else None
         _save_wallet(wallet_path, wallet_data, save_password)
-        
+
         success(f"Created file wallet: {wallet_name}")
         return {
             "mode": "file",
@@ -120,21 +118,21 @@ class DualModeWalletAdapter:
             "wallet_type": wallet_type,
             "created_at": wallet_data["created_at"]
         }
-    
-    def list_wallets(self) -> List[Dict[str, Any]]:
+
+    def list_wallets(self) -> list[dict[str, Any]]:
         """List wallets using the appropriate mode"""
         if self.use_daemon:
             return self._list_wallets_daemon()
         else:
             return self._list_wallets_file()
-    
-    def _list_wallets_daemon(self) -> List[Dict[str, Any]]:
+
+    def _list_wallets_daemon(self) -> list[dict[str, Any]]:
         """List wallets using daemon"""
         try:
             if not self.is_daemon_available():
                 error("Wallet daemon is not available")
                 return []
-            
+
             wallets = self.daemon_client.list_wallets()
             return [
                 {
@@ -151,16 +149,16 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to list daemon wallets: {str(e)}")
             return []
-    
-    def _list_wallets_file(self) -> List[Dict[str, Any]]:
+
+    def _list_wallets_file(self) -> list[dict[str, Any]]:
         """List wallets using file-based storage"""
         wallets = []
-        
+
         for wallet_file in self.wallet_dir.glob("*.json"):
             try:
-                with open(wallet_file, 'r') as f:
+                with open(wallet_file) as f:
                     wallet_data = json.load(f)
-                
+
                 wallets.append({
                     "mode": "file",
                     "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_file.stem,
@@ -172,22 +170,22 @@ class DualModeWalletAdapter:
                 })
             except Exception as e:
                 error(f"Error reading wallet file {wallet_file}: {str(e)}")
-        
+
         return wallets
-    
-    def get_wallet_info(self, wallet_name: str) -> Optional[Dict[str, Any]]:
+
+    def get_wallet_info(self, wallet_name: str) -> dict[str, Any] | None:
         """Get wallet information using the appropriate mode"""
         if self.use_daemon:
             return self._get_wallet_info_daemon(wallet_name)
         else:
             return self._get_wallet_info_file(wallet_name)
-    
-    def _get_wallet_info_daemon(self, wallet_name: str) -> Optional[Dict[str, Any]]:
+
+    def _get_wallet_info_daemon(self, wallet_name: str) -> dict[str, Any] | None:
         """Get wallet info using daemon"""
         try:
             if not self.is_daemon_available():
                 return None
-            
+
             wallet_info = self.daemon_client.get_wallet_info(wallet_name)
             if wallet_info:
                 return {
@@ -203,20 +201,19 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to get daemon wallet info: {str(e)}")
             return None
-    
-    def _get_wallet_info_file(self, wallet_name: str) -> Optional[Dict[str, Any]]:
+
+    def _get_wallet_info_file(self, wallet_name: str) -> dict[str, Any] | None:
         """Get wallet info using file-based storage"""
-        from .commands.wallet import _load_wallet
-        
+
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
-        
+
         if not wallet_path.exists():
             return None
-        
+
         try:
-            with open(wallet_path, 'r') as f:
+            with open(wallet_path) as f:
                 wallet_data = json.load(f)
-            
+
             return {
                 "mode": "file",
                 "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_name,
@@ -230,20 +227,20 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to get file wallet info: {str(e)}")
             return None
-    
-    def get_wallet_balance(self, wallet_name: str) -> Optional[float]:
+
+    def get_wallet_balance(self, wallet_name: str) -> float | None:
         """Get wallet balance using the appropriate mode"""
         if self.use_daemon:
             return self._get_wallet_balance_daemon(wallet_name)
         else:
             return self._get_wallet_balance_file(wallet_name)
-    
-    def _get_wallet_balance_daemon(self, wallet_name: str) -> Optional[float]:
+
+    def _get_wallet_balance_daemon(self, wallet_name: str) -> float | None:
         """Get wallet balance using daemon"""
         try:
             if not self.is_daemon_available():
                 return None
-            
+
             balance_info = self.daemon_client.get_wallet_balance(wallet_name)
             if balance_info:
                 return balance_info.balance
@@ -251,32 +248,32 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to get daemon wallet balance: {str(e)}")
             return None
-    
-    def _get_wallet_balance_file(self, wallet_name: str) -> Optional[float]:
+
+    def _get_wallet_balance_file(self, wallet_name: str) -> float | None:
         """Get wallet balance using file-based storage"""
         wallet_info = self._get_wallet_info_file(wallet_name)
         if wallet_info:
             return wallet_info.get("balance", 0.0)
         return None
-    
-    def send_transaction(self, wallet_name: str, password: str, to_address: str, 
-                        amount: float, description: Optional[str] = None) -> Dict[str, Any]:
+
+    def send_transaction(self, wallet_name: str, password: str, to_address: str,
+                        amount: float, description: str | None = None) -> dict[str, Any]:
         """Send transaction using the appropriate mode"""
         if self.use_daemon:
             return self._send_transaction_daemon(wallet_name, password, to_address, amount, description)
         else:
             return self._send_transaction_file(wallet_name, password, to_address, amount, description)
-    
-    def _send_transaction_daemon(self, wallet_name: str, password: str, to_address: str, 
-                              amount: float, description: Optional[str]) -> Dict[str, Any]:
+
+    def _send_transaction_daemon(self, wallet_name: str, password: str, to_address: str,
+                              amount: float, description: str | None) -> dict[str, Any]:
         """Send transaction using daemon"""
         try:
             if not self.is_daemon_available():
                 error("Wallet daemon is not available")
                 raise Exception("Daemon unavailable")
-            
+
             result = self.daemon_client.send_transaction(wallet_name, password, to_address, amount, description)
-            
+
             success(f"Sent {amount} AITBC to {to_address} via daemon")
             return {
                 "mode": "daemon",
@@ -290,28 +287,30 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to send daemon transaction: {str(e)}")
             raise
-    
-    def _send_transaction_file(self, wallet_name: str, password: str, to_address: str, 
-                             amount: float, description: Optional[str]) -> Dict[str, Any]:
+
+    def _send_transaction_file(self, wallet_name: str, password: str, to_address: str,
+                             amount: float, description: str | None) -> dict[str, Any]:
         """Send transaction using file-based storage and blockchain RPC"""
-        from .commands.wallet import _load_wallet, _save_wallet
-        import httpx
-        from .utils import error, success
         from datetime import datetime
-        
+
+        import httpx
+
+        from .commands.wallet import _load_wallet, _save_wallet
+        from .utils import error, success
+
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
-        
+
         if not wallet_path.exists():
             error(f"Wallet '{wallet_name}' not found")
             raise Exception("Wallet not found")
-        
+
         wallet_data = _load_wallet(wallet_path, wallet_name)
         # Fetch current balance and nonce from blockchain
         from_address = wallet_data.get("address")
         if not from_address:
             error("Wallet does not have an address configured")
             raise Exception("Invalid wallet")
-            
+
         rpc_url = self.config.blockchain_rpc_url
         try:
             resp = httpx.get(f"{rpc_url}/rpc/account/{from_address}?chain_id={self.chain_id}", timeout=5)
@@ -329,7 +328,7 @@ class DualModeWalletAdapter:
         if chain_balance < amount:
             error(f"Insufficient blockchain balance. Available: {chain_balance}, Required: {amount}")
             raise Exception("Insufficient balance")
-            
+
         # Construct and send transaction
         tx_payload = {
             "type": "TRANSFER",
@@ -339,7 +338,7 @@ class DualModeWalletAdapter:
             "payload": {"to": to_address, "value": amount},
             "sig": "mock_signature" # Replace with real signature when implemented
         }
-        
+
         try:
             resp = httpx.post(f"{rpc_url}/rpc/sendTx", json=tx_payload, timeout=5)
             if resp.status_code not in (200, 201):
@@ -360,20 +359,20 @@ class DualModeWalletAdapter:
             "tx_hash": tx_hash,
             "status": "pending"
         }
-        
+
         if "transactions" not in wallet_data:
             wallet_data["transactions"] = []
-            
+
         wallet_data["transactions"].append(transaction)
         wallet_data["balance"] = chain_balance - amount
-        
+
         # Save wallet - CRITICAL SECURITY FIX: Always use password if wallet is encrypted
         save_password = password if wallet_data.get("encrypted") else None
         if wallet_data.get("encrypted") and not save_password:
             error("❌ CRITICAL: Cannot save encrypted wallet without password")
             raise Exception("Password required for encrypted wallet")
         _save_wallet(wallet_path, wallet_data, save_password)
-        
+
         success(f"Submitted transaction {tx_hash} to send {amount} AITBC to {to_address}")
         return {
             "mode": "file",
@@ -384,33 +383,33 @@ class DualModeWalletAdapter:
             "tx_hash": tx_hash,
             "timestamp": transaction["timestamp"]
         }
-    
+
     def delete_wallet(self, wallet_name: str, password: str) -> bool:
         """Delete wallet using the appropriate mode"""
         if self.use_daemon:
             return self._delete_wallet_daemon(wallet_name, password)
         else:
             return self._delete_wallet_file(wallet_name, password)
-    
+
     def _delete_wallet_daemon(self, wallet_name: str, password: str) -> bool:
         """Delete wallet using daemon"""
         try:
             if not self.is_daemon_available():
                 return False
-            
+
             return self.daemon_client.delete_wallet(wallet_name, password)
         except Exception as e:
             error(f"Failed to delete daemon wallet: {str(e)}")
             return False
-    
+
     def _delete_wallet_file(self, wallet_name: str, password: str) -> bool:
         """Delete wallet using file-based storage"""
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
-        
+
         if not wallet_path.exists():
             error(f"Wallet '{wallet_name}' not found")
             return False
-        
+
         try:
             wallet_path.unlink()
             success(f"Deleted wallet: {wallet_name}")
@@ -420,13 +419,13 @@ class DualModeWalletAdapter:
             return False
 
     # Multi-Chain Methods
-    
-    def list_chains(self) -> List[Dict[str, Any]]:
+
+    def list_chains(self) -> list[dict[str, Any]]:
         """List all blockchain chains"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain listing requires daemon mode")
             return []
-        
+
         try:
             chains = self.daemon_client.list_chains()
             return [
@@ -445,14 +444,14 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to list chains: {str(e)}")
             return []
-    
-    def create_chain(self, chain_id: str, name: str, coordinator_url: str, 
-                    coordinator_api_key: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+
+    def create_chain(self, chain_id: str, name: str, coordinator_url: str,
+                    coordinator_api_key: str, metadata: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Create a new blockchain chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain creation requires daemon mode")
             return None
-        
+
         try:
             chain = self.daemon_client.create_chain(chain_id, name, coordinator_url, coordinator_api_key, metadata)
             return {
@@ -468,14 +467,14 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to create chain: {str(e)}")
             return None
-    
+
     def create_wallet_in_chain(self, chain_id: str, wallet_name: str, password: str,
-                              wallet_type: str = "hd", metadata: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+                              wallet_type: str = "hd", metadata: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Create a wallet in a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific wallet creation requires daemon mode")
             return None
-        
+
         try:
             wallet = self.daemon_client.create_wallet_in_chain(chain_id, wallet_name, password, metadata)
             return {
@@ -491,13 +490,13 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to create wallet in chain {chain_id}: {str(e)}")
             return None
-    
-    def list_wallets_in_chain(self, chain_id: str) -> List[Dict[str, Any]]:
+
+    def list_wallets_in_chain(self, chain_id: str) -> list[dict[str, Any]]:
         """List wallets in a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific wallet listing requires daemon mode")
             return []
-        
+
         try:
             wallets = self.daemon_client.list_wallets_in_chain(chain_id)
             return [
@@ -515,13 +514,13 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to list wallets in chain {chain_id}: {str(e)}")
             return []
-    
-    def get_wallet_info_in_chain(self, chain_id: str, wallet_name: str) -> Optional[Dict[str, Any]]:
+
+    def get_wallet_info_in_chain(self, chain_id: str, wallet_name: str) -> dict[str, Any] | None:
         """Get wallet information from a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific wallet info requires daemon mode")
             return None
-        
+
         try:
             wallet = self.daemon_client.get_wallet_info_in_chain(chain_id, wallet_name)
             if wallet:
@@ -538,51 +537,51 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to get wallet info from chain {chain_id}: {str(e)}")
             return None
-    
-    def get_wallet_balance_in_chain(self, chain_id: str, wallet_name: str) -> Optional[float]:
+
+    def get_wallet_balance_in_chain(self, chain_id: str, wallet_name: str) -> float | None:
         """Get wallet balance in a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific balance check requires daemon mode")
             return None
-        
+
         try:
             balance = self.daemon_client.get_wallet_balance_in_chain(chain_id, wallet_name)
             return balance.balance if balance else None
         except Exception as e:
             error(f"Failed to get wallet balance in chain {chain_id}: {str(e)}")
             return None
-    
+
     def unlock_wallet_in_chain(self, chain_id: str, wallet_name: str, password: str) -> bool:
         """Unlock a wallet in a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific wallet unlock requires daemon mode")
             return False
-        
+
         try:
             return self.daemon_client.unlock_wallet_in_chain(chain_id, wallet_name, password)
         except Exception as e:
             error(f"Failed to unlock wallet in chain {chain_id}: {str(e)}")
             return False
-    
-    def sign_message_in_chain(self, chain_id: str, wallet_name: str, password: str, message: bytes) -> Optional[str]:
+
+    def sign_message_in_chain(self, chain_id: str, wallet_name: str, password: str, message: bytes) -> str | None:
         """Sign a message with a wallet in a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific message signing requires daemon mode")
             return None
-        
+
         try:
             return self.daemon_client.sign_message_in_chain(chain_id, wallet_name, password, message)
         except Exception as e:
             error(f"Failed to sign message in chain {chain_id}: {str(e)}")
             return None
-    
+
     def migrate_wallet(self, source_chain_id: str, target_chain_id: str, wallet_name: str,
-                      password: str, new_password: Optional[str] = None) -> Optional[Dict[str, Any]]:
+                      password: str, new_password: str | None = None) -> dict[str, Any] | None:
         """Migrate a wallet from one chain to another"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Wallet migration requires daemon mode")
             return None
-        
+
         try:
             result = self.daemon_client.migrate_wallet(source_chain_id, target_chain_id, wallet_name, password, new_password)
             if result:
@@ -606,12 +605,12 @@ class DualModeWalletAdapter:
         except Exception as e:
             error(f"Failed to migrate wallet: {str(e)}")
             return None
-    
-    def get_chain_status(self) -> Dict[str, Any]:
+
+    def get_chain_status(self) -> dict[str, Any]:
         """Get overall chain status and statistics"""
         if not self.use_daemon or not self.is_daemon_available():
             return {"status": "disabled", "message": "Chain status requires daemon mode"}
-        
+
         try:
             return self.daemon_client.get_chain_status()
         except Exception as e:

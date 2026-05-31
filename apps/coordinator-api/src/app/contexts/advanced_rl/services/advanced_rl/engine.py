@@ -4,7 +4,7 @@ Main engine class for RL-based marketplace strategies and agent optimization
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -19,8 +19,8 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ...domain.agent_performance import AgentCapability, FusionModel, ReinforcementLearningConfig
-from .agents import PPOAgent, SACAgent, RainbowDQNAgent
+from ...domain.agent_performance import ReinforcementLearningConfig
+from .agents import PPOAgent, RainbowDQNAgent, SACAgent
 
 
 class AdvancedReinforcementLearningEngine:
@@ -521,7 +521,7 @@ class AdvancedReinforcementLearningEngine:
             rl_config.success_rate_history = training_results["success_rate_history"]
             rl_config.convergence_episode = training_results["convergence_episode"]
             rl_config.status = "ready"
-            rl_config.trained_at = datetime.now(timezone.utc)
+            rl_config.trained_at = datetime.now(UTC)
             rl_config.training_progress = 1.0
 
             session.commit()

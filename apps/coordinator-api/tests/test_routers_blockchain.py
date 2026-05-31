@@ -2,8 +2,9 @@
 Tests for blockchain router
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -27,13 +28,13 @@ class TestBlockchainRouter:
         }
 
         # Import and test
-        from app.routers.blockchain import router
         from app.main import create_app
-        
+        from app.routers.blockchain import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/blockchain/status")
         assert response.status_code == 200
         data = response.json()
@@ -53,13 +54,13 @@ class TestBlockchainRouter:
         mock_client.get.side_effect = NetworkError("Connection failed")
 
         # Import and test
-        from app.routers.blockchain import router
         from app.main import create_app
-        
+        from app.routers.blockchain import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/blockchain/status")
         assert response.status_code == 200
         data = response.json()
@@ -81,13 +82,13 @@ class TestBlockchainRouter:
         }
 
         # Import and test
-        from app.routers.blockchain import router
         from app.main import create_app
-        
+        from app.routers.blockchain import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/blockchain/sync-status")
         assert response.status_code == 200
         data = response.json()
@@ -109,13 +110,13 @@ class TestBlockchainRouter:
         }
 
         # Import and test
-        from app.routers.blockchain import router
         from app.main import create_app
-        
+        from app.routers.blockchain import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/blockchain/sync-status")
         assert response.status_code == 200
         data = response.json()

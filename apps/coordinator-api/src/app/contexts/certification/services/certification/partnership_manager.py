@@ -2,7 +2,7 @@
 Partnership Manager - Partnership program management system
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -10,14 +10,13 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from sqlmodel import Session, and_, select
-
 from app.domain.certification import (
     AgentPartnership,
     PartnershipProgram,
     PartnershipType,
 )
 from app.domain.reputation import AgentReputation
+from sqlmodel import Session, select
 
 
 class PartnershipManager:
@@ -94,7 +93,7 @@ class PartnershipManager:
             commission_structure=kwargs.get("commission_structure", type_config.get("commission_structure", {})),
             performance_metrics=kwargs.get("performance_metrics", ["sales_volume", "customer_satisfaction"]),
             max_participants=kwargs.get("max_participants"),
-            launched_at=datetime.now(timezone.utc) if kwargs.get("launch_immediately", False) else None,
+            launched_at=datetime.now(UTC) if kwargs.get("launch_immediately", False) else None,
         )
 
         session.add(program)
@@ -144,7 +143,7 @@ class PartnershipManager:
             program_id=program_id,
             partnership_type=program.program_type,
             current_tier="basic",
-            applied_at=datetime.now(timezone.utc),
+            applied_at=datetime.now(UTC),
             status="pending_approval",
             partnership_metadata={"application_data": application_data, "eligibility_results": eligibility_results},
         )

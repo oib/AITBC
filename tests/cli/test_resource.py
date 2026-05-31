@@ -4,12 +4,14 @@ These tests require coordinator-api running and validate resource allocation,
 utilization tracking, and API interactions with actual service calls.
 """
 
-import pytest
 import json
+from unittest.mock import MagicMock, Mock, patch
+
 import httpx
-from click.testing import CliRunner
-from unittest.mock import Mock, patch, MagicMock
+import pytest
 from aitbc_cli.commands.resource import resource
+from click.testing import CliRunner
+
 from aitbc import AITBCHTTPClient, NetworkError
 
 
@@ -56,7 +58,7 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.get.return_value = {
@@ -65,11 +67,11 @@ class TestResourceCommands:
                 {"id": "res_2", "type": "cpu", "status": "available"}
             ]
         }
-        
+
         result = runner.invoke(resource, [
             'status'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         mock_client.get.assert_called_once_with("/api/v1/resources/status")
 
@@ -81,7 +83,7 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.get.return_value = {
@@ -90,12 +92,12 @@ class TestResourceCommands:
             "status": "allocated",
             "efficiency": "85.5%"
         }
-        
+
         result = runner.invoke(resource, [
             'status',
             '--resource-id', 'res_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         mock_client.get.assert_called_once_with("/api/v1/resources/res_123/status")
 
@@ -107,7 +109,7 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.post.return_value = {
@@ -115,11 +117,11 @@ class TestResourceCommands:
             "status": "deallocated",
             "timestamp": "2026-05-27T08:30:00Z"
         }
-        
+
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         mock_client.post.assert_called_once_with("/api/v1/resources/res_123/deallocate")
 
@@ -131,19 +133,19 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.post.return_value = {
             "resource_id": "res_123",
             "status": "deallocated"
         }
-        
+
         result = runner.invoke(resource, [
             'deallocate', 'res_123',
             '--force'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         mock_client.post.assert_called_once_with("/api/v1/resources/res_123/deallocate")
 
@@ -155,15 +157,15 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.get.side_effect = NetworkError("Connection refused")
-        
+
         result = runner.invoke(resource, [
             'status'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert "Network error" in result.output
 
@@ -175,15 +177,15 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.post.side_effect = NetworkError("Connection refused")
-        
+
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code != 0
         assert "Network error" in result.output
 
@@ -194,7 +196,7 @@ class TestResourceCommands:
             '--resource-type', 'gpu',
             '--quantity', '4'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         # Should fail with experimental warning
         assert result.exit_code != 0
         assert "EXPERIMENTAL" in result.output
@@ -205,7 +207,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'list'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         # Should fail with experimental warning
         assert result.exit_code != 0
         assert "EXPERIMENTAL" in result.output
@@ -216,7 +218,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'release', 'res_123'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         # Should fail with experimental warning
         assert result.exit_code != 0
         assert "EXPERIMENTAL" in result.output
@@ -227,7 +229,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'utilization'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         # Should fail with experimental warning
         assert result.exit_code != 0
         assert "EXPERIMENTAL" in result.output
@@ -238,7 +240,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'optimize'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         # Should fail with experimental warning
         assert result.exit_code != 0
         assert "EXPERIMENTAL" in result.output
@@ -252,7 +254,7 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.get.return_value = {
@@ -260,11 +262,11 @@ class TestResourceCommands:
                 {"id": "res_1", "type": "gpu", "status": "allocated"}
             ]
         }
-        
+
         result = runner.invoke(resource, [
             'status'
         ], obj={'config': mock_config, 'output': 'table'})
-        
+
         assert result.exit_code == 0
         assert "Resource Status" in result.output
 
@@ -276,18 +278,18 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.post.return_value = {
             "resource_id": "res_123",
             "status": "deallocated"
         }
-        
+
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
         ], obj={'config': mock_config, 'output': 'json'}, input='y\n')
-        
+
         assert result.exit_code == 0
         mock_client.post.assert_called_once_with("/api/v1/resources/res_123/deallocate")
 
@@ -299,14 +301,14 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
-        
+
         result = runner.invoke(resource, [
             'deallocate', 'res_123'
         ], obj={'config': mock_config, 'output': 'json'}, input='n\n')
-        
+
         assert result.exit_code == 0
         # Should not call post if cancelled
         mock_client.post.assert_not_called()
@@ -319,15 +321,15 @@ class TestResourceCommands:
         mock_config = Mock()
         mock_config.coordinator_url = "http://127.0.0.1:18000"
         mock_get_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
         mock_client.get.return_value = {}
-        
+
         result = runner.invoke(resource, [
             'status'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         mock_client.get.assert_called_once_with("/api/v1/resources/status")
 
@@ -336,7 +338,7 @@ class TestResourceCommands:
         result = runner.invoke(resource, [
             'status'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'resources' in data or isinstance(data, list)
@@ -347,7 +349,7 @@ class TestResourceCommands:
             'deallocate', 'test_res_123',
             '--force'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'resource_id' in data or 'status' in data
@@ -360,7 +362,7 @@ class TestResourceCommands:
             '--quantity', '4',
             '--mock'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'resource_id' in data or 'allocation_id' in data
@@ -371,7 +373,7 @@ class TestResourceCommands:
             'list',
             '--mock'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'resources' in data or isinstance(data, list)
@@ -382,7 +384,7 @@ class TestResourceCommands:
             'release', 'test_res_123',
             '--mock'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'resource_id' in data or 'status' in data
@@ -393,7 +395,7 @@ class TestResourceCommands:
             'utilization',
             '--mock'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'utilization' in data or 'metrics' in data
@@ -404,7 +406,7 @@ class TestResourceCommands:
             'optimize',
             '--mock'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'optimization' in data or 'recommendations' in data
@@ -418,7 +420,7 @@ class TestResourceCommands:
             '--min-memory', '32',
             '--mock'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert 'resource_id' in data or 'allocation_id' in data
@@ -429,7 +431,7 @@ class TestResourceCommands:
             'status',
             '--resource-type', 'gpu'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         assert result.exit_code == 0
         data = json.loads(result.output)
         # Verify filtering was applied
@@ -441,10 +443,10 @@ class TestResourceCommands:
         """Test resource command handles coordinator-api errors gracefully"""
         # Use invalid coordinator URL to trigger error
         mock_config.coordinator_url = "http://invalid:9999"
-        
+
         result = runner.invoke(resource, [
             'status'
         ], obj={'config': mock_config, 'output': 'json'})
-        
+
         # Should either fail gracefully or skip with appropriate message
         assert result.exit_code != 0 or 'error' in result.output.lower() or 'unavailable' in result.output.lower()

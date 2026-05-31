@@ -3,24 +3,24 @@ GPU Marketplace CLI Commands
 Commands for bidding on and offering GPU power in the AITBC island marketplace
 """
 
-import click
-import json
 import hashlib
-import socket
+import json
 import os
-import asyncio
+import socket
 from datetime import datetime
-from decimal import Decimal
-from typing import Optional, List
-from ..utils import output, error, success, info, warning
-from ..utils.island_credentials import (
-    load_island_credentials, get_rpc_endpoint, get_chain_id,
-    get_island_id, get_island_name, validate_credentials
-)
-from ..config import get_config
+
+import click
 
 # Import shared modules
-from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
+from ..config import get_config
+from ..utils import error, info, output, success, warning
+from ..utils.island_credentials import (
+    get_chain_id,
+    get_island_id,
+    load_island_credentials,
+)
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -49,12 +49,12 @@ def gpu():
 @click.option('--specs', help='GPU specifications (JSON string)')
 @click.option('--description', help='Description of the GPU offer')
 @click.pass_context
-def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs: Optional[str], description: Optional[str]):
+def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs: str | None, description: str | None):
     """Offer GPU power for sale in the marketplace"""
     try:
         # Load CLI config
         config = get_config()
-        
+
         # Load island credentials
         credentials = safe_load_credentials()
         if not credentials:
@@ -66,11 +66,11 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-        
+
         # Get public key for node ID generation
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
                 for key_id, key_data in keys.items():
@@ -123,10 +123,10 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
         try:
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
             result = http_client.post("/v1/transactions", json=offer_data)
-            success(f"GPU offer created successfully!")
+            success("GPU offer created successfully!")
             success(f"Offer ID: {offer_id}")
             success(f"Total Price: {total_price:.2f} AIT")
-            
+
             offer_info = {
                 "Offer ID": offer_id,
                 "GPU Count": gpu_count,
@@ -137,7 +137,7 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
                 "Provider Node": provider_node_id[:16] + "...",
                 "Island": island_id[:16] + "..."
             }
-            
+
             output(offer_info, ctx.obj.get('output_format', 'table'))
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -154,12 +154,12 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
 @click.argument('duration_hours', type=int)
 @click.option('--specs', help='Required GPU specifications (JSON string)')
 @click.pass_context
-def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optional[str]):
+def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str | None):
     """Bid on GPU power in the marketplace"""
     try:
         # Load CLI config
         config = get_config()
-        
+
         # Load island credentials
         credentials = safe_load_credentials()
         if not credentials:
@@ -171,11 +171,11 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-        
+
         # Get public key for node ID generation
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
                 for key_id, key_data in keys.items():
@@ -227,10 +227,10 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
         try:
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
             result = http_client.post("/v1/transactions", json=bid_data)
-            success(f"GPU bid created successfully!")
+            success("GPU bid created successfully!")
             success(f"Bid ID: {bid_id}")
             success(f"Max Total Price: {max_total_price:.2f} AIT")
-            
+
             bid_info = {
                 "Bid ID": bid_id,
                 "GPU Count": gpu_count,
@@ -241,7 +241,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
                 "Bidder Node": bidder_node_id[:16] + "...",
                 "Island": island_id[:16] + "..."
             }
-            
+
             output(bid_info, ctx.obj.get('output_format', 'table'))
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -257,7 +257,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
 @click.option('--status', help='Filter by status (active, pending, accepted, completed, cancelled)')
 @click.option('--type', type=click.Choice(['offer', 'bid', 'all']), default='all', help='Filter by type')
 @click.pass_context
-def list(ctx, provider: Optional[str], status: Optional[str], type: str):
+def list(ctx, provider: str | None, status: str | None, type: str):
     """List GPU marketplace offers and bids (no island credentials required)"""
     try:
         # Load CLI config
@@ -277,11 +277,11 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
 
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
             transactions = http_client.get("/v1/transactions", params=params)
-            
+
             if not transactions:
                 info("No GPU marketplace transactions found")
                 return
-            
+
             # Format output
             market_data = []
             for tx in transactions:
@@ -310,7 +310,7 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
                         "Bidder": tx.get('bidder_node_id', '')[:16] + "...",
                         "Created": tx.get('created_at', '')[:19]
                     })
-            
+
             output(market_data, ctx.obj.get('output_format', 'table'), title="GPU Marketplace")
         except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
@@ -329,7 +329,7 @@ def cancel(ctx, order_id: str):
     try:
         # Load CLI config
         config = get_config()
-        
+
         # Load island credentials
         credentials = safe_load_credentials()
         if not credentials:
@@ -341,10 +341,10 @@ def cancel(ctx, order_id: str):
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-        
+
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
                 for key_id, key_data in keys.items():
@@ -397,7 +397,7 @@ def accept(ctx, bid_id: str):
     try:
         # Load CLI config
         config = get_config()
-        
+
         # Load island credentials
         credentials = safe_load_credentials()
         if not credentials:
@@ -409,10 +409,10 @@ def accept(ctx, bid_id: str):
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-        
+
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         if os.path.exists(keystore_path):
-            with open(keystore_path, 'r') as f:
+            with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
                 for key_id, key_data in keys.items():
@@ -462,7 +462,7 @@ def status(ctx, order_id: str):
     try:
         # Load CLI config
         config = get_config()
-        
+
         # Load island credentials
         credentials = safe_load_credentials()
         if not credentials:
@@ -479,21 +479,21 @@ def status(ctx, order_id: str):
 
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
             transactions = http_client.get("/v1/transactions", params=params)
-            
+
             if not transactions:
                 error(f"Order {order_id} not found")
                 raise click.Abort()
-            
+
             tx = transactions[0]
             action = tx.get('action')
-            
+
             order_info = {
                 "Order ID": order_id,
                 "Type": action.upper(),
                 "Status": tx.get('status'),
                 "Created": tx.get('created_at'),
             }
-            
+
             if action == 'offer':
                 order_info.update({
                     "GPU Count": tx.get('gpu_count'),
@@ -510,12 +510,12 @@ def status(ctx, order_id: str):
                     "Max Total": f"{tx.get('max_total_price', 0):.2f} AIT",
                     "Bidder": tx.get('bidder_node_id', '')[:16] + "..."
                 })
-            
+
             if 'accepted_at' in tx:
                 order_info["Accepted"] = tx['accepted_at']
             if 'cancelled_at' in tx:
                 order_info["Cancelled"] = tx['cancelled_at']
-            
+
             output(order_info, ctx.obj.get('output_format', 'table'), title=f"Order Status: {order_id}")
         except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
@@ -533,7 +533,7 @@ def match(ctx):
     try:
         # Load CLI config
         config = get_config()
-        
+
         # Load island credentials
         credentials = safe_load_credentials()
         if not credentials:
@@ -550,26 +550,26 @@ def match(ctx):
 
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
             transactions = http_client.get("/v1/transactions", params=params)
-            
+
             # Separate offers and bids
             offers = []
             bids = []
-            
+
             for tx in transactions:
                 if tx.get('action') == 'offer':
                     offers.append(tx)
                 elif tx.get('action') == 'bid':
                     bids.append(tx)
-            
+
             if not offers or not bids:
                 info("No active offers or bids to match")
                 return
-            
+
             # Sort offers by price (lowest first)
             offers.sort(key=lambda x: x.get('price_per_gpu', float('inf')))
             # Sort bids by price (highest first)
             bids.sort(key=lambda x: x.get('max_price_per_gpu', 0), reverse=True)
-            
+
             # Match bids with offers
             matches = []
             for bid in bids:
@@ -597,7 +597,7 @@ def match(ctx):
                                     'island_id': island_id,
                                     'chain_id': get_chain_id()
                                 }
-                                
+
                                 # Submit match transaction
                                 match_result = http_client.post("/v1/transactions", json=match_data)
                                 matches.append({
@@ -608,7 +608,7 @@ def match(ctx):
                                     "Total Price": f"{offer.get('total_price', 0):.2f} AIT",
                                     "Duration": f"{bid.get('duration_hours')}h"
                                 })
-            
+
             if matches:
                 success(f"Matched {len(matches)} GPU orders!")
                 output(matches, ctx.obj.get('output_format', 'table'), title="GPU Order Matches")
@@ -636,14 +636,14 @@ def providers(ctx):
 
         # Load island members from credentials
         members = credentials.get('members', [])
-        
+
         if not members:
             warning("No island members found in credentials")
             return
 
         # Query each member for GPU availability via P2P
         info(f"Querying {len(members)} island members for GPU availability...")
-        
+
         # For now, display the members
         # In a full implementation, this would use P2P network to query each member
         provider_data = []
@@ -656,7 +656,7 @@ def providers(ctx):
                 "Public Address": member.get('public_address', 'N/A'),
                 "Public Port": member.get('public_port', 'N/A')
             })
-        
+
         output(provider_data, ctx.obj.get('output_format', 'table'), title=f"Island Members ({island_id[:16]}...)")
         info("Note: GPU availability query via P2P network to be implemented")
 
@@ -670,29 +670,29 @@ def providers(ctx):
 @click.option('--specs', help='GPU specifications (JSON string)')
 @click.option('--pricing', help='Pricing model (JSON string)')
 @click.pass_context
-def register(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str]):
+def register(ctx, gpu_id: str, specs: str | None, pricing: str | None):
     """Register a GPU with the gpu-service (no island credentials required)"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-        
+
         gpu_data = {"gpu_id": gpu_id}
-        
+
         if specs:
             try:
                 gpu_data["specs"] = json.loads(specs)
             except json.JSONDecodeError:
                 error("Invalid JSON specifications")
                 raise click.Abort()
-        
+
         if pricing:
             try:
                 gpu_data["pricing"] = json.loads(pricing)
             except json.JSONDecodeError:
                 error("Invalid JSON pricing")
                 raise click.Abort()
-        
+
         result = http_client.post("/gpu/register", json=gpu_data)
         success(f"GPU {gpu_id} registered successfully")
         output(result, ctx.obj.get("output_format", "table"))
@@ -708,36 +708,36 @@ def register(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str]):
 @click.option('--pricing', help='Updated pricing model (JSON string)')
 @click.option('--status', help='Update GPU status')
 @click.pass_context
-def update(ctx, gpu_id: str, specs: Optional[str], pricing: Optional[str], status: Optional[str]):
+def update(ctx, gpu_id: str, specs: str | None, pricing: str | None, status: str | None):
     """Update GPU registration with the gpu-service (no island credentials required)"""
     config = get_config()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-        
+
         update_data = {}
-        
+
         if specs:
             try:
                 update_data["specs"] = json.loads(specs)
             except json.JSONDecodeError:
                 error("Invalid JSON specifications")
                 raise click.Abort()
-        
+
         if pricing:
             try:
                 update_data["pricing"] = json.loads(pricing)
             except json.JSONDecodeError:
                 error("Invalid JSON pricing")
                 raise click.Abort()
-        
+
         if status:
             update_data["status"] = status
-        
+
         if not update_data:
             error("No updates provided. Specify --specs, --pricing, or --status")
             raise click.Abort()
-        
+
         result = http_client.put(f"/gpu/{gpu_id}", json=update_data)
         success(f"GPU {gpu_id} updated successfully")
         output(result, ctx.obj.get("output_format", "table"))

@@ -2,9 +2,8 @@
 Tests for Redis caching utilities
 """
 
-import pytest
 
-from aitbc.redis_cache import RedisCache, get_cache, cache_key
+from aitbc.redis_cache import RedisCache, cache_key, get_cache
 
 
 class TestRedisCache:

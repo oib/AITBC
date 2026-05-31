@@ -3,10 +3,11 @@ End-to-End Test Configuration
 Fixtures and setup for E2E tests
 """
 
-import pytest
-import httpx
 import os
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
+
+import httpx
+import pytest
 
 
 @pytest.fixture(scope="session")
@@ -34,14 +35,14 @@ def api_key() -> str:
 
 
 @pytest.fixture(scope="function")
-async def http_client() -> AsyncGenerator[httpx.AsyncClient, None]:
+async def http_client() -> AsyncGenerator[httpx.AsyncClient]:
     """HTTP client for API calls"""
     async with httpx.AsyncClient(timeout=30.0) as client:
         yield client
 
 
 @pytest.fixture(scope="session")
-def sync_http_client() -> Generator[httpx.Client, None, None]:
+def sync_http_client() -> Generator[httpx.Client]:
     """Synchronous HTTP client for API calls"""
     with httpx.Client(timeout=30.0) as client:
         yield client
@@ -71,7 +72,7 @@ def test_data():
 def service_health_check(coordinator_url, blockchain_url, marketplace_url):
     """Check if required services are healthy"""
     import time
-    
+
     def _check_service(url: str, service_name: str, max_retries: int = 30, health_path: str = "/v1/health") -> bool:
         """Check if a service is healthy"""
         for i in range(max_retries):
@@ -84,10 +85,10 @@ def service_health_check(coordinator_url, blockchain_url, marketplace_url):
                     time.sleep(2)
         pytest.skip(f"{service_name} not available at {url}")
         return False
-    
+
     # Check all services with appropriate health endpoints
     _check_service(coordinator_url, "Coordinator API", health_path="/v1/health")
     _check_service(blockchain_url, "Blockchain Node", health_path="/health")
     _check_service(marketplace_url, "Marketplace", health_path="/health")
-    
+
     return True

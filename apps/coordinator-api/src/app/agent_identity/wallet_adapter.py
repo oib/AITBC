@@ -5,7 +5,7 @@ Provides blockchain-agnostic wallet interface for agents
 
 import secrets
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -70,7 +70,7 @@ class EthereumWalletAdapter(WalletAdapter):
             "wallet_address": f"0x{'0' * 40}",  # Mock address
             "contract_address": f"0x{'1' * 40}",  # Mock contract
             "transaction_hash": f"0x{'2' * 64}",  # Mock tx hash
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
     async def get_balance(self, wallet_address: str) -> Decimal:
@@ -92,7 +92,7 @@ class EthereumWalletAdapter(WalletAdapter):
             "gas_price": "20000000000",
             "status": "success",
             "block_number": 12345,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     async def get_transaction_history(self, wallet_address: str, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
@@ -106,7 +106,7 @@ class EthereumWalletAdapter(WalletAdapter):
                 "amount": "0.1",
                 "gas_used": "21000",
                 "block_number": 12344,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         ]
 
@@ -146,7 +146,7 @@ class AITBCWalletAdapter(WalletAdapter):
             "wallet_address": aitbc_address,
             "contract_address": None,  # AITBC doesn't use smart contract wallets
             "transaction_hash": f"0x{'2' * 64}",  # Mock tx hash
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
     async def get_balance(self, wallet_address: str) -> Decimal:
@@ -168,7 +168,7 @@ class AITBCWalletAdapter(WalletAdapter):
             "gas_price": "1000000000",
             "status": "success",
             "block_number": 12345,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     async def get_transaction_history(self, wallet_address: str, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
@@ -182,7 +182,7 @@ class AITBCWalletAdapter(WalletAdapter):
                 "amount": "10.0",
                 "gas_used": "21000",
                 "block_number": 12344,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         ]
 
@@ -352,7 +352,7 @@ class MultiChainWalletAdapter:
 
         # Update wallet in database
         wallet.total_spent += float(amount)
-        wallet.last_transaction = datetime.now(timezone.utc)
+        wallet.last_transaction = datetime.now(UTC)
         wallet.transaction_count += 1
         self.session.commit()
 
@@ -397,7 +397,7 @@ class MultiChainWalletAdapter:
             if hasattr(wallet, field):
                 setattr(wallet, field, value)
 
-        wallet.updated_at = datetime.now(timezone.utc)
+        wallet.updated_at = datetime.now(UTC)
 
         self.session.commit()
         self.session.refresh(wallet)
@@ -425,7 +425,7 @@ class MultiChainWalletAdapter:
 
         # Deactivate wallet
         wallet.is_active = False
-        wallet.updated_at = datetime.now(timezone.utc)
+        wallet.updated_at = datetime.now(UTC)
 
         self.session.commit()
 

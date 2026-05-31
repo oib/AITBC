@@ -20,9 +20,12 @@ for p in sys.path:
 # Add crypto and sdk paths to sys.path
 sys.path.insert(0, "/opt/aitbc/packages/py/aitbc-crypto/src")
 sys.path.insert(0, "/opt/aitbc/packages/py/aitbc-sdk/src")
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-from typing import AsyncIterator, Callable, Awaitable
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -41,9 +44,17 @@ except ImportError:
     from slowapi import RateLimitExceeded
 
 from .config import settings
-from .utils.alerting import alert_dispatcher
-from .utils.cache import cache_manager
-from .utils.metrics import build_live_metrics_payload, metrics_collector
+from .contexts.agent_identity.routers import agent_identity
+from .contexts.blockchain.routers import blockchain
+from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
+from .contexts.ipfs.routers import router as ipfs
+from .contexts.marketplace.routers import (
+    marketplace,
+    marketplace_gpu,
+    marketplace_offers,
+)
+from .contexts.payments.routers import payments
+from .contexts.portfolio.routers import portfolio_router
 from .routers import (
     admin,
     agent_router,
@@ -53,6 +64,7 @@ from .routers import (
     exchange,
     explorer,
     governance_enhanced,
+    inference,
     islands_proxy,
     miner,
     monitor,
@@ -60,32 +72,21 @@ from .routers import (
     services,
     swarm,
     training,
-    inference,
-    fhe,
-    oracle,
     users,
     web_vitals,
 )
-from .contexts.marketplace.routers import (
-    marketplace,
-    marketplace_gpu,
-    marketplace_offers,
-)
-from .contexts.payments.routers import payments
-from .contexts.blockchain.routers import blockchain
-from .contexts.agent_identity.routers import agent_identity
-from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
-from .contexts.ipfs.routers import router as ipfs
-from .contexts.portfolio.routers import portfolio_router
- 
+from .utils.alerting import alert_dispatcher
+from .utils.cache import cache_manager
+from .utils.metrics import build_live_metrics_payload, metrics_collector
+
 # Skip optional routers with missing dependencies
 try:
     from .contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proofs
 except ImportError:
     ml_zk_proofs = None
     logger.warning("ML ZK proofs router not available (missing tenseal)")
-from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
+from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 
 # Skip optional routers with missing dependencies
 try:
@@ -100,14 +101,15 @@ except ImportError:
     ml_zk_proofs = None
     logger.warning("ML ZK proofs router not available (missing dependencies)")
 
-from aitbc.aitbc_logging import configure_logging
 from aitbc import (
-    RequestIDMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestValidationMiddleware,
     ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
     get_logger,
 )
+from aitbc.aitbc_logging import configure_logging
+
 from .exceptions import AITBCError, ErrorResponse
 
 # Configure structured logging
@@ -116,8 +118,8 @@ configure_logging(level=settings.log_level if hasattr(settings, 'log_level') els
 logger = get_logger(__name__)
 from contextlib import asynccontextmanager
 
+from .database_async import close_async_db, init_async_db
 from .storage.db import init_db
-from .database_async import init_async_db, close_async_db
 
 
 @asynccontextmanager
@@ -316,16 +318,16 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],  # Allow all headers for API keys and content types
     )
-    
+
     # Add request ID correlation middleware
     app.add_middleware(RequestIDMiddleware)
-    
+
     # Add performance logging middleware
     app.add_middleware(PerformanceLoggingMiddleware)
-    
+
     # Add request validation middleware
     app.add_middleware(RequestValidationMiddleware, max_request_size=10*1024*1024)
-    
+
     # Add error handler middleware
     app.add_middleware(ErrorHandlerMiddleware)
 
@@ -358,7 +360,7 @@ def create_app() -> FastAPI:
     app.include_router(agent_router, prefix="/v1")
     app.include_router(islands_proxy, prefix="/v1")
     app.include_router(cross_chain, prefix="/v1")
-    
+
     # Include ZK proofs router
     try:
         from .routers.zk_proofs import router as zk_proofs_router
@@ -399,7 +401,7 @@ def create_app() -> FastAPI:
 
     # Add portfolio management router
     app.include_router(portfolio_router, prefix="/v1")
-    
+
     # Include Bounty router
     try:
         from .routers.bounty import router as bounty_router

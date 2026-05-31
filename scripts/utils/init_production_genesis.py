@@ -11,22 +11,19 @@ This script:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
-import yaml
 from datetime import datetime
 from pathlib import Path
 
 # Add the blockchain node src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps/blockchain-node/src"))
 
-from aitbc_chain.config import settings as cfg
-from aitbc_chain.database import init_db, session_scope
-from aitbc_chain.models import Block, Account
-from aitbc_chain.consensus.poa import PoAProposer, ProposerConfig
-from aitbc_chain.mempool import init_mempool
 import hashlib
+
+from aitbc_chain.database import init_db, session_scope
+from aitbc_chain.mempool import init_mempool
+from aitbc_chain.models import Account, Block
 from sqlmodel import select
 
 # Production allocations (loaded from genesis_prod.yaml if available, else fallback)
@@ -148,10 +145,10 @@ def main() -> None:
     seed_accounts(args.chain_id)
 
     print("\n[+] Production genesis initialization complete.")
-    print(f"[!] Next steps:")
-    print(f"    1) Generate keystore for aitbc1genesis and aitbc1treasury using scripts/keystore.py")
+    print("[!] Next steps:")
+    print("    1) Generate keystore for aitbc1genesis and aitbc1treasury using scripts/keystore.py")
     print(f"    2) Update .env with CHAIN_ID={args.chain_id} and PROPOSER_KEY=<private key of aitbc1genesis>")
-    print(f"    3) Restart the blockchain node.")
+    print("    3) Restart the blockchain node.")
 
 
 if __name__ == "__main__":

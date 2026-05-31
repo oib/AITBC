@@ -3,15 +3,14 @@ Production Compliance Service for AITBC
 Handles KYC/AML, regulatory compliance, and monitoring
 """
 
-import os
 import asyncio
-import json
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+import os
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from contextlib import asynccontextmanager
 
 from aitbc import get_logger
 
@@ -41,13 +40,13 @@ class KYCRequest(BaseModel):
     email: str
     document_type: str
     document_number: str
-    address: Dict[str, str]
+    address: dict[str, str]
 
 class ComplianceReport(BaseModel):
     report_type: str
     description: str
     severity: str  # low, medium, high, critical
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 class TransactionMonitoring(BaseModel):
     transaction_id: str
@@ -58,18 +57,18 @@ class TransactionMonitoring(BaseModel):
     timestamp: datetime
 
 # In-memory storage (in production, use database)
-kyc_records: Dict[str, Dict] = {}
-compliance_reports: Dict[str, Dict] = {}
-suspicious_transactions: Dict[str, Dict] = {}
-compliance_rules: Dict[str, Dict] = {}
-risk_scores: Dict[str, Dict] = {}
+kyc_records: dict[str, dict] = {}
+compliance_reports: dict[str, dict] = {}
+suspicious_transactions: dict[str, dict] = {}
+compliance_rules: dict[str, dict] = {}
+risk_scores: dict[str, dict] = {}
 
 @app.get("/")
 async def root():
     return {
         "service": "AITBC Compliance Service",
         "status": "running",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -88,7 +87,7 @@ async def submit_kyc(kyc_request: KYCRequest):
     """Submit KYC verification request"""
     if kyc_request.user_id in kyc_records:
         raise HTTPException(status_code=400, detail="KYC already submitted for this user")
-    
+
     # Create KYC record
     kyc_record = {
         "user_id": kyc_request.user_id,
@@ -98,26 +97,26 @@ async def submit_kyc(kyc_request: KYCRequest):
         "document_number": kyc_request.document_number,
         "address": kyc_request.address,
         "status": "pending",
-        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "submitted_at": datetime.now(UTC).isoformat(),
         "reviewed_at": None,
         "approved_at": None,
         "risk_score": "medium",
         "notes": []
     }
-    
+
     kyc_records[kyc_request.user_id] = kyc_record
-    
+
     # Simulate KYC verification process
     await asyncio.sleep(2)  # Simulate verification delay
-    
+
     # Auto-approve for demo (in production, this would involve actual verification)
     kyc_record["status"] = "approved"
-    kyc_record["reviewed_at"] = datetime.now(timezone.utc).isoformat()
-    kyc_record["approved_at"] = datetime.now(timezone.utc).isoformat()
+    kyc_record["reviewed_at"] = datetime.now(UTC).isoformat()
+    kyc_record["approved_at"] = datetime.now(UTC).isoformat()
     kyc_record["risk_score"] = "low"
-    
+
     logger.info(f"KYC approved for user: {kyc_request.user_id}")
-    
+
     return {
         "user_id": kyc_request.user_id,
         "status": kyc_record["status"],
@@ -130,7 +129,7 @@ async def get_kyc_status(user_id: str):
     """Get KYC status for a user"""
     if user_id not in kyc_records:
         raise HTTPException(status_code=404, detail="KYC record not found")
-    
+
     return kyc_records[user_id]
 
 @app.get("/api/v1/kyc")
@@ -147,8 +146,8 @@ async def list_kyc_records():
 @app.post("/api/v1/compliance/report")
 async def create_compliance_report(report: ComplianceReport):
     """Create a compliance report"""
-    report_id = f"report_{int(datetime.now(timezone.utc).timestamp())}"
-    
+    report_id = f"report_{int(datetime.now(UTC).timestamp())}"
+
     compliance_record = {
         "report_id": report_id,
         "report_type": report.report_type,
@@ -156,16 +155,16 @@ async def create_compliance_report(report: ComplianceReport):
         "severity": report.severity,
         "details": report.details,
         "status": "open",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "assigned_to": None,
         "resolved_at": None,
         "resolution": None
     }
-    
+
     compliance_reports[report_id] = compliance_record
-    
+
     logger.info(f"Compliance report created: {report_id} - {report.report_type}")
-    
+
     return {
         "report_id": report_id,
         "status": "created",
@@ -187,7 +186,7 @@ async def list_compliance_reports():
 async def monitor_transaction(transaction: TransactionMonitoring):
     """Monitor transaction for compliance"""
     transaction_id = transaction.transaction_id
-    
+
     # Create transaction monitoring record
     monitoring_record = {
         "transaction_id": transaction_id,
@@ -196,23 +195,23 @@ async def monitor_transaction(transaction: TransactionMonitoring):
         "currency": transaction.currency,
         "counterparty": transaction.counterparty,
         "timestamp": transaction.timestamp.isoformat(),
-        "monitored_at": datetime.now(timezone.utc).isoformat(),
+        "monitored_at": datetime.now(UTC).isoformat(),
         "risk_score": calculate_transaction_risk(transaction),
         "flags": [],
         "status": "monitored"
     }
-    
+
     suspicious_transactions[transaction_id] = monitoring_record
-    
+
     # Check for suspicious patterns
     flags = check_suspicious_patterns(transaction)
     if flags:
         monitoring_record["flags"] = flags
         monitoring_record["status"] = "flagged"
-        
+
         # Create compliance report for suspicious transaction
         await create_suspicious_transaction_report(transaction, flags)
-    
+
     return {
         "transaction_id": transaction_id,
         "risk_score": monitoring_record["risk_score"],
@@ -231,10 +230,10 @@ async def list_monitored_transactions():
     }
 
 @app.post("/api/v1/rules/create")
-async def create_compliance_rule(rule_data: Dict[str, Any]):
+async def create_compliance_rule(rule_data: dict[str, Any]):
     """Create a new compliance rule"""
-    rule_id = f"rule_{int(datetime.now(timezone.utc).timestamp())}"
-    
+    rule_id = f"rule_{int(datetime.now(UTC).timestamp())}"
+
     rule = {
         "rule_id": rule_id,
         "name": rule_data.get("name"),
@@ -244,14 +243,14 @@ async def create_compliance_rule(rule_data: Dict[str, Any]):
         "actions": rule_data.get("actions", []),
         "severity": rule_data.get("severity", "medium"),
         "active": True,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "trigger_count": 0
     }
-    
+
     compliance_rules[rule_id] = rule
-    
+
     logger.info(f"Compliance rule created: {rule_id} - {rule['name']}")
-    
+
     return {
         "rule_id": rule_id,
         "name": rule["name"],
@@ -274,13 +273,13 @@ async def compliance_dashboard():
     total_users = len(kyc_records)
     approved_users = len([r for r in kyc_records.values() if r["status"] == "approved"])
     pending_reviews = len([r for r in kyc_records.values() if r["status"] == "pending"])
-    
+
     total_reports = len(compliance_reports)
     open_reports = len([r for r in compliance_reports.values() if r["status"] == "open"])
-    
+
     total_transactions = len(suspicious_transactions)
     flagged_transactions = len([t for t in suspicious_transactions.values() if t["status"] == "flagged"])
-    
+
     return {
         "summary": {
             "total_users": total_users,
@@ -295,14 +294,14 @@ async def compliance_dashboard():
         },
         "risk_distribution": get_risk_distribution(),
         "recent_activity": get_recent_activity(),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 # Helper functions
 def calculate_transaction_risk(transaction: TransactionMonitoring) -> str:
     """Calculate risk score for a transaction"""
     risk_score = 0
-    
+
     # Amount-based risk
     if transaction.amount > 10000:
         risk_score += 3
@@ -310,12 +309,12 @@ def calculate_transaction_risk(transaction: TransactionMonitoring) -> str:
         risk_score += 2
     elif transaction.amount > 100:
         risk_score += 1
-    
+
     # Time-based risk (transactions outside business hours)
     hour = transaction.timestamp.hour
     if hour < 9 or hour > 17:
         risk_score += 1
-    
+
     # Convert to risk level
     if risk_score >= 4:
         return "high"
@@ -324,32 +323,32 @@ def calculate_transaction_risk(transaction: TransactionMonitoring) -> str:
     else:
         return "low"
 
-def check_suspicious_patterns(transaction: TransactionMonitoring) -> List[str]:
+def check_suspicious_patterns(transaction: TransactionMonitoring) -> list[str]:
     """Check for suspicious transaction patterns"""
     flags = []
-    
+
     # High value transaction
     if transaction.amount > 50000:
         flags.append("high_value_transaction")
-    
+
     # Rapid transactions (check if user has multiple transactions in short time)
-    user_transactions = [t for t in suspicious_transactions.values() 
+    user_transactions = [t for t in suspicious_transactions.values()
                         if t["user_id"] == transaction.user_id]
-    
-    recent_transactions = [t for t in user_transactions 
-                         if datetime.fromisoformat(t["monitored_at"]) > 
-                         datetime.now(timezone.utc) - timedelta(hours=1)]
-    
+
+    recent_transactions = [t for t in user_transactions
+                         if datetime.fromisoformat(t["monitored_at"]) >
+                         datetime.now(UTC) - timedelta(hours=1)]
+
     if len(recent_transactions) > 5:
         flags.append("rapid_transactions")
-    
+
     # Unusual counterparty
     if transaction.counterparty in ["high_risk_entity_1", "high_risk_entity_2"]:
         flags.append("high_risk_counterparty")
-    
+
     return flags
 
-async def create_suspicious_transaction_report(transaction: TransactionMonitoring, flags: List[str]):
+async def create_suspicious_transaction_report(transaction: TransactionMonitoring, flags: list[str]):
     """Create compliance report for suspicious transaction"""
     report_data = ComplianceReport(
         report_type="suspicious_transaction",
@@ -363,53 +362,53 @@ async def create_suspicious_transaction_report(transaction: TransactionMonitorin
             "timestamp": transaction.timestamp.isoformat()
         }
     )
-    
+
     await create_compliance_report(report_data)
 
-def get_risk_distribution() -> Dict[str, int]:
+def get_risk_distribution() -> dict[str, int]:
     """Get distribution of risk scores"""
     distribution = {"low": 0, "medium": 0, "high": 0}
-    
+
     for record in kyc_records.values():
         distribution[record["risk_score"]] = distribution.get(record["risk_score"], 0) + 1
-    
+
     for transaction in suspicious_transactions.values():
         distribution[transaction["risk_score"]] = distribution.get(transaction["risk_score"], 0) + 1
-    
+
     return distribution
 
-def get_recent_activity() -> List[Dict]:
+def get_recent_activity() -> list[dict]:
     """Get recent compliance activity"""
     activities = []
-    
+
     # Recent KYC approvals
-    recent_kyc = [r for r in kyc_records.values() 
-                 if r.get("approved_at") and 
-                 datetime.fromisoformat(r["approved_at"]) > 
-                 datetime.now(timezone.utc) - timedelta(hours=24)]
-    
+    recent_kyc = [r for r in kyc_records.values()
+                 if r.get("approved_at") and
+                 datetime.fromisoformat(r["approved_at"]) >
+                 datetime.now(UTC) - timedelta(hours=24)]
+
     for kyc in recent_kyc[:5]:
         activities.append({
             "type": "kyc_approved",
             "description": f"KYC approved for {kyc['name']}",
             "timestamp": kyc["approved_at"]
         })
-    
+
     # Recent compliance reports
-    recent_reports = [r for r in compliance_reports.values() 
-                     if datetime.fromisoformat(r["created_at"]) > 
-                     datetime.now(timezone.utc) - timedelta(hours=24)]
-    
+    recent_reports = [r for r in compliance_reports.values()
+                     if datetime.fromisoformat(r["created_at"]) >
+                     datetime.now(UTC) - timedelta(hours=24)]
+
     for report in recent_reports[:5]:
         activities.append({
             "type": "compliance_report",
             "description": f"Report: {report['description']}",
             "timestamp": report["created_at"]
         })
-    
+
     # Sort by timestamp
     activities.sort(key=lambda x: x["timestamp"], reverse=True)
-    
+
     return activities[:10]
 
 # Background task for periodic compliance checks
@@ -417,9 +416,9 @@ async def periodic_compliance_checks():
     """Background task for periodic compliance monitoring"""
     while True:
         await asyncio.sleep(300)  # Check every 5 minutes
-        
+
         # Check for expired KYC records
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.now(UTC)
         for user_id, kyc_record in kyc_records.items():
             if kyc_record["status"] == "approved":
                 approved_time = datetime.fromisoformat(kyc_record["approved_at"])

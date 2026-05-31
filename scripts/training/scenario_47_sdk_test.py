@@ -4,10 +4,9 @@ Scenario 47: Cross-Chain Atomic Swap - SDK Version
 Demonstrates the complete atomic swap flow using the fixed SDK
 """
 import asyncio
-import sys
-import os
 import hashlib
 import secrets
+import sys
 
 # Add paths
 sys.path.insert(0, '/opt/aitbc')
@@ -18,13 +17,10 @@ async def main():
     print("Scenario 47: Cross-Chain Atomic Swap (SDK Version)")
     print("=" * 60)
     print()
-    
+
     # Import SDK components
-    from aitbc_agent.contract_integration import (
-        ContractConfig, 
-        create_agent_contract_integration
-    )
-    
+    from aitbc_agent.contract_integration import ContractConfig, create_agent_contract_integration
+
     # Step 1: Create configuration
     print("Step 1: Creating ContractConfig with use_cli=True...")
     config = ContractConfig(
@@ -37,29 +33,29 @@ async def main():
         network="mainnet",
         rpc_url=""
     )
-    print(f"  ✓ Config created")
+    print("  ✓ Config created")
     print(f"  - use_cli: {config.use_cli}")
     print(f"  - contract: {config.cross_chain_atomic_swap}")
     print()
-    
+
     # Step 2: Create contract integration using factory
     print("Step 2: Creating AgentContractIntegration via factory...")
     integration = create_agent_contract_integration(config, private_key=None)
-    print(f"  ✓ Integration created")
+    print("  ✓ Integration created")
     print(f"  - Client type: {type(integration.contract_client).__name__}")
     print()
-    
+
     # Step 3: Generate secret and hashlock
     print("Step 3: Generating secret and hashlock...")
     swap_id = secrets.token_hex(32)
     secret = secrets.token_hex(32)
     hashlock = hashlib.sha256(bytes.fromhex(secret)).hexdigest()
-    
+
     print(f"  ✓ Secret: {secret[:20]}...")
     print(f"  ✓ Hashlock: {hashlock[:20]}...")
     print(f"  ✓ Swap ID: {swap_id[:20]}...")
     print()
-    
+
     # Step 4: Initiate atomic swap
     print("Step 4: Initiating atomic swap via SDK...")
     try:
@@ -72,7 +68,7 @@ async def main():
             timelock=3600,
             contract_address="0xcrosschainatomicswap_1778182201"
         )
-        print(f"  ✓ Swap initiated!")
+        print("  ✓ Swap initiated!")
         print(f"  - Status: {result.get('status')}")
         print(f"  - Tx Hash: {result.get('tx_hash', 'N/A')[:30]}...")
         print()
@@ -81,7 +77,7 @@ async def main():
         import traceback
         traceback.print_exc()
         return
-    
+
     # Step 5: Check swap status
     print("Step 5: Checking swap status via SDK...")
     try:
@@ -89,7 +85,7 @@ async def main():
             swap_id=swap_id,
             contract_address="0xcrosschainatomicswap_1778182201"
         )
-        print(f"  ✓ Status checked!")
+        print("  ✓ Status checked!")
         print(f"  - Swap ID: {status.get('swap_id', '')[:20]}...")
         print(f"  - Status: {status.get('status')}")
         if 'note' in status:
@@ -99,7 +95,7 @@ async def main():
         print(f"  ✗ Failed to check status: {e}")
         import traceback
         traceback.print_exc()
-    
+
     # Step 6: Complete atomic swap (reveal secret)
     print("Step 6: Completing atomic swap (revealing secret)...")
     try:
@@ -108,7 +104,7 @@ async def main():
             secret=secret,
             contract_address="0xcrosschainatomicswap_1778182201"
         )
-        print(f"  ✓ Swap completed!")
+        print("  ✓ Swap completed!")
         print(f"  - Status: {result.get('status')}")
         print(f"  - Tx Hash: {result.get('tx_hash', 'N/A')[:30]}...")
         print()
@@ -116,7 +112,7 @@ async def main():
         print(f"  ✗ Failed to complete swap: {e}")
         import traceback
         traceback.print_exc()
-    
+
     # Summary
     print("=" * 60)
     print("Scenario 47 Complete (SDK Version)")

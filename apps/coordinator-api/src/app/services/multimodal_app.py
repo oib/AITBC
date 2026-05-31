@@ -10,8 +10,8 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..contexts.multimodal.routers.multimodal_health import router as health_router
-from ..storage import get_session
 from ..contexts.multimodal.services.multimodal_agent import MultiModalAgentService
+from ..storage import get_session
 
 app = FastAPI(
     title="AITBC Multi-Modal Agent Service",

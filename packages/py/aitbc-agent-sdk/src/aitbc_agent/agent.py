@@ -2,28 +2,25 @@
 Core Agent class for AITBC network participation
 """
 
-import asyncio
 import json
 import os
 import uuid
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, ed25519
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from datetime import UTC, datetime
+from typing import Any
+
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network.http_client import AITBCHTTPClient
+from aitbc_agent import bounty, data_oracle, dispute, extended, ipfs, knowledge, zk
 from aitbc_agent.contract_integration import (
-    AgentContractIntegration, 
-    ContractClient, 
+    AgentContractIntegration,
     ContractConfig,
-    create_agent_contract_integration
+    create_agent_contract_integration,
 )
-from aitbc_agent import command_executor, ipfs, data_oracle, zk, knowledge, bounty, dispute, extended
 
 logger = get_logger(__name__)
 
@@ -33,11 +30,11 @@ class AgentCapabilities:
     """Agent capability specification"""
 
     compute_type: str  # "inference", "training", "processing"
-    gpu_memory: Optional[int] = None
-    supported_models: Optional[List[str]] = None
+    gpu_memory: int | None = None
+    supported_models: list[str] | None = None
     performance_score: float = 0.0
     max_concurrent_jobs: int = 1
-    specialization: Optional[str] = None
+    specialization: str | None = None
 
     def __post_init__(self) -> None:
         if self.supported_models is None:
@@ -54,7 +51,7 @@ class AgentIdentity:
     public_key: str
     private_key: str
 
-    def sign_message(self, message: Dict[str, Any]) -> str:
+    def sign_message(self, message: dict[str, Any]) -> str:
         """Sign a message with agent's private key"""
         message_str = json.dumps(message, sort_keys=True)
         private_key = serialization.load_pem_private_key(
@@ -74,7 +71,7 @@ class AgentIdentity:
 
         return signature.hex()
 
-    def verify_signature(self, message: Dict[str, Any], signature: str) -> bool:
+    def verify_signature(self, message: dict[str, Any], signature: str) -> bool:
         """Verify a message signature"""
         message_str = json.dumps(message, sort_keys=True)
         public_key = serialization.load_pem_public_key(self.public_key.encode())
@@ -104,8 +101,8 @@ class Agent:
         self,
         identity: AgentIdentity,
         capabilities: AgentCapabilities,
-        coordinator_url: Optional[str] = None,
-        contract_config: Optional[ContractConfig] = None
+        coordinator_url: str | None = None,
+        contract_config: ContractConfig | None = None
     ):
         self.identity = identity
         self.capabilities = capabilities
@@ -116,7 +113,7 @@ class Agent:
         self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
 
         # Contract integration
-        self.contract_integration: Optional[AgentContractIntegration] = None
+        self.contract_integration: AgentContractIntegration | None = None
 
         # CLI-based operation modules
         self.ipfs_ops = ipfs.IPFSOperations()
@@ -141,7 +138,7 @@ class Agent:
 
     @classmethod
     def create(
-        cls, name: str, agent_type: str, capabilities: Dict[str, Any]
+        cls, name: str, agent_type: str, capabilities: dict[str, Any]
     ) -> "Agent":
         """Create a new agent with generated identity"""
         # Generate cryptographic keys
@@ -192,7 +189,7 @@ class Agent:
                     "max_concurrent_jobs": self.capabilities.max_concurrent_jobs,
                     "specialization": self.capabilities.specialization,
                 },
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             # Sign registration data
@@ -205,7 +202,7 @@ class Agent:
                     "/v1/agents/register",
                     json=registration_data
                 )
-                
+
                 if response.status_code == 201:
                     result = response.json()
                     self.registered = True
@@ -225,13 +222,13 @@ class Agent:
             logger.error(f"Registration failed: {e}")
             return False
 
-    async def get_reputation(self) -> Dict[str, float]:
+    async def get_reputation(self) -> dict[str, float]:
         """Get agent reputation metrics"""
         try:
             response = await self.http_client.get(
                 f"/v1/agents/{self.identity.id}/reputation"
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 self.reputation_score = result.get("overall_score", self.reputation_score)
@@ -266,14 +263,14 @@ class Agent:
         self.reputation_score = new_score
         logger.info(f"Reputation updated to {new_score}")
 
-    async def get_earnings(self, period: str = "30d") -> Dict[str, Any]:
+    async def get_earnings(self, period: str = "30d") -> dict[str, Any]:
         """Get agent earnings information"""
         try:
             response = await self.http_client.get(
                 f"/v1/agents/{self.identity.id}/earnings",
                 params={"period": period}
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 self.earnings = result.get("total", self.earnings)
@@ -304,7 +301,7 @@ class Agent:
             }
 
     async def send_message(
-        self, recipient_id: str, message_type: str, payload: Dict[str, Any]
+        self, recipient_id: str, message_type: str, payload: dict[str, Any]
     ) -> bool:
         """Send a message to another agent"""
         message = {
@@ -312,7 +309,7 @@ class Agent:
             "to": recipient_id,
             "type": message_type,
             "payload": payload,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Sign message
@@ -325,7 +322,7 @@ class Agent:
                 "/v1/agents/messages",
                 json=message
             )
-            
+
             if response.status_code == 200:
                 logger.info(f"Message sent to {recipient_id}: {message_type}")
                 return True
@@ -339,14 +336,14 @@ class Agent:
             logger.error(f"Error sending message: {e}")
             return False
 
-    async def _fetch_sender_public_key(self, sender_id: str) -> Optional[str]:
+    async def _fetch_sender_public_key(self, sender_id: str) -> str | None:
         """Fetch sender's public key from coordinator API"""
         try:
             coordinator_url = os.getenv("COORDINATOR_API_URL", "http://localhost:8011")
             client = AITBCHTTPClient(timeout=5.0)
-            
+
             response = client.get(f"{coordinator_url}/v1/agent-identity/{sender_id}")
-            
+
             if response and "public_key" in response:
                 return response["public_key"]
             else:
@@ -359,7 +356,7 @@ class Agent:
             logger.error(f"Error fetching public key: {e}")
             return None
 
-    async def receive_message(self, message: Dict[str, Any]) -> bool:
+    async def receive_message(self, message: dict[str, Any]) -> bool:
         """Process a received message from another agent"""
         # Verify signature
         if "signature" not in message:
@@ -369,25 +366,25 @@ class Agent:
         # Verify sender's signature
         sender_id = message.get("from")
         signature = message.get("signature")
-        
+
         # Create message copy without signature for verification
         message_to_verify = message.copy()
         message_to_verify.pop("signature", None)
-        
+
         # Fetch sender's public key from coordinator API
         public_key_hex = await self._fetch_sender_public_key(sender_id)
         if not public_key_hex:
             logger.error(f"Failed to fetch public key for {sender_id}, rejecting message")
             return False
-        
+
         # Verify signature using ed25519
         try:
             public_key_bytes = bytes.fromhex(public_key_hex)
             public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
-            
+
             message_bytes = json.dumps(message_to_verify, sort_keys=True).encode('utf-8')
             public_key.verify(signature, message_bytes)
-            
+
             logger.info(
                 f"Received message from {sender_id}: {message.get('type')} (signature verified)"
             )
@@ -396,7 +393,7 @@ class Agent:
             logger.error(f"Signature verification failed for {sender_id}: {e}")
             return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert agent to dictionary representation"""
         return {
             "id": self.identity.id,
@@ -438,7 +435,7 @@ class Agent:
         hashlock: str,
         timelock: int,
         contract_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Initiate atomic swap using contract integration"""
         if not self.contract_integration:
             raise ValueError("Contract integration not initialized")
@@ -458,7 +455,7 @@ class Agent:
         swap_id: str,
         secret: str,
         contract_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Complete atomic swap by revealing secret"""
         if not self.contract_integration:
             raise ValueError("Contract integration not initialized")
@@ -473,7 +470,7 @@ class Agent:
         self,
         swap_id: str,
         contract_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get status of an atomic swap"""
         if not self.contract_integration:
             raise ValueError("Contract integration not initialized")
@@ -487,7 +484,7 @@ class Agent:
         self,
         swap_id: str,
         contract_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Refund atomic swap if timelock expired"""
         if not self.contract_integration:
             raise ValueError("Contract integration not initialized")
@@ -501,15 +498,15 @@ class Agent:
     def store_ipfs(self, data: bytes, pin: bool = True, name: str = None) -> str:
         """Store data on IPFS"""
         return self.ipfs_ops.store_ipfs(data, pin, name)
-    
+
     def retrieve_ipfs(self, cid: str, output_path: str = None) -> bytes:
         """Retrieve data from IPFS"""
         return self.ipfs_ops.retrieve_ipfs(cid, output_path)
-    
+
     async def store_ipfs_async(self, data: bytes, pin: bool = True, name: str = None) -> str:
         """Async version of store_ipfs"""
         return await self.ipfs_ops.store_ipfs_async(data, pin, name)
-    
+
     async def retrieve_ipfs_async(self, cid: str, output_path: str = None) -> bytes:
         """Async version of retrieve_ipfs"""
         return await self.ipfs_ops.retrieve_ipfs_async(cid, output_path)
@@ -518,15 +515,15 @@ class Agent:
     def announce_data_availability(self, cid: str, price: float, description: str = "") -> str:
         """Announce data availability"""
         return self.data_oracle_ops.announce_data_availability(cid, price, description)
-    
+
     def retrieve_data(self, cid: str) -> bytes:
         """Retrieve data by CID"""
         return self.data_oracle_ops.retrieve_data(cid)
-    
+
     async def listen_for_requests(self, callback):
         """Listen for data retrieval requests"""
         await self.data_oracle_ops.listen_for_requests(callback)
-    
+
     async def announce_data_availability_async(self, cid: str, price: float, description: str = "") -> str:
         """Async version of announce_data_availability"""
         return await self.data_oracle_ops.announce_data_availability_async(cid, price, description)
@@ -535,7 +532,7 @@ class Agent:
     def generate_proof(self, input_data: str, circuit_id: str) -> str:
         """Generate ZK proof"""
         return self.zk_ops.generate_proof(input_data, circuit_id)
-    
+
     def verify_proof(self, proof: str, public_inputs: str) -> bool:
         """Verify ZK proof"""
         return self.zk_ops.verify_proof(proof, public_inputs)
@@ -544,7 +541,7 @@ class Agent:
     def create_knowledge_graph(self, name: str, description: str = "") -> str:
         """Create knowledge graph"""
         return self.knowledge_ops.create_knowledge_graph(name, description)
-    
+
     def add_knowledge_node(self, graph_id: str, node_data: dict) -> str:
         """Add node to knowledge graph"""
         return self.knowledge_ops.add_knowledge_node(graph_id, node_data)
@@ -553,7 +550,7 @@ class Agent:
     def create_bounty(self, title: str, description: str, reward: float) -> str:
         """Create bounty"""
         return self.bounty_ops.create_bounty(title, description, reward)
-    
+
     def list_bounties(self, status: str = "open") -> list:
         """List bounties"""
         return self.bounty_ops.list_bounties(status)
@@ -562,7 +559,7 @@ class Agent:
     def file_dispute(self, title: str, description: str, evidence: str) -> str:
         """File dispute"""
         return self.dispute_ops.file_dispute(title, description, evidence)
-    
+
     def vote_dispute(self, dispute_id: str, vote: bool, reason: str = "") -> bool:
         """Vote on dispute"""
         return self.dispute_ops.vote_dispute(dispute_id, vote, reason)
@@ -571,15 +568,15 @@ class Agent:
     def submit_ai_test(self, model_id: str, test_data: str) -> str:
         """Submit AI test job"""
         return self.extended_ops.submit_ai_test(model_id, test_data)
-    
+
     def list_gpu(self, filters: dict = None) -> list:
         """List available GPU resources"""
         return self.extended_ops.list_gpu(filters)
-    
+
     def create_swarm(self, name: str, max_agents: int) -> str:
         """Create agent swarm"""
         return self.extended_ops.create_swarm(name, max_agents)
-    
+
     def add_stake(self, amount: float, validator_id: str = None) -> str:
         """Add stake to validator"""
         return self.extended_ops.add_stake(amount, validator_id)
@@ -597,12 +594,12 @@ class AITBCAgent:
         self,
         agent_id: str = "",
         compute_type: str = "general",
-        capabilities: Optional[List[str]] = None,
+        capabilities: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
         self.agent_id = agent_id
         self.compute_type = compute_type
-        self.capabilities: List[str] = capabilities or []
+        self.capabilities: list[str] = capabilities or []
         self.status = "initialized"
         self._extra = kwargs
 
@@ -617,7 +614,7 @@ class AITBCAgent:
     async def register(self) -> bool:
         return await self._agent.register()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = self._agent.to_dict()
         d["agent_id"] = self.agent_id
         d["status"] = self.status

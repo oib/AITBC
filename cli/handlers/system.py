@@ -1,7 +1,10 @@
 """System and utility handlers."""
 
-import sys
 import logging
+import json
+import random
+import sys
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,7 +82,7 @@ def handle_agent_action(args, agent_operations, render_mapping):
         value = getattr(args, name, None)
         if value not in (None, "", False):
             kwargs[name] = value
-    
+
     try:
         result = agent_operations(args.agent_action, **kwargs)
         if not result:
@@ -113,11 +116,11 @@ def handle_agent_action(args, agent_operations, render_mapping):
 def handle_agent_sdk_action(args, render_mapping):
     """Handle agent SDK action command."""
     action = getattr(args, "agent_sdk_action", None)
-    
+
     if action == "create":
         name = getattr(args, "name", None)
         agent_type = getattr(args, "type", "provider")
-        
+
         sdk_data = {
             "agent_id": f"agent_{int(__import__('time').time())}",
             "name": name,
@@ -125,25 +128,25 @@ def handle_agent_sdk_action(args, render_mapping):
             "status": "created",
             "timestamp": __import__('datetime').datetime.now().isoformat()
         }
-        
+
         logger.info(f"Agent SDK created: {name}")
         render_mapping("Agent SDK:", sdk_data)
-    
+
     elif action == "update-status":
         agent_id = getattr(args, "agent_id", None)
         status = getattr(args, "status", None)
         load_metrics = getattr(args, "load_metrics", {})
         coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
-        
+
         if not agent_id or not status:
             logger.error("Error: --agent-id and --status are required")
             sys.exit(1)
-        
+
         status_update_request = {
             "status": status,
             "load_metrics": load_metrics if isinstance(load_metrics, dict) else {}
         }
-        
+
         logger.info(f"Updating agent {agent_id} status to {status}...")
         try:
             import requests
@@ -152,10 +155,10 @@ def handle_agent_sdk_action(args, render_mapping):
                 json=status_update_request,
                 timeout=30
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
-                logger.info(f"Agent status updated successfully")
+                logger.info("Agent status updated successfully")
                 render_mapping("Status Update:", result)
             else:
                 logger.error(f"Status update failed: {response.status_code}")
@@ -164,7 +167,7 @@ def handle_agent_sdk_action(args, render_mapping):
         except Exception as e:
             logger.error(f"Error updating agent status: {e}")
             sys.exit(1)
-    
+
     elif action == "register":
         agent_id = getattr(args, "agent_id", None)
         agent_type = getattr(args, "type", "worker")
@@ -173,7 +176,7 @@ def handle_agent_sdk_action(args, render_mapping):
         endpoints = getattr(args, "endpoints", {})
         metadata = getattr(args, "metadata", {})
         coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
-        
+
         # Build registration request
         registration_request = {
             "agent_id": agent_id,
@@ -183,7 +186,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "endpoints": endpoints if isinstance(endpoints, dict) else (json.loads(endpoints) if endpoints else {}),
             "metadata": metadata if isinstance(metadata, dict) else (json.loads(metadata) if metadata else {})
         }
-        
+
         logger.info(f"Registering agent {agent_id} with coordinator at {coordinator_url}...")
         try:
             import requests
@@ -192,10 +195,10 @@ def handle_agent_sdk_action(args, render_mapping):
                 json=registration_request,
                 timeout=30
             )
-            
+
             if response.status_code in (200, 201):
                 result = response.json()
-                logger.info(f"Agent registered successfully")
+                logger.info("Agent registered successfully")
                 render_mapping("Registration:", result)
             else:
                 logger.error(f"Registration failed: {response.status_code}")
@@ -204,19 +207,19 @@ def handle_agent_sdk_action(args, render_mapping):
         except Exception as e:
             logger.error(f"Error registering agent: {e}")
             sys.exit(1)
-    
+
     elif action == "list":
         # Agent discovery via coordinator
         coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
         status = getattr(args, "status", None)
         agent_type = getattr(args, "agent_type", None)
-        
+
         query = {}
         if status:
             query["status"] = status
         if agent_type:
             query["agent_type"] = agent_type
-        
+
         logger.info(f"Discovering agents from coordinator at {coordinator_url}...")
         try:
             import requests
@@ -225,7 +228,7 @@ def handle_agent_sdk_action(args, render_mapping):
                 json=query,
                 timeout=30
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 logger.info(f"Found {result.get('count', 0)} agents")
@@ -237,11 +240,11 @@ def handle_agent_sdk_action(args, render_mapping):
         except Exception as e:
             logger.error(f"Error discovering agents: {e}")
             sys.exit(1)
-    
+
     elif action == "status":
         agent_id = getattr(args, "agent_id", None)
         coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
-        
+
         logger.info(f"Getting agent info for {agent_id} from coordinator at {coordinator_url}...")
         try:
             import requests
@@ -249,10 +252,10 @@ def handle_agent_sdk_action(args, render_mapping):
                 f"{coordinator_url}/v1/agents/{agent_id}",
                 timeout=30
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
-                logger.info(f"Agent info retrieved")
+                logger.info("Agent info retrieved")
                 render_mapping("Agent:", result)
             elif response.status_code == 404:
                 logger.info(f"Agent not found: {agent_id}")
@@ -264,7 +267,7 @@ def handle_agent_sdk_action(args, render_mapping):
         except Exception as e:
             logger.error(f"Error getting agent info: {e}")
             sys.exit(1)
-    
+
     elif action == "capabilities":
         caps_data = {
             "gpu_available": True,
@@ -272,10 +275,10 @@ def handle_agent_sdk_action(args, render_mapping):
             "supported_models": ["llama2", "mistral", "gpt-4"],
             "max_concurrent_jobs": 2
         }
-        
+
         logger.info("System capabilities")
         render_mapping("Capabilities:", caps_data)
-    
+
     else:
         # Stub for other SDK actions
         sdk_result = {
@@ -283,7 +286,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "status": "simulated",
             "timestamp": __import__('datetime').datetime.now().isoformat()
         }
-        
+
         logger.info(f"Agent SDK {action} (simulated)")
         render_mapping("SDK Operation:", sdk_result)
 
@@ -298,7 +301,7 @@ def handle_hermes_training_action(args, hermes_training_operations, first, rende
     market_action = first(getattr(args, "market_action", None), getattr(args, "market_action_opt", None))
     if market_action:
         kwargs["market_action"] = market_action
-    
+
     # Handle train actions
     if getattr(args, "hermes_training_action", None) == "train":
         train_action = getattr(args, "train_action", None)
@@ -320,7 +323,7 @@ def handle_hermes_training_action(args, hermes_training_operations, first, rende
                 if value not in (None, "", False):
                     kwargs[name] = value
             kwargs["train_action"] = "certify"
-    
+
     result = hermes_training_operations(args.hermes_training_action, **kwargs)
     if not result:
         sys.exit(1)
@@ -372,16 +375,15 @@ def handle_simulate_action(args, simulate_blockchain, simulate_wallets, simulate
 
 def simulate_blockchain(blocks, transactions, delay):
     """Simulate blockchain activity by submitting transactions to the blockchain."""
-    import requests
     import time
-    
+
     BLOCKCHAIN_RPC_URL = "http://localhost:8082"
-    
+
     logger.info(f"Simulating {blocks} blocks with {transactions} transactions each")
-    
+
     for block_num in range(blocks):
         logger.info(f"Creating block {block_num + 1}/{blocks}")
-        
+
         # Submit transactions
         for tx_num in range(transactions):
             try:
@@ -390,30 +392,29 @@ def simulate_blockchain(blocks, transactions, delay):
                 logger.debug(f"Transaction {tx_num + 1}/{transactions} for block {block_num + 1}")
             except Exception as e:
                 logger.error(f"Failed to submit transaction: {e}")
-        
+
         if delay > 0:
             time.sleep(delay)
-    
+
     logger.info("Blockchain simulation complete")
 
 
 def simulate_wallets(wallets, balance, transactions, amount_range):
     """Simulate wallet activity by creating wallets and transactions."""
-    import requests
     import random
-    
+
     logger.info(f"Simulating {wallets} wallets with {balance} AITBC balance each")
-    
+
     # For now, this is a placeholder - actual wallet creation would use the wallet API
     for wallet_num in range(wallets):
         wallet_id = f"sim_wallet_{wallet_num}"
         logger.info(f"Created wallet {wallet_id} with balance {balance}")
-        
+
         # Simulate transactions
         for tx_num in range(transactions):
             amount = random.uniform(*map(float, amount_range.split("-")))
             logger.debug(f"Transaction {tx_num + 1}/{transactions} for wallet {wallet_id}: {amount:.2f} AITBC")
-    
+
     logger.info("Wallet simulation complete")
 
 
@@ -421,60 +422,60 @@ def simulate_price(price, volatility, timesteps, delay):
     """Simulate price movement using random walk."""
     import random
     import time
-    
+
     logger.info(f"Simulating price movement from {price} with volatility {volatility}")
-    
+
     current_price = price
     for step in range(timesteps):
         change = random.uniform(-volatility, volatility) * current_price
         current_price += change
         current_price = max(0.01, current_price)  # Prevent negative prices
-        
+
         logger.info(f"Step {step + 1}/{timesteps}: Price = {current_price:.4f}")
-        
+
         if delay > 0:
             time.sleep(delay)
-    
+
     logger.info(f"Price simulation complete. Final price: {current_price:.4f}")
 
 
 def simulate_network(nodes, network_delay, failure_rate):
     """Simulate network activity."""
     import time
-    
+
     logger.info(f"Simulating network with {nodes} nodes, delay {network_delay}s, failure rate {failure_rate}")
-    
+
     for node_num in range(nodes):
         node_id = f"node_{node_num}"
         logger.info(f"Node {node_id} active")
-        
+
         # Simulate network delay
         if network_delay > 0:
             time.sleep(network_delay)
-        
+
         # Simulate occasional failures
         if random.random() < failure_rate:
             logger.warning(f"Node {node_id} experienced failure")
-    
+
     logger.info("Network simulation complete")
 
 
 def simulate_ai_jobs(jobs, models, duration_range):
     """Simulate AI job submission to coordinator."""
-    import requests
     import random
-    from datetime import datetime
-    
+
+    import requests
+
     COORDINATOR_URL = "http://localhost:8011"
     CLIENT_API_KEY = "aitbc-client-key-secure-token-production"
-    
+
     logger.info(f"Simulating {jobs} AI jobs with models: {models}")
-    
+
     headers = {
         "X-Api-Key": CLIENT_API_KEY,
         "Content-Type": "application/json"
     }
-    
+
     for job_num in range(jobs):
         model = random.choice(models.split(","))
         job_data = {
@@ -489,7 +490,7 @@ def simulate_ai_jobs(jobs, models, duration_range):
             },
             "ttl_seconds": 900
         }
-        
+
         try:
             response = requests.post(
                 f"{COORDINATOR_URL}/v1/jobs",
@@ -502,7 +503,7 @@ def simulate_ai_jobs(jobs, models, duration_range):
             logger.info(f"Job {job_num + 1}/{jobs} created: {result.get('job_id')}")
         except Exception as e:
             logger.error(f"Failed to create job {job_num + 1}: {e}")
-    
+
     logger.info("AI job simulation complete")
 
 
@@ -663,14 +664,14 @@ def handle_security_action(args, render_mapping):
 def handle_compliance_check(args, render_mapping):
     """Handle compliance check command."""
     standard = getattr(args, "standard", "gdpr")
-    
+
     compliance_data = {
         "standard": standard,
         "status": "compliant",
         "last_check": __import__('datetime').datetime.now().isoformat(),
         "issues_found": 0
     }
-    
+
     logger.info(f"Compliance check for {standard}")
     render_mapping("Compliance:", compliance_data)
 
@@ -678,14 +679,14 @@ def handle_compliance_check(args, render_mapping):
 def handle_compliance_report(args, render_mapping):
     """Handle compliance report command."""
     format_type = getattr(args, "format", "detailed")
-    
+
     report_data = {
         "format": format_type,
         "generated_at": __import__('datetime').datetime.now().isoformat(),
         "standards_checked": ["gdpr", "hipaa", "soc2"],
         "overall_status": "compliant"
     }
-    
+
     logger.info(f"Compliance report ({format_type})")
     render_mapping("Report:", report_data)
 
@@ -693,7 +694,7 @@ def handle_compliance_report(args, render_mapping):
 def handle_cluster_status(args, render_mapping):
     """Handle cluster status command."""
     nodes = getattr(args, "nodes", ["aitbc", "aitbc1"])
-    
+
     status_data = {
         "connected_nodes": len(nodes),
         "nodes": nodes,
@@ -701,21 +702,21 @@ def handle_cluster_status(args, render_mapping):
         "sync_status": "standalone",
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
-    
+
     render_mapping("Network Status:", status_data)
 
 
 def handle_cluster_sync(args, render_mapping):
     """Handle cluster sync command."""
     sync_all = getattr(args, "all", False)
-    
+
     sync_data = {
         "nodes_synced": 5 if sync_all else 2,
         "total_nodes": 5,
         "sync_status": "complete",
         "last_sync": __import__('datetime').datetime.now().isoformat()
     }
-    
+
     logger.info("Cluster sync completed")
     render_mapping("Cluster Sync:", sync_data)
 
@@ -723,14 +724,14 @@ def handle_cluster_sync(args, render_mapping):
 def handle_cluster_balance(args, render_mapping):
     """Handle cluster balance command."""
     workload = getattr(args, "workload", False)
-    
+
     balance_data = {
         "workload_balanced": workload,
         "nodes_active": 5,
         "load_distribution": "balanced",
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
-    
+
     logger.info("Workload balanced across cluster")
     render_mapping("Cluster Balance:", balance_data)
 
@@ -739,14 +740,14 @@ def handle_script_run(args, render_mapping):
     """Handle script run command."""
     file_path = getattr(args, "file", None)
     script_args = getattr(args, "args", None)
-    
+
     script_data = {
         "file": file_path,
         "args": script_args,
         "status": "executed",
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
-    
+
     logger.info(f"Script executed: {file_path}")
     render_mapping("Script:", script_data)
 

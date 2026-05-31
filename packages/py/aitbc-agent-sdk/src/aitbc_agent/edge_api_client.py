@@ -3,12 +3,12 @@ Edge API Client for Agent SDK
 Provides access to Edge API endpoints for agents
 """
 
-import httpx
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from typing import Any
+
+import httpx
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
 
 logger = get_logger(__name__)
 
@@ -24,10 +24,10 @@ class EdgeAPIConfig:
 class EdgeAPIClient:
     """Client for interacting with Edge API"""
 
-    def __init__(self, config: Optional[EdgeAPIConfig] = None) -> None:
+    def __init__(self, config: EdgeAPIConfig | None = None) -> None:
         self.config = config or EdgeAPIConfig()
         self.base_url = f"http://{self.config.host}:{self.config.port}"
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "EdgeAPIClient":
         """Async context manager entry"""
@@ -45,10 +45,10 @@ class EdgeAPIClient:
     # GPU Operations
     async def list_gpus(
         self,
-        architecture: Optional[str] = None,
+        architecture: str | None = None,
         edge_optimized: bool = False,
-        min_memory_gb: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        min_memory_gb: int | None = None
+    ) -> list[dict[str, Any]]:
         """List available GPUs"""
         params = {}
         if architecture:
@@ -63,19 +63,19 @@ class EdgeAPIClient:
         result = response.json()
         return result.get("gpus", [])
 
-    async def get_gpu(self, gpu_id: str) -> Dict[str, Any]:
+    async def get_gpu(self, gpu_id: str) -> dict[str, Any]:
         """Get GPU details"""
         response = await self._client.get(f"/v1/gpu/{gpu_id}")
         response.raise_for_status()
         return response.json()
 
-    async def scan_gpus(self, miner_id: str) -> Dict[str, Any]:
+    async def scan_gpus(self, miner_id: str) -> dict[str, Any]:
         """Scan GPUs for a miner"""
         response = await self._client.post("/v1/gpu/scan", json={"miner_id": miner_id})
         response.raise_for_status()
         return response.json()
 
-    async def get_gpu_metrics(self, gpu_id: str, limit: int = 100) -> Dict[str, Any]:
+    async def get_gpu_metrics(self, gpu_id: str, limit: int = 100) -> dict[str, Any]:
         """Get GPU metrics"""
         response = await self._client.get(
             f"/v1/gpu/{gpu_id}/metrics",
@@ -84,7 +84,7 @@ class EdgeAPIClient:
         response.raise_for_status()
         return response.json()
 
-    async def remove_gpu(self, gpu_id: str) -> Dict[str, Any]:
+    async def remove_gpu(self, gpu_id: str) -> dict[str, Any]:
         """Remove GPU from listing"""
         response = await self._client.delete(f"/v1/gpu/{gpu_id}")
         response.raise_for_status()
@@ -96,7 +96,7 @@ class EdgeAPIClient:
         database_id: str,
         island_id: str,
         capacity_gb: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Initialize edge database"""
         response = await self._client.post("/v1/database/init", json={
             "database_id": database_id,
@@ -106,7 +106,7 @@ class EdgeAPIClient:
         response.raise_for_status()
         return response.json()
 
-    async def list_databases(self, island_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_databases(self, island_id: str | None = None) -> list[dict[str, Any]]:
         """List edge databases"""
         params = {}
         if island_id:
@@ -117,19 +117,19 @@ class EdgeAPIClient:
         result = response.json()
         return result.get("databases", [])
 
-    async def get_database(self, database_id: str) -> Dict[str, Any]:
+    async def get_database(self, database_id: str) -> dict[str, Any]:
         """Get database details"""
         response = await self._client.get(f"/v1/database/{database_id}")
         response.raise_for_status()
         return response.json()
 
-    async def delete_database(self, database_id: str) -> Dict[str, Any]:
+    async def delete_database(self, database_id: str) -> dict[str, Any]:
         """Delete database"""
         response = await self._client.delete(f"/v1/database/{database_id}")
         response.raise_for_status()
         return response.json()
 
-    async def sync_database(self, database_id: str) -> Dict[str, Any]:
+    async def sync_database(self, database_id: str) -> dict[str, Any]:
         """Sync database"""
         response = await self._client.post(f"/v1/database/{database_id}/sync")
         response.raise_for_status()
@@ -140,9 +140,9 @@ class EdgeAPIClient:
         self,
         gpu_id: str,
         model_name: str,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         priority: str = "normal"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Submit compute request"""
         response = await self._client.post("/v1/serve/requests", json={
             "gpu_id": gpu_id,
@@ -155,9 +155,9 @@ class EdgeAPIClient:
 
     async def list_compute_requests(
         self,
-        gpu_id: Optional[str] = None,
-        status: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        gpu_id: str | None = None,
+        status: str | None = None
+    ) -> list[dict[str, Any]]:
         """List compute requests"""
         params = {}
         if gpu_id:
@@ -170,19 +170,19 @@ class EdgeAPIClient:
         result = response.json()
         return result.get("requests", [])
 
-    async def get_compute_request(self, request_id: str) -> Dict[str, Any]:
+    async def get_compute_request(self, request_id: str) -> dict[str, Any]:
         """Get compute request details"""
         response = await self._client.get(f"/v1/serve/requests/{request_id}")
         response.raise_for_status()
         return response.json()
 
-    async def cancel_compute_request(self, request_id: str) -> Dict[str, Any]:
+    async def cancel_compute_request(self, request_id: str) -> dict[str, Any]:
         """Cancel compute request"""
         response = await self._client.post(f"/v1/serve/requests/{request_id}/cancel")
         response.raise_for_status()
         return response.json()
 
-    async def get_compute_result(self, request_id: str) -> Dict[str, Any]:
+    async def get_compute_result(self, request_id: str) -> dict[str, Any]:
         """Get compute result"""
         response = await self._client.get(f"/v1/serve/requests/{request_id}/result")
         response.raise_for_status()
@@ -192,8 +192,8 @@ class EdgeAPIClient:
     async def record_metrics(
         self,
         gpu_id: str,
-        metrics: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        metrics: dict[str, Any]
+    ) -> dict[str, Any]:
         """Record edge metrics"""
         response = await self._client.post("/v1/metrics/", json={
             "gpu_id": gpu_id,
@@ -204,9 +204,9 @@ class EdgeAPIClient:
 
     async def list_metrics(
         self,
-        gpu_id: Optional[str] = None,
+        gpu_id: str | None = None,
         limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List edge metrics"""
         params = {"limit": limit}
         if gpu_id:
@@ -217,13 +217,13 @@ class EdgeAPIClient:
         result = response.json()
         return result.get("metrics", [])
 
-    async def get_metric(self, metric_id: str) -> Dict[str, Any]:
+    async def get_metric(self, metric_id: str) -> dict[str, Any]:
         """Get metric details"""
         response = await self._client.get(f"/v1/metrics/{metric_id}")
         response.raise_for_status()
         return response.json()
 
-    async def delete_metric(self, metric_id: str) -> Dict[str, Any]:
+    async def delete_metric(self, metric_id: str) -> dict[str, Any]:
         """Delete metric"""
         response = await self._client.delete(f"/v1/metrics/{metric_id}")
         response.raise_for_status()
@@ -237,7 +237,7 @@ class EdgeAPIClient:
         chain_id: str,
         role: str = "compute-provider",
         is_hub: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Join an island"""
         response = await self._client.post("/v1/islands/join", json={
             "island_id": island_id,
@@ -249,7 +249,7 @@ class EdgeAPIClient:
         response.raise_for_status()
         return response.json()
 
-    async def leave_island(self, island_id: str) -> Dict[str, Any]:
+    async def leave_island(self, island_id: str) -> dict[str, Any]:
         """Leave an island"""
         response = await self._client.post("/v1/islands/leave", json={
             "island_id": island_id
@@ -257,20 +257,20 @@ class EdgeAPIClient:
         response.raise_for_status()
         return response.json()
 
-    async def list_islands(self) -> List[Dict[str, Any]]:
+    async def list_islands(self) -> list[dict[str, Any]]:
         """List all islands"""
         response = await self._client.get("/v1/islands/")
         response.raise_for_status()
         result = response.json()
         return result.get("islands", [])
 
-    async def get_island(self, island_id: str) -> Dict[str, Any]:
+    async def get_island(self, island_id: str) -> dict[str, Any]:
         """Get island details"""
         response = await self._client.get(f"/v1/islands/{island_id}")
         response.raise_for_status()
         return response.json()
 
-    async def request_bridge(self, target_island_id: str) -> Dict[str, Any]:
+    async def request_bridge(self, target_island_id: str) -> dict[str, Any]:
         """Request bridge to another island"""
         response = await self._client.post("/v1/islands/bridge", json={
             "target_island_id": target_island_id

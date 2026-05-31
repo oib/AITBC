@@ -2,11 +2,10 @@
 Tests for Hub Manager with Redis persistence
 """
 
-import sys
+from unittest.mock import AsyncMock, patch
+
 import pytest
-import asyncio
-from unittest.mock import Mock, AsyncMock, patch
-from aitbc_chain.network.hub_manager import HubManager, HubInfo, HubStatus, PeerInfo
+from aitbc_chain.network.hub_manager import HubInfo, HubManager, HubStatus, PeerInfo
 
 
 class TestHubManager:

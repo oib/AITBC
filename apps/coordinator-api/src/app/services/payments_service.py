@@ -11,15 +11,12 @@ Provides:
 
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -52,25 +49,25 @@ class Payment:
     currency: str
     status: PaymentStatus
     method: PaymentMethod
-    
+
     # Metadata
     description: str
-    metadata: Dict[str, Any]
-    
+    metadata: dict[str, Any]
+
     # Timestamps
     created_at: datetime
-    expires_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    
+    expires_at: datetime | None
+    completed_at: datetime | None
+
     # Escrow
-    escrow_id: Optional[str]
+    escrow_id: str | None
     escrow_released: bool
-    
+
     # Transaction
-    tx_hash: Optional[str]
-    block_confirmation: Optional[int]
-    
-    def to_dict(self) -> Dict[str, Any]:
+    tx_hash: str | None
+    block_confirmation: int | None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "payer": self.payer,
@@ -105,12 +102,12 @@ class PaymentsService:
     - Multi-step payment flows
     - Refunds and cancellations
     """
-    
+
     def __init__(self) -> None:
-        self._payments: Dict[str, Payment] = {}
-        self._escrows: Dict[str, Dict[str, Any]] = {}
+        self._payments: dict[str, Payment] = {}
+        self._escrows: dict[str, dict[str, Any]] = {}
         self._payment_counter = 0
-    
+
     def create_payment_intent(
         self,
         payer: str,
@@ -119,7 +116,7 @@ class PaymentsService:
         currency: str = "AITBC",
         method: str = "native_token",
         description: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         escrow: bool = False,
         expires_in_hours: int = 24
     ) -> Payment:
@@ -143,17 +140,17 @@ class PaymentsService:
         # Generate payment ID
         self._payment_counter += 1
         payment_id = f"PAY-{self._payment_counter:06d}"
-        
+
         # Parse method
         try:
             pay_method = PaymentMethod(method)
         except ValueError:
             pay_method = PaymentMethod.native_token
-        
+
         # Set expiration
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(hours=expires_in_hours)
-        
+
         # Create escrow if needed
         escrow_id = None
         if escrow:
@@ -166,7 +163,7 @@ class PaymentsService:
                 "status": "held",
                 "created_at": now
             }
-        
+
         payment = Payment(
             id=payment_id,
             payer=payer,
@@ -185,13 +182,13 @@ class PaymentsService:
             tx_hash=None,
             block_confirmation=None
         )
-        
+
         self._payments[payment_id] = payment
-        
+
         logger.info(f"Payment intent created: {payment_id} for {amount} {currency}")
-        
+
         return payment
-    
+
     def confirm_payment(
         self,
         payment_id: str,
@@ -212,25 +209,25 @@ class PaymentsService:
         payment = self._payments.get(payment_id)
         if not payment:
             raise ValueError(f"Payment {payment_id} not found")
-        
+
         if payment.status != PaymentStatus.pending:
             raise ValueError(f"Payment is not pending: {payment.status.value}")
-        
+
         # Update payment
         payment.tx_hash = tx_hash
         payment.block_confirmation = confirmations
-        
+
         if payment.escrow_id:
             payment.status = PaymentStatus.escrowed
             self._escrows[payment.escrow_id]["status"] = "held"
         else:
             payment.status = PaymentStatus.completed
-            payment.completed_at = datetime.now(timezone.utc)
-        
+            payment.completed_at = datetime.now(UTC)
+
         logger.info(f"Payment confirmed: {payment_id} with tx {tx_hash[:16]}...")
-        
+
         return payment
-    
+
     def release_escrow(
         self,
         payment_id: str,
@@ -249,29 +246,29 @@ class PaymentsService:
         payment = self._payments.get(payment_id)
         if not payment:
             raise ValueError(f"Payment {payment_id} not found")
-        
+
         if not payment.escrow_id:
             raise ValueError("Payment is not in escrow")
-        
+
         if payment.status != PaymentStatus.escrowed:
             raise ValueError(f"Payment is not escrowed: {payment.status.value}")
-        
+
         # Verify releaser is payer or authorized
         if releaser != payment.payer:
             raise ValueError("Only payer can release escrow")
-        
+
         # Release escrow
         payment.status = PaymentStatus.released
         payment.escrow_released = True
-        payment.completed_at = datetime.now(timezone.utc)
-        
+        payment.completed_at = datetime.now(UTC)
+
         if payment.escrow_id in self._escrows:
             self._escrows[payment.escrow_id]["status"] = "released"
-        
+
         logger.info(f"Escrow released: {payment_id} to {payment.payee}")
-        
+
         return payment
-    
+
     def refund_payment(
         self,
         payment_id: str,
@@ -290,66 +287,66 @@ class PaymentsService:
         payment = self._payments.get(payment_id)
         if not payment:
             raise ValueError(f"Payment {payment_id} not found")
-        
+
         if payment.status not in [PaymentStatus.pending, PaymentStatus.escrowed]:
             raise ValueError(f"Cannot refund payment with status: {payment.status.value}")
-        
+
         # Process refund
         payment.status = PaymentStatus.refunded
-        payment.completed_at = datetime.now(timezone.utc)
+        payment.completed_at = datetime.now(UTC)
         payment.metadata["refund_reason"] = reason
-        
+
         if payment.escrow_id and payment.escrow_id in self._escrows:
             self._escrows[payment.escrow_id]["status"] = "refunded"
-        
+
         logger.info(f"Payment refunded: {payment_id} - {reason}")
-        
+
         return payment
-    
-    def get_payment(self, payment_id: str) -> Optional[Payment]:
+
+    def get_payment(self, payment_id: str) -> Payment | None:
         """Get payment by ID"""
         return self._payments.get(payment_id)
-    
+
     def list_payments(
         self,
-        payer: Optional[str] = None,
-        payee: Optional[str] = None,
-        status: Optional[str] = None
-    ) -> List[Payment]:
+        payer: str | None = None,
+        payee: str | None = None,
+        status: str | None = None
+    ) -> list[Payment]:
         """List payments with filters"""
         result = list(self._payments.values())
-        
+
         if payer:
             result = [p for p in result if p.payer == payer]
-        
+
         if payee:
             result = [p for p in result if p.payee == payee]
-        
+
         if status:
             result = [p for p in result if p.status.value == status]
-        
+
         # Sort by created date, newest first
         result.sort(key=lambda p: p.created_at, reverse=True)
-        
+
         return result
-    
-    def get_escrow(self, escrow_id: str) -> Optional[Dict[str, Any]]:
+
+    def get_escrow(self, escrow_id: str) -> dict[str, Any] | None:
         """Get escrow details"""
         return self._escrows.get(escrow_id)
-    
-    def get_payment_stats(self) -> Dict[str, Any]:
+
+    def get_payment_stats(self) -> dict[str, Any]:
         """Get payment statistics"""
         payments = list(self._payments.values())
-        
+
         total_volume = sum(p.amount for p in payments if p.status in [
             PaymentStatus.completed, PaymentStatus.released
         ])
-        
+
         completed = len([p for p in payments if p.status == PaymentStatus.completed])
         pending = len([p for p in payments if p.status == PaymentStatus.pending])
         escrowed = len([p for p in payments if p.status == PaymentStatus.escrowed])
         refunded = len([p for p in payments if p.status == PaymentStatus.refunded])
-        
+
         return {
             "total_payments": len(payments),
             "total_volume": total_volume,
@@ -366,7 +363,7 @@ class PaymentsService:
 
 
 # Global instance
-_payments_service: Optional[PaymentsService] = None
+_payments_service: PaymentsService | None = None
 
 
 def get_payments_service() -> PaymentsService:

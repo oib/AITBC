@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ....deps import require_client_key
 from ....schemas import EscrowRelease, JobPaymentCreate, JobPaymentView, PaymentReceipt, RefundRequest
-from ..services.payments import PaymentService
 from ....storage import get_session
+from ..services.payments import PaymentService
 
 router = APIRouter(tags=["payments"])
 

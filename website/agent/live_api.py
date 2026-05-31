@@ -7,27 +7,26 @@ Real-time dynamic endpoints that query blockchain RPC and serve fresh data
 import json
 import os
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 # Try to import fastapi, fallback to flask
 try:
+    import uvicorn
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
-    import uvicorn
     HAS_FASTAPI = True
 except ImportError:
     try:
-        from flask import Flask, jsonify, abort
+        from flask import Flask, abort, jsonify
         HAS_FLASK = True
     except ImportError:
         print("Error: Neither FastAPI nor Flask installed")
         sys.exit(1)
 
-import urllib.request
-import urllib.error
 import ssl
+import urllib.error
+import urllib.request
 
 # Configuration
 RPC_URL = os.getenv("AITBC_RPC_URL", "http://localhost:8006/rpc")
@@ -42,7 +41,7 @@ ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
 
-def rpc_query(method: str, params: Optional[list] = None) -> Optional[Dict]:
+def rpc_query(method: str, params: list | None = None) -> dict | None:
     """Query the blockchain RPC endpoint"""
     try:
         url = f"{RPC_URL}/{method}"
@@ -60,13 +59,13 @@ def rpc_query(method: str, params: Optional[list] = None) -> Optional[Dict]:
         return None
 
 
-def get_live_island_data() -> Dict[str, Any]:
+def get_live_island_data() -> dict[str, Any]:
     """Get real-time island data from RPC"""
     # Query chain head for current block info
     head = rpc_query("head")
     info = rpc_query("info")
     islands_rpc = rpc_query("islands")
-    
+
     # Get peer count from island manager if available
     peer_count = 0
     if islands_rpc and isinstance(islands_rpc, dict) and "islands" in islands_rpc:
@@ -74,11 +73,11 @@ def get_live_island_data() -> Dict[str, Any]:
             if island.get("island_id") == ISLAND_ID:
                 peer_count = island.get("peer_count", 0)
                 break
-    
+
     block_height = head.get("height", 0) if head else 0
     block_hash = head.get("hash", "unknown") if head else "unknown"
-    timestamp = head.get("timestamp", datetime.now(timezone.utc).isoformat()) if head else datetime.now(timezone.utc).isoformat()
-    
+    timestamp = head.get("timestamp", datetime.now(UTC).isoformat()) if head else datetime.now(UTC).isoformat()
+
     return {
         "islands": [
             {
@@ -98,13 +97,13 @@ def get_live_island_data() -> Dict[str, Any]:
                 "endpoints": {
                     "rpc": [
                         {"url": f"http://{NODE_ID}:8006", "node_id": NODE_ID, "role": NODE_ROLE},
-                        {"url": f"http://{'aitbc1' if NODE_ID == 'aitbc' else 'aitbc'}:8006", 
-                         "node_id": 'aitbc1' if NODE_ID == 'aitbc' else 'aitbc', 
+                        {"url": f"http://{'aitbc1' if NODE_ID == 'aitbc' else 'aitbc'}:8006",
+                         "node_id": 'aitbc1' if NODE_ID == 'aitbc' else 'aitbc',
                          "role": "follower" if NODE_ROLE == "hub" else "hub"}
                     ],
                     "p2p": [
                         {"address": f"{NODE_ID}:7070", "node_id": NODE_ID},
-                        {"address": f"{'aitbc1' if NODE_ID == 'aitbc' else 'aitbc'}:7070", 
+                        {"address": f"{'aitbc1' if NODE_ID == 'aitbc' else 'aitbc'}:7070",
                          "node_id": 'aitbc1' if NODE_ID == 'aitbc' else 'aitbc'}
                     ]
                 },
@@ -124,7 +123,7 @@ def get_live_island_data() -> Dict[str, Any]:
             }
         ],
         "_meta": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "format_version": "1.0",
             "total_islands": 1,
             "active_islands": 1,
@@ -134,16 +133,16 @@ def get_live_island_data() -> Dict[str, Any]:
     }
 
 
-def get_live_chain_data() -> Dict[str, Any]:
+def get_live_chain_data() -> dict[str, Any]:
     """Get real-time chain data from RPC"""
     head = rpc_query("head")
     info = rpc_query("info")
-    
+
     block_height = head.get("height", 0) if head else 0
     block_hash = head.get("hash", "unknown") if head else "unknown"
-    timestamp = head.get("timestamp", datetime.now(timezone.utc).isoformat()) if head else datetime.now(timezone.utc).isoformat()
+    timestamp = head.get("timestamp", datetime.now(UTC).isoformat()) if head else datetime.now(UTC).isoformat()
     tx_count = head.get("tx_count", 0) if head else 0
-    
+
     return {
         "chains": [
             {
@@ -157,7 +156,7 @@ def get_live_chain_data() -> Dict[str, Any]:
                     "current_hash": block_hash,
                     "last_block_time": timestamp,
                     "tx_count_last_block": tx_count,
-                    "queried_at": datetime.now(timezone.utc).isoformat()
+                    "queried_at": datetime.now(UTC).isoformat()
                 },
                 "config": {
                     "block_time": info.get("block_time", 5) if info else 5,
@@ -179,7 +178,7 @@ def get_live_chain_data() -> Dict[str, Any]:
             }
         ],
         "_meta": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "format_version": "1.0",
             "total_chains": 1,
             "active_chains": 1,
@@ -188,21 +187,21 @@ def get_live_chain_data() -> Dict[str, Any]:
     }
 
 
-def get_join_instructions(chain_id: str) -> Dict[str, Any]:
+def get_join_instructions(chain_id: str) -> dict[str, Any]:
     """Get dynamic join instructions for a specific chain"""
     # Validate chain_id matches this node's chain
     if chain_id != CHAIN_ID:
         return {"error": "Chain not supported by this node", "supported_chain": CHAIN_ID}
-    
+
     # Get current network info
     head = rpc_query("head")
     info = rpc_query("info")
     islands_rpc = rpc_query("islands")
-    
+
     block_height = head.get("height", 0) if head else 0
     network_id = info.get("network_id", 1337) if info else 1337
     block_time = info.get("block_time", 5) if info else 5
-    
+
     # Get peer addresses from islands RPC
     p2p_peers = [f"{NODE_ID}:7070"]
     if islands_rpc and isinstance(islands_rpc, dict) and "islands" in islands_rpc:
@@ -212,7 +211,7 @@ def get_join_instructions(chain_id: str) -> Dict[str, Any]:
                 p2p_list = endpoints.get("p2p", [])
                 p2p_peers = [peer.get("address", peer) for peer in p2p_list]
                 break
-    
+
     return {
         "chain_id": CHAIN_ID,
         "island_id": ISLAND_ID,
@@ -256,7 +255,7 @@ def get_join_instructions(chain_id: str) -> Dict[str, Any]:
         ],
         "documentation": "/docs/deployment/SETUP.md",
         "_meta": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "generated_by": NODE_ID,
             "data_source": "live_rpc",
             "note": "Replace 'your-node-id' and 'your-node-ip' with your actual node configuration"
@@ -264,14 +263,14 @@ def get_join_instructions(chain_id: str) -> Dict[str, Any]:
     }
 
 
-def get_live_discovery() -> Dict[str, Any]:
+def get_live_discovery() -> dict[str, Any]:
     """Get live discovery data"""
     head = rpc_query("head")
-    
+
     block_height = head.get("height", 0) if head else 0
     # Determine health based on RPC responsiveness
     node_health = "healthy" if head else "unhealthy"
-    
+
     return {
         "network": {
             "name": "AITBC",
@@ -280,7 +279,7 @@ def get_live_discovery() -> Dict[str, Any]:
             "live_status": {
                 "current_height": block_height,
                 "node_health": node_health,
-                "last_update": datetime.now(timezone.utc).isoformat()
+                "last_update": datetime.now(UTC).isoformat()
             },
             "apis": {
                 "rpc": {
@@ -317,7 +316,7 @@ def get_live_discovery() -> Dict[str, Any]:
             "live_data": True
         },
         "_meta": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "format_version": "1.1",
             "data_source": "live_rpc"
         }
@@ -327,19 +326,19 @@ def get_live_discovery() -> Dict[str, Any]:
 # Create app based on available framework
 if HAS_FASTAPI:
     app = FastAPI(title="AITBC Agent Live API")
-    
+
     @app.get("/agent/islands.json")
     async def live_islands():
         return JSONResponse(content=get_live_island_data())
-    
+
     @app.get("/agent/chains.json")
     async def live_chains():
         return JSONResponse(content=get_live_chain_data())
-    
+
     @app.get("/agent/discovery.json")
     async def live_discovery():
         return JSONResponse(content=get_live_discovery())
-    
+
     @app.get("/agent/health")
     async def live_health():
         head = rpc_query("head")
@@ -348,9 +347,9 @@ if HAS_FASTAPI:
             "node_id": NODE_ID,
             "chain_id": CHAIN_ID,
             "current_height": head.get("height", 0) if head else 0,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
-    
+
     @app.get("/agent/join/{chain_id}.json")
     async def join_instructions(chain_id: str):
         instructions = get_join_instructions(chain_id)
@@ -360,19 +359,19 @@ if HAS_FASTAPI:
 
 elif HAS_FLASK:
     app = Flask(__name__)
-    
+
     @app.route("/agent/islands.json")
     def live_islands():
         return jsonify(get_live_island_data())
-    
+
     @app.route("/agent/chains.json")
     def live_chains():
         return jsonify(get_live_chain_data())
-    
+
     @app.route("/agent/discovery.json")
     def live_discovery():
         return jsonify(get_live_discovery())
-    
+
     @app.route("/agent/health")
     def live_health():
         head = rpc_query("head")
@@ -381,9 +380,9 @@ elif HAS_FLASK:
             "node_id": NODE_ID,
             "chain_id": CHAIN_ID,
             "current_height": head.get("height", 0) if head else 0,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
-    
+
     @app.route("/agent/join/<chain_id>.json")
     def join_instructions(chain_id):
         instructions = get_join_instructions(chain_id)
@@ -398,11 +397,11 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args()
-    
+
     print(f"Starting AITBC Agent Live API on {args.host}:{args.port}")
     print(f"RPC URL: {RPC_URL}")
     print(f"Node: {NODE_ID} | Chain: {CHAIN_ID} | Role: {NODE_ROLE}")
-    
+
     if HAS_FASTAPI:
         uvicorn.run(app, host=args.host, port=args.port)
     elif HAS_FLASK:

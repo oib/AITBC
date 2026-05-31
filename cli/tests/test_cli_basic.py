@@ -6,7 +6,6 @@ import json
 import subprocess
 from pathlib import Path
 
-
 CLI_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = CLI_DIR.parent
 CLI_FILE = CLI_DIR / "aitbc_cli.py"

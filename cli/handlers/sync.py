@@ -32,7 +32,7 @@ def handle_sync_bulk(args, ctx):
     }
 
     print(f"Running bulk sync from {args.source} to {args.import_url} (batch size: {args.batch_size})")
-    
+
     try:
         result = subprocess.run(cmd, env=env, capture_output=False)
         if result.returncode != 0:

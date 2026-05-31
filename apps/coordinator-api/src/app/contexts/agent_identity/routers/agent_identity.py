@@ -3,7 +3,7 @@ Agent Identity API Router
 REST API endpoints for agent identity management and cross-chain operations
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,13 +11,13 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from ....agent_identity.manager import AgentIdentityManager
+from ....storage.db import get_session
 from ..domain.agent_identity import (
     AgentWallet,
     CrossChainMappingResponse,
     IdentityStatus,
     VerificationType,
 )
-from ....storage.db import get_session
 
 router = APIRouter(prefix="/agent-identity", tags=["Agent Identity"])
 
@@ -59,7 +59,7 @@ async def get_agent_identity(agent_id: str, manager: AgentIdentityManager = Depe
         return result
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -75,7 +75,7 @@ async def update_agent_identity(
         return result
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -89,10 +89,10 @@ async def deactivate_agent_identity(
         success = await manager.deactivate_agent_identity(agent_id, reason)
         if not success:
             raise HTTPException(status_code=400, detail="Deactivation failed")
-        return {"agent_id": agent_id, "deactivated": True, "reason": reason, "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {"agent_id": agent_id, "deactivated": True, "reason": reason, "timestamp": datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -114,7 +114,7 @@ async def register_cross_chain_identity(
             agent_id, chain_mappings, verifier_address, verification_type
         )
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
@@ -142,7 +142,7 @@ async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager =
             )
             for m in mappings
         ]
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -168,11 +168,11 @@ async def update_cross_chain_mapping(
             "chain_id": chain_id,
             "new_address": new_address,
             "updated": True,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -206,7 +206,7 @@ async def verify_cross_chain_identity(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -220,7 +220,7 @@ async def migrate_agent_identity(
             agent_id, request["from_chain"], request["to_chain"], request["new_address"], request.get("verifier_address")
         )
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
@@ -246,7 +246,7 @@ async def create_agent_wallet(
             "contract_address": wallet.contract_address,
             "created_at": wallet.created_at.isoformat(),
         }
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
@@ -259,9 +259,9 @@ async def get_wallet_balance(agent_id: str, chain_id: int, manager: AgentIdentit
             "agent_id": agent_id,
             "chain_id": chain_id,
             "balance": str(balance),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
@@ -277,7 +277,7 @@ async def execute_wallet_transaction(
             agent_id, chain_id, request["to_address"], Decimal(str(request["amount"])), request.get("data")
         )
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
@@ -293,7 +293,7 @@ async def get_wallet_transaction_history(
     try:
         history = await manager.wallet_adapter.get_wallet_transaction_history(agent_id, chain_id, limit, offset)
         return history
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -326,7 +326,7 @@ async def get_all_agent_wallets(agent_id: str, manager: AgentIdentityManager = D
             ],
             "statistics": stats,
         }
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -360,11 +360,11 @@ async def export_agent_wallet(
             "transaction_count": wallet.transaction_count,
             "created_at": wallet.created_at.isoformat(),
             "updated_at": wallet.updated_at.isoformat(),
-            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -387,7 +387,7 @@ async def delete_agent_wallet(
 
         # Deactivate wallet instead of deleting
         wallet.is_active = False
-        wallet.updated_at = datetime.now(timezone.utc)
+        wallet.updated_at = datetime.now(UTC)
         manager.session.commit()
 
         return {
@@ -395,11 +395,11 @@ async def delete_agent_wallet(
             "agent_id": agent_id,
             "chain_id": chain_id,
             "deleted": True,
-            "deleted_at": datetime.now(timezone.utc).isoformat(),
+            "deleted_at": datetime.now(UTC).isoformat(),
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -409,9 +409,10 @@ async def sign_message(
 ) -> dict[str, Any]:
     """Sign a message with agent wallet"""
     try:
-        from sqlalchemy import select
-        from aitbc import verify_signature
         import base64
+
+        from sqlalchemy import select
+
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
@@ -432,7 +433,7 @@ async def sign_message(
         import hashlib
 
         # Create a deterministic signature based on message and wallet address
-        signature_data = f"{message}:{wallet.chain_address}:{datetime.now(timezone.utc).timestamp()}"
+        signature_data = f"{message}:{wallet.chain_address}:{datetime.now(UTC).timestamp()}"
         signature_hash = hashlib.sha256(signature_data.encode()).digest()
         signature = base64.b64encode(signature_hash).decode()
 
@@ -443,11 +444,11 @@ async def sign_message(
             "message": message,
             "message_hash": hashlib.sha256(message.encode()).hexdigest(),
             "signature": signature,
-            "signed_at": datetime.now(timezone.utc).isoformat(),
+            "signed_at": datetime.now(UTC).isoformat(),
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -477,7 +478,7 @@ async def search_agent_identities(
             offset=offset,
         )
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -487,7 +488,7 @@ async def sync_agent_reputation(agent_id: str, manager: AgentIdentityManager = D
     try:
         result = await manager.sync_agent_reputation(agent_id)
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -500,7 +501,7 @@ async def get_registry_health(manager: AgentIdentityManager = Depends(get_identi
     try:
         result = await manager.get_registry_health()
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -510,7 +511,7 @@ async def get_registry_statistics(manager: AgentIdentityManager = Depends(get_id
     try:
         result = await manager.registry.get_registry_statistics()
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -520,7 +521,7 @@ async def get_supported_chains(manager: AgentIdentityManager = Depends(get_ident
     try:
         chains = manager.wallet_adapter.get_supported_chains()
         return chains
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -533,7 +534,7 @@ async def export_agent_identity(
         format_type = (request or {}).get("format", "json")
         result = await manager.export_agent_identity(agent_id, format_type)
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -543,7 +544,7 @@ async def import_agent_identity(export_data: dict[str, Any], manager: AgentIdent
     try:
         result = await manager.import_agent_identity(export_data)
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
@@ -552,8 +553,8 @@ async def cleanup_expired_verifications(manager: AgentIdentityManager = Depends(
     """Clean up expired verification records"""
     try:
         cleaned_count = await manager.registry.cleanup_expired_verifications()
-        return {"cleaned_verifications": cleaned_count, "timestamp": datetime.now(timezone.utc).isoformat()}
-    except Exception as e:
+        return {"cleaned_verifications": cleaned_count, "timestamp": datetime.now(UTC).isoformat()}
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -565,7 +566,7 @@ async def batch_verify_identities(
     try:
         results = await manager.registry.batch_verify_identities(verifications)
         return results
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -580,7 +581,7 @@ async def resolve_agent_identity(agent_id: str, chain_id: int, manager: AgentIde
         return {"agent_id": agent_id, "chain_id": chain_id, "address": address, "resolved": True}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")
 
 
@@ -597,5 +598,5 @@ async def resolve_address_to_agent(
         return {"chain_address": chain_address, "chain_id": chain_id, "agent_id": agent_id, "resolved": True}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Operation failed")

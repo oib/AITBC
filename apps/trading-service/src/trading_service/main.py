@@ -3,25 +3,25 @@ Trading Service main application
 Manages trading operations
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
     configure_logging,
     get_logger,
-    RequestIDMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestValidationMiddleware,
-    ErrorHandlerMiddleware,
 )
 
-from .storage import init_db, get_session
 from .services.trading_service import TradingService
+from .storage import get_session, init_db
 
 # Configure structured logging
 configure_logging(level="INFO")
@@ -188,17 +188,15 @@ async def get_analytics(
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit trading transaction"""
-    from .domain.trading import (
-        TradeRequest, TradeMatch, TradeAgreement, TradeSettlement
-    )
-    
+    from .domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeSettlement
+
     # Validate transaction type
     transaction_type = transaction_data.get('type')
     action = transaction_data.get('action')
-    
+
     if transaction_type != 'trading':
         return {"error": "Invalid transaction type for Trading service"}, 400
-    
+
     try:
         if action == 'request':
             request = TradeRequest(**transaction_data)
@@ -214,7 +212,7 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
             session.add(settlement)
         else:
             return {"error": f"Invalid action: {action}"}, 400
-        
+
         await session.commit()
         return {"status": "success", "transaction_id": transaction_data.get('request_id') or transaction_data.get('match_id') or transaction_data.get('agreement_id')}
     except Exception as e:
@@ -232,12 +230,13 @@ async def get_transactions(
     session: AsyncSession = Depends(get_session_dep),
 ):
     """Query trading transactions"""
-    from .domain.trading import TradeRequest, TradeMatch, TradeAgreement
     from sqlalchemy import select
-    
+
+    from .domain.trading import TradeAgreement, TradeMatch, TradeRequest
+
     try:
         transactions = []
-        
+
         # Query based on action type
         if action == 'request' or not action:
             result = await session.execute(select(TradeRequest))
@@ -251,7 +250,7 @@ async def get_transactions(
                 "island_id": r.island_id,
                 "created_at": r.created_at.isoformat() if r.created_at else None
             } for r in requests])
-        
+
         if action == 'match' or not action:
             result = await session.execute(select(TradeMatch))
             matches = result.scalars().all()
@@ -264,7 +263,7 @@ async def get_transactions(
                 "island_id": m.island_id,
                 "created_at": m.created_at.isoformat() if m.created_at else None
             } for m in matches])
-        
+
         if action == 'agreement' or not action:
             result = await session.execute(select(TradeAgreement))
             agreements = result.scalars().all()
@@ -276,13 +275,13 @@ async def get_transactions(
                 "island_id": a.island_id,
                 "created_at": a.created_at.isoformat() if a.created_at else None
             } for a in agreements])
-        
+
         # Apply filters
         if status:
             transactions = [t for t in transactions if t.get('status') == status]
         if island_id:
             transactions = [t for t in transactions if t.get('island_id') == island_id]
-        
+
         return transactions
     except Exception as e:
         logger.error(f"Transaction query error: {e}")

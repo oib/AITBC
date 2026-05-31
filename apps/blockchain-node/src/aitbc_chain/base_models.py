@@ -1,12 +1,11 @@
-from datetime import datetime, timezone
 import re
-from typing import List, Optional
+from datetime import UTC, datetime
+from typing import Optional
 
 from pydantic import field_validator
-from sqlalchemy import Column, BigInteger
+from sqlalchemy import BigInteger, Column, UniqueConstraint
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import UniqueConstraint
 
 _HEX_PATTERN = re.compile(r"^(0x)?[0-9a-fA-F]+$")
 
@@ -17,7 +16,7 @@ def _validate_hex(value: str, field_name: str) -> str:
     return value.lower()
 
 
-def _validate_optional_hex(value: Optional[str], field_name: str) -> Optional[str]:
+def _validate_optional_hex(value: str | None, field_name: str) -> str | None:
     if value is None:
         return value
     return _validate_hex(value, field_name)
@@ -30,20 +29,20 @@ class Block(SQLModel, table=True):
         UniqueConstraint("chain_id", "hash", name="uix_block_chain_hash"),
         {"extend_existing": True}
     )
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
     height: int = Field(index=True)
     hash: str = Field(index=True)
     parent_hash: str
     proposer: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     tx_count: int = 0
-    state_root: Optional[str] = None
-    block_metadata: Optional[str] = Field(default=None)
-    
+    state_root: str | None = None
+    block_metadata: str | None = Field(default=None)
+
     # Relationships - use sa_relationship_kwargs for lazy loading
-    transactions: List["Transaction"] = Relationship(
+    transactions: list["Transaction"] = Relationship(
         back_populates="block",
         sa_relationship_kwargs={
             "lazy": "selectin",
@@ -51,7 +50,7 @@ class Block(SQLModel, table=True):
             "foreign_keys": "[aitbc_chain.base_models.Transaction.block_height, aitbc_chain.base_models.Transaction.chain_id]"
         }
     )
-    receipts: List["Receipt"] = Relationship(
+    receipts: list["Receipt"] = Relationship(
         back_populates="block",
         sa_relationship_kwargs={
             "lazy": "selectin",
@@ -72,18 +71,18 @@ class Block(SQLModel, table=True):
 
     @field_validator("state_root", mode="before")
     @classmethod
-    def _state_root_is_hex(cls, value: Optional[str]) -> Optional[str]:
+    def _state_root_is_hex(cls, value: str | None) -> str | None:
         return _validate_optional_hex(value, "Block.state_root")
 
 
 class Transaction(SQLModel, table=True):
     __tablename__ = "transaction"
     __table_args__ = (UniqueConstraint("chain_id", "tx_hash", name="uix_transaction_chain_hash"), {"extend_existing": True})
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
     tx_hash: str = Field(index=True)
-    block_height: Optional[int] = Field(
+    block_height: int | None = Field(
         default=None,
         index=True,
     )
@@ -93,17 +92,17 @@ class Transaction(SQLModel, table=True):
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
-    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+
     # New fields added to schema
     nonce: int = Field(default=0)
     value: int = Field(default=0)
     fee: int = Field(default=0)
     type: str = Field(default="TRANSFER", index=True)
     status: str = Field(default="pending")
-    timestamp: Optional[str] = Field(default=None)
-    tx_metadata: Optional[str] = Field(default=None)
-    
+    timestamp: str | None = Field(default=None)
+    tx_metadata: str | None = Field(default=None)
+
     # Relationship
     block: Optional["Block"] = Relationship(
         back_populates="transactions",
@@ -122,12 +121,12 @@ class Transaction(SQLModel, table=True):
 class Receipt(SQLModel, table=True):
     __tablename__ = "receipt"
     __table_args__ = (UniqueConstraint("chain_id", "receipt_id", name="uix_receipt_chain_id"), {"extend_existing": True})
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
     job_id: str = Field(index=True)
     receipt_id: str = Field(index=True)
-    block_height: Optional[int] = Field(
+    block_height: int | None = Field(
         default=None,
         index=True,
     )
@@ -143,12 +142,12 @@ class Receipt(SQLModel, table=True):
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )
-    minted_amount: Optional[int] = None
-    recorded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    minted_amount: int | None = None
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     status: str = Field(default="pending", index=True)  # pending, claimed, invalid
-    claimed_at: Optional[datetime] = None
-    claimed_by: Optional[str] = None
-    
+    claimed_at: datetime | None = None
+    claimed_by: str | None = None
+
     # Relationship
     block: Optional["Block"] = Relationship(
         back_populates="receipts",
@@ -167,12 +166,12 @@ class Receipt(SQLModel, table=True):
 class Account(SQLModel, table=True):
     __tablename__ = "account"
     __table_args__ = {"extend_existing": True}
-    
+
     chain_id: str = Field(primary_key=True)
     address: str = Field(primary_key=True)
     balance: int = Field(default=0, sa_type=BigInteger)
     nonce: int = Field(default=0, sa_type=BigInteger)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 class Escrow(SQLModel, table=True):
     __tablename__ = "escrow"
@@ -181,15 +180,15 @@ class Escrow(SQLModel, table=True):
     buyer: str = Field(foreign_key="account.address")
     provider: str = Field(foreign_key="account.address")
     amount: int
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    released_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    released_at: datetime | None = None
 
 
 class CrossChainTransfer(SQLModel, table=True):
     """Cross-chain bridge transfer record"""
     __tablename__ = "cross_chain_transfer"
     __table_args__ = {"extend_existing": True}
-    
+
     transfer_id: str = Field(primary_key=True)
     source_chain: str = Field(index=True)
     target_chain: str = Field(index=True)
@@ -198,22 +197,22 @@ class CrossChainTransfer(SQLModel, table=True):
     amount: int
     asset: str = Field(default="native")
     status: str = Field(default="pending")  # pending, locked, confirmed, completed, failed, refunded
-    source_tx_hash: Optional[str] = None
-    target_tx_hash: Optional[str] = None
-    lock_time: Optional[datetime] = None
-    confirm_time: Optional[datetime] = None
+    source_tx_hash: str | None = None
+    target_tx_hash: str | None = None
+    lock_time: datetime | None = None
+    confirm_time: datetime | None = None
 
 
 class Stake(SQLModel, table=True):
     """On-chain staking record"""
     __tablename__ = "stake"
     __table_args__ = {"extend_existing": True}
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
     address: str = Field(index=True)
     amount: int
     locked_until: datetime
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: str = Field(default="active")  # active, withdrawn, slashed

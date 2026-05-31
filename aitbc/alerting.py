@@ -4,11 +4,11 @@ Alerting and notification system for AITBC applications
 """
 
 import asyncio
-from typing import Callable, Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-import json
+from typing import Any
 
 from .aitbc_logging import get_logger
 
@@ -40,12 +40,12 @@ class Alert:
     source: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
     status: AlertStatus = AlertStatus.ACTIVE
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    acknowledged_by: Optional[str] = None
-    acknowledged_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+    acknowledged_by: str | None = None
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert alert to dictionary"""
         return {
             "id": self.id,
@@ -64,7 +64,7 @@ class Alert:
 
 class AlertChannel:
     """Base class for alert channels"""
-    
+
     async def send(self, alert: Alert) -> bool:
         """
         Send alert through this channel
@@ -80,7 +80,7 @@ class AlertChannel:
 
 class LogAlertChannel(AlertChannel):
     """Log-based alert channel"""
-    
+
     async def send(self, alert: Alert) -> bool:
         """Send alert to logs"""
         try:
@@ -90,7 +90,7 @@ class LogAlertChannel(AlertChannel):
                 AlertSeverity.ERROR: logger.error,
                 AlertSeverity.CRITICAL: logger.critical,
             }.get(alert.severity, logger.info)
-            
+
             log_level(
                 f"Alert [{alert.severity.value.upper()}]: {alert.title}",
                 extra={
@@ -108,8 +108,8 @@ class LogAlertChannel(AlertChannel):
 
 class WebhookAlertChannel(AlertChannel):
     """Webhook-based alert channel"""
-    
-    def __init__(self, url: str, headers: Optional[Dict[str, str]] = None):
+
+    def __init__(self, url: str, headers: dict[str, str] | None = None):
         """
         Initialize webhook channel
         
@@ -119,12 +119,12 @@ class WebhookAlertChannel(AlertChannel):
         """
         self.url = url
         self.headers = headers or {}
-    
+
     async def send(self, alert: Alert) -> bool:
         """Send alert via webhook"""
         try:
             import httpx
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self.url,
@@ -141,7 +141,7 @@ class WebhookAlertChannel(AlertChannel):
 
 class AlertRule:
     """Alert rule definition"""
-    
+
     def __init__(
         self,
         name: str,
@@ -152,7 +152,7 @@ class AlertRule:
         source: str,
         check_interval: int = 60,
         cooldown: int = 300,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ):
         """
         Initialize alert rule
@@ -177,21 +177,21 @@ class AlertRule:
         self.check_interval = check_interval
         self.cooldown = cooldown
         self.metadata = metadata or {}
-        self.last_fired: Optional[datetime] = None
+        self.last_fired: datetime | None = None
         self.enabled = True
-    
+
     def should_fire(self) -> bool:
         """Check if alert should fire"""
         if not self.enabled:
             return False
-        
+
         if self.last_fired:
             time_since_last = (datetime.utcnow() - self.last_fired).total_seconds()
             if time_since_last < self.cooldown:
                 return False
-        
+
         return self.condition()
-    
+
     def fire(self) -> Alert:
         """Create alert from this rule"""
         self.last_fired = datetime.utcnow()
@@ -207,16 +207,16 @@ class AlertRule:
 
 class AlertManager:
     """Alert manager for handling alerts and rules"""
-    
+
     def __init__(self):
         """Initialize alert manager"""
-        self.rules: Dict[str, AlertRule] = {}
-        self.channels: List[AlertChannel] = []
-        self.active_alerts: Dict[str, Alert] = {}
-        self.alert_history: List[Alert] = []
+        self.rules: dict[str, AlertRule] = {}
+        self.channels: list[AlertChannel] = []
+        self.active_alerts: dict[str, Alert] = {}
+        self.alert_history: list[Alert] = []
         self._running = False
-        self._task: Optional[asyncio.Task] = None
-    
+        self._task: asyncio.Task | None = None
+
     def add_rule(self, rule: AlertRule) -> None:
         """
         Add alert rule
@@ -226,7 +226,7 @@ class AlertManager:
         """
         self.rules[rule.name] = rule
         logger.info(f"Added alert rule: {rule.name}")
-    
+
     def remove_rule(self, name: str) -> None:
         """
         Remove alert rule
@@ -237,7 +237,7 @@ class AlertManager:
         if name in self.rules:
             del self.rules[name]
             logger.info(f"Removed alert rule: {name}")
-    
+
     def add_channel(self, channel: AlertChannel) -> None:
         """
         Add alert channel
@@ -247,7 +247,7 @@ class AlertManager:
         """
         self.channels.append(channel)
         logger.info(f"Added alert channel: {channel.__class__.__name__}")
-    
+
     async def check_rules(self) -> None:
         """Check all alert rules and fire if needed"""
         for rule in self.rules.values():
@@ -257,7 +257,7 @@ class AlertManager:
                     await self.send_alert(alert)
             except Exception as e:
                 logger.error(f"Error checking rule {rule.name}: {e}")
-    
+
     async def send_alert(self, alert: Alert) -> None:
         """
         Send alert through all channels
@@ -267,18 +267,18 @@ class AlertManager:
         """
         self.active_alerts[alert.id] = alert
         self.alert_history.append(alert)
-        
+
         # Keep history limited
         if len(self.alert_history) > 1000:
             self.alert_history = self.alert_history[-1000:]
-        
+
         # Send through all channels
         for channel in self.channels:
             try:
                 await channel.send(alert)
             except Exception as e:
                 logger.error(f"Failed to send alert through channel: {e}")
-    
+
     async def acknowledge_alert(self, alert_id: str, acknowledged_by: str) -> bool:
         """
         Acknowledge an alert
@@ -298,7 +298,7 @@ class AlertManager:
             logger.info(f"Alert acknowledged: {alert_id} by {acknowledged_by}")
             return True
         return False
-    
+
     async def resolve_alert(self, alert_id: str) -> bool:
         """
         Resolve an alert
@@ -317,12 +317,12 @@ class AlertManager:
             logger.info(f"Alert resolved: {alert_id}")
             return True
         return False
-    
-    def get_active_alerts(self) -> List[Alert]:
+
+    def get_active_alerts(self) -> list[Alert]:
         """Get all active alerts"""
         return list(self.active_alerts.values())
-    
-    def get_alert_history(self, limit: int = 100) -> List[Alert]:
+
+    def get_alert_history(self, limit: int = 100) -> list[Alert]:
         """
         Get alert history
         
@@ -333,21 +333,21 @@ class AlertManager:
             List of alerts
         """
         return self.alert_history[-limit:]
-    
+
     async def start(self) -> None:
         """Start alert manager background task"""
         if self._running:
             return
-        
+
         self._running = True
         self._task = asyncio.create_task(self._run_checks())
         logger.info("Alert manager started")
-    
+
     async def stop(self) -> None:
         """Stop alert manager background task"""
         if not self._running:
             return
-        
+
         self._running = False
         if self._task:
             self._task.cancel()
@@ -356,13 +356,13 @@ class AlertManager:
             except asyncio.CancelledError:
                 pass
         logger.info("Alert manager stopped")
-    
+
     async def _run_checks(self) -> None:
         """Background task to check alert rules"""
         while self._running:
             try:
                 await self.check_rules()
-                
+
                 # Calculate sleep time based on minimum check interval
                 min_interval = min((rule.check_interval for rule in self.rules.values()), default=60)
                 await asyncio.sleep(min_interval)
@@ -374,7 +374,7 @@ class AlertManager:
 
 
 # Global alert manager instance
-_alert_manager: Optional[AlertManager] = None
+_alert_manager: AlertManager | None = None
 
 
 def get_alert_manager() -> AlertManager:
@@ -393,8 +393,8 @@ def get_alert_manager() -> AlertManager:
 
 
 def setup_alerting(
-    webhook_url: Optional[str] = None,
-    webhook_headers: Optional[Dict[str, str]] = None
+    webhook_url: str | None = None,
+    webhook_headers: dict[str, str] | None = None
 ) -> AlertManager:
     """
     Setup alerting system
@@ -407,8 +407,8 @@ def setup_alerting(
         Alert manager instance
     """
     manager = get_alert_manager()
-    
+
     if webhook_url:
         manager.add_channel(WebhookAlertChannel(webhook_url, webhook_headers))
-    
+
     return manager

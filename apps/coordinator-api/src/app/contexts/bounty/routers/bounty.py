@@ -1,12 +1,11 @@
-from typing import Annotated
 
 """
 Bounty Management API
 REST API for AI agent bounty system with ZK-proof verification
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, validator
@@ -17,19 +16,15 @@ from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-from ....routers.users import get_current_user
 from ....domain.bounty import (
-    Bounty,
-    BountyIntegration,
-    BountyStats,
     BountyStatus,
-    BountySubmission,
     BountyTier,
     SubmissionStatus,
 )
-from ...blockchain.services.blockchain import BlockchainService
+from ....routers.users import get_current_user
 from ....services.bounty_service import BountyService
 from ....storage import get_session
+from ...blockchain.services.blockchain import BlockchainService
 
 router = APIRouter()
 
@@ -39,22 +34,22 @@ class BountyCreateRequest(BaseModel):
     description: str = Field(..., min_length=10, max_length=5000)
     reward_amount: float = Field(..., gt=0)
     tier: BountyTier = Field(default=BountyTier.BRONZE)
-    performance_criteria: Dict[str, Any] = Field(default_factory=dict)
+    performance_criteria: dict[str, Any] = Field(default_factory=dict)
     min_accuracy: float = Field(default=90.0, ge=0, le=100)
-    max_response_time: Optional[int] = Field(default=None, gt=0)
-    deadline: datetime = Field(..., gt=datetime.now(timezone.utc))
+    max_response_time: int | None = Field(default=None, gt=0)
+    deadline: datetime = Field(..., gt=datetime.now(UTC))
     max_submissions: int = Field(default=100, gt=0, le=1000)
     requires_zk_proof: bool = Field(default=True)
     auto_verify_threshold: float = Field(default=95.0, ge=0, le=100)
-    tags: List[str] = Field(default_factory=list)
-    category: Optional[str] = Field(default=None)
-    difficulty: Optional[str] = Field(default=None)
+    tags: list[str] = Field(default_factory=list)
+    category: str | None = Field(default=None)
+    difficulty: str | None = Field(default=None)
 
     @validator('deadline')
     def validate_deadline(cls, v: datetime) -> datetime:
-        if v <= datetime.now(timezone.utc):
+        if v <= datetime.now(UTC):
             raise ValueError('Deadline must be in the future')
-        if v > datetime.now(timezone.utc) + timedelta(days=365):
+        if v > datetime.now(UTC) + timedelta(days=365):
             raise ValueError('Deadline cannot be more than 1 year in the future')
         return v
 
@@ -79,61 +74,61 @@ class BountyResponse(BaseModel):
     creator_id: str
     tier: BountyTier
     status: BountyStatus
-    performance_criteria: Dict[str, Any]
+    performance_criteria: dict[str, Any]
     min_accuracy: float
-    max_response_time: Optional[int]
+    max_response_time: int | None
     deadline: datetime
     creation_time: datetime
     max_submissions: int
     submission_count: int
     requires_zk_proof: bool
     auto_verify_threshold: float
-    winning_submission_id: Optional[str]
-    winner_address: Optional[str]
+    winning_submission_id: str | None
+    winner_address: str | None
     creation_fee: float
     success_fee: float
     platform_fee: float
-    tags: List[str]
-    category: Optional[str]
-    difficulty: Optional[str]
+    tags: list[str]
+    category: str | None
+    difficulty: str | None
 
 class BountySubmissionRequest(BaseModel):
     bounty_id: str
-    zk_proof: Optional[Dict[str, Any]] = Field(default=None)
+    zk_proof: dict[str, Any] | None = Field(default=None)
     performance_hash: str = Field(..., min_length=1)
     accuracy: float = Field(..., ge=0, le=100)
-    response_time: Optional[int] = Field(default=None, gt=0)
-    compute_power: Optional[float] = Field(default=None, gt=0)
-    energy_efficiency: Optional[float] = Field(default=None, ge=0, le=100)
-    submission_data: Dict[str, Any] = Field(default_factory=dict)
-    test_results: Dict[str, Any] = Field(default_factory=dict)
+    response_time: int | None = Field(default=None, gt=0)
+    compute_power: float | None = Field(default=None, gt=0)
+    energy_efficiency: float | None = Field(default=None, ge=0, le=100)
+    submission_data: dict[str, Any] = Field(default_factory=dict)
+    test_results: dict[str, Any] = Field(default_factory=dict)
 
 class BountySubmissionResponse(BaseModel):
     submission_id: str
     bounty_id: str
     submitter_address: str
     accuracy: float
-    response_time: Optional[int]
-    compute_power: Optional[float]
-    energy_efficiency: Optional[float]
-    zk_proof: Optional[Dict[str, Any]]
+    response_time: int | None
+    compute_power: float | None
+    energy_efficiency: float | None
+    zk_proof: dict[str, Any] | None
     performance_hash: str
     status: SubmissionStatus
-    verification_time: Optional[datetime]
-    verifier_address: Optional[str]
-    dispute_reason: Optional[str]
-    dispute_time: Optional[datetime]
+    verification_time: datetime | None
+    verifier_address: str | None
+    dispute_reason: str | None
+    dispute_time: datetime | None
     dispute_resolved: bool
     submission_time: datetime
-    submission_data: Dict[str, Any]
-    test_results: Dict[str, Any]
+    submission_data: dict[str, Any]
+    test_results: dict[str, Any]
 
 class BountyVerificationRequest(BaseModel):
     bounty_id: str
     submission_id: str
     verified: bool
     verifier_address: str
-    verification_notes: Optional[str] = Field(default=None)
+    verification_notes: str | None = Field(default=None)
 
 class BountyDisputeRequest(BaseModel):
     bounty_id: str
@@ -141,16 +136,16 @@ class BountyDisputeRequest(BaseModel):
     dispute_reason: str = Field(..., min_length=10, max_length=1000)
 
 class BountyFilterRequest(BaseModel):
-    status: Optional[BountyStatus] = None
-    tier: Optional[BountyTier] = None
-    creator_id: Optional[str] = None
-    category: Optional[str] = None
-    min_reward: Optional[float] = Field(default=None, ge=0)
-    max_reward: Optional[float] = Field(default=None, ge=0)
-    deadline_before: Optional[datetime] = None
-    deadline_after: Optional[datetime] = None
-    tags: Optional[List[str]] = None
-    requires_zk_proof: Optional[bool] = None
+    status: BountyStatus | None = None
+    tier: BountyTier | None = None
+    creator_id: str | None = None
+    category: str | None = None
+    min_reward: float | None = Field(default=None, ge=0)
+    max_reward: float | None = Field(default=None, ge=0)
+    deadline_before: datetime | None = None
+    deadline_after: datetime | None = None
+    tags: list[str] | None = None
+    requires_zk_proof: bool | None = None
     page: int = Query(default=1, ge=1)
     limit: int = Query(default=20, ge=1, le=100)
 
@@ -165,12 +160,12 @@ class BountyStatsResponse(BaseModel):
     total_fees_collected: float
     average_reward: float
     success_rate: float
-    average_completion_time: Optional[float]
-    average_accuracy: Optional[float]
+    average_completion_time: float | None
+    average_accuracy: float | None
     unique_creators: int
     unique_submitters: int
     total_submissions: int
-    tier_distribution: Dict[str, int]
+    tier_distribution: dict[str, int]
 
 # Dependency injection
 def get_bounty_service(session: Session = Depends(get_session)) -> BountyService:
@@ -194,13 +189,13 @@ async def create_bounty(
     """Create a new bounty"""
     try:
         logger.info(f"Creating bounty: {request.title} by user {current_user['address']}")  # type: ignore[attr-defined]
-        
+
         # Create bounty in database
         bounty = await bounty_service.create_bounty(
             creator_id=current_user['address'],
             **request.dict()  # type: ignore[attr-defined]
         )
-        
+
         # Deploy bounty contract in background
         background_tasks.add_task(
             blockchain_service.deploy_bounty_contract,  # type: ignore[attr-defined]
@@ -209,21 +204,21 @@ async def create_bounty(
             bounty.tier,
             bounty.deadline
         )
-        
+
         return BountyResponse.from_orm(bounty)  # type: ignore[pydantic-orm]
-        
+
     except Exception as e:
         logger.error(f"Failed to create bounty: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/bounties", response_model=List[BountyResponse])
+@router.get("/bounties", response_model=list[BountyResponse])
 @rate_limit(rate=200, per=60)
 async def get_bounties(
     request: Request,
     session: Session = Depends(get_session),
     filters: BountyFilterRequest = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
-) -> List[BountyResponse]:
+) -> list[BountyResponse]:
     """Get filtered list of bounties"""
     try:
         bounties = await bounty_service.get_bounties(
@@ -240,9 +235,9 @@ async def get_bounties(
             page=filters.page,
             limit=filters.limit
         )
-        
+
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
-        
+
     except Exception as e:
         logger.error(f"Failed to get bounties: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -260,9 +255,9 @@ async def get_bounty(
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        
+
         return BountyResponse.from_orm(bounty)  # type: ignore[pydantic-orm]
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -284,25 +279,25 @@ async def submit_bounty_solution(
     """Submit a solution to a bounty"""
     try:
         logger.info(f"Submitting solution for bounty {bounty_id} by {current_user['address']}")
-        
+
         # Validate bounty exists and is active
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        
+
         if bounty.status != BountyStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Bounty is not active")
-        
-        if datetime.now(timezone.utc) > bounty.deadline:
+
+        if datetime.now(UTC) > bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has passed")
-        
+
         # Create submission
         submission = await bounty_service.create_submission(
             bounty_id=bounty_id,
             submitter_address=current_user['address'],
             **request.dict()  # type: ignore[attr-defined]
         )
-        
+
         # Submit to blockchain in background
         background_tasks.add_task(
             blockchain_service.submit_bounty_solution,  # type: ignore[attr-defined]
@@ -313,16 +308,16 @@ async def submit_bounty_solution(
             request.accuracy,  # type: ignore[attr-defined]
             request.response_time  # type: ignore[attr-defined]
         )
-        
+
         return BountySubmissionResponse.from_orm(submission)  # type: ignore[pydantic-orm]
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to submit bounty solution: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/bounties/{bounty_id}/submissions", response_model=List[BountySubmissionResponse])
+@router.get("/bounties/{bounty_id}/submissions", response_model=list[BountySubmissionResponse])
 @rate_limit(rate=200, per=60)
 async def get_bounty_submissions(
     request: Request,
@@ -330,22 +325,22 @@ async def get_bounty_submissions(
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
-) -> List[BountySubmissionResponse]:
+) -> list[BountySubmissionResponse]:
     """Get all submissions for a bounty"""
     try:
         # Check if user is bounty creator or has permission
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        
+
         if bounty.creator_id != current_user['address']:
             # Check if user has admin permissions
             if not current_user.get('is_admin', False):
                 raise HTTPException(status_code=403, detail="Not authorized to view submissions")
-        
+
         submissions = await bounty_service.get_bounty_submissions(bounty_id)
         return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -363,13 +358,13 @@ async def verify_bounty_submission(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Verify a bounty submission (oracle/admin only)"""
     try:
         # Check permissions
         if not current_user.get('is_admin', False):
             raise HTTPException(status_code=403, detail="Not authorized to verify submissions")
-        
+
         # Verify submission
         await bounty_service.verify_submission(
             bounty_id=bounty_id,
@@ -378,7 +373,7 @@ async def verify_bounty_submission(
             verifier_address=request.verifier_address,  # type: ignore[attr-defined]
             verification_notes=request.verification_notes  # type: ignore[attr-defined]
         )
-        
+
         # Update blockchain in background
         background_tasks.add_task(
             blockchain_service.verify_submission,  # type: ignore[attr-defined]
@@ -387,9 +382,9 @@ async def verify_bounty_submission(
             request.verified,  # type: ignore[attr-defined]
             request.verifier_address  # type: ignore[attr-defined]
         )
-        
+
         return {"message": "Submission verified successfully"}
-        
+
     except Exception as e:
         logger.error(f"Failed to verify bounty submission: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -405,7 +400,7 @@ async def dispute_bounty_submission(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Dispute a bounty submission"""
     try:
         # Create dispute
@@ -415,7 +410,7 @@ async def dispute_bounty_submission(
             disputer_address=current_user['address'],
             dispute_reason=request.dispute_reason  # type: ignore[attr-defined]
         )
-        
+
         # Handle dispute on blockchain in background
         background_tasks.add_task(
             blockchain_service.dispute_submission,  # type: ignore[attr-defined]
@@ -424,24 +419,24 @@ async def dispute_bounty_submission(
             current_user['address'],
             request.dispute_reason  # type: ignore[attr-defined]
         )
-        
+
         return {"message": "Dispute created successfully"}
-        
+
     except Exception as e:
         logger.error(f"Failed to create dispute: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/bounties/my/created", response_model=List[BountyResponse])
+@router.get("/bounties/my/created", response_model=list[BountyResponse])
 @rate_limit(rate=200, per=60)
 async def get_my_created_bounties(
     request: Request,
-    status: Optional[BountyStatus] = None,
+    status: BountyStatus | None = None,
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
-) -> List[BountyResponse]:
+) -> list[BountyResponse]:
     """Get bounties created by the current user"""
     try:
         bounties = await bounty_service.get_user_created_bounties(
@@ -450,24 +445,24 @@ async def get_my_created_bounties(
             page=page,
             limit=limit
         )
-        
+
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
-        
+
     except Exception as e:
         logger.error(f"Failed to get user created bounties: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/bounties/my/submissions", response_model=List[BountySubmissionResponse])
+@router.get("/bounties/my/submissions", response_model=list[BountySubmissionResponse])
 @rate_limit(rate=200, per=60)
 async def get_my_submissions(
     request: Request,
-    status: Optional[SubmissionStatus] = None,
+    status: SubmissionStatus | None = None,
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
-) -> List[BountySubmissionResponse]:
+) -> list[BountySubmissionResponse]:
     """Get submissions made by the current user"""
     try:
         submissions = await bounty_service.get_user_submissions(
@@ -476,9 +471,9 @@ async def get_my_submissions(
             page=page,
             limit=limit
         )
-        
+
         return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
-        
+
     except Exception as e:
         logger.error(f"Failed to get user submissions: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -491,16 +486,16 @@ async def get_bounty_leaderboard(
     limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get bounty leaderboard"""
     try:
         leaderboard = await bounty_service.get_leaderboard(
             period=period,
             limit=limit
         )
-        
+
         return leaderboard  # type: ignore[return-value]
-        
+
     except Exception as e:
         logger.error(f"Failed to get bounty leaderboard: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -516,9 +511,9 @@ async def get_bounty_stats(
     """Get bounty statistics"""
     try:
         stats = await bounty_service.get_bounty_stats(period=period)
-        
+
         return BountyStatsResponse.from_orm(stats)  # type: ignore[pydantic-orm]
-        
+
     except Exception as e:
         logger.error(f"Failed to get bounty stats: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -533,34 +528,34 @@ async def expire_bounty(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Expire a bounty (creator only)"""
     try:
         # Check if user is bounty creator
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        
+
         if bounty.creator_id != current_user['address']:
             raise HTTPException(status_code=403, detail="Not authorized to expire bounty")
-        
+
         if bounty.status != BountyStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Bounty is not active")
-        
-        if datetime.now(timezone.utc) <= bounty.deadline:
+
+        if datetime.now(UTC) <= bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has not passed")
-        
+
         # Expire bounty
         await bounty_service.expire_bounty(bounty_id)
-        
+
         # Handle on blockchain in background
         background_tasks.add_task(
             blockchain_service.expire_bounty,  # type: ignore[attr-defined]
             bounty_id
         )
-        
+
         return {"message": "Bounty expired successfully"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -572,12 +567,12 @@ async def expire_bounty(
 async def get_bounty_categories(
     request: Request, session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get all bounty categories"""
     try:
         categories = await bounty_service.get_categories()
         return {"categories": categories}
-        
+
     except Exception as e:
         logger.error(f"Failed to get bounty categories: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -589,12 +584,12 @@ async def get_bounty_tags(
     limit: int = Query(default=100, ge=1, le=500),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get popular bounty tags"""
     try:
         tags = await bounty_service.get_popular_tags(limit=limit)
         return {"tags": tags}
-        
+
     except Exception as e:
         logger.error(f"Failed to get bounty tags: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -608,7 +603,7 @@ async def search_bounties(
     limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-) -> List[BountyResponse]:
+) -> list[BountyResponse]:
     """Search bounties by text"""
     try:
         bounties = await bounty_service.search_bounties(
@@ -616,9 +611,9 @@ async def search_bounties(
             page=page,
             limit=limit
         )
-        
+
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
-        
+
     except Exception as e:
         logger.error(f"Failed to search bounties: {e}")
         raise HTTPException(status_code=400, detail=str(e))

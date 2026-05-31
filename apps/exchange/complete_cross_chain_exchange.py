@@ -4,21 +4,20 @@ Complete Cross-Chain AITBC Exchange
 Multi-chain trading with cross-chain swaps and bridging
 """
 
-import sqlite3
-import json
 import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
-from pydantic import BaseModel, Field
-import uvicorn
 import os
+import sqlite3
 import uuid
-import hashlib
+from datetime import datetime
+from typing import Any
 
-from aitbc.network.http_client import AsyncAITBCHTTPClient
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.rate_limiting import RateLimitMiddleware
 
 app = FastAPI(title="AITBC Complete Cross-Chain Exchange", version="3.0.0")
@@ -46,7 +45,7 @@ SUPPORTED_CHAINS = {
         "bridge_contract": "0x1234567890123456789012345678901234567890"
     },
     "ait-testnet": {
-        "name": "AITBC Test Network", 
+        "name": "AITBC Test Network",
         "status": "inactive",
         "blockchain_url": None,
         "token_symbol": "AITBC-TEST",
@@ -91,7 +90,7 @@ def init_database():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # Chains table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS chains (
@@ -104,7 +103,7 @@ def init_database():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+
         # Orders table with chain support
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS orders (
@@ -124,7 +123,7 @@ def init_database():
                 chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))
             )
         ''')
-        
+
         # Trades table with chain support
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS trades (
@@ -140,7 +139,7 @@ def init_database():
                 chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))
             )
         ''')
-        
+
         # Cross-chain swaps table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cross_chain_swaps (
@@ -165,7 +164,7 @@ def init_database():
                 error_message TEXT NULL
             )
         ''')
-        
+
         # Bridge transactions table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS bridge_transactions (
@@ -186,7 +185,7 @@ def init_database():
                 error_message TEXT NULL
             )
         ''')
-        
+
         # Cross-chain liquidity pools
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cross_chain_pools (
@@ -205,31 +204,31 @@ def init_database():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+
         # Insert default chains
         for chain_id, chain_info in SUPPORTED_CHAINS.items():
             cursor.execute('''
                 INSERT OR REPLACE INTO chains 
                 (chain_id, name, status, blockchain_url, token_symbol, bridge_contract)
                 VALUES (?, ?, ?, ?, ?, ?)
-            ''', (chain_id, chain_info["name"], chain_info["status"], 
-                  chain_info["blockchain_url"], chain_info["token_symbol"], 
+            ''', (chain_id, chain_info["name"], chain_info["status"],
+                  chain_info["blockchain_url"], chain_info["token_symbol"],
                   chain_info.get("bridge_contract")))
-        
+
         # Create sample liquidity pool
         cursor.execute('''
             INSERT OR IGNORE INTO cross_chain_pools 
             (pool_id, token_a, token_b, chain_a, chain_b, reserve_a, reserve_b, total_liquidity)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', ("ait-devnet-ait-testnet-AITBC", "AITBC", "AITBC", "ait-devnet", "ait-testnet", 1000, 1000, 2000))
-        
+
         # Create indexes
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_orders_chain_id ON orders(chain_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_trades_chain_id ON trades(chain_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_swaps_user ON cross_chain_swaps(user_address)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_swaps_status ON cross_chain_swaps(status)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_bridge_status ON bridge_transactions(status)')
-        
+
         conn.commit()
         conn.close()
         return True
@@ -238,23 +237,23 @@ def init_database():
         return False
 
 # Cross-chain rate calculation
-def get_cross_chain_rate(from_chain: str, to_chain: str, from_token: str, to_token: str) -> Optional[float]:
+def get_cross_chain_rate(from_chain: str, to_chain: str, from_token: str, to_token: str) -> float | None:
     """Get cross-chain exchange rate"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # Check liquidity pool
         cursor.execute('''
             SELECT reserve_a, reserve_b FROM cross_chain_pools 
             WHERE ((chain_a = ? AND chain_b = ? AND token_a = ? AND token_b = ?) OR
                    (chain_a = ? AND chain_b = ? AND token_a = ? AND token_b = ?))
         ''', (from_chain, to_chain, from_token, to_token, to_chain, from_chain, to_token, from_token))
-        
+
         pool = cursor.fetchone()
         if pool and pool["reserve_a"] > 0 and pool["reserve_b"] > 0:
             return pool["reserve_b"] / pool["reserve_a"]
-        
+
         # Fallback to 1:1 for same tokens
         if from_token == to_token:
             return 1.0
@@ -265,50 +264,50 @@ def get_cross_chain_rate(from_chain: str, to_chain: str, from_token: str, to_tok
         return None
 
 # Cross-chain swap execution
-async def execute_cross_chain_swap(swap_request: CrossChainSwapRequest) -> Dict[str, Any]:
+async def execute_cross_chain_swap(swap_request: CrossChainSwapRequest) -> dict[str, Any]:
     """Execute cross-chain swap"""
     try:
         # Validate chains
         if swap_request.from_chain == swap_request.to_chain:
             raise HTTPException(status_code=400, detail="Cannot swap within same chain")
-        
+
         # Get exchange rate
-        rate = get_cross_chain_rate(swap_request.from_chain, swap_request.to_chain, 
+        rate = get_cross_chain_rate(swap_request.from_chain, swap_request.to_chain,
                                   swap_request.from_token, swap_request.to_token)
         if not rate:
             raise HTTPException(status_code=400, detail="No exchange rate available")
-        
+
         # Calculate expected amount (including fees)
         bridge_fee = swap_request.amount * 0.003  # 0.3% bridge fee
         swap_fee = swap_request.amount * 0.001    # 0.1% swap fee
         total_fees = bridge_fee + swap_fee
         net_amount = swap_request.amount - total_fees
         expected_amount = net_amount * rate
-        
+
         # Check slippage
         if expected_amount < swap_request.min_amount:
             raise HTTPException(status_code=400, detail="Insufficient output due to slippage")
-        
+
         # Create swap record
         swap_id = str(uuid.uuid4())
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             INSERT INTO cross_chain_swaps 
             (swap_id, from_chain, to_chain, from_token, to_token, amount, min_amount, 
              expected_amount, user_address, bridge_fee, slippage)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (swap_id, swap_request.from_chain, swap_request.to_chain, swap_request.from_token, 
-              swap_request.to_token, swap_request.amount, swap_request.min_amount, expected_amount, 
+        ''', (swap_id, swap_request.from_chain, swap_request.to_chain, swap_request.from_token,
+              swap_request.to_token, swap_request.amount, swap_request.min_amount, expected_amount,
               swap_request.user_address, bridge_fee, swap_request.slippage_tolerance))
-        
+
         conn.commit()
         conn.close()
-        
+
         # Process swap in background
         asyncio.create_task(process_cross_chain_swap(swap_id))
-        
+
         return {
             "success": True,
             "swap_id": swap_id,
@@ -324,7 +323,7 @@ async def execute_cross_chain_swap(swap_request: CrossChainSwapRequest) -> Dict[
             "swap_fee": swap_fee,
             "status": "pending"
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Swap execution failed: {str(e)}")
 
@@ -333,33 +332,33 @@ async def process_cross_chain_swap(swap_id: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM cross_chain_swaps WHERE swap_id = ?", (swap_id,))
         swap = cursor.fetchone()
-        
+
         if not swap:
             return
-        
+
         # Update status
         cursor.execute("UPDATE cross_chain_swaps SET status = 'executing' WHERE swap_id = ?", (swap_id,))
         conn.commit()
-        
+
         # Simulate cross-chain execution
         await asyncio.sleep(3)  # Simulate blockchain processing
-        
+
         # Generate mock transaction hashes
         from_tx_hash = f"0x{uuid.uuid4().hex[:64]}"
         to_tx_hash = f"0x{uuid.uuid4().hex[:64]}"
-        
+
         # Complete swap
         actual_amount = swap["expected_amount"] * 0.98  # Small slippage
-        
+
         cursor.execute('''
             UPDATE cross_chain_swaps SET status = 'completed', actual_amount = ?, 
             from_tx_hash = ?, to_tx_hash = ?, completed_at = CURRENT_TIMESTAMP 
             WHERE swap_id = ?
         ''', (actual_amount, from_tx_hash, to_tx_hash, swap_id))
-        
+
         conn.commit()
         conn.close()
 
@@ -379,7 +378,7 @@ async def health_check():
             "connected": False,
             "bridge_contract": chain_info.get("bridge_contract")
         }
-        
+
         if chain_info["status"] == "active" and chain_info["blockchain_url"]:
             try:
                 client = AsyncAITBCHTTPClient(base_url=chain_info['blockchain_url'], timeout=5)
@@ -387,7 +386,7 @@ async def health_check():
                 chain_status[chain_id]["connected"] = response is not None
             except NetworkError:
                 pass
-    
+
     return {
         "status": "ok",
         "service": "complete-cross-chain-exchange",
@@ -412,7 +411,7 @@ async def get_chains():
             "token_symbol": chain_info["token_symbol"],
             "bridge_contract": chain_info.get("bridge_contract")
         })
-    
+
     return {
         "chains": chains,
         "total_chains": len(chains),
@@ -430,53 +429,53 @@ async def get_cross_chain_swap(swap_id: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM cross_chain_swaps WHERE swap_id = ?", (swap_id,))
         swap = cursor.fetchone()
-        
+
         conn.close()
-        
+
         if not swap:
             raise HTTPException(status_code=404, detail="Swap not found")
-        
+
         return dict(swap)
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get swap: {str(e)}")
 
 @app.get("/api/v1/cross-chain/swaps")
-async def get_cross_chain_swaps(user_address: Optional[str] = None, status: Optional[str] = None):
+async def get_cross_chain_swaps(user_address: str | None = None, status: str | None = None):
     """Get cross-chain swaps"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         query = "SELECT * FROM cross_chain_swaps"
         params = []
-        
+
         if user_address:
             query += " WHERE user_address = ?"
             params.append(user_address)
-        
+
         if status:
             if user_address:
                 query += " AND status = ?"
             else:
                 query += " WHERE status = ?"
             params.append(status)
-        
+
         query += " ORDER BY created_at DESC"
-        
+
         cursor.execute(query, params)
         swaps = [dict(row) for row in cursor.fetchall()]
-        
+
         conn.close()
-        
+
         return {
             "swaps": swaps,
             "total_swaps": len(swaps)
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get swaps: {str(e)}")
 
@@ -486,26 +485,26 @@ async def create_bridge_transaction(bridge_request: BridgeRequest):
     try:
         if bridge_request.source_chain == bridge_request.target_chain:
             raise HTTPException(status_code=400, detail="Cannot bridge to same chain")
-        
+
         bridge_id = str(uuid.uuid4())
         bridge_fee = bridge_request.amount * 0.001  # 0.1% bridge fee
-        
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             INSERT INTO bridge_transactions 
             (bridge_id, source_chain, target_chain, token, amount, recipient_address, bridge_fee)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (bridge_id, bridge_request.source_chain, bridge_request.target_chain, 
+        ''', (bridge_id, bridge_request.source_chain, bridge_request.target_chain,
               bridge_request.token, bridge_request.amount, bridge_request.recipient_address, bridge_fee))
-        
+
         conn.commit()
         conn.close()
-        
+
         # Process bridge in background
         asyncio.create_task(process_bridge_transaction(bridge_id))
-        
+
         return {
             "success": True,
             "bridge_id": bridge_id,
@@ -516,7 +515,7 @@ async def create_bridge_transaction(bridge_request: BridgeRequest):
             "bridge_fee": bridge_fee,
             "status": "pending"
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bridge creation failed: {str(e)}")
 
@@ -525,31 +524,31 @@ async def process_bridge_transaction(bridge_id: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM bridge_transactions WHERE bridge_id = ?", (bridge_id,))
         bridge = cursor.fetchone()
-        
+
         if not bridge:
             return
-        
+
         # Update status
         cursor.execute("UPDATE bridge_transactions SET status = 'locked' WHERE bridge_id = ?", (bridge_id,))
         conn.commit()
-        
+
         # Simulate bridge processing
         await asyncio.sleep(2)
-        
+
         # Generate mock transaction hashes
         source_tx_hash = f"0x{uuid.uuid4().hex[:64]}"
         target_tx_hash = f"0x{uuid.uuid4().hex[:64]}"
-        
+
         # Complete bridge
         cursor.execute('''
             UPDATE bridge_transactions SET status = 'completed', 
             source_tx_hash = ?, target_tx_hash = ?, completed_at = CURRENT_TIMESTAMP 
             WHERE bridge_id = ?
         ''', (source_tx_hash, target_tx_hash, bridge_id))
-        
+
         conn.commit()
         conn.close()
 
@@ -562,17 +561,17 @@ async def get_bridge_transaction(bridge_id: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM bridge_transactions WHERE bridge_id = ?", (bridge_id,))
         bridge = cursor.fetchone()
-        
+
         conn.close()
-        
+
         if not bridge:
             raise HTTPException(status_code=404, detail="Bridge transaction not found")
-        
+
         return dict(bridge)
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get bridge: {str(e)}")
 
@@ -580,7 +579,7 @@ async def get_bridge_transaction(bridge_id: str):
 async def get_cross_chain_rates():
     """Get cross-chain exchange rates"""
     rates = {}
-    
+
     for from_chain in SUPPORTED_CHAINS:
         for to_chain in SUPPORTED_CHAINS:
             if from_chain != to_chain:
@@ -588,7 +587,7 @@ async def get_cross_chain_rates():
                 rate = get_cross_chain_rate(from_chain, to_chain, "AITBC", "AITBC")
                 if rate:
                     rates[pair_key] = rate
-    
+
     return {
         "rates": rates,
         "timestamp": datetime.now().isoformat()
@@ -600,17 +599,17 @@ async def get_cross_chain_pools():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM cross_chain_pools ORDER BY total_liquidity DESC")
         pools = [dict(row) for row in cursor.fetchall()]
-        
+
         conn.close()
-        
+
         return {
             "pools": pools,
             "total_pools": len(pools)
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get pools: {str(e)}")
 
@@ -620,7 +619,7 @@ async def get_cross_chain_stats():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # Swap stats
         cursor.execute('''
             SELECT status, COUNT(*) as count, SUM(amount) as volume
@@ -628,7 +627,7 @@ async def get_cross_chain_stats():
             GROUP BY status
         ''')
         swap_stats = [dict(row) for row in cursor.fetchall()]
-        
+
         # Bridge stats
         cursor.execute('''
             SELECT status, COUNT(*) as count, SUM(amount) as volume
@@ -636,13 +635,13 @@ async def get_cross_chain_stats():
             GROUP BY status
         ''')
         bridge_stats = [dict(row) for row in cursor.fetchall()]
-        
+
         # Total volume
         cursor.execute("SELECT SUM(amount) FROM cross_chain_swaps WHERE status = 'completed'")
         total_volume = cursor.fetchone()[0] or 0
-        
+
         conn.close()
-        
+
         return {
             "swap_stats": swap_stats,
             "bridge_stats": bridge_stats,
@@ -650,7 +649,7 @@ async def get_cross_chain_stats():
             "supported_chains": list(SUPPORTED_CHAINS.keys()),
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
@@ -660,6 +659,6 @@ if __name__ == "__main__":
         logger.info("Complete cross-chain database initialized")
     else:
         logger.error("Database initialization failed")
-    
+
     # Run the server
     uvicorn.run(app, host="0.0.0.0", port=8001)

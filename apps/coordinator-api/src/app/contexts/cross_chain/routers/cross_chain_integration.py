@@ -3,7 +3,7 @@ Cross-Chain Integration API Router
 REST API endpoints for enhanced multi-chain wallet adapter, cross-chain bridge service, and transaction manager
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -22,20 +22,20 @@ from app.agent_identity.wallet_adapter_enhanced import (
     WalletAdapterFactory,
     WalletStatus,
 )
-from app.reputation.engine import CrossChainReputationEngine
 from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (
     BridgeProtocol,
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
+from app.domain.multi_chain_transaction import (
+    TransactionStatus,
+    TransactionType,
+)
+from app.reputation.engine import CrossChainReputationEngine
 from app.services.multi_chain_transaction_manager import (
     MultiChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,
-)
-from app.domain.multi_chain_transaction import (
-    TransactionType,
-    TransactionStatus,
 )
 from app.storage.db import get_session
 
@@ -93,7 +93,7 @@ async def create_enhanced_wallet(
             "security_config": wallet_data["security_config"],
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating wallet")
 
 
@@ -121,7 +121,7 @@ async def get_wallet_balance(
 
         return balance_data  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting balance")
 
 
@@ -162,7 +162,7 @@ async def execute_wallet_transaction(
 
         return transaction_data  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error executing transaction")
 
 
@@ -193,7 +193,7 @@ async def get_wallet_transaction_history(
 
         return transactions  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting transaction history")
 
 
@@ -217,7 +217,7 @@ async def sign_message(
 
         return signature_data  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error signing message")
 
 
@@ -241,10 +241,10 @@ async def verify_signature(
             "message": message,
             "address": address,
             "chain_id": chain_id,
-            "verified_at": datetime.now(timezone.utc).isoformat(),
+            "verified_at": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error verifying signature")
 
 
@@ -293,7 +293,7 @@ async def create_bridge_request(
 
         return bridge_request  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating bridge request")
 
 
@@ -311,7 +311,7 @@ async def get_bridge_request_status(request: Request, bridge_request_id: str, se
 
         return status  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting bridge request status")
 
 
@@ -332,7 +332,7 @@ async def cancel_bridge_request(
 
         return result  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error cancelling bridge request")
 
 
@@ -353,7 +353,7 @@ async def get_bridge_statistics(
 
         return stats  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting bridge statistics")
 
 
@@ -371,7 +371,7 @@ async def get_liquidity_pools(request: Request, session: Session = Depends(get_s
 
         return pools  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting liquidity pools")
 
 
@@ -428,7 +428,7 @@ async def submit_transaction(
 
         return result  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error submitting transaction")
 
 
@@ -482,8 +482,8 @@ async def get_transaction_history(
                     "amount": 1000.0,
                     "from_address": "ait1abc123...",
                     "to_address": "ait1def456...",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "completed_at": datetime.now(timezone.utc).isoformat()
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "completed_at": datetime.now(UTC).isoformat()
                 },
                 {
                     "transaction_id": "tx_002",
@@ -494,7 +494,7 @@ async def get_transaction_history(
                     "amount": 500.0,
                     "from_address": "ait1def456...",
                     "to_address": "ait1ghi789...",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(UTC).isoformat(),
                     "completed_at": None
                 }
             ][:limit]
@@ -514,8 +514,8 @@ async def get_transaction_history(
                 "amount": 1000.0,
                 "from_address": "ait1abc123...",
                 "to_address": "ait1def456...",
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "completed_at": datetime.now(timezone.utc).isoformat()
+                "created_at": datetime.now(UTC).isoformat(),
+                "completed_at": datetime.now(UTC).isoformat()
             },
             {
                 "transaction_id": "tx_002",
@@ -526,7 +526,7 @@ async def get_transaction_history(
                 "amount": 500.0,
                 "from_address": "ait1def456...",
                 "to_address": "ait1ghi789...",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "completed_at": None
             }
         ][:limit]
@@ -555,7 +555,7 @@ async def get_transaction_statistics(
 
         return stats  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting transaction statistics")
 
 
@@ -587,7 +587,7 @@ async def optimize_transaction_routing(
 
         return optimization  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error optimizing routing")
 
 
@@ -608,7 +608,7 @@ async def get_supported_chains(request: Request) -> list[dict[str, Any]]:
 
         return chain_info
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting supported chains")
 
 
@@ -631,7 +631,7 @@ async def get_chain_info(request: Request, chain_id: int, session: Session = Dep
 
         return chain_info
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting chain info")
 
 
@@ -667,7 +667,7 @@ async def get_cross_chain_health(request: Request, session: Session = Depends(ge
             "transaction_success_rate": tx_stats["success_rate"],
             "average_processing_time": tx_stats["average_processing_time_seconds"],
             "active_liquidity_pools": len(await bridge_service.get_liquidity_pools()),
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
     except Exception as e:
@@ -738,10 +738,10 @@ async def get_cross_chain_config(request: Request, session: Session = Depends(ge
             "transaction_priorities": transaction_priorities,
             "routing_strategies": routing_strategies,
             "security_levels": [level.value for level in SecurityLevel],
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting configuration")
 
 
@@ -756,7 +756,7 @@ async def get_bridge_whitelist(request: Request, session: Session = Depends(get_
         return {
             "allowed_transfers": whitelist,
             "count": len(whitelist),
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting bridge whitelist: {e}", exc_info=True)

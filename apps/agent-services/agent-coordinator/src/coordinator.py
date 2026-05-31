@@ -4,18 +4,19 @@ AITBC Agent Coordinator Service
 Agent task coordination and management
 """
 
+import json
+import os
+import sqlite3
+import uuid
+from contextlib import asynccontextmanager, contextmanager
+from datetime import UTC, datetime
+from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-import json
-import uuid
-import os
-from datetime import datetime, timezone
-import sqlite3
-from contextlib import contextmanager
-from contextlib import asynccontextmanager
 
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 # Use absolute path for database in /var/lib/aitbc for persistence
@@ -64,7 +65,7 @@ def init_db():
                 result TEXT
             )
         ''')
-        
+
         # Agents table (new)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS agents (
@@ -81,7 +82,7 @@ def init_db():
                 health_score REAL DEFAULT 1.0
             )
         ''')
-        
+
         # Agent assignments table (new)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS agent_assignments (
@@ -96,7 +97,7 @@ def init_db():
                 error_message TEXT
             )
         ''')
-        
+
         # Commit the transaction
         conn.commit()
 
@@ -104,29 +105,29 @@ def init_db():
 class Task(BaseModel):
     id: str
     task_type: str
-    payload: Dict[str, Any]
-    required_capabilities: List[str]
+    payload: dict[str, Any]
+    required_capabilities: list[str]
     priority: str
     status: str
-    assigned_agent_id: Optional[str] = None
+    assigned_agent_id: str | None = None
 
 class TaskCreation(BaseModel):
     task_type: str
-    payload: Dict[str, Any]
-    required_capabilities: List[str]
+    payload: dict[str, Any]
+    required_capabilities: list[str]
     priority: str = "normal"
 
 class AgentRegistrationRequest(BaseModel):
     agent_id: str
     agent_type: str
-    capabilities: List[str]
-    services: List[str]
-    endpoints: Dict[str, str]
-    metadata: Optional[Dict[str, Any]] = {}
+    capabilities: list[str]
+    services: list[str]
+    endpoints: dict[str, str]
+    metadata: dict[str, Any] | None = {}
 
 class AgentStatusUpdate(BaseModel):
     status: str
-    load_metrics: Optional[Dict[str, float]] = {}
+    load_metrics: dict[str, float] | None = {}
 
 # API Endpoints
 
@@ -134,7 +135,7 @@ class AgentStatusUpdate(BaseModel):
 async def create_task(task: TaskCreation):
     """Create a new task and attempt to assign it to an agent"""
     task_id = str(uuid.uuid4())
-    
+
     with get_db_connection() as conn:
         conn.execute('''
             INSERT INTO tasks (id, task_type, payload, required_capabilities, priority, status)
@@ -143,15 +144,15 @@ async def create_task(task: TaskCreation):
             task_id, task.task_type, json.dumps(task.payload),
             json.dumps(task.required_capabilities), task.priority, "pending"
         ))
-    
+
     # Attempt to assign task to an agent
     assigned_agent_id = assign_task_to_agent(task_id, task.required_capabilities)
-    
+
     if assigned_agent_id:
         logger.info(f"Task {task_id} assigned to agent {assigned_agent_id}")
     else:
         logger.info(f"Task {task_id} - no eligible agents found")
-    
+
     return Task(
         id=task_id,
         task_type=task.task_type,
@@ -162,19 +163,19 @@ async def create_task(task: TaskCreation):
         assigned_agent_id=assigned_agent_id
     )
 
-@app.get("/api/tasks", response_model=List[Task])
-async def list_tasks(status: Optional[str] = None):
+@app.get("/api/tasks", response_model=list[Task])
+async def list_tasks(status: str | None = None):
     """List tasks with optional status filter"""
     with get_db_connection() as conn:
         query = "SELECT * FROM tasks"
         params = []
-        
+
         if status:
             query += " WHERE status = ?"
             params.append(status)
-        
+
         tasks = conn.execute(query, params).fetchall()
-        
+
         return [
             Task(
                 id=task["id"],
@@ -191,7 +192,7 @@ async def list_tasks(status: Optional[str] = None):
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.now(timezone.utc)}
+    return {"status": "ok", "timestamp": datetime.now(UTC)}
 
 @app.get("/tasks/status")
 async def get_task_status():
@@ -203,25 +204,25 @@ async def get_task_status():
         tasks_distributed = len([t for t in tasks if t["assigned_agent_id"]])
         tasks_completed = len([t for t in tasks if t["status"] == "completed"])
         tasks_failed = len([t for t in tasks if t["status"] == "failed"])
-        
+
         # Get active agents count
         agents = conn.execute("SELECT * FROM agents WHERE status = ?", ("active",)).fetchall()
         logger.debug(f"DEBUG: Found {len(agents)} active agents")
         active_agents = len(agents)
-        
+
         # Calculate load balancer stats
         agent_weights = len(agents)
         total_assignments = len(tasks_distributed)
         successful_assignments = tasks_completed
         failed_assignments = tasks_failed
-        
+
         # Calculate average agent load
         total_load = 0
         for agent in agents:
             load_metrics = json.loads(agent["load_metrics"]) if agent["load_metrics"] else {}
             total_load += load_metrics.get("active_connections", 0) + load_metrics.get("pending_tasks", 0)
         avg_agent_load = total_load / active_agents if active_agents > 0 else 0
-        
+
         # Get queue sizes (simulated from pending tasks)
         queue_sizes = {
             "urgent": 0,
@@ -230,7 +231,7 @@ async def get_task_status():
             "normal": len([t for t in tasks if t["status"] == "pending" and t["priority"] == "normal"]),
             "low": 0
         }
-        
+
         return {
             "status": "success",
             "stats": {
@@ -250,7 +251,7 @@ async def get_task_status():
                 },
                 "queue_sizes": queue_sizes
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
 
 # Agent Management Endpoints
@@ -263,7 +264,7 @@ async def register_agent(request: AgentRegistrationRequest):
         logger.debug(f"DEBUG: Database path: {DB_PATH}")
         conn = get_db()
         try:
-            logger.debug(f"DEBUG: Database connection established")
+            logger.debug("DEBUG: Database connection established")
             conn.execute('''
                 INSERT INTO agents (id, agent_type, status, capabilities, services, endpoints, metadata, last_heartbeat, health_score)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -275,39 +276,39 @@ async def register_agent(request: AgentRegistrationRequest):
                 json.dumps(request.services),
                 json.dumps(request.endpoints),
                 json.dumps(request.metadata),
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 1.0
             ))
             conn.commit()
             logger.debug(f"DEBUG: Agent {request.agent_id} inserted and committed")
         finally:
             conn.close()
-        
+
         return {
             "status": "success",
             "message": f"Agent {request.agent_id} registered successfully",
             "agent_id": request.agent_id,
-            "registered_at": datetime.now(timezone.utc).isoformat()
+            "registered_at": datetime.now(UTC).isoformat()
         }
     except Exception as e:
         logger.error(f"ERROR: Failed to register agent: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to register agent: {str(e)}")
 
 @app.post("/agents/discover")
-async def discover_agents(query: Dict[str, Any]):
+async def discover_agents(query: dict[str, Any]):
     """Discover agents based on criteria"""
     try:
         with get_db_connection() as conn:
             # Build query
             sql = "SELECT * FROM agents WHERE status = ?"
             params = ["active"]
-            
+
             if "agent_type" in query:
                 sql += " AND agent_type = ?"
                 params.append(query["agent_type"])
-            
+
             agents = conn.execute(sql, params).fetchall()
-            
+
             # Filter by capabilities if specified
             if "capabilities" in query:
                 required_capabilities = set(query["capabilities"])
@@ -317,7 +318,7 @@ async def discover_agents(query: Dict[str, Any]):
                     if required_capabilities.issubset(agent_capabilities):
                         filtered_agents.append(agent)
                 agents = filtered_agents
-            
+
             # Filter by services if specified
             if "services" in query:
                 required_services = set(query["services"])
@@ -327,10 +328,10 @@ async def discover_agents(query: Dict[str, Any]):
                     if required_services.issubset(agent_services):
                         filtered_agents.append(agent)
                 agents = filtered_agents
-            
+
             # Sort by health score (highest first)
             agents = sorted(agents, key=lambda a: a["health_score"], reverse=True)
-            
+
             return {
                 "status": "success",
                 "query": query,
@@ -348,7 +349,7 @@ async def discover_agents(query: Dict[str, Any]):
                     for agent in agents
                 ],
                 "count": len(agents),
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error discovering agents: {str(e)}")
@@ -359,10 +360,10 @@ async def get_agent(agent_id: str):
     try:
         with get_db_connection() as conn:
             agent = conn.execute("SELECT * FROM agents WHERE id = ?", (agent_id,)).fetchone()
-            
+
             if not agent:
                 raise HTTPException(status_code=404, detail="Agent not found")
-            
+
             return {
                 "status": "success",
                 "agent": {
@@ -377,7 +378,7 @@ async def get_agent(agent_id: str):
                     "registration_time": agent["registration_time"],
                     "health_score": agent["health_score"]
                 },
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
     except HTTPException:
         raise
@@ -393,21 +394,21 @@ async def update_agent_status(agent_id: str, request: AgentStatusUpdate):
             conn.execute('''
                 UPDATE agents SET status = ?, last_heartbeat = ?
                 WHERE id = ?
-            ''', (request.status, datetime.now(timezone.utc), agent_id))
-            
+            ''', (request.status, datetime.now(UTC), agent_id))
+
             # Update load metrics if provided
             if request.load_metrics:
                 conn.execute('''
                     UPDATE agents SET load_metrics = ?
                     WHERE id = ?
                 ''', (json.dumps(request.load_metrics), agent_id))
-            
+
             return {
                 "status": "success",
                 "message": f"Agent {agent_id} status updated",
                 "agent_id": agent_id,
                 "new_status": request.status,
-                "updated_at": datetime.now(timezone.utc).isoformat()
+                "updated_at": datetime.now(UTC).isoformat()
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating agent status: {str(e)}")
@@ -420,31 +421,31 @@ async def agent_heartbeat(agent_id: str):
             conn.execute('''
                 UPDATE agents SET last_heartbeat = ?
                 WHERE id = ?
-            ''', (datetime.now(timezone.utc), agent_id))
-            
+            ''', (datetime.now(UTC), agent_id))
+
             return {
                 "status": "success",
                 "message": f"Heartbeat received for agent {agent_id}",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating heartbeat: {str(e)}")
 
 # Agent Matching and Task Distribution
 
-def find_eligible_agents(required_capabilities: List[str], agent_type: Optional[str] = None) -> List[Dict[str, Any]]:
+def find_eligible_agents(required_capabilities: list[str], agent_type: str | None = None) -> list[dict[str, Any]]:
     """Find eligible agents for task"""
     with get_db_connection() as conn:
         # Build query
         sql = "SELECT * FROM agents WHERE status = ?"
         params = ["active"]
-        
+
         if agent_type:
             sql += " AND agent_type = ?"
             params.append(agent_type)
-        
+
         agents = conn.execute(sql, params).fetchall()
-        
+
         # Filter by capabilities
         if required_capabilities:
             required_set = set(required_capabilities)
@@ -454,10 +455,10 @@ def find_eligible_agents(required_capabilities: List[str], agent_type: Optional[
                 if required_set.issubset(agent_capabilities):
                     eligible_agents.append(agent)
             agents = eligible_agents
-        
+
         # Sort by health score (highest first)
         agents = sorted(agents, key=lambda a: a["health_score"], reverse=True)
-        
+
         return [
             {
                 "agent_id": agent["id"],
@@ -468,17 +469,17 @@ def find_eligible_agents(required_capabilities: List[str], agent_type: Optional[
             for agent in agents
         ]
 
-def assign_task_to_agent(task_id: str, required_capabilities: List[str], agent_type: Optional[str] = None) -> Optional[str]:
+def assign_task_to_agent(task_id: str, required_capabilities: list[str], agent_type: str | None = None) -> str | None:
     """Assign task to best available agent using least_connections strategy"""
     # Find eligible agents
     eligible_agents = find_eligible_agents(required_capabilities, agent_type)
-    
+
     if not eligible_agents:
         return None
-    
+
     # Select agent with least connections (load balancing)
     selected_agent = min(eligible_agents, key=lambda a: a["load_metrics"].get("active_connections", 0))
-    
+
     # Record assignment
     assignment_id = str(uuid.uuid4())
     with get_db_connection() as conn:
@@ -486,13 +487,13 @@ def assign_task_to_agent(task_id: str, required_capabilities: List[str], agent_t
             INSERT INTO agent_assignments (id, task_id, agent_id, status)
             VALUES (?, ?, ?, ?)
         ''', (assignment_id, task_id, selected_agent["agent_id"], "assigned"))
-        
+
         # Update task with assigned agent
         conn.execute('''
             UPDATE tasks SET assigned_agent_id = ?, status = ?
             WHERE id = ?
         ''', (selected_agent["agent_id"], "assigned", task_id))
-        
+
         # Update agent load metrics
         load_metrics = selected_agent["load_metrics"]
         load_metrics["active_connections"] = load_metrics.get("active_connections", 0) + 1
@@ -501,7 +502,7 @@ def assign_task_to_agent(task_id: str, required_capabilities: List[str], agent_t
             UPDATE agents SET load_metrics = ?
             WHERE id = ?
         ''', (json.dumps(load_metrics), selected_agent["agent_id"]))
-    
+
     return selected_agent["agent_id"]
 
 if __name__ == "__main__":

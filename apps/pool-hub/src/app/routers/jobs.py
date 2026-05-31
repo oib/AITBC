@@ -1,11 +1,12 @@
 """Job distribution routes for Pool Hub"""
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
-from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
+
 from ..registry import MinerRegistry
 from ..scoring import ScoringEngine
 
@@ -19,7 +20,7 @@ class JobRequest(BaseModel):
     model: str
     params: dict = {}
     priority: int = 0
-    deadline: Optional[datetime] = None
+    deadline: datetime | None = None
     reward: float = 0.0
 
 
@@ -29,7 +30,7 @@ class JobAssignment(BaseModel):
     miner_id: str
     pool_id: str
     assigned_at: datetime
-    deadline: Optional[datetime]
+    deadline: datetime | None
 
 
 class JobResult(BaseModel):
@@ -37,8 +38,8 @@ class JobResult(BaseModel):
     job_id: str
     miner_id: str
     status: str  # completed, failed
-    result: Optional[str] = None
-    error: Optional[str] = None
+    result: str | None = None
+    error: str | None = None
     metrics: dict = {}
 
 
@@ -65,31 +66,31 @@ async def assign_job(
         capability=job.model,
         limit=100
     )
-    
+
     if not available:
         raise HTTPException(
             status_code=503,
             detail="No miners available for this model"
         )
-    
+
     # Score and rank miners
     scored = await scoring.rank_miners(available, job)
-    
+
     # Select best miner
     best_miner = scored[0]
-    
+
     # Assign job
     assignment = await registry.assign_job(
         job_id=job.job_id,
         miner_id=best_miner.miner_id,
         deadline=job.deadline
     )
-    
+
     return JobAssignment(
         job_id=job.job_id,
         miner_id=best_miner.miner_id,
         pool_id=best_miner.pool_id,
-        assigned_at=datetime.now(timezone.utc),
+        assigned_at=datetime.now(UTC),
         deadline=job.deadline
     )
 
@@ -106,7 +107,7 @@ async def submit_result(
     miner = await registry.get(result.miner_id)
     if not miner:
         raise HTTPException(status_code=404, detail="Miner not found")
-    
+
     # Update job status
     await registry.complete_job(
         job_id=result.job_id,
@@ -114,13 +115,13 @@ async def submit_result(
         status=result.status,
         metrics=result.metrics
     )
-    
+
     # Update miner score based on result
     if result.status == "completed":
         await scoring.record_success(result.miner_id, result.metrics)
     else:
         await scoring.record_failure(result.miner_id, result.error)
-    
+
     return {"status": "recorded"}
 
 
@@ -128,7 +129,7 @@ async def submit_result(
 @rate_limit(rate=200, per=60)
 async def get_pending_jobs(
     request: Request,
-    pool_id: Optional[str] = Query(None),
+    pool_id: str | None = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -162,13 +163,13 @@ async def reassign_job(
     job = await registry.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     if job.status not in ["failed", "timeout"]:
         raise HTTPException(
             status_code=400,
             detail="Can only reassign failed or timed-out jobs"
         )
-    
+
     # Find new miner (exclude previous)
     available = await registry.list(
         status="available",
@@ -176,18 +177,18 @@ async def reassign_job(
         exclude_miner=job.miner_id,
         limit=100
     )
-    
+
     if not available:
         raise HTTPException(
             status_code=503,
             detail="No alternative miners available"
         )
-    
+
     scored = await scoring.rank_miners(available, job)
     new_miner = scored[0]
-    
+
     await registry.reassign_job(job_id, new_miner.miner_id)
-    
+
     return {
         "job_id": job_id,
         "new_miner_id": new_miner.miner_id,

@@ -5,9 +5,8 @@ Advanced transaction management system for cross-chain operations with routing, 
 
 import asyncio
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
@@ -20,18 +19,19 @@ from sqlmodel import Session, select
 from ..agent_identity.wallet_adapter_enhanced import (
     EnhancedWalletAdapter,
     SecurityLevel,
-    TransactionStatus as WalletTransactionStatus,
     WalletAdapterFactory,
 )
-from ..reputation.engine import CrossChainReputationEngine
 from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService
 from ..domain.multi_chain_transaction import (
     MultiChainTransaction,
-    TransactionPriority,
-    TransactionType as MultiChainTransactionType,
-    TransactionStatus,
     RoutingStrategy,
+    TransactionPriority,
+    TransactionStatus,
 )
+from ..domain.multi_chain_transaction import (
+    TransactionType as MultiChainTransactionType,
+)
+from ..reputation.engine import CrossChainReputationEngine
 
 
 class MultiChainTransactionManager:
@@ -85,7 +85,7 @@ class MultiChainTransactionManager:
                     "success_rate": 0.0,
                     "average_gas_price": 0.0,
                     "average_confirmation_time": 0.0,
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                 }
 
             # Initialize bridge service
@@ -156,7 +156,7 @@ class MultiChainTransactionManager:
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,
                 status=TransactionStatus.QUEUED,
-                deadline=datetime.now(timezone.utc) + timedelta(minutes=deadline_minutes),
+                deadline=datetime.now(UTC) + timedelta(minutes=deadline_minutes),
                 meta_data=metadata or {},
                 retry_count=0,
                 submit_attempts=0,
@@ -251,9 +251,9 @@ class MultiChainTransactionManager:
             # Update transaction status
             transaction.status = TransactionStatus.CANCELLED
             transaction.error_message = reason
-            transaction.cancelled_at = datetime.now(timezone.utc)
+            transaction.cancelled_at = datetime.now(UTC)
             transaction.cancellation_reason = reason
-            transaction.updated_at = datetime.now(timezone.utc)
+            transaction.updated_at = datetime.now(UTC)
 
             self.session.commit()
             self.session.refresh(transaction)
@@ -351,7 +351,7 @@ class MultiChainTransactionManager:
         """Get transaction statistics"""
 
         try:
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=time_period_hours)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=time_period_hours)
 
             # Query from database
             stmt = select(MultiChainTransaction).where(MultiChainTransaction.created_at >= cutoff_time)
@@ -405,7 +405,7 @@ class MultiChainTransactionManager:
                 "average_processing_time_seconds": avg_processing_time,
                 "gas_statistics": gas_stats,
                 "priority_distribution": dict(priority_distribution),
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -461,7 +461,7 @@ class MultiChainTransactionManager:
                     "success_rate_weight": 0.2,
                     "queue_length_weight": 0.2,
                 },
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -534,7 +534,7 @@ class MultiChainTransactionManager:
         """Check for stuck transactions"""
 
         try:
-            current_time = datetime.now(timezone.utc)
+            current_time = datetime.now(UTC)
             stuck_threshold = timedelta(minutes=30)
 
             # Query stuck transactions from database
@@ -564,7 +564,7 @@ class MultiChainTransactionManager:
             if tx_status.get("status") == TransactionStatus.COMPLETED.value:
                 transaction["status"] = TransactionStatus.COMPLETED.value
                 transaction["confirmations"] = await self._get_transaction_confirmations(transaction)
-                transaction["updated_at"] = datetime.now(timezone.utc)
+                transaction["updated_at"] = datetime.now(UTC)
 
         except Exception as e:
             logger.error(f"Error updating transaction status: {e}")

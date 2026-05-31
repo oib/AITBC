@@ -4,7 +4,7 @@ Centralized utilities for loading and managing environment variables
 """
 
 import os
-from typing import Optional
+
 from ..exceptions import ConfigurationError
 
 
@@ -94,7 +94,7 @@ def get_float_env_var(key: str, default: float = 0.0) -> float:
         return default
 
 
-def get_list_env_var(key: str, separator: str = ",", default: Optional[list] = None) -> list:
+def get_list_env_var(key: str, separator: str = ",", default: list | None = None) -> list:
     """
     Get a list environment variable.
     

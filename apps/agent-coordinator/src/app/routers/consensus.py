@@ -1,25 +1,14 @@
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse
 
-from .. import state
-from ..auth.jwt_handler import api_key_manager, jwt_handler
-from ..auth.middleware import get_current_user, require_role
-from ..auth.permissions import Permission, Role, permission_manager
 from ..ai.advanced_ai import ai_integration
 from ..ai.realtime_learning import learning_system
 from ..consensus.distributed_consensus import distributed_consensus
-from ..models import AgentRegistrationRequest, AgentStatusUpdate, MessageRequest, TaskSubmission
-from ..monitoring.alerting import alert_manager
-from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
-from ..protocols.communication import MessageType, create_protocol
-from ..protocols.message_types import create_task_message
-from ..routing.agent_discovery import create_agent_info
-from ..routing.load_balancer import LoadBalancingStrategy, TaskPriority
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -28,7 +17,7 @@ router = APIRouter()
 @router.post("/consensus/node/register")
 @rate_limit(rate=50, per=60)
 async def register_consensus_node(
-    request: Request, node_data: Dict[str, Any]
+    request: Request, node_data: dict[str, Any]
 ):
     """Register a node in the consensus network"""
     try:
@@ -41,7 +30,7 @@ async def register_consensus_node(
 @router.post("/consensus/proposal/create")
 @rate_limit(rate=50, per=60)
 async def create_consensus_proposal(
-    request: Request, proposal_data: Dict[str, Any]
+    request: Request, proposal_data: dict[str, Any]
 ):
     """Create a new consensus proposal"""
     try:
@@ -127,10 +116,10 @@ async def get_advanced_features_status(
         learning_stats = await learning_system.get_learning_statistics()
         ai_stats = await ai_integration.get_ai_statistics()
         consensus_stats = await distributed_consensus.get_consensus_statistics()
-        
+
         return {
             "status": "success",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "features": {
                 "realtime_learning": {
                     "status": "active",

@@ -1,9 +1,7 @@
-import base64
 
-from nacl.signing import SigningKey
-
-from aitbc_crypto.receipt import canonical_json, receipt_hash
+from aitbc_crypto.receipt import canonical_json
 from aitbc_crypto.signing import ReceiptSigner, ReceiptVerifier
+from nacl.signing import SigningKey
 
 
 def test_canonical_json_orders_keys():

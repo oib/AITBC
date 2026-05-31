@@ -2,27 +2,28 @@
 Service configuration router for pool hub
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..deps import get_db, get_miner_id
 from ..models import Miner, ServiceConfig, ServiceType
-from ..schemas import ServiceConfigCreate, ServiceConfigUpdate, ServiceConfigResponse
+from ..schemas import ServiceConfigCreate, ServiceConfigResponse, ServiceConfigUpdate
 
 router = APIRouter(prefix="/services", tags=["services"])
 
 
-@router.get("/", response_model=List[ServiceConfigResponse])
+@router.get("/", response_model=list[ServiceConfigResponse])
 async def list_service_configs(
     db: Session = Depends(get_db),
     miner_id: str = Depends(get_miner_id)
-) -> List[ServiceConfigResponse]:
+) -> list[ServiceConfigResponse]:
     """List all service configurations for the miner"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id)
     configs = db.execute(stmt).scalars().all()
-    
+
     return [ServiceConfigResponse.from_orm(config) for config in configs]
 
 
@@ -38,7 +39,7 @@ async def get_service_config(
         ServiceConfig.service_type == service_type
     )
     config = db.execute(stmt).scalar_one_or_none()
-    
+
     if not config:
         # Return default config
         return ServiceConfigResponse(
@@ -49,7 +50,7 @@ async def get_service_config(
             capabilities=[],
             max_concurrent=1
         )
-    
+
     return ServiceConfigResponse.from_orm(config)
 
 
@@ -67,14 +68,14 @@ async def create_or_update_service_config(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid service type: {service_type}"
         )
-    
+
     # Check if config exists
     stmt = select(ServiceConfig).where(
         ServiceConfig.miner_id == miner_id,
         ServiceConfig.service_type == service_type
     )
     existing = db.execute(stmt).scalar_one_or_none()
-    
+
     if existing:
         # Update existing
         existing.enabled = config_data.enabled
@@ -99,7 +100,7 @@ async def create_or_update_service_config(
         db.add(config)
         db.commit()
         db.refresh(config)
-    
+
     return ServiceConfigResponse.from_orm(config)
 
 
@@ -116,13 +117,13 @@ async def patch_service_config(
         ServiceConfig.service_type == service_type
     )
     config = db.execute(stmt).scalar_one_or_none()
-    
+
     if not config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Service configuration not found"
         )
-    
+
     # Update only provided fields
     if config_data.enabled is not None:
         config.enabled = config_data.enabled
@@ -134,10 +135,10 @@ async def patch_service_config(
         config.capabilities = config_data.capabilities
     if config_data.max_concurrent is not None:
         config.max_concurrent = config_data.max_concurrent
-    
+
     db.commit()
     db.refresh(config)
-    
+
     return ServiceConfigResponse.from_orm(config)
 
 
@@ -146,28 +147,28 @@ async def delete_service_config(
     service_type: str,
     db: Session = Depends(get_db),
     miner_id: str = Depends(get_miner_id)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Delete service configuration"""
     stmt = select(ServiceConfig).where(
         ServiceConfig.miner_id == miner_id,
         ServiceConfig.service_type == service_type
     )
     config = db.execute(stmt).scalar_one_or_none()
-    
+
     if not config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Service configuration not found"
         )
-    
+
     db.delete(config)
     db.commit()
-    
+
     return {"message": f"Service configuration for {service_type} deleted"}
 
 
 @router.get("/templates/{service_type}")
-async def get_service_template(service_type: str) -> Dict[str, Any]:
+async def get_service_template(service_type: str) -> dict[str, Any]:
     """Get default configuration template for a service"""
     templates = {
         "whisper": {
@@ -241,62 +242,62 @@ async def get_service_template(service_type: str) -> Dict[str, Any]:
             "max_concurrent": 1
         }
     }
-    
+
     if service_type not in templates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unknown service type: {service_type}"
         )
-    
+
     return templates[service_type]
 
 
 @router.post("/validate/{service_type}")
 async def validate_service_config(
     service_type: str,
-    config_data: Dict[str, Any],
+    config_data: dict[str, Any],
     db: Session = Depends(get_db),
     miner_id: str = Depends(get_miner_id)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validate service configuration against miner capabilities"""
     # Get miner info
     stmt = select(Miner).where(Miner.miner_id == miner_id)
     miner = db.execute(stmt).scalar_one_or_none()
-    
+
     if not miner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Miner not found"
         )
-    
+
     # Validate based on service type
     validation_result = {
         "valid": True,
         "warnings": [],
         "errors": []
     }
-    
+
     if service_type == "stable_diffusion":
         # Check VRAM requirements
         max_resolution = config_data.get("config", {}).get("max_resolution", "1024x1024")
         if "4K" in max_resolution and miner.gpu_vram_gb < 16:
             validation_result["warnings"].append("4K resolution requires at least 16GB VRAM")
-        
+
         if miner.gpu_vram_gb < 8:
             validation_result["errors"].append("Stable Diffusion requires at least 8GB VRAM")
             validation_result["valid"] = False
-    
+
     elif service_type == "llm_inference":
         # Check model size vs VRAM
         models = config_data.get("config", {}).get("models", [])
         for model in models:
             if "70b" in model.lower() and miner.gpu_vram_gb < 64:
                 validation_result["warnings"].append(f"{model} requires 64GB VRAM")
-    
+
     elif service_type == "blender":
         # Check if GPU is supported
         engine = config_data.get("config", {}).get("default_engine", "cycles")
         if engine == "cycles" and "nvidia" not in miner.tags.get("gpu", "").lower():
             validation_result["warnings"].append("Cycles engine works best with NVIDIA GPUs")
-    
+
     return validation_result

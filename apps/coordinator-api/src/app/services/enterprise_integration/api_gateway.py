@@ -6,7 +6,7 @@ Port: 8010
 
 import secrets
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -102,8 +102,8 @@ class EnterpriseIntegration:
         self.provider = provider
         self.configuration = configuration
         self.status = IntegrationStatus.PENDING
-        self.created_at = datetime.now(timezone.utc)
-        self.last_updated = datetime.now(timezone.utc)
+        self.created_at = datetime.now(UTC)
+        self.last_updated = datetime.now(UTC)
         self.webhook_config: dict[str, Any] | None = None
         self.metrics = {"api_calls": 0, "errors": 0, "last_call": None}
 
@@ -153,7 +153,7 @@ class EnterpriseAPIGateway:
                 "tenant_id": request.tenant_id,
                 "client_id": request.client_id,
                 "scopes": request.scopes or ["enterprise_api"],
-                "expires_at": datetime.now(timezone.utc) + timedelta(seconds=self.token_expiry),
+                "expires_at": datetime.now(UTC) + timedelta(seconds=self.token_expiry),
                 "refresh_token": refresh_token,
             }
 
@@ -182,8 +182,8 @@ class EnterpriseAPIGateway:
         payload = {
             "sub": f"{tenant_id}:{client_id}",
             "scopes": scopes,
-            "iat": datetime.now(timezone.utc),
-            "exp": datetime.now(timezone.utc) + timedelta(seconds=self.token_expiry),
+            "iat": datetime.now(UTC),
+            "exp": datetime.now(UTC) + timedelta(seconds=self.token_expiry),
             "type": "access",
         }
 
@@ -194,8 +194,8 @@ class EnterpriseAPIGateway:
 
         payload = {
             "sub": f"{tenant_id}:{client_id}",
-            "iat": datetime.now(timezone.utc),
-            "exp": datetime.now(timezone.utc) + timedelta(days=30),  # 30 days
+            "iat": datetime.now(UTC),
+            "exp": datetime.now(UTC) + timedelta(days=30),  # 30 days
             "type": "refresh",
         }
 
@@ -244,7 +244,7 @@ class EnterpriseAPIGateway:
             return APIQuotaResponse(
                 quota_limit=quota["rate_limit"],
                 quota_remaining=quota["rate_limit"] - current_usage - 1,
-                quota_reset=datetime.now(timezone.utc) + timedelta(minutes=1),
+                quota_reset=datetime.now(UTC) + timedelta(minutes=1),
                 quota_type="rate_limit",
             )
 
@@ -276,7 +276,7 @@ class EnterpriseAPIGateway:
 
         if quota_type == "rate_limit":
             # Get usage in the last minute
-            return len([t for t in self.rate_limiters.get(tenant_id, []) if datetime.now(timezone.utc) - t < timedelta(minutes=1)])
+            return len([t for t in self.rate_limiters.get(tenant_id, []) if datetime.now(UTC) - t < timedelta(minutes=1)])
 
         return 0
 
@@ -288,10 +288,10 @@ class EnterpriseAPIGateway:
                 self.rate_limiters[tenant_id] = []
 
             # Add current timestamp
-            self.rate_limiters[tenant_id].append(datetime.now(timezone.utc))
+            self.rate_limiters[tenant_id].append(datetime.now(UTC))
 
             # Clean old entries (older than 1 minute)
-            cutoff = datetime.now(timezone.utc) - timedelta(minutes=1)
+            cutoff = datetime.now(UTC) - timedelta(minutes=1)
             self.rate_limiters[tenant_id] = [t for t in self.rate_limiters[tenant_id] if t > cutoff]
 
     async def create_enterprise_integration(
@@ -350,7 +350,7 @@ class EnterpriseAPIGateway:
                 await self._initialize_bi_integration(integration)
 
             integration.status = IntegrationStatus.ACTIVE
-            integration.last_updated = datetime.now(timezone.utc)
+            integration.last_updated = datetime.now(UTC)
 
         except Exception as e:
             logger.error(f"Integration initialization failed: {e}")
@@ -589,7 +589,7 @@ async def get_status() -> dict[str, Any]:
         "status": "operational",
         "active_tenants": len({token["tenant_id"] for token in gateway.active_tokens.values()}),
         "active_integrations": len(gateway.integrations),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -616,7 +616,7 @@ async def health_check() -> dict[str, Any]:
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "services": {
             "api_gateway": "operational",
             "authentication": "operational",

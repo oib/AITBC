@@ -4,11 +4,12 @@ Marketplace service for managing marketplace operations
 
 from typing import Any
 
-from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from aitbc import get_logger
-from ..domain.marketplace import MarketplaceOffer, MarketplaceBid
+
+from ..domain.marketplace import MarketplaceBid, MarketplaceOffer
 
 logger = get_logger(__name__)
 
@@ -84,7 +85,7 @@ class MarketplaceService:
             if not offer:
                 logger.error(f"Offer not found: {offer_id}")
                 raise ValueError(f"Offer not found: {offer_id}")
-            
+
             # Create a bid for the offer
             bid_data = {
                 'provider': booking_data.get('wallet') or 'unknown',
@@ -92,10 +93,10 @@ class MarketplaceService:
                 'price': booking_data.get('price', offer.price),
                 'status': 'pending',
             }
-            
+
             bid = await self.create_bid(bid_data)
             logger.info(f"Created bid for offer {offer_id}: {bid.id}")
-            
+
             return {
                 'bid_id': bid.id,
                 'offer_id': offer_id,
@@ -211,6 +212,7 @@ class MarketplaceService:
     async def list_plugins(self, type: str | None = None, status: str = "approved") -> list[dict]:
         """List plugins from database"""
         from sqlalchemy import select
+
         from .domain.marketplace import Plugin
 
         try:
@@ -324,7 +326,8 @@ class MarketplaceService:
     async def query_graph(self, graph_id: str) -> dict:
         """Query a knowledge graph (get all nodes and edges)"""
         from sqlalchemy import select
-        from .domain.marketplace import GraphNode, GraphEdge
+
+        from .domain.marketplace import GraphEdge, GraphNode
 
         try:
             # Get nodes

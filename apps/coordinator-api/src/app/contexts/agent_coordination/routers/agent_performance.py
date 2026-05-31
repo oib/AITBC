@@ -1,14 +1,16 @@
 from typing import Annotated
 
 from sqlalchemy.orm import Session
+from sqlmodel import select
+from uuid import uuid4
 
 """
 Advanced Agent Performance API Endpoints
 REST API for meta-learning, resource optimization, and performance enhancement
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -21,16 +23,12 @@ logger = get_logger(__name__)
 from ....domain.agent_performance import (
     AgentCapability,
     AgentPerformanceProfile,
-    CreativeCapability,
-    FusionModel,
     LearningStrategy,
     MetaLearningModel,
     OptimizationTarget,
     PerformanceMetric,
     PerformanceOptimization,
-    ReinforcementLearningConfig,
     ResourceAllocation,
-    ResourceType,
 )
 from ....services.agent_coordination.performance import (
     AgentPerformanceService,
@@ -49,7 +47,7 @@ class PerformanceProfileRequest(BaseModel):
 
     agent_id: str
     agent_type: str = Field(default="hermes")
-    initial_metrics: Dict[str, float] = Field(default_factory=dict)
+    initial_metrics: dict[str, float] = Field(default_factory=dict)
 
 
 class PerformanceProfileResponse(BaseModel):
@@ -59,15 +57,15 @@ class PerformanceProfileResponse(BaseModel):
     agent_id: str
     agent_type: str
     overall_score: float
-    performance_metrics: Dict[str, float]
-    learning_strategies: List[str]
-    specialization_areas: List[str]
-    expertise_levels: Dict[str, float]
-    resource_efficiency: Dict[str, float]
+    performance_metrics: dict[str, float]
+    learning_strategies: list[str]
+    specialization_areas: list[str]
+    expertise_levels: dict[str, float]
+    resource_efficiency: dict[str, float]
     cost_per_task: float
     throughput: float
     average_latency: float
-    last_assessed: Optional[str]
+    last_assessed: str | None
     created_at: str
     updated_at: str
 
@@ -76,9 +74,9 @@ class MetaLearningRequest(BaseModel):
     """Request model for meta-learning model creation"""
 
     model_name: str
-    base_algorithms: List[str]
+    base_algorithms: list[str]
     meta_strategy: LearningStrategy
-    adaptation_targets: List[str]
+    adaptation_targets: list[str]
 
 
 class MetaLearningResponse(BaseModel):
@@ -88,20 +86,20 @@ class MetaLearningResponse(BaseModel):
     model_name: str
     model_type: str
     meta_strategy: str
-    adaptation_targets: List[str]
+    adaptation_targets: list[str]
     meta_accuracy: float
     adaptation_speed: float
     generalization_ability: float
     status: str
     created_at: str
-    trained_at: Optional[str]
+    trained_at: str | None
 
 
 class ResourceAllocationRequest(BaseModel):
     """Request model for resource allocation"""
 
     agent_id: str
-    task_requirements: Dict[str, Any]
+    task_requirements: dict[str, Any]
     optimization_target: OptimizationTarget = Field(default=OptimizationTarget.EFFICIENCY)
     priority_level: str = Field(default="normal")
 
@@ -127,7 +125,7 @@ class PerformanceOptimizationRequest(BaseModel):
 
     agent_id: str
     target_metric: PerformanceMetric
-    current_performance: Dict[str, float]
+    current_performance: dict[str, float]
     optimization_type: str = Field(default="comprehensive")
 
 
@@ -144,7 +142,7 @@ class PerformanceOptimizationResponse(BaseModel):
     cost_savings: float
     overall_efficiency_gain: float
     created_at: str
-    completed_at: Optional[str]
+    completed_at: str | None
 
 
 class CapabilityRequest(BaseModel):
@@ -155,7 +153,7 @@ class CapabilityRequest(BaseModel):
     capability_type: str
     domain_area: str
     skill_level: float = Field(ge=0, le=10.0)
-    specialization_areas: List[str] = Field(default_factory=list)
+    specialization_areas: list[str] = Field(default_factory=list)
 
 
 class CapabilityResponse(BaseModel):
@@ -168,7 +166,7 @@ class CapabilityResponse(BaseModel):
     domain_area: str
     skill_level: float
     proficiency_score: float
-    specialization_areas: List[str]
+    specialization_areas: list[str]
     status: str
     created_at: str
 
@@ -216,12 +214,12 @@ async def create_performance_profile(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/profiles/{agent_id}", response_model=Dict[str, Any])
+@router.get("/profiles/{agent_id}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_performance_profile(
     request: Request,
     agent_id: str, session: Annotated[Session, Depends(get_session)]
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get agent performance profile"""
 
     performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
@@ -246,10 +244,10 @@ async def get_performance_profile(
 async def update_performance_metrics(
     request: Request,
     agent_id: str,
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     session: Annotated[Session, Depends(get_session)],
-    task_context: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    task_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Update agent performance metrics"""
 
     performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
@@ -315,10 +313,10 @@ async def create_meta_learning_model(
 async def adapt_model_to_task(
     request: Request,
     model_id: str,
-    task_data: Dict[str, Any],
+    task_data: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     adaptation_steps: int = Query(default=10, ge=1, le=50),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Adapt meta-learning model to new task"""
 
     meta_learning_engine = MetaLearningEngine()
@@ -332,7 +330,7 @@ async def adapt_model_to_task(
             "success": True,
             "model_id": model_id,
             "adaptation_results": results,
-            "adapted_at": datetime.now(timezone.utc).isoformat(),
+            "adapted_at": datetime.now(UTC).isoformat(),
         }
 
     except ValueError as e:
@@ -347,10 +345,10 @@ async def adapt_model_to_task(
 async def list_meta_learning_models(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    status: Optional[str] = Query(default=None, description="Filter by status"),
-    meta_strategy: Optional[str] = Query(default=None, description="Filter by meta strategy"),
+    status: str | None = Query(default=None, description="Filter by status"),
+    meta_strategy: str | None = Query(default=None, description="Filter by meta strategy"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List meta-learning models"""
 
     try:
@@ -430,9 +428,9 @@ async def get_resource_allocations(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
-    status: Optional[str] = Query(default=None, description="Filter by status"),
+    status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get resource allocations for agent"""
 
     try:
@@ -514,10 +512,10 @@ async def get_optimization_history(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
-    status: Optional[str] = Query(default=None, description="Filter by status"),
-    target_metric: Optional[str] = Query(default=None, description="Filter by target metric"),
+    status: str | None = Query(default=None, description="Filter by status"),
+    target_metric: str | None = Query(default=None, description="Filter by target metric"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get optimization history for agent"""
 
     try:
@@ -579,7 +577,7 @@ async def create_capability(
             skill_level=capability_request.skill_level,
             specialization_areas=capability_request.specialization_areas,
             proficiency_score=min(1.0, capability_request.skill_level / 10.0),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         session.add(capability)
@@ -610,10 +608,10 @@ async def get_agent_capabilities(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
-    capability_type: Optional[str] = Query(default=None, description="Filter by capability type"),
-    domain_area: Optional[str] = Query(default=None, description="Filter by domain area"),
+    capability_type: str | None = Query(default=None, description="Filter by capability type"),
+    domain_area: str | None = Query(default=None, description="Filter by domain area"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get agent capabilities"""
 
     try:
@@ -662,10 +660,10 @@ async def get_agent_capabilities(
 async def get_performance_summary(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    agent_ids: List[str] = Query(default=[], description="List of agent IDs"),
-    metric: Optional[str] = Query(default="overall_score", description="Metric to summarize"),
+    agent_ids: list[str] = Query(default=[], description="List of agent IDs"),
+    metric: str | None = Query(default="overall_score", description="Metric to summarize"),
     period: str = Query(default="7d", description="Time period"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get performance summary for agents"""
 
     try:
@@ -712,7 +710,7 @@ async def get_performance_summary(
                     "average": len([s for s in summaries if 40 <= s["overall_score"] < 60]),
                     "below_average": len([s for s in summaries if s["overall_score"] < 40]),
                 },
-                "specialization_distribution": self.calculate_specialization_distribution(summaries),  # type: ignore[name-defined]
+                "specialization_distribution": calculate_specialization_distribution(summaries),  # type: ignore[name-defined]
             }
         else:
             return {
@@ -729,7 +727,7 @@ async def get_performance_summary(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-def calculate_specialization_distribution(summaries: List[Dict[str, Any]]) -> Dict[str, int]:
+def calculate_specialization_distribution(summaries: list[dict[str, Any]]) -> dict[str, int]:
     """Calculate specialization distribution"""
 
     distribution = {}  # type: ignore[var-annotated]
@@ -743,12 +741,12 @@ def calculate_specialization_distribution(summaries: List[Dict[str, Any]]) -> Di
 
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
-async def health_check(request: Request) -> Dict[str, Any]:
+async def health_check(request: Request) -> dict[str, Any]:
     """Health check for agent performance service"""
 
     return {
         "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "version": "1.0.0",
         "services": {
             "meta_learning_engine": "operational",

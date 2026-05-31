@@ -1,14 +1,20 @@
 """Integration tests for global infrastructure service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, Region, GlobalDeployment, LoadBalancer, PerformanceMetrics, global_regions, deployments, load_balancers, performance_metrics
+from main import (
+    GlobalDeployment,
+    LoadBalancer,
+    PerformanceMetrics,
+    Region,
+    app,
+    deployments,
+    global_regions,
+    load_balancers,
+    performance_metrics,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -86,7 +92,7 @@ def test_register_duplicate_region():
         compliance_level="full"
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
-    
+
     response = client.post("/api/v1/regions/register", json=region.model_dump())
     assert response.status_code == 400
 
@@ -118,7 +124,7 @@ def test_get_region():
         compliance_level="full"
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
-    
+
     response = client.get("/api/v1/regions/us-west-1")
     assert response.status_code == 200
     data = response.json()
@@ -150,7 +156,7 @@ def test_create_deployment():
         compliance_level="full"
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
-    
+
     deployment = GlobalDeployment(
         deployment_id="deploy_123",
         service_name="test-service",
@@ -199,7 +205,7 @@ def test_get_deployment():
         compliance_level="full"
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
-    
+
     deployment = GlobalDeployment(
         deployment_id="deploy_123",
         service_name="test-service",
@@ -210,7 +216,7 @@ def test_get_deployment():
     )
     create_response = client.post("/api/v1/deployments/create", json=deployment.model_dump())
     deployment_id = create_response.json()["deployment_id"]
-    
+
     response = client.get(f"/api/v1/deployments/{deployment_id}")
     assert response.status_code == 200
     data = response.json()
@@ -245,7 +251,7 @@ def test_create_load_balancer():
         compliance_level="full"
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
-    
+
     balancer = LoadBalancer(
         balancer_id="lb_123",
         name="Main LB",
@@ -278,7 +284,7 @@ def test_record_performance_metrics():
     client = TestClient(app)
     metrics = PerformanceMetrics(
         region_id="us-west-1",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         cpu_usage=50.5,
         memory_usage=60.2,
         network_io=1000.5,
@@ -300,7 +306,7 @@ def test_get_region_performance():
     # Record metrics first
     metrics = PerformanceMetrics(
         region_id="us-west-1",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         cpu_usage=50.5,
         memory_usage=60.2,
         network_io=1000.5,
@@ -309,7 +315,7 @@ def test_get_region_performance():
         response_time_ms=45.2
     )
     client.post("/api/v1/performance/metrics", json=metrics.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/performance/us-west-1")
     assert response.status_code == 200
     data = response.json()
@@ -334,7 +340,7 @@ def test_get_region_compliance():
         compliance_level="full"
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
-    
+
     response = client.get("/api/v1/compliance/us-west-1")
     assert response.status_code == 200
     data = response.json()

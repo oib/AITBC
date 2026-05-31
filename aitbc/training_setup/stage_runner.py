@@ -4,14 +4,11 @@ Loads JSON stage definitions, runs commands, and validates expected conditions.
 """
 
 import json
-import subprocess
-import re
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
 import logging
-
-from .exceptions import TrainingSetupError
+import re
+import subprocess
+from dataclasses import dataclass
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -20,8 +17,8 @@ log = logging.getLogger(__name__)
 class Command:
     """Represents a single command in a stage."""
     cmd: str
-    args: List[str]
-    expected_re: Optional[str] = None
+    args: list[str]
+    expected_re: str | None = None
     expected_exit_code: int = 0
 
 
@@ -37,9 +34,9 @@ class StageDefinition:
     """Represents a complete training stage definition."""
     stage: int
     title: str
-    commands: List[Command]
-    expected: Dict[str, ExpectedCondition]
-    prerequisites: Optional[List[str]] = None
+    commands: list[Command]
+    expected: dict[str, ExpectedCondition]
+    prerequisites: list[str] | None = None
 
 
 class StageRunner:
@@ -50,7 +47,7 @@ class StageRunner:
 
     def __init__(self, aitbc_cli: str = "/opt/aitbc/aitbc-cli"):
         self.aitbc_cli = aitbc_cli
-        self.results: Dict[str, Any] = {}
+        self.results: dict[str, Any] = {}
 
     def load_stage_from_json(self, json_path: str) -> StageDefinition:
         """
@@ -62,9 +59,9 @@ class StageRunner:
         Returns:
             StageDefinition object
         """
-        with open(json_path, 'r') as f:
+        with open(json_path) as f:
             data = json.load(f)
-        
+
         commands = []
         for cmd_data in data.get('commands', []):
             commands.append(Command(
@@ -73,14 +70,14 @@ class StageRunner:
                 expected_re=cmd_data.get('re'),
                 expected_exit_code=cmd_data.get('exit_code', 0)
             ))
-        
+
         expected = {}
         for key, cond_data in data.get('expected', {}).items():
             expected[key] = ExpectedCondition(
                 type=cond_data.get('type', 'value'),
                 value=cond_data.get('value')
             )
-        
+
         return StageDefinition(
             stage=data['stage'],
             title=data.get('title', f"Stage {data['stage']}"),
@@ -89,7 +86,7 @@ class StageRunner:
             prerequisites=data.get('prerequisites')
         )
 
-    def run_command(self, command: Command) -> Dict[str, Any]:
+    def run_command(self, command: Command) -> dict[str, Any]:
         """
         Execute a single command and validate output.
 
@@ -158,7 +155,7 @@ class StageRunner:
             # Extract transaction hash if present
             tx_hash = self._extract_tx_hash(output)
 
-            log.info(f"✓ Command succeeded")
+            log.info("✓ Command succeeded")
             return {
                 "success": True,
                 "exit_code": result.returncode,
@@ -167,7 +164,7 @@ class StageRunner:
             }
 
         except subprocess.TimeoutExpired:
-            log.error(f"Command timed out")
+            log.error("Command timed out")
             return {
                 "success": False,
                 "error": "Command timed out"
@@ -179,7 +176,7 @@ class StageRunner:
                 "error": str(e)
             }
 
-    def _extract_tx_hash(self, output: str) -> Optional[str]:
+    def _extract_tx_hash(self, output: str) -> str | None:
         """
         Extract transaction hash from command output.
         
@@ -196,17 +193,17 @@ class StageRunner:
             r'hash[:\s]+([a-fA-F0-9]{64})',
             r'([a-fA-F0-9]{64})',  # Catch any 64-char hex string
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, output)
             if match:
                 tx_hash = match.group(1)
                 log.info(f"Transaction hash extracted: {tx_hash}")
                 return tx_hash
-        
+
         return None
 
-    def validate_conditions(self, expected: Dict[str, ExpectedCondition]) -> Dict[str, Any]:
+    def validate_conditions(self, expected: dict[str, ExpectedCondition]) -> dict[str, Any]:
         """
         Validate expected conditions after command execution.
         
@@ -217,10 +214,10 @@ class StageRunner:
             Dictionary with validation results
         """
         results = {}
-        
+
         for key, condition in expected.items():
             log.info(f"Validating condition: {key}")
-            
+
             # For now, we'll implement simple value validation
             # This can be extended to query blockchain state, wallet balances, etc.
             if condition.type == 'value':
@@ -236,12 +233,12 @@ class StageRunner:
                     "pattern": condition.value,
                     "passed": True  # Placeholder
                 }
-            
+
             log.info(f"✓ Condition {key} validated")
-        
+
         return results
 
-    def run_stage(self, stage: StageDefinition) -> Dict[str, Any]:
+    def run_stage(self, stage: StageDefinition) -> dict[str, Any]:
         """
         Execute a complete training stage.
         
@@ -252,7 +249,7 @@ class StageRunner:
             Dictionary with stage execution results
         """
         log.info(f"=== Starting Stage {stage.stage}: {stage.title} ===")
-        
+
         results = {
             "stage": stage.stage,
             "title": stage.title,
@@ -260,31 +257,31 @@ class StageRunner:
             "conditions": {},
             "success": True
         }
-        
+
         # Check prerequisites
         if stage.prerequisites:
             log.info(f"Checking prerequisites: {stage.prerequisites}")
             # Prerequisite checking can be implemented here
-        
+
         # Execute commands
         for command in stage.commands:
             cmd_result = self.run_command(command)
             results["commands"].append(cmd_result)
-            
+
             if not cmd_result.get("success"):
                 results["success"] = False
                 log.error(f"Stage failed at command: {command.cmd}")
                 break
-        
+
         # Validate conditions if all commands succeeded
         if results["success"]:
             results["conditions"] = self.validate_conditions(stage.expected)
-        
+
         log.info(f"=== Stage {stage.stage} completed: {'SUCCESS' if results['success'] else 'FAILED'} ===")
-        
+
         return results
 
-    def run_stage_from_json(self, json_path: str) -> Dict[str, Any]:
+    def run_stage_from_json(self, json_path: str) -> dict[str, Any]:
         """
         Load and execute a stage from JSON file.
         
@@ -340,8 +337,8 @@ def create_example_stage_json(output_path: str):
             }
         }
     }
-    
+
     with open(output_path, 'w') as f:
         json.dump(example_stage, f, indent=2)
-    
+
     log.info(f"Example stage JSON created at {output_path}")

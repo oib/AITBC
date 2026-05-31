@@ -5,15 +5,11 @@ Uses lightweight in-memory mocks to avoid PostgreSQL/UUID dependencies.
 import sys
 """
 
-import asyncio
-import uuid
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
-from unittest.mock import MagicMock, AsyncMock, patch
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Lightweight stubs for the ORM models so we don't need a real DB
@@ -51,9 +47,9 @@ class FakeQuota:
 
     def __post_init__(self):
         if self.period_start is None:
-            self.period_start = datetime.now(timezone.utc) - timedelta(hours=1)
+            self.period_start = datetime.now(UTC) - timedelta(hours=1)
         if self.period_end is None:
-            self.period_end = datetime.now(timezone.utc) + timedelta(hours=23)
+            self.period_end = datetime.now(UTC) + timedelta(hours=23)
 
 
 @dataclass
@@ -93,7 +89,7 @@ class InMemoryBillingStore:
         return self.tenants.get(tenant_id)
 
     def get_active_quota(self, tenant_id: str, resource_type: str):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for q in self.quotas:
             if (q.tenant_id == tenant_id
                     and q.resource_type == resource_type
@@ -119,7 +115,7 @@ async def apply_credit(store: InMemoryBillingStore, tenant_id: str, amount: Deci
         "tenant_id": tenant_id,
         "amount": amount,
         "reason": reason,
-        "timestamp": datetime.now(timezone.utc),
+        "timestamp": datetime.now(UTC),
     })
     return True
 
@@ -138,7 +134,7 @@ async def apply_charge(store: InMemoryBillingStore, tenant_id: str, amount: Deci
         "tenant_id": tenant_id,
         "amount": amount,
         "reason": reason,
-        "timestamp": datetime.now(timezone.utc),
+        "timestamp": datetime.now(UTC),
     })
     return True
 
@@ -161,7 +157,7 @@ async def adjust_quota(
 
 async def reset_daily_quotas(store: InMemoryBillingStore) -> int:
     """Reset used_value to 0 for all daily quotas whose period has ended."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     count = 0
     for q in store.quotas:
         if q.period_type == "daily" and q.is_active and q.period_end <= now:
@@ -197,7 +193,7 @@ async def generate_monthly_invoices(store: InMemoryBillingStore) -> list[str]:
         if not tenant_usage:
             continue
         total = sum(r.total_cost for r in tenant_usage)
-        inv_id = f"INV-{tenant.slug}-{datetime.now(timezone.utc).strftime('%Y%m')}-{len(generated)+1:04d}"
+        inv_id = f"INV-{tenant.slug}-{datetime.now(UTC).strftime('%Y%m')}-{len(generated)+1:04d}"
         store.invoices_generated.append(inv_id)
         generated.append(inv_id)
     return generated
@@ -205,7 +201,10 @@ async def generate_monthly_invoices(store: InMemoryBillingStore) -> list[str]:
 
 async def extract_from_token(token: str, secret: str = "test-secret") -> dict | None:
     """Extract tenant_id from a JWT-like token. Returns claims dict or None."""
-    import json, hmac, hashlib, base64
+    import base64
+    import hashlib
+    import hmac
+    import json
     parts = token.split(".")
     if len(parts) != 3:
         return None
@@ -230,7 +229,10 @@ async def extract_from_token(token: str, secret: str = "test-secret") -> dict | 
 
 def _make_token(claims: dict, secret: str = "test-secret") -> str:
     """Helper to create a test token."""
-    import json, hmac, hashlib, base64
+    import base64
+    import hashlib
+    import hmac
+    import json
     header = base64.urlsafe_b64encode(b'{"alg":"HS256"}').decode().rstrip("=")
     payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
     sig = hmac.new(secret.encode(), f"{header}.{payload}".encode(), hashlib.sha256).hexdigest()[:16]
@@ -254,8 +256,8 @@ def store():
         id="q2", tenant_id="t1", resource_type="api_calls",
         limit_value=Decimal("10000"), used_value=Decimal("5000"),
         period_type="daily",
-        period_start=datetime.now(timezone.utc) - timedelta(days=2),
-        period_end=datetime.now(timezone.utc) - timedelta(hours=1),  # expired
+        period_start=datetime.now(UTC) - timedelta(days=2),
+        period_end=datetime.now(UTC) - timedelta(hours=1),  # expired
     ))
     return s
 
@@ -345,7 +347,7 @@ class TestResetDailyQuotas:
         assert count == 1  # q2 is expired daily
         q2 = store.quotas[1]
         assert q2.used_value == Decimal("0")
-        assert q2.period_end > datetime.now(timezone.utc)
+        assert q2.period_end > datetime.now(UTC)
 
     @pytest.mark.asyncio
     async def test_does_not_reset_active_quotas(self, store):

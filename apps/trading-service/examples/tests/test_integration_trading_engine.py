@@ -1,14 +1,10 @@
 """Integration tests for trading engine service"""
 
+from datetime import UTC, datetime
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
-
-
-from main import app, Order, order_books, orders, trades
+from main import Order, app, order_books, orders, trades
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +53,7 @@ def test_submit_market_order():
         type="market",
         quantity=100.0,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
     assert response.status_code == 200
@@ -78,7 +74,7 @@ def test_submit_limit_order():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
     assert response.status_code == 200
@@ -99,10 +95,10 @@ def test_get_order():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/orders/order_125")
     assert response.status_code == 200
     data = response.json()
@@ -141,10 +137,10 @@ def test_get_order_book():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/orders/submit", json=order1.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/orderbook/AITBC-BTC")
     assert response.status_code == 200
     data = response.json()
@@ -195,10 +191,10 @@ def test_get_ticker():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/ticker/AITBC-BTC")
     assert response.status_code == 200
     data = response.json()
@@ -225,10 +221,10 @@ def test_cancel_order():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
-    
+
     response = client.delete("/api/v1/orders/order_128")
     assert response.status_code == 200
     data = response.json()

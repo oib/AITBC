@@ -4,11 +4,12 @@ Cross-node blockchain feature tests
 Tests new blockchain features across aitbc and aitbc1 nodes
 """
 
-import os
 import hashlib
+import os
 import subprocess
-from datetime import datetime, timezone
 import time
+from datetime import UTC, datetime
+
 from aitbc import AITBCHTTPClient, NetworkError
 
 # Test configuration
@@ -36,7 +37,7 @@ def _get_local_chain_id() -> str:
     if not os.path.exists(env_path):
         return env_chain_id
 
-    with open(env_path, "r") as f:
+    with open(env_path) as f:
         for line in f:
             if line.startswith("CHAIN_ID="):
                 return line.strip().split("=", 1)[1]
@@ -69,10 +70,10 @@ def test_cross_node_chain_id_consistency():
     print("\n" + "=" * 60)
     print("TEST 1: Chain ID Consistency Across Nodes")
     print("=" * 60)
-    
+
     # Since head endpoint doesn't return chain_id, verify via SSH
     print("Verifying chain_id configuration on both nodes...")
-    
+
     chain_ids = {}
     for node_key in NODES:
         if node_key == "aitbc":
@@ -91,16 +92,16 @@ def test_cross_node_chain_id_consistency():
                 chain_id = result.stdout.strip().split("=")[1]
                 chain_ids[node_key] = chain_id
                 print(f"{NODES[node_key]['name']}: chain_id = {chain_id}")
-    
+
     # Verify all nodes have the same chain_id
     unique_chain_ids = set(chain_ids.values())
     assert len(unique_chain_ids) == 1, f"Nodes have different chain_ids: {chain_ids}"
-    
+
     # Verify chain_id is "ait-mainnet"
     expected_chain_id = CHAIN_ID
     assert list(unique_chain_ids)[0] == expected_chain_id, \
         f"Expected chain_id '{expected_chain_id}', got '{list(unique_chain_ids)[0]}'"
-    
+
     print(f"✅ All nodes are using chain_id: {expected_chain_id}")
     return True
 
@@ -109,7 +110,7 @@ def test_cross_node_block_sync():
     print("\n" + "=" * 60)
     print("TEST 2: Block Synchronization Between Nodes")
     print("=" * 60)
-    
+
     # Get current heads from both nodes
     heads = {}
     for node_key in NODES:
@@ -120,15 +121,15 @@ def test_cross_node_block_sync():
         else:
             print(f"❌ Failed to get head from {node_key}")
             return False
-    
+
     # Import a block on aitbc
     print("\nImporting test block on aitbc...")
     aitbc_head = heads["aitbc"]
     height = aitbc_head["height"] + 10000000  # Use very high height to avoid conflicts
     parent_hash = aitbc_head["hash"]
-    timestamp = datetime.now(timezone.utc).isoformat() + "Z"
+    timestamp = datetime.now(UTC).isoformat() + "Z"
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
-    
+
     client = AITBCHTTPClient(timeout=10)
     try:
         result = client.post(
@@ -146,21 +147,21 @@ def test_cross_node_block_sync():
         if result.get("success"):
             print(f"✅ Block imported on aitbc: height={height}, hash={valid_hash}")
         else:
-            print(f"❌ Failed to import block on aitbc")
+            print("❌ Failed to import block on aitbc")
             return False
     except NetworkError as e:
         print(f"❌ Failed to import block on aitbc: {e}")
         return False
-    
+
     # Wait for gossip propagation
     print("\nWaiting for gossip propagation to aitbc1...")
     time.sleep(5)
-    
+
     # Check if block synced to aitbc1
     aitbc1_head = get_node_head("aitbc1")
     if aitbc1_head:
         print(f"{NODES['aitbc1']['name']}: height={aitbc1_head['height']}, hash={aitbc1_head['hash']}")
-        
+
         # Try to get the specific block from aitbc1
         try:
             block_data = AITBCHTTPClient(timeout=10).get(f"{NODES['aitbc1']['rpc_url']}/blocks/{height}")
@@ -168,13 +169,13 @@ def test_cross_node_block_sync():
                 print(f"✅ Block synced to aitbc1: height={block_data.get('height')}, hash={block_data.get('hash')}")
                 return True
             else:
-                print(f"⚠️  Block not yet synced to aitbc1 (expected for gossip-based sync)")
+                print("⚠️  Block not yet synced to aitbc1 (expected for gossip-based sync)")
                 return True  # Don't fail - gossip sync is asynchronous
         except Exception as e:
             print(f"⚠️  Could not verify block sync to aitbc1: {e}")
             return True  # Don't fail - network connectivity issues
     else:
-        print(f"❌ Failed to get head from aitbc1")
+        print("❌ Failed to get head from aitbc1")
         return False
 
 def test_cross_node_block_range():
@@ -182,7 +183,7 @@ def test_cross_node_block_range():
     print("\n" + "=" * 60)
     print("TEST 3: Block Range Query")
     print("=" * 60)
-    
+
     for node_key in NODES:
         url = f"{NODES[node_key]['rpc_url']}/blocks-range"
         try:
@@ -194,7 +195,7 @@ def test_cross_node_block_range():
         except NetworkError as e:
             print(f"❌ Error getting block range from {node_key}: {e}")
             return False
-    
+
     print("✅ All nodes can query block ranges")
     return True
 
@@ -203,7 +204,7 @@ def test_cross_node_connectivity():
     print("\n" + "=" * 60)
     print("TEST 4: Node RPC Connectivity")
     print("=" * 60)
-    
+
     for node_key in NODES:
         client = AITBCHTTPClient(timeout=10)
         try:
@@ -214,7 +215,7 @@ def test_cross_node_connectivity():
         except NetworkError as e:
             print(f"❌ Error connecting to {node_key}: {e}")
             return False
-    
+
     print("✅ All nodes are reachable via RPC")
     return True
 
@@ -225,14 +226,14 @@ def run_cross_node_tests():
     print("=" * 60)
     print(f"Testing nodes: {', '.join(NODES.keys())}")
     print(f"Expected chain_id: {CHAIN_ID}")
-    
+
     tests = [
         ("Chain ID Consistency", test_cross_node_chain_id_consistency),
         ("Block Synchronization", test_cross_node_block_sync),
         ("Block Range Query", test_cross_node_block_range),
         ("RPC Connectivity", test_cross_node_connectivity),
     ]
-    
+
     results = []
     for test_name, test_func in tests:
         try:
@@ -244,7 +245,7 @@ def run_cross_node_tests():
         except Exception as e:
             print(f"❌ {test_name} ERROR: {e}")
             results.append((test_name, False))
-    
+
     # Summary
     print("\n" + "=" * 60)
     print("TEST SUMMARY")
@@ -252,11 +253,11 @@ def run_cross_node_tests():
     for test_name, result in results:
         status = "✅ PASS" if result else "❌ FAIL"
         print(f"{status}: {test_name}")
-    
+
     passed = sum(1 for _, result in results if result)
     total = len(results)
     print(f"\nTotal: {passed}/{total} tests passed")
-    
+
     return all(result for _, result in results)
 
 if __name__ == "__main__":

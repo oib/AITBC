@@ -4,15 +4,16 @@ Provides toggle between mock and real data sources for development/testing
 """
 
 import os
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
+
 import httpx
 
 
 class DataLayer:
     """Data layer abstraction that can switch between mock and real data sources"""
-    
-    def __init__(self, use_mock_data: Optional[bool] = None):
+
+    def __init__(self, use_mock_data: bool | None = None):
         """Initialize data layer
         
         Args:
@@ -22,23 +23,23 @@ class DataLayer:
             self.use_mock_data = os.getenv("USE_MOCK_DATA", "false").lower() == "true"
         else:
             self.use_mock_data = use_mock_data
-        
+
         self.mock_generator = MockDataGenerator()
         self.real_fetcher = RealDataFetcher()
-    
+
     async def get_transactions(
         self,
-        address: Optional[str] = None,
-        amount_min: Optional[float] = None,
-        amount_max: Optional[float] = None,
-        tx_type: Optional[str] = None,
-        since: Optional[str] = None,
-        until: Optional[str] = None,
+        address: str | None = None,
+        amount_min: float | None = None,
+        amount_max: float | None = None,
+        tx_type: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        rpc_url: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get transactions from either mock or real data source"""
         if self.use_mock_data:
             return self.mock_generator.generate_transactions(
@@ -49,18 +50,18 @@ class DataLayer:
                 address, amount_min, amount_max, tx_type, since, until,
                 limit, offset, chain_id, rpc_url
             )
-    
+
     async def get_blocks(
         self,
-        validator: Optional[str] = None,
-        since: Optional[str] = None,
-        until: Optional[str] = None,
-        min_tx: Optional[int] = None,
+        validator: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        min_tx: int | None = None,
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        rpc_url: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get blocks from either mock or real data source"""
         if self.use_mock_data:
             return self.mock_generator.generate_blocks(validator, min_tx, limit)
@@ -68,8 +69,8 @@ class DataLayer:
             return await self.real_fetcher.fetch_blocks(
                 validator, since, until, min_tx, limit, offset, chain_id, rpc_url
             )
-    
-    async def get_analytics_overview(self, period: str = "24h", rpc_url: Optional[str] = None) -> Dict[str, Any]:
+
+    async def get_analytics_overview(self, period: str = "24h", rpc_url: str | None = None) -> dict[str, Any]:
         """Get analytics overview from either mock or real data source"""
         if self.use_mock_data:
             return self.mock_generator.generate_analytics(period)
@@ -79,18 +80,18 @@ class DataLayer:
 
 class MockDataGenerator:
     """Generates mock data for development/testing when mock mode is enabled"""
-    
+
     def generate_transactions(
         self,
-        address: Optional[str] = None,
-        amount_min: Optional[float] = None,
-        amount_max: Optional[float] = None,
-        tx_type: Optional[str] = None,
+        address: str | None = None,
+        amount_min: float | None = None,
+        amount_max: float | None = None,
+        tx_type: str | None = None,
         limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Generate mock transaction data"""
         from aitbc.testing import MockFactory, TestDataGenerator
-        
+
         transactions = []
         for _ in range(limit):
             tx = TestDataGenerator.generate_transaction_data(
@@ -100,18 +101,18 @@ class MockDataGenerator:
             if tx_type:
                 tx["type"] = tx_type
             transactions.append(tx)
-        
+
         return transactions
-    
+
     def generate_blocks(
         self,
-        validator: Optional[str] = None,
-        min_tx: Optional[int] = None,
+        validator: str | None = None,
+        min_tx: int | None = None,
         limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Generate mock block data"""
         from aitbc.testing import MockFactory
-        
+
         blocks = []
         for i in range(limit):
             blocks.append({
@@ -119,12 +120,12 @@ class MockDataGenerator:
                 "hash": MockFactory.generate_hash(),
                 "validator": validator or MockFactory.generate_ethereum_address(),
                 "tx_count": min_tx or 5,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             })
-        
+
         return blocks
-    
-    def generate_analytics(self, period: str = "24h") -> Dict[str, Any]:
+
+    def generate_analytics(self, period: str = "24h") -> dict[str, Any]:
         """Generate mock analytics data"""
         if period == "1h":
             labels = [f"{i:02d}:{(i*5)%60:02d}" for i in range(12)]
@@ -142,7 +143,7 @@ class MockDataGenerator:
             labels = [f"Week {i+1}" for i in range(4)]
             volume_values = [3000, 3500, 3200, 3800]
             activity_values = [1200, 1400, 1300, 1500]
-        
+
         return {
             "total_transactions": "1,234",
             "transaction_volume": "5,678.90 AITBC",
@@ -161,24 +162,24 @@ class MockDataGenerator:
 
 class RealDataFetcher:
     """Fetches real data from blockchain RPC endpoints"""
-    
+
     async def fetch_transactions(
         self,
-        address: Optional[str] = None,
-        amount_min: Optional[float] = None,
-        amount_max: Optional[float] = None,
-        tx_type: Optional[str] = None,
-        since: Optional[str] = None,
-        until: Optional[str] = None,
+        address: str | None = None,
+        amount_min: float | None = None,
+        amount_max: float | None = None,
+        tx_type: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        rpc_url: str | None = None
+    ) -> list[dict[str, Any]]:
         """Fetch real transactions from blockchain RPC"""
         if rpc_url is None:
-            rpc_url = f"http://localhost:8025"
-        
+            rpc_url = "http://localhost:8025"
+
         params = {}
         if address:
             params["address"] = address
@@ -195,7 +196,7 @@ class RealDataFetcher:
         params["limit"] = limit
         params["offset"] = offset
         params["chain_id"] = chain_id
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
             if response.status_code == 200:
@@ -204,22 +205,22 @@ class RealDataFetcher:
                 return []
             else:
                 raise Exception(f"Failed to fetch transactions: {response.status_code}")
-    
+
     async def fetch_blocks(
         self,
-        validator: Optional[str] = None,
-        since: Optional[str] = None,
-        until: Optional[str] = None,
-        min_tx: Optional[int] = None,
+        validator: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        min_tx: int | None = None,
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        rpc_url: str | None = None
+    ) -> list[dict[str, Any]]:
         """Fetch real blocks from blockchain RPC"""
         if rpc_url is None:
-            rpc_url = f"http://localhost:8025"
-        
+            rpc_url = "http://localhost:8025"
+
         params = {}
         if validator:
             params["validator"] = validator
@@ -232,7 +233,7 @@ class RealDataFetcher:
         params["limit"] = limit
         params["offset"] = offset
         params["chain_id"] = chain_id
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
             if response.status_code == 200:
@@ -241,14 +242,14 @@ class RealDataFetcher:
                 return []
             else:
                 raise Exception(f"Failed to fetch blocks: {response.status_code}")
-    
-    async def fetch_analytics(self, period: str = "24h", rpc_url: Optional[str] = None) -> Dict[str, Any]:
+
+    async def fetch_analytics(self, period: str = "24h", rpc_url: str | None = None) -> dict[str, Any]:
         """Fetch real analytics from blockchain RPC"""
         if rpc_url is None:
-            rpc_url = f"http://localhost:8025"
-        
+            rpc_url = "http://localhost:8025"
+
         params = {"period": period}
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/analytics/overview", params=params)
             if response.status_code == 200:
@@ -260,10 +261,10 @@ class RealDataFetcher:
 
 
 # Global data layer instance
-_data_layer: Optional[DataLayer] = None
+_data_layer: DataLayer | None = None
 
 
-def get_data_layer(use_mock_data: Optional[bool] = None) -> DataLayer:
+def get_data_layer(use_mock_data: bool | None = None) -> DataLayer:
     """Get or create global data layer instance"""
     global _data_layer
     if _data_layer is None:

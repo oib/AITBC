@@ -3,13 +3,14 @@ Negative authentication tests for dispute endpoints.
 Tests for missing authentication, unauthorized access, and invalid tokens.
 """
 
-import pytest
 import os
 import sys
 from pathlib import Path
+
+import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
 from fastapi import status
+from httpx import ASGITransport, AsyncClient
 
 repo_root = Path(__file__).resolve().parents[2]
 blockchain_src = repo_root / "apps" / "blockchain-node" / "src"
@@ -20,32 +21,32 @@ if str(blockchain_src) not in sys.path:
 @pytest.mark.asyncio
 class TestDisputeAuthentication:
     """Test authentication requirements for dispute endpoints"""
-    
+
     @pytest_asyncio.fixture
     async def client(self):
         """Create test client for blockchain node RPC"""
         from aitbc_chain.rpc.router import router
         from fastapi import FastAPI
-        
+
         app = FastAPI()
         app.include_router(router, prefix="/rpc")
-        
+
         # Set DEV_MODE to false for production-like testing
         original_dev_mode = os.getenv("DEV_MODE")
         original_trust_header = os.getenv("TRUST_X_WALLET_ADDRESS")
         os.environ["DEV_MODE"] = "false"
         os.environ["TRUST_X_WALLET_ADDRESS"] = "false"
-        
+
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
-        
+
         # Restore original DEV_MODE
         if original_dev_mode is None:
             os.environ.pop("DEV_MODE", None)
         else:
             os.environ["DEV_MODE"] = original_dev_mode
-    
+
     async def test_file_dispute_missing_auth(self, client):
         """Test that filing a dispute without authentication returns 401"""
         response = await client.post(
@@ -193,32 +194,32 @@ class TestDisputeAuthentication:
 @pytest.mark.asyncio
 class TestDisputeAuthDevMode:
     """Test authentication behavior in development mode"""
-    
+
     @pytest_asyncio.fixture
     async def dev_client(self):
         """Create test client with DEV_MODE enabled"""
         from aitbc_chain.rpc.router import router
         from fastapi import FastAPI
-        
+
         app = FastAPI()
         app.include_router(router, prefix="/rpc")
-        
+
         # Set DEV_MODE to true
         original_dev_mode = os.getenv("DEV_MODE")
         original_trust_header = os.getenv("TRUST_X_WALLET_ADDRESS")
         os.environ["DEV_MODE"] = "true"
         os.environ["TRUST_X_WALLET_ADDRESS"] = "false"
-        
+
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
-        
+
         # Restore original DEV_MODE
         if original_dev_mode is None:
             os.environ.pop("DEV_MODE", None)
         else:
             os.environ["DEV_MODE"] = original_dev_mode
-    
+
     async def test_file_dispute_dev_mode_fails_closed(self, dev_client):
         """Test that dev mode no longer uses a zero address fallback"""
         response = await dev_client.post(

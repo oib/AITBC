@@ -3,7 +3,7 @@ Global Marketplace Integration API Router
 REST API endpoints for integrated global marketplace with cross-chain capabilities
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,17 +14,17 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 from ....agent_identity.manager import AgentIdentityManager
+from ....reputation.engine import CrossChainReputationEngine
+from ....services.multi_chain_transaction_manager import TransactionPriority
+from ....storage.db import get_session
+from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
 from ..domain.global_marketplace import (
     GlobalMarketplaceOffer,
 )
-from ....reputation.engine import CrossChainReputationEngine
-from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
 from ..services.global_marketplace_integration import (
     GlobalMarketplaceIntegrationService,
     IntegrationStatus,
 )
-from ....services.multi_chain_transaction_manager import TransactionPriority
-from ....storage.db import get_session
 
 router = APIRouter(prefix="/global-marketplace-integration", tags=["Global Marketplace Integration"])
 
@@ -87,9 +87,9 @@ async def create_cross_chain_marketplace_offer(
 
         return offer
 
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Bad request")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating cross-chain offer")
 
 
@@ -120,7 +120,7 @@ async def get_integrated_marketplace_offers(
 
         return offers
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting integrated offers")
 
 
@@ -167,7 +167,7 @@ async def get_cross_chain_offer_details(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting cross-chain offer details")
 
 
@@ -192,9 +192,9 @@ async def optimize_offer_pricing(
 
         return optimization
 
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Bad request")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error optimizing offer pricing")
 
 
@@ -241,9 +241,9 @@ async def execute_cross_chain_transaction(
 
         return transaction
 
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Bad request")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error executing cross-chain transaction")
 
 
@@ -301,7 +301,7 @@ async def get_cross_chain_transactions(
 
         return cross_chain_transactions
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting cross-chain transactions")
 
 
@@ -323,7 +323,7 @@ async def get_cross_chain_analytics(
 
         return analytics
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting cross-chain analytics")
 
 
@@ -354,10 +354,10 @@ async def get_marketplace_integration_analytics(
             "active_regions": len(active_regions),
             "supported_chains": len(supported_chains),
             "integration_config": integration_service.integration_config,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting marketplace integration analytics")
 
 
@@ -398,10 +398,10 @@ async def get_integration_status(
                 "auto_bridge_execution": config["auto_bridge_execution"],
                 "multi_chain_wallet_support": config["multi_chain_wallet_support"],
             },
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting integration status")
 
 
@@ -467,10 +467,10 @@ async def get_integration_config(
                 }
                 for priority in TransactionPriority
             },
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting integration config")
 
 
@@ -496,12 +496,12 @@ async def update_integration_config(
         return {
             "updated_config": integration_service.integration_config,
             "updated_keys": list(config_updates.keys()),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
 
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Bad request")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error updating integration config")
 
 
@@ -521,7 +521,7 @@ async def get_integration_health(
         try:
             await integration_service.marketplace_service.get_global_offers(limit=1)
             health_status["services"]["marketplace_service"] = "healthy"  # type: ignore[index]
-        except Exception as e:
+        except Exception:
             health_status["services"]["marketplace_service"] = "unhealthy"  # type: ignore[index]
             health_status["issues"].append("Marketplace service error")  # type: ignore[attr-defined]
 
@@ -530,7 +530,7 @@ async def get_integration_health(
             regions = await integration_service.region_manager._get_active_regions()  # type: ignore[attr-defined]
             health_status["services"]["region_manager"] = "healthy"  # type: ignore[index]
             health_status["metrics"]["active_regions"] = len(regions)  # type: ignore[index]
-        except Exception as e:
+        except Exception:
             health_status["services"]["region_manager"] = "unhealthy"  # type: ignore[index]
             health_status["issues"].append("Region manager error")  # type: ignore[attr-defined]
 
@@ -540,7 +540,7 @@ async def get_integration_health(
                 stats = await integration_service.bridge_service.get_bridge_statistics(1)
                 health_status["services"]["bridge_service"] = "healthy"  # type: ignore[index]
                 health_status["metrics"]["bridge_requests"] = stats["total_requests"]  # type: ignore[index]
-            except Exception as e:
+            except Exception:
                 health_status["services"]["bridge_service"] = "unhealthy"  # type: ignore[index]
                 health_status["issues"].append("Bridge service error")  # type: ignore[attr-defined]
 
@@ -550,7 +550,7 @@ async def get_integration_health(
                 stats = await integration_service.tx_manager.get_transaction_statistics(1)
                 health_status["services"]["transaction_manager"] = "healthy"  # type: ignore[index]
                 health_status["metrics"]["transactions"] = stats["total_transactions"]  # type: ignore[index]
-            except Exception as e:
+            except Exception:
                 health_status["services"]["transaction_manager"] = "unhealthy"  # type: ignore[index]
                 health_status["issues"].append("Transaction manager error")  # type: ignore[attr-defined]
 
@@ -558,11 +558,11 @@ async def get_integration_health(
         if health_status["issues"]:
             health_status["overall_status"] = "degraded"
 
-        health_status["last_updated"] = datetime.now(timezone.utc).isoformat()
+        health_status["last_updated"] = datetime.now(UTC).isoformat()
 
         return health_status
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting integration health")
 
 
@@ -575,7 +575,7 @@ async def run_integration_diagnostics(
     """Run integration diagnostics"""
 
     try:
-        diagnostics = {"diagnostic_type": diagnostic_type, "started_at": datetime.now(timezone.utc).isoformat(), "results": {}}
+        diagnostics = {"diagnostic_type": diagnostic_type, "started_at": datetime.now(UTC).isoformat(), "results": {}}
 
         if diagnostic_type == "full" or diagnostic_type == "services":
             # Test services
@@ -585,14 +585,14 @@ async def run_integration_diagnostics(
             try:
                 await integration_service.marketplace_service.get_global_offers(limit=1)
                 diagnostics["results"]["services"]["marketplace_service"] = {"status": "healthy", "offers_accessible": True}  # type: ignore[index]
-            except Exception as e:
+            except Exception:
                 diagnostics["results"]["services"]["marketplace_service"] = {"status": "unhealthy", "error": "Service error"}  # type: ignore[index]
 
             # Test region manager
             try:
                 regions = await integration_service.region_manager._get_active_regions()  # type: ignore[attr-defined]
                 diagnostics["results"]["services"]["region_manager"] = {"status": "healthy", "active_regions": len(regions)}  # type: ignore[index]
-            except Exception as e:
+            except Exception:
                 diagnostics["results"]["services"]["region_manager"] = {"status": "unhealthy", "error": "Service error"}  # type: ignore[index]
 
         if diagnostic_type == "full" or diagnostic_type == "cross-chain":
@@ -603,7 +603,7 @@ async def run_integration_diagnostics(
                 try:
                     stats = await integration_service.bridge_service.get_bridge_statistics(1)
                     diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "healthy", "statistics": stats}  # type: ignore[index]
-                except Exception as e:
+                except Exception:
                     diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "unhealthy", "error": "Service error"}  # type: ignore[index]
 
             if integration_service.tx_manager:
@@ -621,12 +621,12 @@ async def run_integration_diagnostics(
                 "configuration": integration_service.integration_config,
             }
 
-        diagnostics["completed_at"] = datetime.now(timezone.utc).isoformat()
+        diagnostics["completed_at"] = datetime.now(UTC).isoformat()
         diagnostics["duration_seconds"] = (  # type: ignore[assignment]
-            datetime.now(timezone.utc) - datetime.fromisoformat(diagnostics["started_at"])  # type: ignore[arg-type]
+            datetime.now(UTC) - datetime.fromisoformat(diagnostics["started_at"])  # type: ignore[arg-type]
         ).total_seconds()
 
         return diagnostics
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error running diagnostics")

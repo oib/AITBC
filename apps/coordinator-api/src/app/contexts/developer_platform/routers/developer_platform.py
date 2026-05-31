@@ -3,7 +3,7 @@ Developer Platform API Router
 REST API endpoints for the developer ecosystem including bounties, certifications, and regional hubs
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -20,8 +20,8 @@ from ....domain.developer_platform import (
 )
 from ....schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
 from ....services.developer_platform_service import DeveloperPlatformService
-from ...governance.services.governance_service import GovernanceService
 from ....storage.db import get_session
+from ...governance.services.governance_service import GovernanceService
 
 router = APIRouter(prefix="/developer-platform", tags=["Developer Platform"])
 
@@ -59,7 +59,7 @@ async def register_developer(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error registering developer")
 
 
@@ -92,7 +92,7 @@ async def get_developer_profile(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting developer profile")
 
 
@@ -120,7 +120,7 @@ async def update_developer_profile(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error updating developer profile")
 
 
@@ -152,7 +152,7 @@ async def get_leaderboard(
             for i, dev in enumerate(developers)
         ]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting leaderboard")
 
 
@@ -171,7 +171,7 @@ async def get_developer_stats(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting developer stats")
 
 
@@ -200,7 +200,7 @@ async def create_bounty(
             "message": "Bounty created successfully",
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating bounty")
 
 
@@ -235,7 +235,7 @@ async def list_bounties(
             for bounty in bounties
         ]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error listing bounties")
 
 
@@ -254,7 +254,7 @@ async def get_bounty_details(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting bounty details")
 
 
@@ -285,7 +285,7 @@ async def submit_bounty_solution(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error submitting bounty solution")
 
 
@@ -320,7 +320,7 @@ async def get_my_submissions(
             for sub in submissions[offset : offset + limit]
         ]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting submissions")
 
 
@@ -358,7 +358,7 @@ async def review_bounty_submission(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error reviewing submission")
 
 
@@ -373,7 +373,7 @@ async def get_bounty_statistics(
         stats = await dev_service.get_bounty_statistics()
         return stats
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting bounty statistics")
 
 
@@ -404,7 +404,7 @@ async def grant_certification(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error granting certification")
 
 
@@ -441,7 +441,7 @@ async def get_developer_certifications(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting certifications")
 
 
@@ -463,12 +463,12 @@ async def verify_certification(request: Request, certification_id: str, session:
             "issued_by": certification.issued_by,
             "granted_at": certification.granted_at.isoformat(),  # type: ignore[attr-defined]
             "is_valid": True,
-            "verification_timestamp": datetime.now(timezone.utc).isoformat(),
+            "verification_timestamp": datetime.now(UTC).isoformat(),
         }
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error verifying certification")
 
 
@@ -507,7 +507,7 @@ async def get_certification_types(request: Request) -> list[dict[str, Any]]:
 
         return certification_types
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting certification types")
 
 
@@ -540,7 +540,7 @@ async def create_regional_hub(
             "message": "Regional hub created successfully",
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating regional hub")
 
 
@@ -568,7 +568,7 @@ async def get_regional_hubs(
             for hub in hubs
         ]
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting regional hubs")
 
 
@@ -600,7 +600,7 @@ async def get_hub_developers(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting hub developers")
 
 
@@ -620,7 +620,7 @@ async def stake_on_developer(
     # Validate addresses to prevent SSRF
     import re
     ADDRESS_PATTERN = re.compile(r'^[a-zA-Z0-9]{20,50}$')
-    
+
     def validate_address(addr: str) -> bool:
         if not addr:
             return False
@@ -629,7 +629,7 @@ async def stake_on_developer(
         if addr.startswith(('http://', 'https://', 'ftp://')):
             return False
         return bool(ADDRESS_PATTERN.match(addr))
-    
+
     if not validate_address(staker_address) or not validate_address(developer_address):
         raise HTTPException(status_code=400, detail="Invalid address format")
 
@@ -640,7 +640,7 @@ async def stake_on_developer(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error staking on developer")
 
 
@@ -658,7 +658,7 @@ async def get_staking_info(
         staking_info = await dev_service.get_staking_info(address)
         return staking_info
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting staking info")
 
 
@@ -677,7 +677,7 @@ async def unstake_tokens(
         unstake_info = await dev_service.unstake_tokens(staking_id, amount)
         return unstake_info
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error unstaking tokens")
 
 
@@ -695,7 +695,7 @@ async def get_rewards(
         rewards = await dev_service.get_rewards(address)
         return rewards
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting rewards")
 
 
@@ -715,7 +715,7 @@ async def claim_rewards(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error claiming rewards")
 
 
@@ -742,7 +742,7 @@ async def get_staking_statistics(request: Request, session: Session = Depends(ge
 
         return stats
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting staking statistics")
 
 
@@ -805,10 +805,10 @@ async def get_platform_overview(
                 "regions_covered": 12,  # Mock data
             },
             "staking": {"total_staked": 1000000.0, "active_stakers": 500, "average_apy": 7.5},  # Mock data
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         # Return fallback data even on total failure
         return {
             "developers": {
@@ -834,7 +834,7 @@ async def get_platform_overview(
                 "regions_covered": 12,
             },
             "staking": {"total_staked": 1000000.0, "active_stakers": 500, "average_apy": 7.5},
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "note": "Fallback data returned due to service error"
         }
 
@@ -872,8 +872,8 @@ async def get_platform_health(request: Request, session: Session = Depends(get_s
                 "pending_submissions": 8,  # Mock data
                 "system_uptime": "99.9%",
             },
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error getting platform health")

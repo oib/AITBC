@@ -1,24 +1,25 @@
 """Dispute Resolution Service Module"""
-from typing import Dict, Any, List, Optional
-from ..logger import get_logger
+from typing import Any
+
 from ..contracts.dispute_resolution import dispute_resolution_contract
+from ..logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class DisputeResolutionService:
     """Service for interacting with the DisputeResolution smart contract"""
-    
+
     def __init__(self):
         # TODO: Initialize web3 connection and contract instance
         self.contract_address = None
         self.contract = None
-    
+
     def set_contract_address(self, address: str):
         """Set the deployed contract address"""
         self.contract_address = address
         logger.info(f"DisputeResolution contract address set: {address}")
-    
+
     def file_dispute(
         self,
         agreement_id: int,
@@ -27,7 +28,7 @@ class DisputeResolutionService:
         reason: str,
         evidence_hash: str,
         sender_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         File a new dispute on the blockchain
         
@@ -57,14 +58,14 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
+
     def submit_evidence(
         self,
         dispute_id: int,
         evidence_type: str,
         evidence_data: str,
         submitter_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Submit evidence for a dispute
         
@@ -90,7 +91,7 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
+
     def verify_evidence(
         self,
         dispute_id: int,
@@ -98,7 +99,7 @@ class DisputeResolutionService:
         is_valid: bool,
         verification_score: int,
         arbitrator_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Verify evidence submitted in a dispute (arbitrator only)
         
@@ -126,7 +127,7 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
+
     def submit_arbitration_vote(
         self,
         dispute_id: int,
@@ -134,7 +135,7 @@ class DisputeResolutionService:
         confidence: int,
         reasoning: str,
         arbitrator_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Submit an arbitration vote for a dispute (arbitrator only)
         
@@ -162,13 +163,13 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
+
     def authorize_arbitrator(
         self,
         arbitrator_address: str,
         reputation_score: int,
         owner_address: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Authorize a new arbitrator (admin only)
         
@@ -192,8 +193,8 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
-    def get_dispute(self, dispute_id: int) -> Dict[str, Any]:
+
+    def get_dispute(self, dispute_id: int) -> dict[str, Any]:
         """
         Get details of a specific dispute
         
@@ -211,8 +212,8 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
-    def get_dispute_evidence(self, dispute_id: int) -> Dict[str, Any]:
+
+    def get_dispute_evidence(self, dispute_id: int) -> dict[str, Any]:
         """
         Get all evidence submitted for a dispute
         
@@ -230,8 +231,8 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
-    def get_arbitration_votes(self, dispute_id: int) -> Dict[str, Any]:
+
+    def get_arbitration_votes(self, dispute_id: int) -> dict[str, Any]:
         """
         Get all arbitration votes for a dispute
         
@@ -249,8 +250,8 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
-    def get_user_disputes(self, user_address: str) -> Dict[str, Any]:
+
+    def get_user_disputes(self, user_address: str) -> dict[str, Any]:
         """
         Get all disputes for a specific user
         
@@ -268,8 +269,8 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
-    def get_arbitrator_disputes(self, arbitrator_address: str) -> Dict[str, Any]:
+
+    def get_arbitrator_disputes(self, arbitrator_address: str) -> dict[str, Any]:
         """
         Get all disputes assigned to an arbitrator
         
@@ -287,8 +288,8 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
-    def get_authorized_arbitrators(self) -> Dict[str, Any]:
+
+    def get_authorized_arbitrators(self) -> dict[str, Any]:
         """
         Get all authorized arbitrators
         
@@ -303,8 +304,8 @@ class DisputeResolutionService:
                 "success": False,
                 "error": str(e)
             }
-    
-    def get_active_disputes(self) -> Dict[str, Any]:
+
+    def get_active_disputes(self) -> dict[str, Any]:
         """
         Get all active disputes
         

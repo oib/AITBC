@@ -4,7 +4,7 @@ Advanced marketplace strategy optimization using RL
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -94,7 +94,7 @@ class MarketplaceStrategyOptimizer:
             rl_config.deployment_performance = deployment_performance
             rl_config.deployment_count += 1
             rl_config.status = "deployed"
-            rl_config.deployed_at = datetime.now(timezone.utc)
+            rl_config.deployed_at = datetime.now(UTC)
 
             session.commit()
 
@@ -158,7 +158,7 @@ class MarketplaceStrategyOptimizer:
             "success_rate": np.random.random() * 0.3 + 0.7,
             "average_profit": np.random.random() * 100,
             "market_share_change": np.random.random() * 0.2 - 0.1,
-            "deployment_age_days": (datetime.now(timezone.utc) - rl_config.deployed_at).days if rl_config.deployed_at else 0,
+            "deployment_age_days": (datetime.now(UTC) - rl_config.deployed_at).days if rl_config.deployed_at else 0,
         }
 
         return evaluation_metrics

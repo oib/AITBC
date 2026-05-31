@@ -2,8 +2,9 @@
 Tests for staking service
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 @pytest.mark.unit
@@ -24,7 +25,7 @@ class TestStakingService:
 
         # Import and test
         from app.services.staking_service import get_staking_info
-        
+
         result = get_staking_info()
         assert result["total_staked"] == 1000000.0
         assert result["apy"] == 0.15
@@ -43,6 +44,6 @@ class TestStakingService:
 
         # Import and test
         from app.services.staking_service import stake_tokens
-        
+
         result = stake_tokens({"amount": 1000.0, "validator": "validator1"})
         assert result["status"] == "staked"

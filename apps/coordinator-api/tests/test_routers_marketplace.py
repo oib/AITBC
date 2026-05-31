@@ -2,8 +2,9 @@
 Tests for marketplace router
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -26,13 +27,13 @@ class TestMarketplaceRouter:
         }
 
         # Import and test
-        from app.routers.marketplace import router
         from app.main import create_app
-        
+        from app.routers.marketplace import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.get("/marketplace/listings")
         assert response.status_code == 200
         data = response.json()
@@ -53,13 +54,13 @@ class TestMarketplaceRouter:
         }
 
         # Import and test
-        from app.routers.marketplace import router
         from app.main import create_app
-        
+        from app.routers.marketplace import router
+
         app = create_app()
         app.include_router(router)
         client = TestClient(app)
-        
+
         response = client.post("/marketplace/listings", json={
             "name": "GPU Instance 3",
             "price": 1.00,

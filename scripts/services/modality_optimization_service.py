@@ -3,8 +3,9 @@
 Simple FastAPI service for AITBC Modality Optimization (Port 8012)
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
 
 import uvicorn
@@ -15,8 +16,8 @@ app = FastAPI(title='AITBC Modality Optimization Service', version='1.0.0')
 @app.get('/health')
 def health():
     return {
-        'status': 'ok', 
-        'service': 'modality-optimization', 
+        'status': 'ok',
+        'service': 'modality-optimization',
         'port': 8012,
         'python_version': sys.version.split()[0]
     }

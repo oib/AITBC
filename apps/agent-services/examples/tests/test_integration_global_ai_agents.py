@@ -1,14 +1,20 @@
 """Integration tests for global AI agents service"""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-import sys
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone, timedelta
-
-
-from main import app, Agent, AgentMessage, CollaborationSession, AgentPerformance, global_agents, agent_messages, collaboration_sessions, agent_performance
+from main import (
+    Agent,
+    AgentMessage,
+    AgentPerformance,
+    CollaborationSession,
+    agent_messages,
+    agent_performance,
+    app,
+    collaboration_sessions,
+    global_agents,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -85,7 +91,7 @@ def test_register_duplicate_agent():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     response = client.post("/api/v1/agents/register", json=agent.model_dump())
     assert response.status_code == 400
 
@@ -118,7 +124,7 @@ def test_list_agents_with_filters():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     response = client.get("/api/v1/agents?region=us-east-1&type=trading&status=active")
     assert response.status_code == 200
     data = response.json()
@@ -141,7 +147,7 @@ def test_get_agent():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     response = client.get("/api/v1/agents/agent_123")
     assert response.status_code == 200
     data = response.json()
@@ -185,7 +191,7 @@ def test_send_direct_message():
     )
     client.post("/api/v1/agents/register", json=agent1.model_dump())
     client.post("/api/v1/agents/register", json=agent2.model_dump())
-    
+
     message = AgentMessage(
         message_id="msg_123",
         sender_id="agent_123",
@@ -194,7 +200,7 @@ def test_send_direct_message():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 200
@@ -232,7 +238,7 @@ def test_send_broadcast_message():
     )
     client.post("/api/v1/agents/register", json=agent1.model_dump())
     client.post("/api/v1/agents/register", json=agent2.model_dump())
-    
+
     message = AgentMessage(
         message_id="msg_123",
         sender_id="agent_123",
@@ -241,7 +247,7 @@ def test_send_broadcast_message():
         content={"data": "test"},
         priority="medium",
         language="english",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 200
@@ -261,7 +267,7 @@ def test_send_message_sender_not_found():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 400
@@ -283,7 +289,7 @@ def test_send_message_recipient_not_found():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     message = AgentMessage(
         message_id="msg_123",
         sender_id="agent_123",
@@ -292,7 +298,7 @@ def test_send_message_recipient_not_found():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 400
@@ -314,7 +320,7 @@ def test_get_agent_messages():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     response = client.get("/api/v1/messages/agent_123")
     assert response.status_code == 200
     data = response.json()
@@ -337,7 +343,7 @@ def test_get_agent_messages_with_limit():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     response = client.get("/api/v1/messages/agent_123?limit=10")
     assert response.status_code == 200
 
@@ -371,14 +377,14 @@ def test_create_collaboration():
     )
     client.post("/api/v1/agents/register", json=agent1.model_dump())
     client.post("/api/v1/agents/register", json=agent2.model_dump())
-    
+
     session = CollaborationSession(
         session_id="session_123",
         participants=["agent_123", "agent_456"],
         session_type="task_force",
         objective="Complete task",
-        created_at=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        created_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
         status="active"
     )
     response = client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
@@ -396,8 +402,8 @@ def test_create_collaboration_participant_not_found():
         participants=["nonexistent"],
         session_type="task_force",
         objective="Complete task",
-        created_at=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        created_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
         status="active"
     )
     response = client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
@@ -421,18 +427,18 @@ def test_get_collaboration():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     session = CollaborationSession(
         session_id="session_123",
         participants=["agent_123"],
         session_type="research",
         objective="Research task",
-        created_at=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        created_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
         status="active"
     )
     client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
-    
+
     response = client.get("/api/v1/collaborations/session_123")
     assert response.status_code == 200
     data = response.json()
@@ -456,18 +462,18 @@ def test_send_collaboration_message():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     session = CollaborationSession(
         session_id="session_123",
         participants=["agent_123"],
         session_type="research",
         objective="Research task",
-        created_at=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        created_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
         status="active"
     )
     client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
-    
+
     response = client.post("/api/v1/collaborations/session_123/message", params={"sender_id": "agent_123"}, json={"content": "test message"})
     assert response.status_code == 200
     data = response.json()
@@ -490,10 +496,10 @@ def test_record_agent_performance():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=0.95,
@@ -513,7 +519,7 @@ def test_record_performance_agent_not_found():
     client = TestClient(app)
     performance = AgentPerformance(
         agent_id="nonexistent",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=0.95,
@@ -540,7 +546,7 @@ def test_get_agent_performance():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     response = client.get("/api/v1/performance/agent_123")
     assert response.status_code == 200
     data = response.json()
@@ -563,7 +569,7 @@ def test_get_agent_performance_hours_parameter():
         performance_score=4.5
     )
     client.post("/api/v1/agents/register", json=agent.model_dump())
-    
+
     response = client.get("/api/v1/performance/agent_123?hours=12")
     assert response.status_code == 200
     data = response.json()

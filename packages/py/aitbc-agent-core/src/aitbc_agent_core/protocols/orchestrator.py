@@ -9,7 +9,7 @@ from typing import Any
 
 class IAgentOrchestrator(ABC):
     """Protocol for agent orchestration"""
-    
+
     @abstractmethod
     async def execute_workflow(
         self,
@@ -27,7 +27,7 @@ class IAgentOrchestrator(ABC):
             Execution result with status and output
         """
         ...
-    
+
     @abstractmethod
     async def get_status(
         self,

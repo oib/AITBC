@@ -5,8 +5,8 @@ Revises: 2024_01_05_add_receipts_table
 Create Date: 2025-01-10 10:00:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
@@ -43,14 +43,14 @@ def upgrade():
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('message_id')
     )
-    
+
     # Create indexes
     op.create_index('ix_settlements_job_id', 'settlements', ['job_id'])
     op.create_index('ix_settlements_status', 'settlements', ['status'])
     op.create_index('ix_settlements_bridge_name', 'settlements', ['bridge_name'])
     op.create_index('ix_settlements_created_at', 'settlements', ['created_at'])
     op.create_index('ix_settlements_message_id', 'settlements', ['message_id'])
-    
+
     # Add foreign key constraint for jobs table
     op.create_foreign_key(
         'fk_settlements_job_id',
@@ -63,13 +63,13 @@ def upgrade():
 def downgrade():
     # Drop foreign key
     op.drop_constraint('fk_settlements_job_id', 'settlements', type_='foreignkey')
-    
+
     # Drop indexes
     op.drop_index('ix_settlements_message_id', table_name='settlements')
     op.drop_index('ix_settlements_created_at', table_name='settlements')
     op.drop_index('ix_settlements_bridge_name', table_name='settlements')
     op.drop_index('ix_settlements_status', table_name='settlements')
     op.drop_index('ix_settlements_job_id', table_name='settlements')
-    
+
     # Drop table
     op.drop_table('settlements')

@@ -7,29 +7,29 @@ providing cryptographic verification of account state changes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
-from typing import Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Union
 
 from ..models import Account
 
 
 @dataclass(frozen=True)
 class LeafNode:
-    path: Tuple[int, ...]
+    path: tuple[int, ...]
     value: bytes
 
 
 @dataclass(frozen=True)
 class ExtensionNode:
-    path: Tuple[int, ...]
-    child: "TrieNode"
+    path: tuple[int, ...]
+    child: TrieNode
 
 
 @dataclass(frozen=True)
 class BranchNode:
-    children: Tuple[Optional["TrieNode"], ...]
-    value: Optional[bytes] = None
+    children: tuple[TrieNode | None, ...]
+    value: bytes | None = None
 
 
 TrieNode = Union[LeafNode, ExtensionNode, BranchNode]
@@ -45,33 +45,33 @@ class MerklePatriciaTrie:
     - Cryptographic verification of state
     - Compact representation of sparse data
     """
-    
+
     def __init__(self):
-        self._root: Optional[TrieNode] = None
-    
-    def get(self, key: bytes) -> Optional[bytes]:
+        self._root: TrieNode | None = None
+
+    def get(self, key: bytes) -> bytes | None:
         """Get value by key from the trie."""
         return self._get(self._root, self._to_nibbles(key))
-    
+
     def put(self, key: bytes, value: bytes) -> None:
         """Insert or update a key-value pair in the trie."""
         self._root = self._insert(self._root, self._to_nibbles(key), value)
-    
+
     def delete(self, key: bytes) -> None:
         """Delete a key from the trie."""
         self._root = self._delete(self._root, self._to_nibbles(key))
-    
+
     def _compute_root(self) -> bytes:
         """Compute the Merkle root of the trie."""
         return self.get_root()
-    
+
     def get_root(self) -> bytes:
         """Get the current root hash of the trie."""
         if not self._root:
             return b'\x00' * 32
         return self._hash_node(self._root)
-    
-    def verify_proof(self, key: bytes, value: bytes, proof: List[bytes]) -> bool:
+
+    def verify_proof(self, key: bytes, value: bytes, proof: list[bytes]) -> bool:
         """
         Verify a Merkle proof for a key-value pair.
         
@@ -121,26 +121,26 @@ class MerklePatriciaTrie:
 
         return False
 
-    def get_proof(self, key: bytes) -> List[bytes]:
-        proof: List[bytes] = []
+    def get_proof(self, key: bytes) -> list[bytes]:
+        proof: list[bytes] = []
         if self._collect_proof(self._root, self._to_nibbles(key), proof):
             return proof
         return []
 
     @staticmethod
-    def _to_nibbles(key: bytes) -> Tuple[int, ...]:
-        nibbles: List[int] = []
+    def _to_nibbles(key: bytes) -> tuple[int, ...]:
+        nibbles: list[int] = []
         for byte in key:
             nibbles.append(byte >> 4)
             nibbles.append(byte & 0x0F)
         return tuple(nibbles)
 
     @staticmethod
-    def _starts_with(path: Tuple[int, ...], prefix: Tuple[int, ...]) -> bool:
+    def _starts_with(path: tuple[int, ...], prefix: tuple[int, ...]) -> bool:
         return len(path) >= len(prefix) and path[:len(prefix)] == prefix
 
     @staticmethod
-    def _common_prefix_len(left: Tuple[int, ...], right: Tuple[int, ...]) -> int:
+    def _common_prefix_len(left: tuple[int, ...], right: tuple[int, ...]) -> int:
         limit = min(len(left), len(right))
         for index in range(limit):
             if left[index] != right[index]:
@@ -148,16 +148,16 @@ class MerklePatriciaTrie:
         return limit
 
     @staticmethod
-    def _empty_children() -> Tuple[Optional[TrieNode], ...]:
+    def _empty_children() -> tuple[TrieNode | None, ...]:
         return (None,) * 16
 
     @staticmethod
-    def _set_child(children: Tuple[Optional[TrieNode], ...], index: int, child: Optional[TrieNode]) -> Tuple[Optional[TrieNode], ...]:
+    def _set_child(children: tuple[TrieNode | None, ...], index: int, child: TrieNode | None) -> tuple[TrieNode | None, ...]:
         updated = list(children)
         updated[index] = child
         return tuple(updated)
 
-    def _get(self, node: Optional[TrieNode], path: Tuple[int, ...]) -> Optional[bytes]:
+    def _get(self, node: TrieNode | None, path: tuple[int, ...]) -> bytes | None:
         if node is None:
             return None
         if isinstance(node, LeafNode):
@@ -175,7 +175,7 @@ class MerklePatriciaTrie:
             return None
         return self._get(child, path[1:])
 
-    def _insert(self, node: Optional[TrieNode], path: Tuple[int, ...], value: bytes) -> TrieNode:
+    def _insert(self, node: TrieNode | None, path: tuple[int, ...], value: bytes) -> TrieNode:
         if node is None:
             return LeafNode(path, value)
 
@@ -215,7 +215,7 @@ class MerklePatriciaTrie:
         child = self._insert(node.children[path[0]], path[1:], value)
         return self._normalize_branch(BranchNode(self._set_child(node.children, path[0], child), node.value))
 
-    def _delete(self, node: Optional[TrieNode], path: Tuple[int, ...]) -> Optional[TrieNode]:
+    def _delete(self, node: TrieNode | None, path: tuple[int, ...]) -> TrieNode | None:
         if node is None:
             return None
 
@@ -238,13 +238,13 @@ class MerklePatriciaTrie:
         child = self._delete(node.children[path[0]], path[1:])
         return self._normalize_branch(BranchNode(self._set_child(node.children, path[0], child), node.value))
 
-    def _attach_to_branch(self, branch: BranchNode, suffix: Tuple[int, ...], value: bytes) -> BranchNode:
+    def _attach_to_branch(self, branch: BranchNode, suffix: tuple[int, ...], value: bytes) -> BranchNode:
         if not suffix:
             return BranchNode(branch.children, value)
         child = LeafNode(suffix[1:], value)
         return BranchNode(self._set_child(branch.children, suffix[0], child), branch.value)
 
-    def _attach_node_to_branch(self, branch: BranchNode, suffix: Tuple[int, ...], child: TrieNode) -> BranchNode:
+    def _attach_node_to_branch(self, branch: BranchNode, suffix: tuple[int, ...], child: TrieNode) -> BranchNode:
         if not suffix:
             return BranchNode(branch.children, self._value_from_node(child))
         if len(suffix) == 1:
@@ -268,7 +268,7 @@ class MerklePatriciaTrie:
             return ExtensionNode(node.path + node.child.path, node.child.child)
         return node
 
-    def _normalize_branch(self, node: BranchNode) -> Optional[TrieNode]:
+    def _normalize_branch(self, node: BranchNode) -> TrieNode | None:
         child_indexes = [index for index, child in enumerate(node.children) if child is not None]
         if node.value is not None:
             return node
@@ -311,14 +311,14 @@ class MerklePatriciaTrie:
         return bytes(encoded)
 
     @staticmethod
-    def _encode_path(path: Tuple[int, ...]) -> bytes:
+    def _encode_path(path: tuple[int, ...]) -> bytes:
         return len(path).to_bytes(4, "big") + bytes(path)
 
     @staticmethod
     def _encode_value(value: bytes) -> bytes:
         return len(value).to_bytes(8, "big") + value
 
-    def _decode_node(self, encoded_node: bytes) -> Tuple[bytes, Tuple[int, ...], Optional[bytes], List[Optional[bytes]]]:
+    def _decode_node(self, encoded_node: bytes) -> tuple[bytes, tuple[int, ...], bytes | None, list[bytes | None]]:
         node_type = encoded_node[:1]
         offset = 1
 
@@ -334,7 +334,7 @@ class MerklePatriciaTrie:
             return node_type, path, None, [encoded_node[offset:offset + 32]]
 
         if node_type == b"B":
-            child_hashes: List[Optional[bytes]] = []
+            child_hashes: list[bytes | None] = []
             for _ in range(16):
                 has_child = encoded_node[offset:offset + 1] == b"\x01"
                 offset += 1
@@ -353,7 +353,7 @@ class MerklePatriciaTrie:
 
         return b"", (), None, []
 
-    def _collect_proof(self, node: Optional[TrieNode], path: Tuple[int, ...], proof: List[bytes]) -> bool:
+    def _collect_proof(self, node: TrieNode | None, path: tuple[int, ...], proof: list[bytes]) -> bool:
         if node is None:
             return False
 
@@ -382,25 +382,25 @@ class StateManager:
     This class provides the interface for computing and verifying state roots
     from account balances and other state data.
     """
-    
+
     def __init__(self):
         self._trie = MerklePatriciaTrie()
-    
+
     def update_account(self, address: str, balance: int, nonce: int) -> None:
         """Update an account in the state trie."""
         key = self._encode_address(address)
         value = self._encode_account(balance, nonce)
         self._trie.put(key, value)
-    
-    def get_account(self, address: str) -> Optional[Tuple[int, int]]:
+
+    def get_account(self, address: str) -> tuple[int, int] | None:
         """Get account balance and nonce from state trie."""
         key = self._encode_address(address)
         value = self._trie.get(key)
         if value:
             return self._decode_account(value)
         return None
-    
-    def compute_state_root(self, accounts: Dict[str, Account]) -> bytes:
+
+    def compute_state_root(self, accounts: dict[str, Account]) -> bytes:
         """
         Compute the state root from a dictionary of accounts.
         
@@ -411,15 +411,15 @@ class StateManager:
             The state root hash
         """
         new_trie = MerklePatriciaTrie()
-        
+
         for address, account in sorted(accounts.items()):
             key = self._encode_address(address)
             value = self._encode_account(account.balance, account.nonce)
             new_trie.put(key, value)
-        
+
         return new_trie.get_root()
-    
-    def verify_state_root(self, accounts: Dict[str, Account], expected_root: bytes) -> bool:
+
+    def verify_state_root(self, accounts: dict[str, Account], expected_root: bytes) -> bool:
         """
         Verify that the state root matches the expected value.
         
@@ -432,20 +432,20 @@ class StateManager:
         """
         computed_root = self.compute_state_root(accounts)
         return computed_root == expected_root
-    
+
     def _encode_address(self, address: str) -> bytes:
         """Encode an address as bytes for the trie."""
         return address.encode('utf-8')
-    
+
     def _encode_account(self, balance: int, nonce: int) -> bytes:
         """Encode account data as bytes for the trie."""
-        return f"{balance}:{nonce}".encode('utf-8')
-    
-    def _decode_account(self, value: bytes) -> Tuple[int, int]:
+        return f"{balance}:{nonce}".encode()
+
+    def _decode_account(self, value: bytes) -> tuple[int, int]:
         """Decode account data from bytes."""
         parts = value.decode('utf-8').split(':')
         return int(parts[0]), int(parts[1])
-    
+
     def get_root(self) -> bytes:
         """Get the current state root."""
         return self._trie.get_root()

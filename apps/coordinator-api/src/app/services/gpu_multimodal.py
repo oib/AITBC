@@ -9,14 +9,14 @@ Advanced GPU optimization for cross-modal attention mechanisms
 Phase 5.2: System Optimization and Performance Enhancement
 """
 
-from aitbc import get_logger
-
 import torch
 import torch.nn.functional as F
 
+from aitbc import get_logger
+
 logger = get_logger(__name__)
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -501,7 +501,7 @@ class GPUAcceleratedMultiModal:
     ) -> dict[str, Any]:
         """CPU fallback for attention processing"""
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         # Simple CPU attention computation
         attended_features = {}
@@ -527,7 +527,7 @@ class GPUAcceleratedMultiModal:
             attended_features[modality] = attended
             attention_matrices[f"{modality}_self"] = attention_matrix
 
-        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+        processing_time = (datetime.now(UTC) - start_time).total_seconds()
 
         return {
             "attended_features": attended_features,
@@ -706,7 +706,7 @@ class GPUFeatureCache:  # type: ignore[no-redef]
         self._cache[cache_key] = {
             "features": features,
             "priority": priority,
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": datetime.now(UTC),
             "size_mb": features.nbytes / (1024 * 1024),
         }
 

@@ -3,9 +3,10 @@
 Verify Windsurf test integration is working properly
 """
 
+import os
 import subprocess
 import sys
-import os
+
 
 def run_command(cmd, description):
     """Run a command and return success status"""
@@ -13,41 +14,41 @@ def run_command(cmd, description):
     print(f"Testing: {description}")
     print(f"Command: {cmd}")
     print('='*60)
-    
+
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    
+
     if result.stdout:
         print("STDOUT:")
         print(result.stdout)
-    
+
     if result.stderr:
         print("STDERR:")
         print(result.stderr)
-    
+
     return result.returncode == 0
 
 def main():
     print("🔍 Verifying Windsurf Test Integration")
     print("=" * 60)
-    
+
     # Change to project directory
     os.chdir('/home/oib/windsurf/aitbc')
-    
+
     tests = [
         ("pytest --collect-only tests/test_windsurf_integration.py", "Test Discovery"),
         ("pytest tests/test_windsurf_integration.py -v", "Run Simple Tests"),
         ("pytest --collect-only tests/ -q --no-cov", "Collect All Tests (without imports)"),
     ]
-    
+
     all_passed = True
-    
+
     for cmd, desc in tests:
         if not run_command(cmd, desc):
             all_passed = False
             print(f"❌ Failed: {desc}")
         else:
             print(f"✅ Passed: {desc}")
-    
+
     print("\n" + "=" * 60)
     if all_passed:
         print("✅ All tests passed! Windsurf integration is working.")

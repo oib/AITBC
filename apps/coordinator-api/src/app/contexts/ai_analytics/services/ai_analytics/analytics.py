@@ -3,15 +3,13 @@ Marketplace Analytics Service
 Implements comprehensive analytics, insights, and reporting for the marketplace
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-
-from sqlmodel import Session, and_, select
 
 from app.domain.analytics import (
     AnalyticsAlert,
@@ -22,6 +20,7 @@ from app.domain.analytics import (
     MarketMetric,
     MetricType,
 )
+from sqlmodel import Session, and_, select
 
 
 class DataCollector:
@@ -119,7 +118,7 @@ class DataCollector:
             change_percentage=change_percentage,
             unit="AITBC",
             category="financial",
-            recorded_at=datetime.now(timezone.utc),
+            recorded_at=datetime.now(UTC),
             period_start=start_time,
             period_end=end_time,
             breakdown={
@@ -166,7 +165,7 @@ class DataCollector:
             change_percentage=change_percentage,
             unit="agents",
             category="agents",
-            recorded_at=datetime.now(timezone.utc),
+            recorded_at=datetime.now(UTC),
             period_start=start_time,
             period_end=end_time,
             breakdown={
@@ -216,7 +215,7 @@ class DataCollector:
             change_percentage=change_percentage,
             unit="AITBC",
             category="pricing",
-            recorded_at=datetime.now(timezone.utc),
+            recorded_at=datetime.now(UTC),
             period_start=start_time,
             period_end=end_time,
             breakdown={
@@ -267,7 +266,7 @@ class DataCollector:
             change_percentage=change_percentage,
             unit="%",
             category="performance",
-            recorded_at=datetime.now(timezone.utc),
+            recorded_at=datetime.now(UTC),
             period_start=start_time,
             period_end=end_time,
             breakdown={
@@ -318,7 +317,7 @@ class DataCollector:
             change_percentage=change_percentage,
             unit="ratio",
             category="market",
-            recorded_at=datetime.now(timezone.utc),
+            recorded_at=datetime.now(UTC),
             period_start=start_time,
             period_end=end_time,
             breakdown={
@@ -823,7 +822,7 @@ class MarketplaceAnalytics:
         """Collect comprehensive market data"""
 
         # Calculate time range
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
 
         if period_type == AnalyticsPeriod.DAILY:
             start_time = end_time - timedelta(days=1)
@@ -863,7 +862,7 @@ class MarketplaceAnalytics:
         period_type = period_map.get(time_period, AnalyticsPeriod.DAILY)
 
         # Calculate time range
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
 
         if period_type == AnalyticsPeriod.DAILY:
             start_time = end_time - timedelta(days=1)
@@ -925,7 +924,7 @@ class MarketplaceAnalytics:
         """Get comprehensive market overview"""
 
         # Get latest daily metrics
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         start_time = end_time - timedelta(days=1)
 
         metrics = self.session.execute(
@@ -957,7 +956,7 @@ class MarketplaceAnalytics:
         ).all()
 
         return {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "period": "last_24_hours",
             "metrics": {
                 metric.metric_name: {

@@ -12,15 +12,17 @@ Usage:
     python benchmark_throughput.py --concurrent-clients 100 --duration 60 --target-url http://localhost:8080
 """
 
-import asyncio
-import aiohttp
-import time
-import statistics
-import psutil
 import argparse
+import logging
+import asyncio
 import json
-from typing import List, Dict, Any
+import statistics
+import time
 from dataclasses import dataclass
+from typing import Any
+
+import aiohttp
+import psutil
 from aitbc.logging import get_logger
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -43,20 +45,20 @@ class BenchmarkResult:
 
 class BlockchainBenchmark:
     """Benchmark client for blockchain node"""
-    
+
     def __init__(self, base_url: str):
         self.base_url = base_url.rstrip('/')
         self.session = None
-        
+
     async def __aenter__(self):
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
         return self
-        
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.session:
             await self.session.close()
-    
-    async def submit_transaction(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def submit_transaction(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Submit a single transaction"""
         start_time = time.time()
         try:
@@ -72,7 +74,7 @@ class BlockchainBenchmark:
                     return {"success": False, "error": f"HTTP {response.status}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
-    
+
     async def get_block_height(self) -> int:
         """Get current block height"""
         try:
@@ -85,7 +87,7 @@ class BlockchainBenchmark:
         return 0
 
 
-def generate_test_transaction(i: int) -> Dict[str, Any]:
+def generate_test_transaction(i: int) -> dict[str, Any]:
     """Generate a test transaction"""
     return {
         "from": f"0xtest_sender_{i % 100:040x}",
@@ -102,19 +104,19 @@ async def worker_task(
     benchmark: BlockchainBenchmark,
     worker_id: int,
     transactions_per_worker: int,
-    results: List[Dict[str, Any]]
+    results: list[dict[str, Any]]
 ) -> None:
     """Worker task that submits transactions"""
     logger.info(f"Worker {worker_id} starting")
-    
+
     for i in range(transactions_per_worker):
         tx = generate_test_transaction(worker_id * transactions_per_worker + i)
         result = await benchmark.submit_transaction(tx)
         results.append(result)
-        
+
         if not result["success"]:
             logger.warning(f"Worker {worker_id} transaction failed: {result.get('error', 'unknown')}")
-    
+
     logger.info(f"Worker {worker_id} completed")
 
 
@@ -126,77 +128,77 @@ async def run_benchmark(
 ) -> BenchmarkResult:
     """Run the benchmark"""
     logger.info(f"Starting benchmark: {concurrent_clients} concurrent clients for {duration}s")
-    
+
     # Start resource monitoring
     process = psutil.Process()
     cpu_samples = []
     memory_samples = []
-    
+
     async def monitor_resources():
         while True:
             cpu_samples.append(process.cpu_percent())
             memory_samples.append(process.memory_info().rss / 1024 / 1024)  # MB
             await asyncio.sleep(1)
-    
+
     # Calculate transactions needed
     if target_tps:
         total_transactions = target_tps * duration
     else:
         total_transactions = concurrent_clients * 100  # Default: 100 tx per client
-    
+
     transactions_per_worker = total_transactions // concurrent_clients
     results = []
-    
+
     async with BlockchainBenchmark(base_url) as benchmark:
         # Start resource monitor
         monitor_task = asyncio.create_task(monitor_resources())
-        
+
         # Record start block height
         start_height = await benchmark.get_block_height()
-        
+
         # Start benchmark
         start_time = time.time()
-        
+
         # Create worker tasks
         tasks = [
             worker_task(benchmark, i, transactions_per_worker, results)
             for i in range(concurrent_clients)
         ]
-        
+
         # Wait for all tasks to complete or timeout
         try:
             await asyncio.wait_for(asyncio.gather(*tasks), timeout=duration)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Benchmark timed out")
             for task in tasks:
                 task.cancel()
-        
+
         end_time = time.time()
         actual_duration = end_time - start_time
-        
+
         # Stop resource monitor
         monitor_task.cancel()
-        
+
         # Get final block height
         end_height = await benchmark.get_block_height()
-        
+
         # Calculate metrics
         successful_tx = [r for r in results if r["success"]]
         latencies = [r["latency"] for r in successful_tx if "latency" in r]
-        
+
         if latencies:
             latency_p50 = statistics.median(latencies)
             latency_p95 = statistics.quantiles(latencies, n=20)[18]  # 95th percentile
             latency_p99 = statistics.quantiles(latencies, n=100)[98]  # 99th percentile
         else:
             latency_p50 = latency_p95 = latency_p99 = 0
-        
+
         tps = len(successful_tx) / actual_duration if actual_duration > 0 else 0
         avg_cpu = statistics.mean(cpu_samples) if cpu_samples else 0
         avg_memory = statistics.mean(memory_samples) if memory_samples else 0
         errors = len(results) - len(successful_tx)
-        
-        logger.info(f"Benchmark completed:")
+
+        logger.info("Benchmark completed:")
         logger.info(f"  Duration: {actual_duration:.2f}s")
         logger.info(f"  Transactions: {len(successful_tx)} successful, {errors} failed")
         logger.info(f"  TPS: {tps:.2f}")
@@ -204,7 +206,7 @@ async def run_benchmark(
         logger.info(f"  CPU Usage: {avg_cpu:.1f}%")
         logger.info(f"  Memory Usage: {avg_memory:.1f}MB")
         logger.info(f"  Blocks processed: {end_height - start_height}")
-        
+
         return BenchmarkResult(
             total_transactions=len(successful_tx),
             duration=actual_duration,
@@ -220,7 +222,7 @@ async def run_benchmark(
 
 async def main():
     parser = argparse.ArgumentParser(description="Blockchain Node Throughput Benchmark")
-    parser.add_argument("--target-url", default="http://localhost:8080", 
+    parser.add_argument("--target-url", default="http://localhost:8080",
                        help="Blockchain node RPC URL")
     parser.add_argument("--concurrent-clients", type=int, default=50,
                        help="Number of concurrent client connections")
@@ -229,9 +231,9 @@ async def main():
     parser.add_argument("--target-tps", type=int,
                        help="Target TPS to achieve (calculates transaction count)")
     parser.add_argument("--output", help="Output results to JSON file")
-    
+
     args = parser.parse_args()
-    
+
     # Run benchmark
     result = await run_benchmark(
         base_url=args.target_url,
@@ -239,7 +241,7 @@ async def main():
         duration=args.duration,
         target_tps=args.target_tps
     )
-    
+
     # Output results
     if args.output:
         with open(args.output, "w") as f:
@@ -255,7 +257,7 @@ async def main():
                 "errors": result.errors
             }, f, indent=2)
         logger.info(f"Results saved to {args.output}")
-    
+
     # Provide scaling recommendations
     logger.info("\n=== Scaling Recommendations ===")
     if result.tps < 100:
@@ -266,8 +268,8 @@ async def main():
         logger.info("• High CPU usage. Horizontal scaling recommended")
     if result.memory_usage > 1024:
         logger.info("• High memory usage. Monitor for memory leaks")
-    
-    logger.info(f"\nRecommended minimum resources for current load:")
+
+    logger.info("\nRecommended minimum resources for current load:")
     logger.info(f"• CPU: {result.cpu_usage * 1.5:.0f}% (with headroom)")
     logger.info(f"• Memory: {result.memory_usage * 1.5:.0f}MB (with headroom)")
     logger.info(f"• Horizontal scaling threshold: ~{result.tps * 0.7:.0f} TPS per node")

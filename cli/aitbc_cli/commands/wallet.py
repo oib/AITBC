@@ -1,19 +1,21 @@
 """Wallet commands for AITBC CLI"""
 
-import click
+import getpass
 import json
 import os
 import shutil
-import yaml
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timezone, timedelta
-from ..utils import output, error, success
-from ..config import get_config
-import getpass
+from typing import Any
+
+import click
+import yaml
 
 # Import shared modules
-from aitbc import get_logger, AITBCHTTPClient, NetworkError, KEYSTORE_DIR
+from aitbc import AITBCHTTPClient, get_logger
+
+from ..config import get_config
+from ..utils import error, output, success
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -64,7 +66,7 @@ def _get_wallet_password(wallet_name: str) -> str:
         except Exception as e:
             error(f"Password prompt failed: {e}")
             raise click.Abort()
-        
+
         if not password:
             error("Password cannot be empty")
             continue
@@ -85,7 +87,7 @@ def _get_wallet_password(wallet_name: str) -> str:
         return password
 
 
-def _save_wallet(wallet_path: Path, wallet_data: Dict[str, Any], password: str = None):
+def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str = None):
     """Save wallet with encrypted private key"""
     # Encrypt private key if provided
     if password and "private_key" in wallet_data:
@@ -97,9 +99,9 @@ def _save_wallet(wallet_path: Path, wallet_data: Dict[str, Any], password: str =
         json.dump(wallet_data, f, indent=2)
 
 
-def _load_wallet(wallet_path: Path, wallet_name: str) -> Dict[str, Any]:
+def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
     """Load wallet and decrypt private key if needed"""
-    with open(wallet_path, "r") as f:
+    with open(wallet_path) as f:
         wallet_data = json.load(f)
 
     # Decrypt private key if encrypted
@@ -124,23 +126,23 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> Dict[str, Any]:
 @click.option("--use-daemon", is_flag=True, default=True, help="Use wallet daemon for operations")
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
-def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daemon: bool, chain_id: Optional[str]):
+def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bool, chain_id: str | None):
     """Manage your AITBC wallets and transactions"""
     # Ensure wallet object exists
     ctx.ensure_object(dict)
 
     # Set daemon mode
     ctx.obj["use_daemon"] = use_daemon
-    
+
     # Handle chain_id with auto-detection
     from ..utils.chain_id import get_chain_id
     config = get_config()
     default_rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
-    
+
     # Initialize dual-mode adapter
     from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
-    
+
     config = get_config()
     adapter = DualModeWalletAdapter(config, use_daemon=use_daemon)
     ctx.obj["wallet_adapter"] = adapter
@@ -163,7 +165,7 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daem
         # Try to get from config or use 'default'
         config_file = Path.home() / ".aitbc" / "config.yaml"
         if config_file.exists():
-            with open(config_file, "r") as f:
+            with open(config_file) as f:
                 config = yaml.safe_load(f)
                 if config:
                     wallet_name = config.get("active_wallet", "default")
@@ -197,15 +199,13 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     if wallet_type == "hd":
         # Hierarchical Deterministic wallet
         import secrets
+
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec
         from cryptography.hazmat.primitives.serialization import (
             Encoding,
             PublicFormat,
-            NoEncryption,
-            PrivateFormat,
         )
-        import base64
 
         # Generate private key
         private_key_bytes = secrets.token_bytes(32)
@@ -240,7 +240,7 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
         "address": address,
         "public_key": public_key,
         "private_key": private_key,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": datetime.now(UTC).isoformat() + "Z",
         "balance": 0,
         "transactions": [],
     }
@@ -274,23 +274,24 @@ def list(ctx):
     """List all wallets"""
     adapter = ctx.obj["wallet_adapter"]
     use_daemon = ctx.obj["use_daemon"]
-    
+
     # Check if using daemon mode and daemon is available
     if use_daemon and not adapter.is_daemon_available():
         error("Wallet daemon is not available. Falling back to file-based wallet listing.")
         # Switch to file mode
-        from ..config import get_config
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+
+        from ..config import get_config
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
-    
+
     try:
         wallets = adapter.list_wallets()
-        
+
         if not wallets:
             output("No wallets found")
             return
-        
+
         # Format output
         output_format = ctx.obj.get("output_format", "table")
         if output_format == "json":
@@ -328,7 +329,7 @@ def switch(ctx, name: str):
     if config_file.exists():
         import yaml
 
-        with open(config_file, "r") as f:
+        with open(config_file) as f:
             config = yaml.safe_load(f) or {}
 
     config["active_wallet"] = name
@@ -374,7 +375,7 @@ def delete(ctx, name: str, confirm: bool):
     if config_file.exists():
         import yaml
 
-        with open(config_file, "r") as f:
+        with open(config_file) as f:
             config = yaml.safe_load(f) or {}
 
         if config.get("active_wallet") == name:
@@ -387,7 +388,7 @@ def delete(ctx, name: str, confirm: bool):
 @click.argument("name")
 @click.option("--destination", help="Destination path for backup file")
 @click.pass_context
-def backup(ctx, name: str, destination: Optional[str]):
+def backup(ctx, name: str, destination: str | None):
     """Backup a wallet"""
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
@@ -407,7 +408,7 @@ def backup(ctx, name: str, destination: Optional[str]):
         {
             "wallet": name,
             "backup_path": destination,
-            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat() + "Z",
         }
     )
 
@@ -431,12 +432,12 @@ def restore(ctx, backup_path: str, name: str, force: bool):
         return
 
     # Load and verify backup
-    with open(backup_path, "r") as f:
+    with open(backup_path) as f:
         wallet_data = json.load(f)
 
     # Update wallet name if needed
     wallet_data["wallet_id"] = name
-    wallet_data["restored_at"] = datetime.now(timezone.utc).isoformat() + "Z"
+    wallet_data["restored_at"] = datetime.now(UTC).isoformat() + "Z"
 
     # Save restored wallet (preserve encryption state)
     # If wallet was encrypted, we save it as-is (still encrypted with original password)
@@ -474,7 +475,7 @@ def info(ctx):
     if config_file.exists():
         import yaml
 
-        with open(config_file, "r") as f:
+        with open(config_file) as f:
             config = yaml.safe_load(f)
             active_wallet = config.get("active_wallet", "default")
 
@@ -497,13 +498,13 @@ def info(ctx):
 @wallet.command()
 @click.argument("name", required=False)
 @click.pass_context
-def balance(ctx, name: Optional[str]):
+def balance(ctx, name: str | None):
     """Check wallet balance"""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
-    
+
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{wallet_name}.json"
     config = ctx.obj.get("config")
@@ -511,6 +512,7 @@ def balance(ctx, name: Optional[str]):
     # Auto-create wallet if it doesn't exist
     if not wallet_path.exists():
         import secrets
+
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec
         from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -541,7 +543,7 @@ def balance(ctx, name: Optional[str]):
             "address": address,
             "public_key": public_key,
             "private_key": private_key,
-            "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+            "created_at": datetime.now(UTC).isoformat() + "Z",
             "balance": 0.0,
             "transactions": [],
         }
@@ -632,7 +634,7 @@ def history(ctx, limit: int):
 @click.argument("job_id")
 @click.option("--desc", help="Description of the work")
 @click.pass_context
-def earn(ctx, amount: float, job_id: str, desc: Optional[str]):
+def earn(ctx, amount: float, job_id: str, desc: str | None):
     """Add earnings from completed job"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -726,13 +728,13 @@ def spend(ctx, amount: float, description: str):
 @wallet.command()
 @click.argument("name", required=False)
 @click.pass_context
-def address(ctx, name: Optional[str]):
+def address(ctx, name: str | None):
     """Show wallet address"""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
-    
+
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{wallet_name}.json"
 
@@ -755,7 +757,7 @@ def address(ctx, name: Optional[str]):
 @click.option("--password", help="Wallet password for signing")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
-def send(ctx, to_address: str, amount: float, fee: float, password: Optional[str], rpc_url: Optional[str]):
+def send(ctx, to_address: str, amount: float, fee: float, password: str | None, rpc_url: str | None):
     """Send AITBC to another address"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -846,7 +848,7 @@ def send(ctx, to_address: str, amount: float, fee: float, password: Optional[str
 @click.argument("amount", type=float)
 @click.option("--description", help="Transaction description")
 @click.pass_context
-def request_payment(ctx, to_address: str, amount: float, description: Optional[str]):
+def request_payment(ctx, to_address: str, amount: float, description: str | None):
     """Request payment from another address"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -997,7 +999,7 @@ def unstake(ctx, stake_id: str):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    with open(wallet_path, "r") as f:
+    with open(wallet_path) as f:
         wallet_data = json.load(f)
 
     staking = wallet_data.get("staking", [])
@@ -1159,7 +1161,7 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 @click.option("--description", help="Transaction description")
 @click.pass_context
 def multisig_propose(
-    ctx, wallet_name: str, to_address: str, amount: float, description: Optional[str]
+    ctx, wallet_name: str, to_address: str, amount: float, description: str | None
 ):
     """Propose a multisig transaction"""
     wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
@@ -1524,21 +1526,22 @@ def rewards(ctx):
 def fund(ctx, address: str, amount: int, chain_id: str):
     """Fund wallet using blockchain faucet"""
     import httpx
-    from ..utils.chain_id import get_chain_id
+
     from ..config import get_config
+    from ..utils.chain_id import get_chain_id
 
     config = get_config()
     rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
-    
+
     # Get chain_id
     if not chain_id:
         chain_id = get_chain_id(rpc_url)
-    
+
     # Normalize address
     address = address.lower().strip()
     if not address.startswith("0x"):
         address = "0x" + address
-    
+
     # Call faucet endpoint
     faucet_url = f"{rpc_url}/faucet"
     faucet_data = {
@@ -1546,12 +1549,12 @@ def fund(ctx, address: str, amount: int, chain_id: str):
         "amount": amount,
         "chain_id": chain_id
     }
-    
+
     try:
         response = httpx.post(faucet_url, json=faucet_data, timeout=10)
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("success"):
             success(f"Successfully funded wallet {address} with {amount} units")
             output(result, ctx.obj.get("output_format", "table"))
@@ -1566,7 +1569,7 @@ def fund(ctx, address: str, amount: int, chain_id: str):
 @wallet.command()
 @click.option('--destination', help='Destination file path (default: wallet_name_export.json)')
 @click.pass_context
-def export(ctx, destination: Optional[str]):
+def export(ctx, destination: str | None):
     """Export wallet to JSON file"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -1577,17 +1580,17 @@ def export(ctx, destination: Optional[str]):
 
     try:
         wallet_data = _load_wallet(wallet_path, wallet_name)
-        
+
         # Generate export filename if not provided
         if not destination:
             destination = f"{wallet_name}_export.json"
-        
+
         export_path = Path(destination)
-        
+
         # Write export file
         with open(export_path, 'w') as f:
             json.dump(wallet_data, f, indent=2)
-        
+
         success(f"Wallet exported to {export_path}")
         output({
             "wallet": wallet_name,
@@ -1603,33 +1606,33 @@ def export(ctx, destination: Optional[str]):
 @click.argument('file_path')
 @click.option('--name', help='New wallet name (default: from file)')
 @click.pass_context
-def import_wallet(ctx, file_path: str, name: Optional[str]):
+def import_wallet(ctx, file_path: str, name: str | None):
     """Import wallet from JSON file"""
     wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
     wallet_dir.mkdir(parents=True, exist_ok=True)
-    
+
     import_path = Path(file_path)
-    
+
     if not import_path.exists():
         error(f"Import file not found: {file_path}")
         return
-    
+
     try:
-        with open(import_path, 'r') as f:
+        with open(import_path) as f:
             wallet_data = json.load(f)
-        
+
         # Determine wallet name
         wallet_name = name or wallet_data.get("name", import_path.stem)
         wallet_path = wallet_dir / f"{wallet_name}.json"
-        
+
         if wallet_path.exists():
             if not click.confirm(f"Wallet '{wallet_name}' already exists. Overwrite?"):
                 return
-        
+
         # Save imported wallet
         with open(wallet_path, 'w') as f:
             json.dump(wallet_data, f, indent=2)
-        
+
         success(f"Wallet imported as '{wallet_name}'")
         output({
             "wallet": wallet_name,

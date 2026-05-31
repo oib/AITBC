@@ -6,12 +6,12 @@ Enhanced monitor for Gitea PRs:
 - Monitor CI statuses and report failures
 - Release claim branches when associated PRs merge, close, or EXPIRE
 """
-import os
 import json
+import os
+import shutil
 import subprocess
 import tempfile
-import shutil
-from datetime import datetime, timezone, timezone
+from datetime import UTC, datetime
 
 GITEA_TOKEN = os.getenv('GITEA_TOKEN') or 'ffce3b62d583b761238ae00839dce7718acaad85'
 REPO = 'oib/aitbc'
@@ -80,7 +80,7 @@ def is_claim_expired(state):
     expires_at = state.get('expires_at')
     if not expires_at:
         return False
-    now_ts = datetime.now(timezone.utc).timestamp()
+    now_ts = datetime.now(UTC).timestamp()
     return now_ts > expires_at
 
 def get_open_prs():
@@ -135,11 +135,11 @@ def validate_pr_branch(pr):
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 def main():
-    now = datetime.now(timezone.utc).replace(tzinfo=timezone.utc)
+    now = datetime.now(UTC).replace(tzinfo=UTC)
     now_iso = now.isoformat()
     now_ts = now.timestamp()
     print(f"[{now_iso}] Monitoring PRs and claim locks...")
-    
+
     # 0. Check claim state: if we have a current claim, see if it expired or PR merged
     state = load_claim_state()
     if state.get('current_claim'):
@@ -160,17 +160,17 @@ def main():
                     break
             if matched_pr and matched_pr['state'] == 'closed':
                 release_claim(issue_num, claim_branch)
-    
+
     # 1. Process open PRs
     open_prs = get_open_prs()
     notifications = []
-    
+
     for pr in open_prs:
         number = pr['number']
         title = pr['title']
         author = pr['user']['login']
         head_ref = pr['head']['ref']
-        
+
         # A. If PR from sibling, consider for review
         if author == SIBLING_AGENT:
             reviews = get_pr_reviews(number)
@@ -191,7 +191,7 @@ def main():
                     else:
                         post_review(number, 'CHANGES_REQUESTED', body=f"Automated peer review detected issues:\n\n{msg}\n\nPlease fix and push.")
                         notifications.append(f"Requested changes on PR #{number} from @{author}: {msg[:100]}")
-        
+
         # B. If PR from me, ensure sibling is requested as reviewer
         if author == MY_AGENT:
             pr_full = query_api(f'repos/{REPO}/pulls/{number}')
@@ -199,17 +199,17 @@ def main():
             if not any(r.get('login') == SIBLING_AGENT for r in requested):
                 request_reviewer(number, SIBLING_AGENT)
                 notifications.append(f"Requested review from @{SIBLING_AGENT} for my PR #{number}")
-        
+
         # C. Check CI statuses for any PR
         statuses = get_commit_statuses(number)
         failing = [s for s in statuses if s.get('status') not in ('success', 'pending')]
         if failing:
             for s in failing:
                 notifications.append(f"PR #{number} status check failure: {s.get('context','unknown')} - {s.get('status','unknown')}")
-    
+
     # 2. Global cleanup of stale claim branches (orphaned, older than TTL)
     cleanup_global_expired_claims(now_ts)
-    
+
     if notifications:
         print("\n".join(notifications))
     else:
@@ -218,7 +218,7 @@ def main():
 def cleanup_global_expired_claims(now_ts=None):
     """Delete remote claim branches that are older than TTL, even if state file is gone."""
     if now_ts is None:
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
     # List all remote claim branches
     result = subprocess.run(['git', 'ls-remote', '--heads', 'origin', 'claim/*'],
                             capture_output=True, text=True, cwd='/opt/aitbc')

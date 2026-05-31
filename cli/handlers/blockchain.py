@@ -1,11 +1,12 @@
 """Blockchain command handlers."""
 
 import json
+import logging
 import os
 import sys
 
 import requests
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +28,7 @@ def handle_blockchain_block(args, default_rpc_url):
     if args.number is None:
         logger.error("Error: block number is required")
         sys.exit(1)
-    
+
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
     chain_id = getattr(args, 'chain_id', None) or os.getenv('CHAIN_ID', 'ait-mainnet')
     logger.info(f"Querying block #{args.number} from {rpc_url} (chain: {chain_id})...")
@@ -77,7 +78,7 @@ def handle_blockchain_init(args, default_rpc_url):
 def handle_blockchain_genesis(args, default_rpc_url):
     """Handle blockchain genesis command."""
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-    
+
     if args.create:
         logger.info(f"Creating genesis block on {rpc_url}...")
         try:
@@ -123,7 +124,7 @@ def handle_blockchain_import(args, default_rpc_url, render_mapping):
     """Handle blockchain import command."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     # Load block data from file or stdin
     if args.file:
         with open(args.file) as f:
@@ -133,11 +134,11 @@ def handle_blockchain_import(args, default_rpc_url, render_mapping):
     else:
         logger.error("Error: --file or --json is required")
         sys.exit(1)
-    
+
     # Add chain_id if provided
     if chain_id:
         block_data["chain_id"] = chain_id
-    
+
     logger.info(f"Importing block to {rpc_url}...")
     try:
         response = requests.post(f"{rpc_url}/rpc/importBlock", json=block_data, timeout=30)
@@ -158,13 +159,13 @@ def handle_blockchain_export(args, default_rpc_url):
     """Handle blockchain export command."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     logger.info(f"Exporting chain from {rpc_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{rpc_url}/rpc/export-chain", params=params, timeout=60)
         if response.status_code == 200:
             chain_data = response.json()
@@ -186,14 +187,14 @@ def handle_blockchain_export(args, default_rpc_url):
 def handle_blockchain_import_chain(args, default_rpc_url, render_mapping):
     """Handle blockchain import chain command."""
     rpc_url = args.rpc_url or default_rpc_url
-    
+
     if not args.file:
         logger.error("Error: --file is required")
         sys.exit(1)
-    
+
     with open(args.file) as f:
         chain_data = json.load(f)
-    
+
     logger.info(f"Importing chain state to {rpc_url}...")
     try:
         response = requests.post(f"{rpc_url}/rpc/import-chain", json=chain_data, timeout=120)
@@ -214,7 +215,7 @@ def handle_blockchain_blocks_range(args, default_rpc_url, output_format):
     """Handle blockchain blocks range command."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     params = {"limit": args.limit}
     if args.start:
         params["from_height"] = args.start
@@ -222,7 +223,7 @@ def handle_blockchain_blocks_range(args, default_rpc_url, output_format):
         params["to_height"] = args.end
     if chain_id:
         params["chain_id"] = chain_id
-    
+
     logger.info(f"Querying blocks range from {rpc_url}...")
     try:
         response = requests.get(f"{rpc_url}/rpc/blocks-range", params=params, timeout=30)
@@ -250,7 +251,7 @@ def handle_blockchain_transactions(args, default_rpc_url):
     """Handle blockchain transactions command."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     logger.info(f"Querying transactions from {rpc_url}...")
     try:
         params = {}
@@ -262,7 +263,7 @@ def handle_blockchain_transactions(args, default_rpc_url):
             params["limit"] = args.limit
         if args.offset:
             params["offset"] = args.offset
-        
+
         response = requests.get(f"{rpc_url}/rpc/transactions", params=params, timeout=10)
         if response.status_code == 200:
             transactions = response.json()
@@ -288,13 +289,13 @@ def handle_blockchain_mempool(args, default_rpc_url):
     """Handle blockchain mempool command."""
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
-    
+
     logger.info(f"Getting pending transactions from {rpc_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         response = requests.get(f"{rpc_url}/rpc/mempool", params=params, timeout=10)
         if response.status_code == 200:
             mempool = response.json()

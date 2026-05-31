@@ -1,11 +1,8 @@
 """Edge case and error handling tests for agent registry service"""
 
-import pytest
-import sys
-import sys
 from pathlib import Path
-import os
 
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -16,10 +13,10 @@ def reset_db():
     db_path = Path("agent_registry.db")
     if db_path.exists():
         db_path.unlink()
-    
+
     app.init_db()
     yield
-    
+
     # Clean up after test
     if db_path.exists():
         db_path.unlink()
@@ -104,7 +101,7 @@ def test_list_agents_no_match_filter():
     import app
     from fastapi.testclient import TestClient
     client = TestClient(app.app)
-    
+
     # Register an agent
     registration = app.AgentRegistration(
         name="Test Agent",
@@ -114,7 +111,7 @@ def test_list_agents_no_match_filter():
         endpoint="http://localhost:8000"
     )
     client.post("/api/agents/register", json=registration.model_dump())
-    
+
     # Filter for non-existent type
     response = client.get("/api/agents?agent_type=compliance")
     assert response.status_code == 200
@@ -128,7 +125,7 @@ def test_list_agents_multiple_filters():
     import app
     from fastapi.testclient import TestClient
     client = TestClient(app.app)
-    
+
     # Register agents
     registration1 = app.AgentRegistration(
         name="Trading Agent",
@@ -146,7 +143,7 @@ def test_list_agents_multiple_filters():
     )
     client.post("/api/agents/register", json=registration1.model_dump())
     client.post("/api/agents/register", json=registration2.model_dump())
-    
+
     # Filter by both type and chain
     response = client.get("/api/agents?agent_type=trading&chain_id=ait-devnet")
     assert response.status_code == 200

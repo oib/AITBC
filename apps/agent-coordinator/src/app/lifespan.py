@@ -2,8 +2,9 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 
-from aitbc import get_logger
 from fastapi import FastAPI
+
+from aitbc import get_logger
 
 from . import state
 

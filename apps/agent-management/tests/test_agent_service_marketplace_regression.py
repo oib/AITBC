@@ -3,17 +3,15 @@ Regression tests for agent_service_marketplace.py
 These tests capture current behavior before extracting shared logic.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from uuid import uuid4
+from datetime import UTC, datetime
 
+import pytest
 from app.services.agent_service_marketplace import (
-    ServiceStatus,
-    RequestStatus,
     GuildStatus,
-    ServiceType,
+    RequestStatus,
     Service,
-    ServiceRequest,
+    ServiceStatus,
+    ServiceType,
 )
 
 
@@ -87,7 +85,7 @@ class TestService:
 
     def test_service_creation_with_defaults(self):
         """Test creating a service with default values"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         service = Service(
             id="service_123",
             agent_id="agent1",
@@ -105,7 +103,7 @@ class TestService:
             listed_at=now,
             last_updated=now
         )
-        
+
         assert service.id == "service_123"
         assert service.agent_id == "agent1"
         assert service.service_type == ServiceType.DEVELOPMENT
@@ -129,7 +127,7 @@ class TestService:
 
     def test_service_with_optional_fields(self):
         """Test creating a service with optional fields set"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         service = Service(
             id="service_456",
             agent_id="agent2",
@@ -154,7 +152,7 @@ class TestService:
             estimated_duration=5,
             availability={"monday": True, "tuesday": True}
         )
-        
+
         assert service.guild_id == "guild_123"
         assert service.tags == ["data", "analysis", "python"]
         assert service.capabilities == ["ml", "visualization"]

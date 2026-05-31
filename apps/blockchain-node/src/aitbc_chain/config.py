@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Optional, ClassVar
 import uuid
-
-from aitbc.constants import DATA_DIR, KEYSTORE_DIR
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pathlib import Path
+from typing import ClassVar
 
 from pydantic import BaseModel
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from aitbc.constants import DATA_DIR, KEYSTORE_DIR
+
 
 class ProposerConfig(BaseModel):
     chain_id: str
@@ -17,7 +17,7 @@ class ProposerConfig(BaseModel):
     interval_seconds: int
     max_block_size_bytes: int
     max_txs_per_block: int
-    default_peer_rpc_url: Optional[str] = None
+    default_peer_rpc_url: str | None = None
 
 # Default island ID for new installations
 DEFAULT_ISLAND_ID = str(uuid.uuid4())
@@ -35,7 +35,7 @@ class ChainSettings(BaseSettings):
     # Auto-resync configuration for Phase 1.3
     auto_resync_enabled: bool = True  # Enable automatic re-sync on rejection threshold
     auto_resync_after_rejections: int = 3  # Trigger re-sync after N consecutive rejections
-    auto_resync_source_url: Optional[str] = None  # Trusted peer URL for auto re-sync (fallback to default_peer_rpc_url)
+    auto_resync_source_url: str | None = None  # Trusted peer URL for auto re-sync (fallback to default_peer_rpc_url)
 
     def get_db_path(self, chain_id: str = "") -> Path:
         """Get database path for a specific chain.
@@ -48,7 +48,7 @@ class ChainSettings(BaseSettings):
         """
         # Resolve chain_id: parameter > settings > default
         resolved_chain_id = chain_id or self.chain_id or "ait-mainnet"
-        
+
         # Build chain-specific path: DATA_DIR/data/{chain_id}/chain.db
         return DATA_DIR / "data" / resolved_chain_id / "chain.db"
 
@@ -60,7 +60,7 @@ class ChainSettings(BaseSettings):
     p2p_node_id: str = ""
 
     proposer_id: str = ""
-    proposer_key: Optional[str] = None
+    proposer_key: str | None = None
 
     mint_per_unit: int = 0  # No new minting after genesis for production
     coordinator_ratio: float = 0.05
@@ -105,7 +105,7 @@ class ChainSettings(BaseSettings):
     ]
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
-    
+
     # Automatic bulk sync settings
     auto_sync_enabled: bool = True  # enable automatic bulk sync when gap detected
     auto_sync_threshold: int = 10  # blocks gap threshold to trigger bulk sync
@@ -125,8 +125,8 @@ class ChainSettings(BaseSettings):
     large_gap_bulk_interval: int = 30  # min seconds between bulk sync during large gap
 
     gossip_backend: str = "memory"
-    gossip_broadcast_url: Optional[str] = os.getenv("GOSSIP_BROADCAST_URL", "redis://127.0.0.1:6379")
-    default_peer_rpc_url: Optional[str] = None  # HTTP RPC URL of default peer for bulk sync
+    gossip_broadcast_url: str | None = os.getenv("GOSSIP_BROADCAST_URL", "redis://127.0.0.1:6379")
+    default_peer_rpc_url: str | None = None  # HTTP RPC URL of default peer for bulk sync
 
     # Cross-site synchronization settings
     cross_site_sync_enabled: bool = True
@@ -135,9 +135,9 @@ class ChainSettings(BaseSettings):
 
     # NAT Traversal (STUN/TURN)
     stun_servers: str = ""  # Comma-separated STUN server addresses (e.g., "stun.l.google.com:19302,jitsi.example.com:3478")
-    turn_server: Optional[str] = None  # TURN server address (future support)
-    turn_username: Optional[str] = None  # TURN username (future support)
-    turn_password: Optional[str] = None  # TURN password (future support)
+    turn_server: str | None = None  # TURN server address (future support)
+    turn_username: str | None = None  # TURN username (future support)
+    turn_password: str | None = None  # TURN password (future support)
 
     # Island Configuration (Federated Mesh)
     island_id: str = DEFAULT_ISLAND_ID  # UUID-based island identifier

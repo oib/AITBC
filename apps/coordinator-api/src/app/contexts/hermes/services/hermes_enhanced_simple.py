@@ -6,7 +6,7 @@ Basic hermes integration features compatible with existing infrastructure
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -384,7 +384,7 @@ class hermesEnhancedService:
             coordination_id = f"coordination_{uuid4().hex[:8]}"
 
             # Configure synchronization
-            synchronization = {"sync_status": "active", "last_sync": datetime.now(timezone.utc).isoformat(), "data_consistency": 0.95}
+            synchronization = {"sync_status": "active", "last_sync": datetime.now(UTC).isoformat(), "data_consistency": 0.95}
 
             # Configure load balancing
             load_balancing = {"balancing_algorithm": "round_robin", "active_connections": 10, "average_response_time": 120}

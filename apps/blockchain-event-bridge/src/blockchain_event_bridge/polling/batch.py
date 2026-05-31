@@ -1,7 +1,7 @@
 """Batch processing for aggregated operations."""
 
 import asyncio
-from typing import Any, Dict, List
+from typing import Any
 
 from aitbc import get_logger
 
@@ -14,7 +14,7 @@ class BatchProcessor:
     def __init__(self, settings: Any) -> None:
         self.settings = settings
         self._running = False
-        self._batch_queue: List[Dict[str, Any]] = []
+        self._batch_queue: list[dict[str, Any]] = []
         self._batch_size = 50
 
     async def run(self) -> None:
@@ -37,7 +37,7 @@ class BatchProcessor:
                 logger.error(f"Error in batch processor: {e}", exc_info=True)
                 await asyncio.sleep(5)
 
-    async def add_to_batch(self, event: Dict[str, Any]) -> None:
+    async def add_to_batch(self, event: dict[str, Any]) -> None:
         """Add an event to the batch queue."""
         self._batch_queue.append(event)
 

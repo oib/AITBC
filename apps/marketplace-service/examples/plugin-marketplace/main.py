@@ -3,12 +3,10 @@ Plugin Marketplace Frontend Service for AITBC
 Provides web interface and marketplace functionality for plugins
 """
 
-import os
 import asyncio
-import json
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+import os
+from datetime import UTC, datetime, timedelta
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -31,8 +29,8 @@ class MarketplaceReview(BaseModel):
     rating: int  # 1-5 stars
     title: str
     content: str
-    pros: List[str] = []
-    cons: List[str] = []
+    pros: list[str] = []
+    cons: list[str] = []
 
 class PluginPurchase(BaseModel):
     plugin_id: str
@@ -43,19 +41,19 @@ class PluginPurchase(BaseModel):
 class DeveloperApplication(BaseModel):
     developer_name: str
     email: str
-    company: Optional[str] = None
+    company: str | None = None
     experience: str
-    portfolio_url: Optional[str] = None
-    github_username: Optional[str] = None
+    portfolio_url: str | None = None
+    github_username: str | None = None
     description: str
 
 # In-memory storage (in production, use database)
-marketplace_data: Dict[str, Dict] = {}
-reviews: Dict[str, List[Dict]] = {}
-purchases: Dict[str, List[Dict]] = {}
-developer_applications: Dict[str, Dict] = {}
-verified_developers: Dict[str, Dict] = {}
-revenue_sharing: Dict[str, Dict] = {}
+marketplace_data: dict[str, dict] = {}
+reviews: dict[str, list[dict]] = {}
+purchases: dict[str, list[dict]] = {}
+developer_applications: dict[str, dict] = {}
+verified_developers: dict[str, dict] = {}
+revenue_sharing: dict[str, dict] = {}
 
 # Static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -89,7 +87,7 @@ async def plugin_detail(request: Request, plugin_id: str):
     plugin = get_plugin_details(plugin_id)
     if not plugin:
         raise HTTPException(status_code=404, detail="Plugin not found")
-    
+
     return templates.TemplateResponse("plugin_detail.html", {
         "request": request,
         "plugin": plugin,
@@ -121,7 +119,7 @@ async def get_featured_plugins_api():
     """Get featured plugins for marketplace"""
     return {
         "featured_plugins": get_featured_plugins(),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 @app.get("/api/v1/marketplace/popular")
@@ -129,7 +127,7 @@ async def get_popular_plugins_api(limit: int = 12):
     """Get popular plugins"""
     return {
         "popular_plugins": get_popular_plugins(limit),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 @app.get("/api/v1/marketplace/recent")
@@ -137,7 +135,7 @@ async def get_recent_plugins_api(limit: int = 12):
     """Get recently added plugins"""
     return {
         "recent_plugins": get_recent_plugins(limit),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 @app.get("/api/v1/marketplace/stats")
@@ -145,14 +143,14 @@ async def get_marketplace_stats_api():
     """Get marketplace statistics"""
     return {
         "stats": get_marketplace_stats(),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 @app.post("/api/v1/reviews")
 async def create_review(review: MarketplaceReview):
     """Create a plugin review"""
-    review_id = f"review_{int(datetime.now(timezone.utc).timestamp())}"
-    
+    review_id = f"review_{int(datetime.now(UTC).timestamp())}"
+
     review_record = {
         "review_id": review_id,
         "plugin_id": review.plugin_id,
@@ -163,17 +161,17 @@ async def create_review(review: MarketplaceReview):
         "pros": review.pros,
         "cons": review.cons,
         "helpful_votes": 0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "verified_purchase": False
     }
-    
+
     if review.plugin_id not in reviews:
         reviews[review.plugin_id] = []
-    
+
     reviews[review.plugin_id].append(review_record)
-    
+
     logger.info(f"Review created for plugin {review.plugin_id}: {review.rating} stars")
-    
+
     return {
         "review_id": review_id,
         "status": "created",
@@ -185,13 +183,13 @@ async def create_review(review: MarketplaceReview):
 async def get_plugin_reviews_api(plugin_id: str):
     """Get all reviews for a plugin"""
     plugin_reviews = reviews.get(plugin_id, [])
-    
+
     # Calculate average rating
     if plugin_reviews:
         avg_rating = sum(r["rating"] for r in plugin_reviews) / len(plugin_reviews)
     else:
         avg_rating = 0.0
-    
+
     return {
         "plugin_id": plugin_id,
         "reviews": plugin_reviews,
@@ -203,8 +201,8 @@ async def get_plugin_reviews_api(plugin_id: str):
 @app.post("/api/v1/purchases")
 async def create_purchase(purchase: PluginPurchase):
     """Create a plugin purchase"""
-    purchase_id = f"purchase_{int(datetime.now(timezone.utc).timestamp())}"
-    
+    purchase_id = f"purchase_{int(datetime.now(UTC).timestamp())}"
+
     purchase_record = {
         "purchase_id": purchase_id,
         "plugin_id": purchase.plugin_id,
@@ -212,20 +210,20 @@ async def create_purchase(purchase: PluginPurchase):
         "price": purchase.price,
         "payment_method": purchase.payment_method,
         "status": "completed",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "refund_deadline": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+        "created_at": datetime.now(UTC).isoformat(),
+        "refund_deadline": (datetime.now(UTC) + timedelta(days=30)).isoformat()
     }
-    
+
     if purchase.plugin_id not in purchases:
         purchases[purchase.plugin_id] = []
-    
+
     purchases[purchase.plugin_id].append(purchase_record)
-    
+
     # Update revenue sharing
     update_revenue_sharing(purchase.plugin_id, purchase.price)
-    
+
     logger.info(f"Purchase created for plugin {purchase.plugin_id}: ${purchase.price}")
-    
+
     return {
         "purchase_id": purchase_id,
         "status": "completed",
@@ -236,8 +234,8 @@ async def create_purchase(purchase: PluginPurchase):
 @app.post("/api/v1/developers/apply")
 async def apply_developer(application: DeveloperApplication):
     """Apply to become a verified developer"""
-    application_id = f"dev_app_{int(datetime.now(timezone.utc).timestamp())}"
-    
+    application_id = f"dev_app_{int(datetime.now(UTC).timestamp())}"
+
     application_record = {
         "application_id": application_id,
         "developer_name": application.developer_name,
@@ -248,15 +246,15 @@ async def apply_developer(application: DeveloperApplication):
         "github_username": application.github_username,
         "description": application.description,
         "status": "pending",
-        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "submitted_at": datetime.now(UTC).isoformat(),
         "reviewed_at": None,
         "reviewer_notes": None
     }
-    
+
     developer_applications[application_id] = application_record
-    
+
     logger.info(f"Developer application submitted: {application.developer_name}")
-    
+
     return {
         "application_id": application_id,
         "status": "pending",
@@ -269,7 +267,7 @@ async def get_verified_developers_api():
     return {
         "verified_developers": get_verified_developers(),
         "total_developers": len(verified_developers),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat()
     }
 
 @app.get("/api/v1/revenue/{developer_id}")
@@ -279,17 +277,17 @@ async def get_developer_revenue(developer_id: str):
         "total_revenue": 0.0,
         "plugin_revenue": {},
         "monthly_revenue": {},
-        "last_updated": datetime.now(timezone.utc).isoformat()
+        "last_updated": datetime.now(UTC).isoformat()
     })
-    
+
     return developer_revenue
 
 # Helper functions
-def get_featured_plugins() -> List[Dict]:
+def get_featured_plugins() -> list[dict]:
     """Get featured plugins"""
     # In production, this would be based on editorial selection or algorithm
     featured_plugins = []
-    
+
     # Mock data for demo
     featured_plugins = [
         {
@@ -315,10 +313,10 @@ def get_featured_plugins() -> List[Dict]:
             "featured": True
         }
     ]
-    
+
     return featured_plugins
 
-def get_popular_plugins(limit: int = 12) -> List[Dict]:
+def get_popular_plugins(limit: int = 12) -> list[dict]:
     """Get popular plugins"""
     # Mock data for demo
     popular_plugins = [
@@ -343,10 +341,10 @@ def get_popular_plugins(limit: int = 12) -> List[Dict]:
             "price": 79.99
         }
     ]
-    
+
     return popular_plugins[:limit]
 
-def get_recent_plugins(limit: int = 12) -> List[Dict]:
+def get_recent_plugins(limit: int = 12) -> list[dict]:
     """Get recently added plugins"""
     # Mock data for demo
     recent_plugins = [
@@ -359,7 +357,7 @@ def get_recent_plugins(limit: int = 12) -> List[Dict]:
             "rating": 4.9,
             "downloads": 2340,
             "price": 199.99,
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+            "created_at": (datetime.now(UTC) - timedelta(days=3)).isoformat()
         },
         {
             "plugin_id": "performance_monitor",
@@ -370,13 +368,13 @@ def get_recent_plugins(limit: int = 12) -> List[Dict]:
             "rating": 4.4,
             "downloads": 1890,
             "price": 59.99,
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            "created_at": (datetime.now(UTC) - timedelta(days=7)).isoformat()
         }
     ]
-    
+
     return recent_plugins[:limit]
 
-def get_categories() -> List[Dict]:
+def get_categories() -> list[dict]:
     """Get plugin categories"""
     categories = [
         {"name": "ai", "display_name": "AI & Machine Learning", "count": 45},
@@ -386,21 +384,21 @@ def get_categories() -> List[Dict]:
         {"name": "security", "display_name": "Security", "count": 18},
         {"name": "monitoring", "display_name": "Monitoring", "count": 15}
     ]
-    
+
     return categories
 
-def get_all_plugins() -> List[Dict]:
+def get_all_plugins() -> list[dict]:
     """Get all plugins"""
     # Mock data for demo
     all_plugins = get_featured_plugins() + get_popular_plugins() + get_recent_plugins()
     return all_plugins
 
-def get_all_tags() -> List[str]:
+def get_all_tags() -> list[str]:
     """Get all plugin tags"""
     tags = ["automation", "trading", "analytics", "security", "monitoring", "dashboard", "cli", "ai", "blockchain", "web"]
     return tags
 
-def get_plugin_details(plugin_id: str) -> Optional[Dict]:
+def get_plugin_details(plugin_id: str) -> dict | None:
     """Get detailed plugin information"""
     # Mock data for demo
     plugins = {
@@ -415,7 +413,7 @@ def get_plugin_details(plugin_id: str) -> Optional[Dict]:
             "downloads": 15420,
             "price": 99.99,
             "version": "2.1.0",
-            "last_updated": (datetime.now(timezone.utc) - timedelta(days=15)).isoformat(),
+            "last_updated": (datetime.now(UTC) - timedelta(days=15)).isoformat(),
             "repository_url": "https://github.com/aitbc-labs/ai-trading-bot",
             "homepage_url": "https://aitbc-trading-bot.com",
             "license": "MIT",
@@ -427,10 +425,10 @@ def get_plugin_details(plugin_id: str) -> Optional[Dict]:
             "compatibility": ["v1.0.0+", "v2.0.0+"]
         }
     }
-    
+
     return plugins.get(plugin_id)
 
-def get_plugin_reviews(plugin_id: str) -> List[Dict]:
+def get_plugin_reviews(plugin_id: str) -> list[dict]:
     """Get reviews for a plugin"""
     # Mock data for demo
     mock_reviews = [
@@ -443,7 +441,7 @@ def get_plugin_reviews(plugin_id: str) -> List[Dict]:
             "pros": ["Easy to use", "Great performance", "Good documentation"],
             "cons": ["Initial setup complexity"],
             "helpful_votes": 23,
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+            "created_at": (datetime.now(UTC) - timedelta(days=10)).isoformat()
         },
         {
             "review_id": "review_2",
@@ -454,13 +452,13 @@ def get_plugin_reviews(plugin_id: str) -> List[Dict]:
             "pros": ["Powerful features", "Good support"],
             "cons": ["UI could be better", "Learning curve"],
             "helpful_votes": 15,
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=25)).isoformat()
+            "created_at": (datetime.now(UTC) - timedelta(days=25)).isoformat()
         }
     ]
-    
+
     return mock_reviews
 
-def get_related_plugins(plugin_id: str) -> List[Dict]:
+def get_related_plugins(plugin_id: str) -> list[dict]:
     """Get related plugins"""
     # Mock data for demo
     related_plugins = [
@@ -479,10 +477,10 @@ def get_related_plugins(plugin_id: str) -> List[Dict]:
             "price": 89.99
         }
     ]
-    
+
     return related_plugins
 
-def get_verified_developers() -> List[Dict]:
+def get_verified_developers() -> list[dict]:
     """Get verified developers"""
     # Mock data for demo
     verified_devs = [
@@ -505,10 +503,10 @@ def get_verified_developers() -> List[Dict]:
             "avatar": "/static/avatars/crypto-tools.png"
         }
     ]
-    
+
     return verified_devs
 
-def get_developer_stats() -> Dict:
+def get_developer_stats() -> dict:
     """Get developer statistics"""
     return {
         "total_developers": 156,
@@ -517,7 +515,7 @@ def get_developer_stats() -> Dict:
         "active_developers": 89
     }
 
-def get_submission_guidelines() -> Dict:
+def get_submission_guidelines() -> dict:
     """Get plugin submission guidelines"""
     return {
         "requirements": [
@@ -541,7 +539,7 @@ def get_submission_guidelines() -> Dict:
         ]
     }
 
-def get_marketplace_stats() -> Dict:
+def get_marketplace_stats() -> dict:
     """Get marketplace statistics"""
     return {
         "total_plugins": 234,
@@ -553,7 +551,7 @@ def get_marketplace_stats() -> Dict:
         "categories": 8
     }
 
-def get_rating_distribution(reviews: List[Dict]) -> Dict:
+def get_rating_distribution(reviews: list[dict]) -> dict:
     """Get rating distribution"""
     distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     for review in reviews:
@@ -565,7 +563,7 @@ def update_revenue_sharing(plugin_id: str, price: float):
     # Mock implementation - in production, this would calculate actual revenue sharing
     developer_share = price * 0.7  # 70% to developer
     platform_share = price * 0.3   # 30% to platform
-    
+
     # Update records (simplified for demo)
     if "revenue_sharing" not in revenue_sharing:
         revenue_sharing["revenue_sharing"] = {
@@ -573,7 +571,7 @@ def update_revenue_sharing(plugin_id: str, price: float):
             "developer_revenue": 0.0,
             "platform_revenue": 0.0
         }
-    
+
     revenue_sharing["revenue_sharing"]["total_revenue"] += price
     revenue_sharing["revenue_sharing"]["developer_revenue"] += developer_share
     revenue_sharing["revenue_sharing"]["platform_revenue"] += platform_share
@@ -583,7 +581,7 @@ async def update_marketplace_analytics():
     """Background task to update marketplace analytics"""
     while True:
         await asyncio.sleep(3600)  # Update every hour
-        
+
         # Update trending plugins
         # Update revenue calculations
         # Update user engagement metrics

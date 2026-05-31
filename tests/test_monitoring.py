@@ -2,14 +2,14 @@
 Tests for monitoring and metrics utilities
 """
 
-import pytest
 import time
-from datetime import datetime
+
+import pytest
 
 from aitbc.monitoring import (
+    HealthChecker,
     MetricsCollector,
     PerformanceTimer,
-    HealthChecker,
 )
 
 
@@ -119,9 +119,9 @@ class TestMetricsCollector:
         collector.increment("counter1")
         collector.timing("timer1", 0.5)
         collector.set_gauge("gauge1", 10.0)
-        
+
         metrics = collector.get_all_metrics()
-        
+
         assert "counters" in metrics
         assert "timers" in metrics
         assert "gauges" in metrics
@@ -136,9 +136,9 @@ class TestMetricsCollector:
         collector.increment("test_metric")
         collector.timing("test_metric", 0.5)
         collector.set_gauge("test_metric", 10.0)
-        
+
         collector.reset_metric("test_metric")
-        
+
         assert collector.get_counter("test_metric") == 0
         assert collector.get_timer_stats("test_metric")["count"] == 0
         assert collector.get_gauge("test_metric") is None
@@ -149,9 +149,9 @@ class TestMetricsCollector:
         collector.increment("metric1")
         collector.timing("metric2", 0.5)
         collector.set_gauge("metric3", 10.0)
-        
+
         collector.reset_all()
-        
+
         assert collector.get_counter("metric1") == 0
         assert collector.get_timer_stats("metric2")["count"] == 0
         assert collector.get_gauge("metric3") is None
@@ -163,10 +163,10 @@ class TestPerformanceTimer:
     def test_timer_context_manager(self):
         """Test PerformanceTimer as context manager"""
         collector = MetricsCollector()
-        
+
         with PerformanceTimer(collector, "test_metric"):
             time.sleep(0.01)
-        
+
         stats = collector.get_timer_stats("test_metric")
         assert stats["count"] == 1
         assert stats["min"] > 0
@@ -174,23 +174,23 @@ class TestPerformanceTimer:
     def test_timer_records_duration(self):
         """Test timer records correct duration"""
         collector = MetricsCollector()
-        
+
         with PerformanceTimer(collector, "test_metric"):
             time.sleep(0.05)
-        
+
         stats = collector.get_timer_stats("test_metric")
         assert stats["min"] >= 0.05
 
     def test_timer_multiple_uses(self):
         """Test timer can be used multiple times"""
         collector = MetricsCollector()
-        
+
         with PerformanceTimer(collector, "test_metric"):
             time.sleep(0.01)
-        
+
         with PerformanceTimer(collector, "test_metric"):
             time.sleep(0.01)
-        
+
         stats = collector.get_timer_stats("test_metric")
         assert stats["count"] == 2
 
@@ -207,23 +207,23 @@ class TestHealthChecker:
     def test_add_check(self):
         """Test add health check"""
         checker = HealthChecker()
-        
+
         def check_func():
             return ("healthy", "All good")
-        
+
         checker.add_check("test_check", check_func)
         assert "test_check" in checker.checks
 
     def test_run_check_success(self):
         """Test run check successfully"""
         checker = HealthChecker()
-        
+
         def check_func():
             return ("healthy", "All good")
-        
+
         checker.add_check("test_check", check_func)
         result = checker.run_check("test_check")
-        
+
         assert result["status"] == "healthy"
         assert result["message"] == "All good"
 
@@ -231,38 +231,38 @@ class TestHealthChecker:
         """Test run check when check doesn't exist"""
         checker = HealthChecker()
         result = checker.run_check("nonexistent")
-        
+
         assert result["status"] == "unknown"
         assert "not found" in result["message"]
 
     def test_run_check_exception(self):
         """Test run check when check raises exception"""
         checker = HealthChecker()
-        
+
         def check_func():
             raise ValueError("Test error")
-        
+
         checker.add_check("test_check", check_func)
         result = checker.run_check("test_check")
-        
+
         assert result["status"] == "error"
         assert "Test error" in result["message"]
 
     def test_run_all_checks(self):
         """Test run all checks"""
         checker = HealthChecker()
-        
+
         def check1():
             return ("healthy", "Check 1 OK")
-        
+
         def check2():
             return ("healthy", "Check 2 OK")
-        
+
         checker.add_check("check1", check1)
         checker.add_check("check2", check2)
-        
+
         results = checker.run_all_checks()
-        
+
         assert "checks" in results
         assert "overall_status" in results
         assert "timestamp" in results
@@ -272,42 +272,42 @@ class TestHealthChecker:
     def test_run_all_checks_degraded(self):
         """Test run all checks with degraded status"""
         checker = HealthChecker()
-        
+
         def check1():
             return ("healthy", "Check 1 OK")
-        
+
         def check2():
             return ("degraded", "Check 2 degraded")
-        
+
         checker.add_check("check1", check1)
         checker.add_check("check2", check2)
-        
+
         results = checker.run_all_checks()
-        
+
         assert results["overall_status"] == "degraded"
 
     def test_run_all_checks_unhealthy(self):
         """Test run all checks with unhealthy status"""
         checker = HealthChecker()
-        
+
         def check1():
             return ("healthy", "Check 1 OK")
-        
+
         def check2():
             return ("unhealthy", "Check 2 failed")
-        
+
         checker.add_check("check1", check1)
         checker.add_check("check2", check2)
-        
+
         results = checker.run_all_checks()
-        
+
         assert results["overall_status"] == "unhealthy"
 
     def test_run_all_checks_empty(self):
         """Test run all checks with no checks"""
         checker = HealthChecker()
         results = checker.run_all_checks()
-        
+
         assert results["overall_status"] == "unknown"
         assert results["checks"] == {}
 

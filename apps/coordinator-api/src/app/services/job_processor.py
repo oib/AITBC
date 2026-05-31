@@ -13,16 +13,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import time
-from datetime import datetime
-from typing import Any, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
-from .jobs import JobService
 from ..domain.models import JobState
-
+from .jobs import JobService
 
 logger = get_logger(__name__)
 
@@ -36,7 +34,7 @@ class AIInferenceEngine:
     - External AI APIs
     - Local ML models
     """
-    
+
     def __init__(self) -> None:
         self._supported_models = {
             "gpt2": {"latency_ms": 500, "tokens_per_sec": 50},
@@ -44,8 +42,8 @@ class AIInferenceEngine:
             "whisper": {"latency_ms": 2000, "tokens_per_sec": 10},
             "stable-diffusion": {"latency_ms": 5000, "tokens_per_sec": 1},
         }
-    
-    async def infer(self, model: str, prompt: str, max_tokens: int = 100) -> Dict[str, Any]:
+
+    async def infer(self, model: str, prompt: str, max_tokens: int = 100) -> dict[str, Any]:
         """
         Execute AI inference for a job.
         
@@ -53,14 +51,14 @@ class AIInferenceEngine:
         In production, this would call actual AI services.
         """
         model_config = self._supported_models.get(model, {"latency_ms": 1000, "tokens_per_sec": 20})
-        
+
         # Simulate processing time
         processing_time = model_config["latency_ms"] / 1000.0
         await asyncio.sleep(min(processing_time, 0.5))  # Cap at 0.5s for testing
-        
+
         # Generate mock output
         output = f"[AI Output for {model}] Processed prompt: '{prompt[:50]}...' with {max_tokens} tokens"
-        
+
         return {
             "output": output,
             "model": model,
@@ -79,7 +77,7 @@ class JobProcessor:
     Runs continuously, polling for jobs and executing them
     through the AI inference engine.
     """
-    
+
     def __init__(
         self,
         job_service: JobService,
@@ -93,7 +91,7 @@ class JobProcessor:
         self._executor = ThreadPoolExecutor(max_workers=max_concurrent)
         self._ai_engine = AIInferenceEngine()
         self._processed_count = 0
-    
+
     async def start(self) -> None:
         """Start the job processor loop"""
         self._running = True
@@ -101,15 +99,15 @@ class JobProcessor:
             "poll_interval": self._poll_interval,
             "max_concurrent": self._max_concurrent
         })
-        
+
         while self._running:
             try:
                 await self._process_next_batch()
             except Exception as e:
                 logger.error("Error in job processor loop", extra={"error": str(e)})
-            
+
             await asyncio.sleep(self._poll_interval)
-    
+
     def stop(self) -> None:
         """Stop the job processor"""
         self._running = False
@@ -117,18 +115,18 @@ class JobProcessor:
         logger.info("Job processor stopped", extra={
             "processed_count": self._processed_count
         })
-    
+
     async def _process_next_batch(self) -> None:
         """Process a batch of pending jobs"""
         # Get all running jobs
         # In a real system, we'd use a queue or pub/sub
         # For now, we simulate by checking the database
-        
+
         # This is a simplified implementation
         # In production, use a proper job queue
         pass
-    
-    async def process_job(self, job_id: str) -> Dict[str, Any]:
+
+    async def process_job(self, job_id: str) -> dict[str, Any]:
         """
         Process a specific job.
         
@@ -140,51 +138,51 @@ class JobProcessor:
             job = self._job_service.get_job(job_id)
             if not job:
                 raise ValueError(f"Job {job_id} not found")
-            
+
             if job.state != JobState.running:
                 raise ValueError(f"Job {job_id} is not in running state: {job.state}")
-            
+
             logger.info(f"Processing job {job_id}", extra={
                 "job_id": job_id,
                 "job_type": job.job_type,  # type: ignore[attr-defined]
                 "provider": job.assigned_provider  # type: ignore[attr-defined]
             })
-            
+
             # Execute AI inference
             # Extract parameters from job payload
             payload = job.payload or {}
             model = payload.get("model", "gpt2")
             prompt = payload.get("prompt", "")
             max_tokens = payload.get("max_tokens", 100)
-            
+
             # Run inference
             inference_result = await self._ai_engine.infer(model, prompt, max_tokens)
-            
+
             # Generate receipt
             receipt = self._generate_receipt(job_id, inference_result)
-            
+
             # Execute job through service
             result = {
                 "output": inference_result,
                 "receipt": receipt
             }
-            
+
             completed_job = self._job_service.execute_job(job_id, result)
-            
+
             self._processed_count += 1
-            
+
             logger.info(f"Job {job_id} completed successfully", extra={
                 "job_id": job_id,
                 "receipt_hash": receipt.get("hash", "")[:16]
             })
-            
+
             return {
                 "success": True,
                 "job_id": job_id,
                 "state": completed_job.state.value,  # type: ignore[attr-defined]
                 "receipt": receipt
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to process job {job_id}", extra={
                 "job_id": job_id,
@@ -195,14 +193,14 @@ class JobProcessor:
                 "job_id": job_id,
                 "error": str(e)
             }
-    
-    def _generate_receipt(self, job_id: str, inference_result: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _generate_receipt(self, job_id: str, inference_result: dict[str, Any]) -> dict[str, Any]:
         """Generate a receipt for job execution"""
         timestamp = datetime.now().isoformat()
         result_hash = hashlib.sha256(
             json.dumps(inference_result, sort_keys=True).encode()
         ).hexdigest()
-        
+
         return {
             "job_id": job_id,
             "timestamp": timestamp,
@@ -217,7 +215,7 @@ class JobProcessor:
 
 
 # Global processor instance
-_job_processor: Optional[JobProcessor] = None
+_job_processor: JobProcessor | None = None
 
 
 def init_job_processor(job_service: JobService) -> JobProcessor:
@@ -227,6 +225,6 @@ def init_job_processor(job_service: JobService) -> JobProcessor:
     return _job_processor
 
 
-def get_job_processor() -> Optional[JobProcessor]:
+def get_job_processor() -> JobProcessor | None:
     """Get the global job processor instance"""
     return _job_processor

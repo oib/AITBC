@@ -5,11 +5,9 @@ without requiring full app startup or database.
 import sys
 """
 
-import asyncio
 from unittest.mock import patch
 
 import pytest
-
 from app.utils.alerting import AlertDispatcher
 from app.utils.metrics import MetricsCollector, build_live_metrics_payload
 

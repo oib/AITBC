@@ -2,12 +2,11 @@
 Standardized error response middleware for FastAPI
 """
 
-from typing import Callable
+from collections.abc import Callable
 
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
 
 from aitbc.aitbc_logging import get_logger
 

@@ -4,9 +4,11 @@ Provides standardized error handling patterns and utilities for CLI commands
 """
 
 import sys
-from typing import Optional, Callable, Any
+from collections.abc import Callable
 from functools import wraps
-from . import error, warning, info
+from typing import Any
+
+from . import error, warning
 
 
 class CLIError(Exception):
@@ -37,7 +39,7 @@ class ValidationError(CLIError):
 
 class APIError(CLIError):
     """API-related errors"""
-    def __init__(self, message: str, status_code: Optional[int] = None):
+    def __init__(self, message: str, status_code: int | None = None):
         msg = f"API error: {message}"
         if status_code:
             msg += f" (HTTP {status_code})"

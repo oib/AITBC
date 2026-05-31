@@ -3,29 +3,31 @@
 Enhanced script to create genesis block with new features
 """
 
-import sys
-import os
-import yaml
-import json
 import hashlib
+import json
+import os
+import sys
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Any
+
+import yaml
 
 sys.path.insert(0, 'src')
 
-from aitbc_chain.database import session_scope, init_db
-from aitbc_chain.models import Block, Transaction, Account
+from aitbc_chain.database import init_db, session_scope
+from aitbc_chain.models import Account, Block, Transaction
 from sqlmodel import select
+
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain_id: str) -> str:
     """Compute enhanced block hash with chain_id"""
     data = f"{height}{parent_hash}{timestamp}{chain_id}".encode()
     return hashlib.sha256(data).hexdigest()
 
-def create_genesis_accounts(session, accounts: List[Dict[str, Any]], chain_id: str):
+def create_genesis_accounts(session, accounts: list[dict[str, Any]], chain_id: str):
     """Create genesis accounts"""
     print(f"🏦 Creating {len(accounts)} genesis accounts...")
-    
+
     for account in accounts:
         db_account = Account(
             address=account['address'],
@@ -35,10 +37,10 @@ def create_genesis_accounts(session, accounts: List[Dict[str, Any]], chain_id: s
         session.add(db_account)
         print(f"  ✅ Created account: {account['address']} ({account['balance']} AITBC)")
 
-def create_genesis_contracts(session, contracts: List[Dict[str, Any]], chain_id: str):
+def create_genesis_contracts(session, contracts: list[dict[str, Any]], chain_id: str):
     """Create genesis contracts"""
     print(f"📜 Deploying {len(contracts)} genesis contracts...")
-    
+
     for contract in contracts:
         # Create contract deployment transaction
         deployment_tx = Transaction(
@@ -55,10 +57,10 @@ def create_enhanced_genesis(config_path: str = None):
     """Create enhanced genesis block with new features"""
     print("🌟 Creating Enhanced Genesis Block with New Features")
     print("=" * 60)
-    
+
     # Load configuration
     if config_path and os.path.exists(config_path):
-        with open(config_path, 'r') as f:
+        with open(config_path) as f:
             config = yaml.safe_load(f)
         print(f"📋 Loaded configuration from {config_path}")
     else:
@@ -106,34 +108,34 @@ def create_enhanced_genesis(config_path: str = None):
                 }
             }
         }
-    
+
     genesis = config['genesis']
     chain_id = genesis['chain_id']
-    
+
     print(f"🔗 Chain ID: {chain_id}")
     print(f"🏷️  Chain Type: {genesis['chain_type']}")
     print(f"🎯 Purpose: {genesis['purpose']}")
     print(f"⚡ Features: {', '.join([k for k, v in genesis.get('features', {}).items() if v])}")
     print()
-    
+
     # Initialize database
     init_db()
-    
+
     # Check if genesis already exists
     with session_scope() as session:
         existing = session.exec(
             select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)
         ).first()
-        
+
         if existing:
             print(f"⚠️  Genesis block already exists for chain {chain_id}: #{existing.height}")
-            print(f"🔄 Use --force to overwrite existing genesis")
+            print("🔄 Use --force to overwrite existing genesis")
             return existing
-        
+
         # Create genesis block
         timestamp = datetime.fromisoformat(genesis['timestamp'].replace('Z', '+00:00'))
         genesis_hash = compute_block_hash(0, genesis['parent_hash'], timestamp, chain_id)
-        
+
         # Create genesis block with enhanced metadata
         genesis_block = Block(
             height=0,
@@ -160,20 +162,20 @@ def create_enhanced_genesis(config_path: str = None):
                 'economics': genesis.get('economics', {})
             })
         )
-        
+
         session.add(genesis_block)
-        
+
         # Create genesis accounts
         if 'accounts' in genesis:
             create_genesis_accounts(session, genesis['accounts'], chain_id)
-        
+
         # Deploy genesis contracts
         if 'contracts' in genesis:
             create_genesis_contracts(session, genesis['contracts'], chain_id)
-        
+
         session.commit()
-        
-        print(f"✅ Enhanced Genesis Block Created Successfully!")
+
+        print("✅ Enhanced Genesis Block Created Successfully!")
         print(f"🔗 Chain ID: {chain_id}")
         print(f"📦 Block Height: #{genesis_block.height}")
         print(f"🔐 Block Hash: {genesis_block.hash}")
@@ -182,27 +184,27 @@ def create_enhanced_genesis(config_path: str = None):
         print(f"📝 Accounts Created: {len(genesis.get('accounts', []))}")
         print(f"📜 Contracts Deployed: {len(genesis.get('contracts', []))}")
         print(f"⚡ Features Enabled: {len([k for k, v in genesis.get('features', {}).items() if v])}")
-        
+
         return genesis_block
 
 def main():
     """Main function"""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='Create enhanced genesis block')
     parser.add_argument('--config', help='Genesis configuration file path')
     parser.add_argument('--force', action='store_true', help='Force overwrite existing genesis')
     parser.add_argument('--chain-id', default='aitbc-enhanced-devnet', help='Chain ID for genesis')
-    
+
     args = parser.parse_args()
-    
+
     try:
         if args.force:
             print("🔄 Force mode enabled - clearing existing blockchain data")
             # Here you could add logic to clear existing data
-        
+
         genesis_block = create_enhanced_genesis(args.config)
-        
+
         if genesis_block:
             print("\n🎉 Enhanced genesis block creation completed!")
             print("\n🔗 Next Steps:")
@@ -210,7 +212,7 @@ def main():
             print("2. Verify genesis: curl http://localhost:8005/rpc/head")
             print("3. Check accounts: curl http://localhost:8005/rpc/accounts")
             print("4. Test enhanced features: curl http://localhost:8010/health")
-        
+
     except Exception as e:
         print(f"❌ Error creating enhanced genesis block: {e}")
         sys.exit(1)

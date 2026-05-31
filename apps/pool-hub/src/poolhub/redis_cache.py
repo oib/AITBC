@@ -27,7 +27,7 @@ def get_redis_client() -> redis.Redis:
     return _redis_client
 
 
-async def get_redis() -> AsyncGenerator[redis.Redis, None]:
+async def get_redis() -> AsyncGenerator[redis.Redis]:
     client = get_redis_client()
     yield client
 

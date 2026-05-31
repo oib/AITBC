@@ -8,9 +8,8 @@ Provides liquidity pool management, token swapping, and dynamic fee adjustment.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from aitbc import get_logger
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
@@ -84,7 +83,7 @@ class AMMService:
                 reserve_a=0.0,
                 reserve_b=0.0,
                 is_active=True,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 created_by=creator_address,
             )
 
@@ -139,7 +138,7 @@ class AMMService:
             pool.reserve_a += liquidity_request.amount_a
             pool.reserve_b += liquidity_request.amount_b
             pool.total_liquidity += liquidity_result.liquidity_received
-            pool.updated_at = datetime.now(timezone.utc)
+            pool.updated_at = datetime.now(UTC)
 
             # Update or create liquidity position
             position = self.session.execute(
@@ -151,15 +150,15 @@ class AMMService:
             if position:
                 position.liquidity_amount += liquidity_result.liquidity_received
                 position.shares_owned = (position.liquidity_amount / pool.total_liquidity) * 100
-                position.last_deposit = datetime.now(timezone.utc)
+                position.last_deposit = datetime.now(UTC)
             else:
                 position = LiquidityPosition(
                     pool_id=pool.id,
                     provider_address=provider_address,
                     liquidity_amount=liquidity_result.liquidity_received,
                     shares_owned=(liquidity_result.liquidity_received / pool.total_liquidity) * 100,
-                    last_deposit=datetime.now(timezone.utc),
-                    created_at=datetime.now(timezone.utc),
+                    last_deposit=datetime.now(UTC),
+                    created_at=datetime.now(UTC),
                 )
                 self.session.add(position)
 
@@ -214,12 +213,12 @@ class AMMService:
             pool.reserve_a -= removal_result.amount_a
             pool.reserve_b -= removal_result.amount_b
             pool.total_liquidity -= liquidity_request.liquidity_amount
-            pool.updated_at = datetime.now(timezone.utc)
+            pool.updated_at = datetime.now(UTC)
 
             # Update liquidity position
             position.liquidity_amount -= liquidity_request.liquidity_amount
             position.shares_owned = (position.liquidity_amount / pool.total_liquidity) * 100 if pool.total_liquidity > 0 else 0
-            position.last_withdrawal = datetime.now(timezone.utc)
+            position.last_withdrawal = datetime.now(UTC)
 
             # Remove position if empty
             if position.liquidity_amount == 0:
@@ -286,7 +285,7 @@ class AMMService:
                 pool.reserve_b += swap_request.amount_in
                 pool.reserve_a -= swap_result.amount_out
 
-            pool.updated_at = datetime.now(timezone.utc)
+            pool.updated_at = datetime.now(UTC)
 
             # Record swap transaction
             swap_transaction = SwapTransaction(
@@ -299,7 +298,7 @@ class AMMService:
                 price=swap_result.price,
                 fee_amount=swap_result.fee_amount,
                 transaction_hash=swap_result.transaction_hash,
-                executed_at=datetime.now(timezone.utc),
+                executed_at=datetime.now(UTC),
             )
 
             self.session.add(swap_transaction)
@@ -340,7 +339,7 @@ class AMMService:
 
             # Update pool in database
             pool.fee_percentage = new_fee
-            pool.updated_at = datetime.now(timezone.utc)
+            pool.updated_at = datetime.now(UTC)
             self.session.commit()
 
             # Create fee structure response
@@ -349,7 +348,7 @@ class AMMService:
                 base_fee_percentage=base_fee,
                 current_fee_percentage=new_fee,
                 volatility_adjustment=volatility_multiplier - 1.0,
-                adjusted_at=datetime.now(timezone.utc),
+                adjusted_at=datetime.now(UTC),
             )
 
             logger.info(f"Adjusted fee for pool {pool_id} to {new_fee:.3f}%")
@@ -385,7 +384,7 @@ class AMMService:
             if existing_program:
                 existing_program.daily_reward_amount = daily_reward
                 existing_program.incentive_multiplier = incentive_multiplier
-                existing_program.updated_at = datetime.now(timezone.utc)
+                existing_program.updated_at = datetime.now(UTC)
                 program = existing_program
             else:
                 program = IncentiveProgram(
@@ -394,7 +393,7 @@ class AMMService:
                     incentive_multiplier=incentive_multiplier,
                     duration_days=self.incentive_duration_days,
                     is_active=True,
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                 )
                 self.session.add(program)
 
@@ -512,7 +511,7 @@ class AMMService:
                 return ValidationResult(is_valid=False, error_message="Insufficient liquidity in pool")
 
         # Check deadline
-        if datetime.now(timezone.utc) > swap_request.deadline:
+        if datetime.now(UTC) > swap_request.deadline:
             return ValidationResult(is_valid=False, error_message="Transaction deadline expired")
 
         # Check minimum amount
@@ -563,7 +562,7 @@ class AMMService:
             total_value_locked=0.0,
             apr=0.0,
             utilization_rate=0.0,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
         )
 
         self.session.add(metrics)
@@ -602,7 +601,7 @@ class AMMService:
         metrics.total_value_locked = tvl  # type: ignore[union-attr]
         metrics.apr = apr  # type: ignore[union-attr]
         metrics.utilization_rate = utilization_rate  # type: ignore[union-attr]
-        metrics.updated_at = datetime.now(timezone.utc)  # type: ignore[union-attr]
+        metrics.updated_at = datetime.now(UTC)  # type: ignore[union-attr]
 
         self.session.commit()
 
@@ -616,7 +615,7 @@ class AMMService:
             metrics = self.session.execute(select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)).first()
 
         # Calculate 24h volume and fees
-        twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+        twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
 
         recent_swaps = self.session.execute(
             select(SwapTransaction).where(

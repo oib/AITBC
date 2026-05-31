@@ -14,18 +14,7 @@ sys.path.insert(0, str(Path("/opt/aitbc/cli")))
 import click
 
 # Import Click-based command groups
-from commands import oracle
-from commands import agent
-from commands import ipfs
-from commands import swarm
-from commands import arbitrage
-from commands import validator
-from commands import plugin
-from commands import database
-from commands import island
-from commands import edge
-from commands import ai
-from commands import cross_chain
+from commands import agent, ai, arbitrage, cross_chain, database, edge, ipfs, island, oracle, plugin, swarm, validator
 
 # Import commands with dependencies (may fail if dependencies not installed)
 try:

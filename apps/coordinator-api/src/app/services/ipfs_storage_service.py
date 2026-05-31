@@ -12,7 +12,7 @@ import gzip
 import hashlib
 import pickle
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .secure_pickle import safe_loads
@@ -113,7 +113,7 @@ class IPFSStorageService:
         if self.ipfs_client is None:
             raise ValueError("IPFS service not available")
 
-        start_time = datetime.now(timezone.utc)  # type: ignore[unreachable]
+        start_time = datetime.now(UTC)  # type: ignore[unreachable]
         tags = tags or []
 
         try:
@@ -256,7 +256,7 @@ class IPFSStorageService:
         try:
             # This would integrate with Filecoin storage providers
             # For now, return a mock deal ID
-            deal_id = f"deal-{cid[:8]}-{datetime.now(timezone.utc).timestamp()}"
+            deal_id = f"deal-{cid[:8]}-{datetime.now(UTC).timestamp()}"
 
             logger.info(f"Created Filecoin deal {deal_id} for CID {cid}")
             return deal_id

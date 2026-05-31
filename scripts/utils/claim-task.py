@@ -3,10 +3,10 @@
 Task Claim System for AITBC agents.
 Uses Git branch atomic creation as a distributed lock to prevent duplicate work.
 """
-import os
 import json
+import os
 import subprocess
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 REPO_DIR = '/opt/aitbc'
 STATE_FILE = '/opt/aitbc/.claim-state.json'
@@ -48,11 +48,11 @@ def get_open_unassigned_issues():
     # Exclude pull requests
     issues = [i for i in all_items if 'pull_request' not in i]
     unassigned = [i for i in issues if not i.get('assignees')]
-    
+
     label_priority = {lbl: idx for idx, lbl in enumerate(ISSUE_LABELS)}
     avoid_set = set(AVOID_LABELS)
     bonus_set = set(BONUS_LABELS)
-    
+
     def utility(issue):
         labels = [lbl['name'] for lbl in issue.get('labels', [])]
         if any(lbl in avoid_set for lbl in labels):
@@ -69,7 +69,7 @@ def get_open_unassigned_issues():
         if issue.get('comments', 0) > 10:
             base *= 0.8
         return base
-    
+
     unassigned.sort(key=utility, reverse=True)
     return unassigned
 
@@ -106,12 +106,12 @@ def create_work_branch(issue_number, title):
     return branch_name
 
 def main():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     print(f"[{now.isoformat()}Z] Claim task cycle starting...")
-    
+
     state = load_state()
     current_claim = state.get('current_claim')
-    
+
     if current_claim:
         claimed_at_str = state.get('claimed_at')
         if claimed_at_str:
@@ -125,7 +125,7 @@ def main():
                     print(f"Claim for issue #{current_claim} is stale (age {age}). Releasing.")
                     # Try to delete remote claim branch
                     claim_branch = state.get('claim_branch', f'claim/{current_claim}')
-                    subprocess.run(['git', 'push', 'origin', '--delete', claim_branch], 
+                    subprocess.run(['git', 'push', 'origin', '--delete', claim_branch],
                                    capture_output=True, cwd=REPO_DIR)
                     # Clear state
                     state = {'current_claim': None, 'claimed_at': None, 'work_branch': None}
@@ -133,16 +133,16 @@ def main():
                     current_claim = None
             except Exception as e:
                 print(f"Error checking claim age: {e}. Will attempt to proceed.")
-    
+
     if current_claim:
         print(f"Already working on issue #{current_claim} (branch {state.get('work_branch')})")
         return
-    
+
     issues = get_open_unassigned_issues()
     if not issues:
         print("No unassigned issues available.")
         return
-    
+
     for issue in issues:
         num = issue['number']
         title = issue['title']
@@ -155,7 +155,7 @@ def main():
                 'current_claim': num,
                 'claim_branch': f'claim/{num}',
                 'work_branch': work_branch,
-                'claimed_at': datetime.now(timezone.utc).isoformat() + 'Z',
+                'claimed_at': datetime.now(UTC).isoformat() + 'Z',
                 'issue_title': title,
                 'labels': labels
             })
@@ -165,7 +165,7 @@ def main():
             return
         else:
             print(f"Claim failed for #{num} (branch exists). Trying next...")
-    
+
     print("Could not claim any issue; all taken or unavailable.")
 
 if __name__ == '__main__':

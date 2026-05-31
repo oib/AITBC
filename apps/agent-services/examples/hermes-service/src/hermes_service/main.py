@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import os
-import logging
 import asyncio
+import logging
+import os
 from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import FastAPI
+
 from .handlers import HandlerRegistry
-from .storage import get_db_session, CoinRequest, CoinRequestStatus, init_db
+from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db
 
 # Configure logging to output to stdout (which systemd captures)
 logging.basicConfig(
@@ -48,18 +49,18 @@ async def expire_old_requests():
                     CoinRequest.status == CoinRequestStatus.PENDING,
                     CoinRequest.expires_at < cutoff
                 ).all()
-                
+
                 for req in expired_requests:
                     req.status = CoinRequestStatus.EXPIRED
                     req.audit_log += f" | Auto-expired at {datetime.utcnow().isoformat()}"
                     logger.info(f"Expired request {req.id} from {req.sender}")
-                
+
                 if expired_requests:
                     logger.info(f"Expired {len(expired_requests)} old coin requests")
-        
+
         except Exception as e:
             logger.error(f"Error expiring old requests: {e}")
-        
+
         # Run every hour
         await asyncio.sleep(3600)
 
@@ -82,9 +83,9 @@ async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
     content = message.get("content", "")
     sender = message.get("sender", "unknown")
     msg_id = message.get("id", "unknown")
-    
+
     logger.info(f"Received message from {sender}: {content} (ID: {msg_id})")
-    
+
     # Process message through handler registry
     return await handler_registry.process_message(message)
 

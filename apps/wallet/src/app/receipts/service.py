@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 from aitbc_sdk.receipts import (
     CoordinatorReceiptClient,
@@ -18,7 +17,7 @@ class ReceiptValidationResult:
     receipt_id: str
     receipt: dict
     miner_signature: SignatureValidation
-    coordinator_attestations: List[SignatureValidation]
+    coordinator_attestations: list[SignatureValidation]
 
     @property
     def miner_valid(self) -> bool:
@@ -35,14 +34,14 @@ class ReceiptVerifierService:
     def __init__(self, coordinator_url: str, api_key: str, timeout: float = 10.0) -> None:
         self.client = CoordinatorReceiptClient(coordinator_url, api_key, timeout=timeout)
 
-    def verify_latest(self, job_id: str) -> Optional[ReceiptValidationResult]:
+    def verify_latest(self, job_id: str) -> ReceiptValidationResult | None:
         receipt = self.client.fetch_latest(job_id)
         if receipt is None:
             return None
         verification = verify_receipt(receipt)
         return self._to_result(verification)
 
-    def verify_history(self, job_id: str) -> List[ReceiptValidationResult]:
+    def verify_history(self, job_id: str) -> list[ReceiptValidationResult]:
         receipts = self.client.fetch_history(job_id)
         verifications = verify_receipts(receipts)
         return [self._to_result(item) for item in verifications]
