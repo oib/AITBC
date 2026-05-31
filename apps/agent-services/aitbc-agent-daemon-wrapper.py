@@ -42,7 +42,7 @@ if enable_hermes and hermes_agent_ids:
             hermes_daemon_script,
             "--coordinator-url", hermes_coordinator_url,
             "--agent-id", agent_id,
-            "--poll-interval", "2",
+            "--poll-interval", "10",
             "--log-level", "INFO",
             "--hermes-service-url", hermes_service_url
         ]
@@ -67,7 +67,7 @@ base_args = [
     "--password-file", str(KEYSTORE_DIR / ".agent_daemon_password"),
     "--keystore-dir", str(KEYSTORE_DIR),
     "--rpc-url", "http://localhost:8006",
-    "--poll-interval", "2",
+    "--poll-interval", "10",
     "--reply-message", "pong",
     "--trigger-message", "ping"
 ]

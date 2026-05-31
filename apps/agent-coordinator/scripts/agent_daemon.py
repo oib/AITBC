@@ -24,7 +24,7 @@ from aitbc.constants import DATA_DIR, KEYSTORE_DIR
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
 DEFAULT_DB_PATH = str(DATA_DIR / "data/ait-mainnet/chain.db")
 DEFAULT_RPC_URL = "http://localhost:8006"
-DEFAULT_POLL_INTERVAL = 2
+DEFAULT_POLL_INTERVAL = 10
 
 
 def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
