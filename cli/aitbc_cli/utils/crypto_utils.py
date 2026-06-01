@@ -232,5 +232,60 @@ class MultisigSecurityManager:
             del self.pending_challenges[tx_id]
 
 
+def bech32_to_hex(bech32_address: str) -> str:
+    """
+    Convert AITBC bech32 address to hex address format.
+    
+    AITBC uses a simple prefix scheme: "aitbc1" + hex_address
+    This strips the prefix and adds 0x for RPC compatibility.
+    
+    Args:
+        bech32_address: AITBC bech32 address (e.g., "aitbc1c10f0e4f...")
+        
+    Returns:
+        Hex address (e.g., "0xc10f0e4f...")
+    """
+    if not bech32_address:
+        raise ValueError("Address cannot be empty")
+    
+    # Remove aitbc1 prefix
+    if bech32_address.startswith("aitbc1"):
+        hex_part = bech32_address[6:]  # Remove "aitbc1"
+    elif bech32_address.startswith("ait1"):
+        hex_part = bech32_address[4:]  # Remove "ait1"
+    else:
+        # Assume it's already hex or doesn't have the prefix
+        hex_part = bech32_address
+    
+    # Add 0x prefix if not present
+    if not hex_part.startswith("0x"):
+        hex_part = "0x" + hex_part
+    
+    return hex_part
+
+
+def hex_to_bech32(hex_address: str) -> str:
+    """
+    Convert hex address to AITBC bech32 address format.
+    
+    Args:
+        hex_address: Hex address (e.g., "0xc10f0e4f..." or "c10f0e4f...")
+        
+    Returns:
+        AITBC bech32 address (e.g., "aitbc1c10f0e4f...")
+    """
+    if not hex_address:
+        raise ValueError("Address cannot be empty")
+    
+    # Remove 0x prefix if present
+    if hex_address.startswith("0x"):
+        hex_part = hex_address[2:]
+    else:
+        hex_part = hex_address
+    
+    # Add aitbc1 prefix
+    return f"aitbc1{hex_part}"
+
+
 # Global security manager instance
 multisig_security = MultisigSecurityManager()
