@@ -1070,7 +1070,7 @@ def staking_info(ctx):
     # Query staking info from blockchain RPC
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/staking/info?address={hex_address}&chain_id={chain_id}")
+        result = http_client.get(f"/rpc/staking/{hex_address}?chain_id={chain_id}")
 
         output({
             "wallet": wallet_name,
