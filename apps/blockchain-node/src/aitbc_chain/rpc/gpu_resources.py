@@ -34,6 +34,95 @@ class GPUAllocationRequest(BaseModel):
     allocated_by: str = Field(..., description="Wallet address of allocator")
 
 
+@router.get("/gpus", summary="List all registered GPUs", tags=["gpu_resources"])
+async def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[str, Any]:
+    """List all GPUs registered on blockchain."""
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+    try:
+        metrics_registry.increment("rpc_gpu_list_total")
+
+        from ..database import session_scope
+        from ..state.gpu_resources import GPURegistration
+
+        with session_scope() as session:
+            from sqlalchemy import select
+            query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)
+
+            if status:
+                query = query.where(GPURegistration.status == status)
+
+            result = session.execute(query)
+            gpus = result.scalars().all()
+
+            return {
+                "gpus": [
+                    {
+                        "gpu_id": g.gpu_id,
+                        "miner_id": g.miner_id,
+                        "model": g.model,
+                        "memory_gb": g.memory_gb,
+                        "region": g.region,
+                        "price_per_hour": g.price_per_hour,
+                        "status": g.status,
+                        "registered_at": g.registered_at.isoformat() if g.registered_at else None
+                    }
+                    for g in gpus
+                ],
+                "total": len(gpus)
+            }
+
+    except Exception as e:
+        metrics_registry.increment("rpc_gpu_list_errors_total")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/gpu/allocations/{gpu_id}", summary="Query GPU allocations", tags=["gpu_resources"])
+async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Query GPU allocations from blockchain."""
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+    try:
+        metrics_registry.increment("rpc_gpu_allocations_get_total")
+
+        from ..database import session_scope
+        from ..state.gpu_resources import GPUAllocation
+
+        with session_scope() as session:
+            from sqlalchemy import select
+            result = session.execute(
+                select(GPUAllocation).where(
+                    GPUAllocation.chain_id == chain_id,
+                    GPUAllocation.gpu_id == gpu_id
+                )
+            )
+            allocations = result.scalars().all()
+
+            return {
+                "gpu_id": gpu_id,
+                "allocations": [
+                    {
+                        "allocation_id": a.allocation_id,
+                        "client_id": a.client_id,
+                        "duration_hours": a.duration_hours,
+                        "total_cost": a.total_cost,
+                        "status": a.status,
+                        "allocated_by": a.allocated_by,
+                        "allocated_at": a.allocated_at.isoformat() if a.allocated_at else None,
+                        "completed_at": a.completed_at.isoformat() if a.completed_at else None
+                    }
+                    for a in allocations
+                ],
+                "total": len(allocations)
+            }
+
+    except Exception as e:
+        metrics_registry.increment("rpc_gpu_allocations_get_errors_total")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/gpu/register", summary="Register GPU on-chain", tags=["gpu_resources"])
 async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Register GPU with immutable specs on blockchain."""
@@ -104,7 +193,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/gpu/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"])
+@router.get("/gpu/info/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"])
 async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU registration from blockchain."""
     # Use env var or provided chain_id
@@ -192,95 +281,4 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
 
     except Exception as e:
         metrics_registry.increment("rpc_gpu_allocate_errors_total")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/gpu/allocations/{gpu_id}", summary="Query GPU allocations", tags=["gpu_resources"])
-async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
-    """Query GPU allocations from blockchain."""
-    # Use env var or provided chain_id
-    if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-    
-    try:
-        metrics_registry.increment("rpc_gpu_allocations_get_total")
-
-        from ..database import session_scope
-        from ..state.gpu_resources import GPUAllocation
-
-        with session_scope() as session:
-            from sqlalchemy import select
-            result = session.execute(
-                select(GPUAllocation).where(
-                    GPUAllocation.chain_id == chain_id,
-                    GPUAllocation.gpu_id == gpu_id
-                )
-            )
-            allocations = result.scalars().all()
-
-            return {
-                "gpu_id": gpu_id,
-                "allocations": [
-                    {
-                        "allocation_id": a.allocation_id,
-                        "client_id": a.client_id,
-                        "duration_hours": a.duration_hours,
-                        "total_cost": a.total_cost,
-                        "status": a.status,
-                        "allocated_by": a.allocated_by,
-                        "allocated_at": a.allocated_at.isoformat() if a.allocated_at else None,
-                        "completed_at": a.completed_at.isoformat() if a.completed_at else None
-                    }
-                    for a in allocations
-                ],
-                "total": len(allocations)
-            }
-
-    except Exception as e:
-        metrics_registry.increment("rpc_gpu_allocations_get_errors_total")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/gpu/list", summary="List all registered GPUs", tags=["gpu_resources"])
-async def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[str, Any]:
-    """List all GPUs registered on blockchain."""
-    # Use env var or provided chain_id
-    if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-    
-    try:
-        metrics_registry.increment("rpc_gpu_list_total")
-
-        from ..database import session_scope
-        from ..state.gpu_resources import GPURegistration
-
-        with session_scope() as session:
-            from sqlalchemy import select
-            query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)
-            
-            if status:
-                query = query.where(GPURegistration.status == status)
-            
-            result = session.execute(query)
-            gpus = result.scalars().all()
-
-            return {
-                "gpus": [
-                    {
-                        "gpu_id": g.gpu_id,
-                        "miner_id": g.miner_id,
-                        "model": g.model,
-                        "memory_gb": g.memory_gb,
-                        "region": g.region,
-                        "price_per_hour": g.price_per_hour,
-                        "status": g.status,
-                        "registered_at": g.registered_at.isoformat() if g.registered_at else None
-                    }
-                    for g in gpus
-                ],
-                "total": len(gpus)
-            }
-
-    except Exception as e:
-        metrics_registry.increment("rpc_gpu_list_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
