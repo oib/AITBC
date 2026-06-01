@@ -216,3 +216,29 @@ class Stake(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: str = Field(default="active")  # active, withdrawn, slashed
+
+
+class AgentIdentity(SQLModel, table=True):
+    """On-chain agent identity record for verification"""
+    __tablename__ = "agent_identity"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "agent_id", name="uix_agent_identity_chain_agent"),
+        {"extend_existing": True}
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    agent_id: str = Field(index=True)
+    agent_address: str = Field(index=True)
+    display_name: str | None = None
+    agent_type: str = Field(default="general")  # general, provider, consumer
+    capabilities: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
+    status: str = Field(default="active")  # active, suspended, revoked
+    is_verified: bool = Field(default=False)
+    verified_at: datetime | None = None
+    verified_by: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
