@@ -33,7 +33,7 @@ class GPUAllocationRequest(BaseModel):
     allocated_by: str = Field(..., description="Wallet address of allocator")
 
 
-@router.post("/rpc/gpu/register", summary="Register GPU on-chain", tags=["gpu_resources"])
+@router.post("/gpu/register", summary="Register GPU on-chain", tags=["gpu_resources"])
 async def register_gpu(request: GPURegistrationRequest, chain_id: str = "ait-hub.aitbc.bubuit.net") -> dict[str, Any]:
     """Register GPU with immutable specs on blockchain."""
     try:
