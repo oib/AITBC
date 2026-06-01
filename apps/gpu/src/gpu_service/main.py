@@ -246,7 +246,7 @@ async def register_gpu(
     gpu_data: dict,
     session: AsyncSession = Depends(get_session_dep),
 ):
-    """Register a GPU with the service"""
+    """Register a GPU with the service and record on blockchain"""
     from uuid import uuid4
 
     from sqlalchemy import select
@@ -258,6 +258,7 @@ async def register_gpu(
         miner_id = gpu_data.get("miner_id", "default_miner")
         specs = gpu_data.get("specs", {})
         pricing = gpu_data.get("pricing", {})
+        registered_by = gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")
 
         # Check if GPU already exists
         result = await session.execute(
@@ -277,12 +278,6 @@ async def register_gpu(
                 existing_gpu.price_per_hour = pricing.get("price_per_hour", existing_gpu.price_per_hour)
             existing_gpu.status = "available"
             await session.commit()
-            return {
-                "status": "updated",
-                "gpu_id": gpu_id,
-                "miner_id": miner_id,
-                "message": "GPU registration updated"
-            }
         else:
             # Create new GPU
             new_gpu = GPURegistry(
@@ -298,12 +293,40 @@ async def register_gpu(
             )
             session.add(new_gpu)
             await session.commit()
-            return {
-                "status": "created",
+
+        # Record GPU registration on blockchain (async, non-blocking)
+        try:
+            import httpx
+            blockchain_rpc_url = "http://hub.aitbc.bubuit.net:8006"
+            chain_id = "ait-hub.aitbc.bubuit.net"
+            
+            registration_payload = {
                 "gpu_id": gpu_id,
                 "miner_id": miner_id,
-                "message": "GPU registered successfully"
+                "model": specs.get("model", "Unknown"),
+                "memory_gb": specs.get("memory_gb", 0),
+                "cuda_version": specs.get("cuda_version", ""),
+                "region": specs.get("region", ""),
+                "capabilities": specs.get("capabilities", []),
+                "price_per_hour": pricing.get("price_per_hour", 0.0) if pricing else 0.0,
+                "registered_by": registered_by
             }
+            
+            async with httpx.AsyncClient(timeout=5.0) as http_client:
+                await http_client.post(
+                    f"{blockchain_rpc_url}/rpc/gpu/register?chain_id={chain_id}",
+                    json=registration_payload
+                )
+            logger.info(f"GPU {gpu_id} registered on blockchain")
+        except Exception as blockchain_error:
+            logger.warning(f"Failed to register GPU on blockchain (non-blocking): {blockchain_error}")
+
+        return {
+            "status": "created" if not existing_gpu else "updated",
+            "gpu_id": gpu_id,
+            "miner_id": miner_id,
+            "message": "GPU registered successfully"
+        }
     except Exception as e:
         await session.rollback()
         logger.error(f"GPU registration error: {e}")
