@@ -782,7 +782,8 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
         from ..utils.chain_id import get_chain_id
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
-        chain_id = "ait-testnet"
+        import os
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Get actual nonce from blockchain
     actual_nonce = 0
@@ -952,7 +953,8 @@ def stake(ctx, amount: float, duration: int):
         from ..utils.chain_id import get_chain_id
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
-        chain_id = "ait-testnet"
+        import os
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Submit staking request to blockchain RPC
     try:
@@ -1010,7 +1012,8 @@ def unstake(ctx, stake_id: str):
         from ..utils.chain_id import get_chain_id
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
-        chain_id = "ait-testnet"
+        import os
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Submit unstaking request to blockchain RPC
     try:
@@ -1065,7 +1068,8 @@ def staking_info(ctx):
         from ..utils.chain_id import get_chain_id
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
-        chain_id = "ait-testnet"
+        import os
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Query staking info from blockchain RPC
     try:

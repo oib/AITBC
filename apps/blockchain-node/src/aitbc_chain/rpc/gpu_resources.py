@@ -1,5 +1,6 @@
 """GPU resource RPC endpoints for AITBC blockchain."""
 
+import os
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -34,8 +35,12 @@ class GPUAllocationRequest(BaseModel):
 
 
 @router.post("/gpu/register", summary="Register GPU on-chain", tags=["gpu_resources"])
-async def register_gpu(request: GPURegistrationRequest, chain_id: str = "ait-hub.aitbc.bubuit.net") -> dict[str, Any]:
+async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Register GPU with immutable specs on blockchain."""
+    # Use env var or provided chain_id
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    
     try:
         metrics_registry.increment("rpc_gpu_register_total")
 
@@ -99,9 +104,13 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str = "ait-hub
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/rpc/gpu/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"])
-async def get_gpu(gpu_id: str, chain_id: str = "ait-hub.aitbc.bubuit.net") -> dict[str, Any]:
+@router.get("/gpu/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"])
+async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU registration from blockchain."""
+    # Use env var or provided chain_id
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    
     try:
         metrics_registry.increment("rpc_gpu_get_total")
 
@@ -142,9 +151,13 @@ async def get_gpu(gpu_id: str, chain_id: str = "ait-hub.aitbc.bubuit.net") -> di
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/rpc/gpu/allocate", summary="Allocate GPU on-chain", tags=["gpu_resources"])
-async def allocate_gpu(request: GPUAllocationRequest, chain_id: str = "ait-hub.aitbc.bubuit.net") -> dict[str, Any]:
+@router.post("/gpu/allocate", summary="Allocate GPU on-chain", tags=["gpu_resources"])
+async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Record GPU allocation on blockchain."""
+    # Use env var or provided chain_id
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    
     try:
         metrics_registry.increment("rpc_gpu_allocate_total")
 
@@ -182,9 +195,13 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str = "ait-hub.a
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/rpc/gpu/allocations/{gpu_id}", summary="Query GPU allocations", tags=["gpu_resources"])
-async def get_gpu_allocations(gpu_id: str, chain_id: str = "ait-hub.aitbc.bubuit.net") -> dict[str, Any]:
+@router.get("/gpu/allocations/{gpu_id}", summary="Query GPU allocations", tags=["gpu_resources"])
+async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU allocations from blockchain."""
+    # Use env var or provided chain_id
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    
     try:
         metrics_registry.increment("rpc_gpu_allocations_get_total")
 
@@ -224,9 +241,13 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str = "ait-hub.aitbc.bubuit
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/rpc/gpu/list", summary="List all registered GPUs", tags=["gpu_resources"])
-async def list_gpus(chain_id: str = "ait-hub.aitbc.bubuit.net", status: str | None = None) -> dict[str, Any]:
+@router.get("/gpu/list", summary="List all registered GPUs", tags=["gpu_resources"])
+async def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[str, Any]:
     """List all GPUs registered on blockchain."""
+    # Use env var or provided chain_id
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    
     try:
         metrics_registry.increment("rpc_gpu_list_total")
 
