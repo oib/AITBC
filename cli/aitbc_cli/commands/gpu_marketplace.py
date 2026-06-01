@@ -36,6 +36,26 @@ def safe_load_credentials():
         return None
 
 
+def get_wallet_address() -> str:
+    """Get address from default wallet (use public_key as blockchain address)"""
+    wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
+    if os.path.exists(wallet_path):
+        with open(wallet_path) as f:
+            wallet = json.load(f)
+            # Use public_key as blockchain address (already in hex format)
+            return wallet.get('public_key', '0x0000000000000000000000000000000000000000')
+    return '0x0000000000000000000000000000000000000000'
+
+
+_transaction_nonce = -1
+
+def get_next_nonce() -> int:
+    """Get next transaction nonce (simple counter for MVP)"""
+    global _transaction_nonce
+    _transaction_nonce += 1
+    return _transaction_nonce
+
+
 @click.group()
 def gpu():
     """GPU marketplace commands for bidding and offering GPU power"""
@@ -112,28 +132,38 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
                 error("Invalid JSON specifications")
                 raise click.Abort()
 
-        # Create offer transaction
+        # Create offer transaction for blockchain
+        wallet_address = get_wallet_address()
         offer_data = {
-            'type': 'gpu_marketplace',
-            'action': 'offer',
-            'offer_id': offer_id,
-            'provider_node_id': provider_node_id,
-            'gpu_count': gpu_count,
-            'price_per_gpu': float(price_per_gpu),
-            'duration_hours': duration_hours,
-            'total_price': float(total_price),
-            'status': 'active',
-            'specs': gpu_specs,
-            'description': description or f"{gpu_count} GPUs for {duration_hours} hours",
-            'island_id': island_id,
-            'chain_id': chain_id,
-            'created_at': datetime.now().isoformat()
+            'from': wallet_address,
+            'to': '0x0000000000000000000000000000000000000000',
+            'amount': 0,
+            'fee': 0,
+            'nonce': get_next_nonce(),
+            'type': 'GPU_MARKETPLACE',
+            'payload': {
+                'action': 'offer',
+                'offer_id': offer_id,
+                'provider_node_id': provider_node_id,
+                'gpu_count': gpu_count,
+                'price_per_gpu': float(price_per_gpu),
+                'duration_hours': duration_hours,
+                'total_price': float(total_price),
+                'status': 'active',
+                'specs': gpu_specs,
+                'description': description or f"{gpu_count} GPUs for {duration_hours} hours",
+                'island_id': island_id,
+                'chain_id': chain_id,
+                'created_at': datetime.now().isoformat()
+            }
         }
 
-        # Submit transaction to GPU service
+        # Submit transaction to blockchain RPC (try hub first for block inclusion)
         try:
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            result = http_client.post("/v1/transactions", json=offer_data)
+            # Try hub RPC for cross-node propagation
+            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+            result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
             success("GPU offer created successfully!")
             success(f"Offer ID: {offer_id}")
             success(f"Total Price: {total_price:.2f} AIT")
@@ -228,27 +258,35 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str |
                 error("Invalid JSON specifications")
                 raise click.Abort()
 
-        # Create bid transaction
+        # Create bid transaction for blockchain
+        wallet_address = get_wallet_address()
         bid_data = {
-            'type': 'gpu_marketplace',
-            'action': 'bid',
-            'bid_id': bid_id,
-            'bidder_node_id': bidder_node_id,
-            'gpu_count': gpu_count,
-            'max_price_per_gpu': float(max_price),
-            'duration_hours': duration_hours,
-            'max_total_price': float(max_total_price),
-            'status': 'pending',
-            'specs': gpu_specs,
-            'island_id': island_id,
-            'chain_id': chain_id,
-            'created_at': datetime.now().isoformat()
+            'from': wallet_address,
+            'to': '0x0000000000000000000000000000000000000000',
+            'amount': 0,
+            'fee': 0,
+            'nonce': get_next_nonce(),
+            'type': 'GPU_MARKETPLACE',
+            'payload': {
+                'action': 'bid',
+                'bid_id': bid_id,
+                'bidder_node_id': bidder_node_id,
+                'gpu_count': gpu_count,
+                'max_price_per_gpu': float(max_price),
+                'duration_hours': duration_hours,
+                'max_total_price': float(max_total_price),
+                'status': 'pending',
+                'specs': gpu_specs,
+                'island_id': island_id,
+                'chain_id': chain_id,
+                'created_at': datetime.now().isoformat()
+            }
         }
 
-        # Submit transaction to GPU service
+        # Submit transaction to blockchain RPC
         try:
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            result = http_client.post("/v1/transactions", json=bid_data)
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
             success("GPU bid created successfully!")
             success(f"Bid ID: {bid_id}")
             success(f"Max Total Price: {max_total_price:.2f} AIT")
@@ -285,10 +323,10 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         # Load CLI config
         config = get_config()
 
-        # Query GPU service for GPU marketplace transactions
+        # Query blockchain RPC for GPU marketplace transactions
         try:
             params = {
-                'transaction_type': 'gpu_marketplace',
+                'transaction_type': 'GPU_MARKETPLACE',
             }
             if provider:
                 params['provider_node_id'] = provider
@@ -297,8 +335,8 @@ def list(ctx, provider: str | None, status: str | None, type: str):
             if type != 'all':
                 params['action'] = type
 
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            transactions = http_client.get("/v1/transactions", params=params)
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            transactions = http_client.get("/rpc/transactions", params=params)
 
             if not transactions:
                 info("No GPU marketplace transactions found")
@@ -399,22 +437,30 @@ def cancel(ctx, order_id: str):
             error("Invalid order ID format. Must start with 'gpu_offer' or 'gpu_bid'")
             raise click.Abort()
 
-        # Create cancel transaction
+        # Create cancel transaction for blockchain
+        wallet_address = get_wallet_address()
         cancel_data = {
-            'type': 'gpu_marketplace',
-            'action': action,
-            'order_id': order_id,
-            'node_id': local_node_id,
-            'status': 'cancelled',
-            'cancelled_at': datetime.now().isoformat(),
-            'island_id': island_id,
-            'chain_id': chain_id
+            'from': wallet_address,
+            'to': '0x0000000000000000000000000000000000000000',
+            'amount': 0,
+            'fee': 0,
+            'nonce': get_next_nonce(),
+            'type': 'GPU_MARKETPLACE',
+            'payload': {
+                'action': action,
+                'order_id': order_id,
+                'node_id': local_node_id,
+                'status': 'cancelled',
+                'cancelled_at': datetime.now().isoformat(),
+                'island_id': island_id,
+                'chain_id': chain_id
+            }
         }
 
-        # Submit transaction to GPU service
+        # Submit transaction to blockchain RPC
         try:
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            result = http_client.post("/v1/transactions", json=cancel_data)
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -475,22 +521,30 @@ def accept(ctx, bid_id: str):
                 error("No public key found in keystore or wallet")
                 raise click.Abort()
 
-        # Create accept transaction
+        # Create accept transaction for blockchain
+        wallet_address = get_wallet_address()
         accept_data = {
-            'type': 'gpu_marketplace',
-            'action': 'accept',
-            'bid_id': bid_id,
-            'provider_node_id': provider_node_id,
-            'status': 'accepted',
-            'accepted_at': datetime.now().isoformat(),
-            'island_id': island_id,
-            'chain_id': chain_id
+            'from': wallet_address,
+            'to': '0x0000000000000000000000000000000000000000',
+            'amount': 0,
+            'fee': 0,
+            'nonce': get_next_nonce(),
+            'type': 'GPU_MARKETPLACE',
+            'payload': {
+                'action': 'accept',
+                'bid_id': bid_id,
+                'provider_node_id': provider_node_id,
+                'status': 'accepted',
+                'accepted_at': datetime.now().isoformat(),
+                'island_id': island_id,
+                'chain_id': chain_id
+            }
         }
 
-        # Submit transaction to GPU service
+        # Submit transaction to blockchain RPC
         try:
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            result = http_client.post("/v1/transactions", json=accept_data)
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -516,16 +570,16 @@ def status(ctx, order_id: str):
             return
         island_id = get_island_id()
 
-        # Query GPU service for the order
+        # Query blockchain RPC for the order
         try:
             params = {
-                'transaction_type': 'gpu_marketplace',
+                'transaction_type': 'GPU_MARKETPLACE',
                 'island_id': island_id,
                 'order_id': order_id
             }
 
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            transactions = http_client.get("/v1/transactions", params=params)
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            transactions = http_client.get("/rpc/transactions", params=params)
 
             if not transactions:
                 error(f"Order {order_id} not found")
