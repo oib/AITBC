@@ -44,13 +44,13 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
     try:
         metrics_registry.increment("rpc_gpu_register_total")
 
-        from ..database import get_session
+        from ..database import session_scope
         from ..state.gpu_resources import GPURegistration
 
-        async with get_session() as session:
+        with session_scope() as session:
             # Check if GPU already registered
             from sqlalchemy import select
-            result = await session.execute(
+            result = session.execute(
                 select(GPURegistration).where(
                     GPURegistration.chain_id == chain_id,
                     GPURegistration.gpu_id == request.gpu_id
@@ -68,7 +68,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
                 existing.price_per_hour = request.price_per_hour
                 existing.status = "active"
                 existing.updated_at = datetime.now(UTC)
-                await session.commit()
+                session.commit()
                 return {
                     "gpu_id": request.gpu_id,
                     "status": "updated",
@@ -91,7 +91,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
                 status="active"
             )
             session.add(registration)
-            await session.commit()
+            session.commit()
 
             return {
                 "gpu_id": request.gpu_id,
@@ -114,12 +114,12 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     try:
         metrics_registry.increment("rpc_gpu_get_total")
 
-        from ..database import get_session
+        from ..database import session_scope
         from ..state.gpu_resources import GPURegistration
 
-        async with get_session() as session:
+        with session_scope() as session:
             from sqlalchemy import select
-            result = await session.execute(
+            result = session.execute(
                 select(GPURegistration).where(
                     GPURegistration.chain_id == chain_id,
                     GPURegistration.gpu_id == gpu_id
@@ -161,10 +161,10 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
     try:
         metrics_registry.increment("rpc_gpu_allocate_total")
 
-        from ..database import get_session
+        from ..database import session_scope
         from ..state.gpu_resources import GPUAllocation
 
-        async with get_session() as session:
+        with session_scope() as session:
             # Generate allocation ID
             allocation_id = f"alloc_{uuid4().hex[:12]}"
 
@@ -181,7 +181,7 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
                 allocated_at=datetime.now(UTC)
             )
             session.add(allocation)
-            await session.commit()
+            session.commit()
 
             return {
                 "allocation_id": allocation_id,
@@ -205,12 +205,12 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
     try:
         metrics_registry.increment("rpc_gpu_allocations_get_total")
 
-        from ..database import get_session
+        from ..database import session_scope
         from ..state.gpu_resources import GPUAllocation
 
-        async with get_session() as session:
+        with session_scope() as session:
             from sqlalchemy import select
-            result = await session.execute(
+            result = session.execute(
                 select(GPUAllocation).where(
                     GPUAllocation.chain_id == chain_id,
                     GPUAllocation.gpu_id == gpu_id
@@ -251,17 +251,17 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
     try:
         metrics_registry.increment("rpc_gpu_list_total")
 
-        from ..database import get_session
+        from ..database import session_scope
         from ..state.gpu_resources import GPURegistration
 
-        async with get_session() as session:
+        with session_scope() as session:
             from sqlalchemy import select
             query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)
             
             if status:
                 query = query.where(GPURegistration.status == status)
             
-            result = await session.execute(query)
+            result = session.execute(query)
             gpus = result.scalars().all()
 
             return {
