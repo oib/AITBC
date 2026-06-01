@@ -21,13 +21,20 @@ Recent blockchain integrations have been completed to enable on-chain staking, a
 - `operations governance proposal --proposal-id <id>` - Create proposal on blockchain
 - `operations governance get-proposal <proposal_id>` - Query proposal from blockchain
 
+### 4. GPU Resource Tracking (gpu_resources.py)
+- `aitbc gpu-onchain register <gpu_id> --miner-id <id> --model <model> --memory-gb <gb> --price-per-hour <price>` - Register GPU on blockchain
+- `aitbc gpu-onchain query <gpu_id>` - Query GPU registration from blockchain
+- `aitbc gpu-onchain list --status <status>` - List all registered GPUs on blockchain
+- `aitbc gpu-onchain allocate <gpu_id> --client-id <address> --duration-hours <hours> --total-cost <cost>` - Allocate GPU on blockchain
+- `aitbc gpu-onchain allocations <gpu_id>` - Query GPU allocations from blockchain
+
 ## Testing Instructions
 
 ### Prerequisites
 1. Ensure blockchain node is running on hub: `hub.aitbc.bubuit.net:8006`
 2. Ensure HUB_DISCOVERY_URL is set in `/etc/aitbc/blockchain.env`
 3. Have a wallet with AITBC tokens for testing
-4. Ensure database tables exist: `stake`, `agent_identity`, `governance_proposal`, `governance_vote`
+4. Ensure database tables exist: `stake`, `agent_identity`, `governance_proposal`, `governance_vote`, `gpu_registration`, `gpu_allocation`
 5. **Register wallet account on hub blockchain** (wallet must exist on-chain before operations)
 
 ### Step 0: Register Wallet on Hub Blockchain
@@ -117,6 +124,46 @@ aitbc operations governance get-proposal prop_test_001
 - Query shows proposal details and vote counts
 - Vote recorded and proposal vote counts updated
 
+### Test 4: GPU Resource Tracking Flow
+```bash
+# Register a GPU on blockchain
+aitbc gpu-onchain register GPU-ba5c6553-6396-ab66-5706-17e6de30a93a \
+  --miner-id miner-001 \
+  --model "RTX 4090" \
+  --memory-gb 24 \
+  --cuda-version "12.1" \
+  --region "us-west" \
+  --capabilities "cuda,ray,triton" \
+  --price-per-hour 0.5 \
+  --wallet my-agent-wallet
+
+# Query GPU registration from blockchain
+aitbc gpu-onchain query GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
+
+# List all registered GPUs
+aitbc gpu-onchain list
+
+# List only active GPUs
+aitbc gpu-onchain list --status active
+
+# Allocate GPU to a client
+aitbc gpu-onchain allocate GPU-ba5c6553-6396-ab66-5706-17e6de30a93a \
+  --client-id <client_wallet_address> \
+  --duration-hours 24 \
+  --total-cost 12.0 \
+  --wallet my-agent-wallet
+
+# Query GPU allocations
+aitbc gpu-onchain allocations GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
+```
+
+**Expected Results:**
+- GPU registered with immutable specs on blockchain
+- Query returns GPU registration details
+- List shows all registered GPUs with optional status filter
+- Allocation recorded with client, duration, and cost
+- Allocations query returns allocation history
+
 ## Verification Steps
 
 ### Check Database Records
@@ -135,6 +182,12 @@ SELECT * FROM governance_proposal WHERE proposal_id = 'prop_test_001';
 
 # Check governance votes
 SELECT * FROM governance_vote WHERE proposal_id = 'prop_test_001';
+
+# Check GPU registrations
+SELECT * FROM gpu_registration WHERE gpu_id = 'GPU-ba5c6553-6396-ab66-5706-17e6de30a93a';
+
+# Check GPU allocations
+SELECT * FROM gpu_allocation WHERE gpu_id = 'GPU-ba5c6553-6396-ab66-5706-17e6de30a93a';
 ```
 
 ### Check RPC Endpoints
@@ -142,17 +195,28 @@ SELECT * FROM governance_vote WHERE proposal_id = 'prop_test_001';
 # Test staking endpoint
 curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/staking/stake \
   -H "Content-Type: application/json" \
-  -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-testnet"}'
+  -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-hub.aitbc.bubuit.net"}'
 
 # Test identity endpoint
 curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/identity/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id": "test_agent", "agent_address": "<wallet_address>", "display_name": "Test", "chain_id": "ait-testnet"}'
+  -d '{"agent_id": "test_agent", "agent_address": "<wallet_address>", "display_name": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 
 # Test governance endpoint
 curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/governance/proposal \
   -H "Content-Type: application/json" \
-  -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-testnet"}'
+  -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
+
+# Test GPU registration endpoint
+curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/gpu/register \
+  -H "Content-Type: application/json" \
+  -d '{"gpu_id": "GPU-test", "miner_id": "miner-001", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "registered_by": "<wallet_address>", "chain_id": "ait-hub.aitbc.bubuit.net"}'
+
+# Test GPU query endpoint
+curl -X GET "http://hub.aitbc.bubuit.net:8006/rpc/gpu/info/GPU-test?chain_id=ait-hub.aitbc.bubuit.net"
+
+# Test GPU list endpoint
+curl -X GET "http://hub.aitbc.bubuit.net:8006/rpc/gpus?chain_id=ait-hub.aitbc.bubuit.net"
 ```
 
 ## Success Criteria
@@ -160,8 +224,9 @@ curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/governance/proposal \
 1. **Staking**: Tokens can be staked and unstaked with correct balance updates
 2. **Identity**: Agent identities can be registered, queried, and verified on-chain
 3. **Governance**: Proposals can be created and votes can be cast with correct tallying
-4. **Cross-node**: All operations work via hub RPC for cross-node propagation
-5. **Database**: Records persist correctly in blockchain database tables
+4. **GPU Resources**: GPUs can be registered, queried, allocated, and allocation history tracked on-chain
+5. **Cross-node**: All operations work via hub RPC for cross-node propagation
+6. **Database**: Records persist correctly in blockchain database tables
 
 ## Troubleshooting
 
