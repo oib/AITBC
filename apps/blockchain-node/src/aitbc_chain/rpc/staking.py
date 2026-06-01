@@ -12,7 +12,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account, Stake
+from ..models import Account, Stake, AgentIdentity
 from .utils import get_chain_id
 
 _logger = get_logger(__name__)
@@ -197,4 +197,153 @@ async def get_staking_info(
             "total_staked": total_staked,
             "active_stake_count": len(active_stakes),
             "active_stakes": active_stakes
+        }
+
+
+@rate_limit(rate=20, per=60)
+async def register_agent_identity(
+    request: Request,
+    identity_data: dict
+) -> dict[str, Any]:
+    """
+    Register an agent identity on the blockchain.
+    
+    Records agent metadata and verification status on-chain for cross-node verification.
+    """
+    chain_id = get_chain_id(identity_data.get("chain_id"))
+    agent_id = identity_data.get("agent_id")
+    agent_address = identity_data.get("agent_address")
+    display_name = identity_data.get("display_name")
+    agent_type = identity_data.get("agent_type", "general")
+    capabilities = identity_data.get("capabilities", {})
+
+    if not agent_id or not agent_address:
+        raise HTTPException(status_code=400, detail="agent_id and agent_address are required")
+
+    # Normalize address
+    agent_address = agent_address.lower().strip()
+    if not agent_address.startswith("0x"):
+        agent_address = "0x" + agent_address
+
+    with session_scope() as session:
+        # Check if identity already exists
+        existing = session.exec(
+            select(AgentIdentity).where(
+                AgentIdentity.chain_id == chain_id,
+                AgentIdentity.agent_id == agent_id
+            )
+        ).first()
+        
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Agent identity already exists: {agent_id}")
+
+        # Create agent identity record
+        identity = AgentIdentity(
+            chain_id=chain_id,
+            agent_id=agent_id,
+            agent_address=agent_address,
+            display_name=display_name,
+            agent_type=agent_type,
+            capabilities=capabilities,
+            status="active",
+            is_verified=False
+        )
+        session.add(identity)
+        session.commit()
+        session.refresh(identity)
+
+        _logger.info(f"Agent identity registered on-chain: {agent_id} -> {agent_address}")
+
+        return {
+            "success": True,
+            "identity_id": identity.id,
+            "agent_id": agent_id,
+            "agent_address": agent_address,
+            "chain_id": chain_id,
+            "status": identity.status,
+            "is_verified": identity.is_verified
+        }
+
+
+@rate_limit(rate=50, per=60)
+async def get_agent_identity(
+    request: Request,
+    agent_id: str,
+    chain_id: str = None
+) -> dict[str, Any]:
+    """Get agent identity from blockchain"""
+    chain_id = get_chain_id(chain_id)
+
+    with session_scope() as session:
+        identity = session.exec(
+            select(AgentIdentity).where(
+                AgentIdentity.chain_id == chain_id,
+                AgentIdentity.agent_id == agent_id
+            )
+        ).first()
+
+        if not identity:
+            raise HTTPException(status_code=404, detail=f"Agent identity not found: {agent_id}")
+
+        return {
+            "success": True,
+            "identity_id": identity.id,
+            "agent_id": identity.agent_id,
+            "agent_address": identity.agent_address,
+            "display_name": identity.display_name,
+            "agent_type": identity.agent_type,
+            "capabilities": identity.capabilities,
+            "status": identity.status,
+            "is_verified": identity.is_verified,
+            "verified_at": identity.verified_at.isoformat() if identity.verified_at else None,
+            "created_at": identity.created_at.isoformat() if identity.created_at else None,
+            "chain_id": chain_id
+        }
+
+
+@rate_limit(rate=50, per=60)
+async def verify_agent_identity(
+    request: Request,
+    verification_data: dict
+) -> dict[str, Any]:
+    """
+    Verify an agent identity on the blockchain.
+    
+    Marks an agent identity as verified after successful validation.
+    """
+    chain_id = get_chain_id(verification_data.get("chain_id"))
+    agent_id = verification_data.get("agent_id")
+    verifier_address = verification_data.get("verifier_address")
+
+    if not agent_id or not verifier_address:
+        raise HTTPException(status_code=400, detail="agent_id and verifier_address are required")
+
+    with session_scope() as session:
+        identity = session.exec(
+            select(AgentIdentity).where(
+                AgentIdentity.chain_id == chain_id,
+                AgentIdentity.agent_id == agent_id
+            )
+        ).first()
+
+        if not identity:
+            raise HTTPException(status_code=404, detail=f"Agent identity not found: {agent_id}")
+
+        # Update verification status
+        identity.is_verified = True
+        identity.verified_at = datetime.now(UTC)
+        identity.verified_by = verifier_address
+        session.add(identity)
+        session.commit()
+
+        _logger.info(f"Agent identity verified: {agent_id} by {verifier_address}")
+
+        return {
+            "success": True,
+            "identity_id": identity.id,
+            "agent_id": agent_id,
+            "is_verified": True,
+            "verified_at": identity.verified_at.isoformat(),
+            "verified_by": verifier_address,
+            "chain_id": chain_id
         }

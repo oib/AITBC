@@ -164,12 +164,18 @@ try:
         get_staking_info,
         stake_tokens,
         unstake_tokens,
+        register_agent_identity,
+        get_agent_identity,
+        verify_agent_identity,
     )
 except ImportError:
     _logger.warning("Staking module not available")
     stake_tokens = None
     unstake_tokens = None
     get_staking_info = None
+    register_agent_identity = None
+    get_agent_identity = None
+    verify_agent_identity = None
 
 # Security scheme for authentication
 security = HTTPBearer(auto_error=False)
@@ -752,6 +758,43 @@ async def get_staking_info_route(
     if get_staking_info is None:
         raise HTTPException(status_code=501, detail="Staking module not available")
     return await get_staking_info(request, address, chain_id)
+
+
+@router.post("/identity/register", summary="Register agent identity")
+@rate_limit(rate=20, per=60)
+async def register_agent_identity_route(
+    request: Request,
+    identity_data: dict
+) -> dict[str, Any]:
+    """Register an agent identity on the blockchain"""
+    if register_agent_identity is None:
+        raise HTTPException(status_code=501, detail="Identity module not available")
+    return await register_agent_identity(request, identity_data)
+
+
+@router.get("/identity/{agent_id}", summary="Get agent identity")
+@rate_limit(rate=50, per=60)
+async def get_agent_identity_route(
+    request: Request,
+    agent_id: str,
+    chain_id: str = None
+) -> dict[str, Any]:
+    """Get agent identity from blockchain"""
+    if get_agent_identity is None:
+        raise HTTPException(status_code=501, detail="Identity module not available")
+    return await get_agent_identity(request, agent_id, chain_id)
+
+
+@router.post("/identity/verify", summary="Verify agent identity")
+@rate_limit(rate=50, per=60)
+async def verify_agent_identity_route(
+    request: Request,
+    verification_data: dict
+) -> dict[str, Any]:
+    """Verify an agent identity on the blockchain"""
+    if verify_agent_identity is None:
+        raise HTTPException(status_code=501, detail="Identity module not available")
+    return await verify_agent_identity(request, verification_data)
 
 
 # ============================================================================

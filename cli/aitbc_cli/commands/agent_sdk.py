@@ -427,6 +427,132 @@ try:
             raise click.Abort()
 
     @agent.command()
+    @click.argument('agent_id')
+    @click.argument('agent_address')
+    @click.option('--display-name', help='Agent display name')
+    @click.option('--agent-type', default='general', help='Agent type (general, provider, consumer)')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def register_identity(ctx, agent_id, agent_address, display_name, agent_type, format):
+        """Register agent identity on blockchain"""
+        config = get_config()
+
+        try:
+            # Get RPC URL from config (use hub for cross-node operations)
+            rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+            rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+
+            # Get chain_id
+            try:
+                from ..utils.chain_id import get_chain_id
+                chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+            except Exception:
+                chain_id = "ait-testnet"
+
+            # Load agent config to get capabilities
+            config_dir = get_agent_config_dir()
+            config_file = config_dir / f"{agent_id}.json"
+            capabilities = {}
+            
+            if config_file.exists():
+                with open(config_file) as f:
+                    agent_config = json.load(f)
+                capabilities = agent_config.get("capabilities", {})
+
+            # Submit identity registration to blockchain RPC
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            identity_data = {
+                "agent_id": agent_id,
+                "agent_address": agent_address,
+                "display_name": display_name or agent_id,
+                "agent_type": agent_type,
+                "capabilities": capabilities,
+                "chain_id": chain_id
+            }
+            result = http_client.post("/rpc/identity/register", json=identity_data)
+
+            success(f"Agent identity registered on-chain: {agent_id}")
+            output({
+                "identity_id": result.get("identity_id"),
+                "agent_id": result.get("agent_id"),
+                "agent_address": result.get("agent_address"),
+                "chain_id": result.get("chain_id"),
+                "status": result.get("status"),
+                "is_verified": result.get("is_verified")
+            }, ctx.obj.get('output_format', format))
+
+        except Exception as e:
+            error(f"Error registering identity: {str(e)}")
+            raise click.Abort()
+
+    @agent.command()
+    @click.argument('agent_id')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def get_identity(ctx, agent_id, format):
+        """Get agent identity from blockchain"""
+        config = get_config()
+
+        try:
+            # Get RPC URL from config (use hub for cross-node operations)
+            rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+            rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+
+            # Get chain_id
+            try:
+                from ..utils.chain_id import get_chain_id
+                chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+            except Exception:
+                chain_id = "ait-testnet"
+
+            # Query identity from blockchain RPC
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            result = http_client.get(f"/rpc/identity/{agent_id}?chain_id={chain_id}")
+
+            output(result, ctx.obj.get('output_format', format))
+
+        except Exception as e:
+            error(f"Error getting identity: {str(e)}")
+            raise click.Abort()
+
+    @agent.command()
+    @click.argument('agent_id')
+    @click.argument('verifier_address')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def verify_identity(ctx, agent_id, verifier_address, format):
+        """Verify agent identity on blockchain"""
+        config = get_config()
+
+        try:
+            # Get RPC URL from config (use hub for cross-node operations)
+            rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+            rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+
+            # Get chain_id
+            try:
+                from ..utils.chain_id import get_chain_id
+                chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+            except Exception:
+                chain_id = "ait-testnet"
+
+            # Submit verification to blockchain RPC
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            verification_data = {
+                "agent_id": agent_id,
+                "verifier_address": verifier_address,
+                "chain_id": chain_id
+            }
+            result = http_client.post("/rpc/identity/verify", json=verification_data)
+
+            success(f"Agent identity verified: {agent_id}")
+            output(result, ctx.obj.get('output_format', format))
+
+        except Exception as e:
+            error(f"Error verifying identity: {str(e)}")
+            raise click.Abort()
+
+    @agent.command()
     @click.option('--agent-dir', type=click.Path(), help='Agent directory path')
     @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
     @click.pass_context
