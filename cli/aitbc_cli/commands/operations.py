@@ -367,23 +367,52 @@ def governance():
 
 @governance.command()
 @click.argument('proposal_id')
-@click.option('--vote', type=click.Choice(['yes', 'no', 'abstain']), required=True, help='Vote option')
+@click.option('--vote', type=click.Choice(['for', 'against', 'abstain']), required=True, help='Vote option')
 @click.option('--wallet', required=True, help='Wallet name for signing')
+@click.option('--voting-power', type=int, default=0, help='Voting power to use')
+@click.option('--reason', help='Vote reason')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 @click.pass_context
-def vote(ctx, proposal_id: str, vote: str, wallet: str):
-    """Vote on a governance proposal"""
+def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reason: str | None, format: str):
+    """Vote on a governance proposal on blockchain"""
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
+        # Get RPC URL from config (use hub for cross-node operations)
+        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+        rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+
+        # Get chain_id
+        try:
+            from ..utils.chain_id import get_chain_id
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        except Exception:
+            chain_id = "ait-testnet"
+
+        # Get wallet address
+        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
+        if not keystore_path.exists():
+            error(f"Wallet '{wallet}' not found")
+            return
+
+        with open(keystore_path) as f:
+            wallet_data = json.load(f)
+        voter_address = wallet_data['address']
+
+        # Submit vote to blockchain RPC
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         vote_data = {
             "proposal_id": proposal_id,
-            "vote": vote,
-            "wallet": wallet
+            "voter_address": voter_address,
+            "vote_type": vote,
+            "voting_power": voting_power,
+            "reason": reason,
+            "chain_id": chain_id
         }
-        result = http_client.post("/governance/vote", json=vote_data)
+        result = http_client.post("/rpc/governance/vote", json=vote_data)
+
         success(f"Vote '{vote}' cast for proposal {proposal_id}")
-        output(result, ctx.obj.get("output_format", "table"))
+        output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
     except Exception as e:
@@ -391,26 +420,61 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str):
 
 
 @governance.command()
+@click.option('--proposal-id', required=True, help='Proposal ID')
 @click.option('--title', required=True, help='Proposal title')
 @click.option('--description', required=True, help='Proposal description')
-@click.option('--type', default='parameter', help='Proposal type')
+@click.option('--category', default='general', help='Proposal category')
 @click.option('--wallet', required=True, help='Wallet name for signing')
+@click.option('--voting-days', type=int, default=7, help='Voting period in days')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 @click.pass_context
-def proposal(ctx, title: str, description: str, type: str, wallet: str):
-    """Create a governance proposal"""
+def proposal(ctx, proposal_id: str, title: str, description: str, category: str, wallet: str, voting_days: int, format: str):
+    """Create a governance proposal on blockchain"""
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
+        # Get RPC URL from config (use hub for cross-node operations)
+        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+        rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+
+        # Get chain_id
+        try:
+            from ..utils.chain_id import get_chain_id
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        except Exception:
+            chain_id = "ait-testnet"
+
+        # Get wallet address
+        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
+        if not keystore_path.exists():
+            error(f"Wallet '{wallet}' not found")
+            return
+
+        with open(keystore_path) as f:
+            wallet_data = json.load(f)
+        proposer_address = wallet_data['address']
+
+        # Calculate voting times
+        from datetime import datetime, timedelta, UTC
+        voting_starts = datetime.now(UTC).isoformat()
+        voting_ends = (datetime.now(UTC) + timedelta(days=voting_days)).isoformat()
+
+        # Submit proposal to blockchain RPC
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         proposal_data = {
+            "proposal_id": proposal_id,
+            "proposer_address": proposer_address,
             "title": title,
             "description": description,
-            "type": type,
-            "wallet": wallet
+            "category": category,
+            "voting_starts": voting_starts,
+            "voting_ends": voting_ends,
+            "chain_id": chain_id
         }
-        result = http_client.post("/governance/proposals", json=proposal_data)
-        success(f"Proposal created: {result.get('proposal_id')}")
-        output(result, ctx.obj.get("output_format", "table"))
+        result = http_client.post("/rpc/governance/proposal", json=proposal_data)
+
+        success(f"Proposal created: {proposal_id}")
+        output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
     except Exception as e:
@@ -418,27 +482,33 @@ def proposal(ctx, title: str, description: str, type: str, wallet: str):
 
 
 @governance.command()
-@click.argument('to_address')
-@click.option('--amount', type=float, required=True, help='Amount to delegate')
-@click.option('--wallet', required=True, help='Wallet name for signing')
+@click.argument('proposal_id')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 @click.pass_context
-def delegate(ctx, to_address: str, amount: float, wallet: str):
-    """Delegate voting power to another address"""
+def get_proposal(ctx, proposal_id: str, format: str):
+    """Get a governance proposal from blockchain"""
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.governance_service_url, timeout=10)
-        delegate_data = {
-            "to_address": to_address,
-            "amount": amount,
-            "wallet": wallet
-        }
-        result = http_client.post("/governance/delegate", json=delegate_data)
-        success(f"Delegated {amount} to {to_address}")
-        output(result, ctx.obj.get("output_format", "table"))
+        # Get RPC URL from config (use hub for cross-node operations)
+        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+        rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+
+        # Get chain_id
+        try:
+            from ..utils.chain_id import get_chain_id
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        except Exception:
+            chain_id = "ait-testnet"
+
+        # Query proposal from blockchain RPC
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.get(f"/rpc/governance/proposal/{proposal_id}?chain_id={chain_id}")
+
+        output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
     except Exception as e:
-        error(f"Error delegating: {e}")
+        error(f"Error getting proposal: {e}")
 
 
