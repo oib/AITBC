@@ -926,7 +926,7 @@ def stats(ctx):
 @click.option("--duration", type=int, default=30, help="Staking duration in days")
 @click.pass_context
 def stake(ctx, amount: float, duration: int):
-    """Stake AITBC tokens"""
+    """Stake AITBC tokens on blockchain"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -935,136 +935,52 @@ def stake(ctx, amount: float, duration: int):
         return
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
+    sender_address = wallet_data["address"]
 
-    balance = wallet_data.get("balance", 0)
-    if balance < amount:
-        error(f"Insufficient balance. Available: {balance}, Required: {amount}")
-        ctx.exit(1)
-        return
+    # Get RPC URL from config (use hub for cross-node operations)
+    from ..config import get_config
+    config = get_config()
+    rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+    rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
 
-    # Record stake
-    stake_id = f"stake_{int(datetime.now().timestamp())}"
-    stake_record = {
-        "stake_id": stake_id,
-        "amount": amount,
-        "duration_days": duration,
-        "start_date": datetime.now().isoformat(),
-        "end_date": (datetime.now() + timedelta(days=duration)).isoformat(),
-        "status": "active",
-        "apy": 5.0 + (duration / 30) * 1.5,  # Higher APY for longer stakes
-    }
+    # Get chain_id
+    try:
+        from ..utils.chain_id import get_chain_id
+        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+    except Exception:
+        chain_id = "ait-testnet"
 
-    staking = wallet_data.setdefault("staking", [])
-    staking.append(stake_record)
-    wallet_data["balance"] = balance - amount
-
-    # Add transaction
-    wallet_data["transactions"].append(
-        {
-            "type": "stake",
-            "amount": -amount,
-            "stake_id": stake_id,
-            "description": f"Staked {amount} AITBC for {duration} days",
-            "timestamp": datetime.now().isoformat(),
+    # Submit staking request to blockchain RPC
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        stake_data = {
+            "address": sender_address,
+            "amount": int(amount * 10**18),  # Convert to wei
+            "lock_days": duration,
+            "chain_id": chain_id
         }
-    )
+        result = http_client.post("/rpc/staking/stake", json=stake_data)
 
-    # Save wallet with encryption
-    password = None
-    if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
-    _save_wallet(wallet_path, wallet_data, password)
-
-    success(f"Staked {amount} AITBC for {duration} days")
-    output(
-        {
+        success(f"Staked {amount} AITBC for {duration} days")
+        output({
             "wallet": wallet_name,
-            "stake_id": stake_id,
+            "stake_id": result.get("stake_id"),
             "amount": amount,
             "duration_days": duration,
-            "apy": stake_record["apy"],
-            "new_balance": wallet_data["balance"],
-        },
-        ctx.obj.get("output_format", "table"),
-    )
+            "locked_until": result.get("locked_until"),
+            "remaining_balance": result.get("remaining_balance"),
+            "chain_id": chain_id
+        }, ctx.obj.get("output_format", "table"))
+    except Exception as e:
+        error(f"Error staking tokens: {e}")
+        raise click.Abort()
 
 
 @wallet.command()
 @click.argument("stake_id")
 @click.pass_context
 def unstake(ctx, stake_id: str):
-    """Unstake AITBC tokens"""
-    wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
-
-    if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
-        return
-
-    with open(wallet_path) as f:
-        wallet_data = json.load(f)
-
-    staking = wallet_data.get("staking", [])
-    stake_record = next(
-        (s for s in staking if s["stake_id"] == stake_id and s["status"] == "active"),
-        None,
-    )
-
-    if not stake_record:
-        error(f"Active stake '{stake_id}' not found")
-        ctx.exit(1)
-        return
-
-    # Calculate rewards
-    start = datetime.fromisoformat(stake_record["start_date"])
-    days_staked = max(1, (datetime.now() - start).days)
-    daily_rate = stake_record["apy"] / 100 / 365
-    rewards = stake_record["amount"] * daily_rate * days_staked
-
-    # Return principal + rewards
-    returned = stake_record["amount"] + rewards
-    wallet_data["balance"] = wallet_data.get("balance", 0) + returned
-    stake_record["status"] = "completed"
-    stake_record["rewards"] = rewards
-    stake_record["completed_date"] = datetime.now().isoformat()
-
-    # Add transaction
-    wallet_data["transactions"].append(
-        {
-            "type": "unstake",
-            "amount": returned,
-            "stake_id": stake_id,
-            "rewards": rewards,
-            "description": f"Unstaked {stake_record['amount']} AITBC + {rewards:.4f} rewards",
-            "timestamp": datetime.now().isoformat(),
-        }
-    )
-
-    # Save wallet with encryption
-    password = None
-    if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
-    _save_wallet(wallet_path, wallet_data, password)
-
-    success(f"Unstaked {stake_record['amount']} AITBC + {rewards:.4f} rewards")
-    output(
-        {
-            "wallet": wallet_name,
-            "stake_id": stake_id,
-            "principal": stake_record["amount"],
-            "rewards": rewards,
-            "total_returned": returned,
-            "days_staked": days_staked,
-            "new_balance": wallet_data["balance"],
-        },
-        ctx.obj.get("output_format", "table"),
-    )
-
-
-@wallet.command(name="staking-info")
-@click.pass_context
-def staking_info(ctx):
-    """Show staking information"""
+    """Unstake AITBC tokens from blockchain"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -1073,35 +989,88 @@ def staking_info(ctx):
         return
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
+    sender_address = wallet_data["address"]
 
-    staking = wallet_data.get("staking", [])
-    active_stakes = [s for s in staking if s["status"] == "active"]
-    completed_stakes = [s for s in staking if s["status"] == "completed"]
+    # Get RPC URL from config (use hub for cross-node operations)
+    from ..config import get_config
+    config = get_config()
+    rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+    rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
 
-    total_staked = sum(s["amount"] for s in active_stakes)
-    total_rewards = sum(s.get("rewards", 0) for s in completed_stakes)
+    # Get chain_id
+    try:
+        from ..utils.chain_id import get_chain_id
+        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+    except Exception:
+        chain_id = "ait-testnet"
 
-    output(
-        {
+    # Submit unstaking request to blockchain RPC
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        unstake_data = {
+            "address": sender_address,
+            "stake_id": int(stake_id),
+            "chain_id": chain_id
+        }
+        result = http_client.post("/rpc/staking/unstake", json=unstake_data)
+
+        success(f"Unstaked tokens from stake {stake_id}")
+        output({
             "wallet": wallet_name,
-            "total_staked": total_staked,
-            "total_rewards_earned": total_rewards,
-            "active_stakes": len(active_stakes),
-            "completed_stakes": len(completed_stakes),
-            "stakes": [
-                {
-                    "stake_id": s["stake_id"],
-                    "amount": s["amount"],
-                    "apy": s["apy"],
-                    "duration_days": s["duration_days"],
-                    "status": s["status"],
-                    "start_date": s["start_date"],
-                }
-                for s in staking
-            ],
-        },
-        ctx.obj.get("output_format", "table"),
-    )
+            "stake_id": stake_id,
+            "amount": result.get("amount"),
+            "new_balance": result.get("new_balance"),
+            "status": result.get("status"),
+            "chain_id": chain_id
+        }, ctx.obj.get("output_format", "table"))
+    except Exception as e:
+        error(f"Error unstaking tokens: {e}")
+        raise click.Abort()
+
+
+@wallet.command(name="staking-info")
+@click.pass_context
+def staking_info(ctx):
+    """Show staking information from blockchain"""
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
+    if not wallet_path.exists():
+        error(f"Wallet '{wallet_name}' not found")
+        return
+
+    wallet_data = _load_wallet(wallet_path, wallet_name)
+    sender_address = wallet_data["address"]
+
+    # Get RPC URL from config (use hub for cross-node operations)
+    from ..config import get_config
+    config = get_config()
+    rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+    rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+
+    # Get chain_id
+    try:
+        from ..utils.chain_id import get_chain_id
+        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+    except Exception:
+        chain_id = "ait-testnet"
+
+    # Query staking info from blockchain RPC
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.get(f"/rpc/staking/info?address={sender_address}&chain_id={chain_id}")
+
+        output({
+            "wallet": wallet_name,
+            "address": sender_address,
+            "chain_id": chain_id,
+            "total_staked": result.get("total_staked"),
+            "active_stake_count": result.get("active_stake_count"),
+            "active_stakes": result.get("active_stakes", [])
+        }, ctx.obj.get("output_format", "table"))
+    except Exception as e:
+        error(f"Error fetching staking info: {e}")
+        raise click.Abort()
 
 
 @wallet.command(name="multisig-create")
