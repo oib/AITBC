@@ -242,3 +242,53 @@ class AgentIdentity(SQLModel, table=True):
     verified_by: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class GovernanceProposal(SQLModel, table=True):
+    """On-chain governance proposal record"""
+    __tablename__ = "governance_proposal"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "proposal_id", name="uix_gov_proposal_chain_id"),
+        {"extend_existing": True}
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    proposal_id: str = Field(index=True)
+    proposer_address: str = Field(index=True)
+    title: str
+    description: str
+    category: str = Field(default="general")
+    status: str = Field(default="draft")  # draft, active, succeeded, defeated, executed, cancelled
+    votes_for: int = Field(default=0)
+    votes_against: int = Field(default=0)
+    votes_abstain: int = Field(default=0)
+    quorum_required: int = Field(default=0)
+    passing_threshold: float = Field(default=0.5)
+    execution_payload: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
+    voting_starts: datetime
+    voting_ends: datetime
+    executed_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class GovernanceVote(SQLModel, table=True):
+    """On-chain governance vote record"""
+    __tablename__ = "governance_vote"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "proposal_id", "voter_address", name="uix_gov_vote_unique"),
+        {"extend_existing": True}
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    proposal_id: str = Field(index=True)
+    voter_address: str = Field(index=True)
+    vote_type: str = Field(default="for")  # for, against, abstain
+    voting_power: int = Field(default=0)
+    reason: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
