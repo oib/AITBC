@@ -3,12 +3,13 @@ General operations commands for AITBC CLI (marketplace, AI, agents)
 """
 
 import json
+from pathlib import Path
 
 import click
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from aitbc import KEYSTORE_DIR, AITBCHTTPClient, NetworkError, get_logger
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
 from ..config import get_config
 from ..utils import error, output, success
@@ -17,7 +18,33 @@ from ..utils.wallet import decrypt_private_key
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://localhost:8006"
-DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
+DEFAULT_WALLET_DIR = Path.home() / ".aitbc" / "wallets"
+
+
+def _load_wallet(wallet_path: Path, wallet_name: str) -> dict:
+    """Load wallet and decrypt private key if needed"""
+    with open(wallet_path) as f:
+        wallet_data = json.load(f)
+
+    # Decrypt private key if encrypted
+    if wallet_data.get("encrypted") and "private_key" in wallet_data:
+        from ..utils.wallet import decrypt_value
+        password = _get_wallet_password(wallet_name)
+        try:
+            wallet_data["private_key"] = decrypt_value(
+                wallet_data["private_key"], password
+            )
+        except Exception:
+            error("Invalid password for wallet")
+            raise click.Abort()
+
+    return wallet_data
+
+
+def _get_wallet_password(wallet_name: str) -> str:
+    """Get wallet password from user input"""
+    import getpass
+    return getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
 
 
 @click.group()
@@ -389,14 +416,13 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
         except Exception:
             chain_id = "ait-testnet"
 
-        # Get wallet address
-        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
-        if not keystore_path.exists():
-            error(f"Wallet '{wallet}' not found")
+        # Get wallet address from correct wallet directory
+        wallet_path = DEFAULT_WALLET_DIR / f"{wallet}.json"
+        if not wallet_path.exists():
+            error(f"Wallet '{wallet}' not found at {wallet_path}")
             return
 
-        with open(keystore_path) as f:
-            wallet_data = json.load(f)
+        wallet_data = _load_wallet(wallet_path, wallet)
         voter_address = wallet_data['address']
 
         # Convert bech32 address to hex for RPC compatibility
@@ -448,14 +474,13 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
         except Exception:
             chain_id = "ait-testnet"
 
-        # Get wallet address
-        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
-        if not keystore_path.exists():
-            error(f"Wallet '{wallet}' not found")
+        # Get wallet address from correct wallet directory
+        wallet_path = DEFAULT_WALLET_DIR / f"{wallet}.json"
+        if not wallet_path.exists():
+            error(f"Wallet '{wallet}' not found at {wallet_path}")
             return
 
-        with open(keystore_path) as f:
-            wallet_data = json.load(f)
+        wallet_data = _load_wallet(wallet_path, wallet)
         proposer_address = wallet_data['address']
 
         # Convert bech32 address to hex for RPC compatibility
