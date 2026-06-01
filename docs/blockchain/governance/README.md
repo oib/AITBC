@@ -18,6 +18,7 @@
 - **🔒 [Security Documentation](../security/README.md)** - Security-related guidance
 - **📚 [About Documentation](../about/README.md)** - Documentation standards and analysis
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
+- **🤖 [Hermes Blockchain Integration - Governance](../../hermes/blockchain/governance.md)** - Hermes agent on-chain governance operations
 
 ---
 
