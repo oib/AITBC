@@ -246,10 +246,10 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str |
                 with open(wallet_path) as f:
                     wallet = json.load(f)
                     public_key_pem = wallet.get('public_key')
-            
+
             if public_key_pem:
                 content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
-                provider_node_id = hashlib.sha256(content.encode()).hexdigest()
+                bidder_node_id = hashlib.sha256(content.encode()).hexdigest()
             else:
                 error("No public key found in keystore or wallet")
                 raise click.Abort()
@@ -294,9 +294,10 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str |
             }
         }
 
-        # Submit transaction to blockchain RPC
+        # Submit transaction to blockchain RPC (hub for cross-node propagation)
         try:
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
             success("GPU bid created successfully!")
             success(f"Bid ID: {bid_id}")
@@ -468,9 +469,10 @@ def cancel(ctx, order_id: str):
             }
         }
 
-        # Submit transaction to blockchain RPC
+        # Submit transaction to blockchain RPC (hub for cross-node propagation)
         try:
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
@@ -552,9 +554,10 @@ def accept(ctx, bid_id: str):
             }
         }
 
-        # Submit transaction to blockchain RPC
+        # Submit transaction to blockchain RPC (hub for cross-node propagation)
         try:
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")
         except NetworkError as e:
