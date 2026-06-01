@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 
 from ..logger import get_logger
 from ..models import Account, Receipt, Transaction
+from .gpu_resources import GPUAllocation, GPURegistration
 
 logger = get_logger(__name__)
 
@@ -312,6 +313,128 @@ class StateTransition:
     def get_processed_nonces(self) -> dict[str, int]:
         """Get the last processed nonce for each address."""
         return self._processed_nonces.copy()
+
+    def handle_gpu_registration(
+        self,
+        session: Session,
+        chain_id: str,
+        gpu_data: dict
+    ) -> tuple[bool, str]:
+        """
+        Handle GPU registration state transition.
+
+        Args:
+            session: Database session
+            chain_id: Chain identifier
+            gpu_data: GPU registration data
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        try:
+            gpu_id = gpu_data.get("gpu_id")
+            if not gpu_id:
+                return False, "GPU ID is required"
+
+            # Check if GPU already registered
+            existing = session.exec(
+                select(GPURegistration).where(
+                    GPURegistration.chain_id == chain_id,
+                    GPURegistration.gpu_id == gpu_id
+                )
+            ).first()
+
+            if existing:
+                # Update existing registration
+                existing.model = gpu_data.get("model", existing.model)
+                existing.memory_gb = gpu_data.get("memory_gb", existing.memory_gb)
+                existing.cuda_version = gpu_data.get("cuda_version", existing.cuda_version)
+                existing.region = gpu_data.get("region", existing.region)
+                existing.capabilities = gpu_data.get("capabilities", existing.capabilities)
+                existing.price_per_hour = gpu_data.get("price_per_hour", existing.price_per_hour)
+                existing.status = "active"
+                existing.updated_at = datetime.now(UTC)
+            else:
+                # Create new registration
+                registration = GPURegistration(
+                    chain_id=chain_id,
+                    gpu_id=gpu_id,
+                    miner_id=gpu_data.get("miner_id", ""),
+                    model=gpu_data.get("model", ""),
+                    memory_gb=gpu_data.get("memory_gb", 0),
+                    cuda_version=gpu_data.get("cuda_version", ""),
+                    region=gpu_data.get("region", ""),
+                    capabilities=gpu_data.get("capabilities", []),
+                    price_per_hour=gpu_data.get("price_per_hour", 0.0),
+                    registered_by=gpu_data.get("registered_by", ""),
+                    registered_at=datetime.now(UTC),
+                    status="active"
+                )
+                session.add(registration)
+
+            logger.info(f"GPU registration handled: {gpu_id}")
+            return True, "GPU registration successful"
+
+        except Exception as e:
+            logger.error(f"GPU registration error: {e}")
+            return False, str(e)
+
+    def handle_gpu_allocation(
+        self,
+        session: Session,
+        chain_id: str,
+        allocation_data: dict
+    ) -> tuple[bool, str]:
+        """
+        Handle GPU allocation state transition.
+
+        Args:
+            session: Database session
+            chain_id: Chain identifier
+            allocation_data: GPU allocation data
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        try:
+            from uuid import uuid4
+
+            gpu_id = allocation_data.get("gpu_id")
+            if not gpu_id:
+                return False, "GPU ID is required"
+
+            # Verify GPU exists
+            gpu = session.exec(
+                select(GPURegistration).where(
+                    GPURegistration.chain_id == chain_id,
+                    GPURegistration.gpu_id == gpu_id
+                )
+            ).first()
+
+            if not gpu:
+                return False, f"GPU not found: {gpu_id}"
+
+            # Create allocation record
+            allocation_id = allocation_data.get("allocation_id", f"alloc_{uuid4().hex[:12]}")
+            allocation = GPUAllocation(
+                chain_id=chain_id,
+                allocation_id=allocation_id,
+                gpu_id=gpu_id,
+                client_id=allocation_data.get("client_id", ""),
+                duration_hours=allocation_data.get("duration_hours", 0.0),
+                total_cost=allocation_data.get("total_cost", 0.0),
+                status="active",
+                allocated_by=allocation_data.get("allocated_by", ""),
+                allocated_at=datetime.now(UTC)
+            )
+            session.add(allocation)
+
+            logger.info(f"GPU allocation handled: {allocation_id} for GPU {gpu_id}")
+            return True, "GPU allocation successful"
+
+        except Exception as e:
+            logger.error(f"GPU allocation error: {e}")
+            return False, str(e)
 
     def reset(self) -> None:
         """Reset the state transition validator (for testing)."""
