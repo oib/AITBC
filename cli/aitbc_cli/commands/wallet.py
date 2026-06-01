@@ -937,6 +937,10 @@ def stake(ctx, amount: float, duration: int):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
+    # Convert bech32 address to hex for RPC compatibility
+    from ..utils.crypto_utils import bech32_to_hex
+    hex_address = bech32_to_hex(sender_address)
+
     # Get RPC URL from config (use hub for cross-node operations)
     from ..config import get_config
     config = get_config()
@@ -954,7 +958,7 @@ def stake(ctx, amount: float, duration: int):
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         stake_data = {
-            "address": sender_address,
+            "address": hex_address,
             "amount": int(amount * 10**18),  # Convert to wei
             "lock_days": duration,
             "chain_id": chain_id
@@ -991,6 +995,10 @@ def unstake(ctx, stake_id: str):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
+    # Convert bech32 address to hex for RPC compatibility
+    from ..utils.crypto_utils import bech32_to_hex
+    hex_address = bech32_to_hex(sender_address)
+
     # Get RPC URL from config (use hub for cross-node operations)
     from ..config import get_config
     config = get_config()
@@ -1008,7 +1016,7 @@ def unstake(ctx, stake_id: str):
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         unstake_data = {
-            "address": sender_address,
+            "address": hex_address,
             "stake_id": int(stake_id),
             "chain_id": chain_id
         }
@@ -1042,6 +1050,10 @@ def staking_info(ctx):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
+    # Convert bech32 address to hex for RPC compatibility
+    from ..utils.crypto_utils import bech32_to_hex
+    hex_address = bech32_to_hex(sender_address)
+
     # Get RPC URL from config (use hub for cross-node operations)
     from ..config import get_config
     config = get_config()
@@ -1058,7 +1070,7 @@ def staking_info(ctx):
     # Query staking info from blockchain RPC
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/staking/info?address={sender_address}&chain_id={chain_id}")
+        result = http_client.get(f"/rpc/staking/info?address={hex_address}&chain_id={chain_id}")
 
         output({
             "wallet": wallet_name,
