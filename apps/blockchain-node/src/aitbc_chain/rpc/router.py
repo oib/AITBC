@@ -183,15 +183,15 @@ except ImportError:
     cast_governance_vote = None
     get_governance_proposal = None
 
-try:
-    from .gpu_resources import *  # noqa: F401,F403  # Registers GPU resource routes
-except ImportError:
-    _logger.warning("GPU resources module not available")
-
 # Security scheme for authentication
 security = HTTPBearer(auto_error=False)
 
 router = APIRouter()
+
+try:
+    from .gpu_resources import *  # noqa: F401,F403  # Registers GPU resource routes
+except ImportError:
+    _logger.warning("GPU resources module not available")
 
 # Global rate limiter for importBlock
 _last_import_time = 0
