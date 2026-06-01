@@ -399,11 +399,15 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
             wallet_data = json.load(f)
         voter_address = wallet_data['address']
 
+        # Convert bech32 address to hex for RPC compatibility
+        from ..utils.crypto_utils import bech32_to_hex
+        hex_address = bech32_to_hex(voter_address)
+
         # Submit vote to blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         vote_data = {
             "proposal_id": proposal_id,
-            "voter_address": voter_address,
+            "voter_address": hex_address,
             "vote_type": vote,
             "voting_power": voting_power,
             "reason": reason,
@@ -454,6 +458,10 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
             wallet_data = json.load(f)
         proposer_address = wallet_data['address']
 
+        # Convert bech32 address to hex for RPC compatibility
+        from ..utils.crypto_utils import bech32_to_hex
+        hex_address = bech32_to_hex(proposer_address)
+
         # Calculate voting times
         from datetime import datetime, timedelta, UTC
         voting_starts = datetime.now(UTC).isoformat()
@@ -463,7 +471,7 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         proposal_data = {
             "proposal_id": proposal_id,
-            "proposer_address": proposer_address,
+            "proposer_address": hex_address,
             "title": title,
             "description": description,
             "category": category,

@@ -453,17 +453,21 @@ try:
             config_dir = get_agent_config_dir()
             config_file = config_dir / f"{agent_id}.json"
             capabilities = {}
-            
+
             if config_file.exists():
                 with open(config_file) as f:
                     agent_config = json.load(f)
                 capabilities = agent_config.get("capabilities", {})
 
+            # Convert bech32 address to hex for RPC compatibility
+            from ..utils.crypto_utils import bech32_to_hex
+            hex_address = bech32_to_hex(agent_address)
+
             # Submit identity registration to blockchain RPC
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
             identity_data = {
                 "agent_id": agent_id,
-                "agent_address": agent_address,
+                "agent_address": hex_address,
                 "display_name": display_name or agent_id,
                 "agent_type": agent_type,
                 "capabilities": capabilities,
