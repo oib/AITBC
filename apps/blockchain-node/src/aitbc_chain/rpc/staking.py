@@ -12,7 +12,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account, Stake, AgentIdentity
+from ..models import Account, Stake, AgentIdentity, GovernanceProposal, GovernanceVote
 from .utils import get_chain_id
 
 _logger = get_logger(__name__)
@@ -345,5 +345,217 @@ async def verify_agent_identity(
             "is_verified": True,
             "verified_at": identity.verified_at.isoformat(),
             "verified_by": verifier_address,
+            "chain_id": chain_id
+        }
+
+
+@rate_limit(rate=20, per=60)
+async def create_governance_proposal(
+    request: Request,
+    proposal_data: dict
+) -> dict[str, Any]:
+    """
+    Create a governance proposal on the blockchain.
+    
+    Records governance proposals for DAO decision-making.
+    """
+    chain_id = get_chain_id(proposal_data.get("chain_id"))
+    proposal_id = proposal_data.get("proposal_id")
+    proposer_address = proposal_data.get("proposer_address")
+    title = proposal_data.get("title")
+    description = proposal_data.get("description")
+    category = proposal_data.get("category", "general")
+    voting_starts = proposal_data.get("voting_starts")
+    voting_ends = proposal_data.get("voting_ends")
+    execution_payload = proposal_data.get("execution_payload", {})
+
+    if not proposal_id or not proposer_address or not title:
+        raise HTTPException(status_code=400, detail="proposal_id, proposer_address, and title are required")
+
+    # Normalize address
+    proposer_address = proposer_address.lower().strip()
+    if not proposer_address.startswith("0x"):
+        proposer_address = "0x" + proposer_address
+
+    with session_scope() as session:
+        # Check if proposal already exists
+        existing = session.exec(
+            select(GovernanceProposal).where(
+                GovernanceProposal.chain_id == chain_id,
+                GovernanceProposal.proposal_id == proposal_id
+            )
+        ).first()
+        
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Proposal already exists: {proposal_id}")
+
+        # Parse voting times
+        try:
+            voting_starts_dt = datetime.fromisoformat(voting_starts) if voting_starts else datetime.now(UTC)
+            voting_ends_dt = datetime.fromisoformat(voting_ends) if voting_ends else voting_starts_dt + timedelta(days=7)
+        except Exception:
+            voting_starts_dt = datetime.now(UTC)
+            voting_ends_dt = voting_starts_dt + timedelta(days=7)
+
+        # Create governance proposal record
+        proposal = GovernanceProposal(
+            chain_id=chain_id,
+            proposal_id=proposal_id,
+            proposer_address=proposer_address,
+            title=title,
+            description=description,
+            category=category,
+            status="active",
+            execution_payload=execution_payload,
+            voting_starts=voting_starts_dt,
+            voting_ends=voting_ends_dt
+        )
+        session.add(proposal)
+        session.commit()
+        session.refresh(proposal)
+
+        _logger.info(f"Governance proposal created on-chain: {proposal_id} by {proposer_address}")
+
+        return {
+            "success": True,
+            "proposal_id": proposal.proposal_id,
+            "proposer_address": proposal.proposer_address,
+            "title": proposal.title,
+            "status": proposal.status,
+            "voting_starts": proposal.voting_starts.isoformat(),
+            "voting_ends": proposal.voting_ends.isoformat(),
+            "chain_id": chain_id
+        }
+
+
+@rate_limit(rate=50, per=60)
+async def cast_governance_vote(
+    request: Request,
+    vote_data: dict
+) -> dict[str, Any]:
+    """
+    Cast a vote on a governance proposal.
+    
+    Records votes on-chain for proposal decision-making.
+    """
+    chain_id = get_chain_id(vote_data.get("chain_id"))
+    proposal_id = vote_data.get("proposal_id")
+    voter_address = vote_data.get("voter_address")
+    vote_type = vote_data.get("vote_type", "for")
+    voting_power = vote_data.get("voting_power", 0)
+    reason = vote_data.get("reason")
+
+    if not proposal_id or not voter_address:
+        raise HTTPException(status_code=400, detail="proposal_id and voter_address are required")
+
+    # Normalize address
+    voter_address = voter_address.lower().strip()
+    if not voter_address.startswith("0x"):
+        voter_address = "0x" + voter_address
+
+    with session_scope() as session:
+        # Get proposal
+        proposal = session.exec(
+            select(GovernanceProposal).where(
+                GovernanceProposal.chain_id == chain_id,
+                GovernanceProposal.proposal_id == proposal_id
+            )
+        ).first()
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail=f"Proposal not found: {proposal_id}")
+
+        # Check if already voted
+        existing_vote = session.exec(
+            select(GovernanceVote).where(
+                GovernanceVote.chain_id == chain_id,
+                GovernanceVote.proposal_id == proposal_id,
+                GovernanceVote.voter_address == voter_address
+            )
+        ).first()
+
+        if existing_vote:
+            raise HTTPException(status_code=400, detail=f"Already voted on proposal: {proposal_id}")
+
+        # Create vote record
+        vote = GovernanceVote(
+            chain_id=chain_id,
+            proposal_id=proposal_id,
+            voter_address=voter_address,
+            vote_type=vote_type,
+            voting_power=voting_power,
+            reason=reason
+        )
+        session.add(vote)
+
+        # Update proposal vote counts
+        if vote_type == "for":
+            proposal.votes_for += voting_power
+        elif vote_type == "against":
+            proposal.votes_against += voting_power
+        else:
+            proposal.votes_abstain += voting_power
+
+        session.add(proposal)
+        session.commit()
+
+        _logger.info(f"Governance vote cast: {voter_address} voted {vote_type} on {proposal_id}")
+
+        return {
+            "success": True,
+            "vote_id": vote.id,
+            "proposal_id": proposal_id,
+            "voter_address": voter_address,
+            "vote_type": vote_type,
+            "voting_power": voting_power,
+            "chain_id": chain_id
+        }
+
+
+@rate_limit(rate=50, per=60)
+async def get_governance_proposal(
+    request: Request,
+    proposal_id: str,
+    chain_id: str = None
+) -> dict[str, Any]:
+    """Get governance proposal from blockchain"""
+    chain_id = get_chain_id(chain_id)
+
+    with session_scope() as session:
+        proposal = session.exec(
+            select(GovernanceProposal).where(
+                GovernanceProposal.chain_id == chain_id,
+                GovernanceProposal.proposal_id == proposal_id
+            )
+        ).first()
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail=f"Proposal not found: {proposal_id}")
+
+        # Get votes for this proposal
+        votes = session.exec(
+            select(GovernanceVote).where(
+                GovernanceVote.chain_id == chain_id,
+                GovernanceVote.proposal_id == proposal_id
+            )
+        ).all()
+
+        return {
+            "success": True,
+            "proposal_id": proposal.proposal_id,
+            "proposer_address": proposal.proposer_address,
+            "title": proposal.title,
+            "description": proposal.description,
+            "category": proposal.category,
+            "status": proposal.status,
+            "votes_for": proposal.votes_for,
+            "votes_against": proposal.votes_against,
+            "votes_abstain": proposal.votes_abstain,
+            "quorum_required": proposal.quorum_required,
+            "passing_threshold": proposal.passing_threshold,
+            "voting_starts": proposal.voting_starts.isoformat(),
+            "voting_ends": proposal.voting_ends.isoformat(),
+            "executed_at": proposal.executed_at.isoformat() if proposal.executed_at else None,
+            "total_votes": len(votes),
             "chain_id": chain_id
         }

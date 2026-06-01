@@ -167,6 +167,9 @@ try:
         register_agent_identity,
         get_agent_identity,
         verify_agent_identity,
+        create_governance_proposal,
+        cast_governance_vote,
+        get_governance_proposal,
     )
 except ImportError:
     _logger.warning("Staking module not available")
@@ -176,6 +179,9 @@ except ImportError:
     register_agent_identity = None
     get_agent_identity = None
     verify_agent_identity = None
+    create_governance_proposal = None
+    cast_governance_vote = None
+    get_governance_proposal = None
 
 # Security scheme for authentication
 security = HTTPBearer(auto_error=False)
@@ -795,6 +801,43 @@ async def verify_agent_identity_route(
     if verify_agent_identity is None:
         raise HTTPException(status_code=501, detail="Identity module not available")
     return await verify_agent_identity(request, verification_data)
+
+
+@router.post("/governance/proposal", summary="Create governance proposal")
+@rate_limit(rate=20, per=60)
+async def create_governance_proposal_route(
+    request: Request,
+    proposal_data: dict
+) -> dict[str, Any]:
+    """Create a governance proposal on the blockchain"""
+    if create_governance_proposal is None:
+        raise HTTPException(status_code=501, detail="Governance module not available")
+    return await create_governance_proposal(request, proposal_data)
+
+
+@router.post("/governance/vote", summary="Cast governance vote")
+@rate_limit(rate=50, per=60)
+async def cast_governance_vote_route(
+    request: Request,
+    vote_data: dict
+) -> dict[str, Any]:
+    """Cast a vote on a governance proposal"""
+    if cast_governance_vote is None:
+        raise HTTPException(status_code=501, detail="Governance module not available")
+    return await cast_governance_vote(request, vote_data)
+
+
+@router.get("/governance/proposal/{proposal_id}", summary="Get governance proposal")
+@rate_limit(rate=50, per=60)
+async def get_governance_proposal_route(
+    request: Request,
+    proposal_id: str,
+    chain_id: str = None
+) -> dict[str, Any]:
+    """Get a governance proposal from the blockchain"""
+    if get_governance_proposal is None:
+        raise HTTPException(status_code=501, detail="Governance module not available")
+    return await get_governance_proposal(request, proposal_id, chain_id)
 
 
 # ============================================================================
