@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from .schema import Base
 
 # Database path
-DB_PATH = os.getenv("HERMES_DB_PATH", "/opt/aitbc/data/hermes_coin_requests.db")
+DB_PATH = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 _engine = None
