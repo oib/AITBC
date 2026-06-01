@@ -12,6 +12,7 @@ This service provides GPU compute resources for the AITBC marketplace.
 ## Related Documentation
 - [Marketplace Service](../marketplace/README.md)
 - [GPU Marketplace Scenario](../../scenarios/09_gpu_listing.md)
+- [Hermes Blockchain Integration - GPU Resources](../../hermes/blockchain/gpu-resources.md) - Hermes agent on-chain GPU resource tracking
 
 ---
 
