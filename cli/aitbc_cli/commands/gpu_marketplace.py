@@ -47,14 +47,24 @@ def get_wallet_address() -> str:
     return '0x0000000000000000000000000000000000000000'
 
 
-_transaction_nonce = 4
+def get_account_nonce(address: str, chain_id: str) -> int:
+    """Query blockchain for current account nonce"""
+    try:
+        from aitbc.network.http_client import AITBCHTTPClient
+        config = get_config()
+        hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+        response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
+        return response.get('nonce', 0)
+    except Exception as e:
+        error(f"Failed to get account nonce: {e}")
+        return 0
 
 def get_next_nonce() -> int:
-    """Get next transaction nonce (simple counter for MVP)"""
-    global _transaction_nonce
-    current = _transaction_nonce
-    _transaction_nonce += 1
-    return current
+    """Get next transaction nonce from blockchain"""
+    wallet_address = get_wallet_address()
+    chain_id = 'ait-hub.aitbc.bubuit.net'
+    return get_account_nonce(wallet_address, chain_id)
 
 
 @click.group()
