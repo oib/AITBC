@@ -83,8 +83,19 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
                     error("No public key found in keystore")
                     raise click.Abort()
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            # Fallback to wallet keys
+            wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
+            if os.path.exists(wallet_path):
+                with open(wallet_path) as f:
+                    wallet = json.load(f)
+                    public_key_pem = wallet.get('public_key')
+            
+            if public_key_pem:
+                content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
+                provider_node_id = hashlib.sha256(content.encode()).hexdigest()
+            else:
+                error("No public key found in keystore or wallet")
+                raise click.Abort()
 
         # Calculate total price
         total_price = price_per_gpu * gpu_count * duration_hours
@@ -188,8 +199,19 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str |
                     error("No public key found in keystore")
                     raise click.Abort()
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            # Fallback to wallet keys
+            wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
+            if os.path.exists(wallet_path):
+                with open(wallet_path) as f:
+                    wallet = json.load(f)
+                    public_key_pem = wallet.get('public_key')
+            
+            if public_key_pem:
+                content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
+                provider_node_id = hashlib.sha256(content.encode()).hexdigest()
+            else:
+                error("No public key found in keystore or wallet")
+                raise click.Abort()
 
         # Calculate max total price
         max_total_price = max_price * gpu_count * duration_hours
@@ -353,6 +375,20 @@ def cancel(ctx, order_id: str):
                 if public_key_pem:
                     content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
                     local_node_id = hashlib.sha256(content.encode()).hexdigest()
+        else:
+            # Fallback to wallet keys
+            wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
+            if os.path.exists(wallet_path):
+                with open(wallet_path) as f:
+                    wallet = json.load(f)
+                    public_key_pem = wallet.get('public_key')
+            
+            if public_key_pem:
+                content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
+                local_node_id = hashlib.sha256(content.encode()).hexdigest()
+            else:
+                error("No public key found in keystore or wallet")
+                raise click.Abort()
 
         # Determine if it's an offer or bid
         if order_id.startswith('gpu_offer'):
@@ -425,8 +461,19 @@ def accept(ctx, bid_id: str):
                     error("No public key found in keystore")
                     raise click.Abort()
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            # Fallback to wallet keys
+            wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
+            if os.path.exists(wallet_path):
+                with open(wallet_path) as f:
+                    wallet = json.load(f)
+                    public_key_pem = wallet.get('public_key')
+            
+            if public_key_pem:
+                content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
+                provider_node_id = hashlib.sha256(content.encode()).hexdigest()
+            else:
+                error("No public key found in keystore or wallet")
+                raise click.Abort()
 
         # Create accept transaction
         accept_data = {
@@ -693,7 +740,7 @@ def register(ctx, gpu_id: str, specs: str | None, pricing: str | None):
                 error("Invalid JSON pricing")
                 raise click.Abort()
 
-        result = http_client.post("/gpu/register", json=gpu_data)
+        result = http_client.post("/v1/gpu/register", json=gpu_data)
         success(f"GPU {gpu_id} registered successfully")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:

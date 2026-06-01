@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from ..logger import get_logger
-from ..services.island_manager import get_island_manager
+from ..network.island_manager import get_island_manager
 
 _logger = get_logger(__name__)
 
