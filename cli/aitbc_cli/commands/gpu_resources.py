@@ -48,7 +48,8 @@ def register_onchain(ctx, gpu_id: str, miner_id: str, model: str, memory_gb: int
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Load wallet to get address
         wallet_dir = Path.home() / ".aitbc" / "wallets"
@@ -77,7 +78,7 @@ def register_onchain(ctx, gpu_id: str, miner_id: str, model: str, memory_gb: int
             "price_per_hour": price_per_hour,
             "registered_by": hex_address
         }
-        result = http_client.post(f"/rpc/gpu/register?chain_id={chain_id}", json=registration_data)
+        result = http_client.post(f"/gpu/register?chain_id={chain_id}", json=registration_data)
 
         success(f"GPU '{gpu_id}' registered on-chain")
         output(result, ctx.obj.get("output_format", format))
@@ -105,11 +106,12 @@ def query_gpu(ctx, gpu_id: str, format: str):
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Query GPU from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/gpu/{gpu_id}?chain_id={chain_id}")
+        result = http_client.get(f"/gpu/{gpu_id}?chain_id={chain_id}")
 
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
@@ -141,7 +143,8 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float,
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Load wallet to get address
         wallet_dir = Path.home() / ".aitbc" / "wallets"
@@ -167,7 +170,7 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float,
             "total_cost": total_cost,
             "allocated_by": hex_allocated_by
         }
-        result = http_client.post(f"/rpc/gpu/allocate?chain_id={chain_id}", json=allocation_data)
+        result = http_client.post(f"/gpu/allocate?chain_id={chain_id}", json=allocation_data)
 
         success(f"GPU allocation recorded on-chain for '{gpu_id}'")
         output(result, ctx.obj.get("output_format", format))
@@ -195,11 +198,12 @@ def get_allocations(ctx, gpu_id: str, format: str):
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Query GPU allocations from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/gpu/allocations/{gpu_id}?chain_id={chain_id}")
+        result = http_client.get(f"/gpu/allocations/{gpu_id}?chain_id={chain_id}")
 
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
@@ -226,7 +230,8 @@ def list_gpus(ctx, status: str | None, format: str):
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Query GPU list from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -235,7 +240,7 @@ def list_gpus(ctx, status: str | None, format: str):
         if status:
             params["status"] = status
             
-        result = http_client.get("/rpc/gpu/list", params=params)
+        result = http_client.get("/gpu/list", params=params)
 
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:

@@ -701,7 +701,10 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
     """Register this node as a hub"""
     try:
         # Get environment variables
-        island_id = os.getenv('ISLAND_ID', 'default-island-id')
+        island_id = os.getenv('ISLAND_ID')
+        if not island_id:
+            error("ISLAND_ID environment variable not set")
+            raise click.Abort()
         island_name = os.getenv('ISLAND_NAME', 'default')
 
         # Get system hostname
@@ -799,7 +802,10 @@ def unregister(ctx, redis_url, hub_discovery_url):
     """Unregister this node as a hub"""
     try:
         # Get environment variables
-        island_id = os.getenv('ISLAND_ID', 'default-island-id')
+        island_id = os.getenv('ISLAND_ID')
+        if not island_id:
+            error("ISLAND_ID environment variable not set")
+            raise click.Abort()
         island_name = os.getenv('ISLAND_NAME', 'default')
 
         # Get system hostname

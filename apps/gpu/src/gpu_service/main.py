@@ -297,8 +297,10 @@ async def register_gpu(
         # Record GPU registration on blockchain (async, non-blocking)
         try:
             import httpx
-            blockchain_rpc_url = "http://hub.aitbc.bubuit.net:8006"
-            chain_id = "ait-hub.aitbc.bubuit.net"
+            import os
+            
+            blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://hub.aitbc.bubuit.net:8006")
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
             
             registration_payload = {
                 "gpu_id": gpu_id,
