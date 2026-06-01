@@ -2,7 +2,7 @@
 Staking-related RPC endpoints.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, Request
