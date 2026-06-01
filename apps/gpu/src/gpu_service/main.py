@@ -316,7 +316,7 @@ async def register_gpu(
             
             async with httpx.AsyncClient(timeout=5.0) as http_client:
                 await http_client.post(
-                    f"{blockchain_rpc_url}/gpu/register?chain_id={chain_id}",
+                    f"{blockchain_rpc_url}/rpc/gpu/register?chain_id={chain_id}",
                     json=registration_payload
                 )
             logger.info(f"GPU {gpu_id} registered on blockchain")
