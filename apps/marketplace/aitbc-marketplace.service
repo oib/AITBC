@@ -1,0 +1,21 @@
+[Unit]
+Description=AITBC Marketplace Service
+After=network.target postgresql.service aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc/apps/marketplace
+Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/aitbc/apps/marketplace/src:/opt/aitbc/packages/py/aitbc-core/src:$PYTHONPATH"
+Environment="DATABASE_URL=postgresql+asyncpg://aitbc_marketplace:aitbc_marketplace_password@localhost:5432/aitbc_marketplace"
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/marketplace/aitbc-marketplace-wrapper.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-marketplace
+
+[Install]
+WantedBy=multi-user.target
