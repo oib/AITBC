@@ -52,7 +52,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
     try:
         from aitbc.network.http_client import AITBCHTTPClient
         config = get_config()
-        hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+        hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
         return response.get('nonce', 0)
@@ -63,7 +63,8 @@ def get_account_nonce(address: str, chain_id: str) -> int:
 def get_next_nonce() -> int:
     """Get next transaction nonce from blockchain"""
     wallet_address = get_wallet_address()
-    chain_id = 'ait-hub.aitbc.bubuit.net'
+    config = get_config()
+    chain_id = 'ait-' + config.hub_discovery_url
     return get_account_nonce(wallet_address, chain_id)
 
 
@@ -172,7 +173,7 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
         # Submit transaction to blockchain RPC (try hub first for block inclusion)
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
             success("GPU offer created successfully!")
@@ -296,7 +297,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str |
 
         # Submit transaction to blockchain RPC (hub for cross-node propagation)
         try:
-            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
             success("GPU bid created successfully!")
@@ -471,7 +472,7 @@ def cancel(ctx, order_id: str):
 
         # Submit transaction to blockchain RPC (hub for cross-node propagation)
         try:
-            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
@@ -556,7 +557,7 @@ def accept(ctx, bid_id: str):
 
         # Submit transaction to blockchain RPC (hub for cross-node propagation)
         try:
-            hub_url = config.blockchain_rpc_url.replace('localhost', 'hub.aitbc.bubuit.net')
+            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")

@@ -769,11 +769,13 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
-    # Get RPC URL from context or parameter
+    # Get RPC URL from context or parameter (use hub for cross-node transfers)
     if not rpc_url:
         from ..config import get_config
         config = get_config()
         rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+        # Use hub RPC for cross-node transaction propagation
+        rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
 
     # Get chain_id from RPC
     try:
