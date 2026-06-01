@@ -47,13 +47,14 @@ def get_wallet_address() -> str:
     return '0x0000000000000000000000000000000000000000'
 
 
-_transaction_nonce = -1
+_transaction_nonce = 4
 
 def get_next_nonce() -> int:
     """Get next transaction nonce (simple counter for MVP)"""
     global _transaction_nonce
+    current = _transaction_nonce
     _transaction_nonce += 1
-    return _transaction_nonce
+    return current
 
 
 @click.group()
