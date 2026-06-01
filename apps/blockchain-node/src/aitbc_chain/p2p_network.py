@@ -19,6 +19,18 @@ from .network.nat_traversal import NATTraversalService
 
 logger = get_logger(__name__)
 
+# Global P2P service instance
+_p2p_service_instance = None
+
+def get_p2p_network():
+    """Get the global P2P network service instance"""
+    return _p2p_service_instance
+
+def set_p2p_network(service) -> None:
+    """Set the global P2P network service instance"""
+    global _p2p_service_instance
+    _p2p_service_instance = service
+
 class P2PNetworkService:
     def __init__(self, host: str, port: int, node_id: str, peers: str = "", stun_servers: list[str] = None,
                  island_id: str = "", island_name: str = "default", is_hub: bool = False,
@@ -171,6 +183,15 @@ class P2PNetworkService:
         payload = json.dumps(message).encode() + b"\n"
         writer.write(payload)
         await writer.drain()
+
+    async def broadcast_to_peers(self, message: dict[str, Any]):
+        """Broadcast a message to all connected peers"""
+        writers = list(self.active_connections.values())
+        for writer in writers:
+            try:
+                await self._send_message(writer, message)
+            except Exception as e:
+                logger.debug(f"Failed to broadcast to peer: {e}")
 
 
     async def _ping_peers_loop(self):
@@ -718,6 +739,7 @@ async def run_p2p_service(host: str, port: int, node_id: str, peers: str):
         is_hub=settings.is_hub,
         island_chain_id=settings.island_chain_id or settings.chain_id,
     )
+    set_p2p_network(service)
     await service.start()
 
 
