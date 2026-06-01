@@ -34,6 +34,7 @@ from aitbc_cli.commands.genesis import genesis
 
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
+from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
 from aitbc_cli.commands.hermes import hermes
 from aitbc_cli.commands.hermes_training import hermes_training
 from aitbc_cli.commands.marketplace_cmd import marketplace
@@ -158,6 +159,7 @@ cli.add_command(config_cmd, name="config")
 cli.add_command(list_wallets)
 cli.add_command(version)
 cli.add_command(gpu)
+cli.add_command(gpu_onchain)
 cli.add_command(exchange_island)
 cli.add_command(wallet)
 cli.add_command(genesis)
