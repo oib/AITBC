@@ -414,7 +414,8 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Get wallet address from correct wallet directory
         wallet_path = DEFAULT_WALLET_DIR / f"{wallet}.json"
@@ -472,7 +473,8 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Get wallet address from correct wallet directory
         wallet_path = DEFAULT_WALLET_DIR / f"{wallet}.json"
@@ -532,7 +534,8 @@ def get_proposal(ctx, proposal_id: str, format: str):
             from ..utils.chain_id import get_chain_id
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
-            chain_id = "ait-testnet"
+            import os
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Query proposal from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
