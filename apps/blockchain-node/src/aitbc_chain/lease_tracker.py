@@ -38,24 +38,28 @@ class LeaseTracker:
     async def start(self) -> None:
         """Start the lease tracker and background cleanup task."""
         if self._running:
+            logger.info("Lease tracker already running")
             return
 
         try:
+            logger.info(f"Starting lease tracker with Redis URL: {self._redis_url}")
             # Parse Redis URL
             if self._redis_url.startswith("redis://"):
                 self._redis = redis.from_url(self._redis_url, decode_responses=True)
             else:
                 self._redis = redis.Redis(host="127.0.0.1", port=6379, decode_responses=True)
 
+            logger.info(f"Redis client created: {self._redis}")
             # Test connection
-            await asyncio.to_thread(self._redis.ping)
+            pong = await asyncio.to_thread(self._redis.ping)
+            logger.info(f"Redis ping successful: {pong}")
             self._running = True
 
             # Start background cleanup task
             self._cleanup_task = asyncio.create_task(self._cleanup_loop())
-            logger.info("Lease tracker started")
+            logger.info("Lease tracker started successfully")
         except Exception as e:
-            logger.error(f"Failed to start lease tracker: {e}")
+            logger.error(f"Failed to start lease tracker: {e}", exc_info=True)
             raise
 
     async def stop(self) -> None:

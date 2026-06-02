@@ -38,6 +38,8 @@ async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:
     if transport not in ["websocket", "http", "redis"]:
         raise HTTPException(status_code=400, detail=f"Invalid transport: {transport}")
 
+    logger.info(f"Subscription request from node_id={node_id}, lease_tracker._running={lease_tracker._running}")
+
     try:
         expiry = await lease_tracker.register_subscriber(
             node_id=node_id,
@@ -54,7 +56,7 @@ async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:
             "lease_duration": duration or settings.lease_duration
         }
     except Exception as e:
-        logger.error(f"Failed to register subscription: {e}")
+        logger.error(f"Failed to register subscription: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
