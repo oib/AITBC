@@ -1,3 +1,0 @@
-"""
-GPU service tests
-"""

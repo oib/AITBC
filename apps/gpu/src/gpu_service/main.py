@@ -192,15 +192,16 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
                 "fee": 10,
                 "nonce": 0,
                 "type": "GPU_REGISTER",
+                "value": 0,
                 "payload": {
                     "amount": 0,
-                    "compute_capability": gpu_specs.get('compute_capability', ''),
-                    "cuda_cores": gpu_specs.get('cuda_cores', 0),
-                    "description": gpu_specs.get('description', ''),
                     "gpu_model": gpu_specs.get('model', 'Unknown'),
                     "memory_gb": gpu_specs.get('memory_gb', 0),
-                    "miner_id": transaction_data.get('provider_node_id', 'default_miner'),
+                    "cuda_cores": gpu_specs.get('cuda_cores', 0),
+                    "compute_capability": gpu_specs.get('compute_capability', ''),
                     "price_per_hour": transaction_data.get('price_per_gpu', 0.0),
+                    "description": gpu_specs.get('description', ''),
+                    "miner_id": transaction_data.get('provider_node_id', 'default_miner'),
                     "provider_address": provider_address
                 },
                 "signature": transaction_data.get('signature', '')
@@ -213,11 +214,11 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
             if provider_address:
                 try:
                     logger.info("Attempting blockchain transaction submission...")
-                    # Use hub blockchain endpoint from environment
-                    hub_url = os.getenv("HUB_BLOCKCHAIN_URL", "https://hub.aitbc.bubuit.net")
+                    # Use local blockchain endpoint
+                    blockchain_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
                     
-                    # Fetch correct nonce from hub blockchain
-                    http_client = AITBCHTTPClient(base_url=hub_url, timeout=30)
+                    # Fetch correct nonce from blockchain
+                    http_client = AITBCHTTPClient(base_url=blockchain_url, timeout=30)
                     account_info = http_client.get(f"/rpc/account/{provider_address}")
                     correct_nonce = account_info.get("nonce", 0) if isinstance(account_info, dict) else 0
                     blockchain_tx["nonce"] = correct_nonce
