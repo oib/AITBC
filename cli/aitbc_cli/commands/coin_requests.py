@@ -183,7 +183,7 @@ def execute(ctx, request_id):
 
         # If no local genesis key, forward to hub for execution
         if not tx_service.genesis_private_key:
-            hub_url = os.getenv("HUB_HERMES_URL", "http://hub.aitbc.bubuit.net/api/v1/hermes")
+            hub_url = os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/hermes")
             api_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
             if not api_key:
                 click.echo("Error: No GENESIS_PRIVATE_KEY locally and COORDINATOR_API_KEY not set.")
