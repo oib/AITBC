@@ -1,6 +1,6 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-05-30
+**Last Updated:** 2026-06-02
 
 Quick reference guide for AITBC setup and onboarding.
 
@@ -16,6 +16,108 @@ cd /opt/aitbc
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
+
+## Node Profiles
+
+During setup, you will be prompted to configure node profiles that determine which services run:
+
+### Blockchain Mode
+- **follower** (default) - Receives blocks from hub, runs periodic sync
+- **hub** - Produces and broadcasts blocks, runs lease tracker for subscription system
+
+### Market Role
+- **customer** (default) - Consumes GPU resources
+- **shop** - Provides GPU resources (requires GPU hardware)
+
+### Hardware Profile
+- **nogpu** (default) - No GPU available
+- **gpu** - GPU available for compute
+
+These profiles are set in `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env`:
+
+```bash
+# Node Profiles (set during setup.sh)
+BLOCKCHAIN_MODE=follower  # follower or hub
+MARKET_ROLE=customer       # customer or shop
+HARDWARE_PROFILE=nogpu    # gpu or nogpu
+```
+
+## Lease-Based Subscription System
+
+The blockchain node supports a lease-based push synchronization mechanism for efficient block propagation:
+
+### Hub Configuration
+Set `BLOCKCHAIN_MODE=hub` on hub nodes to enable:
+- Block production and broadcasting
+- Redis lease tracker for subscriber management
+- Subscription RPC endpoints for follower registration
+
+### Follower Configuration
+Set `BLOCKCHAIN_MODE=follower` on follower nodes to enable:
+- Periodic pull sync (fallback)
+- Subscription client for push-based block reception
+- Automatic lease renewal via heartbeat
+
+### Subscription Settings
+Configure in `/etc/aitbc/blockchain.env`:
+
+```bash
+# Lease-based subscription settings (followers)
+SUBSCRIPTION_ENABLED=true
+SUBSCRIPTION_TRANSPORT=redis
+LEASE_DURATION=3600
+LEASE_RENEWAL_THRESHOLD=300
+HEARTBEAT_INTERVAL=60
+```
+
+### Subscription RPC Endpoints
+Hub nodes provide these endpoints:
+- `POST /rpc/subscribe` - Register for block subscription with lease
+- `POST /rpc/heartbeat` - Extend subscription lease via heartbeat
+- `GET /rpc/lease/{node_id}` - Get lease status for a subscriber
+- `DELETE /rpc/lease/{node_id}` - Revoke subscription lease
+- `GET /rpc/subscribers` - Get all valid subscribers
+
+## Sync Modes
+
+The blockchain node supports two synchronization modes for block propagation:
+
+### Pull Sync (Periodic)
+- **Default mode** for follower nodes
+- Periodically polls the hub for new blocks
+- Configurable interval (default: 30 seconds)
+- Always available as fallback
+- Settings in `/etc/aitbc/blockchain.env`:
+  ```bash
+  PERIODIC_SYNC_ENABLED=true
+  PERIODIC_SYNC_INTERVAL=30
+  ```
+
+### Push Sync (Subscription)
+- **Efficient mode** when subscription is enabled
+- Hub pushes blocks to subscribed followers via Redis pub/sub
+- Requires valid lease (DHCP-style subscription)
+- Automatic lease renewal via heartbeat
+- Falls back to pull sync if subscription fails
+- Settings in `/etc/aitbc/blockchain.env`:
+  ```bash
+  SUBSCRIPTION_ENABLED=true
+  SUBSCRIPTION_TRANSPORT=redis
+  LEASE_DURATION=3600
+  LEASE_RENEWAL_THRESHOLD=300
+  HEARTBEAT_INTERVAL=60
+  ```
+
+### Sync Mode Selection
+The node automatically selects the sync mode based on configuration:
+- If `SUBSCRIPTION_ENABLED=true` and hub is available → **Push sync**
+- If subscription fails or hub unavailable → **Pull sync (fallback)**
+- If `SUBSCRIPTION_ENABLED=false` → **Pull sync only**
+
+The current sync mode is logged at startup and can be monitored via:
+```bash
+journalctl -u aitbc-blockchain-node -f | grep "Sync mode"
 ```
 
 ## Essential Links

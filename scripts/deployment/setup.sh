@@ -286,6 +286,11 @@ generate_uuid() {
 }
 
 # Setup node profiles
+# Prompts user to configure node profiles that determine which services run:
+# - BLOCKCHAIN_MODE: follower (receives blocks) or hub (produces blocks)
+# - MARKET_ROLE: customer (consumes GPU) or shop (provides GPU)
+# - HARDWARE_PROFILE: nogpu (no GPU) or gpu (GPU available)
+# These profiles are set in both /etc/aitbc/blockchain.env and /etc/aitbc/node.env
 setup_node_profiles() {
     log "Setting up node profiles..."
 
