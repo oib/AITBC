@@ -69,7 +69,7 @@ See [Development Roadmap](ROADMAP.md) for complete list of remaining tasks.
 - **Service Health**: ✅ Designed architecture complete
 - **Coordinator API**: Port 8203
 - **Exchange API**: Port 8001
-- **Blockchain RPC**: Port 8006
+- **Blockchain RPC**: Port 8202
 - **Marketplace**: Port 8102
 - **Wallet Daemon**: Port 8015
 - **Authentication**: ✅ JWT tokens configured

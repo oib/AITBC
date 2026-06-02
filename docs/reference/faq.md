@@ -151,7 +151,7 @@ See the [Deployment Guide](../deployment/comprehensive-guide.md#blockchain-node)
 The blockchain node automatically syncs when started. You can check sync status:
 
 ```bash
-curl http://localhost:8006/health
+curl http://localhost:8202/health
 /opt/aitbc/aitbc-cli chain
 ```
 

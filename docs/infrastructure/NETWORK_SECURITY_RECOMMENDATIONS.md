@@ -8,7 +8,7 @@ This document provides network security recommendations for AITBC deployments. T
 ## Overview
 
 AITBC services run on the following ports:
-- **8006** - Blockchain Node RPC
+- **8202** - Blockchain Node RPC
 - **8203** - Coordinator API
 - **8105** - Hermes Service
 - **7070** - P2P Bind Port
@@ -31,7 +31,7 @@ sudo ufw default allow outgoing
 sudo ufw allow 22/tcp
 
 # Allow AITBC services
-sudo ufw allow 8006/tcp  # Blockchain Node RPC
+sudo ufw allow 8202/tcp  # Blockchain Node RPC
 sudo ufw allow 8203/tcp  # Coordinator API
 sudo ufw allow 8105/tcp  # Hermes Service
 sudo ufw allow 7070/tcp  # P2P Bind Port
@@ -49,7 +49,7 @@ For production deployments, restrict access to specific IP ranges:
 sudo ufw allow from 192.168.1.0/24 to any port 22
 
 # Allow Blockchain Node RPC from trusted nodes only
-sudo ufw allow from 10.0.0.0/8 to any port 8006
+sudo ufw allow from 10.0.0.0/8 to any port 8202
 
 # Allow Coordinator API from application servers
 sudo ufw allow from 10.0.1.0/24 to any port 8203
@@ -65,7 +65,7 @@ sudo ufw allow from 10.0.0.0/8 to any port 7070
 
 ```bash
 # Add AITBC services
-sudo firewall-cmd --permanent --add-port=8006/tcp
+sudo firewall-cmd --permanent --add-port=8202/tcp
 sudo firewall-cmd --permanent --add-port=8203/tcp
 sudo firewall-cmd --permanent --add-port=8105/tcp
 sudo firewall-cmd --permanent --add-port=7070/tcp
@@ -86,7 +86,7 @@ AITBC services should be configured with TLS in production:
 - Enforce HTTPS only
 - HSTS headers
 
-**Blockchain Node RPC (8006):**
+**Blockchain Node RPC (8202):**
 - Use TLS for RPC communication
 - Configure client certificate authentication
 - Disable HTTP in production

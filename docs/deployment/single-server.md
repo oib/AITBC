@@ -75,7 +75,7 @@ upstream coordinator {
 }
 
 upstream blockchain {
-    server 127.0.0.1:8006;
+    server 127.0.0.1:8202;
 }
 
 upstream marketplace {

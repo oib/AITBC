@@ -143,7 +143,7 @@ cp -r /tmp/receipts/ /var/lib/aitbc/data/
 systemctl start aitbc-blockchain-node
 
 # Verify restore
-curl -s http://localhost:8006/rpc/head
+curl -s http://localhost:8202/rpc/head
 ```
 
 ## Disaster Recovery

@@ -414,7 +414,7 @@ const pricing = await client.getPricing();
 
 - **Coordinator API** (port 8203): RESTful API endpoints
 - **Marketplace Service**: Business logic and matching
-- **Blockchain Node** (port 8006): On-chain transactions and escrow
+- **Blockchain Node** (port 8202): On-chain transactions and escrow
 - **Redis**: Real-time data streams and caching
 
 ### Key Files

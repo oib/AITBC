@@ -21,7 +21,7 @@ This guide covers security best practices for AITBC nodes.
 
 ## Network Security
 
-- Limit access to blockchain RPC port 8006
+- Limit access to blockchain RPC port 8202
 - Use firewall rules to restrict access
 - Enable SSL/TLS for RPC endpoints
 - Monitor network traffic for suspicious activity

@@ -47,10 +47,10 @@ ufw status | grep 5432
 **Solutions:**
 ```bash
 # Check port usage
-netstat -tulpn | grep 8006
+netstat -tulpn | grep 8202
 
 # Kill process using port
-kill -9 $(lsof -t -i:8006)
+kill -9 $(lsof -t -i:8202)
 ```
 
 ## Permission Issues

@@ -62,15 +62,15 @@ aitbc gpu-onchain allocations GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
 
 ```bash
 # Test GPU registration endpoint
-curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/gpu/register \
+curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/gpu/register \
   -H "Content-Type: application/json" \
   -d '{"gpu_id": "GPU-test", "miner_id": "miner-001", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "registered_by": "<wallet_address>", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 
 # Test GPU query endpoint
-curl -X GET "http://hub.aitbc.bubuit.net:8006/rpc/gpu/info/GPU-test?chain_id=ait-hub.aitbc.bubuit.net"
+curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpu/info/GPU-test?chain_id=ait-hub.aitbc.bubuit.net"
 
 # Test GPU list endpoint
-curl -X GET "http://hub.aitbc.bubuit.net:8006/rpc/gpus?chain_id=ait-hub.aitbc.bubuit.net"
+curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bubuit.net"
 ```
 
 ## Database Verification

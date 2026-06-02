@@ -54,7 +54,7 @@ The AITBC CLI follows a modular, layered architecture:
 │                Backend Services Layer                    │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
 │  │ Blockchain   │  │ Agent        │  │ Marketplace  │ │
-│  │ RPC (8006)   │  │ Coordinator  │  │ Exchange     │ │
+│  │ RPC (8202)   │  │ Coordinator  │  │ Exchange     │ │
 │  │              │  │ (9001)       │  │ (8001)       │ │
 │  └──────────────┘  └──────────────┘  └──────────────┘ │
 └─────────────────────────────────────────────────────────┘
@@ -191,7 +191,7 @@ User Command
 Parser (blockchain.py)
     │
     ├── Parse: block height, RPC URL
-    ├── Set default RPC URL (8006)
+    ├── Set default RPC URL (8202)
     └── Map to handler: handle_blockchain_block
     │
     ▼
@@ -204,13 +204,13 @@ Handler Wrapper (unified_cli.py)
 Handler Implementation (handlers/blockchain.py)
     │
     ├── Extract block height
-    ├── Build request URL: http://localhost:8006/rpc/blocks/{height}
+    ├── Build request URL: http://localhost:8202/rpc/blocks/{height}
     ├── HTTP GET
     ├── Parse response
     └── Render block data to user
     │
     ▼
-Blockchain RPC Service (8006)
+Blockchain RPC Service (8202)
     │
     ├── Receive block request
     ├── Query blockchain state
@@ -336,7 +336,7 @@ def handle_command(args, default_rpc_url, default_coordinator_url, render_mappin
 
 | Service | Port | Endpoint | Usage |
 |---------|------|----------|-------|
-| Blockchain RPC | 8006 | `/rpc/blocks/{height}` | Blockchain queries |
+| Blockchain RPC | 8202 | `/rpc/blocks/{height}` | Blockchain queries |
 | Coordinator API | 8203 | `/v1/jobs` | Job submission and management |
 | Marketplace Exchange | 8001 | `/listings` | Marketplace operations |
 
@@ -359,7 +359,7 @@ requests.post(f"{coordinator_url}/tasks/submit", json=job_data)
 
 **Blockchain RPC Integration:**
 ```python
-rpc_url = "http://localhost:8006"
+rpc_url = "http://localhost:8202"
 requests.get(f"{rpc_url}/rpc/blocks/latest")
 ```
 

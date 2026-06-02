@@ -34,7 +34,7 @@ Before requesting coins, you need a wallet address.
 
 ```bash
 # Check balance via RPC
-curl -s http://localhost:8006/rpc/account/<your-address>
+curl -s http://localhost:8202/rpc/account/<your-address>
 ```
 
 ### Wallet Security

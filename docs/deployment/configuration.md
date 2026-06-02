@@ -29,7 +29,7 @@ MARKETPLACE_API_KEY=your-api-key
 # /etc/aitbc/config.yaml
 services:
   blockchain:
-    port: 8006
+    port: 8202
     host: 0.0.0.0
     database:
       host: localhost

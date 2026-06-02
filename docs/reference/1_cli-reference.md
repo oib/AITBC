@@ -76,7 +76,7 @@ Blockchain synchronization utilities.
 
 ```bash
 # Bulk import blocks from a leader to catch up quickly
-aitbc sync bulk --source http://leader-url:8006 --import-url http://localhost:8006 --batch-size 100
+aitbc sync bulk --source http://leader-url:8202 --import-url http://localhost:8202 --batch-size 100
 
 # Options:
 # --source: Source RPC URL (leader node)
@@ -416,7 +416,7 @@ aitbc ai --help
 The CLI uses `/etc/aitbc/.env` for configuration. Key settings include:
 
 - Coordinator API URL: `http://localhost:8203`
-- Blockchain RPC: `http://localhost:8006`
+- Blockchain RPC: `http://localhost:8202`
 - Wallet Daemon: `http://localhost:8015`
 
 For authoritative port configuration, see [Service Ports Reference](./SERVICE_PORTS.md).

@@ -38,7 +38,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 
 #### Blockchain Services
 - `aitbc-blockchain-node.service` - Blockchain Node with P2P (Port 8005)
-- `aitbc-blockchain-rpc.service` - RPC API (Port 8006)
+- `aitbc-blockchain-rpc.service` - RPC API (Port 8202)
 
 #### Supporting Services
 - `aitbc-explorer.service` - Blockchain explorer
@@ -60,7 +60,7 @@ ls -la /etc/systemd/system/aitbc-*.service
 systemctl list-units --state=running | grep aitbc
 
 # Check which ports are actually in use by AITBC services
-netstat -tlnp | grep -E ":(8001|8003|8005|8006|8010|8203)"
+netstat -tlnp | grep -E ":(8001|8003|8005|8202|8010|8203)"
 
 # Check service status for specific services
 systemctl status aitbc-coordinator-api.service
@@ -72,7 +72,7 @@ systemctl status aitbc-blockchain-rpc.service
 ```bash
 ✅ Port 8001 - Exchange API (aitbc-exchange-api.service)
 ✅ Port 8015 - Wallet Service (aitbc-wallet.service)
-✅ Port 8006 - Blockchain RPC (aitbc-blockchain-rpc.service)
+✅ Port 8202 - Blockchain RPC (aitbc-blockchain-rpc.service)
 ✅ Port 8203 - Coordinator API (aitbc-coordinator-api.service)
 ✅ Port 8010 - Adaptive Learning (aitbc-adaptive-learning.service)
 ✅ Port 8005 - Blockchain Node with P2P (aitbc-blockchain-node.service)

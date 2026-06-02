@@ -13,7 +13,7 @@ Configure P2P networking for your blockchain node.
 ufw allow 7070/tcp
 
 # Allow RPC port
-ufw allow 8006/tcp
+ufw allow 8202/tcp
 
 # Allow Coordinator API port
 ufw allow 8203/tcp
@@ -28,14 +28,14 @@ ufw allow 8102/tcp
 ufw allow 8015/tcp
 
 # Allow from specific IPs
-ufw allow from 10.0.0.0/8 to any port 8006
+ufw allow from 10.0.0.0/8 to any port 8202
 ```
 
 ### Port Forwarding
 
 If behind a NAT, configure port forwarding:
 - External port 7070 → Internal IP:7070 (P2P)
-- External port 8006 → Internal IP:8006 (RPC)
+- External port 8202 → Internal IP:8202 (RPC)
 - External port 8203 → Internal IP:8203 (Coordinator API)
 - External port 8001 → Internal IP:8001 (Exchange)
 - External port 8102 → Internal IP:8102 (Marketplace)

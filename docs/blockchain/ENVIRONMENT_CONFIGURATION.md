@@ -145,10 +145,10 @@ enable_block_production=false
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `SYNC_SOURCE_HOST` | No | - | Host to sync from |
-| `SYNC_SOURCE_PORT` | No | `8006` | Port to sync from |
+| `SYNC_SOURCE_PORT` | No | `8202` | Port to sync from |
 | `SYNC_LEADER_HOST` | No | - | Leader node host |
 | `SYNC_IMPORT_HOST` | No | `localhost` | Import service host |
-| `SYNC_IMPORT_PORT` | No | `8006` | Import service port |
+| `SYNC_IMPORT_PORT` | No | `8202` | Import service port |
 | `SYNC_CHAIN_ID` | No | - | Chain ID to sync |
 | `auto_sync_enabled` | No | `false` | Enable automatic sync on gap detection |
 
@@ -168,7 +168,7 @@ enable_block_production=false
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `rpc_bind_host` | No | `0.0.0.0` | RPC service bind host |
-| `rpc_bind_port` | No | `8006` | RPC service port |
+| `rpc_bind_port` | No | `8202` | RPC service port |
 | `default_peer_rpc_url` | No | - | Default peer RPC URL for sync |
 
 ### Service Ports
@@ -223,10 +223,10 @@ SYNC_REDIS_URL=redis://redis.example.com:6379
 
 # Sync Configuration (for ait-testnet following)
 SYNC_SOURCE_HOST=node1
-SYNC_SOURCE_PORT=8006
+SYNC_SOURCE_PORT=8202
 SYNC_LEADER_HOST=node1
 SYNC_IMPORT_HOST=localhost
-SYNC_IMPORT_PORT=8006
+SYNC_IMPORT_PORT=8202
 SYNC_CHAIN_ID=ait-testnet
 
 # Blockchain Configuration
@@ -237,7 +237,7 @@ CONSENSUS=proof_of_authority
 
 # RPC Configuration
 rpc_bind_host=0.0.0.0
-rpc_bind_port=8006
+rpc_bind_port=8202
 
 # API Configuration
 api_host=0.0.0.0
@@ -256,7 +256,7 @@ auto_sync_enabled=true
 island_id=ait-mainnet-island
 supported_chains=ait-mainnet,ait-testnet
 db_encryption_enabled=false
-default_peer_rpc_url=http://node1:8006
+default_peer_rpc_url=http://node1:8202
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
 ENFORCE_STATE_ROOT_VALIDATION=true
 WORKERS=1
@@ -292,10 +292,10 @@ SYNC_REDIS_URL=redis://redis.example.com:6379
 
 # Sync Configuration (following ait-mainnet)
 SYNC_SOURCE_HOST=aitbc
-SYNC_SOURCE_PORT=8006
+SYNC_SOURCE_PORT=8202
 SYNC_LEADER_HOST=aitbc
 SYNC_IMPORT_HOST=localhost
-SYNC_IMPORT_PORT=8006
+SYNC_IMPORT_PORT=8202
 SYNC_CHAIN_ID=ait-testnet
 
 # Blockchain Configuration
@@ -306,7 +306,7 @@ CONSENSUS=proof_of_authority
 
 # RPC Configuration
 rpc_bind_host=0.0.0.0
-rpc_bind_port=8006
+rpc_bind_port=8202
 
 # API Configuration
 api_host=0.0.0.0
@@ -325,7 +325,7 @@ auto_sync_enabled=true
 island_id=ait-testnet-island
 supported_chains=ait-testnet
 db_encryption_enabled=false
-default_peer_rpc_url=http://aitbc:8006
+default_peer_rpc_url=http://aitbc:8202
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
 ENFORCE_STATE_ROOT_VALIDATION=true
 WORKERS=1
@@ -358,7 +358,7 @@ GRAFANA_PORT=3000
 - `block_production_chains=` (empty)
 - `p2p_peers=hub:7070,other:7070`
 - `auto_sync_enabled=true`
-- `default_peer_rpc_url=http://hub:8006`
+- `default_peer_rpc_url=http://hub:8202`
 - Syncs genesis from hub
 
 **Example:** gitea-runner following both chains
@@ -375,7 +375,7 @@ GRAFANA_PORT=3000
 ```bash
 # Enable auto-sync
 auto_sync_enabled=true
-default_peer_rpc_url=http://hub-node:8006
+default_peer_rpc_url=http://hub-node:8202
 ```
 
 ### Issue: Fork detection errors

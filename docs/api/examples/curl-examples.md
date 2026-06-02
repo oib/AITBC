@@ -145,7 +145,7 @@ curl -H "X-Api-Key: $API_KEY" \
 #### Get Head Block
 
 ```bash
-export BLOCKCHAIN_URL="http://localhost:8006"
+export BLOCKCHAIN_URL="http://localhost:8202"
 
 curl $BLOCKCHAIN_URL/v1/blocks/head
 ```
@@ -373,7 +373,7 @@ show-error = true
 # ~/.bashrc or ~/.zshrc
 export AITBC_API_KEY="your-api-key"
 export AITBC_BASE_URL="http://localhost:8203"
-export AITBC_BLOCKCHAIN_URL="http://localhost:8006"
+export AITBC_BLOCKCHAIN_URL="http://localhost:8202"
 ```
 
 ### Shell Functions

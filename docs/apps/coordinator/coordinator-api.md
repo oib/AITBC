@@ -51,7 +51,7 @@ The blockchain router provides RPC proxy endpoints for blockchain data integrati
 - `GET /v1/supply` – Get token supply (calculated from genesis allocations)
 - `GET /v1/state/dump` – Get state dump (recent blocks snapshot)
 
-All endpoints use `AITBCHTTPClient` to proxy requests to the blockchain node RPC (default port 8006). When the RPC is unavailable, endpoints return mock data or error responses.
+All endpoints use `AITBCHTTPClient` to proxy requests to the blockchain node RPC (default port 8202). When the RPC is unavailable, endpoints return mock data or error responses.
 
 ## Edge GPU Router
 

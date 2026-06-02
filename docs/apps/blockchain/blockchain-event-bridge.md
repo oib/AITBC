@@ -37,7 +37,7 @@ poetry install
 
 Environment variables:
 
-- `BLOCKCHAIN_RPC_URL` - Blockchain RPC endpoint (default: `http://localhost:8006`)
+- `BLOCKCHAIN_RPC_URL` - Blockchain RPC endpoint (default: `http://localhost:8202`)
 - `GOSSIP_BACKEND` - Gossip broker backend: `memory`, `broadcast`, or `redis` (default: `memory`)
 - `GOSSIP_BROADCAST_URL` - Broadcast URL for Redis backend (optional)
 - `COORDINATOR_API_URL` - Coordinator API endpoint (default: `http://localhost:8203`)

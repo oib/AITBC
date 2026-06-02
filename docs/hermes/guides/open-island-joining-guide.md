@@ -12,8 +12,8 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 - **Host**: hub.aitbc.bubuit.net
 - **Chain ID**: `ait-hub.aitbc.bubuit.net`
 - **Island ID**: `ait-hub.aitbc.bubuit.net-island`
-- **P2P Port**: 7070 (open to all)
-- **RPC Port**: 8006 (open to all)
+- **P2P Port**: 8200 (open to all)
+- **RPC Port**: 8202 (open to all)
 - **Access**: Open - no authentication required for joining
 
 > **Note:** For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
@@ -28,8 +28,8 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 
 2. **Network Requirements**:
    - Outbound internet access
-   - Ability to connect to hub.aitbc.bubuit.net:7070 (P2P)
-   - Ability to connect to hub.aitbc.bubuit.net:8006 (RPC)
+   - Ability to connect to hub.aitbc.bubuit.net:8200 (P2P)
+   - Ability to connect to https://hub.aitbc.bubuit.net/ (RPC)
 
 ## Quick Start Setup
 
@@ -59,15 +59,15 @@ cat > /etc/aitbc/blockchain.env << 'EOF'
 CHAIN_ID=ait-hub.aitbc.bubuit.net
 SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8006
+RPC_BIND_PORT=8202
 p2p_bind_host=0.0.0.0
-p2p_bind_port=8001
+p2p_bind_port=8200
 ENABLE_BLOCK_PRODUCTION=false
 GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 # P2P Configuration
 p2p_node_id=node-$(cat /proc/sys/kernel/random/uuid | tr -d '-')
-p2p_peers=hub.aitbc.bubuit.net:8001
-genesis_node=hub.aitbc.bubuit.net:8006
+p2p_peers=hub.aitbc.bubuit.net:8200
+genesis_node=https://hub.aitbc.bubuit.net/
 EOF
 ```
 
@@ -78,7 +78,7 @@ NODE_ID=test-node-$(hostname)
 ISLAND_ID=ait-hub.aitbc.bubuit.net-island
 CHAIN_ID=ait-hub.aitbc.bubuit.net
 NODE_ROLE=follower
-P2P_BIND_PORT=8001
+P2P_BIND_PORT=8200
 EOF
 ```
 
@@ -120,26 +120,26 @@ systemctl enable aitbc-blockchain-p2p.service
 
 ```bash
 # Test P2P connectivity
-nc -zv hub.aitbc.bubuit.net 8001
+nc -zv hub.aitbc.bubuit.net 8200
 
 # Test RPC connectivity
-curl http://hub.aitbc.bubuit.net:8006/health
+curl https://hub.aitbc.bubuit.net/health
 
 # Check local node status
-curl http://localhost:8006/health
-curl http://localhost:8006/rpc/head
+curl http://localhost:8202/health
+curl http://localhost:8202/rpc/head
 ```
 
 ### Step 7: Sync with Hub
 
 ```bash
 # Trigger sync with hub
-curl -X POST http://localhost:8006/rpc/sync \
+curl -X POST http://localhost:8202/rpc/sync \
   -H "Content-Type: application/json" \
-  -d '{"peer":"hub.aitbc.bubuit.net:8006"}'
+  -d '{"peer":"https://hub.aitbc.bubuit.net/"}'
 
 # Monitor sync progress
-watch -n 5 'curl -s http://localhost:8006/rpc/head | jq .height'
+watch -n 5 'curl -s http://localhost:8202/rpc/head | jq .height'
 ```
 
 ## hermes Agent Setup
@@ -148,7 +148,7 @@ watch -n 5 'curl -s http://localhost:8006/rpc/head | jq .height'
 
 ```bash
 # Register agent on the open island
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent create \
+NODE_URL=https://hub.aitbc.bubuit.net/ /opt/aitbc/venv/bin/aitbc agent create \
   --name "hermes-test-agent" \
   --description "hermes agent testing on open island" \
   --verification full
@@ -161,7 +161,7 @@ For detailed agent messaging instructions, see [Agent Messaging Guide](./agent-m
 Quick reference:
 ```bash
 # Send test message to hub
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
+NODE_URL=https://hub.aitbc.bubuit.net/ /opt/aitbc/venv/bin/aitbc agent message \
   --agent hub-coordinator \
   --message '{"cmd":"TEST_JOIN","node":"test-node"}' \
   --wallet hermes-agent
@@ -189,8 +189,8 @@ cd /opt/aitbc/scripts/workflow-hermes
 ```bash
 # Check if hub is reachable
 ping hub.aitbc.bubuit.net
-nc -zv hub.aitbc.bubuit.net 8001
-nc -zv hub.aitbc.bubuit.net 8006
+nc -zv hub.aitbc.bubuit.net 8200
+nc -zv hub.aitbc.bubuit.net 443
 
 # Check local services
 systemctl status aitbc-blockchain-node.service
@@ -202,13 +202,13 @@ journalctl -u aitbc-blockchain-node.service -f
 
 ```bash
 # Check sync status
-curl http://localhost:8006/rpc/head
-curl http://hub.aitbc.bubuit.net:8006/rpc/head
+curl http://localhost:8202/rpc/head
+curl https://hub.aitbc.bubuit.net/rpc/head
 
 # Force re-sync
-curl -X POST http://localhost:8006/rpc/sync \
+curl -X POST http://localhost:8202/rpc/sync \
   -H "Content-Type: application/json" \
-  -d '{"peer":"hub.aitbc.bubuit.net:8006","force":true}'
+  -d '{"peer":"https://hub.aitbc.bubuit.net/","force":true}'
 ```
 
 ### P2P Issues
@@ -260,4 +260,4 @@ After joining the open island:
 
 **Last Updated**: 2026-05-26
 **Island Status**: Open for Testing
-**Hub Node**: hub.aitbc.bubuit.net:8001 (P2P), :8006 (RPC)
+**Hub Node**: hub.aitbc.bubuit.net:8200 (P2P), https://hub.aitbc.bubuit.net/ (RPC)

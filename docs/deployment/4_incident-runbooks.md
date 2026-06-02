@@ -109,10 +109,10 @@ curl -X GET http://localhost:8203/v1/jobs -H "X-API-Key: test-key"
 ### Immediate Actions (0-5 minutes)
 ```bash
 # 1. Check peer connectivity
-curl -s http://localhost:8006/rpc/peers | jq
+curl -s http://localhost:8202/rpc/peers | jq
 
 # 2. Check consensus status
-curl -s http://localhost:8006/rpc/consensus | jq
+curl -s http://localhost:8202/rpc/consensus | jq
 
 # 3. Check network connectivity
 ping -c 3 <peer-node-ip>
@@ -124,7 +124,7 @@ ping -c 3 <peer-node-ip>
    # Check each node's peer count
    for node in aitbc1 aitbc2 aitbc3; do
      echo "Node: $node"
-     ssh $node "curl -s http://localhost:8006/rpc/peers | jq '. | length'"
+     ssh $node "curl -s http://localhost:8202/rpc/peers | jq '. | length'"
    done
    ```
 
@@ -161,10 +161,10 @@ ping -c 3 <peer-node-ip>
 ### Verification
 ```bash
 # Wait for consensus to resume
-watch -n 5 'curl -s http://localhost:8006/rpc/consensus | jq .height'
+watch -n 5 'curl -s http://localhost:8202/rpc/consensus | jq .height'
 
 # Verify peer connectivity
-curl -s http://localhost:8006/rpc/peers | jq '. | length'
+curl -s http://localhost:8202/rpc/peers | jq '. | length'
 ```
 
 ## Runbook: Database Failure

@@ -96,7 +96,7 @@ curl -s http://localhost:8001/health
 /opt/aitbc/aitbc-cli --debug chain
 
 # Test service connectivity
-curl -s http://localhost:8006/health
+curl -s http://localhost:8202/health
 curl -s http://localhost:8203/health
 ```
 
@@ -140,7 +140,7 @@ source /opt/aitbc/venv/bin/activate
 #### API Connection Issues
 ```bash
 # Check service endpoints
-curl -s http://localhost:8006/health
+curl -s http://localhost:8202/health
 curl -s http://localhost:8203/health
 curl -s http://localhost:8102/health
 

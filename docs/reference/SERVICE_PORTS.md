@@ -87,8 +87,8 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Exchange**: `apps/exchange/multichain_exchange_api.py` (line 537: `port=8001` - inactive)
 
 ### Environment Configuration Files
-- **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (RPC_BIND_PORT=8202, p2p_bind_port=8201)
-- **Node Configuration**: `/etc/aitbc/node.env` (P2P_BIND_PORT=8201)
+- **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (RPC_BIND_PORT=8202, p2p_bind_port=8200)
+- **Node Configuration**: `/etc/aitbc/node.env` (P2P_BIND_PORT=8200)
 
 ### CLI Configuration
 - **CLI Config**: `cli/aitbc_cli/config.py` (service URLs for all microservices)
@@ -99,7 +99,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Wallet API**: Previously documented as 8003 in SETUP.md, corrected to 8015 (actual port from app/main.py)
 - **Coordinator API**: Previously documented as 8000 in SETUP.md, corrected to 8203
 - **Blockchain RPC**: Previously on 8006, moved to 8202 as part of public port reorganization
-- **Blockchain P2P**: Previously on 8001, moved to 8201 as part of public port reorganization
+- **Blockchain P2P**: Previously on 8001, moved to 8200 as part of public port reorganization
 - **API Gateway**: Previously on 8080, moved to 8200 as part of public port reorganization
 
 ### Configuration Notes

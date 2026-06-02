@@ -146,7 +146,7 @@ AITBC v0.4.1 is a production hardening release that focuses on security improvem
 ### Service Health
 - **Coordinator API**: Active (port 8203) - payment integration non-blocking
 - **Edge API**: Active (port 8103) - healthy and serving
-- **Blockchain Node**: Active (port 8006)
+- **Blockchain Node**: Active (port 8202)
 - **Miner**: Active (polling and processing jobs)
 - **Marketplace**: Operational with matching endpoints
 

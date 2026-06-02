@@ -73,8 +73,8 @@ The AITBC platform features a complete 7-layer multi-chain architecture:
 
 - **Layer 1**: Wallet Daemon (8015) - Multi-chain wallet management
 - **Layer 2**: Coordinator API (8203) - Transaction coordination
-- **Layer 3**: Blockchain Service (8006) - Transaction processing and consensus
-- **Layer 4**: Consensus Mechanism (8006) - PoA consensus with validation
+- **Layer 3**: Blockchain Service (8202) - Transaction processing and consensus
+- **Layer 4**: Consensus Mechanism (8202) - PoA consensus with validation
 - **Layer 5**: Network Service (7070) - P2P block propagation
 - **Layer 6**: Explorer Service (3000) - Data aggregation and web interface
 - **Layer 7**: Marketplace (8102) - GPU marketplace

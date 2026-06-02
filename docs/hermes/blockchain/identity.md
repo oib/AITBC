@@ -40,7 +40,7 @@ aitbc agent verify-identity my-test-agent <verifier_wallet_address>
 
 ```bash
 # Test identity endpoint
-curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/identity/register \
+curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/identity/register \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "test_agent", "agent_address": "<wallet_address>", "display_name": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 ```

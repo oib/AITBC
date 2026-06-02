@@ -34,7 +34,7 @@ The GPU service registers GPUs locally first, then attempts blockchain registrat
 
 ## Cross-Node Operations
 
-All blockchain integrations use the hub RPC (`hub.aitbc.bubuit.net:8006`) for cross-node operations.
+All blockchain integrations use the hub RPC (`hub.aitbc.bubuit.net:8202`) for cross-node operations.
 
 ### Benefits
 - **Transaction propagation**: Transactions are broadcast across the network
@@ -68,7 +68,7 @@ All blockchain integrations use the hub RPC (`hub.aitbc.bubuit.net:8006`) for cr
 
 **BLOCKCHAIN_RPC_URL**
 - Description: RPC endpoint for blockchain operations
-- Default: `http://hub.aitbc.bubuit.net:8006`
+- Default: `http://hub.aitbc.bubuit.net:8202`
 - Location: `/etc/aitbc/blockchain.env`
 - Usage: Base URL for all blockchain RPC calls
 

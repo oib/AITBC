@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide documents the blockchain integrations available to Hermes agents for on-chain operations including staking, agent identity verification, governance decision recording, and GPU resource tracking. All integrations use the hub blockchain RPC at `hub.aitbc.bubuit.net:8006` for cross-node operations.
+This guide documents the blockchain integrations available to Hermes agents for on-chain operations including staking, agent identity verification, governance decision recording, and GPU resource tracking. All integrations use the hub blockchain RPC at `hub.aitbc.bubuit.net:8202` for cross-node operations.
 
 ## Available Blockchain Integrations
 
@@ -49,7 +49,7 @@ See [gpu-resources.md](./gpu-resources.md) for detailed documentation.
 ## Getting Started
 
 ### Prerequisites
-1. Ensure blockchain node is running on hub: `hub.aitbc.bubuit.net:8006`
+1. Ensure blockchain node is running on hub: `hub.aitbc.bubuit.net:8202`
 2. Ensure HUB_DISCOVERY_URL is set in `/etc/aitbc/blockchain.env`
 3. Have a wallet with AITBC tokens for operations
 4. Ensure database tables exist: `stake`, `agent_identity`, `governance_proposal`, `governance_vote`, `gpu_registration`, `gpu_allocation`
@@ -71,7 +71,7 @@ aitbc wallet balance --wallet my-agent-wallet
 ## Architecture Notes
 
 ### Cross-Node Operations
-All blockchain integrations use the hub RPC (`hub.aitbc.bubuit.net:8006`) for cross-node operations. This ensures:
+All blockchain integrations use the hub RPC (`hub.aitbc.bubuit.net:8202`) for cross-node operations. This ensures:
 - Transaction propagation across the network
 - Consistent state across all nodes
 - P2P gossip for transaction dissemination

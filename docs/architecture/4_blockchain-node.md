@@ -72,7 +72,7 @@ DATABASE_URL=sqlite:///blockchain.db
 
 # Network
 RPC_HOST=0.0.0.0
-RPC_PORT=8006
+RPC_PORT=8202
 WS_PORT=9081
 
 # Consensus
@@ -105,7 +105,7 @@ python -m blockchain.main --config devnet.yaml
 # Using Docker
 docker run -d \
   -v /data/blockchain:/data \
-  -p 8006:8006 \
+  -p 8202:8202 \
   -p 9081:9081 \
   -p 9090:9090 \
   aitbc/blockchain-node:latest
@@ -127,10 +127,10 @@ Key metrics:
 
 ```bash
 # Node status
-curl http://localhost:8006/health
+curl http://localhost:8202/health
 
 # Sync status
-curl http://localhost:8006/sync_status
+curl http://localhost:8202/sync_status
 ```
 
 ## Troubleshooting

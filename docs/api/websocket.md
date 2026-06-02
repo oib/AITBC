@@ -23,7 +23,7 @@ WebSocket connections provide real-time, bidirectional communication with the AI
 
 ### Blockchain API WebSocket
 
-- Development: `ws://localhost:8006/v1/events`
+- Development: `ws://localhost:8202/v1/events`
 - Production: `wss://aitbc.bubuit.net/api/v1/events`
 
 ### Marketplace WebSocket
@@ -129,7 +129,7 @@ websocat ws://localhost:8203/v1/jobs/job-id/ws?api_key=your-api-key
 ### Endpoint
 
 ```
-ws://localhost:8006/v1/events
+ws://localhost:8202/v1/events
 ```
 
 ### Message Format
@@ -164,7 +164,7 @@ import websockets
 import json
 
 async def monitor_blockchain():
-    uri = "ws://localhost:8006/v1/events"
+    uri = "ws://localhost:8202/v1/events"
     
     async with websockets.connect(uri) as websocket:
         async for message in websocket:
@@ -181,7 +181,7 @@ asyncio.run(monitor_blockchain())
 ### Example (JavaScript)
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8006/v1/events');
+const ws = new WebSocket('ws://localhost:8202/v1/events');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);

@@ -131,7 +131,7 @@ Hermes agents can now perform on-chain operations via CLI commands:
 - `aitbc gpu-onchain allocations <gpu_id>` - Query GPU allocations
 
 ### RPC Endpoints
-All blockchain integrations use hub RPC at `hub.aitbc.bubuit.net:8006`:
+All blockchain integrations use hub RPC at `hub.aitbc.bubuit.net:8202`:
 - `/rpc/staking/stake`, `/rpc/staking/unstake`, `/rpc/staking/{address}`
 - `/rpc/identity/register`, `/rpc/identity/{agent_id}`, `/rpc/identity/verify`
 - `/rpc/governance/vote`, `/rpc/governance/proposal`, `/rpc/governance/proposal/{proposal_id}`

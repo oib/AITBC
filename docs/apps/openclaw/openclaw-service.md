@@ -62,7 +62,7 @@ Configuration is managed through environment variables:
 hermes_REGISTRY_URL=http://localhost:9001
 
 # Blockchain RPC
-BLOCKCHAIN_RPC_URL=http://localhost:8006
+BLOCKCHAIN_RPC_URL=http://localhost:8202
 
 # Marketplace
 MARKETPLACE_URL=http://localhost:8001

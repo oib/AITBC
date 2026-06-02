@@ -83,7 +83,7 @@ AITBC v0.4.0 is a **major milestone release** that represents a feature-complete
 - **Public Server**: hub.aitbc.bubuit.net deployed and accessible
 - **Network Access**: Full blockchain network connectivity
 - **P2P Communication**: Port 7070 exposed for peer-to-peer
-- **RPC Access**: Port 8006 exposed for blockchain RPC
+- **RPC Access**: Port 8202 exposed for blockchain RPC
 
 ### Deployment Infrastructure
 - **Systemd Services**: Full service stack deployed

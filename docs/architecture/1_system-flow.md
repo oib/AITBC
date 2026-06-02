@@ -12,7 +12,7 @@ This document illustrates the complete flow of a job submission through the CLI 
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   CLI       │     │   Client     │     │Coordinator  │     │  Blockchain │     │   Miner     │     │   Ollama    │
 │  Wrapper    │────▶│   Python     │────▶│   Service   │────▶│    Node     │────▶│  Daemon     │────▶│   Server    │
-│(aitbc-cli.sh)│     │  (client.py) │     │  (port 8203) │     │ (RPC:8006) │     │ (port 8005) │     │ (port 11434)│
+│(aitbc-cli.sh)│     │  (client.py) │     │  (port 8203) │     │ (RPC:8202) │     │ (port 8005) │     │ (port 11434)│
 └─────────────┘     └──────────────┘     └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
 ```
 
@@ -281,7 +281,7 @@ Cost: 0.25 AITBC
 | CLI Wrapper | N/A | Bash | User interface, argument parsing |
 | Client Python | N/A | Python | HTTP client, job formatting |
 | Coordinator | 8203 | HTTP/REST | Job management, API gateway |
-| Blockchain Node | 8006 | JSON-RPC | Transaction processing, consensus |
+| Blockchain Node | 8202 | JSON-RPC | Transaction processing, consensus |
 | Miner Daemon | 8005 | HTTP/REST | Job execution, GPU management |
 | Ollama Server | 11434 | HTTP/REST | AI model inference |
 
@@ -292,7 +292,7 @@ Cost: 0.25 AITBC
 └─> 0.1s: Python client called
    └─> 0.2s: HTTP POST to Coordinator (port 8203)
       └─> 0.3s: Coordinator validates and creates job
-         └─> 0.4s: RPC to Blockchain (port 8006)
+         └─> 0.4s: RPC to Blockchain (port 8202)
             └─> 0.5s: Transaction in mempool
                └─> 1.0s: Job queued for miner
                   └─> 2.0s: Miner assigned (port 8005)

@@ -9,7 +9,7 @@
 This document tracks the migration of the AITBC monolithic coordinator-api to a microservices architecture.
 
 **Current Port Architecture:**
-- **Public Services (8200-8203)**: API Gateway (8200), Blockchain P2P (8201), Blockchain RPC (8202), Coordinator API failover (8203)
+- **Public Services (8200-8203)**: API Gateway (8201), Blockchain P2P (8200), Blockchain RPC (8202), Coordinator API failover (8203)
 - **Internal Services (8101-8105)**: GPU (8101), Marketplace (8102), Trading (8103), Governance (8104), Hermes (8105)
 
 ## Completed Phases
@@ -420,7 +420,7 @@ The following optional cleanup steps can be performed after Coordinator API is d
 ufw allow 8200/tcp
 
 # Blockchain services
-ufw allow 8201/tcp  # Blockchain P2P
+ufw allow 8200/tcp  # Blockchain P2P
 ufw allow 8202/tcp  # Blockchain RPC
 
 # Coordinator API (failover)
@@ -468,7 +468,7 @@ All microservices are managed by systemd:
 - `aitbc-governance.service` - Governance Service (port 8104)
 - `aitbc-hermes.service` - Hermes Service (port 8105)
 - `aitbc-api-gateway.service` - API Gateway (port 8200) - **PUBLIC-FACING**
-- `aitbc-blockchain-p2p.service` - Blockchain P2P (port 8201) - **PUBLIC-FACING**
+- `aitbc-blockchain-p2p.service` - Blockchain P2P (port 8200) - **PUBLIC-FACING**
 - `aitbc-blockchain-node.service` - Blockchain RPC (port 8202) - **PUBLIC-FACING**
 - `aitbc-coordinator-api.service` - Legacy Coordinator API (port 8203) - **FAILOVER SERVICE**
 

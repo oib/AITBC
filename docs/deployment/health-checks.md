@@ -6,7 +6,7 @@ This guide covers health checks and monitoring for AITBC deployment.
 
 ```bash
 # Check blockchain node health
-curl http://localhost:8006/health
+curl http://localhost:8202/health
 
 # Check coordinator API health
 curl http://localhost:8203/health

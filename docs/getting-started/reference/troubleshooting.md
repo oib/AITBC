@@ -14,7 +14,7 @@ journalctl -u aitbc-blockchain-node -f
 journalctl -u aitbc-blockchain-rpc -f
 
 # Verify hub connectivity
-curl -s http://hub.aitbc.bubuit.net:8006/health
+curl -s http://hub.aitbc.bubuit.net:8202/health
 ```
 
 ## Genesis Block Mismatch
@@ -71,7 +71,7 @@ systemctl restart aitbc-blockchain-node.service
 
 ```bash
 # Test RPC connectivity
-curl -v http://hub.aitbc.bubuit.net:8006/health
+curl -v http://hub.aitbc.bubuit.net:8202/health
 
 # Test coordinator connectivity
 curl -v http://localhost:8203/health

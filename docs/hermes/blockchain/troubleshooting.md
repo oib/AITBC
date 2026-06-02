@@ -13,7 +13,7 @@ This guide helps diagnose and resolve common issues with Hermes blockchain integ
 **Solutions:**
 - Check hub node is running: `systemctl status aitbc-blockchain-node`
 - Verify HUB_DISCOVERY_URL in `/etc/aitbc/blockchain.env`
-- Test RPC connectivity: `curl http://hub.aitbc.bubuit.net:8006/rpc/head`
+- Test RPC connectivity: `curl http://hub.aitbc.bubuit.net:8202/rpc/head`
 
 ### Insufficient balance
 
@@ -83,7 +83,7 @@ journalctl -u aitbc-blockchain-node -f
 cat /etc/aitbc/blockchain.env | grep HUB_DISCOVERY_URL
 
 # Test RPC connectivity
-curl http://hub.aitbc.bubuit.net:8006/rpc/head
+curl http://hub.aitbc.bubuit.net:8202/rpc/head
 
 # Check wallet configuration
 cat ~/.aitbc/config.yaml

@@ -9,7 +9,7 @@ For authoritative port configuration, see [Service Ports Reference](../../refere
 | Wallet API | 8015 | `http://localhost:8015/health` |
 | Exchange API | 8010 | `http://localhost:8010/health` |
 | Coordinator API | 8203 | `http://localhost:8203/health` |
-| Blockchain RPC | 8006 | `http://localhost:8006/health` |
+| Blockchain RPC | 8202 | `http://localhost:8202/health` |
 | Marketplace | 8102 | `http://localhost:8102/health` |
 
 **Note:** Port configurations are defined in service wrapper scripts and application main.py files. See [Service Ports Reference](../../reference/SERVICE_PORTS.md) for complete details and source references.

@@ -50,7 +50,7 @@ aitbc operations governance get-proposal prop_test_001
 
 ```bash
 # Test governance endpoint
-curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/governance/proposal \
+curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
   -H "Content-Type: application/json" \
   -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 ```

@@ -261,7 +261,7 @@ aitbc-cli ai status
 ```
 Checking Agent Coordinator at http://localhost:9001...
   Agent Coordinator: healthy (v1.0.0)
-Checking Blockchain AI stats at http://localhost:8006...
+Checking Blockchain AI stats at http://localhost:8202...
   Blockchain AI Stats: Available
 
 Overall Status: operational
@@ -415,7 +415,7 @@ Configuration file format:
 ```json
 {
   "coordinator_url": "http://localhost:9001",
-  "rpc_url": "http://localhost:8006",
+  "rpc_url": "http://localhost:8202",
   "chain_id": "ait-mainnet",
   "default_wallet": "hermes-trainee"
 }

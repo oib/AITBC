@@ -21,7 +21,7 @@ node:
   data_dir: ./data
 rpc:
   bind_host: 0.0.0.0
-  bind_port: 8006
+  bind_port: 8202
 p2p:
   bind_port: 7070
   bootstrap_nodes:
@@ -31,7 +31,7 @@ p2p:
 ```bash
 aitbc-chain start
 aitbc-chain status
-curl http://localhost:8006/rpc/health
+curl http://localhost:8202/rpc/health
 ```
 
 ## Prerequisites
@@ -80,7 +80,7 @@ Create `/etc/aitbc/blockchain.env`:
 CHAIN_ID=ait-hub.aitbc.bubuit.net
 SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8006
+RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
 P2P_BIND_PORT=7070
 ENABLE_BLOCK_PRODUCTION=false  # Set to false for follower nodes
@@ -88,7 +88,7 @@ GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 MEMPOOL_BACKEND=database
 MEMPOOL_DB_URL=postgresql+psycopg2://aitbc_mempool:password@localhost:5432/aitbc_mempool
 PROPOSER_ID=ait1db5247d03ca2e40f3995a583b2c097ab703efd4d
-DEFAULT_PEER_RPC_URL=http://hub.aitbc.bubuit.net:8006
+DEFAULT_PEER_RPC_URL=http://hub.aitbc.bubuit.net:8202
 P2P_NODE_ID=<your-node-id>
 P2P_PEERS=auto
 ```
@@ -166,7 +166,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8006
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202
 Restart=always
 RestartSec=5
 
@@ -186,10 +186,10 @@ systemctl start aitbc-blockchain-rpc.service
 
 ```bash
 # Check health
-curl -s http://localhost:8006/health
+curl -s http://localhost:8202/health
 
 # Check genesis block
-curl -s http://localhost:8006/rpc/blocks/0
+curl -s http://localhost:8202/rpc/blocks/0
 
 # Should show hash: cb501afac77f861ad145aa7fc1106bb8f9caa90ed5c2498f0d4e73107c327504
 ```

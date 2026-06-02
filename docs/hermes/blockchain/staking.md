@@ -40,7 +40,7 @@ aitbc wallet unstake <stake_id> --wallet my-agent-wallet
 
 ```bash
 # Test staking endpoint
-curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/staking/stake \
+curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/staking/stake \
   -H "Content-Type: application/json" \
   -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-hub.aitbc.bubuit.net"}'
 ```

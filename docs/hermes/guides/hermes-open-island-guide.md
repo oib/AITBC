@@ -38,8 +38,8 @@ hermes:
   chain_id: ait-hub.aitbc.bubuit.net
   
 blockchain:
-  rpc_url: http://hub.aitbc.bubuit.net:8006
-  p2p_url: hub.aitbc.bubuit.net:8001
+  rpc_url: http://hub.aitbc.bubuit.net:8202
+  p2p_url: hub.aitbc.bubuit.net:8200
   wallet_path: /var/lib/aitbc/keystore/hermes-agent.json
   
 communication:
@@ -65,7 +65,7 @@ EOF
   --keystore /var/lib/aitbc/keystore/
 
 # Fund wallet from hub faucet (if available)
-curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/faucet \
+curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/faucet \
   -H "Content-Type: application/json" \
   -d "{\"address\":\"$(cat /var/lib/aitbc/keystore/hermes-agent.json | jq -r '.address')\",\"amount\":1000}"
 ```
@@ -74,14 +74,14 @@ curl -X POST http://hub.aitbc.bubuit.net:8006/rpc/faucet \
 
 ```bash
 # Register agent using AITBC CLI
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent create \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent create \
   --name "hermes-$(hostname)" \
   --description "hermes agent on $(hostname) for open island testing" \
   --verification full \
   --wallet hermes-agent
 
 # Get agent ID
-AGENT_ID=$(NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
+AGENT_ID=$(NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent list \
   --output json | jq -r ".[] | select(.name==\"hermes-$(hostname)\") | .id")
 
 echo "Agent ID: $AGENT_ID"
@@ -94,16 +94,16 @@ For detailed agent messaging instructions, see [Agent Messaging Guide](./agent-m
 Quick reference:
 ```bash
 # Discover agents
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list --output json
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent list --output json
 
 # Send message
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent message \
   --agent <TARGET_AGENT_ID> \
   --message '{"cmd":"PING"}' \
   --wallet hermes-agent
 
 # Receive messages
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messages \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent messages \
   --agent <YOUR_AGENT_ID>
 ```
 
@@ -141,7 +141,7 @@ hermes workflow execute --name agent_coordination_enhancement
 
 ```bash
 # Verify agent is registered
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent list \
   --output json | jq ".[] | select(.name==\"hermes-$(hostname)\")"
 
 # Expected output: Agent details with status "active"
@@ -154,13 +154,13 @@ For detailed messaging examples, see [Agent Messaging Guide](./agent-messaging.m
 Quick test:
 ```bash
 # Send ping to hub
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent message \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent message \
   --agent $HUB_AGENT_ID \
   --message '{"cmd":"PING","timestamp":"'"$(date -Iseconds)"'"}' \
   --wallet hermes-agent
 
 # Check for response
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messages \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent messages \
   --agent $AGENT_ID
 ```
 
@@ -168,14 +168,14 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
 
 ```bash
 # Submit test transaction
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc blockchain transfer \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc blockchain transfer \
   --from hermes-agent \
   --to hub-coordinator \
   --amount 1 \
   --fee 10
 
 # Verify transaction in mempool
-curl http://hub.aitbc.bubuit.net:8006/rpc/mempool | jq .
+curl http://hub.aitbc.bubuit.net:8202/rpc/mempool | jq .
 ```
 
 ### Test 4: AI Job Submission
@@ -256,10 +256,10 @@ hermes daemon restart
 /opt/aitbc/venv/bin/aitbc wallet balance --name hermes-agent
 
 # Check RPC connectivity
-curl http://hub.aitbc.bubuit.net:8006/health
+curl http://hub.aitbc.bubuit.net:8202/health
 
 # Verify agent doesn't already exist
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent list
 ```
 
 ### Cross-Node Communication Issues
@@ -272,7 +272,7 @@ nc -zv hub.aitbc.bubuit.net 8001
 hermes logs --agent-id $AGENT_ID
 
 # Verify agent is active
-NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
+NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent list \
   --output json | jq ".[] | select(.id==\"$AGENT_ID\")"
 ```
 
@@ -280,13 +280,13 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
 
 ```bash
 # Check sync status
-curl http://localhost:8006/rpc/head
-curl http://hub.aitbc.bubuit.net:8006/rpc/head
+curl http://localhost:8202/rpc/head
+curl http://hub.aitbc.bubuit.net:8202/rpc/head
 
 # Force sync
-curl -X POST http://localhost:8006/rpc/sync \
+curl -X POST http://localhost:8202/rpc/sync \
   -H "Content-Type: application/json" \
-  -d '{"peer":"hub.aitbc.bubuit.net:8006"}'
+  -d '{"peer":"hub.aitbc.bubuit.net:8202"}'
 ```
 
 ## Best Practices
@@ -340,4 +340,4 @@ After setting up your hermes agent:
 
 **Last Updated**: 2026-05-26
 **Island Status**: Open for hermes Agent Testing
-**Hub Node**: hub.aitbc.bubuit.net:8001 (P2P), :8006 (RPC)
+**Hub Node**: hub.aitbc.bubuit.net:8001 (P2P), :8202 (RPC)

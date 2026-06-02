@@ -98,7 +98,7 @@ systemctl start aitbc-blockchain-node.service
 
 ```bash
 # Check genesis block
-curl http://localhost:8006/rpc/block/0
+curl http://localhost:8202/rpc/block/0
 
 # Check genesis wallet balance
 /opt/aitbc/aitbc-cli wallet balance genesis --chain-id ait-mainnet
@@ -304,7 +304,7 @@ sqlite3 /var/lib/aitbc/data/chain.db "SELECT address, balance FROM account WHERE
 /opt/aitbc/aitbc-cli wallet balance genesis --chain-id ait-mainnet
 
 # Check blockchain node status
-curl http://localhost:8006/health
+curl http://localhost:8202/health
 ```
 
 ## Best Practices

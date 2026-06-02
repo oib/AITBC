@@ -80,7 +80,7 @@ GET /rpc/sync/status
 To manually trigger synchronization:
 
 ```bash
-curl -X POST http://localhost:8006/rpc/force_sync \
+curl -X POST http://localhost:8202/rpc/force_sync \
   -H "Content-Type: application/json" \
   -d '{"chain_id":"ait-mainnet","from_height":0,"to_height":1000}'
 ```
@@ -124,7 +124,7 @@ Content-Type: application/json
 Export blocks to file:
 
 ```bash
-curl -X POST http://localhost:8006/rpc/export/blocks \
+curl -X POST http://localhost:8202/rpc/export/blocks \
   -H "Content-Type: application/json" \
   -d '{"chain_id":"ait-mainnet","from_height":0,"to_height":1000}' \
   > blocks_export.json
@@ -167,7 +167,7 @@ Content-Type: application/json
 Import blocks from file:
 
 ```bash
-curl -X POST http://localhost:8006/rpc/import/blocks \
+curl -X POST http://localhost:8202/rpc/import/blocks \
   -H "Content-Type: application/json" \
   -d '{"chain_id":"ait-mainnet","file":"/path/to/blocks_export.json"}'
 ```

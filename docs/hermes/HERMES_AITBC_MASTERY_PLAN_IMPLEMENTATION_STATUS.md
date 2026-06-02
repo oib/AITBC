@@ -41,7 +41,7 @@ The hermes AITBC Mastery Plan has been successfully implemented. All 5 training 
 **Key Achievements**:
 - Successfully created `hermes-trainee` wallet
 - Verified service health on both nodes
-- Tested node-specific operations on both nodes over port 8006
+- Tested node-specific operations on both nodes over port 8202
 - Nodes confirmed synchronized at height 22502
 
 **Log File**: `/var/log/aitbc/training_stage1_foundation.log`
@@ -134,8 +134,8 @@ The hermes AITBC Mastery Plan has been successfully implemented. All 5 training 
 - **Commands Available**: list, balance, transactions, chain, network, analytics, marketplace, ai-ops, mining, agent
 
 ### Node Configuration
-- **Genesis Node**: Port 8006 ✅
-- **Follower Node**: Port 8006 ✅
+- **Genesis Node**: Port 8202 ✅
+- **Follower Node**: Port 8202 ✅
 - **Blockchain Height**: 22502 (synchronized)
 - **Chain ID**: ait-mainnet
 
@@ -143,7 +143,7 @@ The hermes AITBC Mastery Plan has been successfully implemented. All 5 training 
 - **Agent Coordinator**: Port 9001 ✅
 - **Exchange**: Port 8001 ✅
 - **Ollama**: Port 11434 ✅
-- **Blockchain RPC**: Port 8006 on both nodes ✅
+- **Blockchain RPC**: Port 8202 on both nodes ✅
 
 ---
 

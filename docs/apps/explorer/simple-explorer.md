@@ -31,7 +31,7 @@ cd /opt/aitbc/apps/simple-explorer
 ### Configuration
 Set environment variables in `.env`:
 ```bash
-BLOCKCHAIN_RPC_URL=http://localhost:8006
+BLOCKCHAIN_RPC_URL=http://localhost:8202
 CHAIN_ID=ait-mainnet
 EXPLORER_PORT=8016
 ```

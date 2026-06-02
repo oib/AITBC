@@ -41,7 +41,7 @@ from pathlib import Path
 manager = create_multi_chain_manager(
     default_chain_id="ait-mainnet",
     base_db_path=Path("/var/lib/aitbc/data/ait-mainnet"),
-    base_rpc_port=8006,
+    base_rpc_port=8202,
     base_p2p_port=7070
 )
 ```
@@ -115,7 +115,7 @@ class ChainInstance:
 - **Shared ports**: All chains share base RPC and P2P ports
 - **No separate allocation**: Ports are not incremented per chain
 - **Chain routing**: Chain ID used to route requests to correct chain
-- **Base ports**: Configurable (default: RPC 8006, P2P 7070)
+- **Base ports**: Configurable (default: RPC 8202, P2P 7070)
 
 ## Database Structure
 
@@ -165,7 +165,7 @@ async def _chain_health_check(self):
 # Base chain configuration
 CHAIN_ID=ait-mainnet              # Default chain ID
 BASE_DB_PATH=/var/lib/aitbc/data # Base database path
-BASE_RPC_PORT=8006               # Base RPC port
+BASE_RPC_PORT=8202               # Base RPC port
 BASE_P2P_PORT=7070               # Base P2P port
 ```
 

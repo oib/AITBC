@@ -24,7 +24,7 @@ node:
 rpc:
   enabled: true
   bind_host: 0.0.0.0
-  bind_port: 8006
+  bind_port: 8202
   cors_origins:
     - http://localhost:8015
     - http://localhost:8203
@@ -81,7 +81,7 @@ validator:
 
 ```bash
 export AITBC_CHAIN_DATA_DIR=/opt/blockchain-node/data
-export AITBC_CHAIN_RPC_PORT=8006
+export AITBC_CHAIN_RPC_PORT=8202
 export AITBC_CHAIN_P2P_PORT=7070
 ```
 
