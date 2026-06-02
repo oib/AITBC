@@ -1,6 +1,7 @@
 """Service for Hermes distributed decision making with database storage."""
 
 import uuid
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -47,7 +48,7 @@ class DecisionService:
             min_participation=proposal.min_participation,
             required_approval=proposal.required_approval,
             status=DecisionStatus.PENDING,
-            metadata=proposal.metadata or {},
+            meta_data=json.dumps(proposal.metadata or {}),
             created_at=datetime.utcnow(),
         )
 

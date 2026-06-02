@@ -1,6 +1,7 @@
 """Service for Hermes self-healing and health monitoring with database storage."""
 
 import uuid
+import json
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -39,13 +40,14 @@ class HealthService:
 
         # Store health check in database
         health_record = HealthCheckModel(
+            id=str(uuid.uuid4()),
             agent_id=health_check.agent_id,
             service_name=health_check.service_name,
             status=health_check.status,
             timestamp=health_check.timestamp or datetime.utcnow(),
             response_time_ms=health_check.response_time_ms,
             error_message=health_check.error_message,
-            metadata=health_check.metadata or {},
+            meta_data=json.dumps(health_check.metadata or {}),
         )
 
         session.add(health_record)
@@ -68,14 +70,14 @@ class HealthService:
 
         # Store error report in database
         error_record = ErrorReportModel(
-            id=error_id,
+            id=str(uuid.uuid4()),
             agent_id=error_report.agent_id,
             service_name=error_report.service_name,
             error_type=error_report.error_type,
             severity=error_report.severity,
             error_message=error_report.error_message,
             timestamp=error_report.timestamp or datetime.utcnow(),
-            context=error_report.context or {},
+            context=json.dumps(error_report.context or {}),
         )
 
         session.add(error_record)
@@ -116,7 +118,7 @@ class HealthService:
                     timestamp=r.timestamp,
                     response_time_ms=r.response_time_ms,
                     error_message=r.error_message,
-                    metadata=r.metadata,
+                    metadata=json.loads(r.meta_data) if r.meta_data else {},
                 )
                 for r in results
             ]
@@ -179,8 +181,9 @@ class HealthService:
 
         # Store recovery result
         recovery_record = RecoveryResultModel(
-            action_id=action_id,
+            id=str(uuid.uuid4()),
             agent_id=agent_id,
+            action_id=action_id,
             success="true" if success else "false",
             message=message,
             timestamp=datetime.utcnow(),

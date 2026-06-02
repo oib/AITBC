@@ -1,6 +1,7 @@
 """Service for Hermes autonomous resource management with database storage."""
 
 import uuid
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -51,11 +52,12 @@ class ResourceService:
             existing.capacity = resource.capacity
             existing.allocated = resource.allocated
             existing.utilization = resource.utilization
-            existing.metadata = resource.metadata or {}
+            existing.meta_data = json.dumps(resource.metadata or {})
             existing.updated_at = datetime.utcnow()
         else:
             # Create new resource
             resource_record = ResourceModel(
+                id=str(uuid.uuid4()),
                 resource_id=resource.resource_id,
                 resource_type=resource.resource_type,
                 agent_id=resource.agent_id,
@@ -63,7 +65,7 @@ class ResourceService:
                 capacity=resource.capacity,
                 allocated=resource.allocated,
                 utilization=resource.utilization,
-                metadata=resource.metadata or {},
+                meta_data=json.dumps(resource.metadata or {}),
             )
             session.add(resource_record)
 
@@ -111,6 +113,7 @@ class ResourceService:
             expires_at = datetime.utcnow() + timedelta(hours=request.duration_hours)
 
         allocation_record = ResourceAllocationModel(
+            id=str(uuid.uuid4()),
             allocation_id=allocation_id,
             resource_id=selected_resource.resource_id,
             agent_id=request.agent_id,
@@ -256,6 +259,7 @@ class ResourceService:
 
         # Create pricing adjustment record
         adjustment = PricingAdjustmentModel(
+            id=str(uuid.uuid4()),
             resource_id=f"{resource_type.value}:pool",
             current_price=current_price,
             new_price=new_price,

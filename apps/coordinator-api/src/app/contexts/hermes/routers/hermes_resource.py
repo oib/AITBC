@@ -1,14 +1,12 @@
 """Router for Hermes autonomous resource management API."""
 
 from typing import Annotated, Optional, List
-
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-
-from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ....deps import require_admin_key
 from ....schemas.hermes_resource import (
@@ -32,7 +30,7 @@ router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"
 @router.post("/register")
 async def register_resource(
     resource: Resource,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> dict:
     """Register a new resource for autonomous management."""
@@ -47,7 +45,7 @@ async def register_resource(
 @router.post("/allocate", response_model=ResourceAllocationResponse)
 async def allocate_resource(
     allocation_request: ResourceAllocationRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> ResourceAllocationResponse:
     """Allocate resources based on strategy."""
@@ -61,7 +59,7 @@ async def allocate_resource(
 @router.post("/release", response_model=ResourceReleaseResponse)
 async def release_resource(
     release_request: ResourceReleaseRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> ResourceReleaseResponse:
     """Release allocated resources."""
@@ -74,7 +72,7 @@ async def release_resource(
 
 @router.post("/pricing/adjust", response_model=Optional[PricingAdjustment])
 async def adjust_pricing(
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> Optional[PricingAdjustment]:
     """Automatically adjust pricing based on utilization."""
@@ -88,7 +86,7 @@ async def adjust_pricing(
 
 @router.get("/pools", response_model=List[ResourcePool])
 async def get_resource_pools(
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> List[ResourcePool]:
     """Get all resource pools."""
@@ -101,9 +99,9 @@ async def get_resource_pools(
 
 @router.get("/allocations")
 async def get_allocations(
-    agent_id: Optional[str] = None,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
+    agent_id: Optional[str] = None,
 ) -> List[dict]:
     """Get allocations with optional filtering."""
     try:

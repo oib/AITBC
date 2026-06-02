@@ -30,7 +30,7 @@ router = APIRouter(prefix="/hermes/decision", tags=["hermes Decision Making"])
 @router.post("/propose", response_model=DecisionProposalResponse)
 async def propose_decision(
     proposal: DecisionProposal,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> DecisionProposalResponse:
     """Create a new decision proposal for agent voting."""
@@ -44,7 +44,7 @@ async def propose_decision(
 @router.post("/vote", response_model=VoteResponse)
 async def submit_vote(
     vote: Vote,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> VoteResponse:
     """Submit an agent vote on a decision."""
@@ -58,7 +58,7 @@ async def submit_vote(
 @router.get("/{decision_id}", response_model=DecisionResult)
 async def get_decision(
     decision_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
+    session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
 ) -> DecisionResult:
     """Get the current result of a decision."""
@@ -76,10 +76,10 @@ async def get_decision(
 
 @router.get("/", response_model=DecisionListResponse)
 async def list_decisions(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: str = Depends(require_admin_key()),
     decision_type: Optional[DecisionType] = None,
     status: Optional[DecisionStatus] = None,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
-    current_user: str = Depends(require_admin_key()),
 ) -> DecisionListResponse:
     """List all decisions with optional filtering."""
     try:
