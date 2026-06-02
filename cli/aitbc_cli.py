@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/opt/aitbc/venv/bin/python3
 """Compatibility wrapper for the AITBC CLI entrypoint."""
 
 from __future__ import annotations
