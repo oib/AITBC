@@ -23,7 +23,7 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Get P2P configuration from environment
 p2p_host = os.getenv("p2p_bind_host", "0.0.0.0")
-p2p_port = os.getenv("p2p_bind_port", "7000")
+p2p_port = os.getenv("p2p_bind_port", "8201")
 p2p_peers = os.getenv("p2p_peers", "")
 p2p_node_id = os.getenv("p2p_node_id", "")
 

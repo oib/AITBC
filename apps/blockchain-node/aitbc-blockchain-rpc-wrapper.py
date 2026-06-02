@@ -25,7 +25,7 @@ os.environ["ENABLE_BLOCK_PRODUCTION"] = "false"
 os.environ["enable_block_production"] = "false"
 
 # Get RPC configuration from environment or use defaults
-rpc_host = os.getenv("rpc_bind_host", "0.0.0.0")
+rpc_host = os.getenv("rpc_bind_host", "127.0.0.1")
 rpc_port = os.getenv("rpc_bind_port", "8202")
 
 # Execute the actual service
