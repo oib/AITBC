@@ -9,7 +9,6 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 
-from ..data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES
 from ..domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture, GPURegistry
 
 logger = get_logger(__name__)
