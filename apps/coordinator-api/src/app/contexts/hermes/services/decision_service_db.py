@@ -1,4 +1,4 @@
-"""Service for Hermes distributed decision making."""
+"""Service for Hermes distributed decision making with database storage."""
 
 import uuid
 from datetime import datetime, timedelta
@@ -23,7 +23,7 @@ from ....models.hermes import DecisionModel, VoteModel
 
 
 class DecisionService:
-    """Service for managing distributed agent decisions."""
+    """Service for managing distributed agent decisions with database storage."""
 
     def __init__(self):
         # Database storage for decisions
@@ -37,30 +37,29 @@ class DecisionService:
         """Create a new decision proposal for agent voting."""
         decision_id = str(uuid.uuid4())
 
-        decision = {
-            "decision_id": decision_id,
-            "decision_type": proposal.decision_type,
-            "title": proposal.title,
-            "description": proposal.description,
-            "proposed_by": proposal.proposed_by,
-            "created_at": datetime.utcnow(),
-            "voting_deadline": proposal.voting_deadline,
-            "min_participation": proposal.min_participation,
-            "required_approval": proposal.required_approval,
-            "status": DecisionStatus.PENDING,
-            "metadata": proposal.metadata or {},
-        }
+        decision = DecisionModel(
+            id=decision_id,
+            decision_type=proposal.decision_type,
+            title=proposal.title,
+            description=proposal.description,
+            proposed_by=proposal.proposed_by,
+            voting_deadline=proposal.voting_deadline,
+            min_participation=proposal.min_participation,
+            required_approval=proposal.required_approval,
+            status=DecisionStatus.PENDING,
+            metadata=proposal.metadata or {},
+            created_at=datetime.utcnow(),
+        )
 
-        self.decisions[decision_id] = decision
-        self.votes[decision_id] = []
+        session.add(decision)
+        session.commit()
 
-        logger.info(f"Decision proposal created: {decision_id} - {proposal.title}")
-
+        logger.info(f"Decision proposed: {decision_id} - {proposal.title}")
         return DecisionProposalResponse(
             decision_id=decision_id,
             status=DecisionStatus.PENDING,
-            created_at=decision["created_at"],
-            voting_deadline=decision["voting_deadline"],
+            created_at=decision.created_at,
+            voting_deadline=decision.voting_deadline,
             message="Decision proposal created successfully"
         )
 
@@ -70,7 +69,9 @@ class DecisionService:
         session: Session
     ) -> VoteResponse:
         """Submit an agent vote on a decision."""
-        if vote.decision_id not in self.decisions:
+        # Check if decision exists
+        decision = session.query(DecisionModel).filter_by(id=vote.decision_id).first()
+        if not decision:
             return VoteResponse(
                 vote_id="",
                 decision_id=vote.decision_id,
@@ -78,11 +79,9 @@ class DecisionService:
                 message="Decision not found"
             )
 
-        decision = self.decisions[vote.decision_id]
-
         # Check if voting is still open (handle timezone-aware datetimes)
         now = datetime.utcnow()
-        deadline = decision["voting_deadline"]
+        deadline = decision.voting_deadline
         if deadline.tzinfo is not None:
             now = datetime.now(deadline.tzinfo)
 
@@ -95,30 +94,35 @@ class DecisionService:
             )
 
         # Check if agent already voted
-        for existing_vote in self.votes[vote.decision_id]:
-            if existing_vote["agent_id"] == vote.agent_id:
-                return VoteResponse(
-                    vote_id="",
-                    decision_id=vote.decision_id,
-                    status="error",
-                    message="Agent has already voted"
-                )
+        existing_vote = session.query(VoteModel).filter_by(
+            decision_id=vote.decision_id,
+            agent_id=vote.agent_id
+        ).first()
+        if existing_vote:
+            return VoteResponse(
+                vote_id="",
+                decision_id=vote.decision_id,
+                status="error",
+                message="Agent has already voted"
+            )
 
         # Record vote
         vote_id = str(uuid.uuid4())
-        vote_record = {
-            "vote_id": vote_id,
-            "agent_id": vote.agent_id,
-            "vote": vote.vote,
-            "weight": vote.weight,
-            "reason": vote.reason,
-            "voted_at": datetime.utcnow()
-        }
+        vote_record = VoteModel(
+            id=vote_id,
+            decision_id=vote.decision_id,
+            agent_id=vote.agent_id,
+            vote=vote.vote,
+            weight=vote.weight,
+            reason=vote.reason,
+            created_at=datetime.utcnow()
+        )
 
-        self.votes[vote.decision_id].append(vote_record)
+        session.add(vote_record)
 
         # Update decision status
-        decision["status"] = DecisionStatus.IN_PROGRESS
+        decision.status = DecisionStatus.IN_PROGRESS
+        session.commit()
 
         logger.info(f"Vote submitted: {vote_id} by {vote.agent_id} on {vote.decision_id}")
 
@@ -135,22 +139,22 @@ class DecisionService:
         session: Session
     ) -> Optional[DecisionResult]:
         """Get the current result of a decision."""
-        if decision_id not in self.decisions:
+        decision = session.query(DecisionModel).filter_by(id=decision_id).first()
+        if not decision:
             return None
 
-        decision = self.decisions[decision_id]
-        votes = self.votes[decision_id]
+        votes = session.query(VoteModel).filter_by(decision_id=decision_id).all()
 
         # Calculate vote counts
         total_votes = len(votes)
-        approve_votes = sum(1 for v in votes if v["vote"] == VoteOption.APPROVE)
-        reject_votes = sum(1 for v in votes if v["vote"] == VoteOption.REJECT)
-        abstain_votes = sum(1 for v in votes if v["vote"] == VoteOption.ABSTAIN)
+        approve_votes = sum(1 for v in votes if v.vote == VoteOption.APPROVE)
+        reject_votes = sum(1 for v in votes if v.vote == VoteOption.REJECT)
+        abstain_votes = sum(1 for v in votes if v.vote == VoteOption.ABSTAIN)
 
         # Calculate weighted votes
-        weighted_approve = sum(v["weight"] for v in votes if v["vote"] == VoteOption.APPROVE)
-        weighted_reject = sum(v["weight"] for v in votes if v["vote"] == VoteOption.REJECT)
-        weighted_abstain = sum(v["weight"] for v in votes if v["vote"] == VoteOption.ABSTAIN)
+        weighted_approve = sum(v.weight for v in votes if v.vote == VoteOption.APPROVE)
+        weighted_reject = sum(v.weight for v in votes if v.vote == VoteOption.REJECT)
+        weighted_abstain = sum(v.weight for v in votes if v.vote == VoteOption.ABSTAIN)
         total_weight = weighted_approve + weighted_reject + weighted_abstain
 
         # Calculate rates
@@ -163,26 +167,27 @@ class DecisionService:
 
         # Handle timezone-aware datetimes
         now = datetime.utcnow()
-        deadline = decision["voting_deadline"]
+        deadline = decision.voting_deadline
         if deadline.tzinfo is not None:
             now = datetime.now(deadline.tzinfo)
 
         if now > deadline:
             # Voting deadline passed
-            if participation_rate >= decision["min_participation"]:
-                if approval_rate >= decision["required_approval"]:
+            if participation_rate >= decision.min_participation:
+                if approval_rate >= decision.required_approval:
                     final_decision = VoteOption.APPROVE
-                    decision["status"] = DecisionStatus.APPROVED
+                    decision.status = DecisionStatus.APPROVED
                 else:
                     final_decision = VoteOption.REJECT
-                    decision["status"] = DecisionStatus.REJECTED
+                    decision.status = DecisionStatus.REJECTED
             else:
-                decision["status"] = DecisionStatus.EXPIRED
+                decision.status = DecisionStatus.EXPIRED
             concluded_at = now
+            session.commit()
 
         return DecisionResult(
             decision_id=decision_id,
-            status=decision["status"],
+            status=decision.status,
             total_votes=total_votes,
             approve_votes=approve_votes,
             reject_votes=reject_votes,
@@ -203,16 +208,19 @@ class DecisionService:
         status: Optional[DecisionStatus] = None
     ) -> List[DecisionResult]:
         """List all decisions with optional filtering."""
+        query = session.query(DecisionModel)
+
+        if decision_type:
+            query = query.filter_by(decision_type=decision_type)
+        if status:
+            query = query.filter_by(status=status)
+
+        decisions = query.all()
         results = []
 
-        for decision_id in self.decisions:
-            result = self.get_decision_result(decision_id, session)
+        for decision in decisions:
+            result = self.get_decision_result(str(decision.id), session)
             if result:
-                # Apply filters
-                if decision_type and self.decisions[decision_id]["decision_type"] != decision_type:
-                    continue
-                if status and result.status != status:
-                    continue
                 results.append(result)
 
         return results

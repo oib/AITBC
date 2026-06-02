@@ -18,7 +18,7 @@ from ....schemas.hermes_health import (
     RecoveryResult,
 )
 from ....storage import get_session
-from ..services.health_service import health_service
+from ..services.health_service_db import health_service
 
 router = APIRouter(prefix="/hermes/health", tags=["hermes Health Monitoring"])
 
@@ -26,11 +26,12 @@ router = APIRouter(prefix="/hermes/health", tags=["hermes Health Monitoring"])
 @router.post("/report")
 async def report_health(
     health_check: HealthCheck,
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> dict:
     """Report health status for an agent or service."""
     try:
-        key = health_service.report_health(health_check, None)
+        key = health_service.report_health(health_check, session)
         return {"status": "success", "key": key}
     except Exception as e:
         logger.error(f"Error reporting health: {e}")
@@ -40,11 +41,12 @@ async def report_health(
 @router.post("/error")
 async def report_error(
     error_report: ErrorReport,
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> dict:
     """Report an error for self-healing analysis."""
     try:
-        error_id = health_service.report_error(error_report, None)
+        error_id = health_service.report_error(error_report, session)
         return {"status": "success", "error_id": error_id}
     except Exception as e:
         logger.error(f"Error reporting error: {e}")

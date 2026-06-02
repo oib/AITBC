@@ -24,7 +24,7 @@ from ....schemas.hermes_resource import (
     ResourcePool,
 )
 from ....storage import get_session
-from ..services.resource_service import resource_service
+from ..services.resource_service_db import resource_service
 
 router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"])
 
@@ -32,11 +32,12 @@ router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"
 @router.post("/register")
 async def register_resource(
     resource: Resource,
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> dict:
     """Register a new resource for autonomous management."""
     try:
-        resource_id = resource_service.register_resource(resource, None)
+        resource_id = resource_service.register_resource(resource, session)
         return {"status": "success", "resource_id": resource_id}
     except Exception as e:
         logger.error(f"Error registering resource: {e}")
@@ -46,11 +47,12 @@ async def register_resource(
 @router.post("/allocate", response_model=ResourceAllocationResponse)
 async def allocate_resource(
     allocation_request: ResourceAllocationRequest,
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> ResourceAllocationResponse:
     """Allocate resources based on strategy."""
     try:
-        return resource_service.allocate_resource(allocation_request, None)
+        return resource_service.allocate_resource(allocation_request, session)
     except Exception as e:
         logger.error(f"Error allocating resource: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -59,11 +61,12 @@ async def allocate_resource(
 @router.post("/release", response_model=ResourceReleaseResponse)
 async def release_resource(
     release_request: ResourceReleaseRequest,
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> ResourceReleaseResponse:
     """Release allocated resources."""
     try:
-        return resource_service.release_resource(release_request, None)
+        return resource_service.release_resource(release_request, session)
     except Exception as e:
         logger.error(f"Error releasing resource: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -71,12 +74,13 @@ async def release_resource(
 
 @router.post("/pricing/adjust", response_model=Optional[PricingAdjustment])
 async def adjust_pricing(
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> Optional[PricingAdjustment]:
     """Automatically adjust pricing based on utilization."""
     try:
         # For now, adjust GPU pricing (can be extended to accept resource_type in body)
-        return resource_service.adjust_pricing(ResourceType.GPU, None)
+        return resource_service.adjust_pricing(ResourceType.GPU, session)
     except Exception as e:
         logger.error(f"Error adjusting pricing: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -84,11 +88,12 @@ async def adjust_pricing(
 
 @router.get("/pools", response_model=List[ResourcePool])
 async def get_resource_pools(
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> List[ResourcePool]:
     """Get all resource pools."""
     try:
-        return resource_service.get_resource_pools(None)
+        return resource_service.get_resource_pools(session)
     except Exception as e:
         logger.error(f"Error getting resource pools: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -97,11 +102,12 @@ async def get_resource_pools(
 @router.get("/allocations")
 async def get_allocations(
     agent_id: Optional[str] = None,
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> List[dict]:
     """Get allocations with optional filtering."""
     try:
-        return resource_service.get_allocations(agent_id, None)
+        return resource_service.get_allocations(agent_id, session)
     except Exception as e:
         logger.error(f"Error getting allocations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
