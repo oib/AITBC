@@ -359,6 +359,193 @@ The GPU service registers GPUs locally first, then attempts blockchain registrat
 
 ---
 
-*Last Updated: 2026-06-01*  
-*Version: 0.4.2*  
+*Last Updated: 2026-06-01*
+*Version: 0.4.2*
+*Status: Released*
+
+---
+
+# AITBC v0.4.3 Release Notes
+
+**Date**: June 2, 2026
+**Status**: ✅ Released
+**Scope**: Landing Page Refinement & Endpoint Data Hardening
+
+## 🎯 Overview
+
+AITBC v0.4.3 is a focused release on refining the landing page, hardening endpoint data to remove hardcoded values, and improving nginx configuration for security and proxy routing. This release ensures all public-facing endpoints return dynamic configuration data from environment files, eliminating hardcoded values for multi-environment deployment. The landing page now dynamically loads node information and provides a polished user experience with clickable endpoint links.
+
+## 🎯 Release Highlights
+
+### Landing Page Improvements
+- ✅ Dynamic node name and chain ID loaded from `/rpc/network-info` endpoint
+- ✅ All endpoint boxes are clickable links to their respective JSON responses
+- ✅ Contact email dynamically loaded and displayed in footer with mailto link
+- ✅ Agent API badge moved to top-right corner as standalone box
+- ✅ Improved "What is AITBC?" description with detailed feature explanations
+- ✅ Removed duplicate endpoint references
+- ✅ CSS extracted to external file for maintainability
+
+### Endpoint Data Hardening
+- ✅ `/rpc/network-info` returns dynamic P2P port (8200) from environment file
+- ✅ Removed hardcoded hostname - uses `AITBC_HOSTNAME` or system hostname
+- ✅ Returns nginx proxied URLs (`/rpc`, `/api`) instead of direct backend ports
+- ✅ Added protocol detection for HTTPS support
+- ✅ Added dynamic contact email from `node.env` configuration
+- ✅ `/agent/islands.json` returns blockchain chain config instead of empty agent data
+- ✅ `/agent/chains.json` returns blockchain chain config instead of empty agent data
+- ✅ `/agent/openapi.json` returns dynamic OpenAPI spec with contact email
+
+### Nginx Configuration
+- ✅ Added security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
+- ✅ Added specific agent endpoint proxies with CORS and cache headers
+- ✅ Added proxy timeouts for blockchain RPC (connect, send, read)
+- ✅ Added CORS headers to API Gateway and Coordinator API locations
+- ✅ All services correctly bind to 127.0.0.1 (internal) or 0.0.0.0 (public-facing)
+- ✅ Removed static file conflicts (deleted `/opt/aitbc/website/agent/openapi.json`)
+
+### Configuration Changes
+- ✅ Added `CONTACT_EMAIL` to `/etc/aitbc/node.env` for dynamic contact information
+- ✅ OpenAPI spec uses `contact.email` instead of `contact.url`
+- ✅ Network-info endpoint includes `contact_email` field
+
+## 🔧 Configuration Changes
+
+### Environment Variables
+New environment variable for contact information:
+
+**CONTACT_EMAIL**
+- Location: `/etc/aitbc/node.env`
+- Default: `andreas.fleckl@bubuit.net`
+- Used by: `/rpc/network-info` and `/agent/openapi.json`
+
+### Endpoint Changes
+**/rpc/network-info**
+- Added `contact_email` field
+- Dynamic protocol detection (http/https)
+- Returns nginx proxied URLs instead of direct backend ports
+
+**/agent/openapi.json**
+- Dynamic server URL based on request
+- Dynamic contact email from environment
+- Changed from `contact.url` to `contact.email`
+
+**/agent/islands.json & /agent/chains.json**
+- Return blockchain configuration from environment
+- No longer dependent on agent registrations
+
+## 🎨 Landing Page Changes
+
+### Dynamic Content
+- Node ID and chain ID loaded from `/rpc/network-info`
+- Contact email loaded dynamically with mailto link
+- All values update on page load via JavaScript
+
+### UI Improvements
+- Agent API badge positioned in top-right corner
+- All endpoint boxes are clickable links
+- Descriptions moved outside endpoint boxes for clarity
+- Removed duplicate endpoint references
+- Improved "What is AITBC?" section with detailed explanations
+
+### Code Organization
+- CSS extracted to `/opt/aitbc/website/style.css`
+- HTML file now imports external stylesheet
+- Improved maintainability
+
+## 🔒 Security Improvements
+
+### Nginx Security Headers
+- X-Frame-Options: SAMEORIGIN
+- X-Content-Type-Options: nosniff
+- Referrer-Policy: no-referrer-when-downgrade
+
+### CORS Configuration
+- Access-Control-Allow-Origin: * for agent endpoints
+- Access-Control-Allow-Methods: GET, POST, OPTIONS
+- Access-Control-Allow-Headers: Content-Type, Accept
+
+### Proxy Timeouts
+- proxy_connect_timeout: 10s
+- proxy_send_timeout: 30s
+- proxy_read_timeout: 30s
+
+## 🐛 Bug Fixes
+
+### Static File Conflicts
+- Removed `/opt/aitbc/website/agent/openapi.json` static file
+- Eliminated conflict with dynamic agent registry endpoint
+
+### Port Conflicts
+- Resolved blockchain RPC port binding issues during restart
+- Ensured clean service restarts
+
+## 📝 Documentation Updates
+
+### Release Notes
+- Updated RELEASE_v0.4.2.md with v0.4.3 section
+- Documented all landing page and endpoint improvements
+
+## 🔄 Breaking Changes
+
+### None
+This release is backward compatible with no breaking changes.
+
+## 📈 Migration Guide
+
+### Configuration Migration
+1. Add `CONTACT_EMAIL` to `/etc/aitbc/node.env` (optional, has default)
+2. Restart services to load new environment variables
+3. Verify `/rpc/network-info` returns contact email
+4. Verify `/agent/openapi.json` returns dynamic server URL
+
+### Landing Page
+No migration required - changes are purely frontend improvements.
+
+## ✅ Testing
+
+### Manual Testing
+- Verify landing page loads node information dynamically
+- Test all endpoint links are clickable and return correct data
+- Verify contact email displays correctly in footer
+- Test `/rpc/network-info` returns dynamic values
+- Test `/agent/openapi.json` returns dynamic server URL
+- Verify nginx security headers are present
+- Test CORS headers on agent endpoints
+
+### Endpoint Verification
+- `/rpc/network-info` - Returns dynamic P2P port, hostname, contact email
+- `/agent/islands.json` - Returns blockchain chain config
+- `/agent/chains.json` - Returns blockchain chain config
+- `/agent/openapi.json` - Returns dynamic OpenAPI spec
+- `/agent/health` - Returns health status
+
+## 🎯 Success Criteria
+
+- ✅ Landing page dynamically loads node information
+- ✅ All endpoint boxes are clickable links
+- ✅ Contact email displayed in footer
+- ✅ No hardcoded values in endpoint responses
+- ✅ Nginx security headers configured
+- ✅ CORS headers properly set
+- ✅ CSS extracted to external file
+- ✅ Static file conflicts resolved
+
+## 🚀 Next Steps
+
+### v0.4.4 Planning
+- Enhanced Hermes agent autonomy features
+- Advanced GPU marketplace features
+- Additional security hardening
+
+### Documentation
+- Continue expanding Hermes agent documentation
+- Add more troubleshooting guides
+- Create video tutorials for key features
+- Update API documentation
+
+---
+
+*Last Updated: 2026-06-02*
+*Version: 0.4.3*
 *Status: Released*
