@@ -149,6 +149,8 @@ class RequestCoinsHandler(BaseHandler):
                 audit_log=f"Mode: {self.approval_mode}, Decision: {approval_decision['approved']}, Reason: {approval_decision['reason']}"
             )
             session.add(coin_request)
+            session.commit()
+            self.logger.info(f"Stored coin request in database: {request_id}")
 
         # Send response based on approval
         if approval_decision["approved"]:

@@ -32,7 +32,7 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Ensure HERMES_DB_PATH is set for the service
 if "HERMES_DB_PATH" not in os.environ:
-    os.environ["HERMES_DB_PATH"] = str(DATA_DIR / "hermes_coin_requests.db")
+    os.environ["HERMES_DB_PATH"] = str(DATA_DIR / "data" / "hermes_coin_requests.db")
 
 # Execute the actual service
 exec_cmd = [
