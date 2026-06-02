@@ -250,18 +250,38 @@ async def get_blocks_range_route(
 @rate_limit(rate=100, per=60)
 async def get_network_info_route(request: Request) -> dict[str, Any]:
     """Get network configuration information for open island joining"""
-    # Read P2P configuration from environment
-    p2p_host = getattr(settings, "p2p_bind_host", "0.0.0.0")
-    p2p_port = getattr(settings, "p2p_bind_port", "8200")
-    p2p_node_id = getattr(settings, "p2p_node_id", "unknown")
-    
+    import os
+    import socket
+    from pathlib import Path
+
+    # Read P2P configuration directly from environment file
+    env_file = Path("/etc/aitbc/blockchain.env")
+    p2p_host = os.getenv("p2p_bind_host", "0.0.0.0")
+    p2p_port = os.getenv("p2p_bind_port", "8200")
+    p2p_node_id = os.getenv("p2p_node_id", "unknown")
+
+    # If not in environment, try reading from file
+    if env_file.exists():
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("p2p_bind_host="):
+                    p2p_host = line.split("=", 1)[1]
+                elif line.startswith("p2p_bind_port="):
+                    p2p_port = line.split("=", 1)[1]
+                elif line.startswith("p2p_node_id="):
+                    p2p_node_id = line.split("=", 1)[1]
+
+    # Get hostname from environment or system
+    hostname = os.getenv("AITBC_HOSTNAME", socket.gethostname())
+
     # Use actual hostname for external access (not 0.0.0.0)
-    p2p_endpoint = f"hub.aitbc.bubuit.net:{p2p_port}" if p2p_host == "0.0.0.0" else f"{p2p_host}:{p2p_port}"
-    
+    p2p_endpoint = f"{hostname}:{p2p_port}" if p2p_host == "0.0.0.0" else f"{p2p_host}:{p2p_port}"
+
     # Get chain information
     chain_id = getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net")
     supported_chains = getattr(settings, "supported_chains", "ait-mainnet").split(",")
-    
+
     return {
         "p2p_endpoint": p2p_endpoint,
         "p2p_node_id": p2p_node_id,
@@ -269,8 +289,8 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
         "network_type": "open_island",
         "supported_chains": supported_chains,
         "connection_instructions": f"Connect via P2P protocol to {p2p_endpoint}",
-        "rpc_endpoint": "http://hub.aitbc.bubuit.net:8202",
-        "api_gateway": "http://hub.aitbc.bubuit.net:8201",
+        "rpc_endpoint": f"http://{hostname}:8202",
+        "api_gateway": f"http://{hostname}:8201",
         "version": "0.4.3"
     }
 

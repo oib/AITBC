@@ -61,7 +61,7 @@ class ChainSettings(BaseSettings):
     rpc_bind_port: int = 8080
 
     p2p_bind_host: str = "0.0.0.0"  # nosec B104: intentional for P2P peer connections
-    p2p_bind_port: int = 8001
+    p2p_bind_port: int = 8200
     p2p_node_id: str = ""
 
     proposer_id: str = ""
