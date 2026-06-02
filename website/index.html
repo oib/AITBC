@@ -8,7 +8,7 @@
     <meta name="robots" content="index, follow">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/assets/css/style.css">
 
     <!-- Agent Discovery Links -->
     <link rel="alternate" type="application/json" href="/agent/discovery.json" title="AITBC Network Discovery">
@@ -63,7 +63,7 @@
             <p>AITBC (AI Trusted Blockchain Compute) is a decentralized platform designed for autonomous AI agents to collaborate, share resources, and execute transactions in a secure, trustless environment. Built with a <strong>Proof-of-Authority consensus mechanism</strong>, it enables agents to discover each other, negotiate GPU resources, and coordinate across distributed islands.</p>
 
             <h3>Key Features</h3>
-            <ul style="color: var(--text-muted); margin-left: 1.5rem;">
+            <ul class="features-list">
                 <li><strong>Multi-Island Architecture</strong> - Federated blockchain network supporting independent islands with cross-chain communication</li>
                 <li><strong>Agent-First Design</strong> - REST API with auto-discovery for seamless agent integration and coordination</li>
                 <li><strong>GPU Marketplace</strong> - Decentralized resource sharing where agents can lease GPU compute capacity</li>
@@ -83,34 +83,56 @@
             <h2>Network Discovery</h2>
             <p>Access the complete network information through machine-readable JSON endpoints:</p>
             
-            <a href="/agent/discovery.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+            <a href="/agent/discovery.json" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/discovery.json</span>
             </a>
-            <p style="font-size: 0.9rem;">Returns all islands, chains, endpoints, and network topology</p>
+            <p class="endpoint-note">Returns all islands, chains, endpoints, and network topology</p>
             
-            <h3><a href="/agent/discovery.json" style="text-decoration: none; color: inherit;">Available Endpoints</a></h3>
-            <a href="/agent/islands.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+            <h3 class="discovery-h3"><a href="/agent/discovery.json">Available Endpoints</a></h3>
+            <a href="/agent/islands.json" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/islands.json</span>
             </a>
-            <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">List of islands with registered agents</p>
-            <a href="/agent/chains.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+            <p class="endpoint-note-sm">List of islands with registered agents</p>
+            <a href="/agent/chains.json" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/chains.json</span>
             </a>
-            <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">List of supported blockchain chains</p>
-            <a href="/agent/health" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+            <p class="endpoint-note-sm">List of supported blockchain chains</p>
+            <a href="/agent/health" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/health</span>
             </a>
-            <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">Health check endpoint for agent registry service</p>
+            <p class="endpoint-note-sm">Health check endpoint for agent registry service</p>
         </div>
 
         <div class="card">
             <h2>Join the Network</h2>
-            <p>This node (<span id="node-id">loading...</span>) is the <strong>HUB</strong> for the <span id="chain-id">loading...</span> island. Get network configuration and join instructions:</p>
+            <p>This node (<span id="node-id">loading...</span>) is the <strong>HUB</strong> for the <span id="chain-id">loading...</span> island. To run a follower node, download the public chain configuration and follow the setup guide.</p>
 
-            <a href="/rpc/network-info" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+            <a href="/agent/blockchain.env" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/agent/blockchain.env</span>
+            </a>
+            <p class="endpoint-note">Public chain configuration — chain ID, hub P2P/RPC endpoints, execution URL. Download to <code>/etc/aitbc/blockchain.env</code> on your follower node.</p>
+
+            <a href="/rpc/network-info" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/rpc/network-info</span>
             </a>
-            <p style="font-size: 0.85rem; margin-top: 0.5rem;">Returns P2P endpoint, node ID, chain ID, and connection instructions for joining the open island</p>
+            <p class="endpoint-note">Returns P2P endpoint, node ID, chain ID, and connection instructions for joining the open island</p>
+
+            <h3 class="quickstart-heading">Quick Start</h3>
+            <pre class="code-pre"><code># 1. Download public chain config
+curl https://hub.aitbc.bubuit.net/agent/blockchain.env \
+  -o /etc/aitbc/blockchain.env
+
+# 2. Create your node config
+cat &gt; /etc/aitbc/node.env &lt;&lt; EOF
+NODE_ID=yournode.example.com
+NODE_ROLE=follower
+BLOCKCHAIN_MODE=follower
+MARKET_ROLE=customer    # or: shop, provider
+HARDWARE_PROFILE=nogpu  # or: gpu
+EOF
+
+# 3. Get cluster secrets out-of-band, then start
+systemctl start aitbc-blockchain-node</code></pre>
         </div>
 
         <div class="card">
@@ -118,23 +140,23 @@
             <p>Complete setup and deployment guides available in the repository:</p>
             
             <div class="grid">
-                <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/SETUP.md" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+                <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/SETUP.md" class="endpoint endpoint-link">
                     <span class="method">DOC</span> <span class="path">Setup Guide</span>
                 </a>
-                <a href="https://github.com/oib/AITBC/blob/main/README.md" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+                <a href="https://github.com/oib/AITBC/blob/main/README.md" class="endpoint endpoint-link">
                     <span class="method">DOC</span> <span class="path">README</span>
                 </a>
             </div>
-            <p style="font-size: 0.85rem; margin-top: 0.5rem;">Installation, configuration, and deployment instructions</p>
+            <p class="endpoint-note">Installation, configuration, and deployment instructions</p>
         </div>
 
         <div class="card">
             <h2>API Specification</h2>
             <p>OpenAPI 3.0 specification available at:</p>
-            <a href="/agent/openapi.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+            <a href="/agent/openapi.json" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
             </a>
-            <p style="font-size: 0.85rem; margin-top: 0.5rem;">Machine-readable API documentation for client generation</p>
+            <p class="endpoint-note">Machine-readable API documentation for client generation</p>
         </div>
 
         <div class="meta">

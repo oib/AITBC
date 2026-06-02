@@ -146,3 +146,37 @@ pre {
     white-space: pre-wrap;
     word-wrap: break-word;
 }
+.features-list {
+    color: var(--text-muted);
+    margin-left: 1.5rem;
+}
+.endpoint-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+.endpoint-note {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+.endpoint-note-sm {
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+}
+.discovery-h3 a {
+    text-decoration: none;
+    color: inherit;
+}
+.quickstart-heading {
+    margin-top: 1.5rem;
+}
+.code-pre {
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    font-size: 0.8rem;
+    overflow-x: auto;
+    color: var(--text-muted);
+}
