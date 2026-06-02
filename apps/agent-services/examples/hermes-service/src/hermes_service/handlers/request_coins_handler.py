@@ -132,25 +132,35 @@ class RequestCoinsHandler(BaseHandler):
 
         # Store in database
         with get_db_session() as session:
-            coin_request = CoinRequest(
-                id=request_id,
-                sender=sender,
-                recipient=self.agent_id,
-                amount=amount,
-                wallet_address=wallet_address,
-                status=CoinRequestStatus.APPROVED if approval_decision["approved"] else CoinRequestStatus.PENDING,
-                approval_mode=self.approval_mode,
-                approved_by=self.strategy.__class__.__name__,
-                approved_at=datetime.utcnow() if approval_decision["approved"] else None,
-                rejection_reason=approval_decision["reason"] if not approval_decision["approved"] else None,
-                created_at=datetime.utcnow(),
-                expires_at=datetime.utcnow() + timedelta(days=30),
-                signed_transaction=signed_transaction,
-                audit_log=f"Mode: {self.approval_mode}, Decision: {approval_decision['approved']}, Reason: {approval_decision['reason']}"
-            )
-            session.add(coin_request)
-            session.commit()
-            self.logger.info(f"Stored coin request in database: {request_id}")
+            try:
+                coin_request = CoinRequest(
+                    id=request_id,
+                    sender=sender,
+                    recipient=self.agent_id,
+                    amount=amount,
+                    wallet_address=wallet_address,
+                    status=CoinRequestStatus.APPROVED if approval_decision["approved"] else CoinRequestStatus.PENDING,
+                    approval_mode=self.approval_mode,
+                    approved_by=self.strategy.__class__.__name__,
+                    approved_at=datetime.utcnow() if approval_decision["approved"] else None,
+                    rejection_reason=approval_decision["reason"] if not approval_decision["approved"] else None,
+                    created_at=datetime.utcnow(),
+                    expires_at=datetime.utcnow() + timedelta(days=30),
+                    signed_transaction=signed_transaction,
+                    audit_log=f"Mode: {self.approval_mode}, Decision: {approval_decision['approved']}, Reason: {approval_decision['reason']}"
+                )
+                session.add(coin_request)
+                session.commit()
+                self.logger.info(f"Stored coin request in database: {request_id}")
+            except Exception as e:
+                session.rollback()
+                # Check if request already exists
+                existing = session.query(CoinRequest).filter_by(id=request_id).first()
+                if existing:
+                    self.logger.info(f"Coin request {request_id} already exists, reusing existing")
+                else:
+                    self.logger.error(f"Failed to store coin request: {e}")
+                    return {"status": "error", "error": str(e)}
 
         # Send response based on approval
         if approval_decision["approved"]:
