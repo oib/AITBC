@@ -93,7 +93,9 @@ def list_wallets(
     descriptors = []
     for record in keystore.list_records():
         ledger_record = ledger.get_wallet(record.wallet_id)
-        meta = ledger_record.metadata if ledger_record else record.metadata
+        keystore_meta = record.metadata if isinstance(record.metadata, dict) else {}
+        ledger_meta = ledger_record.metadata if (ledger_record and isinstance(ledger_record.metadata, dict)) else {}
+        meta = {**ledger_meta, **keystore_meta}
         chain_id = meta.get("chain_id", "ait-mainnet") if isinstance(meta, dict) else "ait-mainnet"
         descriptors.append(
             WalletDescriptor(

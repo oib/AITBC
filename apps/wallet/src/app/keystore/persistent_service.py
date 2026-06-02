@@ -220,7 +220,7 @@ class PersistentKeystoreService:
                 signing_key = SigningKey.generate()
                 secret_bytes = signing_key.encode()
             else:
-                if len(secret) != SigningKey.seed_size:
+                if len(secret) != 32:
                     raise ValueError("secret key must be 32 bytes")
                 secret_bytes = secret
                 signing_key = SigningKey(secret_bytes)

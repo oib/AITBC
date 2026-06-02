@@ -132,13 +132,15 @@ class WalletDaemonClient:
             # Handle both "wallets" and "items" keys for compatibility
             wallet_list = data.get("wallets", data.get("items", []))
             for wallet_data in wallet_list:
+                metadata = wallet_data.get("metadata", {})
+                address = wallet_data.get("address") or metadata.get("address") or metadata.get("original_address", "")
                 wallets.append(WalletInfo(
                     wallet_id=wallet_data.get("wallet_id", wallet_data.get("wallet_name", "")),
                     chain_id=wallet_data.get("chain_id", "default"),
                     public_key=wallet_data.get("public_key", ""),
-                    address=wallet_data.get("address", ""),
+                    address=address,
                     created_at=wallet_data.get("created_at", ""),
-                    metadata=wallet_data.get("metadata", {})
+                    metadata=metadata
                 ))
             return wallets
         except NetworkError as e:
