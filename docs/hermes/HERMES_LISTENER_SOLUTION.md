@@ -54,7 +54,7 @@ journalctl -u aitbc-agent-daemon -f
 
 To send a test PING message:
 ```bash
-curl -s -X POST "http://localhost:8203/v1/hermes/messages/send" \
+curl -s -X POST "http://localhost:8107/api/v1/agent/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "test-agent",
@@ -68,7 +68,7 @@ curl -s -X POST "http://localhost:8203/v1/hermes/messages/send" \
 The daemon will automatically respond with a PONG message.
 
 ## Notes
-- This solution uses the Coordinator API directly rather than the simulated aitbc-cli commands
+- This solution uses the Agent Coordinator microservice (port 8107) rather than the legacy Coordinator API (8203)
 - The daemon is designed to be lightweight and resilient, with error handling and retry logic
-- All message exchanges are persisted and visible via the Coordinator API endpoints
-- For multi-node setups, configure `HERMES_COORDINATOR_URL` to point to the hub coordinator
+- All message exchanges are persisted and visible via the Agent Coordinator endpoints
+- For multi-node setups, configure `HERMES_COORDINATOR_URL` to point to the hub's Agent Coordinator

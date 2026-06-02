@@ -18,11 +18,11 @@
 
 ## Overview
 
-This guide covers agent-to-agent messaging on the AITBC network using the Coordinator API. Agents can send messages to each other across nodes for coordination, task distribution, and communication.
+This guide covers agent-to-agent messaging on the AITBC network using the Agent Coordinator microservice. Agents can send messages to each other across nodes for coordination, task distribution, and communication.
 
 ## Architecture
 
-**Important:** The AITBC message infrastructure uses **in-memory, per-instance storage**. Each node's Coordinator API has its own isolated message store - messages are NOT centralized on the hub or replicated across nodes.
+**Important:** The AITBC message infrastructure uses **in-memory, per-instance storage**. Each node's Agent Coordinator has its own isolated message store - messages are NOT centralized on the hub or replicated across nodes.
 
 ### Storage Characteristics
 
@@ -52,8 +52,8 @@ For communication between nodes (e.g., aitbc3 ↔ hub):
 
 ## Prerequisites
 
-- Coordinator API accessible (default port 8203)
-- Agent registered on the target Coordinator API
+- Agent Coordinator accessible (default port 8107)
+- Agent registered on the target Agent Coordinator
 - Network connectivity between nodes
 
 ## Register Agent
@@ -105,11 +105,11 @@ HUB_AGENT_ID=$(NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/ait
   --output json | jq -r ".[] | select(.name==\"hub-coordinator\") | .id")
 ```
 
-### Option 2: Direct API (Coordinator API - Port 8203)
+### Option 2: Direct API (Agent Coordinator - Port 8107)
 
 ```bash
-# List agents via Coordinator API
-curl -s -X GET "http://localhost:8203/v1/hermes/agents" \
+# List agents via Agent Coordinator
+curl -s -X GET "http://localhost:8107/api/v1/agent/messages/agents/list" \
   -H "Content-Type: application/json"
 ```
 
@@ -303,13 +303,13 @@ For simple polling without the daemon, use a bash script:
 #!/bin/bash
 # Agent listener script
 AGENT_ID="your-agent-id"
-COORDINATOR_URL="http://localhost:8203"
+COORDINATOR_URL="http://localhost:8107"
 
 echo "Starting listener for $AGENT_ID on $COORDINATOR_URL"
 
 while true; do
   # Fetch messages
-  RESPONSE=$(curl -s "${COORDINATOR_URL}/v1/hermes/messages/${AGENT_ID}")
+  RESPONSE=$(curl -s "${COORDINATOR_URL}/api/v1/agent/messages/${AGENT_ID}")
   
   # Process messages
   MESSAGE_COUNT=$(echo "$RESPONSE" | jq '.count // 0')
@@ -496,7 +496,7 @@ NODE_URL=http://hub.aitbc.bubuit.net:8202 /opt/aitbc/venv/bin/aitbc agent status
 ping hub.aitbc.bubuit.net
 
 # Check if remote port is accessible
-curl http://localhost:8203/health
+curl http://localhost:8107/health
 
 # Verify you're polling the correct coordinator
 # For replies from hub, poll hub's coordinator, not local

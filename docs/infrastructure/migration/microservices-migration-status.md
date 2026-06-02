@@ -98,6 +98,14 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Updated CLI blockchain transactions command to use Trading service URL
 - All CLI explorer commands now query Trading service instead of coordinator-api
 
+### Phase 22: Agent Messaging Migration (Completed)
+- Created `/api/v1/agent/messages/` endpoints in Agent Coordinator (8107)
+- Migrated messaging from Coordinator API (8203) to Agent Coordinator (8107)
+- Updated hermes_polling_daemon.py to use new endpoint paths
+- Updated systemd service and environment files to use port 8107
+- Successfully tested end-to-end PING/PONG flow via Agent Coordinator
+- Updated documentation to reflect new messaging architecture
+
 ### Phase 23: AI Service Foundation (Completed)
 - Created AI Service (port 8106) for job operations
 - Implemented job endpoints: POST /jobs, GET /jobs/{job_id}, GET /jobs/{job_id}/result, POST /jobs/{job_id}/cancel, GET /jobs
@@ -305,7 +313,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Kept running as failover until all features are tested on microservices
    - Most functionality has been migrated to dedicated microservices
    - Service is still active and running
-   - Some documentation and services may still be calling Coordinator API (port 8203) for hermes endpoints instead of Hermes Service (port 8105)
+   - Some documentation and services may still be calling Coordinator API (port 8203) for hermes endpoints instead of Agent Coordinator (8107)
    - This causes 500 errors due to missing modules (app.storage.config_pg)
    - Will be disabled after comprehensive microservices testing is complete
 

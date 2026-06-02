@@ -26,13 +26,13 @@ if os.path.exists(node_env_path):
 
 
 def send_hermes_notification(recipient: str, content: str):
-    """Send a Hermes message notification via Coordinator API."""
-    coordinator_url = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
+    """Send a Hermes message notification via Agent Coordinator."""
+    coordinator_url = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107")
     agent_id = os.getenv("HERMES_AGENT_ID", "cli-admin")
 
     try:
         response = requests.post(
-            f"{coordinator_url}/v1/hermes/messages/send",
+            f"{coordinator_url}/api/v1/agent/messages/send",
             json={
                 "sender": agent_id,
                 "recipient": recipient,
