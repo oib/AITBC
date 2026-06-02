@@ -80,8 +80,13 @@ class DecisionService:
 
         decision = self.decisions[vote.decision_id]
 
-        # Check if voting is still open
-        if datetime.utcnow() > decision["voting_deadline"]:
+        # Check if voting is still open (handle timezone-aware datetimes)
+        now = datetime.utcnow()
+        deadline = decision["voting_deadline"]
+        if deadline.tzinfo is not None:
+            now = datetime.now(deadline.tzinfo)
+
+        if now > deadline:
             return VoteResponse(
                 vote_id="",
                 decision_id=vote.decision_id,
@@ -156,7 +161,13 @@ class DecisionService:
         final_decision = None
         concluded_at = None
 
-        if datetime.utcnow() > decision["voting_deadline"]:
+        # Handle timezone-aware datetimes
+        now = datetime.utcnow()
+        deadline = decision["voting_deadline"]
+        if deadline.tzinfo is not None:
+            now = datetime.now(deadline.tzinfo)
+
+        if now > deadline:
             # Voting deadline passed
             if participation_rate >= decision["min_participation"]:
                 if approval_rate >= decision["required_approval"]:
@@ -167,7 +178,7 @@ class DecisionService:
                     decision["status"] = DecisionStatus.REJECTED
             else:
                 decision["status"] = DecisionStatus.EXPIRED
-            concluded_at = datetime.utcnow()
+            concluded_at = now
 
         return DecisionResult(
             decision_id=decision_id,

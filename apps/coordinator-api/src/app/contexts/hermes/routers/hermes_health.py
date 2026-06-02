@@ -10,8 +10,6 @@ logger = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from aitbc.rate_limiting import rate_limit
-
 from ....deps import require_admin_key
 from ....schemas.hermes_health import (
     HealthCheck,
@@ -26,16 +24,13 @@ router = APIRouter(prefix="/hermes/health", tags=["hermes Health Monitoring"])
 
 
 @router.post("/report")
-@rate_limit(rate=30, per=60)
 async def report_health(
-    request: Request,
     health_check: HealthCheck,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> dict:
     """Report health status for an agent or service."""
     try:
-        key = health_service.report_health(health_check, session)
+        key = health_service.report_health(health_check, None)
         return {"status": "success", "key": key}
     except Exception as e:
         logger.error(f"Error reporting health: {e}")
@@ -43,16 +38,13 @@ async def report_health(
 
 
 @router.post("/error")
-@rate_limit(rate=20, per=60)
 async def report_error(
-    request: Request,
     error_report: ErrorReport,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> dict:
     """Report an error for self-healing analysis."""
     try:
-        error_id = health_service.report_error(error_report, session)
+        error_id = health_service.report_error(error_report, None)
         return {"status": "success", "error_id": error_id}
     except Exception as e:
         logger.error(f"Error reporting error: {e}")
@@ -60,12 +52,9 @@ async def report_error(
 
 
 @router.get("/status")
-@rate_limit(rate=50, per=60)
 async def get_health_status(
-    request: Request,
     agent_id: Optional[str] = None,
     service_name: Optional[str] = None,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> List[HealthCheck]:
     """Get health status with optional filtering."""
@@ -77,12 +66,9 @@ async def get_health_status(
 
 
 @router.get("/recovery-history")
-@rate_limit(rate=20, per=60)
 async def get_recovery_history(
-    request: Request,
     agent_id: Optional[str] = None,
     limit: int = 100,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),  # type: ignore[arg-type]
     current_user: str = Depends(require_admin_key()),
 ) -> List[RecoveryResult]:
     """Get recovery history with optional filtering."""

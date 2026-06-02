@@ -100,6 +100,51 @@ The agent integration service provides deployment and management capabilities fo
 - Metrics aggregation with fallback to database values
 - Configurable alert thresholds and channels
 
+## GPU Optimization
+
+The Coordinator API supports GPU optimization for improved performance when processing compute jobs. This requires:
+
+### Prerequisites
+
+1. **NVIDIA Driver**: Must be installed and working (verify with `nvidia-smi`)
+2. **CUDA Toolkit**: Install the development headers for PyCUDA compilation
+   ```bash
+   sudo apt install nvidia-cuda-toolkit nvidia-cudnn
+   ```
+3. **PyCUDA**: Python CUDA bindings for GPU acceleration
+   ```bash
+   source venv/bin/activate
+   pip install pycuda
+   ```
+
+### Features Using GPU Optimization
+
+- **Edge GPU Router**: GPU discovery and metrics collection via nvidia-smi
+- **Job Processing**: Accelerated compute job processing for ML workloads
+- **Inference Optimization**: GPU-accelerated inference request optimization
+
+### Verification
+
+After installation, check the Coordinator API logs:
+```bash
+sudo journalctl -u aitbc-coordinator-api -f
+```
+
+Successful GPU initialization shows:
+```
+INFO: PyCUDA initialized successfully
+INFO: GPU detected: [GPU Model]
+```
+
+If PyCUDA is not available, the API runs in simulation mode:
+```
+WARNING: PyCUDA not available or no CUDA-capable device detected: No module named 'pycuda'. GPU optimization will run in simulation mode.
+```
+
+### Troubleshooting
+
+See [GPU Issues](../../troubleshooting/gpu-issues.md) for GPU detection and CUDA errors.
+
 ## Development Setup
 
 1. Create a virtual environment in `apps/coordinator-api/.venv`.
