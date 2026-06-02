@@ -26,14 +26,14 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 # Check if Hermes polling is enabled
 enable_hermes = os.getenv("ENABLE_HERMES_POLLING", "false").lower() == "true"
 hermes_agent_ids = os.getenv("HERMES_AGENT_IDS", "")
-hermes_coordinator_url = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
+hermes_coordinator_url = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107")
 
 processes = []
 
 # Spawn Hermes polling daemons if enabled
 if enable_hermes and hermes_agent_ids:
     hermes_daemon_script = f"{REPO_DIR}/apps/agent-coordinator/scripts/hermes_polling_daemon.py"
-    hermes_service_url = os.getenv("HERMES_SERVICE_URL", "http://localhost:8014")
+    hermes_service_url = os.getenv("HERMES_SERVICE_URL", "http://localhost:8103")
     agent_ids = [aid.strip() for aid in hermes_agent_ids.split(",")]
 
     for agent_id in agent_ids:

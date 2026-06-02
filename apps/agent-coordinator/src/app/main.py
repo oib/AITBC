@@ -35,7 +35,11 @@ def create_app() -> FastAPI:
     )
 
     for router in ROUTERS:
-        app.include_router(router, prefix="/v1")
+        # Check if router already has a prefix (like agent_messaging.router)
+        if hasattr(router, 'prefix') and router.prefix.startswith('/api'):
+            app.include_router(router)
+        else:
+            app.include_router(router, prefix="/v1")
 
     register_middleware(app)
     register_exception_handlers(app)

@@ -1,4 +1,5 @@
 from . import agents, ai, alerts, auth, consensus, health, messages, monitor, monitoring, swarm, tasks, users
+from . import agent_messaging
 
 ROUTERS = [
     health.router,
@@ -13,4 +14,5 @@ ROUTERS = [
     alerts.router,
     swarm.router,
     monitor.router,
+    agent_messaging.router,
 ]

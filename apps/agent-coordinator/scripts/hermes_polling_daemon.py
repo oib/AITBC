@@ -12,7 +12,7 @@ from collections.abc import Callable
 import requests
 
 # Default configuration
-DEFAULT_COORDINATOR_URL = "http://localhost:8011"
+DEFAULT_COORDINATOR_URL = "http://localhost:8107"
 DEFAULT_POLL_INTERVAL = 10
 DEFAULT_LOG_LEVEL = "INFO"
 
@@ -118,7 +118,7 @@ class HermesPollingDaemon:
     def run(self):
         """Main polling loop"""
         self.logger.info(f"Hermes polling daemon started for agent: {self.agent_id}")
-        self.logger.info(f"Polling {self.coordinator_url}/v1/hermes/messages/{self.agent_id}")
+        self.logger.info(f"Polling {self.coordinator_url}/api/v1/agent/messages/{self.agent_id}")
         self.logger.info(f"Poll interval: {self.poll_interval} seconds")
 
         while self.running:
