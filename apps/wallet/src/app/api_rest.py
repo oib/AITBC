@@ -156,6 +156,42 @@ async def create_wallet(
     return WalletCreateResponse(wallet=wallet)
 
 
+@router.get("/wallets/{wallet_id}/balance", summary="Get wallet balance from blockchain")
+def get_wallet_balance(
+    wallet_id: str,
+    keystore: PersistentKeystoreService = Depends(get_keystore),
+) -> dict:
+    import httpx as _httpx
+    from .settings import settings as _settings
+
+    record = keystore.get_wallet(wallet_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wallet not found")
+
+    # Address is stored in metadata
+    meta = record.metadata if isinstance(record.metadata, dict) else {}
+    address = meta.get("address") or meta.get("original_address") or record.public_key
+
+    balance = 0
+    chain_id = meta.get("chain_id", "ait-mainnet")
+    try:
+        rpc_url = _settings.blockchain_rpc_url
+        resp = _httpx.get(f"{rpc_url}/rpc/account/{address}", timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            balance = data.get("balance", 0)
+            chain_id = data.get("chain_id", chain_id)
+    except Exception:
+        pass
+
+    return {
+        "wallet_id": wallet_id,
+        "address": address,
+        "balance": balance,
+        "chain_id": chain_id,
+    }
+
+
 @router.post("/wallets/{wallet_id}/unlock", response_model=WalletUnlockResponse, summary="Unlock wallet")
 @rate_limit(rate=50, per=60)
 def unlock_wallet(

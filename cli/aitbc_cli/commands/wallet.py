@@ -555,29 +555,49 @@ def balance(ctx, name: str | None):
     else:
         wallet_data = _load_wallet(wallet_path, wallet_name)
 
-    # Try to get balance from blockchain if available
-    if config:
+    # Try to get balance from wallet daemon (which queries blockchain)
+    use_daemon = ctx.obj.get("use_daemon", True)
+    if use_daemon:
         try:
-            http_client = AITBCHTTPClient(
-                base_url=config.coordinator_url.replace('/api', ''),
-                timeout=5
-            )
-            chain_id = ctx.obj.get("chain_id", "ait-mainnet")
-            blockchain_balance = http_client.get(f"/rpc/balance/{wallet_data['address']}?chain_id={chain_id}")
-            output(
-                {
+            from aitbc_cli.config import get_config
+            from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
+            _cfg = config or get_config()
+            daemon_client = WalletDaemonClient(_cfg)
+            if daemon_client.is_available():
+                balance_info = daemon_client.get_wallet_balance(wallet_name)
+                if balance_info:
+                    output(
+                        {
                             "wallet": wallet_name,
-                            "address": wallet_data["address"],
-                            "local_balance": wallet_data.get("balance", 0),
-                            "blockchain_balance": blockchain_balance,
-                            "synced": wallet_data.get("balance", 0)
-                            == blockchain_balance,
+                            "address": balance_info.address or wallet_data.get("address", ""),
+                            "balance": balance_info.balance,
+                            "chain_id": balance_info.chain_id,
                         },
                         ctx.obj.get("output_format", "table"),
                     )
-            return
+                    return
         except Exception:
             pass
+
+    # Try to get balance directly from blockchain RPC
+    try:
+        from aitbc_cli.config import get_config
+        _cfg = config or get_config()
+        rpc_url = getattr(_cfg, "blockchain_rpc_url", None) or "https://hub.aitbc.bubuit.net"
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+        data = http_client.get(f"/rpc/account/{wallet_data['address']}")
+        output(
+            {
+                "wallet": wallet_name,
+                "address": wallet_data["address"],
+                "balance": data.get("balance", 0),
+                "chain_id": data.get("chain_id", ""),
+            },
+            ctx.obj.get("output_format", "table"),
+        )
+        return
+    except Exception:
+        pass
 
     # Fallback to local balance only
     output(
