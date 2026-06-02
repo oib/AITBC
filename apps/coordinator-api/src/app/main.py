@@ -78,6 +78,7 @@ from .routers import (
 from .utils.alerting import alert_dispatcher
 from .utils.cache import cache_manager
 from .utils.metrics import build_live_metrics_payload, metrics_collector
+from .utils.security import InputValidator, get_client_ip
 
 # Skip optional routers with missing dependencies
 try:
@@ -86,6 +87,9 @@ except ImportError:
     ml_zk_proofs = None
     logger.warning("ML ZK proofs router not available (missing tenseal)")
 from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
+from .contexts.hermes.routers.hermes_decision import router as hermes_decision
+from .contexts.hermes.routers.hermes_health import router as hermes_health
+from .contexts.hermes.routers.hermes_resource import router as hermes_resource
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 
 # Skip optional routers with missing dependencies
@@ -331,6 +335,36 @@ def create_app() -> FastAPI:
     # Add error handler middleware
     app.add_middleware(ErrorHandlerMiddleware)
 
+    # Add security middleware for input validation
+    @app.middleware("http")
+    async def security_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        """Security middleware for input validation and logging."""
+        # Log client IP
+        client_ip = get_client_ip(request)
+        request.state.client_ip = client_ip
+
+        # Validate request size
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > 10 * 1024 * 1024:  # 10MB limit
+            logger.warning(f"Request too large from {client_ip}: {content_length} bytes")
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Request entity too large"}
+            )
+
+        # Check for suspicious user agents
+        user_agent = request.headers.get("user-agent", "")
+        suspicious_patterns = ["sqlmap", "nmap", "nikto", "burp"]
+        for pattern in suspicious_patterns:
+            if pattern.lower() in user_agent.lower():
+                logger.warning(f"Suspicious user agent from {client_ip}: {user_agent}")
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Access denied"}
+                )
+
+        return await call_next(request)
+
     @app.middleware("http")
     async def request_metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         start_time = __import__("time").perf_counter()
@@ -471,6 +505,9 @@ def create_app() -> FastAPI:
     if ml_zk_proofs:
         app.include_router(ml_zk_proofs, prefix="/v1")
     app.include_router(hermes_enhanced, prefix="/v1")
+    app.include_router(hermes_decision, prefix="/v1")
+    app.include_router(hermes_health, prefix="/v1")
+    app.include_router(hermes_resource, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router, prefix="/v1/agents")
     app.include_router(agent_router, prefix="/api/v1/agents")  # CLI compatibility

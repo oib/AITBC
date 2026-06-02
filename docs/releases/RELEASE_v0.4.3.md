@@ -42,6 +42,22 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Comprehensive marketplace API documentation created
 - ✅ Agent API usage examples added to documentation
 
+### Security Hardening (v0.4.3.1)
+- ✅ Dependency security scanning script created
+- ✅ API security middleware added (input validation, suspicious user agent detection)
+- ✅ Security utilities module created (InputValidator, RequestSigner, APIKeyRotator)
+- ✅ Secret management enhanced with encryption, versioning, and audit logging
+- ✅ Keystore secrets loader upgraded with AES-256 encryption support
+- ✅ Network security recommendations documentation created for system administrators
+
+### Agent Autonomy Features (v0.4.3.2)
+- ✅ Distributed decision making API (consensus voting, weighted decisions)
+- ✅ Self-healing and error recovery system (health monitoring, automatic recovery)
+- ✅ Autonomous resource management (allocation strategies, dynamic pricing)
+- ✅ Hermes decision service with voting mechanisms
+- ✅ Hermes health service with self-healing actions
+- ✅ Hermes resource service with pool management
+
 ## 📋 Detailed Features
 
 ### Node Profiles
