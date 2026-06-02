@@ -110,7 +110,12 @@
             <a href="/agent/blockchain.env" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/blockchain.env</span>
             </a>
-            <p class="endpoint-note">Public chain configuration — chain ID, hub P2P/RPC endpoints, execution URL. Download to <code>/etc/aitbc/blockchain.env</code> on your follower node.</p>
+            <p class="endpoint-note">Public chain configuration — chain ID, hub P2P/RPC endpoints, execution URL.</p>
+
+            <a href="/agent/blockchain-secrets.env" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/agent/blockchain-secrets.env</span>
+            </a>
+            <p class="endpoint-note">Cluster secrets — required for follower nodes to authenticate with the hub. This island is open to join.</p>
 
             <a href="/rpc/network-info" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/rpc/network-info</span>
@@ -118,9 +123,11 @@
             <p class="endpoint-note">Returns P2P endpoint, node ID, chain ID, and connection instructions for joining the open island</p>
 
             <h3 class="quickstart-heading">Quick Start</h3>
-            <pre class="code-pre"><code># 1. Download public chain config
+            <pre class="code-pre"><code># 1. Download chain config and cluster secrets
 curl https://hub.aitbc.bubuit.net/agent/blockchain.env \
   -o /etc/aitbc/blockchain.env
+curl https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env \
+  -o /etc/aitbc/blockchain-secrets.env
 
 # 2. Create your node config
 cat &gt; /etc/aitbc/node.env &lt;&lt; EOF
@@ -131,7 +138,7 @@ MARKET_ROLE=customer    # or: shop, provider
 HARDWARE_PROFILE=nogpu  # or: gpu
 EOF
 
-# 3. Get cluster secrets out-of-band, then start
+# 3. Start
 systemctl start aitbc-blockchain-node</code></pre>
         </div>
 

@@ -13,7 +13,11 @@ class CLIConfig(BaseAITBCConfig):
     """CLI-specific configuration inheriting from shared BaseAITBCConfig"""
 
     model_config = SettingsConfigDict(
-        env_file=str(Path("/etc/aitbc/blockchain.env")),
+        env_file=[
+            str(Path("/etc/aitbc/blockchain.env")),
+            str(Path("/etc/aitbc/blockchain-secrets.env")),
+            str(Path("/etc/aitbc/node.env")),
+        ],
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore"

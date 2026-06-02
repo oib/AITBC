@@ -19,6 +19,7 @@ def _load_env_file(path: str):
 
 # Load environment variables BEFORE importing storage
 _load_env_file("/etc/aitbc/blockchain.env")
+_load_env_file("/etc/aitbc/blockchain-secrets.env")
 _load_env_file("/etc/aitbc/node.env")
 
 # Add path to import Hermes storage
@@ -186,7 +187,7 @@ def execute(ctx, request_id):
             api_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
             if not api_key:
                 click.echo("Error: No GENESIS_PRIVATE_KEY locally and COORDINATOR_API_KEY not set.")
-                click.echo("Ensure /etc/aitbc/blockchain.env contains COORDINATOR_API_KEY.")
+                click.echo("Ensure /etc/aitbc/blockchain-secrets.env contains COORDINATOR_API_KEY.")
                 return
             execute_url = f"{hub_url.rstrip('/')}/coin-requests/execute"
             click.echo(f"No local genesis key — forwarding execution to hub: {execute_url}")
