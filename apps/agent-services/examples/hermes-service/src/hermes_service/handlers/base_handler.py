@@ -29,7 +29,7 @@ class BaseHandler(ABC):
 
         try:
             response = requests.post(
-                f"{self.coordinator_url}/v1/hermes/messages/send",
+                f"{self.coordinator_url}/api/v1/agent/messages/send",
                 json={
                     "sender": self.agent_id,
                     "recipient": recipient,
