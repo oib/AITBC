@@ -25,6 +25,10 @@ nginx -v
 # Copy the AITBC nginx configuration
 sudo cp /opt/aitbc/deployment/nginx-aitbc.conf /etc/nginx/sites-available/aitbc
 
+# Edit server_name to match your hostname
+sudo vim /etc/nginx/sites-available/aitbc
+# Change server_name from "_" to your actual hostname (e.g., aitbc3.aitbc.bubuit.net)
+
 # Enable the site
 sudo ln -s /etc/nginx/sites-available/aitbc /etc/nginx/sites-enabled/aitbc
 

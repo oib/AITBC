@@ -69,6 +69,21 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Comprehensive documentation
 - ✅ Full test suite (all tests passing)
 
+### Port Architecture Reorganization (v0.4.3.4)
+- ✅ Public ports reorganized to contiguous range 8200-8204
+- ✅ Internal services consolidated to localhost-only range 8101-8105
+- ✅ API Gateway moved to port 8201 (nginx-proxied via /api/)
+- ✅ Blockchain P2P moved to port 8200 (direct access for P2P protocol)
+- ✅ Blockchain RPC on port 8202 (nginx-proxied via /rpc/)
+- ✅ Coordinator API on port 8203 (nginx-proxied via /c/)
+- ✅ Agent Registry added on port 8204 (nginx-proxied via /agent/)
+- ✅ Internal services (GPU, Marketplace, Trading, Governance, Hermes) on 8101-8105
+- ✅ Nginx reverse proxy configuration created
+- ✅ Incus port forwarding documentation updated
+- ✅ Firehol firewall configuration documentation updated
+- ✅ SERVICE_PORTS.md updated as authoritative port reference
+- ✅ Microservices migration status documentation updated
+
 ## 📋 Detailed Features
 
 ### Node Profiles
