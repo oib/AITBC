@@ -46,7 +46,7 @@ python -m apps.marketplace_service.main
 ```bash
 # Check service health
 curl http://localhost:8006/health  # Blockchain RPC
-curl http://localhost:8011/health  # Coordinator
+curl http://localhost:8203/health  # Coordinator
 curl http://localhost:8102/health  # Marketplace
 ```
 

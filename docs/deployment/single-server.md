@@ -71,7 +71,7 @@ systemctl start aitbc-marketplace
 ```nginx
 # /etc/nginx/sites-available/aitbc
 upstream coordinator {
-    server 127.0.0.1:8011;
+    server 127.0.0.1:8203;
 }
 
 upstream blockchain {

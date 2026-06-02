@@ -331,7 +331,7 @@ import httpx
 async def discover_gpus():
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "http://localhost:8011/v1/marketplace/resources",
+            "http://localhost:8203/v1/marketplace/resources",
             json={
                 "gpu_memory_min": 8,
                 "compute_type": "inference",
@@ -349,7 +349,7 @@ async def discover_gpus():
 async def submit_bid(gpu_id, duration_hours, price_per_hour):
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "http://localhost:8011/v1/marketplace/bid",
+            "http://localhost:8203/v1/marketplace/bid",
             json={
                 "gpu_id": gpu_id,
                 "duration_hours": duration_hours,
@@ -367,7 +367,7 @@ async def submit_bid(gpu_id, duration_hours, price_per_hour):
 async def get_reputation(agent_id):
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"http://localhost:8011/v1/marketplace/reputation/{agent_id}"
+            f"http://localhost:8203/v1/marketplace/reputation/{agent_id}"
         )
         return response.json()  # Trust score and reputation metrics
 ```
@@ -379,7 +379,7 @@ async def get_reputation(agent_id):
 async def get_market_pricing():
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            "http://localhost:8011/v1/marketplace/pricing"
+            "http://localhost:8203/v1/marketplace/pricing"
         )
         return response.json()  # Real-time pricing data
 ```

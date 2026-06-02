@@ -26,13 +26,13 @@ This document defines the infrastructure requirements, service configuration, an
 
 | Service | Port | Purpose | Status |
 |---------|------|---------|--------|
-| Coordinator API | 8011 | Job management | Required |
+| Coordinator API | 8203 | Job management | Required |
 | Blockchain Node | 8080 | Blockchain RPC | Required |
 | Wallet Daemon | 8081 | Wallet management | Required |
 | GPU Miner | - | Job processing | Required |
 | Marketplace | 8102 | Service marketplace | Required |
 | Exchange | 8082 | Trading platform | Required |
-| Agent Coordinator | 8011 | Agent management | Required |
+| Agent Coordinator | 8203 | Agent management | Required |
 | PostgreSQL | 5432 | Database | Required |
 | Redis | 6379 | Cache | Required |
 
@@ -67,7 +67,7 @@ systemctl status aitbc-marketplace
 
 ```bash
 # Check coordinator API
-curl -s http://localhost:8011/v1/health
+curl -s http://localhost:8203/v1/health
 
 # Check blockchain node
 curl -s http://localhost:8080/v1/health
@@ -81,7 +81,7 @@ curl -s http://localhost:8102/v1/health
 ### Environment Variables
 ```bash
 # Coordinator API
-COORDINATOR_URL=http://localhost:8011
+COORDINATOR_URL=http://localhost:8203
 CLIENT_API_KEY=test-api-key
 ADMIN_API_KEY=test-admin-key
 

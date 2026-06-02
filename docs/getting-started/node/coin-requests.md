@@ -50,7 +50,7 @@ curl -s http://localhost:8006/rpc/account/<your-address>
 Send a REQUEST_COINS message to the hub:
 
 ```bash
-curl -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send" \
+curl -X POST "http://localhost:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "<your-agent-id>",
@@ -63,7 +63,7 @@ curl -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send" \
 
 **Example:**
 ```bash
-curl -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send" \
+curl -X POST "http://localhost:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "my-node",

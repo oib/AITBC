@@ -98,7 +98,7 @@ Ensure your firewall allows the following ports:
 
 ### Required Ports
 - **Outbound**: Port 8006 to hub.aitbc.bubuit.net (blockchain RPC)
-- **Outbound**: Port 8011 to hub.aitbc.bubuit.net (Hermes coordinator)
+- **Outbound**: Port 8203 to hub.aitbc.bubuit.net (Hermes coordinator)
 - **Inbound**: Port 8006 (your blockchain RPC)
 - **Inbound**: Port 7070 (P2P)
 
@@ -107,7 +107,7 @@ Ensure your firewall allows the following ports:
 ```bash
 # Allow outbound to hub
 ufw allow out to hub.aitbc.bubuit.net port 8006
-ufw allow out to hub.aitbc.bubuit.net port 8011
+ufw allow out to hub.aitbc.bubuit.net port 8203
 
 # Allow inbound RPC
 ufw allow 8006/tcp

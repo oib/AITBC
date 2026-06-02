@@ -97,7 +97,7 @@ curl -s http://localhost:8001/health
 
 # Test service connectivity
 curl -s http://localhost:8006/health
-curl -s http://localhost:8011/health
+curl -s http://localhost:8203/health
 ```
 
 ## 🔍 **Troubleshooting**
@@ -141,7 +141,7 @@ source /opt/aitbc/venv/bin/activate
 ```bash
 # Check service endpoints
 curl -s http://localhost:8006/health
-curl -s http://localhost:8011/health
+curl -s http://localhost:8203/health
 curl -s http://localhost:8102/health
 
 # Check service status

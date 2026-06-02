@@ -415,7 +415,7 @@ aitbc ai --help
 
 The CLI uses `/etc/aitbc/.env` for configuration. Key settings include:
 
-- Coordinator API URL: `http://localhost:8011`
+- Coordinator API URL: `http://localhost:8203`
 - Blockchain RPC: `http://localhost:8006`
 - Wallet Daemon: `http://localhost:8015`
 

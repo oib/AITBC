@@ -12,7 +12,7 @@ This document illustrates the complete flow of a job submission through the CLI 
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   CLI       │     │   Client     │     │Coordinator  │     │  Blockchain │     │   Miner     │     │   Ollama    │
 │  Wrapper    │────▶│   Python     │────▶│   Service   │────▶│    Node     │────▶│  Daemon     │────▶│   Server    │
-│(aitbc-cli.sh)│     │  (client.py) │     │  (port 8011) │     │ (RPC:8006) │     │ (port 8005) │     │ (port 11434)│
+│(aitbc-cli.sh)│     │  (client.py) │     │  (port 8203) │     │ (RPC:8006) │     │ (port 8005) │     │ (port 11434)│
 └─────────────┘     └──────────────┘     └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
 ```
 
@@ -28,7 +28,7 @@ This document illustrates the complete flow of a job submission through the CLI 
 **Internal Process:**
 1. Bash script (`aitbc-cli.sh`) parses arguments
 2. Sets environment variables:
-   - `AITBC_URL=http://127.0.0.1:8011`
+   - `AITBC_URL=http://127.0.0.1:8203`
    - `CLIENT_KEY=${CLIENT_API_KEY}`
 3. Calls Python client: `python3 cli/client.py --url $AITBC_URL --api-key $CLIENT_KEY submit inference --prompt "..."`
 
@@ -54,7 +54,7 @@ This document illustrates the complete flow of a job submission through the CLI 
 **HTTP Request:**
 ```http
 POST /v1/jobs
-Host: 127.0.0.1:8011
+Host: 127.0.0.1:8203
 Content-Type: application/json
 X-Api-Key: ${CLIENT_API_KEY}
 
@@ -65,7 +65,7 @@ X-Api-Key: ${CLIENT_API_KEY}
 }
 ```
 
-**Coordinator Service (Port 8011):**
+**Coordinator Service (Port 8203):**
 1. Receives HTTP request
 2. Validates API key and job parameters
 3. Generates unique job ID: `job_123456`
@@ -182,10 +182,10 @@ Content-Type: application/json
 
 ### 8. Result Submission to Coordinator
 
-**Miner → Coordinator (Port 8011):**
+**Miner → Coordinator (Port 8203):**
 ```http
 POST /v1/jobs/job_123456/complete
-Host: 127.0.0.1:8011
+Host: 127.0.0.1:8203
 Content-Type: application/json
 X-Miner-Key: ${MINER_API_KEY}
 
@@ -247,7 +247,7 @@ X-Miner-Key: ${MINER_API_KEY}
 **HTTP Request:**
 ```http
 GET /v1/jobs/job_123456
-Host: 127.0.0.1:8011
+Host: 127.0.0.1:8203
 X-Api-Key: ${CLIENT_API_KEY}
 ```
 
@@ -280,7 +280,7 @@ Cost: 0.25 AITBC
 |-----------|------|----------|----------------|
 | CLI Wrapper | N/A | Bash | User interface, argument parsing |
 | Client Python | N/A | Python | HTTP client, job formatting |
-| Coordinator | 8011 | HTTP/REST | Job management, API gateway |
+| Coordinator | 8203 | HTTP/REST | Job management, API gateway |
 | Blockchain Node | 8006 | JSON-RPC | Transaction processing, consensus |
 | Miner Daemon | 8005 | HTTP/REST | Job execution, GPU management |
 | Ollama Server | 11434 | HTTP/REST | AI model inference |
@@ -290,7 +290,7 @@ Cost: 0.25 AITBC
 ```
 0s: User submits CLI command
 └─> 0.1s: Python client called
-   └─> 0.2s: HTTP POST to Coordinator (port 8011)
+   └─> 0.2s: HTTP POST to Coordinator (port 8203)
       └─> 0.3s: Coordinator validates and creates job
          └─> 0.4s: RPC to Blockchain (port 8006)
             └─> 0.5s: Transaction in mempool
@@ -337,4 +337,4 @@ Cost: 0.25 AITBC
 - Coordinator logs all API calls to `/var/log/aitbc/coordinator.log`
 - Miner logs GPU utilization to `/var/log/aitbc/miner.log`
 - Blockchain logs all transactions to `/var/log/aitbc/node.log`
-- Prometheus metrics available at `http://localhost:8011/metrics`
+- Prometheus metrics available at `http://localhost:8203/metrics`

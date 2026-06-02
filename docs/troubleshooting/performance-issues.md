@@ -12,7 +12,7 @@ This guide covers performance problems including slow API responses, high latenc
 **Diagnosis:**
 ```bash
 # Measure response time
-time curl http://localhost:8011/v1/jobs
+time curl http://localhost:8203/v1/jobs
 
 # Check database query times
 psql -d aitbc -c "SELECT * FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;"

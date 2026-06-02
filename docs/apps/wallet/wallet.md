@@ -15,7 +15,7 @@ Local FastAPI service that manages encrypted keys, signs transactions/receipts, 
   ```bash
   cp .env.example .env  # create file if missing
   ```
-  - `COORDINATOR_BASE_URL` (default `http://localhost:8011`)
+  - `COORDINATOR_BASE_URL` (default `http://localhost:8203`)
   - `COORDINATOR_API_KEY` (development key to verify receipts)
 - Run the service locally:
   ```bash

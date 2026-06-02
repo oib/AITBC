@@ -13,7 +13,7 @@ CHAIN_ID=ait-hub.aitbc.bubuit.net
 NODE_ROLE=follower
 
 # Hermes Configuration
-HERMES_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8011
+HERMES_COORDINATOR_URL=http://localhost:8203
 HERMES_AGENT_ID=<your-agent-id>
 ```
 
@@ -59,7 +59,7 @@ systemctl status aitbc-agent-daemon
 journalctl -u aitbc-agent-daemon -f
 
 # Verify coordinator connectivity
-curl -s http://hub.aitbc.bubuit.net:8011/health
+curl -s http://localhost:8203/health
 ```
 
 ## See Also

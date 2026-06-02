@@ -229,7 +229,7 @@ spec:
           app: ingress-nginx
     ports:
     - protocol: TCP
-      port: 8011
+      port: 8203
 ```
 
 ## Security Best Practices

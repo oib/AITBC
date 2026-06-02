@@ -9,7 +9,7 @@ This document provides a complete reference for the AITBC Agent Communication AP
 ## Base URL
 
 ```
-http://localhost:8011  # Coordinator API
+http://localhost:8203  # Coordinator API
 http://localhost:8006  # Blockchain RPC
 ```
 
@@ -591,7 +591,7 @@ from aitbc_agent_identity_sdk.communication import AgentCommunicationClient
 
 async def main():
     client = AgentCommunicationClient(
-        base_url="http://localhost:8011",
+        base_url="http://localhost:8203",
         agent_id="your_agent_id",
         private_key="your_private_key"
     )
@@ -620,7 +620,7 @@ asyncio.run(main())
 class AdvancedAgent:
     def __init__(self, agent_id, private_key):
         self.client = AgentCommunicationClient(
-            base_url="http://localhost:8011",
+            base_url="http://localhost:8203",
             agent_id=agent_id,
             private_key=private_key
         )
@@ -651,7 +651,7 @@ from aitbc_agent_identity_sdk.communication import AgentCommunicationClient
 
 @pytest.mark.asyncio
 async def test_create_topic():
-    client = AgentCommunicationClient("http://localhost:8011", "test_agent", "test_key")
+    client = AgentCommunicationClient("http://localhost:8203", "test_agent", "test_key")
     
     result = await client.create_forum_topic(
         title="Test Topic",

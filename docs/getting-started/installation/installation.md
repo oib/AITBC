@@ -93,7 +93,7 @@ systemctl enable --now aitbc-blockchain-node
 
 ```bash
 systemctl status aitbc-coordinator-api
-curl http://localhost:8011/health
+curl http://localhost:8203/health
 aitbc blockchain status
 ```
 
@@ -101,7 +101,7 @@ aitbc blockchain status
 
 | Problem | Fix |
 |---------|-----|
-| Port in use | `lsof -i :8011` then `kill` the PID |
+| Port in use | `lsof -i :8203` then `kill` the PID |
 | DB corrupt | `rm -f data/coordinator.db && python -m app.storage init` |
 | Module not found | Ensure venv is active: `source .venv/bin/activate` |
 

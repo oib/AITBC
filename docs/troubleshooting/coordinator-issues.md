@@ -18,7 +18,7 @@ journalctl -u aitbc-coordinator-api -n 100 | grep -i error
 psql -d aitbc -c "SELECT 1;"
 
 # Check health endpoint
-curl http://localhost:8011/health
+curl http://localhost:8203/health
 ```
 
 **Solutions:**
@@ -57,10 +57,10 @@ systemctl restart redis
 ```bash
 # Check job status
 curl -H "X-Api-Key: $API_KEY" \
-  http://localhost:8011/v1/jobs/{job_id}
+  http://localhost:8203/v1/jobs/{job_id}
 
 # Check miner availability
-curl http://localhost:8011/v1/miners
+curl http://localhost:8203/v1/miners
 
 # Check logs
 journalctl -u aitbc-coordinator-api -n 50
@@ -70,10 +70,10 @@ journalctl -u aitbc-coordinator-api -n 50
 1. Check miner registration
 ```bash
 # Verify miners are registered
-curl http://localhost:8011/v1/miners
+curl http://localhost:8203/v1/miners
 
 # Register miner if needed
-curl -X POST http://localhost:8011/v1/miners/register \
+curl -X POST http://localhost:8203/v1/miners/register \
   -H "Content-Type: application/json" \
   -d '{"miner_id": "miner-123", "gpu_type": "nvidia-rtx-3090"}'
 ```
@@ -82,13 +82,13 @@ curl -X POST http://localhost:8011/v1/miners/register \
 ```bash
 # Verify job constraints can be satisfied
 curl -H "X-Api-Key: $API_KEY" \
-  http://localhost:8011/v1/jobs/{job_id} | jq '.constraints'
+  http://localhost:8203/v1/jobs/{job_id} | jq '.constraints'
 ```
 
 3. Increase job TTL
 ```bash
 # Resubmit with longer TTL
-curl -X POST http://localhost:8011/v1/jobs \
+curl -X POST http://localhost:8203/v1/jobs \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: $API_KEY" \
   -d '{"payload": {...}, "ttl_seconds": 3600}'

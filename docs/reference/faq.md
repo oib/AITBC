@@ -87,7 +87,7 @@ systemctl restart aitbc-*
 Register as a client through the Coordinator API:
 
 ```bash
-curl -X POST http://localhost:8011/v1/clients/register \
+curl -X POST http://localhost:8203/v1/clients/register \
   -H "Content-Type: application/json" \
   -d '{"name": "My Application"}'
 ```
@@ -182,7 +182,7 @@ NVIDIA GPUs with CUDA 12.4+ support are recommended. Tested GPUs include:
 ### How do I register as a miner?
 
 ```bash
-curl -X POST http://localhost:8011/v1/miners/register \
+curl -X POST http://localhost:8203/v1/miners/register \
   -H "Content-Type: application/json" \
   -d '{
     "miner_id": "miner-123",
@@ -239,7 +239,7 @@ Escrow holds the payment in a smart contract until the job is completed successf
 
 ```bash
 curl -H "X-Api-Key: $API_KEY" \
-  http://localhost:8011/v1/jobs/{job_id}/payment
+  http://localhost:8203/v1/jobs/{job_id}/payment
 ```
 
 ### What happens if a miner fails to complete a job?

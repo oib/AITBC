@@ -9,7 +9,7 @@ This guide covers health checks and monitoring for AITBC deployment.
 curl http://localhost:8006/health
 
 # Check coordinator API health
-curl http://localhost:8011/health
+curl http://localhost:8203/health
 
 # Check marketplace service health
 curl http://localhost:8102/health

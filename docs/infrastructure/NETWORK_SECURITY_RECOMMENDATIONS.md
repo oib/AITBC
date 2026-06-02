@@ -9,8 +9,8 @@ This document provides network security recommendations for AITBC deployments. T
 
 AITBC services run on the following ports:
 - **8006** - Blockchain Node RPC
-- **8011** - Coordinator API
-- **8014** - Hermes Service
+- **8203** - Coordinator API
+- **8105** - Hermes Service
 - **7070** - P2P Bind Port
 - **5173** - Marketplace Web UI (development only)
 
@@ -32,8 +32,8 @@ sudo ufw allow 22/tcp
 
 # Allow AITBC services
 sudo ufw allow 8006/tcp  # Blockchain Node RPC
-sudo ufw allow 8011/tcp  # Coordinator API
-sudo ufw allow 8014/tcp  # Hermes Service
+sudo ufw allow 8203/tcp  # Coordinator API
+sudo ufw allow 8105/tcp  # Hermes Service
 sudo ufw allow 7070/tcp  # P2P Bind Port
 
 # Enable firewall
@@ -52,10 +52,10 @@ sudo ufw allow from 192.168.1.0/24 to any port 22
 sudo ufw allow from 10.0.0.0/8 to any port 8006
 
 # Allow Coordinator API from application servers
-sudo ufw allow from 10.0.1.0/24 to any port 8011
+sudo ufw allow from 10.0.1.0/24 to any port 8203
 
 # Allow Hermes Service from agent servers
-sudo ufw allow from 10.0.2.0/24 to any port 8014
+sudo ufw allow from 10.0.2.0/24 to any port 8105
 
 # Allow P2P from blockchain network
 sudo ufw allow from 10.0.0.0/8 to any port 7070
@@ -66,8 +66,8 @@ sudo ufw allow from 10.0.0.0/8 to any port 7070
 ```bash
 # Add AITBC services
 sudo firewall-cmd --permanent --add-port=8006/tcp
-sudo firewall-cmd --permanent --add-port=8011/tcp
-sudo firewall-cmd --permanent --add-port=8014/tcp
+sudo firewall-cmd --permanent --add-port=8203/tcp
+sudo firewall-cmd --permanent --add-port=8105/tcp
 sudo firewall-cmd --permanent --add-port=7070/tcp
 
 # Reload firewall
@@ -80,7 +80,7 @@ sudo firewall-cmd --reload
 
 AITBC services should be configured with TLS in production:
 
-**Coordinator API (8011):**
+**Coordinator API (8203):**
 - Use reverse proxy (nginx/apache) with TLS termination
 - Configure valid SSL certificates
 - Enforce HTTPS only
@@ -91,7 +91,7 @@ AITBC services should be configured with TLS in production:
 - Configure client certificate authentication
 - Disable HTTP in production
 
-**Hermes Service (8014):**
+**Hermes Service (8105):**
 - Enable TLS for agent communication
 - Use mutual TLS for agent authentication
 
@@ -111,7 +111,7 @@ server {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     location / {
-        proxy_pass http://localhost:8011;
+        proxy_pass http://localhost:8203;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -133,7 +133,7 @@ limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
 server {
     location / {
         limit_req zone=api_limit burst=20 nodelay;
-        proxy_pass http://localhost:8011;
+        proxy_pass http://localhost:8203;
     }
 }
 ```
@@ -154,7 +154,7 @@ sudo apt install fail2ban
 # Configure /etc/fail2ban/jail.local
 [aitbc-api]
 enabled = true
-port = 8011
+port = 8203
 filter = aitbc-api
 logpath = /var/log/aitbc/coordinator-api.log
 maxretry = 5

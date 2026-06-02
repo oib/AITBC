@@ -132,10 +132,10 @@ cd /opt/aitbc/apps/coordinator-api
 | Service | Port | Description | Resources | Status |
 |---------|------|-------------|------------|--------|
 | Multi-Modal Agent | 8010 | Text, image, audio, video processing | 2GB RAM, 200% CPU | ✅ |
-| GPU Multi-Modal | 8011 | CUDA-optimized attention mechanisms | 4GB RAM, 300% CPU | ✅ |
+| GPU Multi-Modal | 8105 | CUDA-optimized attention mechanisms | 4GB RAM, 300% CPU | ✅ |
 | Modality Optimization | 8012 | Specialized optimization strategies | 1GB RAM, 150% CPU | ✅ |
 | Adaptive Learning | 8013 | Reinforcement learning frameworks | 3GB RAM, 250% CPU | ✅ |
-| Enhanced Marketplace | 8014 | Royalties, licensing, verification | 2GB RAM, 200% CPU | ✅ |
+| Enhanced Marketplace | 8102 | Royalties, licensing, verification | 2GB RAM, 200% CPU | ✅ |
 | hermes Enhanced | 8015 | Agent orchestration, edge computing | 2GB RAM, 200% CPU | ✅ |
 | Web UI Service | 8016 | Web interface for all services | 1GB RAM, 100% CPU | ✅ |
 | Geographic Load Balancer | 8017 | Geographic distribution | 1GB RAM, 100% CPU | ✅ |
@@ -144,10 +144,10 @@ cd /opt/aitbc/apps/coordinator-api
 ```bash
 # Check all services
 curl http://localhost:8010/health  # Multi-Modal
-curl http://localhost:8011/health  # GPU Multi-Modal
+curl http://localhost:8105/health  # GPU Multi-Modal (Hermes)
 curl http://localhost:8012/health  # Modality Optimization
 curl http://localhost:8013/health  # Adaptive Learning
-curl http://localhost:8014/health  # Enhanced Marketplace
+curl http://localhost:8102/health  # Enhanced Marketplace
 curl http://localhost:8015/health  # hermes Enhanced
 curl http://localhost:8016/health  # Web UI Service
 curl http://localhost:8017/health  # Geographic Load Balancer
@@ -178,7 +178,7 @@ curl -X POST http://localhost:8010/process \
 ### 3. GPU Performance Test
 ```bash
 # Test GPU multi-modal service
-curl -X POST http://localhost:8011/process \
+curl -X POST http://localhost:8105/process \
   -H "Content-Type: application/json" \
   -d '{"modality": "text", "input": "GPU accelerated test", "use_gpu": true}'
 ```

@@ -65,7 +65,7 @@ Configure Python interpreter and enable Docker integration.
 Create `.env` file:
 ```bash
 AITBC_API_KEY=your_dev_key
-AITBC_BASE_URL=http://localhost:8011
+AITBC_BASE_URL=http://localhost:8203
 AITBC_NETWORK=testnet
 ```
 

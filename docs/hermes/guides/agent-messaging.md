@@ -8,7 +8,7 @@
 - Agent commands are available in the legacy CLI (unified_cli.py)
 
 **Available Messaging Services:**
-1. **Hermes Service (port 8014)**: Agent messaging and orchestration
+1. **Hermes Service (port 8105)**: Agent messaging and orchestration
    - `POST /v1/hermes/messages/send` - Send messages between agents
    - `POST /v1/hermes/agents/register` - Register agents with the coordinator
    - Agent collaboration
@@ -36,7 +36,7 @@ This guide covers agent-to-agent messaging on the AITBC network using the Coordi
 For communication between nodes (e.g., aitbc3 ↔ hub):
 
 ```
-1. aitbc3 → POST to http://hub.aitbc.bubuit.net:8014/v1/hermes/messages/send
+1. aitbc3 → POST to http://hub.aitbc.bubuit.net:8105/v1/hermes/messages/send
    → Message stored in hub's Hermes Service memory
 
 2. Hub listener polls hub's local hermes service
@@ -44,7 +44,7 @@ For communication between nodes (e.g., aitbc3 ↔ hub):
    → Sends response (e.g., PONG)
    → Response stored in hub's Hermes Service memory
 
-3. aitbc3 polls http://hub.aitbc.bubuit.net:8014/v1/hermes/messages/owl-aitbc3
+3. aitbc3 polls http://hub.aitbc.bubuit.net:8105/v1/hermes/messages/owl-aitbc3
    → Retrieves response from hub's memory
 ```
 
@@ -52,7 +52,7 @@ For communication between nodes (e.g., aitbc3 ↔ hub):
 
 ## Prerequisites
 
-- Coordinator API accessible (default port 8011)
+- Coordinator API accessible (default port 8203)
 - Agent registered on the target Coordinator API
 - Network connectivity between nodes
 
@@ -67,11 +67,11 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent create
   --wallet <WALLET_NAME>
 ```
 
-### Option 2: Direct API (Coordinator API - Port 8011)
+### Option 2: Direct API (Coordinator API - Port 8203)
 
 ```bash
 # Register agent via Coordinator API
-curl -s -X POST "http://<COORDINATOR_HOST>:8011/v1/hermes/agents/register" \
+curl -s -X POST "http://<COORDINATOR_HOST>:8203/v1/hermes/agents/register" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "<AGENT_ID>",
@@ -82,7 +82,7 @@ curl -s -X POST "http://<COORDINATOR_HOST>:8011/v1/hermes/agents/register" \
 
 **Example:**
 ```bash
-curl -s -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/agents/register" \
+curl -s -X POST "http://localhost:8203/v1/hermes/agents/register" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "owl-aitbc3",
@@ -105,11 +105,11 @@ HUB_AGENT_ID=$(NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/ait
   --output json | jq -r ".[] | select(.name==\"hub-coordinator\") | .id")
 ```
 
-### Option 2: Direct API (Coordinator API - Port 8011)
+### Option 2: Direct API (Coordinator API - Port 8203)
 
 ```bash
 # List agents via Coordinator API
-curl -s -X GET "http://localhost:8011/v1/hermes/agents" \
+curl -s -X GET "http://localhost:8203/v1/hermes/agents" \
   -H "Content-Type: application/json"
 ```
 
@@ -144,11 +144,11 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
   --wallet hermes-agent
 ```
 
-### Option 2: Direct API (Coordinator API - Port 8011)
+### Option 2: Direct API (Coordinator API - Port 8203)
 
 ```bash
 # Send message via Coordinator API
-curl -s -X POST "http://<COORDINATOR_HOST>:8011/v1/hermes/messages/send" \
+curl -s -X POST "http://<COORDINATOR_HOST>:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "<YOUR_AGENT_ID>",
@@ -161,7 +161,7 @@ curl -s -X POST "http://<COORDINATOR_HOST>:8011/v1/hermes/messages/send" \
 
 **Example (Local):**
 ```bash
-curl -s -X POST "http://localhost:8011/v1/hermes/messages/send" \
+curl -s -X POST "http://localhost:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "local-agent",
@@ -173,7 +173,7 @@ curl -s -X POST "http://localhost:8011/v1/hermes/messages/send" \
 
 **Example (Cross-Node):**
 ```bash
-curl -s -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send" \
+curl -s -X POST "http://localhost:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "owl-aitbc3",
@@ -183,11 +183,11 @@ curl -s -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send" \
   }'
 ```
 
-### Option 3: Direct API (Hermes Service - Port 8014)
+### Option 3: Direct API (Hermes Service - Port 8105)
 
 ```bash
 # Send message via Hermes Service (for collaboration/coordination)
-curl -s -X POST "http://localhost:8014/api/v1/messages/send" \
+curl -s -X POST "http://localhost:8105/api/v1/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "<YOUR_AGENT_ID>",
@@ -211,21 +211,21 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
 ```
 
 <<<<<<< HEAD
-### Option 2: Direct API (Coordinator API - Port 8011)
+### Option 2: Direct API (Coordinator API - Port 8203)
 
 ```bash
 # Retrieve messages via Coordinator API
-curl -s "http://<COORDINATOR_HOST>:8011/v1/hermes/messages/<YOUR_AGENT_ID>"
+curl -s "http://<COORDINATOR_HOST>:8203/v1/hermes/messages/<YOUR_AGENT_ID>"
 ```
 
 **Example (Local):**
 ```bash
-curl -s "http://localhost:8011/v1/hermes/messages/local-agent"
+curl -s "http://localhost:8203/v1/hermes/messages/local-agent"
 ```
 
 **Example (Cross-Node):**
 ```bash
-curl -s "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/owl-aitbc3"
+curl -s "http://localhost:8203/v1/hermes/messages/owl-aitbc3"
 ```
 
 **Response:**
@@ -246,11 +246,11 @@ curl -s "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/owl-aitbc3"
 }
 ```
 
-### Option 3: Direct API (Hermes Service - Port 8014)
+### Option 3: Direct API (Hermes Service - Port 8105)
 
 ```bash
 # Retrieve messages via Hermes Service
-curl -s -X GET "http://localhost:8014/api/v1/messages/<YOUR_AGENT_ID>" \
+curl -s -X GET "http://localhost:8105/api/v1/messages/<YOUR_AGENT_ID>" \
   -H "Content-Type: application/json"
 ```
 
@@ -266,7 +266,7 @@ Edit the systemd service or environment file:
 # Enable Hermes polling in aitbc-agent-daemon.service
 ENABLE_HERMES_POLLING=true
 HERMES_AGENT_IDS=hub-coordinator,aitbc3-agent
-HERMES_COORDINATOR_URL=http://localhost:8011
+HERMES_COORDINATOR_URL=http://localhost:8203
 ```
 
 Then restart the service:
@@ -282,7 +282,7 @@ For testing or standalone operation, run the daemon directly:
 
 ```bash
 /opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/scripts/hermes_polling_daemon.py \
-  --coordinator-url http://localhost:8011 \
+  --coordinator-url http://localhost:8203 \
   --agent-id your-agent-id \
   --poll-interval 2 \
   --log-level INFO
@@ -303,7 +303,7 @@ For simple polling without the daemon, use a bash script:
 #!/bin/bash
 # Agent listener script
 AGENT_ID="your-agent-id"
-COORDINATOR_URL="http://hub.aitbc.bubuit.net:8011"
+COORDINATOR_URL="http://localhost:8203"
 
 echo "Starting listener for $AGENT_ID on $COORDINATOR_URL"
 
@@ -411,38 +411,38 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent messag
 
 ```bash
 # Register two agents
-curl -s -X POST "http://localhost:8011/v1/hermes/agents/register" \
+curl -s -X POST "http://localhost:8203/v1/hermes/agents/register" \
   -H "Content-Type: application/json" \
   -d '{"agent_id":"agent-a","public_key":"0x123...","capabilities":[]}'
 
-curl -s -X POST "http://localhost:8011/v1/hermes/agents/register" \
+curl -s -X POST "http://localhost:8203/v1/hermes/agents/register" \
   -H "Content-Type: application/json" \
   -d '{"agent_id":"agent-b","public_key":"0x456...","capabilities":[]}'
 
 # Send message
-curl -s -X POST "http://localhost:8011/v1/hermes/messages/send" \
+curl -s -X POST "http://localhost:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{"sender":"agent-a","recipient":"agent-b","content":"Hello","message_type":"TEXT"}'
 
 # Retrieve message
-curl -s "http://localhost:8011/v1/hermes/messages/agent-b"
+curl -s "http://localhost:8203/v1/hermes/messages/agent-b"
 ```
 
 ### Test 4: Cross-Node Messaging (API)
 
 ```bash
 # Register on remote coordinator
-curl -s -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/agents/register" \
+curl -s -X POST "http://localhost:8203/v1/hermes/agents/register" \
   -H "Content-Type: application/json" \
   -d '{"agent_id":"remote-agent","public_key":"0x789...","capabilities":[]}'
 
 # Send PING to hub
-curl -s -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send" \
+curl -s -X POST "http://localhost:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{"sender":"remote-agent","recipient":"hub-coordinator","content":"PING","message_type":"TEXT"}'
 
 # Poll for response
-curl -s "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/remote-agent"
+curl -s "http://localhost:8203/v1/hermes/messages/remote-agent"
 ```
 
 ## Troubleshooting
@@ -451,10 +451,10 @@ curl -s "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/remote-agent"
 
 ```bash
 # Check if Coordinator API is running
-curl http://<COORDINATOR_HOST>:8011/health
+curl http://<COORDINATOR_HOST>:8203/health
 
 # Check if port is accessible
-telnet <COORDINATOR_HOST> 8011
+telnet <COORDINATOR_HOST> 8203
 ```
 
 ### Message Not Delivered (CLI)
@@ -475,10 +475,10 @@ curl http://hub.aitbc.bubuit.net:8006/health
 
 ```bash
 # Verify agent is registered (API)
-curl -s "http://<COORDINATOR_HOST>:8011/v1/hermes/agents" | jq '.agents[]'
+curl -s "http://<COORDINATOR_HOST>:8203/v1/hermes/agents" | jq '.agents[]'
 
 # Check message count (API)
-curl -s "http://<COORDINATOR_HOST>:8011/v1/hermes/messages/<AGENT_ID>" | jq '.count'
+curl -s "http://<COORDINATOR_HOST>:8203/v1/hermes/messages/<AGENT_ID>" | jq '.count'
 
 # Verify your agent is registered (CLI)
 NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent list \
@@ -496,7 +496,7 @@ NODE_URL=http://hub.aitbc.bubuit.net:8006 /opt/aitbc/venv/bin/aitbc agent status
 ping hub.aitbc.bubuit.net
 
 # Check if remote port is accessible
-curl http://hub.aitbc.bubuit.net:8011/health
+curl http://localhost:8203/health
 
 # Verify you're polling the correct coordinator
 # For replies from hub, poll hub's coordinator, not local

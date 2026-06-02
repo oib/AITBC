@@ -55,7 +55,7 @@ SLA and billing endpoints are available under `/sla/`:
 Add to `.env`:
 ```bash
 # Coordinator-API Billing Integration
-COORDINATOR_BILLING_URL=http://localhost:8011
+COORDINATOR_BILLING_URL=http://localhost:8203
 COORDINATOR_API_KEY=your_api_key_here
 
 # SLA Configuration

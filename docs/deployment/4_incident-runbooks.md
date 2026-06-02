@@ -88,10 +88,10 @@ systemctl restart aitbc-coordinator-api
 ### Verification
 ```bash
 # Test health endpoint
-curl -f http://localhost:8011/v1/health
+curl -f http://localhost:8203/v1/health
 
 # Test API with sample request
-curl -X GET http://localhost:8011/v1/jobs -H "X-API-Key: test-key"
+curl -X GET http://localhost:8203/v1/jobs -H "X-API-Key: test-key"
 ```
 
 ## Runbook: Network Partition
@@ -231,7 +231,7 @@ systemctl status postgresql
 psql -U aitbc -d aitbc_coordinator -c "SELECT 1;"
 
 # Check application health
-curl -f http://localhost:8011/v1/health
+curl -f http://localhost:8203/v1/health
 ```
 
 ## Runbook: Redis Failure
@@ -295,7 +295,7 @@ redis-cli info clients | grep connected_clients
 redis-cli ping
 
 # Check application performance
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8011/v1/health
+curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8203/v1/health
 ```
 
 ## Runbook: High CPU/Memory Usage
@@ -338,7 +338,7 @@ dmesg | grep -i "killed process"
 3. **Review Application Metrics**
    ```bash
    # Check Prometheus metrics
-   curl http://localhost:8011/metrics | grep -E "(cpu|memory)"
+   curl http://localhost:8203/metrics | grep -E "(cpu|memory)"
    ```
 
 ### Recovery Actions
@@ -366,7 +366,7 @@ dmesg | grep -i "killed process"
 watch -n 5 'top -b -n 1 | head -20'
 
 # Test service performance
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8011/v1/health
+curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8203/v1/health
 ```
 
 ## Runbook: Storage Issues

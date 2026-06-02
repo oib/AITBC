@@ -15,7 +15,7 @@ Hermes agents now have enhanced autonomy capabilities:
 
 ## API Endpoints
 
-All endpoints are available at `http://localhost:8011/v1/hermes/*` and require admin API key authentication via the `X-Api-Key` header.
+All endpoints are available at `http://localhost:8203/v1/hermes/*` and require admin API key authentication via the `X-Api-Key` header.
 
 ### Distributed Decision Making
 
@@ -438,7 +438,7 @@ Get allocations with optional filtering.
 
 ```bash
 # Propose a decision
-curl -X POST http://localhost:8011/v1/hermes/decision/propose \
+curl -X POST http://localhost:8203/v1/hermes/decision/propose \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -452,7 +452,7 @@ curl -X POST http://localhost:8011/v1/hermes/decision/propose \
   }'
 
 # Submit a vote
-curl -X POST http://localhost:8011/v1/hermes/decision/vote \
+curl -X POST http://localhost:8203/v1/hermes/decision/vote \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -464,7 +464,7 @@ curl -X POST http://localhost:8011/v1/hermes/decision/vote \
   }'
 
 # Check decision result
-curl -X GET http://localhost:8011/v1/hermes/decision/uuid-from-proposal \
+curl -X GET http://localhost:8203/v1/hermes/decision/uuid-from-proposal \
   -H "X-Api-Key: YOUR_API_KEY"
 ```
 
@@ -472,7 +472,7 @@ curl -X GET http://localhost:8011/v1/hermes/decision/uuid-from-proposal \
 
 ```bash
 # Report health status
-curl -X POST http://localhost:8011/v1/hermes/health/report \
+curl -X POST http://localhost:8203/v1/hermes/health/report \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -484,7 +484,7 @@ curl -X POST http://localhost:8011/v1/hermes/health/report \
   }'
 
 # Report error
-curl -X POST http://localhost:8011/v1/hermes/health/error \
+curl -X POST http://localhost:8203/v1/hermes/health/error \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -497,7 +497,7 @@ curl -X POST http://localhost:8011/v1/hermes/health/error \
   }'
 
 # Check recovery history
-curl -X GET "http://localhost:8011/v1/hermes/health/recovery-history?agent_id=agent-123" \
+curl -X GET "http://localhost:8203/v1/hermes/health/recovery-history?agent_id=agent-123" \
   -H "X-Api-Key: YOUR_API_KEY"
 ```
 
@@ -505,7 +505,7 @@ curl -X GET "http://localhost:8011/v1/hermes/health/recovery-history?agent_id=ag
 
 ```bash
 # Register a GPU resource
-curl -X POST http://localhost:8011/v1/hermes/resource/register \
+curl -X POST http://localhost:8203/v1/hermes/resource/register \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -518,7 +518,7 @@ curl -X POST http://localhost:8011/v1/hermes/resource/register \
   }'
 
 # Allocate resources
-curl -X POST http://localhost:8011/v1/hermes/resource/allocate \
+curl -X POST http://localhost:8203/v1/hermes/resource/allocate \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -531,7 +531,7 @@ curl -X POST http://localhost:8011/v1/hermes/resource/allocate \
   }'
 
 # Release resources
-curl -X POST http://localhost:8011/v1/hermes/resource/release \
+curl -X POST http://localhost:8203/v1/hermes/resource/release \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -540,7 +540,7 @@ curl -X POST http://localhost:8011/v1/hermes/resource/release \
   }'
 
 # Adjust pricing
-curl -X POST http://localhost:8011/v1/hermes/resource/pricing/adjust \
+curl -X POST http://localhost:8203/v1/hermes/resource/pricing/adjust \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: YOUR_API_KEY" \
   -d '{
@@ -548,7 +548,7 @@ curl -X POST http://localhost:8011/v1/hermes/resource/pricing/adjust \
   }'
 
 # View resource pools
-curl -X GET http://localhost:8011/v1/hermes/resource/pools \
+curl -X GET http://localhost:8203/v1/hermes/resource/pools \
   -H "X-Api-Key: YOUR_API_KEY"
 ```
 

@@ -40,7 +40,7 @@ Environment variables:
 - `BLOCKCHAIN_RPC_URL` - Blockchain RPC endpoint (default: `http://localhost:8006`)
 - `GOSSIP_BACKEND` - Gossip broker backend: `memory`, `broadcast`, or `redis` (default: `memory`)
 - `GOSSIP_BROADCAST_URL` - Broadcast URL for Redis backend (optional)
-- `COORDINATOR_API_URL` - Coordinator API endpoint (default: `http://localhost:8011`)
+- `COORDINATOR_API_URL` - Coordinator API endpoint (default: `http://localhost:8203`)
 - `COORDINATOR_API_KEY` - Coordinator API key (optional)
 - `SUBSCRIBE_BLOCKS` - Subscribe to block events (default: `true`)
 - `SUBSCRIBE_TRANSACTIONS` - Subscribe to transaction events (default: `true`)

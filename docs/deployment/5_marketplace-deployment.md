@@ -52,12 +52,12 @@
 4. **RTX 4060 Ti (16GB) - $0.30/hr - Available** (newly registered)
 
 ### Service Status:
-- Coordinator API: Running on port 8011
+- Coordinator API: Running on port 8203
 - Service: active (running)
 - Last restart: Feb 12, 2026 at 16:14:11 UTC
 
 ### Next Steps:
-1. Update CLI to use remote server URL (http://aitbc-cascade:8011)
+1. Update CLI to use remote server URL (http://aitbc-cascade:8203)
 2. Test full CLI workflow against remote server
 3. Consider persistent storage implementation
 4. Add authentication/authorization for production

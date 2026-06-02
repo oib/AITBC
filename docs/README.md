@@ -67,7 +67,7 @@ See [Development Roadmap](ROADMAP.md) for complete list of remaining tasks.
 > **Note:** Service status below represents designed architecture. For authoritative port configuration, see [Service Ports Reference](reference/SERVICE_PORTS.md).
 
 - **Service Health**: ✅ Designed architecture complete
-- **Coordinator API**: Port 8011
+- **Coordinator API**: Port 8203
 - **Exchange API**: Port 8001
 - **Blockchain RPC**: Port 8006
 - **Marketplace**: Port 8102
@@ -342,7 +342,7 @@ Complete documentation for all AITBC applications and services
 - [Blockchain Explorer](apps/blockchain/blockchain-explorer.md) - Blockchain explorer and analytics
 
 **Coordinator**
-- [Agent Coordinator](apps/coordinator/agent-coordinator.md) - Agent coordination and management (Port 8011)
+- [Agent Coordinator](apps/coordinator/agent-coordinator.md) - Agent coordination and management (Port 8203)
 
 **Agents**
 - [Agent Services](apps/agents/agent-services.md) - Agent bridge, compliance, protocols, registry, and trading

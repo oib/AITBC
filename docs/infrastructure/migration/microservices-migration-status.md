@@ -129,7 +129,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Core microservices migration validated and operational
 
 ### Phase 26: hermes Service Migration (Completed)
-- Created hermes Service (port 8014) for agent orchestration and edge computing
+- Created hermes Service (port 8105) for agent orchestration and edge computing
 - Implemented hermes endpoints: skill routing, job offloading, agent collaboration, hybrid execution, edge deployment, edge coordination, ecosystem development
 - Configured systemd service for hermes Service
 - Updated API Gateway to include hermes Service routing (/hermes prefix)
@@ -291,7 +291,7 @@ marketplace_service_url: str = "http://localhost:8102"
 trading_service_url: str = "http://localhost:8103"
 governance_service_url: str = "http://localhost:8104"
 hermes_service_url: str = "http://localhost:8105"
-coordinator_url: str = "http://localhost:8011"  # Deprecated, for backward compatibility
+coordinator_url: str = "http://localhost:8203"  # Deprecated, for backward compatibility
 ```
 
 ## Migration Status
@@ -357,14 +357,14 @@ coordinator_url: str = "http://localhost:8011"  # Deprecated, for backward compa
 - All microservices are operational and tested
 - API Gateway routing is fully configured
 - CLI integration is complete
-- Coordinator API is still running on port 8011 (should be disabled after verification)
+- Coordinator API is still running on port 8203 (should be disabled after verification)
 - Some endpoints may still be using Coordinator API (hermes health endpoints showing errors)
 
 ## Next Steps
 
 ### Migration Nearly Complete
 
-The microservices migration is nearly complete. Most coordinator-api functionality has been migrated to dedicated microservices, but the legacy coordinator-api service is still running on port 8011.
+The microservices migration is nearly complete. Most coordinator-api functionality has been migrated to dedicated microservices, but the legacy coordinator-api service is still running on port 8203.
 
 ### Required Steps
 

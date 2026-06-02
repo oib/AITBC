@@ -215,7 +215,7 @@ DATABASE_URL=sqlite:///coordinator.db
 
 # API Settings
 API_HOST=0.0.0.0
-API_PORT=8011
+API_PORT=8203
 
 # Security
 SECRET_KEY=your-secret-key
@@ -239,7 +239,7 @@ docker build -t aitbc-coordinator .
 # Run container
 docker run -d \
   --name aitbc-coordinator \
-  -p 8011:8011 \
+  -p 8203:8203 \
   -e DATABASE_URL=sqlite:///data/coordinator.db \
   -v $(pwd)/data:/app/data \
   aitbc-coordinator

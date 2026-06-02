@@ -169,7 +169,7 @@ Add the following configuration:
 ```bash
 # Required
 MINER_API_KEY=your-miner-api-key
-COORDINATOR_URL=http://your-coordinator-url:8011
+COORDINATOR_URL=http://your-coordinator-url:8203
 
 # Optional
 LOG_PATH=/var/log/aitbc/miner.log
@@ -228,7 +228,7 @@ systemctl start aitbc-miner
 Register as a miner with the Coordinator API:
 
 ```bash
-curl -X POST http://your-coordinator-url:8011/v1/miners/register \
+curl -X POST http://your-coordinator-url:8203/v1/miners/register \
   -H "Content-Type: application/json" \
   -d '{
     "miner_id": "your-miner-id",
@@ -244,7 +244,7 @@ The response will include your API key.
 Set the Coordinator URL in `/opt/aitbc/miner/miner.env`:
 
 ```bash
-COORDINATOR_URL=http://your-coordinator-url:8011
+COORDINATOR_URL=http://your-coordinator-url:8203
 ```
 
 ## Verification
@@ -305,7 +305,7 @@ Expected log output:
 
 ```bash
 curl -H "X-Api-Key: your-miner-api-key" \
-  http://your-coordinator-url:8011/v1/miners/your-miner-id
+  http://your-coordinator-url:8203/v1/miners/your-miner-id
 ```
 
 ## Troubleshooting
@@ -352,13 +352,13 @@ netstat -tulpn | grep 11434
 **Solution**:
 ```bash
 # Test Coordinator URL
-curl http://your-coordinator-url:8011/v1/health
+curl http://your-coordinator-url:8203/v1/health
 
 # Check firewall
 ufw status
 
 # Allow Coordinator port
-ufw allow 8011/tcp
+ufw allow 8203/tcp
 
 # Check network
 ping your-coordinator-url
@@ -375,7 +375,7 @@ echo $MINER_API_KEY
 
 # Verify API key is valid
 curl -H "X-Api-Key: your-miner-api-key" \
-  http://your-coordinator-url:8011/v1/miners/heartbeat
+  http://your-coordinator-url:8203/v1/miners/heartbeat
 
 # Check Coordinator logs
 journalctl -u coordinator-api -n 50
@@ -526,11 +526,11 @@ RETRY_DELAY=30
 
 ```bash
 # Allow outgoing connections
-ufw allow out 8011/tcp
+ufw allow out 8203/tcp
 ufw allow out 11434/tcp
 
 # Allow incoming connections if needed
-ufw allow in 8011/tcp
+ufw allow in 8203/tcp
 ```
 
 ### API Key Security
@@ -618,7 +618,7 @@ WantedBy=multi-user.target
 ```bash
 # Required
 MINER_API_KEY=your-miner-api-key
-COORDINATOR_URL=http://your-coordinator-url:8011
+COORDINATOR_URL=http://your-coordinator-url:8203
 
 # Optional
 LOG_PATH=/var/log/aitbc/miner.log (symlink to /var/lib/aitbc/logs/)

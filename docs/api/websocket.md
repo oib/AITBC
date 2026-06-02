@@ -18,7 +18,7 @@ WebSocket connections provide real-time, bidirectional communication with the AI
 
 ### Coordinator API WebSocket
 
-- Development: `ws://localhost:8011/v1/jobs/{job_id}/ws`
+- Development: `ws://localhost:8203/v1/jobs/{job_id}/ws`
 - Production: `wss://aitbc.bubuit.net/api/v1/jobs/{job_id}/ws`
 
 ### Blockchain API WebSocket
@@ -36,7 +36,7 @@ WebSocket connections provide real-time, bidirectional communication with the AI
 WebSocket connections require authentication via query parameters:
 
 ```
-ws://localhost:8011/v1/jobs/{job_id}/ws?api_key=your-api-key
+ws://localhost:8203/v1/jobs/{job_id}/ws?api_key=your-api-key
 ```
 
 Alternatively, use the `X-Api-Key` header during the WebSocket handshake.
@@ -46,7 +46,7 @@ Alternatively, use the `X-Api-Key` header during the WebSocket handshake.
 ### Endpoint
 
 ```
-ws://localhost:8011/v1/jobs/{job_id}/ws
+ws://localhost:8203/v1/jobs/{job_id}/ws
 ```
 
 ### Message Format
@@ -80,7 +80,7 @@ import websockets
 import json
 
 async def monitor_job(job_id: str, api_key: str):
-    uri = f"ws://localhost:8011/v1/jobs/{job_id}/ws?api_key={api_key}"
+    uri = f"ws://localhost:8203/v1/jobs/{job_id}/ws?api_key={api_key}"
     
     async with websockets.connect(uri) as websocket:
         async for message in websocket:
@@ -97,7 +97,7 @@ asyncio.run(monitor_job("job-id", "your-api-key"))
 ### Example (JavaScript)
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8011/v1/jobs/job-id/ws?api_key=your-api-key');
+const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws?api_key=your-api-key');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -121,7 +121,7 @@ ws.onclose = () => {
 ### Example (cURL with websocat)
 
 ```bash
-websocat ws://localhost:8011/v1/jobs/job-id/ws?api_key=your-api-key
+websocat ws://localhost:8203/v1/jobs/job-id/ws?api_key=your-api-key
 ```
 
 ## Blockchain Events WebSocket
@@ -324,7 +324,7 @@ Always use secure WebSocket connections (`wss://`) in production:
 const ws = new WebSocket('wss://aitbc.bubuit.net/api/v1/jobs/job-id/ws');
 
 // Development only
-const ws = new WebSocket('ws://localhost:8011/v1/jobs/job-id/ws');
+const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws');
 ```
 
 ### API Key Protection
@@ -339,7 +339,7 @@ const ws = new WebSocket('ws://localhost:8011/v1/jobs/job-id/ws');
 The server validates the `Origin` header to prevent CSRF attacks. Ensure your client sends the correct origin:
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8011/v1/jobs/job-id/ws', [], {
+const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws', [], {
   headers: {
     'Origin': 'https://your-domain.com'
   }
@@ -366,7 +366,7 @@ import websockets
 
 @pytest.mark.asyncio
 async def test_job_websocket():
-    uri = "ws://localhost:8011/v1/jobs/test-job/ws?api_key=test-key"
+    uri = "ws://localhost:8203/v1/jobs/test-job/ws?api_key=test-key"
     
     async with websockets.connect(uri) as websocket:
         message = await websocket.recv()
@@ -388,8 +388,8 @@ describe('WebSocket', () => {
       onclose: vi.fn()
     });
     
-    const ws = new WebSocket('ws://localhost:8011/v1/jobs/test/ws');
-    expect(WebSocket).toHaveBeenCalledWith('ws://localhost:8011/v1/jobs/test/ws');
+    const ws = new WebSocket('ws://localhost:8203/v1/jobs/test/ws');
+    expect(WebSocket).toHaveBeenCalledWith('ws://localhost:8203/v1/jobs/test/ws');
   });
 });
 ```

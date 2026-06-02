@@ -47,11 +47,11 @@ cp .env.agent-identity.example .env.agent-identity
 ### **4. API Server Testing** (Required)
 ```bash
 # Start the development server
-uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8011
+uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8203
 
 # Test the API endpoints
-curl -X GET "http://localhost:8011/v1/agent-identity/chains/supported"
-curl -X GET "http://localhost:8011/v1/agent-identity/registry/health"
+curl -X GET "http://localhost:8203/v1/agent-identity/chains/supported"
+curl -X GET "http://localhost:8203/v1/agent-identity/registry/health"
 ```
 
 ### **5. SDK Integration Testing** (Required)
@@ -122,13 +122,13 @@ python test_agent_identity_integration.py
 ### **API Testing**
 ```bash
 # Test health endpoint
-curl -X GET "http://localhost:8011/v1/agent-identity/registry/health"
+curl -X GET "http://localhost:8203/v1/agent-identity/registry/health"
 
 # Test supported chains
-curl -X GET "http://localhost:8011/v1/agent-identity/chains/supported"
+curl -X GET "http://localhost:8203/v1/agent-identity/chains/supported"
 
 # Test identity creation (requires auth)
-curl -X POST "http://localhost:8011/v1/agent-identity/identities" \
+curl -X POST "http://localhost:8203/v1/agent-identity/identities" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{

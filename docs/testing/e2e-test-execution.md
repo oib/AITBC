@@ -75,7 +75,7 @@ class TestJobLifecycle:
         }
         
         response = await client.post(
-            "http://localhost:8011/v1/jobs",
+            "http://localhost:8203/v1/jobs",
             json=job_data,
             headers={"X-Api-Key": "test-api-key"}
         )
@@ -91,7 +91,7 @@ class TestJobLifecycle:
         
         # 4. Verify result
         response = await client.get(
-            f"http://localhost:8011/v1/jobs/{job_id}",
+            f"http://localhost:8203/v1/jobs/{job_id}",
             headers={"X-Api-Key": "test-api-key"}
         )
         assert response.status_code == 200
@@ -101,7 +101,7 @@ class TestJobLifecycle:
         
         # 5. Verify payment
         response = await client.get(
-            f"http://localhost:8011/v1/jobs/{job_id}/payment",
+            f"http://localhost:8203/v1/jobs/{job_id}/payment",
             headers={"X-Api-Key": "test-api-key"}
         )
         assert response.status_code == 200
@@ -113,7 +113,7 @@ class TestJobLifecycle:
         start = datetime.now()
         while (datetime.now() - start).total_seconds() < timeout:
             response = await client.get(
-                f"http://localhost:8011/v1/jobs/{job_id}",
+                f"http://localhost:8203/v1/jobs/{job_id}",
                 headers={"X-Api-Key": "test-api-key"}
             )
             job = response.json()

@@ -103,7 +103,7 @@ systemctl start marketplace
 systemctl start exchange
 
 # 7. Verify system health
-curl -s http://localhost:8011/v1/health
+curl -s http://localhost:8203/v1/health
 ```
 
 **Verification Steps:**

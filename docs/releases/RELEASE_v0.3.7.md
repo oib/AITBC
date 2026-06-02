@@ -12,7 +12,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 
 ### 🖥️ Host GPU Miner (Real GPU)
 - **RTX 4060 Ti Mining**: Host miner runs on RTX 4060 Ti with Ollama inference
-- **Incus Proxy Integration**: Uses Incus proxy on `127.0.0.1:8011` to reach the container coordinator
+- **Incus Proxy Integration**: Uses Incus proxy on `127.0.0.1:8203` to reach the container coordinator
 - **Result Submission**: Result submission fixed and jobs complete successfully
 - **Real GPU Inference**: Real GPU inference via Ollama for ML workloads
 - **Performance Monitoring**: GPU performance monitoring and optimization

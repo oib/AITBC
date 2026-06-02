@@ -338,7 +338,7 @@ Mobile App ↔ AITBC Network
     ↓
 Wallet Daemon (Port 8015)
     ↓
-Coordinator API (Port 8011)
+Coordinator API (Port 8203)
     ↓
 Blockchain Service (Port 8007)
     ↓

@@ -25,7 +25,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 > **Note:** Port assignments below represent designed configuration. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 #### Core Services
-- `aitbc-coordinator-api.service` - Central API (Port 8011)
+- `aitbc-coordinator-api.service` - Central API (Port 8203)
 - `aitbc-blockchain-node.service` - Blockchain node (Port 8005)
 - `aitbc-exchange-api.service` - Exchange API (Port 8001)
 - `aitbc-wallet.service` - Wallet service (Port 8003)
@@ -60,7 +60,7 @@ ls -la /etc/systemd/system/aitbc-*.service
 systemctl list-units --state=running | grep aitbc
 
 # Check which ports are actually in use by AITBC services
-netstat -tlnp | grep -E ":(8001|8003|8005|8006|8010|8011)"
+netstat -tlnp | grep -E ":(8001|8003|8005|8006|8010|8203)"
 
 # Check service status for specific services
 systemctl status aitbc-coordinator-api.service
@@ -73,7 +73,7 @@ systemctl status aitbc-blockchain-rpc.service
 ✅ Port 8001 - Exchange API (aitbc-exchange-api.service)
 ✅ Port 8015 - Wallet Service (aitbc-wallet.service)
 ✅ Port 8006 - Blockchain RPC (aitbc-blockchain-rpc.service)
-✅ Port 8011 - Coordinator API (aitbc-coordinator-api.service)
+✅ Port 8203 - Coordinator API (aitbc-coordinator-api.service)
 ✅ Port 8010 - Adaptive Learning (aitbc-adaptive-learning.service)
 ✅ Port 8005 - Blockchain Node with P2P (aitbc-blockchain-node.service)
 ```
@@ -199,7 +199,7 @@ python3 -c "import sys; print(sys.path)"
 
 # Test manual startup
 cd /opt/aitbc/apps/coordinator-api
-PYTHONPATH=/opt/aitbc/apps/coordinator-api/src python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8011
+PYTHONPATH=/opt/aitbc/apps/coordinator-api/src python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8203
 ```
 
 #### Blockchain Node

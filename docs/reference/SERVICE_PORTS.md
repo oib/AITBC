@@ -97,7 +97,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 
 ### Historical Conflicts (Resolved)
 - **Wallet API**: Previously documented as 8003 in SETUP.md, corrected to 8015 (actual port from app/main.py)
-- **Coordinator API**: Previously documented as 8000 in SETUP.md, corrected to 8011, now moved to 8203
+- **Coordinator API**: Previously documented as 8000 in SETUP.md, corrected to 8203
 - **Blockchain RPC**: Previously on 8006, moved to 8202 as part of public port reorganization
 - **Blockchain P2P**: Previously on 8001, moved to 8201 as part of public port reorganization
 - **API Gateway**: Previously on 8080, moved to 8200 as part of public port reorganization

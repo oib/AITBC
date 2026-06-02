@@ -337,10 +337,10 @@ def handle_command(args, default_rpc_url, default_coordinator_url, render_mappin
 | Service | Port | Endpoint | Usage |
 |---------|------|----------|-------|
 | Blockchain RPC | 8006 | `/rpc/blocks/{height}` | Blockchain queries |
-| Coordinator API | 8011 | `/v1/jobs` | Job submission and management |
+| Coordinator API | 8203 | `/v1/jobs` | Job submission and management |
 | Marketplace Exchange | 8001 | `/listings` | Marketplace operations |
 
-> **Note:** The "Agent Coordinator" on port 9001 referenced in some CLI flows may be a legacy or internal service. The primary Coordinator API for job submission is on port 8011. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for authoritative port configuration.
+> **Note:** The "Agent Coordinator" on port 9001 referenced in some CLI flows may be a legacy or internal service. The primary Coordinator API for job submission is on port 8203. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for authoritative port configuration.
 
 ### Common Patterns
 

@@ -95,9 +95,9 @@ Production logs are centralized in `/var/log/aitbc/`:
 - Real-time monitoring available
 
 Coordinator observability endpoints:
- - JSON metrics endpoint: `http://localhost:8011/v1/metrics`
- - Prometheus metrics endpoint: `http://localhost:8011/metrics`
- - Health endpoint: `http://localhost:8011/v1/health`
+ - JSON metrics endpoint: `http://localhost:8203/v1/metrics`
+ - Prometheus metrics endpoint: `http://localhost:8203/metrics`
+ - Health endpoint: `http://localhost:8203/v1/health`
  - Web dashboard source: `/opt/aitbc/website/dashboards/metrics.html`
 
 Current monitoring flow:

@@ -93,7 +93,7 @@ The AITBC platform implements a complete 7-layer multi-chain architecture:
 - Cross-chain transaction rejection for security
 - Systemd service integration with journalctl logging
 
-#### **Layer 2: Coordinator API (Port 8011)**
+#### **Layer 2: Coordinator API (Port 8203)**
 - Transaction coordination and routing
 - Multi-chain endpoint management
 - AI service integration
@@ -261,7 +261,7 @@ docker-compose up -d
 docker-compose ps
 
 # Access services
-# - API: http://localhost:8011
+# - API: http://localhost:8203
 # - Explorer: http://localhost:3000
 # - Marketplace: http://localhost:5173
 ```
@@ -277,7 +277,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:///data/coordinator.db
       - API_HOST=0.0.0.0
-      - API_PORT=8011
+      - API_PORT=8203
       
   blockchain:
     environment:
@@ -290,7 +290,7 @@ services:
 
 ### Coordinator API
 
-Base URL: `http://localhost:8011`
+Base URL: `http://localhost:8203`
 
 #### Authentication
 ```http
@@ -351,7 +351,7 @@ Features:
 ### Coordinator Service
 
 **Technology**: Python/FastAPI
-**Port**: 8011
+**Port**: 8203
 
 Features:
 - Job orchestration
@@ -497,7 +497,7 @@ docker-compose restart blockchain
 **Jobs stuck in pending**
 ```bash
 # Check miner status
-curl localhost:8011/v1/miners
+curl localhost:8203/v1/miners
 
 # Verify miner heartbeat
 curl localhost:18001/health

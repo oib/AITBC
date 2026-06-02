@@ -198,7 +198,7 @@ source /opt/aitbc/.env.dev
 # Available variables
 export AITBC_DEV_MODE=1
 export AITBC_DEBUG=1
-export AITBC_COORDINATOR_URL=http://localhost:8011
+export AITBC_COORDINATOR_URL=http://localhost:8203
 export AITBC_BLOCKCHAIN_RPC=http://localhost:8006
 export AITBC_CLI_PATH=/opt/aitbc/cli
 export PYTHONPATH=/opt/aitbc/cli:$PYTHONPATH

@@ -174,7 +174,7 @@ systemctl restart aitbc-coordinator-api
 ```bash
 cd /opt/aitbc/apps/coordinator-api/src
 source ../.venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8203
 ```
 
 ## Runtime Directories

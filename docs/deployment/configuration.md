@@ -37,7 +37,7 @@ services:
       name: aitbc
 
   coordinator:
-    port: 8011
+    port: 8203
     host: 0.0.0.0
     database:
       host: localhost
@@ -48,7 +48,7 @@ services:
       port: 6379
 
   marketplace:
-    port: 8014
+    port: 8105
     host: 0.0.0.0
     database:
       host: localhost

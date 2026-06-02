@@ -36,7 +36,7 @@ systemctl status aitbc-agent-daemon
 journalctl -u aitbc-agent-daemon -f
 
 # Verify coordinator connectivity
-curl -s http://hub.aitbc.bubuit.net:8011/health
+curl -s http://localhost:8203/health
 ```
 
 ## Service Won't Start
@@ -74,7 +74,7 @@ systemctl restart aitbc-blockchain-node.service
 curl -v http://hub.aitbc.bubuit.net:8006/health
 
 # Test coordinator connectivity
-curl -v http://hub.aitbc.bubuit.net:8011/health
+curl -v http://localhost:8203/health
 
 # Check firewall rules
 iptables -L -n

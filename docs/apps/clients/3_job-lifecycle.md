@@ -26,7 +26,7 @@ aitbc client status --job-id <JOB_ID>
 import requests
 
 response = requests.get(
-    "http://localhost:8011/v1/jobs/{job_id}",
+    "http://localhost:8203/v1/jobs/{job_id}",
     headers={"X-Api-Key": "your-key"}
 )
 print(response.json())
@@ -63,7 +63,7 @@ def on_message(ws, message):
     print(message)
 
 ws = websocket.WebSocketApp(
-    "ws://localhost:8011/v1/jobs/ws",
+    "ws://localhost:8203/v1/jobs/ws",
     on_message=on_message
 )
 ws.run_forever()
@@ -106,7 +106,7 @@ aitbc client download --job-id <JOB_ID> --output ./results
 import requests
 
 response = requests.get(
-    "http://localhost:8011/v1/jobs/{job_id}/download",
+    "http://localhost:8203/v1/jobs/{job_id}/download",
     headers={"X-Api-Key": "your-key"}
 )
 

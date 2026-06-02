@@ -16,7 +16,7 @@ import { AITBCClient } from '@aitbc/aitbc-sdk';
 // Initialize client
 const client = new AITBCClient({
   apiKey: 'your-api-key',
-  baseUrl: 'http://localhost:8011'
+  baseUrl: 'http://localhost:8203'
 });
 ```
 
@@ -263,7 +263,7 @@ for (const job of history) {
 // Use custom headers
 const client = new AITBCClient({
   apiKey: 'your-api-key',
-  baseUrl: 'http://localhost:8011',
+  baseUrl: 'http://localhost:8203',
   headers: {
     'X-Custom-Header': 'value'
   }
@@ -293,7 +293,7 @@ dotenv.config();
 
 const client = new AITBCClient({
   apiKey: process.env.AITBC_API_KEY || '',
-  baseUrl: process.env.AITBC_BASE_URL || 'http://localhost:8011'
+  baseUrl: process.env.AITBC_BASE_URL || 'http://localhost:8203'
 });
 ```
 
@@ -302,7 +302,7 @@ const client = new AITBCClient({
 ```typescript
 const client = new AITBCClient({
   apiKey: 'your-api-key',
-  baseUrl: 'http://localhost:8011',
+  baseUrl: 'http://localhost:8203',
   timeout: 30000 // 30 second timeout
 });
 ```
@@ -320,7 +320,7 @@ function JobComponent({ jobId }: { jobId: string }) {
   useEffect(() => {
     const client = new AITBCClient({
       apiKey: 'your-api-key',
-      baseUrl: 'http://localhost:8011'
+      baseUrl: 'http://localhost:8203'
     });
 
     const fetchStatus = async () => {
@@ -384,7 +384,7 @@ describe('AITBCClient', () => {
 
     const client = new AITBCClient({
       apiKey: 'test-key',
-      baseUrl: 'http://localhost:8011'
+      baseUrl: 'http://localhost:8203'
     });
 
     const job = await client.submitJob({

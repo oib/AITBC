@@ -8,7 +8,7 @@ For authoritative port configuration, see [Service Ports Reference](../../refere
 |---------|------|----------------|
 | Wallet API | 8015 | `http://localhost:8015/health` |
 | Exchange API | 8010 | `http://localhost:8010/health` |
-| Coordinator API | 8011 | `http://localhost:8011/health` |
+| Coordinator API | 8203 | `http://localhost:8203/health` |
 | Blockchain RPC | 8006 | `http://localhost:8006/health` |
 | Marketplace | 8102 | `http://localhost:8102/health` |
 

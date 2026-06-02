@@ -35,7 +35,7 @@ The gateway routes requests to the following services:
 | Agent Service | 8103 | `/agent/*` | Agent operations |
 | Trading Service | 8104 | `/trading/*` | Trading operations |
 | Governance Service | 8105 | `/governance/*` | Governance operations |
-| Coordinator API | 8011 | `/coordinator/*` | Coordinator API (default) |
+| Coordinator API | 8203 | `/coordinator/*` | Coordinator API (default) |
 
 ## Installation
 
@@ -71,7 +71,7 @@ Service URLs are configured in `main.py` under the `SERVICES` dictionary.
 
 ### Health Check
 ```bash
-curl http://localhost:8011/health
+curl http://localhost:8203/health
 ```
 
 Expected response:
@@ -81,22 +81,22 @@ Expected response:
 
 ### Service Registry
 ```bash
-curl http://localhost:8011/services
+curl http://localhost:8203/services
 ```
 
 ### Test Routing
 ```bash
 # Route to GPU service
-curl http://localhost:8011/gpu/health
+curl http://localhost:8203/gpu/health
 
 # Route to Marketplace service
-curl http://localhost:8011/marketplace/health
+curl http://localhost:8203/marketplace/health
 
 # Route to Trading service
-curl http://localhost:8011/trading/health
+curl http://localhost:8203/trading/health
 
 # Route to Governance service
-curl http://localhost:8011/governance/health
+curl http://localhost:8203/governance/health
 ```
 
 ## Architecture

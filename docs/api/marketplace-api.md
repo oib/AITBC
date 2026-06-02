@@ -1,7 +1,7 @@
 # Marketplace API Reference
 
 **Last Updated:** June 2, 2026  
-**Base URL:** `http://localhost:8011/v1/marketplace`  
+**Base URL:** `http://localhost:8203/v1/marketplace`  
 **Authentication:** API Key (Bearer token)
 
 ## Overview
@@ -285,7 +285,7 @@ Subscribe to real-time pricing updates.
 
 **Connection:**
 ```javascript
-const ws = new WebSocket('ws://localhost:8011/v1/marketplace/ws/pricing');
+const ws = new WebSocket('ws://localhost:8203/v1/marketplace/ws/pricing');
 
 ws.onmessage = (event) => {
   const pricing = JSON.parse(event.data);
@@ -353,7 +353,7 @@ from aitbc_agent import MarketplaceClient
 # Initialize client
 client = MarketplaceClient(
     api_key="your-api-key",
-    base_url="http://localhost:8011"
+    base_url="http://localhost:8203"
 )
 
 # Discover resources
@@ -384,7 +384,7 @@ import { MarketplaceClient } from '@aitbc/agent-sdk';
 
 const client = new MarketplaceClient({
   apiKey: 'your-api-key',
-  baseUrl: 'http://localhost:8011'
+  baseUrl: 'http://localhost:8203'
 });
 
 // Discover resources
@@ -412,7 +412,7 @@ const pricing = await client.getPricing();
 
 ### Service Architecture
 
-- **Coordinator API** (port 8011): RESTful API endpoints
+- **Coordinator API** (port 8203): RESTful API endpoints
 - **Marketplace Service**: Business logic and matching
 - **Blockchain Node** (port 8006): On-chain transactions and escrow
 - **Redis**: Real-time data streams and caching

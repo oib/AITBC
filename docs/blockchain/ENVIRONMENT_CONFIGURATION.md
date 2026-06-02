@@ -176,7 +176,7 @@ enable_block_production=false
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `api_host` | No | `0.0.0.0` | API service host |
-| `api_port` | No | `8011` | API service port |
+| `api_port` | No | `8203` | API service port |
 | `wallet_host` | No | `0.0.0.0` | Wallet service host |
 | `wallet_port` | No | `8015` | Wallet service port |
 | `exchange_host` | No | `0.0.0.0` | Exchange service host |
@@ -241,7 +241,7 @@ rpc_bind_port=8006
 
 # API Configuration
 api_host=0.0.0.0
-api_port=8011
+api_port=8203
 
 # Wallet Configuration
 wallet_host=0.0.0.0
@@ -310,7 +310,7 @@ rpc_bind_port=8006
 
 # API Configuration
 api_host=0.0.0.0
-api_port=8011
+api_port=8203
 
 # Wallet Configuration
 wallet_host=0.0.0.0

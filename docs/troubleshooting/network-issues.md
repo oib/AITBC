@@ -18,7 +18,7 @@ ping -c 10 localhost
 nslookup localhost
 
 # Check ports
-telnet localhost 8011
+telnet localhost 8203
 ```
 
 **Solutions:**

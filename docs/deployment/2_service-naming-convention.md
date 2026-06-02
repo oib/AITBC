@@ -14,7 +14,7 @@ All AITBC systemd services now follow the `aitbc-` prefix convention for consist
 | blockchain-node-2.service | aitbc-blockchain-node-2.service | 8082 | Blockchain Node 2 |
 | blockchain-rpc.service | aitbc-blockchain-rpc-1.service | - | RPC API for Node 1 |
 | blockchain-rpc-2.service | aitbc-blockchain-rpc-2.service | - | RPC API for Node 2 |
-| coordinator-api.service | aitbc-coordinator-api.service | 8011 | Coordinator API |
+| coordinator-api.service | aitbc-coordinator-api.service | 8203 | Coordinator API |
 | exchange-mock-api.service | aitbc-exchange-mock-api.service | - | Exchange Mock API |
 
 ### Site B (ns3 container) - Remote Node
@@ -75,7 +75,7 @@ ssh ns3-root "incus exec aitbc -- journalctl -u aitbc-blockchain-node-3.service 
 
 ### Coordinator API
 - Main API for job submission, miner management, and receipts
-- Runs on http://localhost:8011 inside container
+- Runs on http://localhost:8203 inside container
 - Proxied via nginx at https://aitbc.bubuit.net/api/
 
 ## Benefits of Standardized Naming

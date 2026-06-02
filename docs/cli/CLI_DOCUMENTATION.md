@@ -73,7 +73,7 @@ For backward compatibility, legacy flat commands are automatically normalized to
 ### Prerequisites
 - Python 3.13+
 - Virtual environment at `/opt/aitbc/venv`
-- AITBC services running on ports 8011, 8001, 8006
+- AITBC services running on ports 8203, 8001, 8006
 
 ### Setup
 ```bash
@@ -215,7 +215,7 @@ source venv/bin/activate
 
 ### Environment Variables
 ```bash
-export AITBC_COORDINATOR_URL="http://localhost:8011"
+export AITBC_COORDINATOR_URL="http://localhost:8203"
 export AITBC_API_KEY="your-api-key"
 export AITBC_RPC_URL="http://localhost:8006"
 ```
@@ -250,7 +250,7 @@ The CLI uses configuration from `/etc/aitbc/.env` by default.
 ## Service Integration
 
 ### Service Endpoints
-- **Coordinator API**: http://localhost:8011
+- **Coordinator API**: http://localhost:8203
 - **Exchange API**: http://localhost:8001
 - **Blockchain RPC**: http://localhost:8006
 - **Ollama**: http://localhost:11434
@@ -258,7 +258,7 @@ The CLI uses configuration from `/etc/aitbc/.env` by default.
 ### Health Checks
 ```bash
 # Check all services
-curl -s http://localhost:8011/health
+curl -s http://localhost:8203/health
 curl -s http://localhost:8001/api/health
 curl -s http://localhost:8006/health
 curl -s http://localhost:11434/api/tags
@@ -332,7 +332,7 @@ systemctl status aitbc-exchange-api.service
 systemctl status aitbc-blockchain-node.service
 
 # Check network connectivity
-curl -s http://localhost:8011/health
+curl -s http://localhost:8203/health
 ```
 
 #### Permission Errors

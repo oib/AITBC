@@ -6,7 +6,7 @@ The Coordinator API is the central service for job submission, management, and c
 
 - Production: `https://aitbc.bubuit.net/api`
 - Staging: `https://staging-api.aitbc.io`
-- Development: `http://localhost:8011`
+- Development: `http://localhost:8203`
 
 ## Authentication
 
@@ -182,7 +182,7 @@ Jobs transition through the following states:
 Real-time job status updates are available via WebSocket connection:
 
 ```
-ws://localhost:8011/v1/jobs/{job_id}/ws
+ws://localhost:8203/v1/jobs/{job_id}/ws
 ```
 
 The WebSocket sends status updates as JSON messages:
@@ -222,7 +222,7 @@ print(f"Result: {result.result}")
 
 ```bash
 # Submit job
-curl -X POST http://localhost:8011/v1/jobs \
+curl -X POST http://localhost:8203/v1/jobs \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: your-api-key" \
   -d '{
@@ -231,11 +231,11 @@ curl -X POST http://localhost:8011/v1/jobs \
   }'
 
 # Get status
-curl http://localhost:8011/v1/jobs/{job_id} \
+curl http://localhost:8203/v1/jobs/{job_id} \
   -H "X-Api-Key: your-api-key"
 
 # Get result
-curl http://localhost:8011/v1/jobs/{job_id}/result \
+curl http://localhost:8203/v1/jobs/{job_id}/result \
   -H "X-Api-Key: your-api-key"
 ```
 

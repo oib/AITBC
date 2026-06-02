@@ -61,8 +61,8 @@ npm run preview
 Create `.env.local`:
 
 ```env
-VITE_API_URL=http://localhost:8011
-VITE_WS_URL=ws://localhost:8011/ws
+VITE_API_URL=http://localhost:8203
+VITE_WS_URL=ws://localhost:8203/ws
 VITE_EXPLORER_URL=http://localhost:8009
 VITE_NETWORK=mainnet
 ```

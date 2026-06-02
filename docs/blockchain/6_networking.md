@@ -16,7 +16,7 @@ ufw allow 7070/tcp
 ufw allow 8006/tcp
 
 # Allow Coordinator API port
-ufw allow 8011/tcp
+ufw allow 8203/tcp
 
 # Allow Exchange port
 ufw allow 8001/tcp
@@ -36,7 +36,7 @@ ufw allow from 10.0.0.0/8 to any port 8006
 If behind a NAT, configure port forwarding:
 - External port 7070 → Internal IP:7070 (P2P)
 - External port 8006 → Internal IP:8006 (RPC)
-- External port 8011 → Internal IP:8011 (Coordinator API)
+- External port 8203 → Internal IP:8203 (Coordinator API)
 - External port 8001 → Internal IP:8001 (Exchange)
 - External port 8102 → Internal IP:8102 (Marketplace)
 - External port 8015 → Internal IP:8015 (Wallet)

@@ -32,7 +32,7 @@ We discovered that while the CLI commands were simulated, the underlying Coordin
 The service is configured in `/opt/aitbc/apps/agent-services/aitbc-agent-daemon.service`:
 - `ENABLE_HERMES_POLLING=true` - Enable Hermes polling
 - `HERMES_AGENT_IDS=owl-aitbc3` - Agent ID to poll for
-- `HERMES_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8011` - Hub coordinator endpoint
+- `HERMES_COORDINATOR_URL=http://localhost:8203` - Hub coordinator endpoint
 
 ## Implementation Files
 - `/opt/aitbc/apps/agent-coordinator/scripts/hermes_polling_daemon.py` - Python polling daemon
@@ -54,7 +54,7 @@ journalctl -u aitbc-agent-daemon -f
 
 To send a test PING message:
 ```bash
-curl -s -X POST "http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send" \
+curl -s -X POST "http://localhost:8203/v1/hermes/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "test-agent",

@@ -23,10 +23,10 @@ tail -f /var/log/nginx/access.log
 ```bash
 # List all API keys
 curl -H "X-Admin-Key: $ADMIN_KEY" \
-  http://localhost:8011/v1/admin/api-keys
+  http://localhost:8203/v1/admin/api-keys
 
 # Revoke suspicious keys
-curl -X DELETE http://localhost:8011/v1/admin/api-keys/{key_id}
+curl -X DELETE http://localhost:8203/v1/admin/api-keys/{key_id}
 ```
 
 2. Enable rate limiting

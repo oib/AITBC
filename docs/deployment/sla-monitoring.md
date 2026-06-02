@@ -76,7 +76,7 @@ Add to pool-hub `.env`:
 
 ```bash
 # Coordinator-API Billing Integration
-COORDINATOR_BILLING_URL=http://localhost:8011
+COORDINATOR_BILLING_URL=http://localhost:8203
 COORDINATOR_API_KEY=your_api_key_here
 
 # SLA Configuration
@@ -103,7 +103,7 @@ Configuration can also be set in `poolhub/settings.py`:
 ```python
 class Settings(BaseSettings):
     # Coordinator-API Billing Integration
-    coordinator_billing_url: str = Field(default="http://localhost:8011")
+    coordinator_billing_url: str = Field(default="http://localhost:8203")
     coordinator_api_key: str | None = Field(default=None)
 
     # SLA Configuration
@@ -477,7 +477,7 @@ groups:
 **Symptom**: Billing sync to coordinator-api is failing
 
 **Solutions**:
-1. Verify coordinator-api is accessible: `curl http://localhost:8011/health`
+1. Verify coordinator-api is accessible: `curl http://localhost:8203/health`
 2. Check API key: Ensure `COORDINATOR_API_KEY` is set correctly
 3. Check network connectivity: Ensure pool-hub can reach coordinator-api
 4. Review billing integration logs: Check for HTTP errors or timeouts

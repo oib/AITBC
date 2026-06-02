@@ -31,10 +31,10 @@ python -m apps.coordinator_api.main --validate-config
 2. Check port conflicts
 ```bash
 # Check if port is in use
-netstat -tulpn | grep 8011
+netstat -tulpn | grep 8203
 
 # Kill process using the port
-kill -9 $(lsof -t -i:8011)
+kill -9 $(lsof -t -i:8203)
 ```
 
 3. Check permissions
