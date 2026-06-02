@@ -262,6 +262,242 @@ async def get_analytics(
     return await svc.get_analytics(period_type=period_type)
 
 
+# ===== Advanced Marketplace Features (Migrated from Coordinator API) =====
+
+@app.get("/v1/marketplace")
+async def get_marketplace_overview(
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get general marketplace overview (migrated from Coordinator API)"""
+    logger.info("GET /v1/marketplace called - marketplace overview")
+    
+    # Get marketplace statistics
+    offers = await svc.list_offers()
+    bids = await svc.list_bids()
+    
+    active_offers = [o for o in offers if o.get("status") == "active"]
+    active_bids = [b for b in bids if b.get("status") == "active"]
+    
+    # Calculate average price
+    avg_price = 0
+    if active_offers:
+        total_price = sum(o.get("price_per_hour", 0) for o in active_offers)
+        avg_price = total_price / len(active_offers)
+    
+    return {
+        "status": "operational",
+        "total_offers": len(offers),
+        "active_offers": len(active_offers),
+        "total_bids": len(bids),
+        "active_bids": len(active_bids),
+        "average_price_per_hour": avg_price,
+        "regions": list(set(o.get("region", "unknown") for o in active_offers)),
+        "gpu_models": list(set(o.get("gpu_model", "unknown") for o in active_offers)),
+        "timestamp": svc.get_current_timestamp()
+    }
+
+
+@app.get("/v1/marketplace/gpu")
+async def get_gpu_listings(
+    gpu_model: str | None = None,
+    min_memory: int | None = None,
+    region: str | None = None,
+    max_price: float | None = None,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get GPU-specific marketplace listings (migrated from Coordinator API)"""
+    logger.info(f"GET /v1/marketplace/gpu called with filters: gpu_model={gpu_model}, min_memory={min_memory}")
+    
+    # Get offers and filter for GPU-specific criteria
+    offers = await svc.list_offers(status="active", region=region, gpu_model=gpu_model)
+    
+    # Apply additional filters
+    if min_memory:
+        offers = [o for o in offers if o.get("gpu_memory_gb", 0) >= min_memory]
+    if max_price:
+        offers = [o for o in offers if o.get("price_per_hour", 0) <= max_price]
+    
+    return {
+        "gpu_listings": offers,
+        "total": len(offers),
+        "filters": {
+            "gpu_model": gpu_model,
+            "min_memory": min_memory,
+            "region": region,
+            "max_price": max_price
+        }
+    }
+
+
+@app.post("/v1/marketplace/gpu")
+async def create_gpu_listing(
+    gpu_data: dict,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Create GPU listing (migrated from Coordinator API)"""
+    logger.info(f"POST /v1/marketplace/gpu called with data keys: {gpu_data.keys()}")
+    
+    # Ensure required GPU-specific fields
+    if "gpu_model" not in gpu_data:
+        return {"error": "gpu_model is required"}, 400
+    if "gpu_memory_gb" not in gpu_data:
+        return {"error": "gpu_memory_gb is required"}, 400
+    
+    # Create as a marketplace offer
+    offer_data = {
+        "provider": gpu_data.get("provider", "default-provider"),
+        "gpu_model": gpu_data["gpu_model"],
+        "gpu_memory_gb": gpu_data["gpu_memory_gb"],
+        "gpu_count": gpu_data.get("gpu_count", 1),
+        "price_per_hour": gpu_data.get("price_per_hour", 0),
+        "region": gpu_data.get("region", "us-east"),
+        "capacity": gpu_data.get("capacity", 100),
+        "status": "active"
+    }
+    
+    result = await svc.create_offer(offer_data)
+    logger.info(f"Created GPU listing with id: {result.id}")
+    return result
+
+
+@app.get("/v1/marketplace/offers/{offer_id}/history")
+async def get_offer_history(
+    offer_id: str,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get offer history (migrated from Coordinator API)"""
+    logger.info(f"GET /v1/marketplace/offers/{offer_id}/history called")
+    
+    # Get offer details
+    offer = await svc.get_offer(offer_id)
+    if not offer:
+        return {"error": "Offer not found"}, 404
+    
+    # Placeholder for offer history - would query database for price changes, bookings, etc.
+    history = {
+        "offer_id": offer_id,
+        "created_at": offer.get("created_at"),
+        "price_history": [
+            {
+                "price": offer.get("price_per_hour"),
+                "timestamp": offer.get("created_at"),
+                "reason": "initial_listing"
+            }
+        ],
+        "booking_count": 0,
+        "total_revenue": 0,
+        "last_booked": None
+    }
+    
+    return history
+
+
+@app.post("/v1/marketplace/offers/{offer_id}/cancel")
+async def cancel_offer(
+    offer_id: str,
+    reason: str | None = None,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Cancel offer (migrated from Coordinator API)"""
+    logger.info(f"POST /v1/marketplace/offers/{offer_id}/cancel called")
+    
+    # Get offer
+    offer = await svc.get_offer(offer_id)
+    if not offer:
+        return {"error": "Offer not found"}, 404
+    
+    if offer.status == "cancelled":
+        return {"error": "Offer already cancelled"}, 400
+    
+    # Update offer status to cancelled
+    await svc.update_offer_status(offer_id, "cancelled")
+    
+    cancelled_offer = {
+        "offer_id": offer_id,
+        "status": "cancelled",
+        "cancelled_at": svc.get_current_timestamp(),
+        "reason": reason or "user_requested"
+    }
+    
+    logger.info(f"Cancelled offer {offer_id}")
+    return cancelled_offer
+
+
+@app.get("/v1/marketplace/performance")
+async def get_marketplace_performance(
+    period: str = "daily",
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get marketplace performance metrics (migrated from Coordinator API)"""
+    logger.info(f"GET /v1/marketplace/performance called with period={period}")
+    
+    # Get analytics data
+    analytics = await svc.get_analytics(period_type=period)
+    
+    # Add performance-specific metrics
+    performance = {
+        "period": period,
+        "total_volume": analytics.get("total_volume", 0),
+        "total_trades": analytics.get("total_trades", 0),
+        "average_price": analytics.get("average_price", 0),
+        "price_volatility": analytics.get("price_volatility", 0),
+        "liquidity_score": analytics.get("liquidity_score", 0),
+        "active_providers": analytics.get("active_providers", 0),
+        "utilization_rate": analytics.get("utilization_rate", 0),
+        "fill_rate": analytics.get("fill_rate", 0)
+    }
+    
+    return performance
+
+
+@app.post("/v1/marketplace/dynamic-pricing")
+async def calculate_dynamic_pricing(
+    offer_id: str,
+    current_demand: int,
+    current_supply: int,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Calculate dynamic pricing based on supply/demand (migrated from Coordinator API)"""
+    logger.info(f"POST /v1/marketplace/dynamic-pricing called for offer {offer_id}")
+    
+    # Get offer
+    offer = await svc.get_offer(offer_id)
+    if not offer:
+        return {"error": "Offer not found"}, 404
+    
+    base_price = offer.get("price_per_hour", 0)
+    
+    # Calculate dynamic price based on supply/demand
+    supply_demand_ratio = current_demand / max(current_supply, 1)
+    
+    # Price adjustment formula
+    if supply_demand_ratio > 1.5:
+        # High demand - increase price
+        price_multiplier = 1.2
+    elif supply_demand_ratio > 1.0:
+        # Moderate demand - slight increase
+        price_multiplier = 1.1
+    elif supply_demand_ratio < 0.5:
+        # Low demand - decrease price
+        price_multiplier = 0.9
+    else:
+        # Balanced - no change
+        price_multiplier = 1.0
+    
+    suggested_price = base_price * price_multiplier
+    
+    return {
+        "offer_id": offer_id,
+        "base_price": base_price,
+        "suggested_price": suggested_price,
+        "price_multiplier": price_multiplier,
+        "supply_demand_ratio": supply_demand_ratio,
+        "current_demand": current_demand,
+        "current_supply": current_supply,
+        "reason": "dynamic_pricing_calculation"
+    }
+
+
 @app.post("/v1/marketplace/match")
 async def find_match(
     bid_requirements: dict,

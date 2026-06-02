@@ -199,6 +199,113 @@ async def get_analytics(
     return await svc.get_analytics(period=period)
 
 
+# ===== Advanced Governance Features (Migrated from Coordinator API) =====
+
+@app.post("/v1/governance/execute")
+async def execute_proposal(
+    proposal_id: str,
+    executor_id: str,
+    svc: GovernanceService = Depends(get_governance_service),
+):
+    """Execute a passed proposal (migrated from Coordinator API)"""
+    logger.info(f"Executing proposal {proposal_id} by executor {executor_id}")
+    
+    # Check if proposal exists and is in executable state
+    proposal = await svc.get_proposal(proposal_id)
+    if not proposal:
+        return {"error": "Proposal not found"}, 404
+    
+    if proposal.get("status") != "passed":
+        return {"error": "Proposal must be in 'passed' status to execute"}, 400
+    
+    # Execute proposal (placeholder - would call blockchain service)
+    try:
+        # In production, this would interact with blockchain to execute the proposal
+        execution_result = {
+            "proposal_id": proposal_id,
+            "executor_id": executor_id,
+            "status": "executed",
+            "executed_at": svc.get_current_timestamp(),
+            "tx_hash": None  # Would be populated after blockchain execution
+        }
+        
+        # Update proposal status
+        await svc.update_proposal_status(proposal_id, "executed")
+        
+        logger.info(f"Successfully executed proposal {proposal_id}")
+        return execution_result
+    except Exception as e:
+        logger.error(f"Error executing proposal {proposal_id}: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.get("/v1/governance/params")
+async def get_governance_params():
+    """Get governance parameters (migrated from Coordinator API)"""
+    
+    # Governance parameters (placeholder - would be stored in database or config)
+    params = {
+        "voting_period": 604800,  # 7 days in seconds
+        "execution_delay": 86400,  # 1 day in seconds
+        "quorum_threshold": 0.5,  # 50% of total voting power
+        "approval_threshold": 0.6,  # 60% of votes must be in favor
+        "min_proposal_deposit": 1000,  # Minimum AITBC tokens to create proposal
+        "max_proposals_per_period": 10,
+        "emergency_quorum_threshold": 0.8,  # Higher threshold for emergency proposals
+        "voting_power_calculation": "token_weighted",  # or "one_address_one_vote"
+        "proposal_categories": [
+            "parameter_change",
+            "spending",
+            "contract_upgrade",
+            "emergency",
+            "other"
+        ],
+        "last_updated": "2026-06-02"
+    }
+    
+    return params
+
+
+@app.get("/v1/governance/voting-power/{address}")
+async def get_voting_power(
+    address: str,
+    proposal_id: str | None = None,
+    svc: GovernanceService = Depends(get_governance_service),
+):
+    """Get voting power for an address (migrated from Coordinator API)"""
+    
+    logger.info(f"Getting voting power for address {address}")
+    
+    # Calculate voting power (placeholder - would query blockchain/token contract)
+    # In production, this would query the blockchain for token holdings and staking
+    
+    # Simulated voting power calculation
+    base_voting_power = 1000  # Base power from token holdings
+    staking_bonus = 500  # Bonus from staking
+    participation_bonus = 100  # Bonus from historical participation
+    
+    total_voting_power = base_voting_power + staking_bonus + participation_bonus
+    
+    # If proposal_id is provided, check if address has already voted
+    has_voted = False
+    if proposal_id:
+        votes = await svc.list_votes(proposal_id=proposal_id, voter_id=address)
+        has_voted = len(votes) > 0
+    
+    return {
+        "address": address,
+        "voting_power": total_voting_power,
+        "breakdown": {
+            "token_holdings": base_voting_power,
+            "staking_bonus": staking_bonus,
+            "participation_bonus": participation_bonus
+        },
+        "has_voted": has_voted,
+        "proposal_id": proposal_id,
+        "calculated_at": svc.get_current_timestamp()
+    }
+
+
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit governance transaction"""

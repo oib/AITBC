@@ -170,7 +170,7 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, mod
         }
 
         try:
-            http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
+            http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
             result = http_client.post("/v1/jobs", json=job_config)
             success("AI job submitted successfully")
             click.echo(f"Job ID: {result.get('job_id', 'unknown')}")
@@ -268,7 +268,7 @@ def list(status: str | None, format: str):
     """List registered agents"""
     try:
         import requests
-        coordinator_url = "http://localhost:9001"
+        coordinator_url = "http://localhost:8107"
 
         query = {}
         if status:

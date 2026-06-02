@@ -64,17 +64,29 @@ SERVICES = {
         "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
         "prefix": "/v1/marketplace",
     },
+    "hermes": {
+        "base_url": os.getenv("HERMES_SERVICE_URL", "http://localhost:8103"),
+        "prefix": "/v1/hermes",
+    },
     "trading": {
-        "base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8103"),
+        "base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8104"),
         "prefix": "/v1/trading",
     },
     "governance": {
-        "base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8104"),
+        "base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8105"),
         "prefix": "/v1/governance",
     },
-    "hermes": {
-        "base_url": os.getenv("HERMES_SERVICE_URL", "http://localhost:8105"),
-        "prefix": "/v1/hermes",
+    "exchange": {
+        "base_url": os.getenv("EXCHANGE_SERVICE_URL", "http://localhost:8106"),
+        "prefix": "/v1/exchange",
+    },
+    "agent-coordinator": {
+        "base_url": os.getenv("AGENT_COORDINATOR_URL", "http://localhost:8107"),
+        "prefix": "/v1/agent-coordinator",
+    },
+    "wallet": {
+        "base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"),
+        "prefix": "/v1/wallet",
     },
 }
 

@@ -24,16 +24,16 @@ class CLIConfig(BaseAITBCConfig):
     app_version: str = Field(default="2.1.0", description="CLI version")
 
     # Service URLs
-    exchange_service_url: str = Field(default="http://localhost:8001/api/v1", description="Exchange Service URL")
+    exchange_service_url: str = Field(default="http://localhost:8106/api/v1", description="Exchange Service URL")
     gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
     marketplace_service_url: str = Field(default="http://localhost:8102", description="Marketplace Service URL")
-    trading_service_url: str = Field(default="http://localhost:8103", description="Trading Service URL")
-    governance_service_url: str = Field(default="http://localhost:8104", description="Governance Service URL")
-    hermes_service_url: str = Field(default="http://localhost:8105", description="Hermes Service URL")
+    trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
+    governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
+    hermes_service_url: str = Field(default="http://localhost:8103", description="Hermes Service URL")
     edge_api_host: str = Field(default="localhost", description="Edge API host")
     edge_api_port: int = Field(default=8103, description="Edge API port")
-    wallet_daemon_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL")
-    wallet_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL (alias for compatibility)")
+    wallet_daemon_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL")
+    wallet_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
 
     # Legacy coordinator URL (deprecated, kept for backward compatibility during migration)

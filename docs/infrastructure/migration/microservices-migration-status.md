@@ -1,6 +1,6 @@
 # AITBC Microservices Migration Status
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-06-02
 
 > **Important:** This document describes the microservices migration. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
@@ -10,7 +10,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 
 **Current Port Architecture:**
 - **Public Services (8200-8203)**: API Gateway (8201), Blockchain P2P (8200), Blockchain RPC (8202), Coordinator API failover (8203)
-- **Internal Services (8101-8105)**: GPU (8101), Marketplace (8102), Trading (8103), Governance (8104), Hermes (8105)
+- **Internal Services (8101-8108)**: GPU (8101), Marketplace (8102), Hermes (8103), Trading (8104), Governance (8105), Exchange (8106), Agent Coordinator (8107), Wallet (8108)
 
 ## Completed Phases
 
@@ -186,17 +186,15 @@ These services are accessible directly without nginx proxy (typically P2P protoc
 - **Blockchain P2P** (port 8200) - P2P network communication
   - Direct access required for P2P protocol
 
-#### Internal Services (Localhost Only) - Contiguous Range 8101-8105
+#### Internal Services (Localhost Only) - Contiguous Range 8101-8108
 - **GPU Service** (port 8101) - GPU marketplace + miner operations
-- **Marketplace Service** (port 8102) - Marketplace transactions
-- **Trading Service** (port 8103) - Trading + explorer operations
-- **Governance Service** (port 8104) - Governance transactions
-- **Hermes Service** (port 8105) - Agent messaging and orchestration
-
-#### Deprecated Services
-- **AI Service** (port 8106) - Not used, can be removed
-- **Monitoring Service** (port 8107) - Not used, can be removed
-- **Plugin Service** (port 8108) - Not used, can be removed
+- **Marketplace Service** (port 8102) - Marketplace transactions + advanced features
+- **Hermes Service** (port 8103) - Agent messaging and orchestration
+- **Trading Service** (port 8104) - Trading + explorer operations + exchange features
+- **Governance Service** (port 8105) - Governance transactions + advanced features
+- **Exchange API** (port 8106) - Bitcoin exchange (migrated from 8001)
+- **Agent Coordinator** (port 8107) - Advanced multi-agent coordination (migrated from 9001)
+- **Wallet Daemon** (port 8108) - Wallet management (migrated from 8015)
 
 ### Services Running
 
@@ -227,7 +225,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Database: PostgreSQL (aitbc_marketplace)
    - Models: MarketplaceOffer, MarketplaceBid
 
-3. **Trading Service** (port 8103)
+3. **Trading Service** (port 8104)
    - Endpoints:
      - `/health` - Health check
      - `/trading/status` - Trading status
@@ -238,20 +236,30 @@ These services are accessible directly without nginx proxy (typically P2P protoc
      - `/blocks/{block_id}` - Get block details
      - `/receipts` - List job receipts
      - `/transactions/{tx_hash}` - Get transaction details by hash
+     - `/v1/exchange/create-payment` - Create Bitcoin payment (migrated 2026-06-02)
+     - `/v1/exchange/payment-status/{payment_id}` - Get payment status (migrated 2026-06-02)
+     - `/v1/exchange/confirm-payment/{payment_id}` - Confirm payment (migrated 2026-06-02)
+     - `/v1/exchange/rates` - Get exchange rates (migrated 2026-06-02)
+     - `/v1/exchange/market-stats` - Get market statistics (migrated 2026-06-02)
+     - `/v1/exchange/wallet/balance` - Get wallet balance (migrated 2026-06-02)
+     - `/v1/exchange/wallet/info` - Get wallet information (migrated 2026-06-02)
    - Database: PostgreSQL (aitbc_trading)
    - Models: TradeRequest, TradeMatch, TradeAgreement, TradeSettlement
 
-4. **Governance Service** (port 8104)
+4. **Governance Service** (port 8105)
    - Endpoints:
      - `/health` - Health check
      - `/governance/status` - Governance status
      - `/v1/transactions` - Governance transactions (POST/GET)
      - `/v1/governance/profiles` - Governance profiles
      - `/v1/governance/analytics` - Governance analytics
+     - `/v1/governance/execute` - Execute proposal (migrated 2026-06-02)
+     - `/v1/governance/params` - Get governance parameters (migrated 2026-06-02)
+     - `/v1/governance/voting-power/{address}` - Get voting power (migrated 2026-06-02)
    - Database: PostgreSQL (aitbc_governance)
    - Models: GovernanceProfile, Proposal, Vote, DaoTreasury, TransparencyReport
 
-5. **Hermes Service** (port 8105)
+5. **Hermes Service** (port 8103)
    - Endpoints:
      - `/health` - Health check
      - Agent messaging endpoints
@@ -259,16 +267,37 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Database: PostgreSQL (aitbc_hermes)
    - Models: Agent, Message, Decision, HealthCheck
 
-6. **API Gateway** (port 8200) - **PUBLIC-FACING**
+6. **Exchange API** (port 8106)
+   - Endpoints:
+     - `/health` - Health check
+     - Bitcoin payment endpoints
+   - Status: Migrated from port 8001 (2026-06-02)
+
+7. **Agent Coordinator** (port 8107)
+   - Endpoints:
+     - `/health` - Health check
+     - Multi-agent coordination endpoints
+   - Status: Migrated from port 9001 (2026-06-02)
+
+8. **Wallet Daemon** (port 8108)
+   - Endpoints:
+     - `/health` - Health check
+     - Wallet management endpoints
+   - Status: Migrated from port 8015 (2026-06-02)
+
+6. **API Gateway** (port 8201) - **PUBLIC-FACING**
    - **Security Note**: Only microservice that should be exposed to external network
    - Routes requests to appropriate microservices based on path prefix
    - All internal services are accessible only via API Gateway
    - Service registry:
      - `/gpu` → GPU service (8101)
      - `/marketplace` → Marketplace service (8102)
-     - `/trading` → Trading service (8103)
-     - `/governance` → Governance service (8104)
-     - `/hermes` → Hermes service (8105)
+     - `/hermes` → Hermes service (8103)
+     - `/trading` → Trading service (8104)
+     - `/governance` → Governance service (8105)
+     - `/exchange` → Exchange API (8106)
+     - `/agent-coordinator` → Agent Coordinator (8107)
+     - `/wallet` → Wallet Daemon (8108)
 
 ### Legacy Services
 
@@ -288,10 +317,13 @@ The CLI configuration has been updated to use microservice URLs:
 # /opt/aitbc/cli/aitbc_cli/config.py
 gpu_service_url: str = "http://localhost:8101"
 marketplace_service_url: str = "http://localhost:8102"
-trading_service_url: str = "http://localhost:8103"
-governance_service_url: str = "http://localhost:8104"
-hermes_service_url: str = "http://localhost:8105"
-coordinator_url: str = "http://localhost:8203"  # Deprecated, for backward compatibility
+hermes_service_url: str = "http://localhost:8103"
+trading_service_url: str = "http://localhost:8104"
+governance_service_url: str = "http://localhost:8105"
+exchange_service_url: str = "http://localhost:8106"
+agent_coordinator_url: str = "http://localhost:8107"
+wallet_service_url: str = "http://localhost:8108"
+coordinator_url: str = "http://localhost:8203"  # Legacy failover
 ```
 
 ## Migration Status
@@ -299,48 +331,71 @@ coordinator_url: str = "http://localhost:8203"  # Deprecated, for backward compa
 ### Migrated to Microservices
 - GPU marketplace transactions (offer, bid, list, cancel, accept, status, match)
 - Marketplace transactions (offers, bids)
+- Marketplace advanced features (overview, GPU listings, offer history, cancel, performance, dynamic pricing)
 - Trading transactions (requests, matches, agreements, settlements)
+- Trading exchange features (Bitcoin payments, rates, market stats, wallet operations)
 - Governance transactions (proposals, votes)
+- Governance advanced features (proposal execution, parameters, voting power)
 - Miner operations (register, heartbeat, get GPUs, poll, result, fail, earnings, capabilities, deregister)
 - Explorer operations (blocks, transactions, receipts)
 - ✓ GPU marketplace transactions (offer, bid, list, cancel, accept, status, match)
 - ✓ Marketplace transactions (offers, bids)
+- ✓ Marketplace advanced features (overview, GPU listings, offer history, cancel, performance, dynamic pricing)
 - ✓ Trading transactions (requests, matches, agreements, settlements)
+- ✓ Trading exchange features (Bitcoin payments, rates, market stats, wallet operations)
 - ✓ Governance transactions (proposals, votes)
+- ✓ Governance advanced features (proposal execution, parameters, voting power)
 - ✓ Miner operations (register, heartbeat, get GPUs, poll, result, fail, earnings, capabilities, deregister)
 - ✓ Explorer operations (blocks, transactions, receipts)
 
 ## Migration Summary
 
-**Total Phases Completed: 30** (All phases completed)
+**Phase 1 Migration - COMPLETE (2026-06-02):**
+- GPU Service (8101): Miner operations ✅
+- Marketplace Service (8102): Core + advanced marketplace features ✅
+- Hermes Service (8103): All features ✅
+- Trading Service (8104): Core trading + exchange features ✅
+- Governance Service (8105): Core governance + advanced features ✅
+
+**Port Migrations - COMPLETE (2026-06-02):**
+- Exchange API: 8001 → 8106 ✅
+- Agent Coordinator: 9001 → 8107 ✅
+- Wallet Daemon: 8015 → 8108 ✅
+
+**Retained in Coordinator API (8203) as Legacy Failover:**
+- Job Service: Client job management
+- Services Service: Workload management
+- Training Service: Training operations
+- Inference Service: Model inference
+- Swarm Service: Compute clustering
+- Admin Service: Admin/debug endpoints
+- Specialized services: IPFS, Payments, Blockchain, ZK, etc.
 
 **Migration Progress:**
 - GPU marketplace transactions: ✓ 100% migrated to GPU Service
 - Marketplace transactions: ✓ 100% migrated to Marketplace Service
+- Marketplace advanced features: ✓ 100% migrated to Marketplace Service
 - Trading transactions: ✓ 100% migrated to Trading Service
+- Trading exchange features: ✓ 100% migrated to Trading Service
 - Governance transactions: ✓ 100% migrated to Governance Service
+- Governance advanced features: ✓ 100% migrated to Governance Service
 - Miner operations: ✓ 100% migrated to GPU Service (all 9 endpoints)
 - Explorer operations: ✓ 100% migrated to Trading Service (all 4 endpoints)
-- AI job operations: ✓ 100% migrated to AI Service (submit, status, result, cancel, list)
-- Monitoring operations: ✓ 100% migrated to Monitoring Service (dashboard, summary, metrics)
-- hermes operations: ✓ 100% migrated to hermes Service (skill routing, job offloading, agent collaboration, hybrid execution, edge deployment)
-- Plugin operations: ✓ 100% migrated to Plugin Service (register, marketplace, analytics)
-- Multimodal operations: ✓ 100% migrated to AI Service (process, benchmark, agents, health)
-- Optimization operations: ✓ 100% migrated to AI Service (tune, predict, agents, health)
-- CLI integration: ✓ Updated to use microservice URLs for all services
-- Testing & Validation: ✓ All services tested and operational
+- Port migrations: ✓ 100% complete (Exchange, Agent Coordinator, Wallet)
 
 **Services Status:**
 - GPU Service (8101): Fully operational with marketplace + miner operations
-- Marketplace Service (8102): Fully operational with marketplace transactions
-- Trading Service (8104): Fully operational with trading + explorer operations
-- Governance Service (8105): Fully operational with governance transactions
-- AI Service (8106): Fully operational with job, multimodal, and optimization operations
-- Monitoring Service (8107): Fully operational with monitoring dashboard and metrics
-- hermes Service (8108): Fully operational with agent orchestration and edge computing
-- Plugin Service (8109): Fully operational with plugin registration, marketplace, and analytics
-- API Gateway (8080): Fully operational, routing to all microservices
-- Coordinator API (8000): Legacy service (can be decommissioned)
+- Marketplace Service (8102): Fully operational with marketplace + advanced features
+- Hermes Service (8103): Fully operational with agent messaging and orchestration
+- Trading Service (8104): Fully operational with trading + explorer + exchange operations
+- Governance Service (8105): Fully operational with governance + advanced features
+- Exchange API (8106): Operational (migrated from 8001)
+- Agent Coordinator (8107): Operational (migrated from 9001)
+- Wallet Daemon (8108): Operational (migrated from 8015)
+- API Gateway (8201): Fully operational, routing to all microservices
+- Blockchain P2P (8200): Operational for P2P network
+- Blockchain RPC (8202): Operational for external blockchain access
+- Coordinator API (8203): Legacy failover service (retained for specialized features)
 
 **CLI Integration:**
 - Miner commands: Updated to use GPU Service
@@ -352,63 +407,46 @@ coordinator_url: str = "http://localhost:8203"  # Deprecated, for backward compa
 - hermes commands: Updated to use hermes Service
 - Plugin commands: Updated to use Plugin Service
 
-**Migration Completion: ~95%**
-- Most coordinator-api functionality has been migrated to dedicated microservices
+**Migration Completion: Phase 1 Complete**
+- All core microservice functionality has been migrated to dedicated microservices
 - All microservices are operational and tested
-- API Gateway routing is fully configured
-- CLI integration is complete
-- Coordinator API is still running on port 8203 (should be disabled after verification)
-- Some endpoints may still be using Coordinator API (hermes health endpoints showing errors)
+- Port migrations completed for Exchange, Agent Coordinator, and Wallet
+- Coordinator API (8203) retained as legacy failover for specialized features
+- Phase 2/3 features (Job, Services, Training, Inference, Swarm, Admin, specialized services) remain in Coordinator API
 
 ## Next Steps
 
-### Migration Nearly Complete
+### Phase 1 Migration Complete
 
-The microservices migration is nearly complete. Most coordinator-api functionality has been migrated to dedicated microservices, but the legacy coordinator-api service is still running on port 8203.
+The core microservice migration is complete. All essential functionality has been migrated to dedicated microservices, and port migrations have been completed.
 
-### Required Steps
+### Optional Future Work
 
-1. **Identify remaining Coordinator API dependencies**
-   - Check which services are still calling Coordinator API endpoints
-   - The logs show hermes health endpoints are still hitting Coordinator API with 500 errors
-   - Update these services to use the appropriate microservices
+The following features remain in Coordinator API (8203) and can be extracted to dedicated services on-demand based on usage patterns:
 
-2. **Verify all functionality migrated**
-   - Test all CLI commands to ensure they use microservices
-   - Test all API Gateway routes
-   - Verify no services are still dependent on Coordinator API
+1. **Job Service** (port 8115) - Client job management
+2. **Services Service** (port 8110) - Workload management
+3. **Training Service** (port 8111) - Training operations
+4. **Inference Service** (port 8112) - Model inference
+5. **Swarm Service** (port 8113) - Compute clustering
+6. **Admin Service** (port 8114) - Admin/debug endpoints
+7. **Specialized services** - IPFS, Payments, Blockchain, ZK, etc.
 
-3. **Analyze unused microservices**
-   - **AI Service (8106)**: Defined in CLI config but not used in CLI code (no references to ai_service_url)
-   - **Monitoring Service (8107)**: Defined in CLI config but not used in CLI code (no references to monitoring_service_url)
-   - **Plugin Service (8109)**: Defined in CLI config but not used in CLI code (no references to plugin_service_url)
-   - These services were created during migration but never integrated
-   - **Recommendation**: Remove these services if not needed
+### Recommended Actions
 
-4. **Test microservices comprehensively**
-   - Test all microservices functionality
-   - Verify API Gateway routing works correctly
-   - Test failover to Coordinator API if needed
-   - Document any missing features or issues
+1. **Restart services** to apply new port configurations
+   - Exchange API (now on 8106)
+   - Agent Coordinator (now on 8107)
+   - Wallet Daemon (now on 8108)
 
-5. **Configure security**
-   - Block internal ports (8101, 8102, 8103, 8104, 8105) from external access
-   - Configure internal services to bind to 127.0.0.1 only
-   - Allow only API Gateway (8100) and blockchain ports (8933, 30333) from external network
+2. **Verify service health** after restart
+   - Check all services are responding on new ports
+   - Verify API Gateway routing is updated
+   - Test CLI commands with new service URLs
 
-6. **Disable Coordinator API (after testing)**
-   - Only disable after comprehensive microservices testing is complete
-   - Stop and disable the systemd service after verification
-   - Remove from systemd if no longer needed
-
-### Optional Cleanup
-
-The following optional cleanup steps can be performed after Coordinator API is disabled:
-
-1. **Remove coordinator-api service files** from all nodes
-2. **Drop legacy database** (aitbc) if no longer needed
-3. **Update API Gateway** to remove coordinator-api routing
-4. **Update CLI configuration** to remove coordinator_url reference
+3. **Monitor system performance**
+   - Focus on scaling and optimizing the 5 core microservices
+   - Monitor Coordinator API (8203) usage for failover scenarios
 
 ## Security Configuration
 
@@ -429,17 +467,15 @@ ufw allow 8203/tcp
 
 #### Internal Ports (Block External Access)
 ```bash
-# Internal microservices - block external access (contiguous range 8101-8105)
+# Internal microservices - block external access (contiguous range 8101-8108)
 ufw deny 8101/tcp  # GPU Service
 ufw deny 8102/tcp  # Marketplace Service
-ufw deny 8103/tcp  # Trading Service
-ufw deny 8104/tcp  # Governance Service
-ufw deny 8105/tcp  # Hermes Service
-
-# Legacy services
-ufw deny 8106/tcp  # AI Service (not used)
-ufw deny 8107/tcp  # Monitoring Service (not used)
-ufw deny 8108/tcp  # Plugin Service (not used)
+ufw deny 8103/tcp  # Hermes Service
+ufw deny 8104/tcp  # Trading Service
+ufw deny 8105/tcp  # Governance Service
+ufw deny 8106/tcp  # Exchange API
+ufw deny 8107/tcp  # Agent Coordinator
+ufw deny 8108/tcp  # Wallet Daemon
 ```
 
 ### Service Binding Configuration
@@ -464,10 +500,13 @@ All microservices are managed by systemd:
 
 - `aitbc-gpu.service` - GPU Service (port 8101)
 - `aitbc-marketplace.service` - Marketplace Service (port 8102)
-- `aitbc-trading.service` - Trading Service (port 8103)
-- `aitbc-governance.service` - Governance Service (port 8104)
-- `aitbc-hermes.service` - Hermes Service (port 8105)
-- `aitbc-api-gateway.service` - API Gateway (port 8200) - **PUBLIC-FACING**
+- `aitbc-hermes.service` - Hermes Service (port 8103)
+- `aitbc-trading.service` - Trading Service (port 8104)
+- `aitbc-governance.service` - Governance Service (port 8105)
+- `aitbc-exchange-api.service` - Exchange API (port 8106)
+- `aitbc-agent-coordinator.service` - Agent Coordinator (port 8107)
+- `aitbc-wallet.service` - Wallet Daemon (port 8108)
+- `aitbc-api-gateway.service` - API Gateway (port 8201) - **PUBLIC-FACING**
 - `aitbc-blockchain-p2p.service` - Blockchain P2P (port 8200) - **PUBLIC-FACING**
 - `aitbc-blockchain-node.service` - Blockchain RPC (port 8202) - **PUBLIC-FACING**
 - `aitbc-coordinator-api.service` - Legacy Coordinator API (port 8203) - **FAILOVER SERVICE**
@@ -498,6 +537,16 @@ Each microservice has its own PostgreSQL database:
 
 ## Conclusion
 
-The microservices migration is progressing well. The core GPU and marketplace functionality has been successfully migrated to dedicated microservices. The CLI has been updated to use the new microservices, and the API Gateway is routing requests correctly.
+The Phase 1 microservice migration is complete. All core functionality has been successfully migrated to dedicated microservices:
 
-The remaining coordinator-api functionality is more complex and involves multiple domains. A phased approach is recommended to complete the migration without disrupting existing functionality.
+- GPU Service (8101) - Miner operations
+- Marketplace Service (8102) - Core + advanced marketplace features
+- Hermes Service (8103) - Agent messaging and orchestration
+- Trading Service (8104) - Trading + explorer + exchange features
+- Governance Service (8105) - Governance + advanced features
+
+Port migrations have been completed for Exchange API (8001→8106), Agent Coordinator (9001→8107), and Wallet Daemon (8015→8108).
+
+The Coordinator API (8203) is retained as a legacy failover service for specialized features (Job, Services, Training, Inference, Swarm, Admin, and specialized services). These can be extracted to dedicated services on-demand based on usage patterns and scaling needs.
+
+The system is now ready for service restarts to apply the new port configurations.

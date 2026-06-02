@@ -37,10 +37,10 @@ def run_cli(argv, core):
     # Extended features interception removed - replaced with actual RPC calls
 
     default_rpc_url = core["DEFAULT_RPC_URL"]
-    default_coordinator_url = core.get("DEFAULT_COORDINATOR_URL", "http://localhost:9001")
+    default_coordinator_url = core.get("DEFAULT_COORDINATOR_URL", "http://localhost:8107")
     # New microservice URLs
     default_gpu_url = core.get("DEFAULT_GPU_URL", "http://localhost:8101")
-    default_marketplace_url = core.get("DEFAULT_MARKETPLACE_URL", "http://localhost:8001")
+    default_marketplace_url = core.get("DEFAULT_MARKETPLACE_URL", "http://localhost:8106")
     default_trading_url = core.get("DEFAULT_TRADING_URL", "http://localhost:8104")
     default_governance_url = core.get("DEFAULT_GOVERNANCE_URL", "http://localhost:8105")
     cli_version = core.get("CLI_VERSION", "0.0.0")

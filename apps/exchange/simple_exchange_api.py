@@ -3,6 +3,7 @@
 Simple FastAPI backend for the AITBC Trade Exchange (Python 3.13 compatible)
 """
 
+import argparse
 import json
 import random
 import sqlite3
@@ -768,7 +769,7 @@ class WalletAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
-def run_server(port=8001):
+def run_server(port=8106):
     """Run the server"""
     init_db()
     # Removed mock trades - now using only real blockchain data
@@ -784,4 +785,7 @@ def run_server(port=8001):
         server.server_close()
 
 if __name__ == "__main__":
-    run_server()
+    parser = argparse.ArgumentParser(description='AITBC Exchange API Server')
+    parser.add_argument('--port', type=int, default=8106, help='Port to run the server on')
+    args = parser.parse_args()
+    run_server(port=args.port)

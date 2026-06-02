@@ -77,7 +77,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         agent_sdk_register_parser.add_argument("--services", help="Comma-separated available services")
         agent_sdk_register_parser.add_argument("--endpoints", help="JSON string of service endpoints")
         agent_sdk_register_parser.add_argument("--metadata", help="JSON string of metadata")
-        agent_sdk_register_parser.add_argument("--coordinator-url", default="http://localhost:9001", help="Coordinator URL")
+        agent_sdk_register_parser.add_argument("--coordinator-url", default="http://localhost:8107", help="Coordinator URL")
         agent_sdk_register_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="register")
 
         # agent sdk list

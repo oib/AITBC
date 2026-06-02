@@ -2,6 +2,7 @@
 Governance service for managing governance operations
 """
 
+import time
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,3 +111,20 @@ class GovernanceService:
             "passed_proposals": 0,
             "total_votes": 0,
         }
+
+    async def update_proposal_status(self, proposal_id: str, status: str) -> Proposal | None:
+        """Update proposal status"""
+        stmt = select(Proposal).where(Proposal.proposal_id == proposal_id)
+        result = await self.session.execute(stmt)
+        proposal = result.scalars().first()
+        
+        if proposal:
+            proposal.status = status
+            await self.session.commit()
+            await self.session.refresh(proposal)
+        
+        return proposal
+
+    def get_current_timestamp(self) -> int:
+        """Get current Unix timestamp"""
+        return int(time.time())

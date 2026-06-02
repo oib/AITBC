@@ -19,7 +19,7 @@ def _marketplace_url(args, fallback=None):
         return env_url
     if fallback and not fallback.endswith(":8011") and not fallback.endswith(":8102"):
         return fallback
-    return "http://localhost:8001"
+    return "http://localhost:8106"
 
 
 def _auth_headers(args, read_password):

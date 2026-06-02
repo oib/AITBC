@@ -2,6 +2,7 @@
 Marketplace service for managing marketplace operations
 """
 
+import time
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -366,3 +367,25 @@ class MarketplaceService:
         except Exception as e:
             logger.error(f"Error in query_graph: {type(e).__name__}: {str(e)}")
             raise
+
+    async def update_offer_status(self, offer_id: str, status: str) -> MarketplaceOffer | None:
+        """Update offer status"""
+        try:
+            stmt = select(MarketplaceOffer).where(MarketplaceOffer.id == offer_id)
+            result = await self.session.execute(stmt)
+            offer = result.scalars().first()
+            
+            if offer:
+                offer.status = status
+                await self.session.commit()
+                await self.session.refresh(offer)
+                logger.info(f"Updated offer {offer_id} status to {status}")
+            
+            return offer
+        except Exception as e:
+            logger.error(f"Error in update_offer_status: {type(e).__name__}: {str(e)}")
+            raise
+
+    def get_current_timestamp(self) -> int:
+        """Get current Unix timestamp"""
+        return int(time.time())

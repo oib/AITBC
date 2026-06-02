@@ -136,7 +136,7 @@ def handle_agent_sdk_action(args, render_mapping):
         agent_id = getattr(args, "agent_id", None)
         status = getattr(args, "status", None)
         load_metrics = getattr(args, "load_metrics", {})
-        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:8107")
 
         if not agent_id or not status:
             logger.error("Error: --agent-id and --status are required")
@@ -175,7 +175,7 @@ def handle_agent_sdk_action(args, render_mapping):
         services = getattr(args, "services", [])
         endpoints = getattr(args, "endpoints", {})
         metadata = getattr(args, "metadata", {})
-        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:8107")
 
         # Build registration request
         registration_request = {
@@ -210,7 +210,7 @@ def handle_agent_sdk_action(args, render_mapping):
 
     elif action == "list":
         # Agent discovery via coordinator
-        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:8107")
         status = getattr(args, "status", None)
         agent_type = getattr(args, "agent_type", None)
 
@@ -243,7 +243,7 @@ def handle_agent_sdk_action(args, render_mapping):
 
     elif action == "status":
         agent_id = getattr(args, "agent_id", None)
-        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:8107")
 
         logger.info(f"Getting agent info for {agent_id} from coordinator at {coordinator_url}...")
         try:

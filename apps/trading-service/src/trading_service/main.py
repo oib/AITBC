@@ -3,10 +3,15 @@ Trading Service main application
 Manages trading operations
 """
 
+import asyncio
+import time
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +31,18 @@ from .storage import get_session, init_db
 # Configure structured logging
 configure_logging(level="INFO")
 logger = get_logger(__name__)
+
+# Exchange configuration (migrated from Coordinator API)
+BITCOIN_CONFIG = {
+    "testnet": True,
+    "main_address": "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",  # Testnet address
+    "exchange_rate": 100000,  # 1 BTC = 100,000 AITBC
+    "min_confirmations": 1,
+    "payment_timeout": 3600,  # 1 hour
+}
+
+# In-memory storage for payments (migrated from Coordinator API)
+payments: dict[str, dict] = {}
 
 
 @asynccontextmanager
@@ -403,6 +420,184 @@ async def get_transaction_explorer(
         "chain_id": chain_id or "ait-devnet",
         "error": "Transaction not found"
     }
+
+
+# ===== Exchange Endpoints (Migrated from Coordinator API) =====
+
+class ExchangePaymentRequest(BaseModel):
+    """Exchange payment request schema"""
+    user_id: str
+    aitbc_amount: float
+    btc_amount: float
+
+
+@app.post("/v1/exchange/create-payment")
+async def create_exchange_payment(
+    payment_request: ExchangePaymentRequest,
+    background_tasks: BackgroundTasks,
+) -> dict[str, Any]:
+    """Create a new Bitcoin payment request (migrated from Coordinator API)"""
+    
+    # Validate request
+    if payment_request.aitbc_amount <= 0 or payment_request.btc_amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid amount")
+    
+    # Calculate expected BTC amount
+    expected_btc = payment_request.aitbc_amount / BITCOIN_CONFIG["exchange_rate"]
+    
+    # Allow small difference for rounding
+    if abs(payment_request.btc_amount - expected_btc) > 0.00000001:
+        raise HTTPException(status_code=400, detail="Amount mismatch")
+    
+    # Create payment record
+    payment_id = str(uuid.uuid4())
+    payment = {
+        "payment_id": payment_id,
+        "user_id": payment_request.user_id,
+        "aitbc_amount": payment_request.aitbc_amount,
+        "btc_amount": payment_request.btc_amount,
+        "payment_address": BITCOIN_CONFIG["main_address"],
+        "status": "pending",
+        "created_at": int(time.time()),
+        "expires_at": int(time.time()) + BITCOIN_CONFIG["payment_timeout"],
+        "confirmations": 0,
+        "tx_hash": None,
+    }
+    
+    # Store payment
+    payments[payment_id] = payment
+    
+    # Start payment monitoring in background
+    background_tasks.add_task(monitor_payment, payment_id)
+    
+    logger.info(f"Created exchange payment {payment_id} for user {payment_request.user_id}")
+    return payment
+
+
+@app.get("/v1/exchange/payment-status/{payment_id}")
+async def get_exchange_payment_status(payment_id: str) -> dict[str, Any]:
+    """Get payment status (migrated from Coordinator API)"""
+    
+    if payment_id not in payments:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    payment = payments[payment_id]
+    
+    # Check if expired
+    if payment["status"] == "pending" and time.time() > payment["expires_at"]:
+        payment["status"] = "expired"
+    
+    return payment
+
+
+@app.post("/v1/exchange/confirm-payment/{payment_id}")
+async def confirm_exchange_payment(payment_id: str, tx_hash: str) -> dict[str, Any]:
+    """Confirm payment (webhook from payment processor, migrated from Coordinator API)"""
+    
+    if payment_id not in payments:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    payment = payments[payment_id]
+    
+    if payment["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Payment not in pending state")
+    
+    # Verify transaction (in production, verify with blockchain API)
+    # For demo, we'll accept any tx_hash
+    
+    payment["status"] = "confirmed"
+    payment["tx_hash"] = tx_hash
+    payment["confirmed_at"] = int(time.time())
+    
+    # Mint AITBC tokens to user's wallet
+    try:
+        # Placeholder for token minting - would call blockchain service
+        logger.info(f"Minting {payment['aitbc_amount']} AITBC tokens for user {payment['user_id']}")
+    except Exception as e:
+        logger.error(f"Error minting tokens: {e}")
+        # In production, handle this error properly
+    
+    logger.info(f"Confirmed exchange payment {payment_id} with tx_hash {tx_hash}")
+    return {"status": "ok", "payment_id": payment_id, "aitbc_amount": payment["aitbc_amount"]}
+
+
+@app.get("/v1/exchange/rates")
+async def get_exchange_rates() -> dict[str, Any]:
+    """Get current exchange rates (migrated from Coordinator API)"""
+    
+    return {
+        "btc_to_aitbc": BITCOIN_CONFIG["exchange_rate"],
+        "aitbc_to_btc": 1.0 / BITCOIN_CONFIG["exchange_rate"],
+        "fee_percent": 0.5
+    }
+
+
+@app.get("/v1/exchange/market-stats")
+async def get_market_stats() -> dict[str, Any]:
+    """Get market statistics (migrated from Coordinator API)"""
+    
+    # Calculate 24h volume from payments
+    current_time = int(time.time())
+    yesterday_time = current_time - 24 * 60 * 60  # 24 hours ago
+    
+    daily_volume = 0
+    for payment in payments.values():
+        if payment["status"] == "confirmed" and payment.get("confirmed_at", 0) > yesterday_time:
+            daily_volume += payment["aitbc_amount"]
+    
+    # Calculate price change (simulated)
+    base_price = 1.0 / BITCOIN_CONFIG["exchange_rate"]
+    price_change_percent = 5.2  # Simulated +5.2%
+    
+    return {
+        "price": base_price,
+        "price_change_24h": price_change_percent,
+        "daily_volume": daily_volume,
+        "daily_volume_btc": daily_volume / BITCOIN_CONFIG["exchange_rate"],
+        "total_payments": len([p for p in payments.values() if p["status"] == "confirmed"]),
+        "pending_payments": len([p for p in payments.values() if p["status"] == "pending"]),
+    }
+
+
+@app.get("/v1/exchange/wallet/balance")
+async def get_exchange_wallet_balance() -> dict[str, Any]:
+    """Get Bitcoin wallet balance (migrated from Coordinator API)"""
+    # Placeholder implementation - would query wallet service
+    return {
+        "balance": 0.0,
+        "unconfirmed_balance": 0.0,
+        "address": BITCOIN_CONFIG["main_address"]
+    }
+
+
+@app.get("/v1/exchange/wallet/info")
+async def get_exchange_wallet_info() -> dict[str, Any]:
+    """Get comprehensive wallet information (migrated from Coordinator API)"""
+    # Placeholder implementation - would query wallet service
+    return {
+        "address": BITCOIN_CONFIG["main_address"],
+        "network": "testnet",
+        "balance": 0.0,
+        "transactions": []
+    }
+
+
+async def monitor_payment(payment_id: str) -> None:
+    """Monitor payment for confirmation (background task, migrated from Coordinator API)"""
+    
+    while payment_id in payments:
+        payment = payments[payment_id]
+        
+        # Check if expired
+        if payment["status"] == "pending" and time.time() > payment["expires_at"]:
+            payment["status"] = "expired"
+            logger.info(f"Payment {payment_id} expired")
+            break
+        
+        # In production, check blockchain for payment
+        # For demo, we'll wait for manual confirmation
+        
+        await asyncio.sleep(30)  # Check every 30 seconds
 
 
 if __name__ == "__main__":

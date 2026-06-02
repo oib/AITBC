@@ -52,20 +52,23 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 |---------|------|----------------|---------|-------|
 | **GPU Service** | 8101 | `http://localhost:8101/health` | 127.0.0.1 | GPU marketplace + miner operations |
 | **Marketplace Service** | 8102 | `http://localhost:8102/health` | 127.0.0.1 | Marketplace transactions |
-| **Trading Service** | 8103 | `http://localhost:8103/health` | 127.0.0.1 | Trading + explorer operations |
-| **Governance Service** | 8104 | `http://localhost:8104/health` | 127.0.0.1 | Governance transactions |
-| **Hermes Service** | 8105 | `http://localhost:8105/health` | 127.0.0.1 | Agent messaging and orchestration |
+| **Hermes Service** | 8103 | `http://localhost:8103/health` | 127.0.0.1 | Agent messaging and orchestration |
+| **Trading Service** | 8104 | `http://localhost:8104/health` | 127.0.0.1 | Trading + explorer operations |
+| **Governance Service** | 8105 | `http://localhost:8105/health` | 127.0.0.1 | Governance transactions |
 
 ## Legacy/Inactive Services
 
 | Service | Port | Health Endpoint | Status | Notes |
 |---------|------|----------------|--------|-------|
-| **Exchange API** | 8001 | `http://localhost:8001/health` | Inactive | Trading (legacy, not currently running) |
-| **Wallet Daemon** | 8015 | `http://localhost:8015/health` | Inactive | Wallet management (not currently running) |
-| **Agent Coordinator** | 9001 | N/A | Inactive | Advanced multi-agent coordination (not currently running) |
-| **AI Service** | 8106 | N/A | Not implemented | AI operations (planned but not created) |
-| **Monitoring Service** | 8107 | N/A | Not implemented | Monitoring (planned but not created) |
-| **Plugin Service** | 8108 | N/A | Not implemented | Plugin management (planned but not created) |
+| **Exchange API** | 8106 | `http://localhost:8106/health` | Migrated | Trading (migrated from 8001 to 8106) |
+| **Agent Coordinator** | 8107 | `http://localhost:8107/health` | Migrated | Advanced multi-agent coordination (migrated from 9001 to 8107) |
+| **Wallet Daemon** | 8108 | `http://localhost:8108/health` | Migrated | Wallet management (migrated from 8015 to 8108) |
+| **AI Service** | 8109 | N/A | Not implemented | AI operations (planned but not created) |
+| **Services Service** | 8110 | N/A | Not implemented | Workload management (planned but not created) |
+| **Training Service** | 8111 | N/A | Not implemented | Training operations (planned but not created) |
+| **Inference Service** | 8112 | N/A | Not implemented | Model inference (planned but not created) |
+| **Swarm Service** | 8113 | N/A | Not implemented | Compute clustering (planned but not created) |
+| **Admin Service** | 8114 | N/A | Not implemented | Admin/debug endpoints (planned but not created) |
 
 ## Port Configuration Sources
 
@@ -74,17 +77,22 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8203`)
 - **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (uses env var `p2p_bind_port` from blockchain.env)
 - **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-node-wrapper.py` (uses combined_main with settings.rpc_bind_port)
-- **Trading Service**: `apps/trading/aitbc-trading-wrapper.py` (line 36: `--port 8103`)
-- **Governance Service**: `apps/governance/aitbc-governance-wrapper.py` (line 36: `--port 8104`)
 - **Hermes Service**: `apps/agent-services/aitbc-hermes-wrapper.py` (line 35: `--port 8105`)
+- **Trading Service**: `apps/trading-service/src/trading_service/main.py` (line 410: `port=8104`)
+- **Governance Service**: `apps/governance-service/src/governance_service/main.py` (line 286: `port=8105`)
+- **Exchange API**: `apps/exchange/aitbc-exchange-api.service` (line 14: `--port 8106`)
+- **Agent Coordinator**: `apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py` (line 38: `--port 8107`)
+- **Wallet Daemon**: `apps/wallet/aitbc-wallet-wrapper.py` (line 33: `--port 8108`)
 
 ### Application Main Files
-- **GPU Service**: `apps/gpu/src/gpu_service/main.py` (line 552: `port=8101`)
-- **Marketplace Service**: `apps/marketplace/src/marketplace_service/main.py` (line 559: `port=8102`)
-- **Trading Service**: `apps/trading/src/main.py` (not used - wrapper script controls port)
-- **Governance Service**: `apps/governance/src/main.py` (not used - wrapper script controls port)
-- **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8015` - inactive)
-- **Exchange**: `apps/exchange/multichain_exchange_api.py` (line 537: `port=8001` - inactive)
+- **GPU Service**: `apps/gpu-service/src/gpu_service/main.py` (line 458: `port=8101`)
+- **Marketplace Service**: `apps/marketplace-service/src/marketplace_service/main.py` (line 559: `port=8102`)
+- **Hermes Service**: `apps/agent-services/aitbc-hermes-wrapper.py` (line 35: `--port 8105`)
+- **Trading Service**: `apps/trading-service/src/trading_service/main.py` (line 410: `port=8104`)
+- **Governance Service**: `apps/governance-service/src/governance_service/main.py` (line 286: `port=8105`)
+- **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8108`)
+- **Exchange**: `apps/exchange/aitbc-exchange-api.service` (line 14: `--port 8106`)
+- **Agent Coordinator**: `apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py` (line 38: `--port 8107`)
 
 ### Environment Configuration Files
 - **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (RPC_BIND_PORT=8202, p2p_bind_port=8200)
@@ -127,9 +135,12 @@ curl -s http://localhost:8203/health  # Coordinator API (failover)
 # Check service health (internal services)
 curl -s http://localhost:8101/health  # GPU Service
 curl -s http://localhost:8102/health  # Marketplace Service
-curl -s http://localhost:8103/health  # Trading Service
-curl -s http://localhost:8104/health  # Governance Service
-curl -s http://localhost:8105/health  # Hermes Service
+curl -s http://localhost:8103/health  # Hermes Service
+curl -s http://localhost:8104/health  # Trading Service
+curl -s http://localhost:8105/health  # Governance Service
+curl -s http://localhost:8106/health  # Exchange API
+curl -s http://localhost:8107/health  # Agent Coordinator
+curl -s http://localhost:8108/health  # Wallet Daemon
 
 # Check if port is listening
 netstat -tlnp | grep ':8200'
@@ -162,5 +173,15 @@ When adding or modifying services:
 
 ---
 
-**Last Updated**: 2026-05-28
+**Last Updated**: 2026-06-02
 **Maintained By**: AITBC Documentation Team
+
+## Port Migration History
+
+### 2026-06-02 Migration
+- **Exchange API**: 8001 → 8106 (migrated to 8100+ range)
+- **Agent Coordinator**: 9001 → 8107 (migrated to 8100+ range)
+- **Wallet Daemon**: 8015 → 8108 (migrated to 8100+ range)
+- **Trading Service**: 8103 → 8104 (corrected based on codemap validation)
+- **Governance Service**: 8104 → 8105 (corrected based on codemap validation)
+- **Hermes Service**: 8105 → 8103 (corrected based on codemap validation)
