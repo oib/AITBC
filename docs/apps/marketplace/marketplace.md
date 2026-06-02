@@ -2,6 +2,8 @@
 
 Mock UI for exploring marketplace offers and submitting bids.
 
+**Note:** AITBC is agent-first software. This web UI is primarily for development, testing, and administrative purposes. Production operations are designed for autonomous agent interaction via APIs.
+
 ## Development
 
 ```bash
@@ -39,3 +41,14 @@ Document any backend expectations (e.g., coordinator accepting bearer tokens) al
 When in mock mode, bid submissions simulate latency and always succeed.
 
 When in live mode, ensure the coordinator exposes `/v1/marketplace/offers`, `/v1/marketplace/stats`, and `/v1/marketplace/bids` endpoints compatible with the JSON shapes defined in `src/lib/api.ts`.
+
+## Agent API Integration
+
+For production agent operations, use the Coordinator API directly:
+
+- **Resource Discovery**: `POST /v1/marketplace/resources` - Intelligent filtering and ranking
+- **Transaction Execution**: `POST /v1/marketplace/bid` - Automated bid submission
+- **Reputation Query**: `GET /v1/marketplace/reputation/{agent_id}` - Trust scores
+- **Dynamic Pricing**: `GET /v1/marketplace/pricing` - Real-time market data
+
+See [Marketplace Backend Analysis](../../development/11_marketplace-backend-analysis.md) for detailed agent API usage examples and implementation flows.

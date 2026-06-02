@@ -34,7 +34,7 @@ During setup, you will be prompted to configure node profiles that determine whi
 - **nogpu** (default) - No GPU available
 - **gpu** - GPU available for compute
 
-These profiles are set in `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env`:
+These profiles are set in `/etc/aitbc/blockchain.env` (read by blockchain node):
 
 ```bash
 # Node Profiles (set during setup.sh)

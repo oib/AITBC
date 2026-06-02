@@ -290,7 +290,7 @@ generate_uuid() {
 # - BLOCKCHAIN_MODE: follower (receives blocks) or hub (produces blocks)
 # - MARKET_ROLE: customer (consumes GPU) or shop (provides GPU)
 # - HARDWARE_PROFILE: nogpu (no GPU) or gpu (GPU available)
-# These profiles are set in both /etc/aitbc/blockchain.env and /etc/aitbc/node.env
+# These profiles are set in /etc/aitbc/blockchain.env (read by blockchain node)
 setup_node_profiles() {
     log "Setting up node profiles..."
 
@@ -375,22 +375,6 @@ setup_node_profiles() {
     set_env_blockchain "BLOCKCHAIN_MODE" "$BLOCKCHAIN_MODE"
     set_env_blockchain "MARKET_ROLE" "$MARKET_ROLE"
     set_env_blockchain "HARDWARE_PROFILE" "$HARDWARE_PROFILE"
-
-    # Set profiles in node.env
-    set_env_node() {
-        local key="$1"
-        local value="$2"
-
-        if grep -q "^${key}=" /etc/aitbc/node.env; then
-            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/node.env
-        else
-            echo "${key}=${value}" >> /etc/aitbc/node.env
-        fi
-    }
-
-    set_env_node "BLOCKCHAIN_MODE" "$BLOCKCHAIN_MODE"
-    set_env_node "MARKET_ROLE" "$MARKET_ROLE"
-    set_env_node "HARDWARE_PROFILE" "$HARDWARE_PROFILE"
 
     log "Node profiles configured:"
     log "  BLOCKCHAIN_MODE: $BLOCKCHAIN_MODE"

@@ -349,8 +349,6 @@ The GPU service registers GPUs locally first, then attempts blockchain registrat
 ### v0.4.3 Planning
 - Enhanced Hermes agent autonomy features
 - Advanced GPU marketplace features
-- Cross-chain bridge integrations
-- Performance optimization for blockchain operations
 - Additional security hardening
 
 ### Documentation

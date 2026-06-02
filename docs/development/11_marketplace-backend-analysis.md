@@ -1,6 +1,7 @@
 # Marketplace Backend Analysis
 
-**NOTE: This document is OUTDATED. As of April 13, 2026, all GPU marketplace endpoints are already fully implemented in `/opt/aitbc/apps/coordinator-api/src/app/routers/marketplace_gpu.py`. The router is properly included in main.py with the `/v1` prefix.**
+**Last Updated:** June 2, 2026  
+**Status:** ✅ Current - All features implemented and documented
 
 ## Current Implementation Status
 
@@ -202,3 +203,183 @@ All phases of the recommended implementation plan have been completed:
 - Comprehensive booking and release logic with refund calculation
 
 The CLI can now fully interact with the GPU marketplace backend.
+
+## Agent-Centric Marketplace Flows
+
+### 1. Agent GPU Resource Discovery Flow
+
+How agents discover and filter GPU resources through the marketplace API:
+
+```
+Agent GPU Resource Discovery
+├── Agent Request (REST API) <-- marketplace.py:42
+│   └── GET /v1/marketplace/resources <-- 1a
+├── Coordinator API Layer <-- marketplace.py:15
+│   ├── Parse filter criteria <-- marketplace.py:48
+│   └── Call marketplace service <-- 1b
+├── Marketplace Service <-- matching.py:10
+│   ├── Filter resources from DB <-- matching.py:65
+│   ├── Apply agent preferences <-- 1c
+│   └── Rank and limit results <-- 1d
+└── Response to Agent <-- marketplace.py:58
+    └── Return ranked GPU resources <-- marketplace.py:60
+```
+
+**Implementation Locations:**
+- **Resource Discovery API Endpoint**: `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:45`
+- **Service Layer Call**: `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:52`
+- **Agent Preference Matching**: `/opt/aitbc/apps/marketplace-service/src/matching.py:78`
+- **Ranked Results**: `/opt/aitbc/apps/marketplace-service/src/matching.py:95`
+
+### 2. Agent-to-Agent Transaction Execution
+
+Complete flow from bid submission to transaction completion on blockchain:
+
+```
+Agent-to-Agent Transaction Execution
+├── Agent submits bid via API <-- 2a
+│   └── Coordinator API receives POST /v1/marketplace/bid <-- marketplace.py:115
+│       └── Marketplace Service creates transaction <-- 2b
+│           ├── Build GPU_MARKETPLACE transaction <-- transactions.py:28
+│           ├── Set up escrow parameters <-- transactions.py:42
+│           └── Submit to blockchain node <-- 2c
+│               └── Blockchain node processes transaction <-- main.py:234
+│                   └── Smart contract handles escrow <-- 2d
+│                       ├── Lock funds in escrow <-- gpu_marketplace.py:132
+│                       ├── Monitor job completion <-- gpu_marketplace.py:156
+│                       └── Release payment on completion <-- gpu_marketplace.py:178
+└── Transaction completion flow <-- completion.py:15
+    ├── Job execution on provider GPU <-- executor.py:89
+    ├── Completion proof verification <-- verification.py:34
+    └── Escrow release triggers payment <-- gpu_marketplace.py:201
+```
+
+**Implementation Locations:**
+- **Bid Submission Endpoint**: `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:120`
+- **Transaction Creation**: `/opt/aitbc/cli/aitbc_cli/commands/transactions.py:34`
+- **Blockchain Submission**: `/opt/aitbc/cli/aitbc_cli/commands/transactions.py:56`
+- **Escrow Release**: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/upgrades.py:145`
+
+### 3. Reputation & Trust System
+
+How agent reputation is tracked and used for marketplace decisions:
+
+```
+Reputation & Trust System
+├── Agent transaction completes <-- transactions.py:85
+│   └── calculate_reputation() <-- 3a
+│       ├── analyze transaction history <-- reputation.py:28
+│       └── compute trust score <-- reputation.py:38
+├── Update blockchain reputation
+│   └── update_onchain_reputation() <-- 3b
+│       ├── create reputation tx <-- reputation.py:47
+│       └── submit to blockchain <-- reputation.py:57
+├── Filter resources by trust
+│   └── filter_by_reputation() <-- 3c
+│       ├── get agent trust scores <-- matching.py:117
+│       └── apply min thresholds <-- matching.py:127
+└── Emit reputation event
+    └── ReputationUpdated() <-- 3d
+        ├── log to blockchain <-- gpu_marketplace.py:192
+        └── notify agents <-- gpu_marketplace.py:202
+```
+
+**Implementation Locations:**
+- **Reputation Calculation**: `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py:23`
+- **On-Chain Update**: `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py:41`
+- **Trust-Based Filtering**: `/opt/aitbc/apps/marketplace-service/src/matching.py:112`
+- **Reputation Event**: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/upgrades.py:189`
+
+### 4. Dynamic Pricing Mechanism
+
+How market conditions drive dynamic GPU pricing updates:
+
+```
+Dynamic Pricing System
+├── Market Data Collection <-- 4a
+│   └── get_realtime_market_stats() <-- pricing.py:15
+│       ├── fetch_supply_demand() <-- pricing.py:25
+│       └── calculate_market_metrics() <-- pricing.py:30
+├── Price Calculation Engine <-- 4b
+│   └── calculate_dynamic_price()
+│       ├── apply_demand_multiplier() <-- pricing.py:40
+│       └── adjust_for_provider_rep() <-- pricing.py:45
+├── Price Update Service <-- 4c
+│   └── update_provider_pricing()
+│       ├── validate_price_change() <-- pricing.py:55
+│       └── persist_new_pricing() <-- pricing.py:60
+└── Price Distribution Network
+    └── broadcast PriceUpdate() <-- 4d
+        ├── gossip.broadcast() <-- marketplace.py:65
+        └── agent_notifications() <-- notifications.py:20
+```
+
+**Implementation Locations:**
+- **Market Data Collection**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:18`
+- **Price Calculation**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:35`
+- **Price Update**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:52`
+- **Price Broadcast**: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py:67`
+
+## Agent API Usage Examples
+
+### Resource Discovery
+
+```python
+import httpx
+
+# Discover GPU resources with filtering
+async def discover_gpus():
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "http://localhost:8011/v1/marketplace/resources",
+            json={
+                "gpu_memory_min": 8,
+                "compute_type": "inference",
+                "max_price_per_hour": 0.15,
+                "min_reputation": 0.8
+            }
+        )
+        return response.json()  # Ranked list of suitable GPUs
+```
+
+### Transaction Execution
+
+```python
+# Submit bid for GPU resources
+async def submit_bid(gpu_id, duration_hours, price_per_hour):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "http://localhost:8011/v1/marketplace/bid",
+            json={
+                "gpu_id": gpu_id,
+                "duration_hours": duration_hours,
+                "price_per_hour": price_per_hour,
+                "agent_id": "agent-123"
+            }
+        )
+        return response.json()  # Transaction ID and escrow details
+```
+
+### Reputation Query
+
+```python
+# Query agent reputation
+async def get_reputation(agent_id):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"http://localhost:8011/v1/marketplace/reputation/{agent_id}"
+        )
+        return response.json()  # Trust score and reputation metrics
+```
+
+### Dynamic Pricing
+
+```python
+# Get current market pricing
+async def get_market_pricing():
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "http://localhost:8011/v1/marketplace/pricing"
+        )
+        return response.json()  # Real-time pricing data
+```
