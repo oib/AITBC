@@ -14,7 +14,7 @@ class TransactionService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         # Get blockchain RPC URL
-        self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+        self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
         # Get chain ID
         self.chain_id = os.getenv("CHAIN_ID", "ait-mainnet")
         # Get genesis wallet private key (for signing)
