@@ -8,15 +8,18 @@ from datetime import datetime
 import click
 import requests
 
-# Load environment variables from node.env BEFORE importing storage
-node_env_path = "/etc/aitbc/node.env"
-if os.path.exists(node_env_path):
-    with open(node_env_path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                os.environ[key.strip()] = value.strip()
+def _load_env_file(path: str):
+    if os.path.exists(path):
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+
+# Load environment variables BEFORE importing storage
+_load_env_file("/etc/aitbc/blockchain.env")
+_load_env_file("/etc/aitbc/node.env")
 
 # Add path to import Hermes storage
 sys.path.insert(0, "/opt/aitbc/apps/agent-services/examples/hermes-service/src")
@@ -181,15 +184,16 @@ def execute(ctx, request_id):
         if not tx_service.genesis_private_key:
             hub_url = os.getenv("HUB_HERMES_URL", "http://hub.aitbc.bubuit.net/api/v1/hermes")
             api_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
-            if not hub_url or not api_key:
-                click.echo("Error: No GENESIS_PRIVATE_KEY locally and HUB_HERMES_URL/COORDINATOR_API_KEY not set.")
-                click.echo("Set HUB_HERMES_URL and COORDINATOR_API_KEY in node.env to forward execution to hub.")
+            if not api_key:
+                click.echo("Error: No GENESIS_PRIVATE_KEY locally and COORDINATOR_API_KEY not set.")
+                click.echo("Ensure /etc/aitbc/blockchain.env contains COORDINATOR_API_KEY.")
                 return
-            click.echo(f"No local genesis key — forwarding execution to hub: {hub_url}")
+            execute_url = f"{hub_url.rstrip('/')}/coin-requests/execute"
+            click.echo(f"No local genesis key — forwarding execution to hub: {execute_url}")
             try:
                 import httpx
                 resp = httpx.post(
-                    f"{hub_url}/coin-requests/execute",
+                    execute_url,
                     json={
                         "request_id": req.id,
                         "sender": req.sender,
