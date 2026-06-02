@@ -285,6 +285,116 @@ generate_uuid() {
     fi
 }
 
+# Setup node profiles
+setup_node_profiles() {
+    log "Setting up node profiles..."
+
+    # Prompt for blockchain mode
+    echo ""
+    echo "=== Blockchain Mode Selection ==="
+    echo "Select the blockchain mode for this node:"
+    echo "  1) follower - Receives blocks from hub (default for open island)"
+    echo "  2) hub     - Produces and broadcasts blocks"
+    read -p "Enter choice [1-2] (default: 1): " blockchain_choice
+    blockchain_choice=${blockchain_choice:-1}
+
+    case "$blockchain_choice" in
+        1)
+            BLOCKCHAIN_MODE="follower"
+            ;;
+        2)
+            BLOCKCHAIN_MODE="hub"
+            ;;
+        *)
+            log "Invalid choice, defaulting to follower"
+            BLOCKCHAIN_MODE="follower"
+            ;;
+    esac
+
+    # Prompt for market role
+    echo ""
+    echo "=== Market Role Selection ==="
+    echo "Select the market role for this node:"
+    echo "  1) customer - Consumes GPU resources (default)"
+    echo "  2) shop     - Provides GPU resources"
+    read -p "Enter choice [1-2] (default: 1): " market_choice
+    market_choice=${market_choice:-1}
+
+    case "$market_choice" in
+        1)
+            MARKET_ROLE="customer"
+            ;;
+        2)
+            MARKET_ROLE="shop"
+            ;;
+        *)
+            log "Invalid choice, defaulting to customer"
+            MARKET_ROLE="customer"
+            ;;
+    esac
+
+    # Prompt for hardware profile
+    echo ""
+    echo "=== Hardware Profile Selection ==="
+    echo "Select the hardware profile for this node:"
+    echo "  1) nogpu - No GPU available (default)"
+    echo "  2) gpu   - GPU available for compute"
+    read -p "Enter choice [1-2] (default: 1): " hardware_choice
+    hardware_choice=${hardware_choice:-1}
+
+    case "$hardware_choice" in
+        1)
+            HARDWARE_PROFILE="nogpu"
+            ;;
+        2)
+            HARDWARE_PROFILE="gpu"
+            ;;
+        *)
+            log "Invalid choice, defaulting to nogpu"
+            HARDWARE_PROFILE="nogpu"
+            ;;
+    esac
+
+    # Set profiles in blockchain.env
+    set_env_blockchain() {
+        local key="$1"
+        local value="$2"
+
+        if grep -q "^${key}=" /etc/aitbc/blockchain.env; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/blockchain.env
+        else
+            echo "${key}=${value}" >> /etc/aitbc/blockchain.env
+        fi
+    }
+
+    set_env_blockchain "BLOCKCHAIN_MODE" "$BLOCKCHAIN_MODE"
+    set_env_blockchain "MARKET_ROLE" "$MARKET_ROLE"
+    set_env_blockchain "HARDWARE_PROFILE" "$HARDWARE_PROFILE"
+
+    # Set profiles in node.env
+    set_env_node() {
+        local key="$1"
+        local value="$2"
+
+        if grep -q "^${key}=" /etc/aitbc/node.env; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/node.env
+        else
+            echo "${key}=${value}" >> /etc/aitbc/node.env
+        fi
+    }
+
+    set_env_node "BLOCKCHAIN_MODE" "$BLOCKCHAIN_MODE"
+    set_env_node "MARKET_ROLE" "$MARKET_ROLE"
+    set_env_node "HARDWARE_PROFILE" "$HARDWARE_PROFILE"
+
+    log "Node profiles configured:"
+    log "  BLOCKCHAIN_MODE: $BLOCKCHAIN_MODE"
+    log "  MARKET_ROLE: $MARKET_ROLE"
+    log "  HARDWARE_PROFILE: $HARDWARE_PROFILE"
+
+    success "Node profiles setup completed"
+}
+
 # Setup unique node identities
 setup_node_identities() {
     log "Setting up unique node identities..."
@@ -679,25 +789,29 @@ main() {
     setup_postgresql_databases
     echo "[STEP 5/10] ✓ PostgreSQL databases configured"
 
-    echo "[STEP 6/10] Setting up node identities..."
+    echo "[STEP 6/10] Setting up node profiles..."
+    setup_node_profiles
+    echo "[STEP 6/10] ✓ Node profiles configured"
+
+    echo "[STEP 7/10] Setting up node identities..."
     setup_node_identities
-    echo "[STEP 6/10] ✓ Node identities configured"
+    echo "[STEP 7/10] ✓ Node identities configured"
 
-    echo "[STEP 7/10] Setting up credentials..."
+    echo "[STEP 8/10] Setting up credentials..."
     setup_credentials
-    echo "[STEP 7/10] ✓ Credentials configured"
+    echo "[STEP 8/10] ✓ Credentials configured"
 
-    echo "[STEP 8/10] Setting up virtual environments..."
+    echo "[STEP 9/10] Setting up virtual environments..."
     setup_venvs
-    echo "[STEP 8/10] ✓ Virtual environments created"
+    echo "[STEP 9/10] ✓ Virtual environments created"
 
-    echo "[STEP 9/10] Installing systemd services..."
+    echo "[STEP 10/10] Installing systemd services..."
     install_services
-    echo "[STEP 9/10] ✓ Systemd services installed"
+    echo "[STEP 10/10] ✓ Systemd services installed"
 
-    echo "[STEP 10/10] Preparing health check..."
+    echo "[STEP 11/11] Preparing health check..."
     prepare_health_check
-    echo "[STEP 10/10] ✓ Health check prepared"
+    echo "[STEP 11/11] ✓ Health check prepared"
 
     echo "[STARTING] Starting AITBC services..."
     start_services

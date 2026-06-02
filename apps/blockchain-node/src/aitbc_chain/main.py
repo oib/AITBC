@@ -10,8 +10,10 @@ from .config import settings
 from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
+from .lease_tracker import lease_tracker
 from .logger import get_logger
 from .mempool import init_mempool
+from .subscription_client import SubscriptionClient
 from .sync import ChainSync
 
 logger = get_logger(__name__)
@@ -293,12 +295,38 @@ class BlockchainNode:
         else:
             logger.warning("Island manager not available - island operations will be disabled")
 
-        # Start proposers only if enabled (followers set enable_block_production=False)
-        if self._block_production_enabled():
+        # Start services based on blockchain_mode profile
+        if settings.blockchain_mode == "hub":
+            # Hub mode: enable block production and lease tracker
+            logger.info(f"Running in HUB mode (blockchain_mode={settings.blockchain_mode})")
             await self._ensure_genesis_for_chains()
             self._start_proposers()
-        else:
+            await lease_tracker.start()
+            logger.info("Lease tracker started on hub node")
+        elif settings.blockchain_mode == "follower":
+            # Follower mode: enable periodic sync and subscription client
+            logger.info(f"Running in FOLLOWER mode (blockchain_mode={settings.blockchain_mode})")
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
+
+            # Start periodic pull sync for followers
+            if settings.periodic_sync_enabled:
+                asyncio.create_task(self._periodic_sync_task())
+
+            # Start subscription client for followers
+            if settings.subscription_enabled:
+                node_id = os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node")
+                hub_url = settings.default_peer_rpc_url or settings.genesis_node
+                chain_id = self._supported_chains()[0]
+
+                if hub_url:
+                    subscription_client = SubscriptionClient(hub_url, node_id, chain_id)
+                    asyncio.create_task(subscription_client.start())
+                    logger.info(f"Subscription client started for node {node_id}")
+                else:
+                    logger.warning("Subscription client not started: no hub URL configured")
+        else:
+            logger.warning(f"Unknown blockchain_mode: {settings.blockchain_mode}, defaulting to follower behavior")
+
         await self._setup_gossip_subscribers()
         try:
             await self._stop_event.wait()
@@ -332,11 +360,45 @@ class BlockchainNode:
             self._proposers[chain_id] = proposer
             asyncio.create_task(proposer.start())
 
+    async def _periodic_sync_task(self) -> None:
+        """Periodic pull sync task for follower nodes."""
+        chains = self._supported_chains()
+        sync_interval = settings.periodic_sync_interval
+        source_url = settings.default_peer_rpc_url or settings.genesis_node
+
+        if not source_url:
+            logger.warning("Periodic sync disabled: no default_peer_rpc_url or genesis_node configured")
+            return
+
+        logger.info(f"Starting periodic sync task (interval={sync_interval}s, source={source_url})")
+        logger.info("Sync mode: pull (periodic)")
+
+        while not self._stop_event.is_set():
+            try:
+                for chain_id in chains:
+                    try:
+                        sync = ChainSync(session_factory=lambda cid=chain_id: session_scope(cid), chain_id=chain_id)
+                        imported = await sync.bulk_import_from(source_url)
+                        if imported > 0:
+                            logger.info(f"Periodic sync imported {imported} blocks for chain {chain_id}")
+                    except Exception as e:
+                        logger.error(f"Periodic sync failed for chain {chain_id}: {e}")
+            except Exception as e:
+                logger.error(f"Periodic sync task error: {e}")
+
+            # Wait for interval or stop event
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=sync_interval)
+                break
+            except asyncio.TimeoutError:
+                continue
+
     async def _shutdown(self) -> None:
         for chain_id, proposer in list(self._proposers.items()):
             await proposer.stop()
         self._proposers.clear()
         await gossip_broker.shutdown()
+        await lease_tracker.stop()
 
 
 @asynccontextmanager

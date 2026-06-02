@@ -25,6 +25,11 @@ DEFAULT_ISLAND_ID = str(uuid.uuid4())
 class ChainSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file="/etc/aitbc/blockchain.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
+    # Node profiles (set during setup.sh)
+    blockchain_mode: str = "follower"  # follower or hub
+    market_role: str = "customer"  # customer or shop
+    hardware_profile: str = "nogpu"  # gpu or nogpu
+
     chain_id: str = ""
     supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
     db_path: Path = DATA_DIR / "data" / "chain.db"
@@ -113,6 +118,17 @@ class ChainSettings(BaseSettings):
     min_bulk_sync_interval: int = 60  # minimum seconds between bulk sync attempts
     min_bulk_sync_batch_size: int = 20  # minimum batch size for dynamic bulk sync
     max_bulk_sync_batch_size: int = 200  # maximum batch size for dynamic bulk sync
+
+    # Periodic pull sync settings (for followers)
+    periodic_sync_enabled: bool = True  # enable periodic pull sync from default peer
+    periodic_sync_interval: int = 30  # seconds between periodic sync attempts
+
+    # Lease-based subscription settings (for followers)
+    subscription_enabled: bool = True  # enable lease-based block subscription from hub
+    subscription_transport: str = "websocket"  # transport: websocket, http, redis
+    lease_duration: int = 3600  # lease duration in seconds (1 hour)
+    lease_renewal_threshold: int = 300  # renew lease N seconds before expiry
+    heartbeat_interval: int = 60  # heartbeat interval in seconds to extend lease
 
     # Adaptive sync settings
     initial_sync_threshold: int = 10000  # blocks gap threshold for initial sync mode

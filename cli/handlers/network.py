@@ -12,14 +12,15 @@ logger = logging.getLogger(__name__)
 
 def handle_network_status(args, default_rpc_url, get_network_snapshot):
     """Handle network status query."""
+    import click
     snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
-    logger.info("Network status:")
-    logger.info(f"  Connected nodes: {snapshot['connected_count']}")
+    click.echo("Network status:")
+    click.echo(f"  Connected nodes: {snapshot['connected_count']}")
     for index, node in enumerate(snapshot["nodes"]):
         label = "Local" if index == 0 else f"Peer {node['name']}"
         health = "healthy" if node["healthy"] else "unreachable"
-        logger.info(f"  {label}: {health}")
-    logger.info(f"  Sync status: {snapshot['sync_status']}")
+        click.echo(f"  {label}: {health}")
+    click.echo(f"  Sync status: {snapshot['sync_status']}")
 def handle_network_peers(args, default_rpc_url, get_network_snapshot):
     """Handle network peers query."""
     snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
@@ -30,14 +31,15 @@ def handle_network_peers(args, default_rpc_url, get_network_snapshot):
         logger.info(f"  - {node['name']} ({endpoint}) - {status}")
 def handle_network_sync(args, default_rpc_url, get_network_snapshot):
     """Handle network sync status query."""
+    import click
     snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
-    logger.info("Network sync status:")
-    logger.info(f"  Status: {snapshot['sync_status']}")
+    click.echo("Network sync status:")
+    click.echo(f"  Status: {snapshot['sync_status']}")
     for node in snapshot["nodes"]:
         height = node["height"] if node["height"] is not None else "unknown"
-        logger.info(f"  {node['name']} height: {height}")
+        click.echo(f"  {node['name']} height: {height}")
     local_timestamp = snapshot["nodes"][0].get("timestamp") if snapshot["nodes"] else None
-    logger.info(f"  Last local block: {local_timestamp or 'unknown'}")
+    click.echo(f"  Last local block: {local_timestamp or 'unknown'}")
 def handle_network_ping(args, default_rpc_url, read_blockchain_env, normalize_rpc_url, first, probe_rpc_node):
     """Handle network ping command."""
     env_config = read_blockchain_env()

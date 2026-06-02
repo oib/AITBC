@@ -10,6 +10,7 @@ from typing import ContextManager
 from sqlmodel import Session, select
 
 from ..gossip import gossip_broker
+from ..lease_tracker import lease_tracker
 from ..logger import get_logger
 from ..state.merkle_patricia_trie import StateManager
 
@@ -402,26 +403,35 @@ class PoAProposer:
                 },
             )
 
-            # Broadcast the new block
+            # Broadcast the new block to subscribers with valid leases
             tx_list = [tx.content for tx in processed_txs] if processed_txs else []
             gossip_topic = f"blocks.{self._config.chain_id}"
-            self._logger.info(f"[BROADCAST] block={block.height}, topic={gossip_topic}, config.chain_id={self._config.chain_id}, block.chain_id={block.chain_id}")
+
+            # Check for valid subscribers before publishing
             try:
-                await gossip_broker.publish(
-                    gossip_topic,
-                    {
-                        "chain_id": self._config.chain_id,
-                        "height": block.height,
-                        "hash": block.hash,
-                        "parent_hash": block.parent_hash,
-                        "proposer": block.proposer,
-                        "timestamp": block.timestamp.isoformat(),
-                        "tx_count": block.tx_count,
-                        "state_root": block.state_root,
-                        "transactions": tx_list,
-                    },
-                )
-                self._logger.info(f"[BROADCAST SUCCESS] block={block.height}, topic={gossip_topic}")
+                subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
+                subscriber_count = len(subscribers)
+                self._logger.info(f"[BROADCAST] block={block.height}, topic={gossip_topic}, valid_subscribers={subscriber_count}")
+
+                if subscriber_count > 0:
+                    # Publish to general gossip topic (for compatibility)
+                    await gossip_broker.publish(
+                        gossip_topic,
+                        {
+                            "chain_id": self._config.chain_id,
+                            "height": block.height,
+                            "hash": block.hash,
+                            "parent_hash": block.parent_hash,
+                            "proposer": block.proposer,
+                            "timestamp": block.timestamp.isoformat(),
+                            "tx_count": block.tx_count,
+                            "state_root": block.state_root,
+                            "transactions": tx_list,
+                        },
+                    )
+                    self._logger.info(f"[BROADCAST SUCCESS] block={block.height}, topic={gossip_topic}, subscribers={subscriber_count}")
+                else:
+                    self._logger.info(f"[BROADCAST SKIPPED] block={block.height}, no valid subscribers")
             except Exception as e:
                 self._logger.error(f"Failed to broadcast block {block.height}: {e}")
 

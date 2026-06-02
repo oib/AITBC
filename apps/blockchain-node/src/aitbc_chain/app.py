@@ -178,7 +178,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         _app_logger.warning(f"Failed to initialize balance tracker: {e}")
 
-    _app_logger.info("Blockchain node started", extra={"supported_chains": settings.supported_chains})
+    _app_logger.info("Blockchain node started", extra={
+        "supported_chains": settings.supported_chains,
+        "blockchain_mode": settings.blockchain_mode,
+        "market_role": settings.market_role,
+        "hardware_profile": settings.hardware_profile
+    })
     try:
         yield
     finally:
