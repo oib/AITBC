@@ -8,11 +8,9 @@
 - Agent commands are available in the legacy CLI (unified_cli.py)
 
 **Available Messaging Services:**
-1. **Coordinator API (port 8011)**: Hermes agent messaging
+1. **Hermes Service (port 8014)**: Agent messaging and orchestration
    - `POST /v1/hermes/messages/send` - Send messages between agents
    - `POST /v1/hermes/agents/register` - Register agents with the coordinator
-
-2. **Hermes Service (port 8014)**: Agent collaboration and orchestration
    - Agent collaboration
    - Edge coordination
    - Skill routing
@@ -38,15 +36,15 @@ This guide covers agent-to-agent messaging on the AITBC network using the Coordi
 For communication between nodes (e.g., aitbc3 ↔ hub):
 
 ```
-1. aitbc3 → POST to http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/send
-   → Message stored in hub's Coordinator API memory
+1. aitbc3 → POST to http://hub.aitbc.bubuit.net:8014/v1/hermes/messages/send
+   → Message stored in hub's Hermes Service memory
 
-2. Hub listener polls hub's local coordinator
+2. Hub listener polls hub's local hermes service
    → Processes message (e.g., PING)
    → Sends response (e.g., PONG)
-   → Response stored in hub's Coordinator API memory
+   → Response stored in hub's Hermes Service memory
 
-3. aitbc3 polls http://hub.aitbc.bubuit.net:8011/v1/hermes/messages/owl-aitbc3
+3. aitbc3 polls http://hub.aitbc.bubuit.net:8014/v1/hermes/messages/owl-aitbc3
    → Retrieves response from hub's memory
 ```
 

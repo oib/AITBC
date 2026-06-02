@@ -177,6 +177,12 @@ Documentation about the documentation system itself
 ### ⛏️ Mining Documentation
 - **[Mining](mining/)** - Mining operations documentation (8 items)
 
+### 🛒 Marketplace Documentation
+- **[Marketplace](marketplace/)** - Marketplace documentation (18 items)
+  - [ai-economics/](marketplace/ai-economics/) - Advanced AI economics intelligence
+  - [advanced-marketplace/](marketplace/advanced-marketplace/) - Advanced marketplace features (11 files)
+  - [advanced-marketplace-features.md](marketplace/advanced-marketplace-features.md) - Advanced marketplace features index
+
 ### 🧩 hermes Documentation
 - **[hermes](hermes/)** - hermes agent integration documentation (19 items)
 
@@ -185,7 +191,6 @@ Documentation about the documentation system itself
 
 ### 📋 Project Documentation
 - **[Project](project/)** - Project documentation (28 items)
-  - [ai-economics/](project/ai-economics/) - Advanced AI economics intelligence
   - [cli/](project/cli/) - Command-line interface documentation
   - [infrastructure/](project/infrastructure/) - System infrastructure and deployment
   - [requirements/](project/requirements/) - Project requirements and migration

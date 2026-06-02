@@ -2,8 +2,8 @@
 
 **Authoritative single source of truth for all AITBC service ports**
 
-**Last Updated**: 2026-05-28
-**Version**: 1.0
+**Last Updated**: 2026-06-02
+**Version**: 2.0
 
 ---
 
@@ -11,57 +11,81 @@
 
 This document provides the authoritative port configuration for all AITBC services. All other documentation should reference this file rather than duplicating port information.
 
-## Core Services
+## Port Architecture
 
-| Service | Port | Health Endpoint | Source | Notes |
+### Public-Facing Services (Ports 8200-8203)
+These services are accessible from external networks and should be exposed via firewall rules.
+
+| Service | Port | Health Endpoint | Binding | Notes |
+|---------|------|----------------|---------|-------|
+| **API Gateway** | 8200 | `http://localhost:8200/health` | 0.0.0.0 | Single entry point for all external API calls |
+| **Blockchain P2P** | 8201 | N/A | 0.0.0.0 | P2P network communication |
+| **Blockchain RPC** | 8202 | `http://localhost:8202/health` | 0.0.0.0 | Main blockchain node RPC |
+| **Coordinator API** | 8203 | `http://localhost:8203/health` | 0.0.0.0 | Legacy failover service |
+
+### Internal Services (Ports 8101-8105)
+These services bind to localhost only (127.0.0.1) and should not be exposed externally.
+
+| Service | Port | Health Endpoint | Binding | Notes |
+|---------|------|----------------|---------|-------|
+| **GPU Service** | 8101 | `http://localhost:8101/health` | 127.0.0.1 | GPU marketplace + miner operations |
+| **Marketplace Service** | 8102 | `http://localhost:8102/health` | 127.0.0.1 | Marketplace transactions |
+| **Trading Service** | 8103 | `http://localhost:8103/health` | 127.0.0.1 | Trading + explorer operations |
+| **Governance Service** | 8104 | `http://localhost:8104/health` | 127.0.0.1 | Governance transactions |
+| **Hermes Service** | 8105 | `http://localhost:8105/health` | 127.0.0.1 | Agent messaging and orchestration |
+
+## Legacy/Inactive Services
+
+| Service | Port | Health Endpoint | Status | Notes |
 |---------|------|----------------|--------|-------|
-| **Blockchain RPC** | 8006 | `http://localhost:8006/health` | `apps/blockchain-node/aitbc-blockchain-rpc-wrapper.py` | Main blockchain node RPC |
-| **Blockchain P2P** | 7070 | N/A | `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` | P2P networking |
-| **Coordinator API** | 8011 | `http://localhost:8011/health` | `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` | Agent registry, /v1/* routes |
-| **Exchange API** | 8001 | `http://localhost:8001/health` | `apps/exchange/multichain_exchange_api.py` | Trading (localhost only) |
-| **Marketplace Enhanced** | 8014 | `http://localhost:8014/health` | `apps/marketplace-service/src/marketplace_service/main.py` | GPU marketplace |
-| **Wallet Daemon** | 8015 | `http://localhost:8015/health` | `apps/wallet/src/app/main.py` | Wallet management (localhost only) |
-
-## Additional Services
-
-| Service | Port | Health Endpoint | Source | Notes |
-|---------|------|----------------|--------|-------|
-| **AI Service** | 8005 | N/A | `systemd/aitbc-ai.service` | AI operations |
-| **Learning Service** | 8013 | N/A | `systemd/aitbc-learning.service` | Adaptive learning |
-| **Multimodal Service** | 8010 | N/A | `systemd/aitbc-multimodal.service` | Multimodal processing (CPU-only) |
-| **Modality Optimization** | 8012 | N/A | `systemd/aitbc-modality-optimization.service` | Optimization service |
-| **Blockchain Event Bridge** | 8204 | N/A | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge-wrapper.py` | Event bridging |
+| **Exchange API** | 8001 | `http://localhost:8001/health` | Inactive | Trading (legacy, not currently running) |
+| **Wallet Daemon** | 8015 | `http://localhost:8015/health` | Inactive | Wallet management (not currently running) |
+| **Agent Coordinator** | 9001 | N/A | Inactive | Advanced multi-agent coordination (not currently running) |
+| **AI Service** | 8106 | N/A | Not implemented | AI operations (planned but not created) |
+| **Monitoring Service** | 8107 | N/A | Not implemented | Monitoring (planned but not created) |
+| **Plugin Service** | 8108 | N/A | Not implemented | Plugin management (planned but not created) |
 
 ## Port Configuration Sources
 
 ### Service Wrapper Scripts
-- **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8011`)
-- **Wallet**: `apps/wallet/aitbc-wallet-wrapper.py` (delegates to `apps/wallet/src/app/main.py`)
-- **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-rpc-wrapper.py` (line 29: `--port 8006`)
-- **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (line 26: `--port 7000`)
+- **API Gateway**: `apps/api-gateway/src/api_gateway/main.py` (line 325: `port=8200`)
+- **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8203`)
+- **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (uses env var `p2p_bind_port` from blockchain.env)
+- **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-node-wrapper.py` (uses combined_main with settings.rpc_bind_port)
+- **Trading Service**: `apps/trading/aitbc-trading-wrapper.py` (line 36: `--port 8103`)
+- **Governance Service**: `apps/governance/aitbc-governance-wrapper.py` (line 36: `--port 8104`)
+- **Hermes Service**: `apps/agent-services/aitbc-hermes-wrapper.py` (line 35: `--port 8105`)
 
 ### Application Main Files
-- **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8015`)
-- **Marketplace**: `apps/marketplace-service/src/marketplace_service/main.py` (line 558: `port=8014`)
-- **Exchange**: `apps/exchange/multichain_exchange_api.py` (line 537: `port=8001`)
+- **GPU Service**: `apps/gpu/src/gpu_service/main.py` (line 552: `port=8101`)
+- **Marketplace Service**: `apps/marketplace/src/marketplace_service/main.py` (line 559: `port=8102`)
+- **Trading Service**: `apps/trading/src/main.py` (not used - wrapper script controls port)
+- **Governance Service**: `apps/governance/src/main.py` (not used - wrapper script controls port)
+- **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8015` - inactive)
+- **Exchange**: `apps/exchange/multichain_exchange_api.py` (line 537: `port=8001` - inactive)
 
-### Systemd Service Files
-- **AI Service**: `systemd/aitbc-ai.service` (line 13: `--port 8005`)
-- **Learning Service**: `systemd/aitbc-learning.service` (line 14: `--port 8013`)
-- **Multimodal Service**: `systemd/aitbc-multimodal.service` (line 15: `--port 8010`)
-- **Modality Optimization**: `systemd/aitbc-modality-optimization.service` (line 15: `--port 8012`)
-- **Exchange API**: `systemd/aitbc-exchange-api.service` (line 14: `--port 8001`)
+### Environment Configuration Files
+- **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (RPC_BIND_PORT=8202, p2p_bind_port=8201)
+- **Node Configuration**: `/etc/aitbc/node.env` (P2P_BIND_PORT=8201)
+
+### CLI Configuration
+- **CLI Config**: `cli/aitbc_cli/config.py` (service URLs for all microservices)
 
 ## Port Conflict Resolution
 
 ### Historical Conflicts (Resolved)
 - **Wallet API**: Previously documented as 8003 in SETUP.md, corrected to 8015 (actual port from app/main.py)
-- **Coordinator API**: Previously documented as 8000 in SETUP.md, corrected to 8011 (actual port from wrapper script)
+- **Coordinator API**: Previously documented as 8000 in SETUP.md, corrected to 8011, now moved to 8203
+- **Blockchain RPC**: Previously on 8006, moved to 8202 as part of public port reorganization
+- **Blockchain P2P**: Previously on 8001, moved to 8201 as part of public port reorganization
+- **API Gateway**: Previously on 8080, moved to 8200 as part of public port reorganization
 
 ### Configuration Notes
 - Ports are typically configured in service wrapper scripts or systemd unit files
 - Environment variables in `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env` may override defaults
 - Some services support port configuration via environment variables (e.g., `rpc_bind_port`, `p2p_bind_port`)
+- Public services (8200-8203) bind to 0.0.0.0 for external access
+- Internal services (8101-8105) bind to 127.0.0.1 for security
 
 ## Health Check Patterns
 
@@ -73,16 +97,21 @@ Most services follow one of these health endpoint patterns:
 
 ### Health Check Commands
 ```bash
-# Check service health
-curl -s http://localhost:8006/health  # Blockchain RPC
-curl -s http://localhost:8011/health  # Coordinator API
-curl -s http://localhost:8001/health  # Exchange API
-curl -s http://localhost:8014/health  # Marketplace Enhanced
-curl -s http://localhost:8015/health  # Wallet Daemon
+# Check service health (public services)
+curl -s http://localhost:8200/health  # API Gateway
+curl -s http://localhost:8202/health  # Blockchain RPC
+curl -s http://localhost:8203/health  # Coordinator API (failover)
+
+# Check service health (internal services)
+curl -s http://localhost:8101/health  # GPU Service
+curl -s http://localhost:8102/health  # Marketplace Service
+curl -s http://localhost:8103/health  # Trading Service
+curl -s http://localhost:8104/health  # Governance Service
+curl -s http://localhost:8105/health  # Hermes Service
 
 # Check if port is listening
-netstat -tlnp | grep ':8006'
-ss -tlnp | grep ':8011'
+netstat -tlnp | grep ':8200'
+ss -tlnp | grep ':8101'
 ```
 
 ## CLI Entry Point Reference

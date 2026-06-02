@@ -196,4 +196,6 @@ For comprehensive AITBC capabilities and use cases, see [Scenarios Documentation
 
 - [README](../README.md) - Main documentation index
 - [Deployment](../deployment/) - Production deployment guides
+- [Incus Port Forwarding](../deployment/incus-port-forwarding.md) - Container port configuration
+- [Firehol Configuration](../deployment/firehol-configuration.md) - Firewall configuration
 - [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration

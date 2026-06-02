@@ -58,6 +58,17 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Hermes health service with self-healing actions
 - ✅ Hermes resource service with pool management
 
+### Advanced GPU Marketplace Features (v0.4.3.3)
+- ✅ Advanced pricing strategies (TIME_BASED, REPUTATION_BASED, MULTI_FACTOR, PREDICTIVE)
+- ✅ Advanced auction types (Dutch, sealed-bid, reverse)
+- ✅ ML-based search and recommendations with vector embeddings
+- ✅ Marketplace analytics (real-time metrics, trends, forecasting)
+- ✅ External provider integrations (AWS/GCP/Azure)
+- ✅ Plugin system with lifecycle management and hooks
+- ✅ Database migration script (14 new tables)
+- ✅ Comprehensive documentation
+- ✅ Full test suite (all tests passing)
+
 ## 📋 Detailed Features
 
 ### Node Profiles
@@ -312,9 +323,9 @@ PERIODIC_SYNC_INTERVAL=30
 
 ### v0.5.0 Planning
 - Enhanced Hermes agent autonomy features
-- Advanced GPU marketplace features
 - Additional security hardening
 - Performance monitoring and alerting
+- Advanced subscription features (multi-chain, selective subscription)
 
 ---
 

@@ -64,37 +64,17 @@ SERVICES = {
         "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
         "prefix": "/v1/marketplace",
     },
-    "agent": {
-        "base_url": os.getenv("AGENT_SERVICE_URL", "http://localhost:8103"),
-        "prefix": "/v1/agent",
-    },
     "trading": {
-        "base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8104"),
+        "base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8103"),
         "prefix": "/v1/trading",
     },
     "governance": {
-        "base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8105"),
+        "base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8104"),
         "prefix": "/v1/governance",
     },
-    "ai": {
-        "base_url": os.getenv("AI_SERVICE_URL", "http://localhost:8106"),
-        "prefix": "/v1/ai",
-    },
-    "monitoring": {
-        "base_url": os.getenv("MONITORING_SERVICE_URL", "http://localhost:8107"),
-        "prefix": "/v1/monitoring",
-    },
     "hermes": {
-        "base_url": os.getenv("HERMES_SERVICE_URL", "http://localhost:8108"),
+        "base_url": os.getenv("HERMES_SERVICE_URL", "http://localhost:8105"),
         "prefix": "/v1/hermes",
-    },
-    "plugin": {
-        "base_url": os.getenv("PLUGIN_SERVICE_URL", "http://localhost:8109"),
-        "prefix": "/v1/plugin",
-    },
-    "coordinator": {
-        "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8011"),
-        "prefix": "/v1/coordinator",
     },
 }
 
@@ -342,4 +322,4 @@ async def proxy_request(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)  # nosec B104
+    uvicorn.run(app, host="0.0.0.0", port=8200)  # nosec B104

@@ -33,14 +33,14 @@ class CombinedService:
         config = uvicorn.Config(
             app,
             host=settings.rpc_bind_host,
-            port=8006,
+            port=settings.rpc_bind_port,
             log_level="info"
         )
         self._http_server = uvicorn.Server(config)
         http_task = asyncio.create_task(self._http_server.serve())
         self._tasks.append(http_task)
 
-        logger.info("Combined service started - Node on mainnet, RPC server on port 8006")
+        logger.info(f"Combined service started - Node on mainnet, RPC server on port {settings.rpc_bind_port}")
 
         try:
             # Wait for any task to complete (should not happen in normal operation)

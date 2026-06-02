@@ -28,8 +28,8 @@ exec_cmd = [
     "uvicorn",
     "hermes_service.main:app",
     "--host",
-    "0.0.0.0",
+    "127.0.0.1",
     "--port",
-    "8014"
+    "8105"
 ]
 os.execvp(exec_cmd[0], exec_cmd)

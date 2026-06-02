@@ -2,19 +2,15 @@
 
 **Last Updated:** 2026-05-28
 
-> **Important:** This document describes the microservices migration. Port 9001 is used for Agent Coordinator. For the Coordinator API (job submission), use port 8011. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the microservices migration. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ## Overview
 
 This document tracks the migration of the AITBC monolithic coordinator-api to a microservices architecture.
 
-**Legacy Port Warning**: The coordinator API previously ran on port **8000**. This is now a **legacy port**. The current architecture uses:
-- **Agent Coordinator**: Port 9001 (replaces coordinator API)
-- **Exchange API**: Port 8001
-- **Marketplace Service**: Port 8102
-- **GPU Service**: Port 8101
-- **Trading Service**: Port 8104
-- **Governance Service**: Port 8105
+**Current Port Architecture:**
+- **Public Services (8200-8203)**: API Gateway (8200), Blockchain P2P (8201), Blockchain RPC (8202), Coordinator API failover (8203)
+- **Internal Services (8101-8105)**: GPU (8101), Marketplace (8102), Trading (8103), Governance (8104), Hermes (8105)
 
 ## Completed Phases
 
@@ -133,7 +129,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Core microservices migration validated and operational
 
 ### Phase 26: hermes Service Migration (Completed)
-- Created hermes Service (port 8108) for agent orchestration and edge computing
+- Created hermes Service (port 8014) for agent orchestration and edge computing
 - Implemented hermes endpoints: skill routing, job offloading, agent collaboration, hybrid execution, edge deployment, edge coordination, ecosystem development
 - Configured systemd service for hermes Service
 - Updated API Gateway to include hermes Service routing (/hermes prefix)
@@ -156,6 +152,28 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - All optimization operations now query AI Service instead of coordinator-api
 
 ## Current Microservices Architecture
+
+### Service Port Classification
+
+#### Public-Facing Services (Available from External Network) - Ports 8200-8203
+- **API Gateway** (port 8200) - Single entry point for all external API calls
+  - Routes to appropriate microservices based on path prefix
+  - Only service that should be exposed externally
+- **Blockchain P2P** (port 8201) - P2P network communication
+- **Blockchain RPC** (port 8202) - External blockchain node access
+- **Coordinator API** (port 8203) - Legacy failover service
+
+#### Internal Services (Localhost Only) - Contiguous Range 8101-8105
+- **GPU Service** (port 8101) - GPU marketplace + miner operations
+- **Marketplace Service** (port 8102) - Marketplace transactions
+- **Trading Service** (port 8103) - Trading + explorer operations
+- **Governance Service** (port 8104) - Governance transactions
+- **Hermes Service** (port 8105) - Agent messaging and orchestration
+
+#### Deprecated Services
+- **AI Service** (port 8106) - Not used, can be removed
+- **Monitoring Service** (port 8107) - Not used, can be removed
+- **Plugin Service** (port 8108) - Not used, can be removed
 
 ### Services Running
 
@@ -186,7 +204,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
    - Database: PostgreSQL (aitbc_marketplace)
    - Models: MarketplaceOffer, MarketplaceBid
 
-3. **Trading Service** (port 8104)
+3. **Trading Service** (port 8103)
    - Endpoints:
      - `/health` - Health check
      - `/trading/status` - Trading status
@@ -200,7 +218,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
    - Database: PostgreSQL (aitbc_trading)
    - Models: TradeRequest, TradeMatch, TradeAgreement, TradeSettlement
 
-4. **Governance Service** (port 8105)
+4. **Governance Service** (port 8104)
    - Endpoints:
      - `/health` - Health check
      - `/governance/status` - Governance status
@@ -210,43 +228,34 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
    - Database: PostgreSQL (aitbc_governance)
    - Models: GovernanceProfile, Proposal, Vote, DaoTreasury, TransparencyReport
 
-5. **AI Service** (port 8106)
+5. **Hermes Service** (port 8105)
    - Endpoints:
      - `/health` - Health check
-     - `/jobs` - AI job operations (POST, GET)
-     - `/jobs/{job_id}` - Get job status
-     - `/jobs/{job_id}/result` - Get job result
-     - `/jobs/{job_id}/cancel` - Cancel job
-   - Database: PostgreSQL (aitbc_ai)
-   - Models: AIJob, AIJobResult
+     - Agent messaging endpoints
+     - Agent registration endpoints
+   - Database: PostgreSQL (aitbc_hermes)
+   - Models: Agent, Message, Decision, HealthCheck
 
-6. **Monitoring Service** (port 8107)
-   - Endpoints:
-     - `/health` - Health check
-     - `/dashboard` - Unified monitoring dashboard
-     - `/dashboard/summary` - Services summary
-     - `/dashboard/metrics` - System metrics
-   - Database: PostgreSQL (aitbc_monitoring)
-   - Models: MonitoringDashboard, MonitoringSummary, MonitoringMetrics
-
-7. **API Gateway** (port 8080)
+6. **API Gateway** (port 8200) - **PUBLIC-FACING**
+   - **Security Note**: Only microservice that should be exposed to external network
    - Routes requests to appropriate microservices based on path prefix
+   - All internal services are accessible only via API Gateway
    - Service registry:
      - `/gpu` → GPU service (8101)
      - `/marketplace` → Marketplace service (8102)
-     - `/trading` → Trading service (8104)
-     - `/governance` → Governance service (8105)
-     - `/ai` → AI service (8106)
-     - `/monitoring` → Monitoring service (8107)
-     - `/coordinator` → Coordinator API (8011) - legacy
+     - `/trading` → Trading service (8103)
+     - `/governance` → Governance service (8104)
+     - `/hermes` → Hermes service (8105)
 
 ### Legacy Services
 
-**Coordinator API** (port 8011) - **DISABLED**
-   - Previously ran for backward compatibility
-   - All functionality has been migrated to dedicated microservices
-   - Service has been stopped and disabled on all nodes
-   - Can be safely removed from systemd
+**Coordinator API** (port 8203) - **FAILOVER SERVICE**
+   - Kept running as failover until all features are tested on microservices
+   - Most functionality has been migrated to dedicated microservices
+   - Service is still active and running
+   - Some documentation and services may still be calling Coordinator API (port 8203) for hermes endpoints instead of Hermes Service (port 8105)
+   - This causes 500 errors due to missing modules (app.storage.config_pg)
+   - Will be disabled after comprehensive microservices testing is complete
 
 ## CLI Configuration
 
@@ -256,8 +265,9 @@ The CLI configuration has been updated to use microservice URLs:
 # /opt/aitbc/cli/aitbc_cli/config.py
 gpu_service_url: str = "http://localhost:8101"
 marketplace_service_url: str = "http://localhost:8102"
-trading_service_url: str = "http://localhost:8104"
-governance_service_url: str = "http://localhost:8105"
+trading_service_url: str = "http://localhost:8103"
+governance_service_url: str = "http://localhost:8104"
+hermes_service_url: str = "http://localhost:8105"
 coordinator_url: str = "http://localhost:8011"  # Deprecated, for backward compatibility
 ```
 
@@ -319,27 +329,111 @@ coordinator_url: str = "http://localhost:8011"  # Deprecated, for backward compa
 - hermes commands: Updated to use hermes Service
 - Plugin commands: Updated to use Plugin Service
 
-**Migration Completion: ✓ 100%**
-- All coordinator-api functionality has been migrated to dedicated microservices
+**Migration Completion: ~95%**
+- Most coordinator-api functionality has been migrated to dedicated microservices
 - All microservices are operational and tested
 - API Gateway routing is fully configured
 - CLI integration is complete
-- Coordinator API has been disabled on all nodes
+- Coordinator API is still running on port 8011 (should be disabled after verification)
+- Some endpoints may still be using Coordinator API (hermes health endpoints showing errors)
 
 ## Next Steps
 
-### Migration Complete
+### Migration Nearly Complete
 
-The microservices migration is now complete. All coordinator-api functionality has been migrated to dedicated microservices, and the legacy coordinator-api service has been disabled on all nodes.
+The microservices migration is nearly complete. Most coordinator-api functionality has been migrated to dedicated microservices, but the legacy coordinator-api service is still running on port 8011.
+
+### Required Steps
+
+1. **Identify remaining Coordinator API dependencies**
+   - Check which services are still calling Coordinator API endpoints
+   - The logs show hermes health endpoints are still hitting Coordinator API with 500 errors
+   - Update these services to use the appropriate microservices
+
+2. **Verify all functionality migrated**
+   - Test all CLI commands to ensure they use microservices
+   - Test all API Gateway routes
+   - Verify no services are still dependent on Coordinator API
+
+3. **Analyze unused microservices**
+   - **AI Service (8106)**: Defined in CLI config but not used in CLI code (no references to ai_service_url)
+   - **Monitoring Service (8107)**: Defined in CLI config but not used in CLI code (no references to monitoring_service_url)
+   - **Plugin Service (8109)**: Defined in CLI config but not used in CLI code (no references to plugin_service_url)
+   - These services were created during migration but never integrated
+   - **Recommendation**: Remove these services if not needed
+
+4. **Test microservices comprehensively**
+   - Test all microservices functionality
+   - Verify API Gateway routing works correctly
+   - Test failover to Coordinator API if needed
+   - Document any missing features or issues
+
+5. **Configure security**
+   - Block internal ports (8101, 8102, 8103, 8104, 8105) from external access
+   - Configure internal services to bind to 127.0.0.1 only
+   - Allow only API Gateway (8100) and blockchain ports (8933, 30333) from external network
+
+6. **Disable Coordinator API (after testing)**
+   - Only disable after comprehensive microservices testing is complete
+   - Stop and disable the systemd service after verification
+   - Remove from systemd if no longer needed
 
 ### Optional Cleanup
 
-The following optional cleanup steps can be performed:
+The following optional cleanup steps can be performed after Coordinator API is disabled:
 
 1. **Remove coordinator-api service files** from all nodes
 2. **Drop legacy database** (aitbc) if no longer needed
 3. **Update API Gateway** to remove coordinator-api routing
 4. **Update CLI configuration** to remove coordinator_url reference
+
+## Security Configuration
+
+### Firewall Rules
+
+#### Public-Facing Ports (Allow External Access)
+```bash
+# API Gateway - Only public-facing microservice
+ufw allow 8200/tcp
+
+# Blockchain services
+ufw allow 8201/tcp  # Blockchain P2P
+ufw allow 8202/tcp  # Blockchain RPC
+
+# Coordinator API (failover)
+ufw allow 8203/tcp
+```
+
+#### Internal Ports (Block External Access)
+```bash
+# Internal microservices - block external access (contiguous range 8101-8105)
+ufw deny 8101/tcp  # GPU Service
+ufw deny 8102/tcp  # Marketplace Service
+ufw deny 8103/tcp  # Trading Service
+ufw deny 8104/tcp  # Governance Service
+ufw deny 8105/tcp  # Hermes Service
+
+# Legacy services
+ufw deny 8106/tcp  # AI Service (not used)
+ufw deny 8107/tcp  # Monitoring Service (not used)
+ufw deny 8108/tcp  # Plugin Service (not used)
+```
+
+### Service Binding Configuration
+
+All internal microservices should bind to `127.0.0.1` (localhost only):
+
+```python
+# Example systemd service configuration
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8101
+```
+
+API Gateway should bind to `0.0.0.0` to accept external connections:
+
+```python
+# API Gateway configuration
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn gateway.main:app --host 0.0.0.0 --port 8200
+```
 
 ## Systemd Services
 
@@ -347,14 +441,13 @@ All microservices are managed by systemd:
 
 - `aitbc-gpu.service` - GPU Service (port 8101)
 - `aitbc-marketplace.service` - Marketplace Service (port 8102)
-- `aitbc-trading.service` - Trading Service (port 8104)
-- `aitbc-governance.service` - Governance Service (port 8105)
-- `aitbc-ai.service` - AI Service (port 8106)
-- `aitbc-monitoring.service` - Monitoring Service (port 8107)
-- `aitbc-hermes.service` - hermes Service (port 8108)
-- `aitbc-plugin.service` - Plugin Service (port 8109)
-- `aitbc-api-gateway.service` - API Gateway (port 8080)
-- `aitbc-coordinator-api.service` - Legacy Coordinator API (port 8000) - **DISABLED**
+- `aitbc-trading.service` - Trading Service (port 8103)
+- `aitbc-governance.service` - Governance Service (port 8104)
+- `aitbc-hermes.service` - Hermes Service (port 8105)
+- `aitbc-api-gateway.service` - API Gateway (port 8200) - **PUBLIC-FACING**
+- `aitbc-blockchain-p2p.service` - Blockchain P2P (port 8201) - **PUBLIC-FACING**
+- `aitbc-blockchain-node.service` - Blockchain RPC (port 8202) - **PUBLIC-FACING**
+- `aitbc-coordinator-api.service` - Legacy Coordinator API (port 8203) - **FAILOVER SERVICE**
 
 ## Database Schema
 

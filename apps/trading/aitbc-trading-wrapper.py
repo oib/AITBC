@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Wrapper script for aitbc-blockchain-node service
-Uses centralized aitbc utilities for path configuration
+Wrapper script for aitbc-trading service
 """
 
 import os
@@ -17,18 +16,19 @@ from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE, REPO_DIR
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
 os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = f"{REPO_DIR}/apps/blockchain-node/src"
+os.environ["PYTHONPATH"] = f"{REPO_DIR}/apps/trading/src:{REPO_DIR}/packages/py/aitbc-core/src"
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
-# Block production is controlled by env file settings (enable_block_production)
-# The proposer runs in the event loop without blocking - no force-enable needed
-
 # Execute the actual service
-# Use combined_main to run both blockchain node and HTTP RPC server
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
-    "aitbc_chain.combined_main"
+    "uvicorn",
+    "main:app",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8103"
 ]
 os.execvp(exec_cmd[0], exec_cmd)
