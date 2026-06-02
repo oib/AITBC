@@ -14,18 +14,19 @@ version 6
 # IPv4
 interface4 any world
     protection bad-packets
-    server "ssh dhcp"        accept 
+    server "ssh dhcp"        accept
     server "dns echo icmp"   accept
     server "http https"      accept
     server custom aitbc tcp/8200 default accept
     server custom aitbc tcp/8201 default accept
     server custom aitbc tcp/8202 default accept
     server custom aitbc tcp/8203 default accept
+    server custom aitbc tcp/8204 default accept
     client all accept
 
 # IPv6
 interface6 any world6
-    protection bad-packets 
+    protection bad-packets
     server "icmpv6 ipv6neigh" accept
     client "icmpv6 ipv6neigh" accept
     client all accept
@@ -47,10 +48,11 @@ router br_to_host inface incusbr0 outface any
 
 | Port | Service | Purpose |
 |------|---------|---------|
-| 8200 | API Gateway | Single entry point for external API calls |
-| 8201 | Blockchain P2P | P2P network communication |
+| 8200 | Blockchain P2P | P2P network communication |
+| 8201 | API Gateway | Single entry point for external API calls |
 | 8202 | Blockchain RPC | External blockchain node access |
 | 8203 | Coordinator API | Legacy failover service |
+| 8204 | Agent Registry | Agent discovery and management |
 
 ### Internal Services (Blocked from External Network)
 

@@ -161,7 +161,7 @@ These services should be accessed through nginx for SSL termination, security he
 - **Agent Registry** (port 8204) - Agent discovery and management
   - Nginx proxied on ports 80/443
   - Nginx path: `/agent/`
-- **API Gateway** (port 8200) - Single entry point for all external API calls
+- **API Gateway** (port 8201) - Single entry point for all external API calls
   - Routes to appropriate microservices based on path prefix
   - Nginx proxied on ports 80/443
   - Nginx path: `/api/`
@@ -174,8 +174,8 @@ These services should be accessed through nginx for SSL termination, security he
 
 **Nginx Routing Configuration:**
 ```
-/agent/    → localhost:8013 (Agent Registry)
-/api/      → localhost:8200 (API Gateway)
+/agent/    → localhost:8204 (Agent Registry)
+/api/      → localhost:8201 (API Gateway)
 /rpc/      → localhost:8202 (Blockchain RPC)
 /c/        → localhost:8203 (Coordinator API - failover)
 ```
@@ -183,7 +183,7 @@ These services should be accessed through nginx for SSL termination, security he
 #### Public Services (Direct Access)
 These services are accessible directly without nginx proxy (typically P2P protocols).
 
-- **Blockchain P2P** (port 8201) - P2P network communication
+- **Blockchain P2P** (port 8200) - P2P network communication
   - Direct access required for P2P protocol
 
 #### Internal Services (Localhost Only) - Contiguous Range 8101-8105

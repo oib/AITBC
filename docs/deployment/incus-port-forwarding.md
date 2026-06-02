@@ -4,10 +4,11 @@
 
 The `aitbc` container is configured with the following port forwardings:
 
-- **8200** → API Gateway
-- **8201** → Blockchain P2P
+- **8200** → Blockchain P2P
+- **8201** → API Gateway
 - **8202** → Blockchain RPC
 - **8203** → Coordinator API (failover)
+- **8204** → Agent Registry
 
 All forwarded to container IP: `192.168.100.10`
 

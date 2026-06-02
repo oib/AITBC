@@ -16,19 +16,19 @@ This document provides the authoritative port configuration for all AITBC servic
 ### Public Services with Nginx Reverse Proxy (Recommended)
 These services should be accessed through nginx for SSL termination, security headers, and load balancing.
 
-| Service | Port | Health Endpoint | Nginx Port | Notes |
-|---------|------|----------------|------------|-------|
-| **API Gateway** | 8200 | `http://localhost:8200/health` | 80/443 | Single entry point for all external API calls |
-| **Agent Registry** | 8204 | `http://localhost:8204/agent/health` | 80/443 | Agent discovery and management |
-| **Blockchain RPC** | 8202 | `http://localhost:8202/health` | 80/443 | External blockchain node access |
-| **Coordinator API** | 8203 | `http://localhost:8203/health` | 80/443 | Legacy failover service |
+| Service | Port | Health Endpoint | Binding | Nginx Port | Notes |
+|---------|------|----------------|---------|------------|-------|
+| **API Gateway** | 8201 | `http://localhost:8201/health` | 0.0.0.0 | 80/443 | Single entry point for all external API calls |
+| **Agent Registry** | 8204 | `http://localhost:8204/agent/health` | 127.0.0.1 | 80/443 | Agent discovery and management |
+| **Blockchain RPC** | 8202 | `http://localhost:8202/health` | 127.0.0.1 | 80/443 | External blockchain node access |
+| **Coordinator API** | 8203 | `http://localhost:8203/health` | 127.0.0.1 | 80/443 | Legacy failover service |
 
 **Nginx Configuration**: Services in this group are proxied through nginx on ports 80 (HTTP) and 443 (HTTPS) with SSL termination.
 
 **Nginx Routing Configuration:**
 ```
 /agent/    → localhost:8204 (Agent Registry)
-/api/      → localhost:8200 (API Gateway)
+/api/      → localhost:8201 (API Gateway)
 /rpc/      → localhost:8202 (Blockchain RPC)
 /c/        → localhost:8203 (Coordinator API - failover)
 ```
@@ -38,7 +38,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
 
 | Service | Port | Health Endpoint | Binding | Notes |
 |---------|------|----------------|---------|-------|
-| **Blockchain P2P** | 8201 | N/A | 0.0.0.0 | P2P network communication (direct access required) |
+| **Blockchain P2P** | 8200 | N/A | 0.0.0.0 | P2P network communication (direct access required) |
 
 ### Internal Services (Ports 8101-8105)
 These services bind to localhost only (127.0.0.1) and should not be exposed externally.
