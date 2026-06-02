@@ -22,16 +22,16 @@ def handle_blockchain_info(args, get_chain_info, render_mapping):
 def handle_blockchain_height(args, get_chain_info):
     """Handle blockchain height command."""
     chain_info = get_chain_info(rpc_url=args.rpc_url)
-    logger.info(chain_info.get("height", 0) if chain_info else 0)
+    print(chain_info.get("height", 0) if chain_info else 0)
 def handle_blockchain_block(args, default_rpc_url):
     """Handle blockchain block command."""
     if args.number is None:
-        logger.error("Error: block number is required")
+        print("Error: block number is required")
         sys.exit(1)
 
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-    chain_id = getattr(args, 'chain_id', None) or os.getenv('CHAIN_ID', 'ait-mainnet')
-    logger.info(f"Querying block #{args.number} from {rpc_url} (chain: {chain_id})...")
+    chain_id = getattr(args, 'chain_id', None) or os.getenv('CHAIN_ID', None)
+    print(f"Querying block #{args.number} from {rpc_url} (chain: {chain_id or 'default'})...")
     try:
         params = {}
         if chain_id:
@@ -39,16 +39,16 @@ def handle_blockchain_block(args, default_rpc_url):
         response = requests.get(f"{rpc_url}/rpc/blocks/{args.number}", params=params, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            logger.info(f"Block #{args.number}:")
-            logger.info(f"  Hash: {data.get('hash', 'N/A')}")
-            logger.info(f"  Timestamp: {data.get('timestamp', 'N/A')}")
-            logger.info(f"  Transactions: {data.get('tx_count', len(data.get('transactions', [])))}")
-            logger.info(f"  Miner: {data.get('proposer', 'N/A')}")
+            print(f"Block #{args.number}:")
+            print(f"  Hash: {data.get('hash', 'N/A')}")
+            print(f"  Timestamp: {data.get('timestamp', 'N/A')}")
+            print(f"  Transactions: {data.get('tx_count', len(data.get('transactions', [])))}")
+            print(f"  Miner: {data.get('proposer', 'N/A')}")
         else:
-            logger.error(f"Failed to get block: {response.status_code}")
+            print(f"Failed to get block: {response.status_code}")
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error getting block: {e}")
+        print(f"Error getting block: {e}")
         sys.exit(1)
 
 

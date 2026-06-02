@@ -14,7 +14,7 @@ def pool_hub():
 
 
 @pool_hub.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def status(ctx, rpc_url):
     """Check pool hub status"""
@@ -38,7 +38,7 @@ def status(ctx, rpc_url):
 
 @pool_hub.command()
 @click.option('--pool-id', help='Specific pool ID')
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def sla(ctx, pool_id, rpc_url):
     """Monitor SLA"""

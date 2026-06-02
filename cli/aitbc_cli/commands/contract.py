@@ -15,7 +15,7 @@ def contract():
 
 @contract.command()
 @click.option('--contract-name', required=True, help='Contract name')
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def deploy(ctx, contract_name, rpc_url):
     """Deploy smart contract"""
@@ -37,7 +37,7 @@ def deploy(ctx, contract_name, rpc_url):
 @click.option('--contract-address', required=True, help='Contract address')
 @click.option('--method', required=True, help='Method to call')
 @click.option('--args', help='Method arguments (JSON array)')
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def call(ctx, contract_address, method, args, rpc_url):
     """Call smart contract method"""

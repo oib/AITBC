@@ -54,18 +54,18 @@ def handle_network_ping(args, default_rpc_url, read_blockchain_env, normalize_rp
     target_url = node if "://" in node else f"http://{node}:{peer_rpc_port}"
     target = probe_rpc_node(node, target_url, chain_id=env_config.get("chain_id") or None)
 
-    logger.info(f"Ping: Node {node} {'reachable' if target['healthy'] else 'unreachable'}")
-    logger.info(f"  Endpoint: {urlparse(target['rpc_url']).netloc}")
+    print(f"Ping: Node {node} {'reachable' if target['healthy'] else 'unreachable'}")
+    print(f"  Endpoint: {urlparse(target['rpc_url']).netloc}")
     if target["latency_ms"] is not None:
-        logger.info(f"  Latency: {target['latency_ms']}ms")
-    logger.error(f"  Status: {'connected' if target['healthy'] else 'error'}")
+        print(f"  Latency: {target['latency_ms']}ms")
+    print(f"  Status: {'connected' if target['healthy'] else 'error'}")
 def handle_network_propagate(args, default_rpc_url, get_network_snapshot, first):
     """Handle network data propagation."""
     data = first(getattr(args, "data_opt", None), getattr(args, "data", None), "test-data")
     snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
-    logger.info("Data propagation: Complete")
-    logger.info(f"  Data: {data}")
-    logger.info(f"  Nodes: {snapshot['connected_count']}/{len(snapshot['nodes'])} reachable")
+    print("Data propagation: Complete")
+    print(f"  Data: {data}")
+    print(f"  Nodes: {snapshot['connected_count']}/{len(snapshot['nodes'])} reachable")
 def handle_network_force_sync(args, default_rpc_url, render_mapping):
     """Handle network force sync command."""
     rpc_url = args.rpc_url or default_rpc_url

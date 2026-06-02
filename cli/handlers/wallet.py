@@ -25,11 +25,13 @@ def handle_wallet_list(args, list_wallets, output_format):
     """Handle wallet list command."""
     wallets = list_wallets()
     if output_format(args) == "json":
-        logger.info(json.dumps(wallets, indent=2))
+        print(json.dumps(wallets, indent=2))
         return
-    logger.info("Wallets:")
+    print("Wallets:")
     for wallet in wallets:
-        logger.info(f"  {wallet['name']}: {wallet['address']}")
+        name = wallet.get('name') or wallet.get('wallet_name') or wallet.get('wallet_id', 'unknown')
+        address = wallet.get('address', 'N/A')
+        print(f"  {name}: {address}")
 def handle_wallet_balance(args, default_rpc_url, list_wallets, get_balance, first):
     """Handle wallet balance command."""
     rpc_url = getattr(args, "rpc_url", default_rpc_url)

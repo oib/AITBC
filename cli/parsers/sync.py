@@ -15,12 +15,12 @@ def register(subparsers, ctx):
     )
     bulk_parser.add_argument(
         "--source",
-        default="http://127.0.0.1:8006",
+        default="http://127.0.0.1:8202",
         help="Source RPC URL (leader node)"
     )
     bulk_parser.add_argument(
         "--import-url",
-        default="http://127.0.0.1:8006",
+        default="http://127.0.0.1:8202",
         help="Local RPC URL for import"
     )
     bulk_parser.add_argument(

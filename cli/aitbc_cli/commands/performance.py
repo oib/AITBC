@@ -12,7 +12,7 @@ def performance():
 
 
 @performance.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def benchmark(ctx, rpc_url):
     """Run performance benchmark"""
@@ -36,7 +36,7 @@ def benchmark(ctx, rpc_url):
 
 
 @performance.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def optimize(ctx, rpc_url):
     """Optimize system performance"""
@@ -59,7 +59,7 @@ def optimize(ctx, rpc_url):
 
 
 @performance.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def tune(ctx, rpc_url):
     """Tune system parameters"""

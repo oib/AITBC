@@ -16,7 +16,7 @@ def messaging():
 @messaging.command()
 @click.option('--recipient', required=True, help='Recipient address')
 @click.option('--message', required=True, help='Message content')
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def send(ctx, recipient, message, rpc_url):
     """Send a message"""
@@ -43,7 +43,7 @@ def send(ctx, recipient, message, rpc_url):
 
 
 @messaging.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def list(ctx, rpc_url):
     """List messages"""
@@ -67,7 +67,7 @@ def list(ctx, rpc_url):
 @messaging.command()
 @click.option('--title', required=True, help='Topic title')
 @click.option('--description', required=True, help='Topic description')
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def topic(ctx, title, description, rpc_url):
     """Create forum topic"""

@@ -19,7 +19,7 @@ from ..utils.wallet import decrypt_private_key
 
 logger = get_logger(__name__)
 
-DEFAULT_RPC_URL = "http://localhost:8006"
+DEFAULT_RPC_URL = "http://localhost:8202"
 # Use the same wallet directory as wallet create command
 DEFAULT_KEYSTORE_DIR = Path.home() / ".aitbc" / "wallets"
 

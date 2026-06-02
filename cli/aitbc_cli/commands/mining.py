@@ -10,7 +10,7 @@ from aitbc import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
 
 from ..utils import error, success
 
-DEFAULT_RPC_URL = "http://localhost:8006"
+DEFAULT_RPC_URL = "http://localhost:8202"
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
 
 

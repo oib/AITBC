@@ -20,7 +20,7 @@ def status(ctx, rpc_url):
     """Check network status"""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        status = http_client.get("/network-info")
+        status = http_client.get("/rpc/network-info")
         output(status, ctx.obj.get('output_format', 'table'), title="Network Status")
     except NetworkError:
         # Fallback to simulated data if RPC endpoint not available

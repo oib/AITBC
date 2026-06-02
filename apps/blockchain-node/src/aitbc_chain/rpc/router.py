@@ -228,6 +228,16 @@ async def get_head_route(
     return await get_head(request, chain_id)
 
 
+@router.get("/height", summary="Get current chain height")
+@rate_limit(rate=200, per=60)
+async def get_height_route(
+    request: Request, chain_id: str = None
+) -> dict[str, Any]:
+    """Get current chain height"""
+    head = await get_head(request, chain_id)
+    return {"height": head.get("height", 0)}
+
+
 @router.get("/blocks/{height}", summary="Get block by height")
 @rate_limit(rate=200, per=60)
 async def get_block_route(

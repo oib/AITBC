@@ -159,8 +159,8 @@ async def optimize_inference(
 
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
-    """Submit GPU marketplace transaction"""
-    from .domain.gpu_marketplace import GPURegistry
+    """Submit GPU marketplace transaction to blockchain"""
+    from aitbc import AITBCHTTPClient
 
     # Validate transaction type
     transaction_type = transaction_data.get('type')
@@ -171,24 +171,82 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
 
     try:
         if action == 'offer':
-            # Map offer data to GPURegistry
+            # Create blockchain GPU registration transaction
+            gpu_specs = transaction_data.get('specs', {})
+            
+            # Submit GPU_REGISTER transaction to blockchain
+            blockchain_tx = {
+                "from": transaction_data.get('provider_address', ''),
+                "to": "0x0000000000000000000000000000000000000000",  # Burn address for registration
+                "amount": 0,  # No token transfer for registration
+                "fee": 10,  # Standard transaction fee
+                "nonce": 0,  # Will be set by blockchain
+                "type": "GPU_REGISTER",
+                "payload": {
+                    "gpu_model": gpu_specs.get('model', 'Unknown'),
+                    "memory_gb": gpu_specs.get('memory_gb', 0),
+                    "cuda_cores": gpu_specs.get('cuda_cores', 0),
+                    "compute_capability": gpu_specs.get('compute_capability', ''),
+                    "price_per_hour": transaction_data.get('price_per_gpu', 0.0),
+                    "description": gpu_specs.get('description', ''),
+                    "miner_id": transaction_data.get('provider_node_id', 'default_miner'),
+                    "provider_address": transaction_data.get('provider_address', '')
+                },
+                "signature": transaction_data.get('signature', '')
+            }
+
+            # Submit to blockchain (optional - if wallet address provided)
+            blockchain_tx_hash = None
+            provider_address = transaction_data.get('provider_address')
+            logger.info(f"Provider address: {provider_address}")
+            
+            if provider_address:
+                try:
+                    logger.info("Attempting blockchain transaction submission...")
+                    http_client = AITBCHTTPClient(base_url="http://localhost:8202", timeout=30)
+                    result = http_client.post("/rpc/transaction", json=blockchain_tx)
+                    logger.info(f"Blockchain response: {result}")
+                    blockchain_tx_hash = result.get("transaction_hash")
+                    if blockchain_tx_hash:
+                        logger.info(f"Blockchain transaction submitted: {blockchain_tx_hash}")
+                except Exception as blockchain_error:
+                    logger.warning(f"Blockchain submission failed, falling back to local storage: {blockchain_error}")
+            else:
+                logger.info("No provider address provided, skipping blockchain registration")
+            
+            # Store in local database for quick access (always)
             gpu_data = {
                 "id": transaction_data.get('offer_id', f"gpu_{transaction_data.get('provider_node_id', 'unknown')}"),
                 "miner_id": transaction_data.get('provider_node_id', 'default_miner'),
-                "model": transaction_data.get('specs', {}).get('model', 'Unknown'),
-                "memory_gb": transaction_data.get('specs', {}).get('memory_gb', 0),
+                "model": gpu_specs.get('model', 'Unknown'),
+                "memory_gb": gpu_specs.get('memory_gb', 0),
                 "price_per_hour": transaction_data.get('price_per_gpu', 0.0),
                 "status": transaction_data.get('status', 'available'),
-                "region": transaction_data.get('specs', {}).get('region', ''),
-                "capabilities": transaction_data.get('specs', {}).get('capabilities', []),
+                "region": gpu_specs.get('region', ''),
+                "capabilities": gpu_specs.get('capabilities', []),
+                "blockchain_tx_hash": blockchain_tx_hash
             }
+            # Import GPURegistry at module level to avoid runtime import issues
+            try:
+                from .domain.gpu_marketplace import GPURegistry
+            except ImportError:
+                from domain.gpu_marketplace import GPURegistry
             gpu = GPURegistry(**gpu_data)
             session.add(gpu)
+            await session.commit()
+            
+            response_data = {
+                "status": "success", 
+                "transaction_id": transaction_data.get('offer_id'),
+                "blockchain_registered": blockchain_tx_hash is not None
+            }
+            if blockchain_tx_hash:
+                response_data["blockchain_tx_hash"] = blockchain_tx_hash
+            
+            return response_data
         else:
             return {"error": f"Invalid action: {action}. Only 'offer' is currently supported"}, 400
 
-        await session.commit()
-        return {"status": "success", "transaction_id": transaction_data.get('offer_id')}
     except Exception as e:
         await session.rollback()
         logger.error(f"Transaction submission error: {e}")

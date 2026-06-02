@@ -15,7 +15,7 @@ def account():
 
 @account.command()
 @click.option('--address', required=True, help='Account address')
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.option('--chain-id', help='Chain ID for multichain operations')
 @click.pass_context
 def get(ctx, address, rpc_url, chain_id):
@@ -38,7 +38,7 @@ def get(ctx, address, rpc_url, chain_id):
 
 
 @account.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.option('--chain-id', help='Chain ID for multichain operations')
 @click.pass_context
 def list(ctx, rpc_url, chain_id):

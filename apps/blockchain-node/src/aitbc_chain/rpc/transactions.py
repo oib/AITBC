@@ -151,18 +151,25 @@ async def submit_marketplace_transaction(
 
         # Normalize transaction data
         tx_data_dict = normalize_transaction_data(tx_data, chain_id)
-        _validate_transaction_admission(tx_data_dict, mempool)
+        
+        # For GPU registration, use GPU_REGISTER transaction type
+        if tx_data_dict.get("type") == "GPU_REGISTER":
+            tx_data_dict["type"] = "GPU_REGISTER"
+            # GPU registration doesn't require amount transfer, only fee
+            tx_data_dict["amount"] = 0
+        else:
+            _validate_transaction_admission(tx_data_dict, mempool)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
 
         return {
             "success": True,
             "transaction_hash": tx_hash,
-            "message": "Marketplace transaction submitted"
+            "message": "Marketplace transaction submitted to mempool"
         }
     except Exception as e:
         _logger.error("Failed to submit marketplace transaction", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail=f"Failed to submit marketplace transaction: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to submit marketplace transaction: {str(e)}")
 
 
 @rate_limit(rate=200, per=60)

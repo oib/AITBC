@@ -76,7 +76,7 @@ def get_default_node_config() -> NodeConfig:
     """Get default node configuration for local development"""
     return NodeConfig(
         id="default-node",
-        endpoint="http://localhost:8006",
+        endpoint="http://localhost:8202",
         timeout=30,
         retry_count=3,
         max_connections=10

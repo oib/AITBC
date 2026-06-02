@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 
-def get_chain_info(rpc_url: str = "http://localhost:8006") -> dict | None:
+def get_chain_info(rpc_url: str = "http://localhost:8202") -> dict | None:
     """Get blockchain information"""
     try:
         result = {}
@@ -36,7 +36,7 @@ def get_chain_info(rpc_url: str = "http://localhost:8006") -> dict | None:
         return None
 
 
-def get_network_status(rpc_url: str = "http://localhost:8006") -> dict | None:
+def get_network_status(rpc_url: str = "http://localhost:8202") -> dict | None:
     """Get network status and health"""
     try:
         # Get head block
@@ -50,7 +50,7 @@ def get_network_status(rpc_url: str = "http://localhost:8006") -> dict | None:
         return None
 
 
-def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str = "http://localhost:8006") -> dict | None:
+def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str = "http://localhost:8202") -> dict | None:
     """Get blockchain analytics and statistics"""
     try:
         if analytics_type == "blocks":

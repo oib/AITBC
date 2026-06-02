@@ -14,7 +14,7 @@ def bridge():
 
 
 @bridge.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def start(ctx, rpc_url):
     """Start bridge service"""
@@ -36,7 +36,7 @@ def start(ctx, rpc_url):
 
 
 @bridge.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def status(ctx, rpc_url):
     """Check bridge status"""
@@ -58,7 +58,7 @@ def status(ctx, rpc_url):
 
 
 @bridge.command()
-@click.option('--rpc-url', default='http://localhost:8006', help='Blockchain RPC URL')
+@click.option('--rpc-url', default='http://localhost:8202', help='Blockchain RPC URL')
 @click.pass_context
 def stop(ctx, rpc_url):
     """Stop bridge service"""

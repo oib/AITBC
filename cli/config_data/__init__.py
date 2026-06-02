@@ -18,7 +18,7 @@ class Config:
     role: str | None = None  # admin, client, miner, etc.
     config_dir: Path = field(default_factory=lambda: Path.home() / ".aitbc")
     config_file: str | None = None
-    blockchain_rpc_url: str = "http://127.0.0.1:8006"
+    blockchain_rpc_url: str = "http://127.0.0.1:8202"
     wallet_url: str = "http://127.0.0.1:8002"
 
     def _validate_localhost_urls(self):
