@@ -83,6 +83,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Firehol firewall configuration documentation updated
 - ✅ SERVICE_PORTS.md updated as authoritative port reference
 - ✅ Microservices migration status documentation updated
+- ✅ Network discovery endpoint added (/rpc/network-info) for open island joining
 
 ## 📋 Detailed Features
 

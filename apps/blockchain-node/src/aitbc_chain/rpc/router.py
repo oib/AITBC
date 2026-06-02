@@ -9,6 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from aitbc.rate_limiting import rate_limit
 
+from ..config import settings
 from ..logger import get_logger
 from ..mempool import get_mempool
 
@@ -243,6 +244,35 @@ async def get_blocks_range_route(
 ) -> dict[str, Any]:
     """Get blocks in a height range"""
     return await get_blocks_range(request, start, end, include_tx, chain_id)
+
+
+@router.get("/network-info", summary="Get network information for joining")
+@rate_limit(rate=100, per=60)
+async def get_network_info_route(request: Request) -> dict[str, Any]:
+    """Get network configuration information for open island joining"""
+    # Read P2P configuration from environment
+    p2p_host = getattr(settings, "p2p_bind_host", "0.0.0.0")
+    p2p_port = getattr(settings, "p2p_bind_port", "8200")
+    p2p_node_id = getattr(settings, "p2p_node_id", "unknown")
+    
+    # Use actual hostname for external access (not 0.0.0.0)
+    p2p_endpoint = f"hub.aitbc.bubuit.net:{p2p_port}" if p2p_host == "0.0.0.0" else f"{p2p_host}:{p2p_port}"
+    
+    # Get chain information
+    chain_id = getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net")
+    supported_chains = getattr(settings, "supported_chains", "ait-mainnet").split(",")
+    
+    return {
+        "p2p_endpoint": p2p_endpoint,
+        "p2p_node_id": p2p_node_id,
+        "chain_id": chain_id,
+        "network_type": "open_island",
+        "supported_chains": supported_chains,
+        "connection_instructions": f"Connect via P2P protocol to {p2p_endpoint}",
+        "rpc_endpoint": "http://hub.aitbc.bubuit.net:8202",
+        "api_gateway": "http://hub.aitbc.bubuit.net:8201",
+        "version": "0.4.3"
+    }
 
 
 @router.post("/importBlock", summary="Import a block")

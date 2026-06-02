@@ -33,6 +33,11 @@ These services should be accessed through nginx for SSL termination, security he
 /c/        → localhost:8203 (Coordinator API - failover)
 ```
 
+**Network Discovery Endpoint:**
+- `/rpc/network-info` - Provides network configuration for open island joining
+  - Returns P2P endpoint, node ID, chain ID, and connection instructions
+  - Accessible via direct port (8202) or nginx proxy (/rpc/)
+
 ### Public Services (Direct Access)
 These services are accessible directly without nginx proxy (typically P2P protocols).
 

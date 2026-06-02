@@ -107,8 +107,14 @@ curl http://localhost/rpc/health
 # Test Coordinator API
 curl http://localhost/c/health
 
+# Test Agent Registry
+curl http://localhost/agent/health
+
 # Test nginx health
 curl http://localhost/health
+
+# Test network discovery endpoint
+curl http://localhost/rpc/network-info
 ```
 
 ### Test HTTPS Access (After SSL Configuration)
