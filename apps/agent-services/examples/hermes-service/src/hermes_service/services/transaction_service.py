@@ -103,7 +103,7 @@ class TransactionService:
                 "amount": amount,
                 "nonce": actual_nonce,
                 "fee": fee,
-                "chain_id": self.chain_id
+                "type": "TRANSFER"
             }
 
             # Sign transaction
