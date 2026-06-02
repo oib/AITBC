@@ -24,6 +24,10 @@ class PricingStrategy(StrEnum):
     MARKET_BALANCE = "market_balance"
     COMPETITIVE_RESPONSE = "competitive_response"
     DEMAND_ELASTICITY = "demand_elasticity"
+    TIME_BASED = "time_based"
+    REPUTATION_BASED = "reputation_based"
+    MULTI_FACTOR = "multi_factor"
+    PREDICTIVE = "predictive"
 
 
 class ResourceType(StrEnum):
@@ -167,6 +171,35 @@ class DynamicPricingEngine:
                 "demand_sensitivity": 0.8,
                 "competition_weight": 0.3,
                 "growth_priority": 0.6,
+            },
+            PricingStrategy.TIME_BASED: {
+                "base_multiplier": 1.0,
+                "peak_hours_multiplier": 1.3,
+                "off_peak_multiplier": 0.8,
+                "weekend_multiplier": 0.9,
+                "hourly_sensitivity": 0.5,
+            },
+            PricingStrategy.REPUTATION_BASED: {
+                "base_multiplier": 1.0,
+                "reputation_weight": 0.6,
+                "performance_weight": 0.3,
+                "history_weight": 0.1,
+            },
+            PricingStrategy.MULTI_FACTOR: {
+                "base_multiplier": 1.0,
+                "demand_weight": 0.25,
+                "supply_weight": 0.20,
+                "time_weight": 0.15,
+                "reputation_weight": 0.15,
+                "competition_weight": 0.15,
+                "regional_weight": 0.10,
+            },
+            PricingStrategy.PREDICTIVE: {
+                "base_multiplier": 1.0,
+                "forecast_weight": 0.5,
+                "current_weight": 0.3,
+                "trend_weight": 0.2,
+                "ml_confidence_threshold": 0.7,
             },
         }
 
@@ -385,7 +418,17 @@ class DynamicPricingEngine:
         config = self.strategy_configs[strategy]
         price = base_price
 
-        # Apply base strategy multiplier
+        # Handle new advanced strategies
+        if strategy == PricingStrategy.TIME_BASED:
+            return await self._calculate_time_based_price(base_price, factors, config)
+        elif strategy == PricingStrategy.REPUTATION_BASED:
+            return await self._calculate_reputation_based_price(base_price, factors, config)
+        elif strategy == PricingStrategy.MULTI_FACTOR:
+            return await self._calculate_multi_factor_price(base_price, factors, config)
+        elif strategy == PricingStrategy.PREDICTIVE:
+            return await self._calculate_predictive_price(base_price, factors, config, market_conditions)
+
+        # Apply base strategy multiplier for existing strategies
         price *= config["base_multiplier"]
 
         # Apply demand sensitivity
@@ -829,3 +872,108 @@ class DynamicPricingEngine:
         forecast = max(0.0, min(1.0, recent_avg + noise))
 
         return forecast  # type: ignore[return-value]
+
+    async def _calculate_time_based_price(self, base_price: float, factors: PricingFactors, config: dict[str, Any]) -> float:
+        """Calculate time-based pricing with peak/off-peak adjustments"""
+        hour = datetime.now(UTC).hour
+        day_of_week = datetime.now(UTC).weekday()
+
+        # Determine time multiplier based on configuration
+        if 8 <= hour <= 20 and day_of_week < 5:  # Business hours
+            time_mult = config.get("peak_hours_multiplier", 1.3)
+        elif day_of_week >= 5:  # Weekend
+            time_mult = config.get("weekend_multiplier", 0.9)
+        else:  # Off-peak
+            time_mult = config.get("off_peak_multiplier", 0.8)
+
+        price = base_price * config["base_multiplier"] * time_mult
+        return max(price, self.min_price)
+
+    async def _calculate_reputation_based_price(self, base_price: float, factors: PricingFactors, config: dict[str, Any]) -> float:
+        """Calculate reputation-based pricing"""
+        reputation_weight = config.get("reputation_weight", 0.6)
+        performance_weight = config.get("performance_weight", 0.3)
+        history_weight = config.get("history_weight", 0.1)
+
+        # Calculate reputation multiplier based on provider reputation
+        reputation_mult = 1.0 + (factors.provider_reputation - 1.0) * reputation_weight
+
+        # Calculate performance multiplier
+        performance_mult = factors.performance_multiplier * performance_weight + 1.0 * (1 - performance_weight)
+
+        # Calculate historical performance multiplier
+        history_mult = factors.historical_performance * history_weight + 1.0 * (1 - history_weight)
+
+        price = base_price * config["base_multiplier"] * reputation_mult * performance_mult * history_mult
+        return max(price, self.min_price)
+
+    async def _calculate_multi_factor_price(self, base_price: float, factors: PricingFactors, config: dict[str, Any]) -> float:
+        """Calculate multi-factor pricing with weighted combination"""
+        demand_weight = config.get("demand_weight", 0.25)
+        supply_weight = config.get("supply_weight", 0.20)
+        time_weight = config.get("time_weight", 0.15)
+        reputation_weight = config.get("reputation_weight", 0.15)
+        competition_weight = config.get("competition_weight", 0.15)
+        regional_weight = config.get("regional_weight", 0.10)
+
+        # Calculate weighted multipliers
+        demand_mult = 1.0 + (factors.demand_multiplier - 1.0) * demand_weight
+        supply_mult = 1.0 + (factors.supply_multiplier - 1.0) * supply_weight
+        time_mult = 1.0 + (factors.time_multiplier - 1.0) * time_weight
+        reputation_mult = 1.0 + (factors.provider_reputation - 1.0) * reputation_weight
+        competition_mult = 1.0 + (factors.competition_multiplier - 1.0) * competition_weight
+        regional_mult = 1.0 + (factors.regional_multiplier - 1.0) * regional_weight
+
+        price = base_price * config["base_multiplier"]
+        price *= demand_mult
+        price *= supply_mult
+        price *= time_mult
+        price *= reputation_mult
+        price *= competition_mult
+        price *= regional_mult
+
+        return max(price, self.min_price)
+
+    async def _calculate_predictive_price(
+        self, base_price: float, factors: PricingFactors, config: dict[str, Any], market_conditions: MarketConditions
+    ) -> float:
+        """Calculate predictive pricing using ML-based forecasting"""
+        forecast_weight = config.get("forecast_weight", 0.5)
+        current_weight = config.get("current_weight", 0.3)
+        trend_weight = config.get("trend_weight", 0.2)
+        ml_confidence_threshold = config.get("ml_confidence_threshold", 0.7)
+
+        # Get forecasted price (simplified - in production would use ML model)
+        forecast_price = base_price * (1 + (factors.demand_level - 0.5) * 0.3)
+
+        # Calculate current market price
+        current_price = base_price * factors.demand_multiplier * factors.supply_multiplier
+
+        # Calculate trend adjustment
+        if market_conditions.price_volatility > 0.2:
+            trend_adjustment = 1.05 if market_conditions.demand_level > 0.6 else 0.95
+        else:
+            trend_adjustment = 1.0
+
+        # Calculate confidence score
+        confidence = factors.confidence_score
+
+        # Weight the components based on confidence
+        if confidence >= ml_confidence_threshold:
+            # High confidence - trust the forecast more
+            weighted_price = (
+                forecast_price * forecast_weight
+                + current_price * current_weight
+                + base_price * trend_weight * trend_adjustment
+            )
+        else:
+            # Low confidence - rely more on current market conditions
+            weighted_price = (
+                forecast_price * forecast_weight * 0.5
+                + current_price * (current_weight + forecast_weight * 0.5)
+                + base_price * trend_weight * trend_adjustment
+            )
+
+        price = weighted_price * config["base_multiplier"]
+        return max(price, self.min_price)
+

@@ -92,68 +92,58 @@ class HealthService:
 
     def get_health_status(
         self,
+        session: Session,
         agent_id: Optional[str] = None,
         service_name: Optional[str] = None
     ) -> List[HealthCheck]:
         """Get health status with optional filtering."""
-        from ....storage.db_pg import SessionLocal
+        query = session.query(HealthCheckModel)
 
-        session = SessionLocal()
-        try:
-            query = session.query(HealthCheckModel)
+        if agent_id:
+            query = query.filter_by(agent_id=agent_id)
+        if service_name:
+            query = query.filter_by(service_name=service_name)
 
-            if agent_id:
-                query = query.filter_by(agent_id=agent_id)
-            if service_name:
-                query = query.filter_by(service_name=service_name)
+        # Get most recent health check per agent/service
+        results = query.order_by(HealthCheckModel.timestamp.desc()).limit(100).all()
 
-            # Get most recent health check per agent/service
-            results = query.order_by(HealthCheckModel.timestamp.desc()).limit(100).all()
-
-            return [
-                HealthCheck(
-                    agent_id=r.agent_id,
-                    service_name=r.service_name,
-                    status=r.status,
-                    timestamp=r.timestamp,
-                    response_time_ms=r.response_time_ms,
-                    error_message=r.error_message,
-                    metadata=json.loads(r.meta_data) if r.meta_data else {},
-                )
-                for r in results
-            ]
-        finally:
-            session.close()
+        return [
+            HealthCheck(
+                agent_id=r.agent_id,
+                service_name=r.service_name,
+                status=r.status,
+                timestamp=r.timestamp,
+                response_time_ms=r.response_time_ms,
+                error_message=r.error_message,
+                metadata=json.loads(r.meta_data) if r.meta_data else {},
+            )
+            for r in results
+        ]
 
     def get_recovery_history(
         self,
+        session: Session,
         agent_id: Optional[str] = None,
         limit: int = 100
     ) -> List[RecoveryResult]:
         """Get recovery history with optional filtering."""
-        from ....storage.db_pg import SessionLocal
+        query = session.query(RecoveryResultModel)
 
-        session = SessionLocal()
-        try:
-            query = session.query(RecoveryResultModel)
+        if agent_id:
+            query = query.filter_by(agent_id=agent_id)
 
-            if agent_id:
-                query = query.filter_by(agent_id=agent_id)
+        results = query.order_by(RecoveryResultModel.timestamp.desc()).limit(limit).all()
 
-            results = query.order_by(RecoveryResultModel.timestamp.desc()).limit(limit).all()
-
-            return [
-                RecoveryResult(
-                    action_id=str(r.action_id),
-                    agent_id=r.agent_id,
-                    success=r.success == "true",
-                    message=r.message,
-                    timestamp=r.timestamp,
-                )
-                for r in results
-            ]
-        finally:
-            session.close()
+        return [
+            RecoveryResult(
+                action_id=str(r.action_id),
+                agent_id=r.agent_id,
+                success=r.success == "true",
+                message=r.message,
+                timestamp=r.timestamp,
+            )
+            for r in results
+        ]
 
     def _trigger_recovery(
         self,
