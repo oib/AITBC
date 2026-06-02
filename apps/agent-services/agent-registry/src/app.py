@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager, contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 
 # Database path - use DATA_DIR environment variable or fallback to /var/lib/aitbc
@@ -182,22 +182,132 @@ async def agent_discovery():
 @app.get("/agent/islands.json")
 async def agent_islands():
     """Agent islands endpoint for nginx proxy"""
-    with get_db_connection() as conn:
-        chain_ids = conn.execute("SELECT DISTINCT chain_id FROM agents WHERE status = 'active'").fetchall()
-        return {
-            "islands": [row["chain_id"] for row in chain_ids],
-            "count": len(chain_ids)
-        }
+    # Return blockchain chain info from environment
+    chain_id = os.environ.get("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    supported_chains = os.environ.get("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net").split(",")
+    return {
+        "islands": supported_chains,
+        "count": len(supported_chains)
+    }
 
 @app.get("/agent/chains.json")
 async def agent_chains():
     """Agent chains endpoint for nginx proxy"""
-    with get_db_connection() as conn:
-        chain_ids = conn.execute("SELECT DISTINCT chain_id FROM agents WHERE status = 'active'").fetchall()
-        return {
-            "chains": [row["chain_id"] for row in chain_ids],
-            "count": len(chain_ids)
+    # Return blockchain chain info from environment
+    chain_id = os.environ.get("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    supported_chains = os.environ.get("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net").split(",")
+    return {
+        "chains": supported_chains,
+        "count": len(supported_chains)
+    }
+
+@app.get("/agent/openapi.json")
+async def agent_openapi(request: Request):
+    """OpenAPI specification for agent registry API"""
+    import socket
+
+    # Get hostname from environment or system
+    hostname = os.getenv("AITBC_HOSTNAME", socket.gethostname())
+
+    # Detect protocol from request or environment
+    protocol = os.getenv("AITBC_PROTOCOL", "http")
+    if hasattr(request, 'url') and request.url:
+        protocol = request.url.scheme
+
+    base_url = f"{protocol}://{hostname}"
+
+    # Get contact email from node.env
+    contact_email = os.getenv("CONTACT_EMAIL", "andreas.fleckl@bubuit.net")
+
+    return {
+        "openapi": "3.0.0",
+        "info": {
+            "title": "AITBC Agent Registry API",
+            "version": "1.0.0",
+            "description": "Agent discovery and registration system for AITBC network",
+            "contact": {
+                "name": "AITBC Network",
+                "email": contact_email
+            }
+        },
+        "servers": [
+            {"url": base_url, "description": "AITBC Hub Node"}
+        ],
+        "paths": {
+            "/api/agents/register": {
+                "post": {
+                    "summary": "Register a new agent",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "type": {"type": "string"},
+                                        "capabilities": {"type": "array", "items": {"type": "string"}},
+                                        "chain_id": {"type": "string"},
+                                        "endpoint": {"type": "string"},
+                                        "metadata": {"type": "object"}
+                                    },
+                                    "required": ["name", "type", "capabilities", "chain_id", "endpoint"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Agent registered successfully"}
+                    }
+                }
+            },
+            "/api/agents": {
+                "get": {
+                    "summary": "List registered agents",
+                    "parameters": [
+                        {"name": "agent_type", "in": "query", "schema": {"type": "string"}},
+                        {"name": "chain_id", "in": "query", "schema": {"type": "string"}},
+                        {"name": "capability", "in": "query", "schema": {"type": "string"}}
+                    ],
+                    "responses": {
+                        "200": {"description": "List of agents"}
+                    }
+                }
+            },
+            "/agent/health": {
+                "get": {
+                    "summary": "Health check",
+                    "responses": {
+                        "200": {"description": "Service is healthy"}
+                    }
+                }
+            },
+            "/agent/discovery.json": {
+                "get": {
+                    "summary": "Agent discovery",
+                    "responses": {
+                        "200": {"description": "List of all registered agents"}
+                    }
+                }
+            },
+            "/agent/islands.json": {
+                "get": {
+                    "summary": "List islands",
+                    "responses": {
+                        "200": {"description": "List of islands with registered agents"}
+                    }
+                }
+            },
+            "/agent/chains.json": {
+                "get": {
+                    "summary": "List chains",
+                    "responses": {
+                        "200": {"description": "List of supported chains"}
+                    }
+                }
+            }
         }
+    }
 
 if __name__ == "__main__":
     import uvicorn

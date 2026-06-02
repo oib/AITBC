@@ -6,11 +6,14 @@
     <title>AITBC Mainnet Hub - Agent Discovery Interface</title>
     <meta name="description" content="AITBC Mainnet Hub (aitbc) - Agent-first API for autonomous systems. Proof-of-Authority consensus blockchain.">
     <meta name="robots" content="index, follow">
-    
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
     <!-- Agent Discovery Links -->
     <link rel="alternate" type="application/json" href="/agent/discovery.json" title="AITBC Network Discovery">
     <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
-    
+
     <!-- Structured Data for AI/Agent Crawlers -->
     <script type="application/ld+json">
     {
@@ -46,165 +49,28 @@
       ]
     }
     </script>
-    
-    <style>
-        :root {
-            --bg: #0a0a0f;
-            --surface: #12121a;
-            --text: #e4e4e7;
-            --text-muted: #71717a;
-            --primary: #3b82f6;
-            --secondary: #8b5cf6;
-            --border: #27272a;
-            --success: #10b981;
-            --code: #18181b;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Courier New', monospace;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        header {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        h1 {
-            font-size: 1.8rem;
-            color: var(--primary);
-            margin-bottom: 0.5rem;
-        }
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-        .badge {
-            display: inline-block;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--success);
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            margin-left: 1rem;
-            vertical-align: middle;
-        }
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        h2 {
-            font-size: 1.1rem;
-            color: var(--secondary);
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        h3 {
-            font-size: 0.95rem;
-            color: var(--primary);
-            margin: 1rem 0 0.5rem;
-        }
-        p {
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-        }
-        .endpoint {
-            background: var(--code);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 1rem;
-            margin: 0.75rem 0;
-            font-family: 'Courier New', monospace;
-        }
-        .method {
-            color: var(--success);
-            font-weight: bold;
-        }
-        .path {
-            color: var(--text);
-        }
-        a {
-            color: var(--primary);
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .github-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            padding: 0.75rem 1.25rem;
-            border-radius: 6px;
-            margin-top: 1rem;
-            transition: background 0.2s;
-        }
-        .github-link:hover {
-            background: var(--border);
-            text-decoration: none;
-        }
-        .code-block {
-            background: var(--code);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 1rem;
-            overflow-x: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.85rem;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-        .meta {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
-        }
-        pre {
-            margin: 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>AITBC Network <span class="badge">Agent API</span></h1>
+            <div class="api-badge">Agent API</div>
+            <h1>AITBC Network</h1>
             <p class="subtitle">Autonomous agent discovery interface for the AI-powered blockchain network</p>
         </header>
 
         <div class="card">
             <h2>What is AITBC?</h2>
-            <p>AITBC is an AI-powered blockchain platform with a multi-island architecture. It provides a <strong>Proof-of-Authority consensus mechanism</strong> designed for autonomous agents and distributed systems.</p>
-            
+            <p>AITBC (AI Trusted Blockchain Compute) is a decentralized platform designed for autonomous AI agents to collaborate, share resources, and execute transactions in a secure, trustless environment. Built with a <strong>Proof-of-Authority consensus mechanism</strong>, it enables agents to discover each other, negotiate GPU resources, and coordinate across distributed islands.</p>
+
             <h3>Key Features</h3>
             <ul style="color: var(--text-muted); margin-left: 1.5rem;">
-                <li>Proof-of-Authority consensus blockchain</li>
-                <li>Agent-first REST API with auto-discovery</li>
-                <li>Federated multi-node architecture</li>
-                <li>GPU marketplace integration</li>
-                <li>Open source - available on GitHub</li>
+                <li><strong>Multi-Island Architecture</strong> - Federated blockchain network supporting independent islands with cross-chain communication</li>
+                <li><strong>Agent-First Design</strong> - REST API with auto-discovery for seamless agent integration and coordination</li>
+                <li><strong>GPU Marketplace</strong> - Decentralized resource sharing where agents can lease GPU compute capacity</li>
+                <li><strong>Proof-of-Authority Consensus</strong> - Fast, energy-efficient validation suitable for high-throughput agent operations</li>
+                <li><strong>Open Source</strong> - Fully transparent and extensible platform available on GitHub</li>
             </ul>
-            
+
             <a href="https://github.com/oib/AITBC" class="github-link" target="_blank" rel="noopener">
                 <svg height="20" viewBox="0 0 16 16" width="20" fill="currentColor">
                     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -217,38 +83,33 @@
             <h2>Network Discovery</h2>
             <p>Access the complete network information through machine-readable JSON endpoints:</p>
             
-            <div class="endpoint">
+            <a href="/agent/discovery.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
                 <span class="method">GET</span> <span class="path">/agent/discovery.json</span>
-            </div>
+            </a>
             <p style="font-size: 0.9rem;">Returns all islands, chains, endpoints, and network topology</p>
             
             <h3><a href="/agent/discovery.json" style="text-decoration: none; color: inherit;">Available Endpoints</a></h3>
-            <div class="grid">
-                <div class="endpoint">
-                    <span class="method">GET</span> <span class="path">/rpc/network-info</span>
-                </div>
-                <div class="endpoint">
-                    <span class="method">GET</span> <span class="path">/agent/islands.json</span>
-                </div>
-                <div class="endpoint">
-                    <span class="method">GET</span> <span class="path">/agent/chains.json</span>
-                </div>
-                <div class="endpoint">
-                    <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
-                </div>
-                <div class="endpoint">
-                    <span class="method">GET</span> <span class="path">/agent/health</span>
-                </div>
-            </div>
+            <a href="/agent/islands.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+                <span class="method">GET</span> <span class="path">/agent/islands.json</span>
+            </a>
+            <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">List of islands with registered agents</p>
+            <a href="/agent/chains.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+                <span class="method">GET</span> <span class="path">/agent/chains.json</span>
+            </a>
+            <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">List of supported blockchain chains</p>
+            <a href="/agent/health" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
+                <span class="method">GET</span> <span class="path">/agent/health</span>
+            </a>
+            <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">Health check endpoint for agent registry service</p>
         </div>
 
         <div class="card">
             <h2>Join the Network</h2>
-            <p>This node (aitbc) is the <strong>HUB</strong> for the AIT Mainnet island. Get network configuration and join instructions:</p>
-            
-            <div class="endpoint">
+            <p>This node (<span id="node-id">loading...</span>) is the <strong>HUB</strong> for the <span id="chain-id">loading...</span> island. Get network configuration and join instructions:</p>
+
+            <a href="/rpc/network-info" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
                 <span class="method">GET</span> <span class="path">/rpc/network-info</span>
-            </div>
+            </a>
             <p style="font-size: 0.85rem; margin-top: 0.5rem;">Returns P2P endpoint, node ID, chain ID, and connection instructions for joining the open island</p>
         </div>
 
@@ -270,16 +131,50 @@
         <div class="card">
             <h2>API Specification</h2>
             <p>OpenAPI 3.0 specification available at:</p>
-            <div class="endpoint">
+            <a href="/agent/openapi.json" class="endpoint" style="text-decoration: none; color: inherit; display: block;">
                 <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
-            </div>
+            </a>
             <p style="font-size: 0.85rem; margin-top: 0.5rem;">Machine-readable API documentation for client generation</p>
         </div>
 
         <div class="meta">
-            <p>Node ID: aitbc | Island: ait-mainnet-island | Role: Hub</p>
+            <p>Node ID: <span id="meta-node-id">loading...</span> | Island: <span id="meta-chain-id">loading...</span> | Role: Hub</p>
+            <p>Contact: <a href="mailto:loading..." id="contact-email-link"><span id="contact-email">loading...</span></a></p>
             <p>This page is optimized for autonomous agents and web crawlers. All content is also available in machine-readable JSON format at the endpoints listed above.</p>
         </div>
     </div>
+
+    <script>
+        async function loadNetworkInfo() {
+            try {
+                const response = await fetch('/rpc/network-info');
+                const data = await response.json();
+
+                // Update Join the Network section
+                document.getElementById('node-id').textContent = data.p2p_node_id;
+                document.getElementById('chain-id').textContent = data.chain_id;
+
+                // Update meta section
+                document.getElementById('meta-node-id').textContent = data.p2p_node_id;
+                document.getElementById('meta-chain-id').textContent = data.chain_id;
+
+                // Update contact email
+                if (data.contact_email) {
+                    document.getElementById('contact-email').textContent = data.contact_email;
+                    document.getElementById('contact-email-link').href = 'mailto:' + data.contact_email;
+                }
+            } catch (error) {
+                console.error('Failed to load network info:', error);
+                document.getElementById('node-id').textContent = 'unknown';
+                document.getElementById('chain-id').textContent = 'unknown';
+                document.getElementById('meta-node-id').textContent = 'unknown';
+                document.getElementById('meta-chain-id').textContent = 'unknown';
+                document.getElementById('contact-email').textContent = 'unknown';
+            }
+        }
+
+        // Load network info on page load
+        loadNetworkInfo();
+    </script>
 </body>
 </html>

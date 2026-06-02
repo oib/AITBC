@@ -282,6 +282,14 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
     chain_id = getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net")
     supported_chains = getattr(settings, "supported_chains", "ait-mainnet").split(",")
 
+    # Detect protocol from request or environment
+    protocol = os.getenv("AITBC_PROTOCOL", "http")
+    if request.url.scheme:
+        protocol = request.url.scheme
+
+    # Get contact email from environment
+    contact_email = os.getenv("CONTACT_EMAIL", "andreas.fleckl@bubuit.net")
+
     return {
         "p2p_endpoint": p2p_endpoint,
         "p2p_node_id": p2p_node_id,
@@ -289,8 +297,9 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
         "network_type": "open_island",
         "supported_chains": supported_chains,
         "connection_instructions": f"Connect via P2P protocol to {p2p_endpoint}",
-        "rpc_endpoint": f"http://{hostname}:8202",
-        "api_gateway": f"http://{hostname}:8201",
+        "rpc_endpoint": f"{protocol}://{hostname}/rpc",
+        "api_gateway": f"{protocol}://{hostname}/api",
+        "contact_email": contact_email,
         "version": "0.4.3"
     }
 
