@@ -167,10 +167,6 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
     transaction_type = transaction_data.get('type')
     action = transaction_data.get('action')
 
-    logger.info(f"=== Transaction Submission ===")
-    logger.info(f"Transaction type: {transaction_type}")
-    logger.info(f"Action: {action}")
-
     if transaction_type != 'gpu_marketplace':
         return {"error": "Invalid transaction type for GPU service"}, 400
 
@@ -180,9 +176,12 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
             gpu_specs = transaction_data.get('specs', {})
             provider_address = transaction_data.get('provider_address', '')
             
-            logger.info(f"=== GPU Registration ===")
-            logger.info(f"Provider address: '{provider_address}'")
-            logger.info(f"GPU specs: {gpu_specs}")
+            logger.info(f"GPU registration request for {gpu_specs.get('model', 'Unknown')} from {provider_address}")
+            
+            # Ensure cuda_cores is an integer (default to 0 if None)
+            cuda_cores = gpu_specs.get('cuda_cores', 0)
+            if cuda_cores is None:
+                cuda_cores = 0
             
             # Submit GPU_REGISTER transaction to blockchain
             blockchain_tx = {
@@ -197,39 +196,44 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
                     "amount": 0,
                     "gpu_model": gpu_specs.get('model', 'Unknown'),
                     "memory_gb": gpu_specs.get('memory_gb', 0),
-                    "cuda_cores": gpu_specs.get('cuda_cores', 0),
+                    "cuda_cores": cuda_cores,
                     "compute_capability": gpu_specs.get('compute_capability', ''),
                     "price_per_hour": transaction_data.get('price_per_gpu', 0.0),
                     "description": gpu_specs.get('description', ''),
                     "miner_id": transaction_data.get('provider_node_id', 'default_miner'),
                     "provider_address": provider_address
                 },
-                "signature": transaction_data.get('signature', '')
+                "signature": transaction_data.get('signature', '') or ''
             }
             
-            logger.info(f"Blockchain transaction prepared: type={blockchain_tx['type']}")
+            logger.info(f"Submitting GPU_REGISTER transaction to blockchain")
 
             # Submit to blockchain (optional - if wallet address provided)
             blockchain_tx_hash = None
             if provider_address:
                 try:
-                    logger.info("Attempting blockchain transaction submission...")
                     # Use local blockchain endpoint
                     blockchain_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
                     
                     # Fetch correct nonce from blockchain
-                    http_client = AITBCHTTPClient(base_url=blockchain_url, timeout=30)
-                    account_info = http_client.get(f"/rpc/account/{provider_address}")
+                    import requests
+                    account_info = requests.get(f"{blockchain_url}/rpc/account/{provider_address}", timeout=30).json()
                     correct_nonce = account_info.get("nonce", 0) if isinstance(account_info, dict) else 0
                     blockchain_tx["nonce"] = correct_nonce
+                    logger.info(f"Using nonce {correct_nonce} for address {provider_address}")
                     
-                    logger.info(f"Using nonce: {correct_nonce} for address {provider_address}")
-                    logger.info(f"Submitting transaction: {blockchain_tx}")
-                    result = http_client.post("/rpc/transaction", json=blockchain_tx)
-                    logger.info(f"Blockchain response: {result}")
+                    # Submit transaction using requests directly
+                    response = requests.post(
+                        f"{blockchain_url}/rpc/transaction",
+                        json=blockchain_tx,
+                        headers={"Content-Type": "application/json"},
+                        timeout=30
+                    )
+                    response.raise_for_status()
+                    result = response.json()
                     blockchain_tx_hash = result.get("transaction_hash")
                     if blockchain_tx_hash:
-                        logger.info(f"Blockchain transaction submitted: {blockchain_tx_hash}")
+                        logger.info(f"GPU registered on blockchain: {blockchain_tx_hash}")
                 except Exception as blockchain_error:
                     logger.warning(f"Blockchain submission failed, falling back to local storage: {blockchain_error}")
                     logger.warning(f"Error type: {type(blockchain_error)}")
