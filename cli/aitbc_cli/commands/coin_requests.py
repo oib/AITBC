@@ -177,6 +177,43 @@ def execute(ctx, request_id):
         # Initialize transaction service
         tx_service = TransactionService()
 
+        # If no local genesis key, forward to hub for execution
+        if not tx_service.genesis_private_key:
+            hub_hermes_url = os.getenv("HUB_HERMES_URL", "http://hub.aitbc.bubuit.net:8107")
+            api_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
+            if not hub_hermes_url or not api_key:
+                click.echo("Error: No GENESIS_PRIVATE_KEY locally and HUB_HERMES_URL/COORDINATOR_API_KEY not set.")
+                click.echo("Set HUB_HERMES_URL and COORDINATOR_API_KEY in node.env to forward execution to hub.")
+                return
+            click.echo(f"No local genesis key — forwarding execution to hub: {hub_hermes_url}")
+            try:
+                import httpx
+                resp = httpx.post(
+                    f"{hub_hermes_url}/coin-requests/execute",
+                    json={
+                        "request_id": req.id,
+                        "sender": req.sender,
+                        "amount": req.amount,
+                        "wallet_address": req.wallet_address,
+                        "approved_by": req.approved_by or "cli",
+                    },
+                    headers={"x-api-key": api_key},
+                    timeout=30,
+                )
+                if resp.status_code == 200:
+                    result = resp.json()
+                    tx_hash = result.get("tx_hash")
+                    req.transaction_hash = tx_hash
+                    req.audit_log += f" | Forwarded to hub for execution at {datetime.utcnow().isoformat()} | Hash: {tx_hash}"
+                    click.echo(f"Transaction submitted by hub: {tx_hash}")
+                    click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
+                    send_hermes_notification(req.sender, f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {req.amount} AIT.")
+                else:
+                    click.echo(f"Hub execution failed: {resp.status_code} {resp.text}")
+            except Exception as e:
+                click.echo(f"Error forwarding to hub: {e}")
+            return
+
         # Check genesis wallet configuration
         if not tx_service.genesis_address:
             click.echo("Error: GENESIS_ADDRESS not configured")
