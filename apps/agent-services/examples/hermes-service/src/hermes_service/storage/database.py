@@ -8,9 +8,17 @@ from sqlalchemy.orm import sessionmaker
 
 from .schema import Base
 
-# Database path
-DB_PATH = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+
+def get_db_path():
+    """Get database path from environment variable."""
+    return os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
+
+
+def get_database_url():
+    """Get database URL dynamically."""
+    db_path = get_db_path()
+    return f"sqlite:///{db_path}"
+
 
 _engine = None
 _SessionLocal = None
@@ -21,7 +29,7 @@ def get_engine():
     global _engine
     if _engine is None:
         _engine = create_engine(
-            DATABASE_URL,
+            get_database_url(),
             connect_args={"check_same_thread": False},
             echo=False
         )
