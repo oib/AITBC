@@ -54,6 +54,18 @@ class RequestCoinsHandler(BaseHandler):
         except (json.JSONDecodeError, ValueError):
             pass
 
+        # Try format: REQUEST_COINS:1000 to <address>
+        colon_match = re.search(r'REQUEST_COINS:\s*(\d+)', content, re.IGNORECASE)
+        if colon_match:
+            amount = int(colon_match.group(1))
+            # Try to extract wallet address (e.g., "to address 0x..." or "to 0x...")
+            address_match = re.search(r'(?:to\s+address|to)\s+([a-zA-Z0-9]+)', content, re.IGNORECASE)
+            wallet_address = address_match.group(1) if address_match else ""
+            return {
+                "amount": amount,
+                "wallet_address": wallet_address
+            }
+
         # Fallback to regex parsing (natural language)
         # Try to extract amount (e.g., "2000 ait coins")
         amount_match = re.search(r'(\d+)\s*(?:ait\s+)?coins?', content, re.IGNORECASE)
@@ -81,10 +93,14 @@ class RequestCoinsHandler(BaseHandler):
         amount = request_details["amount"]
         wallet_address = request_details["wallet_address"]
 
+        self.logger.info(f"Parsed request: amount={amount}, wallet_address={wallet_address}")
+
         if amount == 0:
+            self.logger.error("Could not parse amount from request")
             return {"status": "error", "error": "Could not parse amount from request"}
 
         if not wallet_address:
+            self.logger.error("Could not parse wallet address from request")
             return {"status": "error", "error": "Could not parse wallet address from request"}
 
         # Create request ID
