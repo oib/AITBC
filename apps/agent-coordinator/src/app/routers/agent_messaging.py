@@ -90,7 +90,8 @@ async def send_message(
     global _mock_messages, _message_counter
     
     if req.sender not in _mock_agents:
-        raise HTTPException(status_code=400, detail="Sender not registered")
+        _mock_agents[req.sender] = {"id": req.sender, "public_key": "", "capabilities": []}
+        _mock_messages[req.sender] = []
     
     _message_counter += 1
     message_id = f"msg-{_message_counter:03d}"
