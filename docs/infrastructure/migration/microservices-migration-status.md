@@ -155,13 +155,32 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 
 ### Service Port Classification
 
-#### Public-Facing Services (Available from External Network) - Ports 8200-8203
+#### Public Services with Nginx Reverse Proxy (Recommended)
+These services should be accessed through nginx for SSL termination, security headers, and load balancing.
+
 - **API Gateway** (port 8200) - Single entry point for all external API calls
   - Routes to appropriate microservices based on path prefix
-  - Only service that should be exposed externally
-- **Blockchain P2P** (port 8201) - P2P network communication
+  - Nginx proxied on ports 80/443
+  - Nginx path: `/api/`
 - **Blockchain RPC** (port 8202) - External blockchain node access
+  - Nginx proxied on ports 80/443
+  - Nginx path: `/rpc/`
 - **Coordinator API** (port 8203) - Legacy failover service
+  - Nginx proxied on ports 80/443
+  - Nginx path: `/c/`
+
+**Nginx Routing Configuration:**
+```
+/api/      → localhost:8200 (API Gateway)
+/rpc/      → localhost:8202 (Blockchain RPC)
+/c/        → localhost:8203 (Coordinator API - failover)
+```
+
+#### Public Services (Direct Access)
+These services are accessible directly without nginx proxy (typically P2P protocols).
+
+- **Blockchain P2P** (port 8201) - P2P network communication
+  - Direct access required for P2P protocol
 
 #### Internal Services (Localhost Only) - Contiguous Range 8101-8105
 - **GPU Service** (port 8101) - GPU marketplace + miner operations

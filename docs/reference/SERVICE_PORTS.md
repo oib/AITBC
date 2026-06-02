@@ -13,15 +13,30 @@ This document provides the authoritative port configuration for all AITBC servic
 
 ## Port Architecture
 
-### Public-Facing Services (Ports 8200-8203)
-These services are accessible from external networks and should be exposed via firewall rules.
+### Public Services with Nginx Reverse Proxy (Recommended)
+These services should be accessed through nginx for SSL termination, security headers, and load balancing.
+
+| Service | Port | Health Endpoint | Nginx Port | Notes |
+|---------|------|----------------|------------|-------|
+| **API Gateway** | 8200 | `http://localhost:8200/health` | 80/443 | Single entry point for all external API calls |
+| **Blockchain RPC** | 8202 | `http://localhost:8202/health` | 80/443 | External blockchain node access |
+| **Coordinator API** | 8203 | `http://localhost:8203/health` | 80/443 | Legacy failover service |
+
+**Nginx Configuration**: Services in this group are proxied through nginx on ports 80 (HTTP) and 443 (HTTPS) with SSL termination.
+
+**Nginx Routing Configuration:**
+```
+/api/      → localhost:8200 (API Gateway)
+/rpc/      → localhost:8202 (Blockchain RPC)
+/c/        → localhost:8203 (Coordinator API - failover)
+```
+
+### Public Services (Direct Access)
+These services are accessible directly without nginx proxy (typically P2P protocols).
 
 | Service | Port | Health Endpoint | Binding | Notes |
 |---------|------|----------------|---------|-------|
-| **API Gateway** | 8200 | `http://localhost:8200/health` | 0.0.0.0 | Single entry point for all external API calls |
-| **Blockchain P2P** | 8201 | N/A | 0.0.0.0 | P2P network communication |
-| **Blockchain RPC** | 8202 | `http://localhost:8202/health` | 0.0.0.0 | Main blockchain node RPC |
-| **Coordinator API** | 8203 | `http://localhost:8203/health` | 0.0.0.0 | Legacy failover service |
+| **Blockchain P2P** | 8201 | N/A | 0.0.0.0 | P2P network communication (direct access required) |
 
 ### Internal Services (Ports 8101-8105)
 These services bind to localhost only (127.0.0.1) and should not be exposed externally.
