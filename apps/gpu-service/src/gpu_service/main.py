@@ -3,6 +3,7 @@ GPU Service main application
 Manages GPU resource operations
 """
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -173,10 +174,15 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
         if action == 'offer':
             # Create blockchain GPU registration transaction
             gpu_specs = transaction_data.get('specs', {})
+            provider_address = transaction_data.get('provider_address', '')
+            
+            logger.info(f"=== GPU Registration ===")
+            logger.info(f"Provider address: '{provider_address}'")
+            logger.info(f"GPU specs: {gpu_specs}")
             
             # Submit GPU_REGISTER transaction to blockchain
             blockchain_tx = {
-                "from": transaction_data.get('provider_address', ''),
+                "from": provider_address,
                 "to": "0x0000000000000000000000000000000000000000",  # Burn address for registration
                 "amount": 0,  # No token transfer for registration
                 "fee": 10,  # Standard transaction fee
@@ -190,20 +196,28 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
                     "price_per_hour": transaction_data.get('price_per_gpu', 0.0),
                     "description": gpu_specs.get('description', ''),
                     "miner_id": transaction_data.get('provider_node_id', 'default_miner'),
-                    "provider_address": transaction_data.get('provider_address', '')
+                    "provider_address": provider_address
                 },
                 "signature": transaction_data.get('signature', '')
             }
+            
+            logger.info(f"Blockchain transaction prepared: type={blockchain_tx['type']}")
 
             # Submit to blockchain (optional - if wallet address provided)
             blockchain_tx_hash = None
-            provider_address = transaction_data.get('provider_address')
-            logger.info(f"Provider address: {provider_address}")
-            
             if provider_address:
                 try:
                     logger.info("Attempting blockchain transaction submission...")
-                    http_client = AITBCHTTPClient(base_url="http://localhost:8202", timeout=30)
+                    # Use hub blockchain endpoint from environment
+                    hub_url = os.getenv("HUB_BLOCKCHAIN_URL", "https://hub.aitbc.bubuit.net")
+                    
+                    # Fetch correct nonce from hub blockchain
+                    http_client = AITBCHTTPClient(base_url=hub_url, timeout=30)
+                    account_info = http_client.get(f"/rpc/account/{provider_address}")
+                    correct_nonce = account_info.get("nonce", 0) if isinstance(account_info, dict) else 0
+                    blockchain_tx["nonce"] = correct_nonce
+                    
+                    logger.info(f"Using nonce: {correct_nonce} for address {provider_address}")
                     result = http_client.post("/rpc/transaction", json=blockchain_tx)
                     logger.info(f"Blockchain response: {result}")
                     blockchain_tx_hash = result.get("transaction_hash")
