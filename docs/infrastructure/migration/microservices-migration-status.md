@@ -158,7 +158,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 #### Public Services with Nginx Reverse Proxy (Recommended)
 These services should be accessed through nginx for SSL termination, security headers, and load balancing.
 
-- **Agent Registry** (port 8013) - Agent discovery and management
+- **Agent Registry** (port 8204) - Agent discovery and management
   - Nginx proxied on ports 80/443
   - Nginx path: `/agent/`
 - **API Gateway** (port 8200) - Single entry point for all external API calls
