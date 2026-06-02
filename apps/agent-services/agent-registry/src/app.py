@@ -150,6 +150,55 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "ok", "timestamp": datetime.now(UTC)}
 
+@app.get("/agent/health")
+async def agent_health():
+    """Agent health endpoint for nginx proxy"""
+    return {"status": "ok", "timestamp": datetime.now(UTC)}
+
+@app.get("/agent/discovery.json")
+async def agent_discovery():
+    """Agent discovery endpoint for nginx proxy"""
+    with get_db_connection() as conn:
+        agents = conn.execute("SELECT * FROM agents WHERE status = 'active'").fetchall()
+
+        return {
+            "agents": [
+                {
+                    "id": agent["id"],
+                    "name": agent["name"],
+                    "type": agent["type"],
+                    "capabilities": json.loads(agent["capabilities"]),
+                    "chain_id": agent["chain_id"],
+                    "endpoint": agent["endpoint"],
+                    "status": agent["status"],
+                    "last_heartbeat": agent["last_heartbeat"]
+                }
+                for agent in agents
+            ],
+            "count": len(agents),
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+
+@app.get("/agent/islands.json")
+async def agent_islands():
+    """Agent islands endpoint for nginx proxy"""
+    with get_db_connection() as conn:
+        chain_ids = conn.execute("SELECT DISTINCT chain_id FROM agents WHERE status = 'active'").fetchall()
+        return {
+            "islands": [row["chain_id"] for row in chain_ids],
+            "count": len(chain_ids)
+        }
+
+@app.get("/agent/chains.json")
+async def agent_chains():
+    """Agent chains endpoint for nginx proxy"""
+    with get_db_connection() as conn:
+        chain_ids = conn.execute("SELECT DISTINCT chain_id FROM agents WHERE status = 'active'").fetchall()
+        return {
+            "chains": [row["chain_id"] for row in chain_ids],
+            "count": len(chain_ids)
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8013)
