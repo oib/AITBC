@@ -25,10 +25,10 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 # The proposer runs in the event loop without blocking - no force-enable needed
 
 # Execute the actual service
-# Use combined_main to run both blockchain node and HTTP RPC server
+# Use main.py to run blockchain node only (RPC is handled by separate service)
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
-    "aitbc_chain.combined_main"
+    "aitbc_chain.main"
 ]
 os.execvp(exec_cmd[0], exec_cmd)
