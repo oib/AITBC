@@ -19,6 +19,7 @@ These services should be accessed through nginx for SSL termination, security he
 | Service | Port | Health Endpoint | Nginx Port | Notes |
 |---------|------|----------------|------------|-------|
 | **API Gateway** | 8200 | `http://localhost:8200/health` | 80/443 | Single entry point for all external API calls |
+| **Agent Registry** | 8013 | `http://localhost:8013/agent/health` | 80/443 | Agent discovery and management |
 | **Blockchain RPC** | 8202 | `http://localhost:8202/health` | 80/443 | External blockchain node access |
 | **Coordinator API** | 8203 | `http://localhost:8203/health` | 80/443 | Legacy failover service |
 
@@ -26,6 +27,7 @@ These services should be accessed through nginx for SSL termination, security he
 
 **Nginx Routing Configuration:**
 ```
+/agent/    → localhost:8013 (Agent Registry)
 /api/      → localhost:8200 (API Gateway)
 /rpc/      → localhost:8202 (Blockchain RPC)
 /c/        → localhost:8203 (Coordinator API - failover)

@@ -158,6 +158,9 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 #### Public Services with Nginx Reverse Proxy (Recommended)
 These services should be accessed through nginx for SSL termination, security headers, and load balancing.
 
+- **Agent Registry** (port 8013) - Agent discovery and management
+  - Nginx proxied on ports 80/443
+  - Nginx path: `/agent/`
 - **API Gateway** (port 8200) - Single entry point for all external API calls
   - Routes to appropriate microservices based on path prefix
   - Nginx proxied on ports 80/443
@@ -171,6 +174,7 @@ These services should be accessed through nginx for SSL termination, security he
 
 **Nginx Routing Configuration:**
 ```
+/agent/    → localhost:8013 (Agent Registry)
 /api/      → localhost:8200 (API Gateway)
 /rpc/      → localhost:8202 (Blockchain RPC)
 /c/        → localhost:8203 (Coordinator API - failover)
