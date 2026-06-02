@@ -212,36 +212,3 @@ async def list_agents(
         "agents": list(_mock_agents.values()),
         "count": len(_mock_agents)
     }
-
-
-@router.post("/coin-requests/execute", summary="Execute approved coin request (hub signs)")
-async def proxy_execute_coin_request(
-    request: Request,
-    x_api_key: str | None = None
-) -> dict[str, Any]:
-    """
-    Proxy endpoint: forwards an approved coin request to the local Hermes service
-    for signing and submission. Callable by follower nodes over the network.
-    """
-    import os
-    import httpx
-
-    # Validate API key from header or query
-    x_api_key = request.headers.get("x-api-key")
-    expected_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
-    if not expected_key or x_api_key != expected_key:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
-
-    body = await request.json()
-    hermes_url = os.getenv("HERMES_SERVICE_URL", "http://localhost:8103")
-
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                f"{hermes_url}/coin-requests/execute",
-                json=body,
-                headers={"x-api-key": x_api_key},
-            )
-        return resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Hermes service error: {e}")
