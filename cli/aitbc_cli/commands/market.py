@@ -680,11 +680,15 @@ def escrow():
 
 
 def _get_blockchain_rpc_url(config) -> str:
-    """Return local blockchain RPC URL (port 8202)"""
+    """Return local blockchain RPC base URL (no trailing /rpc — callers add the path)."""
     url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8202')
-    # Normalise to port 8202 if the stored URL points elsewhere
+    # Normalise to port 8202 if the stored URL points to localhost
     if 'localhost' in url or '127.0.0.1' in url:
         url = re.sub(r':\d+', ':8202', url)
+    # Strip trailing /rpc so callers that use /rpc/... paths don't double up
+    url = url.rstrip('/')
+    if url.endswith('/rpc'):
+        url = url[:-4]
     return url
 
 
