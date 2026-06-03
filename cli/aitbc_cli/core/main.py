@@ -25,6 +25,7 @@ from aitbc_cli.commands.contract import contract
 from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
 from aitbc_cli.commands.economics import economics
 from aitbc_cli.commands.edge import edge
+from aitbc_cli.commands.market import market
 
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
@@ -145,7 +146,8 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
 
 # Add commands to CLI
 cli.add_command(system)
-cli.add_command(marketplace, name="market")
+cli.add_command(market, name="market")
+cli.add_command(marketplace, name="marketplace")  # Keep old marketplace for compatibility
 cli.add_command(chain, name="blockchain")
 cli.add_command(agent, name="ai")
 cli.add_command(analytics)  # Re-enabled - core.analytics exists
