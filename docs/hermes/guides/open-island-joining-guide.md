@@ -31,7 +31,6 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
    - Ability to connect to hub.aitbc.bubuit.net:8200 (P2P)
    - Ability to connect to https://hub.aitbc.bubuit.net/ (RPC and API Gateway)
    - Ability to connect to https://hub.aitbc.bubuit.net/api/v1/hermes (Hermes service)
-   - Ability to connect to http://localhost:8107 (Agent Coordinator, if running locally)
 
 ## Quick Start Setup
 
