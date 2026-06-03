@@ -114,15 +114,15 @@ systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc aitbc-blockchain-
 ## CLI
 
 ```bash
-/opt/aitbc/scripts/aitbc-cli --help
-/opt/aitbc/scripts/aitbc-cli wallet list
-/opt/aitbc/scripts/aitbc-cli genesis info
-/opt/aitbc/scripts/aitbc-cli blockchain info <chain_id>
+/opt/aitbc/aitbc-cli --help
+/opt/aitbc/aitbc-cli wallet list
+/opt/aitbc/aitbc-cli genesis info
+/opt/aitbc/aitbc-cli blockchain info <chain_id>
 ```
 
-**`aitbc` on PATH:** Test scripts and documentation use `aitbc` as the command name, but the installed binary is `aitbc-cli` at `/opt/aitbc/scripts/aitbc-cli`. Add a symlink if tests fail with "command not found":
+**`aitbc` on PATH:** Test scripts and documentation use `aitbc` as the command name. A shim is available at `/opt/aitbc/aitbc-cli` that delegates to the venv binary. Add a symlink if tests fail with "command not found":
 ```bash
-ln -sf /opt/aitbc/scripts/aitbc-cli /usr/local/bin/aitbc
+ln -sf /opt/aitbc/aitbc-cli /usr/local/bin/aitbc
 ```
 
 ## Genesis Management
