@@ -4,6 +4,7 @@ Minimal FastAPI service wrapping faster-whisper for the software marketplace.
 Port: 8210
 """
 
+import hashlib
 import os
 import tempfile
 import time
@@ -94,9 +95,11 @@ async def transcribe(
 
         elapsed = round(time.time() - t_start, 2)
         duration = round(info.duration, 2)
+        transcript = " ".join(full_text)
+        result_hash = hashlib.sha256(transcript.encode()).hexdigest()
 
         return JSONResponse({
-            "text": " ".join(full_text),
+            "text": transcript,
             "language": info.language,
             "language_probability": round(info.language_probability, 3),
             "duration_seconds": duration,
@@ -105,6 +108,7 @@ async def transcribe(
             "model": _model_name,
             "elapsed_seconds": elapsed,
             "real_time_factor": round(elapsed / duration, 3) if duration > 0 else 0,
+            "result_hash": result_hash,
         })
     finally:
         os.unlink(tmp_path)

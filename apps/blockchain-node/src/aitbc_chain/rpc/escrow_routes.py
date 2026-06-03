@@ -156,11 +156,14 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post("/escrow/{job_id}/release", summary="Release escrow to provider")
-async def release_escrow(job_id: str) -> dict[str, Any]:
-    """Release locked funds to the provider after job completion."""
+async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]:
+    """Release locked funds to the provider after job completion.
+    Accepts optional job_tx_hash as proof of work reference."""
     mgr = get_escrow_manager()
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
+
+    job_tx_hash = request.get('job_tx_hash')
 
     # Find contract by job_id
     contract_id = _find_contract_id(mgr, job_id)
@@ -183,15 +186,17 @@ async def release_escrow(job_id: str) -> dict[str, Any]:
     released_amount = contract.released_amount if contract else Decimal(0)
     released_at = datetime.now(UTC)
 
-    # Update released_at in DB
+    # Update released_at and job_tx_hash in DB
     try:
         with session_scope() as session:
             record = session.get(Escrow, job_id)
             if record:
                 record.released_at = released_at
+                if job_tx_hash:
+                    record.job_tx_hash = job_tx_hash
                 session.commit()
     except Exception as e:
-        _logger.warning(f"Failed to update released_at in DB: {e}")
+        _logger.warning(f"Failed to update released_at/job_tx_hash in DB: {e}")
 
     # Submit real on-chain payment TX so provider wallet is credited
     buyer_addr = contract.client_address if contract else ""

@@ -1102,6 +1102,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
     try:
         config = get_config()
         wallet_address = get_wallet_address()
+        chain_id = get_chain_id()
 
         # Resolve the offer from hub
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
@@ -1178,8 +1179,42 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         elapsed = (datetime.now() - t_start).total_seconds()
         actual_duration_minutes = resp_data.get('duration_minutes', duration_minutes)
         actual_cost = actual_duration_minutes * price if price_unit == 'per_audio_min' else price
+        result_hash = resp_data.get('result_hash', '')
 
         info(f"Done in {elapsed:.1f}s — {resp_data.get('duration_seconds', 0):.1f}s audio — actual cost: {actual_cost:.4f} AIT")
+
+        # Post software_job TX on-chain as proof of work
+        job_tx_hash = None
+        if result_hash:
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            job_data = {
+                'from': wallet_address,
+                'to': '0x0000000000000000000000000000000000000000',
+                'amount': 0,
+                'fee': 10,
+                'nonce': get_next_nonce(),
+                'type': 'GPU_MARKETPLACE',
+                'chain_id': chain_id,
+                'payload': {
+                    'action': 'software_job',
+                    'job_id': job_id,
+                    'offer_id': offer_id,
+                    'buyer_address': wallet_address,
+                    'provider_address': provider_address or wallet_address,
+                    'result_hash': result_hash,
+                    'actual_duration_minutes': round(actual_duration_minutes, 4),
+                    'actual_cost': round(actual_cost, 6),
+                    'status': 'completed',
+                    'completed_at': datetime.now().isoformat(),
+                }
+            }
+            try:
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                job_result = http_client.post("/rpc/transactions/marketplace", json=job_data)
+                job_tx_hash = job_result.get('transaction_hash')
+                info(f"Job recorded on-chain: {job_tx_hash}")
+            except Exception as e:
+                warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
 
         # Print transcript
         transcript = resp_data.get('text', '')
@@ -1192,11 +1227,11 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         elif fmt == 'json':
             click.echo(json.dumps(resp_data, indent=2))
 
-        # Release metered escrow
+        # Release metered escrow with job TX hash as proof
         if contract_id:
             rpc_url = _get_blockchain_rpc_url(config)
             rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-            release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={'amount': actual_cost})
+            release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={'amount': actual_cost, 'job_tx_hash': job_tx_hash})
             if release_result and release_result.get('tx_hash'):
                 success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
             else:

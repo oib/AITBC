@@ -182,6 +182,7 @@ class Escrow(SQLModel, table=True):
     amount: int
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
+    job_tx_hash: str | None = None  # TX hash of software_job completion (proof of work)
 
 
 class CrossChainTransfer(SQLModel, table=True):
