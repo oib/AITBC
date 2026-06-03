@@ -40,7 +40,35 @@ git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 ```
 
-### Step 2: Install Dependencies
+### Step 2: Download Configuration from Hub
+
+The hub website provides public endpoints for downloading configuration files:
+
+```bash
+# Download blockchain configuration (public, non-sensitive)
+curl -o /etc/aitbc/blockchain.env https://hub.aitbc.bubuit.net/agent/blockchain.env
+
+# Download shared cluster secrets (authentication keys)
+curl -o /etc/aitbc/blockchain-secrets.env https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
+chmod 600 /etc/aitbc/blockchain-secrets.env
+```
+
+**Available Hub Endpoints:**
+- `https://hub.aitbc.bubuit.net/agent/blockchain.env` - Public blockchain configuration
+- `https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env` - Shared authentication secrets
+- `https://hub.aitbc.bubuit.net/` - Landing page with endpoint links
+
+> **For detailed environment configuration:** See [Environment Configuration Guide](../../blockchain/ENVIRONMENT_CONFIGURATION.md) for complete reference on all three environment files.
+
+### Step 3: Create Node Configuration
+
+```bash
+# Create node.env with unique identity
+cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
+# Edit NODE_ID to be unique for your node
+```
+
+### Step 4: Install Dependencies
 
 ```bash
 cd /opt/aitbc
@@ -50,39 +78,16 @@ pip install -e cli/
 pip install -e apps/blockchain-node/
 ```
 
-### Step 3: Configure New Node
+### Step 5: Configure New Node
 
-Create `/etc/aitbc/blockchain.env`:
+The configuration files downloaded from the hub in Step 2 contain the necessary settings. You only need to customize the node-specific identity in `node.env`:
+
 ```bash
-mkdir -p /etc/aitbc
-cat > /etc/aitbc/blockchain.env << 'EOF'
-CHAIN_ID=ait-hub.aitbc.bubuit.net
-SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net
-RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8202
-p2p_bind_host=0.0.0.0
-p2p_bind_port=8200
-ENABLE_BLOCK_PRODUCTION=false
-GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
-# P2P Configuration
-p2p_node_id=node-$(cat /proc/sys/kernel/random/uuid | tr -d '-')
-p2p_peers=hub.aitbc.bubuit.net:8200
-genesis_node=https://hub.aitbc.bubuit.net/
-EOF
+# Edit node.env to set a unique NODE_ID for your node
+sed -i "s/NODE_ID=.*/NODE_ID=node-$(hostname)-$(openssl rand -hex 4)/" /etc/aitbc/node.env
 ```
 
-Create `/etc/aitbc/node.env`:
-```bash
-cat > /etc/aitbc/node.env << 'EOF'
-NODE_ID=test-node-$(hostname)
-ISLAND_ID=ait-hub.aitbc.bubuit.net-island
-CHAIN_ID=ait-hub.aitbc.bubuit.net
-NODE_ROLE=follower
-P2P_BIND_PORT=8200
-EOF
-```
-
-### Step 4: Create Keystore
+### Step 6: Create Keystore
 
 ```bash
 mkdir -p /var/lib/aitbc/keystore
@@ -90,7 +95,7 @@ echo 'test123' > /var/lib/aitbc/keystore/.password
 chmod 600 /var/lib/aitbc/keystore/.password
 ```
 
-### Step 5: Start Blockchain Node
+### Step 7: Start Blockchain Node
 
 ```bash
 # Start blockchain node
@@ -116,7 +121,7 @@ systemctl enable aitbc-blockchain-node.service
 systemctl enable aitbc-blockchain-p2p.service
 ```
 
-### Step 6: Verify Connection
+### Step 8: Verify Connection
 
 ```bash
 # Test P2P connectivity
@@ -130,7 +135,7 @@ curl http://localhost:8202/health
 curl http://localhost:8202/rpc/head
 ```
 
-### Step 7: Sync with Hub
+### Step 9: Sync with Hub
 
 ```bash
 # Trigger sync with hub
