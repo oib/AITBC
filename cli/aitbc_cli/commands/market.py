@@ -941,6 +941,9 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         endpoint, health_url = _service_endpoints.get(service_type, ('', ''))
         hub_hostname = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
         node_hostname = socket.gethostname()
+        # Public DNS: strip 'hub.' prefix to get the base domain, then prepend node hostname
+        base_domain = hub_hostname.removeprefix('hub.')
+        public_base = f"https://{node_hostname}.{base_domain}"
         try:
             plugin_client = AITBCHTTPClient(base_url="http://localhost:8109", timeout=5)
             plugin_client.post("/register", json={
@@ -950,7 +953,7 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
                 'price_unit': unit,
                 'offer_id': offer_id,
                 'endpoint': endpoint,
-                'public_endpoint': f"https://{node_hostname}.{hub_hostname}/{service_type}",
+                'public_endpoint': f"{public_base}/{service_type}",
                 'health_url': health_url,
                 'provider_address': wallet_address,
                 'node_id': provider_node_id,
