@@ -98,7 +98,10 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
         if pricing:
             try:
                 pricing_data = json.loads(pricing)
-                update_data["price_per_hour"] = pricing_data.get("price_per_hour", pricing_data)
+                if isinstance(pricing_data, dict):
+                    update_data["price_per_hour"] = pricing_data.get("price_per_hour")
+                else:
+                    update_data["price_per_hour"] = float(pricing_data)
             except json.JSONDecodeError:
                 # Try as direct number
                 try:
