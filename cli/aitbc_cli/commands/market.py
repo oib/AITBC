@@ -883,6 +883,19 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
             except NetworkError as e:
                 error(f"Ollama not reachable at localhost:11434: {e}")
                 raise click.Abort()
+        elif service_type == 'whisper':
+            try:
+                w_client = AITBCHTTPClient(base_url="http://localhost:8210", timeout=5)
+                health = w_client.get("/health")
+                if not health.get('ready'):
+                    error("Whisper service is not ready at localhost:8210")
+                    raise click.Abort()
+                loaded = health.get('model', '')
+                info(f"Verified Whisper service: model={loaded} device={health.get('device')}")
+            except NetworkError as e:
+                error(f"Whisper service not reachable at localhost:8210: {e}")
+                error("Start it with: systemctl start aitbc-whisper")
+                raise click.Abort()
 
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
@@ -1027,4 +1040,127 @@ def run_job(ctx, offer_id: str, prompt: str, max_tokens: int, stream: bool):
 
     except Exception as e:
         error(f"Error running job: {e}")
+        raise click.Abort()
+
+
+@market.command(name="transcribe")
+@click.argument('offer_id')
+@click.argument('audio_file', type=click.Path(exists=True))
+@click.option('--language', default=None, help='Language code (e.g. en, de, fr). Auto-detect if omitted.')
+@click.option('--task', default='transcribe', type=click.Choice(['transcribe', 'translate']), help='transcribe or translate to English')
+@click.option('--output-format', 'fmt', default='text', type=click.Choice(['text', 'srt', 'json']), help='Output format')
+@click.pass_context
+def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, task: str, fmt: str):
+    """Transcribe audio using a Whisper software offer and pay metered escrow"""
+    import urllib.request as _urllib
+    try:
+        config = get_config()
+        wallet_address = get_wallet_address()
+
+        # Resolve the offer from hub
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        result = http_client.get("/rpc/transactions", params={"limit": 1000})
+        offer = None
+        if result and not isinstance(result, dict):
+            for tx in result:
+                p = tx.get('payload', {})
+                if p.get('action') == 'software_offer' and p.get('offer_id') == offer_id and p.get('service_type') == 'whisper':
+                    offer = p
+                    break
+        if not offer:
+            error(f"Whisper offer '{offer_id}' not found on hub")
+            raise click.Abort()
+
+        price = float(offer.get('price', 0))
+        price_unit = offer.get('price_unit', 'per_audio_min')
+        provider_address = offer.get('provider_address')
+        model = offer.get('model', 'base')
+        info(f"Offer: whisper/{model} at {price} AIT/{price_unit} — provider {provider_address}")
+
+        # Get audio duration via ffprobe for upfront escrow estimate
+        import subprocess
+        duration_seconds = 0.0
+        try:
+            probe = subprocess.run(
+                ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                 '-of', 'default=noprint_wrappers=1:nokey=1', audio_file],
+                capture_output=True, text=True, timeout=10
+            )
+            duration_seconds = float(probe.stdout.strip() or 0)
+        except Exception:
+            pass
+        duration_minutes = duration_seconds / 60
+        estimated_cost = duration_minutes * price if price_unit == 'per_audio_min' else price
+
+        job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+        info(f"Audio duration: {duration_minutes:.2f} min — locking escrow: ~{estimated_cost:.4f} AIT")
+        contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
+
+        # Submit audio to Whisper service
+        info("Sending audio to Whisper service...")
+        t_start = datetime.now()
+        with open(audio_file, 'rb') as af:
+            audio_bytes = af.read()
+        filename = os.path.basename(audio_file)
+        boundary = b'----WhisperBoundary'
+        body = (
+            b'--' + boundary + b'\r\n'
+            b'Content-Disposition: form-data; name="file"; filename="' + filename.encode() + b'"\r\n'
+            b'Content-Type: application/octet-stream\r\n\r\n' +
+            audio_bytes + b'\r\n'
+        )
+        if language:
+            body += b'--' + boundary + b'\r\nContent-Disposition: form-data; name="language"\r\n\r\n' + language.encode() + b'\r\n'
+        body += b'--' + boundary + b'\r\nContent-Disposition: form-data; name="task"\r\n\r\n' + task.encode() + b'\r\n'
+        body += b'--' + boundary + b'--\r\n'
+
+        req = _urllib.Request(
+            'http://localhost:8210/transcribe',
+            data=body,
+            headers={'Content-Type': f'multipart/form-data; boundary={boundary.decode()}'}
+        )
+        with _urllib.urlopen(req, timeout=300) as resp:
+            resp_data = json.loads(resp.read())
+
+        elapsed = (datetime.now() - t_start).total_seconds()
+        actual_duration_minutes = resp_data.get('duration_minutes', duration_minutes)
+        actual_cost = actual_duration_minutes * price if price_unit == 'per_audio_min' else price
+
+        info(f"Done in {elapsed:.1f}s — {resp_data.get('duration_seconds', 0):.1f}s audio — actual cost: {actual_cost:.4f} AIT")
+
+        # Print transcript
+        transcript = resp_data.get('text', '')
+        if fmt == 'text':
+            click.echo(f"\n{transcript}\n")
+        elif fmt == 'srt':
+            for i, seg in enumerate(resp_data.get('segments', []), 1):
+                def _ts(s): return f"{int(s//3600):02d}:{int((s%3600)//60):02d}:{s%60:06.3f}".replace('.', ',')
+                click.echo(f"{i}\n{_ts(seg['start'])} --> {_ts(seg['end'])}\n{seg['text']}\n")
+        elif fmt == 'json':
+            click.echo(json.dumps(resp_data, indent=2))
+
+        # Release metered escrow
+        if contract_id:
+            rpc_url = _get_blockchain_rpc_url(config)
+            rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={'amount': actual_cost})
+            if release_result and release_result.get('tx_hash'):
+                success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            else:
+                warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+
+        output({
+            'job_id': job_id,
+            'offer_id': offer_id,
+            'model': model,
+            'language': resp_data.get('language'),
+            'duration_minutes': round(actual_duration_minutes, 4),
+            'actual_cost_ait': round(actual_cost, 6),
+            'elapsed_seconds': round(elapsed, 2),
+            'contract_id': contract_id,
+        }, ctx.obj.get('output_format', 'table'))
+
+    except Exception as e:
+        error(f"Error transcribing audio: {e}")
         raise click.Abort()
