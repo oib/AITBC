@@ -88,6 +88,10 @@ SERVICES = {
         "base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"),
         "prefix": "/v1/wallet",
     },
+    "escrow": {
+        "base_url": os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202") + "/rpc",
+        "prefix": "/v1/escrow",
+    },
 }
 
 

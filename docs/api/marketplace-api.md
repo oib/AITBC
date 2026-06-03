@@ -1,8 +1,11 @@
 # Marketplace API Reference
 
-**Last Updated:** June 2, 2026  
-**Base URL:** `http://localhost:8203/v1/marketplace`  
+**Last Updated:** June 3, 2026  
+**Base URL:** `http://localhost:8102/v1/marketplace` (marketplace-service)  
+**API Gateway:** `http://localhost:8201/v1/marketplace`  
 **Authentication:** API Key (Bearer token)
+
+> **Note:** The legacy coordinator-api (port 8203) is deprecated. Use port 8102 directly or 8201 via the API gateway.
 
 ## Overview
 
@@ -425,8 +428,49 @@ const pricing = await client.getPricing();
 - **Reputation System**: `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py`
 - **Dynamic Pricing**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py`
 
+## Escrow Integration
+
+When `POST /v1/marketplace/offers/{offer_id}/book` is called, the marketplace-service automatically creates a blockchain escrow to lock buyer funds. The escrow lifecycle is managed via the blockchain node RPC.
+
+### Booking Response (with escrow)
+
+```json
+{
+  "bid_id": "abc123",
+  "offer_id": "offer-789",
+  "status": "pending",
+  "message": "Bid created successfully",
+  "escrow_contract_id": "f3adfe6920c69422"
+}
+```
+
+### Managing Escrow via CLI
+
+```bash
+# Check escrow state
+aitbc market escrow status <bid_id>
+
+# Release to provider (after job completes)
+aitbc market escrow release <bid_id>
+
+# Refund to buyer
+aitbc market escrow refund <bid_id>
+```
+
+See the full [Escrow API Reference](./escrow-api.md) for direct RPC access.
+
+## Service Architecture
+
+| Service | Port | Role |
+|---|---|---|
+| `aitbc-marketplace` | 8102 | Marketplace offers/bids — **production** |
+| `aitbc-blockchain-rpc` | 8202 | Blockchain transactions + escrow RPC |
+| `aitbc-api-gateway` | 8201 | Public gateway (`/v1/marketplace`, `/v1/escrow`) |
+| `aitbc-coordinator-api` | 8203 | **Legacy** — do not add features |
+
 ## Related Documentation
 
-- [Marketplace Backend Analysis](../development/11_marketplace-backend-analysis.md) - Implementation flows and architecture
+- [Escrow API Reference](./escrow-api.md) - Blockchain escrow endpoints
+- [Blockchain Node API](./blockchain/README.md) - Blockchain RPC reference
+- [CLI Marketplace Tools](../apps/marketplace/CLI_TOOLS.md) - CLI command reference
 - [Compute Provider Agent Guide](../agents/compute-provider.md) - Agent integration guide
-- [Compute Provider Onboarding](../agents/compute-provider-onboarding.md) - Agent setup workflow

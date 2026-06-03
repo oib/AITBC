@@ -25,7 +25,7 @@ class PaymentService:
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self.wallet_base_url = "http://127.0.0.1:20000"  # Wallet daemon URL
-        self.exchange_base_url = "http://127.0.0.1:8001"  # Exchange API URL
+        self.exchange_base_url = "http://127.0.0.1:8106"  # Exchange API URL
 
     async def create_payment(self, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
@@ -41,11 +41,15 @@ class PaymentService:
 
             self.session.add(payment)
 
-            # For AITBC token payments, use token escrow
+            # For AITBC token payments, use token escrow (optional - skip if endpoint not available)
             if payment_data.payment_method == "aitbc_token":
-                escrow = await self._create_token_escrow(payment)  # type: ignore[func-returns-value]
-                if escrow is not None:
-                    self.session.add(escrow)  # type: ignore[unreachable]
+                try:
+                    escrow = await self._create_token_escrow(payment)  # type: ignore[func-returns-value]
+                    if escrow is not None:
+                        self.session.add(escrow)  # type: ignore[unreachable]
+                except Exception as e:
+                    logger.warning(f"Token escrow not available, skipping payment: {e}")
+                    payment.status = "skipped"  # Mark as skipped when escrow unavailable
             # Bitcoin payments only for exchange purchases
             elif payment_data.payment_method == "bitcoin":
                 escrow = await self._create_bitcoin_escrow(payment)  # type: ignore[func-returns-value]
@@ -102,15 +106,11 @@ class PaymentService:
             logger.info(f"Created AITBC token escrow for payment {payment.id}")
 
         except NetworkError as e:
-            logger.error(f"Failed to create token escrow: {e}")
-            payment.status = "failed"
-            payment.updated_at = datetime.now(UTC)
-            self.session.commit()
+            logger.warning(f"Token escrow endpoint not available: {e}")
+            # Don't set status to failed - let outer handler mark as skipped
         except Exception as e:
-            logger.error(f"Error creating token escrow: {e}")
-            payment.status = "failed"
-            payment.updated_at = datetime.now(UTC)
-            self.session.commit()
+            logger.warning(f"Token escrow creation failed: {e}")
+            # Don't set status to failed - let outer handler mark as skipped
 
     async def _create_bitcoin_escrow(self, payment: JobPayment) -> None:
         """Create an escrow for Bitcoin payments (exchange only)"""

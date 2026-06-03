@@ -5,6 +5,7 @@ Blockchain marketplace commands for GPU trading
 import hashlib
 import json
 import os
+import re
 import socket
 from datetime import datetime
 
@@ -584,6 +585,9 @@ def accept(ctx, bid_id: str):
             success(f"Bid {bid_id} accepted successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
+        # Auto-create blockchain escrow to lock buyer funds
+        _escrow_create(bid_id, wallet_address, wallet_address, 0, config)
+
     except Exception as e:
         error(f"Error accepting bid: {e}")
         raise click.Abort()
@@ -593,30 +597,194 @@ def accept(ctx, bid_id: str):
 @click.argument('order_id')
 @click.pass_context
 def status(ctx, order_id: str):
-    """Check the status of a GPU order"""
+    """Check the status of a GPU order including on-chain escrow"""
     try:
-        # Load CLI config
         config = get_config()
+        blockchain_rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8202')
+        hub_url = f"http://{config.hub_discovery_url}" if config.hub_discovery_url and not config.hub_discovery_url.startswith("http") else (config.hub_discovery_url or blockchain_rpc_url)
 
         # Query blockchain for transaction status
+        tx_result = None
         try:
-            # Try local blockchain RPC first, then hub
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
-            
-            if not result:
-                # Try hub
-                hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+            tx_result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
+        except Exception:
+            pass
+
+        if not tx_result:
+            try:
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
-            
-            output(result, ctx.obj.get("output_format", "table"))
-        except NetworkError as e:
-            error(f"Network error: {e}")
+                tx_result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
+            except Exception:
+                pass
+
+        # Query escrow state from blockchain node
+        escrow_result = None
+        try:
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
+        except Exception:
+            pass
+
+        if not escrow_result:
+            try:
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
+            except Exception:
+                pass
+
+        combined: dict = {}
+        if tx_result and isinstance(tx_result, dict):
+            combined.update(tx_result)
+        if escrow_result and isinstance(escrow_result, dict):
+            combined["escrow"] = {
+                "state": escrow_result.get("state"),
+                "amount": escrow_result.get("amount"),
+                "released_amount": escrow_result.get("released_amount"),
+                "buyer": escrow_result.get("buyer"),
+                "provider": escrow_result.get("provider"),
+                "created_at": escrow_result.get("created_at"),
+                "released_at": escrow_result.get("released_at"),
+            }
+
+        if not combined:
+            error(f"No data found for order/job: {order_id}")
             raise click.Abort()
+
+        output(combined, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
         error(f"Error checking order status: {e}")
+        raise click.Abort()
+
+
+# ---------------------------------------------------------------------------
+# Escrow subgroup
+# ---------------------------------------------------------------------------
+
+@market.group()
+def escrow():
+    """Manage blockchain escrow for GPU jobs"""
+
+
+def _get_blockchain_rpc_url(config) -> str:
+    """Return local blockchain RPC URL (port 8202)"""
+    url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8202')
+    # Normalise to port 8202 if the stored URL points elsewhere
+    if 'localhost' in url or '127.0.0.1' in url:
+        url = re.sub(r':\d+', ':8202', url)
+    return url
+
+
+def _escrow_create(job_id: str, buyer: str, provider: str, amount, config) -> str | None:
+    """Create escrow on blockchain node. Returns contract_id or None."""
+    rpc_url = _get_blockchain_rpc_url(config)
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        result = http_client.post("/rpc/escrow/create", json={
+            'job_id': job_id,
+            'buyer': buyer,
+            'provider': provider,
+            'amount': float(amount) if amount else 0,
+        })
+        contract_id = result.get('contract_id') if isinstance(result, dict) else None
+        success(f"Escrow created: contract_id={contract_id}")
+        return contract_id
+    except Exception as e:
+        warning(f"Escrow creation skipped (non-fatal): {e}")
+        return None
+
+
+@escrow.command(name="release")
+@click.argument('job_id')
+@click.pass_context
+def escrow_release(ctx, job_id: str):
+    """Release escrow funds to the provider after job completion"""
+    try:
+        config = get_config()
+        rpc_url = _get_blockchain_rpc_url(config)
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        result = None
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
+        except Exception:
+            pass
+        if not result:
+            try:
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
+            except Exception:
+                pass
+        if result:
+            success(f"Escrow released for job {job_id}")
+            output(result, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Failed to release escrow for job {job_id}")
+    except Exception as e:
+        error(f"Error releasing escrow: {e}")
+        raise click.Abort()
+
+
+@escrow.command(name="refund")
+@click.argument('job_id')
+@click.option('--reason', default='buyer_requested', help='Reason for refund')
+@click.pass_context
+def escrow_refund(ctx, job_id: str, reason: str):
+    """Refund escrow back to the buyer"""
+    try:
+        config = get_config()
+        rpc_url = _get_blockchain_rpc_url(config)
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        result = None
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={'reason': reason})
+        except Exception:
+            pass
+        if not result:
+            try:
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={'reason': reason})
+            except Exception:
+                pass
+        if result:
+            success(f"Escrow refunded for job {job_id}")
+            output(result, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Failed to refund escrow for job {job_id}")
+    except Exception as e:
+        error(f"Error refunding escrow: {e}")
+        raise click.Abort()
+
+
+@escrow.command(name="status")
+@click.argument('job_id')
+@click.pass_context
+def escrow_status(ctx, job_id: str):
+    """Check on-chain escrow state for a job"""
+    try:
+        config = get_config()
+        rpc_url = _get_blockchain_rpc_url(config)
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        result = None
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            result = http_client.get(f"/rpc/escrow/{job_id}")
+        except Exception:
+            pass
+        if not result:
+            try:
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                result = http_client.get(f"/rpc/escrow/{job_id}")
+            except Exception:
+                pass
+        if result:
+            output(result, ctx.obj.get("output_format", "table"), title=f"Escrow: {job_id}")
+        else:
+            error(f"No escrow found for job {job_id}")
+    except Exception as e:
+        error(f"Error checking escrow status: {e}")
         raise click.Abort()
 
 

@@ -1,6 +1,6 @@
 # AITBC CLI Documentation
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-06-03
 
 > **Important:** This document describes the CLI functionality. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
@@ -16,7 +16,7 @@ The AITBC CLI (Command Line Interface) is a comprehensive tool for managing the 
 - **Wallet Commands**: Create, list, balance, send, transactions, import, export, delete, rename, batch
 - **Blockchain Commands**: Info, analytics, multi-chain support
 - **Network Commands**: Status, peer management, sync monitoring
-- **Market Commands**: List, create, search, bid, accept-bid
+- **Market Commands**: List, create, search, bid, accept-bid, **escrow** (release/refund/status)
 - **AI Commands**: Submit, status, results, parallel, ensemble, multimodal, fusion
 - **Mining Commands**: Start, stop, status
 - **System Commands**: Status, health checks, configuration

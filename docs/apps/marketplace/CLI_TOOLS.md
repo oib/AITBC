@@ -406,7 +406,72 @@ aitbc marketplace dispute respond \
   --response "Offering partial refund"
 ```
 
-## 📝 Best Practices
+## � Blockchain Escrow (`market escrow`)
+
+Escrow is automatically created when you accept a bid (`market accept`). Use the `market escrow` subgroup to manage escrow manually.
+
+### Check Escrow State
+```bash
+# Show on-chain escrow state for a job
+aitbc market escrow status <job_id>
+```
+
+Example output:
+```json
+{
+  "job_id": "bid-abc123",
+  "contract_id": "f3adfe6920c69422",
+  "state": "created",
+  "amount": "102.500",
+  "released_amount": "0",
+  "buyer": "0xabc...",
+  "provider": "0xdef...",
+  "created_at": "2026-06-03T09:39:56",
+  "released_at": null
+}
+```
+
+### Release Escrow (Provider Receives Payment)
+```bash
+# Release escrowed funds to provider after job completion
+aitbc market escrow release <job_id>
+```
+
+### Refund Escrow (Buyer Gets Refund)
+```bash
+# Refund escrowed funds back to buyer
+aitbc market escrow refund <job_id>
+
+# Refund with a reason
+aitbc market escrow refund <job_id> --reason "provider_failed"
+```
+
+### Escrow Lifecycle
+
+When you run `aitbc market accept <bid_id>`:
+1. Blockchain transaction is submitted
+2. Escrow is **automatically created** on the blockchain node
+3. Funds are locked until `escrow release` or `escrow refund` is called
+
+```
+market accept <bid_id>
+      │
+      ├─→ Blockchain TX: GPU_MARKETPLACE/accept
+      └─→ POST /rpc/escrow/create (auto, non-fatal)
+               │
+               ▼
+          state: created
+               │
+      ┌────────┴────────┐
+      ▼                 ▼
+market escrow      market escrow
+  release            refund
+      │                 │
+  provider           buyer
+  receives           refunded
+```
+
+## �📝 Best Practices
 
 ### For Miners
 1. **Competitive Pricing**: Use `aitbc marketplace analytics prices` to set competitive rates

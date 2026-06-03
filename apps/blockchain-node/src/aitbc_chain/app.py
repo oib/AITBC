@@ -26,7 +26,7 @@ from .rpc.router import router as rpc_router
 from .rpc.utils import set_poa_proposer
 from .rpc.websocket import router as websocket_router
 
-# from .escrow_routes import router as escrow_router  # Not yet implemented
+from .rpc.escrow_routes import router as escrow_router
 
 _app_logger = get_logger("aitbc_chain.app")
 
@@ -105,6 +105,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    from .contracts.escrow import create_escrow_manager
+    create_escrow_manager()
+    _app_logger.info("EscrowManager initialised")
     init_mempool(
         backend=settings.mempool_backend,
         db_url=settings.mempool_db_url,
@@ -236,7 +239,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(rpc_router, prefix="/rpc", tags=["rpc"])
     app.include_router(websocket_router, prefix="/rpc")
-    # app.include_router(escrow_router, prefix="/rpc")  # Disabled until escrow routes are implemented
+    app.include_router(escrow_router, prefix="/rpc")
 
     # Metrics and health endpoints
     metrics_router = APIRouter()

@@ -265,11 +265,40 @@ The WebSocket sends events as JSON messages:
 }
 ```
 
+### Escrow Operations
+
+The blockchain node also hosts the marketplace escrow service. See the full reference at [Escrow API](../escrow-api.md).
+
+#### Create Escrow
+`POST /rpc/escrow/create`
+
+Lock buyer funds for a marketplace job. Automatically called by marketplace-service on `book_offer`.
+
+#### Get Escrow State
+`GET /rpc/escrow/{job_id}`
+
+Query escrow state: `created`, `released`, `refunded`, etc.
+
+#### Release Escrow
+`POST /rpc/escrow/{job_id}/release`
+
+Release funds to provider on job completion.
+
+#### Refund Escrow
+`POST /rpc/escrow/{job_id}/refund`
+
+Refund funds to buyer.
+
+**Base URL:** `http://localhost:8202/rpc`
+
+---
+
 ## Rate Limits
 
 - Block queries: 1000 requests per minute
 - Transaction submission: 100 requests per minute
 - Contract calls: 500 requests per minute
+- Escrow operations: 100 requests per minute
 
 ## OpenAPI Specification
 
