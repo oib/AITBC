@@ -781,9 +781,10 @@ def providers(ctx):
 
 @gpu.command()
 @click.argument('gpu_id')
+@click.option('--specs', help='GPU specifications (JSON string) - auto-discovered if not provided')
 @click.option('--pricing', help='Pricing model (JSON string)')
 @click.pass_context
-def register(ctx, gpu_id: str, pricing: str | None):
+def register(ctx, gpu_id: str, specs: str | None, pricing: str | None):
     """Register a GPU with the gpu-service (no island credentials required)"""
     config = get_config()
 
