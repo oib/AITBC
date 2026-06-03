@@ -45,16 +45,19 @@ def safe_load_credentials():
 
 
 def get_chain_id() -> str:
-    """Get chain ID from island credentials or blockchain config for hub nodes"""
+    """Get chain ID from island credentials or blockchain config"""
     try:
-        return load_island_credentials().get('chain_id', 'ait-mainnet')
-    except FileNotFoundError:
-        # Hub nodes use blockchain config
-        node_role = os.getenv('NODE_ROLE', '')
-        if node_role == 'hub':
-            return os.getenv('CHAIN_ID', 'ait-hub.aitbc.bubuit.net')
-        error(f"Island credentials required for chain ID: {e}")
-        raise click.Abort()
+        creds = load_island_credentials()
+        # Credentials use 'island_chain_id' key
+        chain_id = creds.get('island_chain_id') or creds.get('chain_id')
+        if chain_id:
+            return chain_id
+    except (FileNotFoundError, ValueError):
+        pass
+    # Fall back to hub discovery URL config
+    config = get_config()
+    hub = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
+    return f'ait-{hub}'
 
 
 def get_island_id() -> str:
@@ -115,7 +118,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
     try:
         from aitbc.network.http_client import AITBCHTTPClient
         config = get_config()
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
         return response.get('nonce', 0)
@@ -124,7 +127,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
         return 0
 
 def get_next_nonce() -> int:
-    """Get next transaction nonce from blockchain"""
+    """Get next transaction nonce from blockchain (confirmed nonce + 1)"""
     wallet_address = get_wallet_address()
     config = get_config()
     hub_url = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
@@ -244,7 +247,7 @@ def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, descript
         # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
             success("GPU offer created successfully!")
@@ -346,7 +349,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, description:
         # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
             success("GPU bid created successfully!")
@@ -377,41 +380,35 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         # Query blockchain for GPU marketplace transactions
         transactions = None
         try:
-            # Try local blockchain RPC first, then hub for cross-node data
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            # Query hub directly (HTTPS) for confirmed GPU_MARKETPLACE transactions
+            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+            result = http_client.get("/rpc/transactions", params={"limit": 500})
+            if result and not isinstance(result, dict):
+                # Filter by payload action since hub doesn't store type field
+                transactions = [
+                    tx for tx in result
+                    if isinstance(tx.get('payload'), dict)
+                    and tx['payload'].get('action') in ('offer', 'bid', 'cancel', 'accept')
+                ]
+                logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions from hub")
             
-            # Query recent blocks for GPU_MARKETPLACE transactions
-            # Remove /rpc prefix if present in base URL
-            head_path = "/rpc/head" if not config.blockchain_rpc_url.endswith("/rpc") else "/head"
-            head = http_client.get(head_path)
-            logger.debug(f"Head response: {head}")
-            if head and head.get('height'):
-                height = head['height']
-                # Query last 20 blocks
-                start_height = max(0, height - 20)
-                blocks_path = f"/rpc/blocks-range?start={start_height}&end={height}" if not config.blockchain_rpc_url.endswith("/rpc") else f"/blocks-range?start={start_height}&end={height}"
-                blocks_response = http_client.get(blocks_path)
-                logger.debug(f"Blocks response: {blocks_response}")
-                
-                if blocks_response and blocks_response.get('blocks'):
-                    transactions = []
-                    for block in blocks_response['blocks']:
-                        for tx in block.get('transactions', []):
-                            if isinstance(tx, dict) and tx.get('type') == 'GPU_MARKETPLACE':
-                                transactions.append(tx)
-                    logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions")
-            
-            # If no transactions in blocks, try mempool
+            # Also check hub mempool for pending transactions
             if not transactions:
-                mempool_path = "/rpc/mempool" if not config.blockchain_rpc_url.endswith("/rpc") else "/mempool"
-                mempool = http_client.get(mempool_path)
-                logger.debug(f"Mempool response: {mempool}")
+                mempool = http_client.get("/rpc/mempool")
                 if mempool and isinstance(mempool, dict) and 'transactions' in mempool:
                     transactions = [tx for tx in mempool['transactions'] if tx.get('type') == 'GPU_MARKETPLACE']
+                    logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions in hub mempool")
         except NetworkError as e:
-            # Blockchain endpoint not available
-            logger.error(f"Network error querying blockchain: {e}")
-            pass
+            logger.error(f"Network error querying hub: {e}")
+            # Fallback to local blockchain RPC
+            try:
+                http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+                result = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKETPLACE", "limit": 200})
+                if result and not isinstance(result, dict):
+                    transactions = result
+            except NetworkError:
+                pass
 
         if not transactions:
             info("No GPU marketplace offers found (blockchain endpoint not available)")
@@ -519,7 +516,7 @@ def cancel(ctx, order_id: str):
         # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
@@ -575,7 +572,7 @@ def accept(ctx, bid_id: str):
         # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")
