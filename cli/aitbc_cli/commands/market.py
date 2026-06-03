@@ -21,29 +21,51 @@ logger = get_logger(__name__)
 
 
 def safe_load_credentials():
-    """Load island credentials - required for production"""
+    """Load island credentials - required for production, except for hub nodes"""
     try:
         return load_island_credentials()
     except FileNotFoundError as e:
+        # Check if this is a hub node - hubs don't need island credentials
+        config = get_config()
+        node_role = os.getenv('NODE_ROLE', '')
+        if node_role == 'hub':
+            # Hub nodes use blockchain config instead
+            return {
+                "credentials": {
+                    "p2p_port": 8200
+                },
+                "island_id": os.getenv('ISLAND_ID', 'ait-hub'),
+                "chain_id": os.getenv('CHAIN_ID', 'ait-hub.aitbc.bubuit.net')
+            }
         error(f"Island credentials required for marketplace operations: {e}")
-        error("Run 'aitbc edge island join' to join an island first")
+        error("Note: Hub nodes do not need to join islands - marketplace works with blockchain config")
+        error("For follower nodes, run: aitbc edge island join <island_id> <island_name> <chain_id>")
+        error("Example: aitbc edge island join ait-hub.aitbc.bubuit.net-island 'AIT Hub' ait-hub.aitbc.bubuit.net")
         return None
 
 
 def get_chain_id() -> str:
-    """Get chain ID from island credentials - required for production"""
+    """Get chain ID from island credentials or blockchain config for hub nodes"""
     try:
         return load_island_credentials().get('chain_id', 'ait-mainnet')
-    except FileNotFoundError as e:
+    except FileNotFoundError:
+        # Hub nodes use blockchain config
+        node_role = os.getenv('NODE_ROLE', '')
+        if node_role == 'hub':
+            return os.getenv('CHAIN_ID', 'ait-hub.aitbc.bubuit.net')
         error(f"Island credentials required for chain ID: {e}")
         raise click.Abort()
 
 
 def get_island_id() -> str:
-    """Get island ID from island credentials - required for production"""
+    """Get island ID from island credentials or blockchain config for hub nodes"""
     try:
         return load_island_credentials().get('island_id')
-    except FileNotFoundError as e:
+    except FileNotFoundError:
+        # Hub nodes use blockchain config
+        node_role = os.getenv('NODE_ROLE', '')
+        if node_role == 'hub':
+            return os.getenv('ISLAND_ID', 'ait-hub')
         error(f"Island credentials required for island ID: {e}")
         raise click.Abort()
 
