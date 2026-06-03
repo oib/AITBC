@@ -55,14 +55,36 @@ def get_island_id() -> str:
 
 
 def get_wallet_address() -> str:
-    """Get address from default wallet (use address field as blockchain address)"""
-    wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
+    """Get address from wallet service or local wallet file"""
+    config = get_config()
+    
+    # Try wallet service API first
+    try:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5)
+        wallets = http_client.get("/v1/wallets")
+        if wallets and wallets.get('items'):
+            # Use genesis wallet address
+            genesis_wallet = wallets['items'][0]
+            metadata = genesis_wallet.get('metadata', {})
+            address = metadata.get('address') or metadata.get('original_address')
+            if address:
+                return address
+    except Exception as e:
+        logger.warning(f"Failed to get wallet from service: {e}")
+    
+    # Fallback to local wallet file
+    wallet_path = '/root/.aitbc/wallets/genesis.json'
     if os.path.exists(wallet_path):
-        with open(wallet_path) as f:
-            wallet = json.load(f)
-            # Use address field (aitbc1 prefix) as blockchain address
-            return wallet.get('address', '0x0000000000000000000000000000000000000000')
-    return '0x0000000000000000000000000000000000000000'
+        try:
+            with open(wallet_path) as f:
+                wallet = json.load(f)
+                return wallet.get('address')
+        except Exception as e:
+            logger.warning(f"Failed to load local wallet: {e}")
+    
+    # No wallet available
+    error("No wallet address available. Ensure wallet service is running or wallet file exists.")
+    raise click.Abort()
 
 
 def get_account_nonce(address: str, chain_id: str) -> int:
@@ -332,22 +354,38 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         try:
             # Try local blockchain RPC first, then hub for cross-node data
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            transactions = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKETPLACE"})
             
-            # If local returns empty or error, try hub
-            if not transactions:
-                hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                transactions = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKETPLACE"})
+            # Query recent blocks for GPU_MARKETPLACE transactions
+            # Remove /rpc prefix if present in base URL
+            head_path = "/rpc/head" if not config.blockchain_rpc_url.endswith("/rpc") else "/head"
+            head = http_client.get(head_path)
+            logger.debug(f"Head response: {head}")
+            if head and head.get('height'):
+                height = head['height']
+                # Query last 20 blocks
+                start_height = max(0, height - 20)
+                blocks_path = f"/rpc/blocks-range?start={start_height}&end={height}" if not config.blockchain_rpc_url.endswith("/rpc") else f"/blocks-range?start={start_height}&end={height}"
+                blocks_response = http_client.get(blocks_path)
+                logger.debug(f"Blocks response: {blocks_response}")
+                
+                if blocks_response and blocks_response.get('blocks'):
+                    transactions = []
+                    for block in blocks_response['blocks']:
+                        for tx in block.get('transactions', []):
+                            if isinstance(tx, dict) and tx.get('type') == 'GPU_MARKETPLACE':
+                                transactions.append(tx)
+                    logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions")
             
-            # Also check mempool for pending transactions
+            # If no transactions in blocks, try mempool
             if not transactions:
-                http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-                mempool = http_client.get("/rpc/mempool")
+                mempool_path = "/rpc/mempool" if not config.blockchain_rpc_url.endswith("/rpc") else "/mempool"
+                mempool = http_client.get(mempool_path)
+                logger.debug(f"Mempool response: {mempool}")
                 if mempool and isinstance(mempool, dict) and 'transactions' in mempool:
                     transactions = [tx for tx in mempool['transactions'] if tx.get('type') == 'GPU_MARKETPLACE']
-        except NetworkError:
+        except NetworkError as e:
             # Blockchain endpoint not available
+            logger.error(f"Network error querying blockchain: {e}")
             pass
 
         if not transactions:
@@ -357,17 +395,21 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         # Format output for marketplace offers (blockchain data)
         market_data = []
         for tx in transactions:
-            # Handle both mempool format (payload is dict) and confirmed format (payload may be nested)
-            if isinstance(tx, dict) and 'payload' in tx:
-                payload = tx['payload']
-                # If payload is a string, parse it
-                if isinstance(payload, str):
-                    try:
-                        payload = json.loads(payload)
-                    except json.JSONDecodeError:
-                        continue
-            else:
-                continue
+            # Handle both mempool format (payload is dict) and mined block format (nested payload)
+            if isinstance(tx, dict):
+                if 'payload' in tx:
+                    # Mined block format - nested payload
+                    payload = tx['payload']
+                    if isinstance(payload, str):
+                        try:
+                            payload = json.loads(payload)
+                        except json.JSONDecodeError:
+                            continue
+                elif 'action' in tx:
+                    # Direct format (mempool or simplified)
+                    payload = tx
+                else:
+                    continue
             
             action = payload.get('action')
             
