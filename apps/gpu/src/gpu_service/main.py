@@ -187,6 +187,34 @@ async def get_gpu(
         return {"error": str(e)}, 500
 
 
+@app.delete("/v1/gpu/{gpu_id}")
+async def delete_gpu(
+    gpu_id: str,
+    session: AsyncSession = Depends(get_session_dep),
+):
+    """Delete a specific GPU by ID"""
+    from sqlalchemy import select
+
+    from .domain.gpu_marketplace import GPURegistry
+
+    try:
+        result = await session.execute(
+            select(GPURegistry).where(GPURegistry.id == gpu_id)
+        )
+        gpu = result.scalar_one_or_none()
+
+        if not gpu:
+            return {"error": "GPU not found"}, 404
+
+        await session.delete(gpu)
+        await session.commit()
+
+        return {"message": f"GPU {gpu_id} deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting GPU {gpu_id}: {e}")
+        return {"error": str(e)}, 500
+
+
 @app.get("/v1/marketplace/edge-gpu/profiles")
 async def get_consumer_gpu_profiles(
     architecture: str | None = None,

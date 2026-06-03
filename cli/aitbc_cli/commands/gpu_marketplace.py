@@ -798,6 +798,24 @@ def register(ctx, gpu_id: str, specs: str | None):
 
 @gpu.command()
 @click.argument('gpu_id')
+@click.pass_context
+def unregister(ctx, gpu_id: str):
+    """Unregister/delete a GPU from the gpu-service"""
+    config = get_config()
+
+    try:
+        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+        result = http_client.delete(f"/v1/gpu/{gpu_id}")
+        success(f"GPU {gpu_id} unregistered successfully")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error unregistering GPU: {e}")
+
+
+@gpu.command()
+@click.argument('gpu_id')
 @click.option('--pricing', help='Updated pricing model (JSON string)')
 @click.option('--status', help='Update GPU status')
 @click.pass_context
