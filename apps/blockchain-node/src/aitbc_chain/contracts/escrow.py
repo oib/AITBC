@@ -157,7 +157,7 @@ class EscrowManager:
 
         # Validate addresses: accept 0x hex (42 chars) or aitbc1 bech32 format
         def _valid_addr(addr: str) -> bool:
-            return (addr.startswith('0x') and len(addr) == 42) or addr.startswith('aitbc1')
+            return (addr.startswith('0x') and len(addr) == 42) or addr.startswith('aitbc1') or addr.startswith('ait1')
         if not _valid_addr(client_address):
             return False
         if not _valid_addr(agent_address):
