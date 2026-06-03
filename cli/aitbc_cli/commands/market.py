@@ -905,11 +905,14 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         _local_port = _local_ports.get(service_type, 8110)
         _hub_hostname = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
         _base_domain = _hub_hostname.removeprefix('hub.')
-        _node_hostname = socket.gethostname()
+        _node_hostname = socket.getfqdn()
+        # If FQDN doesn't include domain, construct it from short hostname + base domain
+        if _base_domain and _base_domain not in _node_hostname:
+            _node_hostname = f"{socket.gethostname()}.{_base_domain}"
         # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
         _nginx_paths = {'ollama': 'ollama', 'whisper': 'whisper', 'peertube_pruner': 'peertube'}
         _nginx_path = _nginx_paths.get(service_type, service_type)
-        _public_endpoint = f"http://{_node_hostname}.{_base_domain}/{_nginx_path}"
+        _public_endpoint = f"http://{_node_hostname}/{_nginx_path}"
         _local_endpoint = f"http://localhost:{_local_port}"
 
         offer_data = {
