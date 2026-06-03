@@ -6,12 +6,17 @@ Manages GPU marketplace operations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+import httpx
+import os
+
+from fastapi import BackgroundTasks, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+
+BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 
 from aitbc import (
     ErrorHandlerMiddleware,
@@ -162,10 +167,27 @@ async def get_offer(
         raise
 
 
+async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: float) -> None:
+    """Fire-and-forget escrow creation — runs outside the SQLAlchemy session."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{BLOCKCHAIN_RPC_URL}/rpc/escrow/create",
+                json={"job_id": job_id, "buyer": buyer, "provider": provider, "amount": amount},
+            )
+            if resp.status_code == 200:
+                logger.info(f"Escrow created for job {job_id}: {resp.json().get('contract_id')}")
+            else:
+                logger.warning(f"Escrow creation returned {resp.status_code}: {resp.text}")
+    except Exception as e:
+        logger.warning(f"Escrow creation skipped (non-fatal): {e}")
+
+
 @app.post("/v1/marketplace/offers/{offer_id}/book")
 async def book_offer(
     offer_id: str,
     booking_data: dict,
+    background_tasks: BackgroundTasks,
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
     """Book/purchase a marketplace offer"""
@@ -173,6 +195,16 @@ async def book_offer(
         logger.info(f"POST /v1/marketplace/offers/{offer_id}/book called with data keys: {booking_data.keys()}")
         result = await svc.book_offer(offer_id, booking_data)
         logger.info(f"POST /v1/marketplace/offers/{offer_id}/book completed")
+
+        # Schedule escrow creation as a background task (outside SQLAlchemy session)
+        buyer = booking_data.get("wallet") or booking_data.get("buyer")
+        provider = result.get("provider") or booking_data.get("provider")
+        amount = float(booking_data.get("amount") or booking_data.get("price") or 0)
+        bid_id = result.get("bid_id")
+        if bid_id and buyer and provider and amount:
+            background_tasks.add_task(_create_escrow_bg, bid_id, buyer, provider, amount)
+            result["escrow_contract_id"] = "(pending — created in background)"
+
         return result
     except Exception as e:
         logger.error(f"Error in POST /v1/marketplace/offers/{offer_id}/book: {type(e).__name__}: {str(e)}")

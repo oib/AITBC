@@ -38,7 +38,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         logger.debug(f"Creating database session, engine={engine}, id={id(engine)}")
         AsyncSessionClass = AsyncSession
         logger.debug(f"AsyncSession class: {AsyncSessionClass}, callable: {callable(AsyncSessionClass)}")
-        session = AsyncSessionClass(engine)
+        session = AsyncSessionClass(engine, expire_on_commit=False)
         logger.debug(f"Session created: {session}")
         async with session:
             logger.debug("Database session yielded")

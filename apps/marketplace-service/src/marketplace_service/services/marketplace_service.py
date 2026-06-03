@@ -2,19 +2,15 @@
 Marketplace service for managing marketplace operations
 """
 
-import os
 import time
 from typing import Any
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from aitbc import get_logger
 
 from ..domain.marketplace import MarketplaceBid, MarketplaceOffer
-
-BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 
 logger = get_logger(__name__)
 
@@ -102,40 +98,14 @@ class MarketplaceService:
             bid = await self.create_bid(bid_data)
             logger.info(f"Created bid for offer {offer_id}: {bid.id}")
 
-            result = {
+            return {
                 'bid_id': bid.id,
                 'offer_id': offer_id,
+                'provider': offer.provider,
                 'status': 'pending',
                 'message': 'Bid created successfully',
                 'escrow_contract_id': None,
             }
-
-            # Create blockchain escrow to lock buyer funds
-            buyer = booking_data.get('wallet') or booking_data.get('buyer')
-            provider_addr = offer.provider
-            amount = booking_data.get('amount') or booking_data.get('price') or bid_data['price']
-            if buyer and provider_addr and amount:
-                try:
-                    async with httpx.AsyncClient(timeout=5.0) as client:
-                        resp = await client.post(
-                            f"{BLOCKCHAIN_RPC_URL}/rpc/escrow/create",
-                            json={
-                                'job_id': bid.id,
-                                'buyer': buyer,
-                                'provider': provider_addr,
-                                'amount': float(amount),
-                            },
-                        )
-                        if resp.status_code == 200:
-                            escrow_data = resp.json()
-                            result['escrow_contract_id'] = escrow_data.get('contract_id')
-                            logger.info(f"Escrow created for bid {bid.id}: contract_id={result['escrow_contract_id']}")
-                        else:
-                            logger.warning(f"Escrow creation returned {resp.status_code}: {resp.text}")
-                except Exception as esc_err:
-                    logger.warning(f"Escrow creation skipped (non-fatal): {esc_err}")
-
-            return result
         except Exception as e:
             logger.error(f"Error in book_offer: {type(e).__name__}: {str(e)}")
             raise
