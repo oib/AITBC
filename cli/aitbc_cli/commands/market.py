@@ -188,7 +188,7 @@ def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, descript
         except NetworkError:
             # Fallback to local blockchain RPC
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=offer_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
             success("GPU offer created successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
@@ -293,7 +293,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, description:
         except NetworkError:
             # Fallback to local blockchain RPC
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=bid_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
             success("GPU bid created successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
@@ -318,7 +318,7 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         try:
             # Try local blockchain RPC first, then hub for cross-node data
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            transactions = http_client.get("/transactions/marketplace")
+            transactions = http_client.get("/rpc/transactions/marketplace")
             
             # If local returns empty or error, try hub
             if not transactions:
@@ -427,7 +427,7 @@ def cancel(ctx, order_id: str):
         except NetworkError:
             # Fallback to local blockchain RPC
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=cancel_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
@@ -482,7 +482,7 @@ def accept(ctx, bid_id: str):
         except NetworkError:
             # Fallback to local blockchain RPC
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=accept_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
@@ -504,13 +504,13 @@ def status(ctx, order_id: str):
         try:
             # Try local blockchain RPC first, then hub
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.get(f"/transactions/marketplace/{order_id}")
+            result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
             
             if not result:
                 # Try hub
                 hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                result = http_client.get(f"/transactions/marketplace/{order_id}")
+                result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
             
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
@@ -533,13 +533,13 @@ def match(ctx):
         # Query blockchain for matching
         try:
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.get("/transactions/marketplace/match")
+            result = http_client.get("/rpc/transactions/marketplace/match")
             
             if not result:
                 # Try hub
                 hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                result = http_client.get("/transactions/marketplace/match")
+                result = http_client.get("/rpc/transactions/marketplace/match")
             
             output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
         except NetworkError as e:
