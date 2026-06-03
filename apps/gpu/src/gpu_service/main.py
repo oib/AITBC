@@ -4,6 +4,7 @@ Manages GPU resource operations
 """
 
 import os
+import subprocess
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -27,6 +28,46 @@ from .storage import get_session, init_db
 # Configure structured logging
 configure_logging(level="INFO")
 logger = get_logger(__name__)
+
+
+def discover_gpu_specs() -> dict[str, Any]:
+    """Auto-discover GPU specifications using nvidia-smi"""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=index,name,memory.total,driver_version,compute_cap", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        if result.returncode != 0:
+            logger.warning(f"nvidia-smi failed: {result.stderr}")
+            return {}
+        
+        # Return specs for first GPU (index 0)
+        for line in result.stdout.strip().split('\n'):
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3 and int(parts[0]) == 0:
+                return {
+                    "model": parts[1],
+                    "memory_gb": int(parts[2]) / 1024,
+                    "cuda_version": parts[3] if len(parts) > 3 else "",
+                    "compute_capability": parts[4] if len(parts) > 4 else ""
+                }
+        
+        return {}
+    except FileNotFoundError:
+        logger.warning("nvidia-smi not found - GPU discovery skipped")
+        return {}
+    except subprocess.TimeoutExpired:
+        logger.warning("nvidia-smi timeout - GPU discovery skipped")
+        return {}
+    except Exception as e:
+        logger.error(f"Error running nvidia-smi: {e}")
+        return {}
+
 
 
 @asynccontextmanager
@@ -347,6 +388,15 @@ async def register_gpu(
         specs = gpu_data.get("specs", {})
         pricing = gpu_data.get("pricing", {})
         registered_by = gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")
+
+        # Auto-discover specs if not provided
+        if not specs:
+            logger.info("No specs provided, auto-discovering via nvidia-smi")
+            specs = discover_gpu_specs()
+            if specs:
+                logger.info(f"Auto-discovered GPU specs: {specs}")
+            else:
+                logger.warning("GPU auto-discovery failed, using defaults")
 
         # Check if GPU already exists
         result = await session.execute(

@@ -78,10 +78,9 @@ def gpu():
 @click.argument('gpu_count', type=int)
 @click.argument('price_per_gpu', type=float)
 @click.argument('duration_hours', type=int)
-@click.option('--specs', help='GPU specifications (JSON string)')
 @click.option('--description', help='Description of the GPU offer')
 @click.pass_context
-def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs: str | None, description: str | None):
+def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, description: str | None):
     """Offer GPU power for sale in the marketplace"""
     try:
         # Load CLI config
@@ -205,9 +204,8 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
 @click.argument('gpu_count', type=int)
 @click.argument('max_price', type=float)
 @click.argument('duration_hours', type=int)
-@click.option('--specs', help='Required GPU specifications (JSON string)')
 @click.pass_context
-def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str | None):
+def bid(ctx, gpu_count: int, max_price: float, duration_hours: int):
     """Bid on GPU power in the marketplace"""
     try:
         # Load CLI config
@@ -783,10 +781,9 @@ def providers(ctx):
 
 @gpu.command()
 @click.argument('gpu_id')
-@click.option('--specs', help='GPU specifications (JSON string)')
 @click.option('--pricing', help='Pricing model (JSON string)')
 @click.pass_context
-def register(ctx, gpu_id: str, specs: str | None, pricing: str | None):
+def register(ctx, gpu_id: str, pricing: str | None):
     """Register a GPU with the gpu-service (no island credentials required)"""
     config = get_config()
 
@@ -820,11 +817,10 @@ def register(ctx, gpu_id: str, specs: str | None, pricing: str | None):
 
 @gpu.command()
 @click.argument('gpu_id')
-@click.option('--specs', help='Updated GPU specifications (JSON string)')
 @click.option('--pricing', help='Updated pricing model (JSON string)')
 @click.option('--status', help='Update GPU status')
 @click.pass_context
-def update(ctx, gpu_id: str, specs: str | None, pricing: str | None, status: str | None):
+def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
     """Update GPU registration with the gpu-service (no island credentials required)"""
     config = get_config()
 
@@ -832,13 +828,6 @@ def update(ctx, gpu_id: str, specs: str | None, pricing: str | None, status: str
         http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
 
         update_data = {}
-
-        if specs:
-            try:
-                update_data["specs"] = json.loads(specs)
-            except json.JSONDecodeError:
-                error("Invalid JSON specifications")
-                raise click.Abort()
 
         if pricing:
             try:
@@ -861,4 +850,70 @@ def update(ctx, gpu_id: str, specs: str | None, pricing: str | None, status: str
         error(f"Network error: {e}")
     except Exception as e:
         error(f"Error updating GPU: {e}")
+
+
+@gpu.command()
+@click.pass_context
+def discover(ctx):
+    """Auto-discover GPU specifications using nvidia-smi"""
+    try:
+        import subprocess
+        
+        info("Discovering GPUs using nvidia-smi...")
+        
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=index,name,memory.total,driver_version,compute_cap", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        if result.returncode != 0:
+            error(f"nvidia-smi failed: {result.stderr}")
+            raise click.Abort()
+        
+        gpus = []
+        for line in result.stdout.strip().split('\n'):
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3:
+                gpu_info = {
+                    "index": int(parts[0]),
+                    "name": parts[1],
+                    "memory_mb": int(parts[2]),
+                    "driver_version": parts[3] if len(parts) > 3 else "unknown",
+                    "compute_capability": parts[4] if len(parts) > 4 else "unknown"
+                }
+                gpus.append(gpu_info)
+        
+        if not gpus:
+            warning("No GPUs discovered")
+            return
+        
+        # Format output
+        gpu_data = []
+        for gpu in gpus:
+            gpu_data.append({
+                "GPU ID": f"gpu_{gpu['index']}",
+                "Model": gpu['name'],
+                "Memory (MB)": gpu['memory_mb'],
+                "Memory (GB)": f"{gpu['memory_mb'] / 1024:.1f}",
+                "Driver": gpu['driver_version'],
+                "Compute Cap": gpu['compute_capability']
+            })
+        
+        output(gpu_data, ctx.obj.get('output_format', 'table'), title="Discovered GPUs")
+        success(f"Found {len(gpus)} GPU(s)")
+        
+    except FileNotFoundError:
+        error("nvidia-smi not found. Please ensure NVIDIA drivers are installed.")
+        raise click.Abort()
+    except subprocess.TimeoutExpired:
+        error("nvidia-smi timeout")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error discovering GPUs: {e}")
+        raise click.Abort()
+
 
