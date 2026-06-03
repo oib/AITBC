@@ -21,37 +21,31 @@ logger = get_logger(__name__)
 
 
 def safe_load_credentials():
-    """Load island credentials with graceful error handling"""
+    """Load island credentials - required for production"""
     try:
         return load_island_credentials()
     except FileNotFoundError as e:
-        # For testing without island credentials, use defaults
-        warning(f"Island credentials not found: {e}")
-        warning("Using default credentials for testing (run 'aitbc edge island join' for production)")
-        return {
-            "credentials": {
-                "p2p_port": 8001
-            },
-            "island_id": "test_island",
-            "chain_id": "ait-test"
-        }
+        error(f"Island credentials required for marketplace operations: {e}")
+        error("Run 'aitbc edge island join' to join an island first")
+        return None
 
 
 def get_chain_id() -> str:
-    """Get chain ID from credentials or config"""
+    """Get chain ID from island credentials - required for production"""
     try:
-        return load_island_credentials().get('chain_id', 'ait-test')
-    except FileNotFoundError:
-        config = get_config()
-        return 'ait-' + (config.hub_discovery_url or 'test')
+        return load_island_credentials().get('chain_id', 'ait-mainnet')
+    except FileNotFoundError as e:
+        error(f"Island credentials required for chain ID: {e}")
+        raise click.Abort()
 
 
 def get_island_id() -> str:
-    """Get island ID from credentials or config"""
+    """Get island ID from island credentials - required for production"""
     try:
-        return load_island_credentials().get('island_id', 'test_island')
-    except FileNotFoundError:
-        return 'test_island'
+        return load_island_credentials().get('island_id')
+    except FileNotFoundError as e:
+        error(f"Island credentials required for island ID: {e}")
+        raise click.Abort()
 
 
 def get_wallet_address() -> str:
