@@ -111,5 +111,5 @@ async def transcribe(
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("WHISPER_PORT", "8210"))
+    port = int(os.getenv("WHISPER_PORT", "8110"))
     uvicorn.run(app, host="0.0.0.0", port=port)

@@ -885,15 +885,15 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
                 raise click.Abort()
         elif service_type == 'whisper':
             try:
-                w_client = AITBCHTTPClient(base_url="http://localhost:8210", timeout=5)
+                w_client = AITBCHTTPClient(base_url="http://localhost:8110", timeout=5)
                 health = w_client.get("/health")
                 if not health.get('ready'):
-                    error("Whisper service is not ready at localhost:8210")
+                    error("Whisper service is not ready at localhost:8110")
                     raise click.Abort()
                 loaded = health.get('model', '')
                 info(f"Verified Whisper service: model={loaded} device={health.get('device')}")
             except NetworkError as e:
-                error(f"Whisper service not reachable at localhost:8210: {e}")
+                error(f"Whisper service not reachable at localhost:8110: {e}")
                 error("Start it with: systemctl start aitbc-whisper")
                 raise click.Abort()
 
@@ -935,14 +935,14 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         # Auto-register in local plugin registry so agents can discover it
         _service_endpoints = {
             'ollama': ('http://localhost:11434', 'http://localhost:11434/api/tags'),
-            'whisper': ('http://localhost:8210', 'http://localhost:8210/health'),
+            'whisper': ('http://localhost:8110', 'http://localhost:8110/health'),
             'peertube_pruner': ('http://localhost:8220', 'http://localhost:8220/health'),
         }
         endpoint, health_url = _service_endpoints.get(service_type, ('', ''))
         hub_hostname = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
         node_hostname = socket.gethostname()
         try:
-            plugin_client = AITBCHTTPClient(base_url="http://localhost:8016", timeout=5)
+            plugin_client = AITBCHTTPClient(base_url="http://localhost:8109", timeout=5)
             plugin_client.post("/register", json={
                 'service_type': service_type,
                 'model': model_or_variant,
@@ -1145,7 +1145,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         body += b'--' + boundary + b'--\r\n'
 
         req = _urllib.Request(
-            'http://localhost:8210/transcribe',
+            'http://localhost:8110/transcribe',
             data=body,
             headers={'Content-Type': f'multipart/form-data; boundary={boundary.decode()}'}
         )

@@ -93,7 +93,7 @@ SERVICES = {
         "prefix": "/v1/escrow",
     },
     "plugin": {
-        "base_url": os.getenv("PLUGIN_SERVICE_URL", "http://localhost:8016"),
+        "base_url": os.getenv("PLUGIN_SERVICE_URL", "http://localhost:8109"),
         "prefix": "/v1/plugin",
     },
 }
