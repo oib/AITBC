@@ -223,6 +223,7 @@ def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, descript
             'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
+            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
             'payload': {
                 'action': 'offer',
                 'offer_id': offer_id,
@@ -325,6 +326,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, description:
             'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
+            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
             'payload': {
                 'action': 'bid',
                 'bid_id': bid_id,
@@ -503,6 +505,7 @@ def cancel(ctx, order_id: str):
             'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
+            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
             'payload': {
                 'action': 'cancel',
                 'order_id': order_id,
@@ -558,6 +561,7 @@ def accept(ctx, bid_id: str):
             'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
+            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
             'payload': {
                 'action': 'accept',
                 'bid_id': bid_id,
