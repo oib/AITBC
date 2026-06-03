@@ -928,12 +928,12 @@ def run_job(ctx, offer_id: str, prompt: str, max_tokens: int, stream: bool):
         # Resolve the offer from hub transactions
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-        result = http_client.get("/rpc/transactions", params={"limit": 500})
+        result = http_client.get("/rpc/transactions", params={"limit": 1000})
         offer = None
         if result and not isinstance(result, dict):
             for tx in result:
                 p = tx.get('payload', {})
-                if p.get('action') == 'software_offer' and p.get('offer_id') == offer_id and p.get('status') == 'active':
+                if p.get('action') == 'software_offer' and p.get('offer_id') == offer_id:
                     offer = p
                     break
         if not offer:

@@ -54,7 +54,9 @@ async def _get_account_nonce(address: str, client: httpx.AsyncClient) -> int:
 
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
-    amount_int = int(amount)
+    # Use milli-AIT (x1000) so sub-1 AIT amounts are not lost to integer rounding
+    amount_milli = int(amount * 1000)
+    amount_int = amount_milli if amount_milli > 0 else int(amount)
     if amount_int <= 0:
         return None
     try:
