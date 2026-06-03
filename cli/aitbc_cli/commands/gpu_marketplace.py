@@ -792,13 +792,6 @@ def register(ctx, gpu_id: str, pricing: str | None):
 
         gpu_data = {"gpu_id": gpu_id}
 
-        if specs:
-            try:
-                gpu_data["specs"] = json.loads(specs)
-            except json.JSONDecodeError:
-                error("Invalid JSON specifications")
-                raise click.Abort()
-
         if pricing:
             try:
                 gpu_data["pricing"] = json.loads(pricing)

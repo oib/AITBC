@@ -432,45 +432,7 @@ async def register_gpu(
             session.add(new_gpu)
             await session.commit()
 
-        # Record GPU registration on blockchain (async, non-blocking)
-        try:
-            import httpx
-            import os
-            
-            blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-            
-            # Submit GPU_REGISTER transaction to blockchain
-            transaction_payload = {
-                "from": registered_by,
-                "to": "0x0000000000000000000000000000000000000000",
-                "amount": 0,
-                "fee": 10,
-                "nonce": 0,
-                "type": "GPU_REGISTER",
-                "payload": {
-                    "gpu_id": gpu_id,
-                    "miner_id": miner_id,
-                    "gpu_model": specs.get("model", "Unknown"),
-                    "memory_gb": specs.get("memory_gb", 0),
-                    "cuda_cores": specs.get("cuda_cores", 0),
-                    "compute_capability": specs.get("compute_capability", ""),
-                    "price_per_hour": pricing.get("price_per_hour", 0.0) if pricing else 0.0,
-                    "description": specs.get("description", ""),
-                    "provider_address": registered_by
-                },
-                "signature": ""
-            }
-            
-            async with httpx.AsyncClient(timeout=5.0) as http_client:
-                response = await http_client.post(
-                    f"{blockchain_rpc_url}/rpc/transaction",
-                    json=transaction_payload
-                )
-                response.raise_for_status()
-            logger.info(f"GPU {gpu_id} registered on blockchain")
-        except Exception as blockchain_error:
-            logger.warning(f"Failed to register GPU on blockchain (non-blocking): {blockchain_error}")
+        return {"gpu_id": gpu_id, "miner_id": miner_id, "status": "registered"}
 
         return {
             "status": "created" if not existing_gpu else "updated",
