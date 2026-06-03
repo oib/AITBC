@@ -36,7 +36,7 @@ class GPURegistry(SQLModel, table=True):
     capabilities: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)
     total_reviews: int = Field(default=0)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.now, nullable=False, index=True)
 
 
 class ConsumerGPUProfile(SQLModel, table=True):
@@ -84,8 +84,8 @@ class ConsumerGPUProfile(SQLModel, table=True):
     edge_premium_multiplier: float = Field(default=1.0)
     availability_score: float = Field(default=1.0)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
 
 class EdgeGPUMetrics(SQLModel, table=True):
@@ -151,4 +151,4 @@ class GPUReview(SQLModel, table=True):
     user_id: str = Field(default="")
     rating: int = Field(ge=1, le=5)
     comment: str = Field(default="")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.now, nullable=False, index=True)
