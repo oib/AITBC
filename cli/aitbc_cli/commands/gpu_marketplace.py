@@ -347,16 +347,33 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         # Load CLI config
         config = get_config()
 
-        # Query GPU service for registered GPUs
+        # Query blockchain for GPU marketplace transactions
+        transactions = None
         try:
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            transactions = http_client.get("/v1/transactions")
-
+            # Try local blockchain RPC first, then hub for cross-node data
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            transactions = http_client.get("/transactions/marketplace")
+            
+            # If local returns empty or error, try hub
             if not transactions:
-                info("No registered GPUs found")
-                return
+                hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                transactions = http_client.get("/transactions/marketplace")
+        except NetworkError:
+            # Blockchain endpoint not available, will fallback to local GPU service
+            pass
 
-            # Format output for GPU registry data
+        if not transactions:
+            # Fallback to local GPU service if blockchain endpoint not available
+            info("Blockchain marketplace endpoint not available, showing local registered GPUs")
+            gpu_http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            transactions = gpu_http_client.get("/v1/transactions")
+            
+            if not transactions:
+                info("No GPU marketplace offers found")
+                return
+            
+            # Format for local GPU registry data
             gpu_data = []
             for gpu in transactions:
                 gpu_data.append({
@@ -369,11 +386,52 @@ def list(ctx, provider: str | None, status: str | None, type: str):
                     "Miner ID": gpu.get('miner_id', '')[:16] + "...",
                     "Created": gpu.get('created_at', '')[:19] if gpu.get('created_at') else 'N/A'
                 })
+            
+            output(gpu_data, ctx.obj.get('output_format', 'table'), title="Local Registered GPUs")
+            return
 
-            output(gpu_data, ctx.obj.get('output_format', 'table'), title="Registered GPUs")
-        except NetworkError as e:
-            error(f"Network error querying GPU service: {e}")
-            raise click.Abort()
+        # Format output for marketplace offers (blockchain data)
+        market_data = []
+        for tx in transactions:
+            payload = tx.get('payload', {})
+            action = payload.get('action')
+            
+            if type != 'all' and action != type:
+                continue
+            if status and payload.get('status') != status:
+                continue
+            if provider and payload.get('provider_node_id') != provider:
+                continue
+
+            if action == 'offer':
+                specs = payload.get('specs', {})
+                market_data.append({
+                    "Offer ID": payload.get('offer_id', '')[:20] + "...",
+                    "GPU ID": payload.get('gpu_id'),
+                    "Model": specs.get('model', 'Unknown'),
+                    "Memory (GB)": specs.get('memory_gb', 0),
+                    "Price/Hour": f"{payload.get('price_per_hour', 0):.4f} AIT",
+                    "Duration": f"{payload.get('duration_hours')}h",
+                    "Total": f"{payload.get('total_price', 0):.2f} AIT",
+                    "Status": payload.get('status'),
+                    "Provider": payload.get('provider_node_id', '')[:16] + "...",
+                    "Description": payload.get('description', '')[:30] + "..." if len(payload.get('description', '')) > 30 else payload.get('description', ''),
+                    "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
+                })
+            elif action == 'bid':
+                market_data.append({
+                    "Bid ID": payload.get('bid_id', '')[:20] + "...",
+                    "Type": "BID",
+                    "GPU Count": payload.get('gpu_count'),
+                    "Max Price": f"{payload.get('max_price_per_gpu', 0):.4f} AIT/h",
+                    "Duration": f"{payload.get('duration_hours')}h",
+                    "Max Total": f"{payload.get('max_total_price', 0):.2f} AIT",
+                    "Status": payload.get('status'),
+                    "Bidder": payload.get('bidder_node_id', '')[:16] + "...",
+                    "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
+                })
+
+        output(market_data, ctx.obj.get('output_format', 'table'), title="GPU Marketplace Offers")
 
     except Exception as e:
         error(f"Error listing GPU marketplace: {str(e)}")
