@@ -155,14 +155,16 @@ class EscrowManager:
         if not all([job_id, client_address, agent_address]):
             return False
 
-        # Validate addresses (simplified)
-        if not (client_address.startswith('0x') and len(client_address) == 42):
+        # Validate addresses: accept 0x hex (42 chars) or aitbc1 bech32 format
+        def _valid_addr(addr: str) -> bool:
+            return (addr.startswith('0x') and len(addr) == 42) or addr.startswith('aitbc1')
+        if not _valid_addr(client_address):
             return False
-        if not (agent_address.startswith('0x') and len(agent_address) == 42):
+        if not _valid_addr(agent_address):
             return False
 
-        # Validate amount
-        if amount <= 0:
+        # Validate amount (0 is allowed for fee-based marketplace jobs)
+        if amount < 0:
             return False
 
         # Check for existing contract
