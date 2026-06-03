@@ -217,7 +217,7 @@ def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, descript
             }
         }
 
-        # Submit transaction to blockchain RPC (try hub first for block inclusion)
+        # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
             hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
