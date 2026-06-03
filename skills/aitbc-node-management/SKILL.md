@@ -125,6 +125,19 @@ systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc aitbc-blockchain-
 ln -sf /opt/aitbc/aitbc-cli /usr/local/bin/aitbc
 ```
 
+**CLI Debugging and Preference:**
+- **Primary Tool:** Always prefer using the CLI tool (`/opt/aitbc/aitbc-cli`) for operations. Most work should be able to be done with the CLI tool.
+- **Fallback to Direct API:** Only use direct curl endpoints if the CLI does not support the required functionality or if debugging reveals a missing feature.
+- **Debugging CLI Errors:** When CLI commands fail, debug the issue before falling back to direct API calls:
+  1. Check CLI help: `/opt/aitbc/aitbc-cli <command> --help`
+  2. Verify CLI syntax and parameters
+  3. Check service status: `systemctl status <service>`
+  4. Review service logs: `journalctl -u <service> -f`
+  5. Test RPC connectivity: `curl http://localhost:<port>/health`
+  6. Check environment configuration: `cat /etc/aitbc/*.env`
+  7. Verify wallet/keystore permissions
+  8. Restart affected services after code changes
+
 ## Genesis Management
 
 ### Deterministic Genesis (v1.4.0+)
