@@ -1,17 +1,18 @@
 # AITBC Blockchain Node Environment Configuration Guide
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-06-03
 
 > **Important:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
-Complete reference for configuring `node.env` and `blockchain.env` files for AITBC blockchain nodes.
+Complete reference for configuring `node.env`, `blockchain.env`, and `blockchain-secrets.env` files for AITBC blockchain nodes.
 
 ## Overview
 
-AITBC uses two environment configuration files:
+AITBC uses three environment configuration files:
 
 - **`/etc/aitbc/node.env`** - Node-specific settings (unique per node)
 - **`/etc/aitbc/blockchain.env`** - Shared blockchain settings (can be identical across nodes)
+- **`/etc/aitbc/blockchain-secrets.env`** - Shared cluster authentication secrets (must match across nodes)
 
 ## node.env Reference
 
@@ -338,6 +339,92 @@ GRAFANA_PORT=3000
 
 ---
 
+## blockchain-secrets.env Reference
+
+**Location:** `/etc/aitbc/blockchain-secrets.env`
+**Purpose:** Shared cluster authentication secrets. Contains API keys that must match across all nodes in the same island for authentication.
+**Security Level:** Private - Contains sensitive authentication secrets. File permissions should be `600`.
+
+**Source:** Downloaded from hub's public endpoint for open islands: `https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env`
+
+### Authentication Secrets
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `COORDINATOR_API_KEY` | Yes | - | API key for Agent Coordinator authentication |
+| `SECRET_KEY` | Yes | - | JWT signing and message authentication secret |
+
+### Example blockchain-secrets.env
+
+```bash
+# Shared cluster secrets for the ait-hub.aitbc.bubuit.net open island
+COORDINATOR_API_KEY=8598095866d24aa8bcdf5c11fe9cb0ea6ece8c5868af6ee95732fe41dfe8de5c
+SECRET_KEY=8598095866d24aa8bcdf5c11fe9cb0ea6ece8c5868af6ee95732fe41dfe8de5c
+```
+
+### Services That Load This File
+
+- `aitbc-wallet.service` - For wallet daemon authentication
+- `aitbc-hermes.service` - For Hermes service authentication
+- `aitbc-blockchain-rpc.service` - For authenticated RPC endpoints (if needed)
+
+### Security Notes
+
+- **File permissions:** Should be `600` (owner read/write only)
+- **Distribution:** For open islands, these keys are public (downloadable from hub)
+- **Private islands:** Should use unique, non-public keys generated during setup
+- **Consistency:** All nodes in the same island must use the same keys
+
+### Setup Instructions
+
+```bash
+# Download from hub (for open islands)
+curl -o /etc/aitbc/blockchain-secrets.env https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
+chmod 600 /etc/aitbc/blockchain-secrets.env
+
+# For private islands, generate unique keys
+# and distribute securely to all nodes
+```
+
+---
+
+## Environment File Loading Order
+
+Systemd services load environment files in the order specified in the `[Service]` section. Later files can override earlier ones.
+
+**Example (aitbc-wallet.service):**
+```ini
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/blockchain-secrets.env
+EnvironmentFile=/etc/aitbc/node.env
+```
+
+**Loading order:**
+1. `blockchain.env` - Base blockchain configuration
+2. `blockchain-secrets.env` - Authentication secrets (may override blockchain.env if duplicates exist)
+3. `node.env` - Node-specific settings (highest priority)
+
+---
+
+## Service Dependencies
+
+### Blockchain Node Services
+- **aitbc-blockchain-node.service:** Loads `blockchain.env`, `node.env`
+- **aitbc-blockchain-rpc.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`
+
+### Agent Services
+- **aitbc-hermes.service:** Loads `blockchain.env`, `node.env`
+- **aitbc-agent-coordinator.service:** Loads `node.env`
+- **aitbc-agent-daemon.service:** Loads `node.env`
+
+### Wallet Service
+- **aitbc-wallet.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`
+
+### CLI
+- **aitbc CLI:** Loads `blockchain.env` and `node.env` via `get_config()`
+
+---
+
 ## Node Role Patterns
 
 ### Hub Node (Block Producer)
@@ -409,6 +496,30 @@ p2p_bind_port=7070
 supported_chains=ait-mainnet,ait-testnet
 ```
 
+### Issue: "COORDINATOR_API_KEY not set" error
+
+**Cause:** `blockchain-secrets.env` not loaded or missing
+
+**Solution:**
+```bash
+# Add to service file
+EnvironmentFile=/etc/aitbc/blockchain-secrets.env
+
+# Ensure file exists
+curl -o /etc/aitbc/blockchain-secrets.env https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
+chmod 600 /etc/aitbc/blockchain-secrets.env
+```
+
+### Issue: Service fails to start with "Failed to load environment files"
+
+**Cause:** One of the specified `EnvironmentFile` paths doesn't exist
+
+**Solution:**
+```bash
+# Ensure all referenced files exist
+ls -la /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/blockchain-secrets.env
+```
+
 ### Issue: Database location mismatch
 
 **Cause:** `DATABASE_URL` doesn't match actual database path
@@ -435,6 +546,9 @@ Before starting services, verify:
 - [ ] `enable_block_production` is `false` for follower nodes
 - [ ] `default_peer_rpc_url` points to hub node for followers
 - [ ] Redis URLs are correct and accessible
+- [ ] `blockchain-secrets.env` exists and has correct permissions (600)
+- [ ] `COORDINATOR_API_KEY` and `SECRET_KEY` match hub's shared secrets
+- [ ] All three environment files exist at `/etc/aitbc/`
 
 ---
 
