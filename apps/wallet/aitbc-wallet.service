@@ -9,7 +9,6 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
-EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/wallet/aitbc-wallet-wrapper.py
 KillMode=mixed
