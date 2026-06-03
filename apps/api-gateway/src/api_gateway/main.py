@@ -92,6 +92,10 @@ SERVICES = {
         "base_url": os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202") + "/rpc",
         "prefix": "/v1/escrow",
     },
+    "plugin": {
+        "base_url": os.getenv("PLUGIN_SERVICE_URL", "http://localhost:8016"),
+        "prefix": "/v1/plugin",
+    },
 }
 
 

@@ -932,6 +932,35 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         success(f"Software offer listed on marketplace!")
         output(result, ctx.obj.get("output_format", "table"))
 
+        # Auto-register in local plugin registry so agents can discover it
+        _service_endpoints = {
+            'ollama': ('http://localhost:11434', 'http://localhost:11434/api/tags'),
+            'whisper': ('http://localhost:8210', 'http://localhost:8210/health'),
+            'peertube_pruner': ('http://localhost:8220', 'http://localhost:8220/health'),
+        }
+        endpoint, health_url = _service_endpoints.get(service_type, ('', ''))
+        hub_hostname = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
+        node_hostname = socket.gethostname()
+        try:
+            plugin_client = AITBCHTTPClient(base_url="http://localhost:8016", timeout=5)
+            plugin_client.post("/register", json={
+                'service_type': service_type,
+                'model': model_or_variant,
+                'price': float(price),
+                'price_unit': unit,
+                'offer_id': offer_id,
+                'endpoint': endpoint,
+                'public_endpoint': f"https://{node_hostname}.{hub_hostname}/{service_type}",
+                'health_url': health_url,
+                'provider_address': wallet_address,
+                'node_id': provider_node_id,
+                'description': description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
+                'status': 'active',
+            })
+            info(f"Plugin registered in local registry (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})")
+        except Exception:
+            pass  # Non-fatal — plugin service may not be running
+
     except Exception as e:
         error(f"Error creating software offer: {e}")
         raise click.Abort()
