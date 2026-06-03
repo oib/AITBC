@@ -71,7 +71,7 @@ def get_island_id() -> str:
 
 
 def get_wallet_address() -> str:
-    """Get address from wallet service or local wallet file"""
+    """Get address from wallet service - use my-agent-wallet which exists on blockchain"""
     config = get_config()
     
     # Try wallet service API first
@@ -79,7 +79,14 @@ def get_wallet_address() -> str:
         http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5)
         wallets = http_client.get("/v1/wallets")
         if wallets and wallets.get('items'):
-            # Use genesis wallet address
+            # Use my-agent-wallet which exists on the blockchain
+            for wallet in wallets['items']:
+                if wallet.get('wallet_id') == 'my-agent-wallet':
+                    metadata = wallet.get('metadata', {})
+                    address = metadata.get('address') or metadata.get('original_address')
+                    if address:
+                        return address
+            # Fallback to first wallet if my-agent-wallet not found
             genesis_wallet = wallets['items'][0]
             metadata = genesis_wallet.get('metadata', {})
             address = metadata.get('address') or metadata.get('original_address')
