@@ -145,6 +145,57 @@ server "http https" accept
 sudo firehol restart
 ```
 
+## Critical: HTTP→HTTPS Redirect Must Preserve POST Method
+
+> **⚠️ Required for marketplace and blockchain RPC POST endpoints to work correctly.**
+
+### The Problem
+
+If nginx redirects HTTP to HTTPS using `301 Moved Permanently`, HTTP clients (including Python `requests`, curl without `-L`, and browsers) will **downgrade POST to GET** on redirect (RFC 7231 compliant behavior). This breaks all blockchain RPC POST submissions:
+
+- `POST /rpc/transactions/marketplace` → redirected → becomes `GET` → nginx returns **405 Method Not Allowed**
+- Marketplace offers, bids, and coin requests submitted over HTTP will silently fail
+
+### The Fix: Use 308 Instead of 301
+
+In your nginx HTTP server block, use `308 Permanent Redirect` which explicitly preserves the request method and body:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # ❌ WRONG — downgrades POST to GET on redirect
+    # return 301 https://$host$request_uri;
+
+    # ✅ CORRECT — preserves POST method and body
+    return 308 https://$host$request_uri;
+}
+```
+
+### Verification
+
+```bash
+# Check what redirect code your nginx returns for POST
+curl -sv -X POST http://your-domain.com/rpc/transactions/marketplace \
+  -H "Content-Type: application/json" -d '{}' 2>&1 | grep "< HTTP"
+
+# Expected with 308: HTTP/1.1 308 Permanent Redirect  ✅
+# Broken with 301:   HTTP/1.1 301 Moved Permanently   ❌ (POST becomes GET)
+```
+
+### Client-Side Workaround
+
+If you cannot change the nginx config, ensure all AITBC CLI and service clients use `https://` URLs directly (skip HTTP entirely). The AITBC CLI reads `HUB_DISCOVERY_URL` from `/etc/aitbc/blockchain.env` — confirm it does not need an HTTP fallback:
+
+```bash
+grep HUB_DISCOVERY_URL /etc/aitbc/blockchain.env
+# Should be: HUB_DISCOVERY_URL=hub.aitbc.bubuit.net
+# CLI prepends https:// automatically
+```
+
+---
+
 ## Troubleshooting
 
 ### Nginx Won't Start

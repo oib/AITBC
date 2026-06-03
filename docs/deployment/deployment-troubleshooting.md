@@ -68,6 +68,47 @@ chown -R aitbc:aitbc /opt/aitbc
 chmod 600 /etc/aitbc/*.env
 ```
 
+## Marketplace / RPC POST Returns 405 Behind Reverse Proxy
+
+**Symptoms:**
+- `POST /rpc/transactions/marketplace` returns `405 Method Not Allowed`
+- Marketplace offers or coin requests submitted over HTTP silently fail
+- Error: `400 Bad Request` or `405` when submitting blockchain transactions
+
+**Cause:**
+
+nginx (and other reverse proxies) configured with `return 301` for HTTP→HTTPS redirect will cause HTTP clients to **downgrade POST to GET** on the redirect (RFC 7231). The GET then hits the endpoint and gets 405.
+
+**Solution:**
+
+Change the HTTP→HTTPS redirect in nginx from `301` to `308`:
+
+```nginx
+# ❌ Breaks POST requests
+return 301 https://$host$request_uri;
+
+# ✅ Preserves POST method
+return 308 https://$host$request_uri;
+```
+
+Reload nginx after the change:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Verify fix:**
+
+```bash
+curl -sv -X POST http://your-domain.com/rpc/transactions/marketplace \
+  -H "Content-Type: application/json" -d '{}' 2>&1 | grep "< HTTP"
+# Should show: HTTP/1.1 308 Permanent Redirect
+```
+
+See [nginx-setup.md](nginx-setup.md#critical-httphttps-redirect-must-preserve-post-method) for full details.
+
+---
+
 ## See Also
 
 - [Troubleshooting/Service Management](../troubleshooting/service-management.md) - Detailed service troubleshooting
