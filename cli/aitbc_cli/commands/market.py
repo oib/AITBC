@@ -390,7 +390,7 @@ def list(ctx, provider: str | None, status: str | None, type: str):
                 transactions = [
                     tx for tx in result
                     if isinstance(tx.get('payload'), dict)
-                    and tx['payload'].get('action') in ('offer', 'bid', 'cancel', 'accept')
+                    and tx['payload'].get('action') in ('offer', 'bid', 'cancel', 'accept', 'software_offer')
                 ]
                 logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions from hub")
             
@@ -832,4 +832,187 @@ def providers(ctx):
 
     except Exception as e:
         error(f"Error querying GPU providers: {str(e)}")
+        raise click.Abort()
+
+
+# ---------------------------------------------------------------------------
+# Software marketplace — Ollama inference, Whisper, PeerTube pruner
+# ---------------------------------------------------------------------------
+
+@market.command(name="software-offer")
+@click.argument('service_type', type=click.Choice(['ollama', 'whisper', 'peertube_pruner']))
+@click.argument('model_or_variant')
+@click.argument('price', type=float)
+@click.option('--unit', default='per_1k_tokens',
+              type=click.Choice(['per_1k_tokens', 'per_audio_min', 'per_gb']),
+              help='Pricing unit')
+@click.option('--description', help='Description of the service')
+@click.option('--context-window', type=int, default=4096, help='Context window size (ollama)')
+@click.pass_context
+def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
+                   unit: str, description: str | None, context_window: int):
+    """List a software service (Ollama/Whisper/PeerTube) in the marketplace"""
+    try:
+        config = get_config()
+        chain_id = get_chain_id()
+        island_id = get_island_id()
+        wallet_address = get_wallet_address()
+
+        # Verify the service is actually running locally
+        if service_type == 'ollama':
+            try:
+                ol_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=5)
+                tags = ol_client.get("/api/tags")
+                models = [m['name'] for m in tags.get('models', [])]
+                if model_or_variant not in models:
+                    error(f"Model '{model_or_variant}' not found in local Ollama. Available: {', '.join(models)}")
+                    raise click.Abort()
+                info(f"Verified Ollama model: {model_or_variant}")
+            except NetworkError as e:
+                error(f"Ollama not reachable at localhost:11434: {e}")
+                raise click.Abort()
+
+        provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
+        offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
+
+        offer_data = {
+            'from': wallet_address,
+            'to': '0x0000000000000000000000000000000000000000',
+            'amount': 0,
+            'fee': 10,
+            'nonce': get_next_nonce(),
+            'type': 'GPU_MARKETPLACE',
+            'chain_id': chain_id,
+            'payload': {
+                'action': 'software_offer',
+                'offer_id': offer_id,
+                'provider_node_id': provider_node_id,
+                'provider_address': wallet_address,
+                'service_type': service_type,
+                'model': model_or_variant,
+                'price': float(price),
+                'price_unit': unit,
+                'context_window': context_window if service_type == 'ollama' else None,
+                'status': 'active',
+                'description': description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
+                'island_id': island_id,
+                'chain_id': chain_id,
+                'created_at': datetime.now().isoformat(),
+            }
+        }
+
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+        result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
+        success(f"Software offer listed on marketplace!")
+        output(result, ctx.obj.get("output_format", "table"))
+
+    except Exception as e:
+        error(f"Error creating software offer: {e}")
+        raise click.Abort()
+
+
+@market.command(name="run")
+@click.argument('offer_id')
+@click.argument('prompt')
+@click.option('--max-tokens', type=int, default=512, help='Max tokens to generate')
+@click.option('--stream', is_flag=True, default=False, help='Stream the response')
+@click.pass_context
+def run_job(ctx, offer_id: str, prompt: str, max_tokens: int, stream: bool):
+    """Run an inference job against a software offer and pay metered escrow"""
+    try:
+        config = get_config()
+        chain_id = get_chain_id()
+        wallet_address = get_wallet_address()
+
+        # Resolve the offer from hub transactions
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        result = http_client.get("/rpc/transactions", params={"limit": 500})
+        offer = None
+        if result and not isinstance(result, dict):
+            for tx in result:
+                p = tx.get('payload', {})
+                if p.get('action') == 'software_offer' and p.get('offer_id') == offer_id and p.get('status') == 'active':
+                    offer = p
+                    break
+        if not offer:
+            error(f"Software offer '{offer_id}' not found or not active on hub")
+            raise click.Abort()
+
+        service_type = offer.get('service_type')
+        model = offer.get('model')
+        price = float(offer.get('price', 0))
+        price_unit = offer.get('price_unit', 'per_1k_tokens')
+        provider_address = offer.get('provider_address')
+
+        info(f"Offer: {service_type} — {model} at {price} AIT/{price_unit}")
+        info(f"Provider: {provider_address}")
+
+        if service_type != 'ollama':
+            error(f"Service type '{service_type}' job execution not yet supported via CLI")
+            raise click.Abort()
+
+        # Lock escrow upfront (estimated max cost)
+        estimated_tokens = max_tokens
+        estimated_cost = (estimated_tokens / 1000) * price
+        job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+        info(f"Locking escrow: ~{estimated_cost:.4f} AIT (est. {estimated_tokens} tokens)")
+        contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
+
+        # Run inference via Ollama
+        import urllib.request
+        payload = json.dumps({
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"num_predict": max_tokens}
+        }).encode()
+        req = urllib.request.Request(
+            "http://localhost:11434/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        info("Running inference...")
+        t_start = datetime.now()
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            resp_data = json.loads(resp.read())
+        elapsed = (datetime.now() - t_start).total_seconds()
+
+        response_text = resp_data.get('response', '')
+        tokens_used = resp_data.get('eval_count', len(response_text.split()) * 2)
+        actual_cost = (tokens_used / 1000) * price
+
+        info(f"Done in {elapsed:.2f}s — {tokens_used} tokens — actual cost: {actual_cost:.4f} AIT")
+        click.echo(f"\n{response_text}\n")
+
+        # Release metered escrow for actual tokens used
+        if contract_id:
+            rpc_url = _get_blockchain_rpc_url(config)
+            rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={
+                'amount': actual_cost,
+                'tokens_used': tokens_used,
+                'job_id': job_id,
+            })
+            if release_result and release_result.get('tx_hash'):
+                success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            else:
+                warning(f"Escrow release submitted but no tx_hash returned")
+        else:
+            warning("No escrow contract — payment not released")
+
+        output({
+            'job_id': job_id,
+            'offer_id': offer_id,
+            'model': model,
+            'tokens_used': tokens_used,
+            'elapsed_seconds': round(elapsed, 2),
+            'actual_cost_ait': round(actual_cost, 6),
+            'contract_id': contract_id,
+        }, ctx.obj.get("output_format", "table"))
+
+    except Exception as e:
+        error(f"Error running job: {e}")
         raise click.Abort()
