@@ -78,9 +78,10 @@ def gpu():
 @click.argument('gpu_count', type=int)
 @click.argument('price_per_gpu', type=float)
 @click.argument('duration_hours', type=int)
+@click.option('--specs', help='GPU specifications (JSON string) - auto-discovered if not provided')
 @click.option('--description', help='Description of the GPU offer')
 @click.pass_context
-def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, description: str | None):
+def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs: str | None, description: str | None):
     """Offer GPU power for sale in the marketplace"""
     try:
         # Load CLI config
