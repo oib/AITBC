@@ -17,17 +17,17 @@ Before requesting coins, you need a wallet address.
 
 ```bash
 # Generate new wallet
-/opt/aitbc/venv/bin/aitbc wallet create my-wallet
+aitbc-cli wallet create my-wallet
 ```
 
 ### Get Wallet Address
 
 ```bash
 # List wallets
-/opt/aitbc/venv/bin/aitbc wallet list
+aitbc-cli wallet list
 
 # Show wallet details
-/opt/aitbc/venv/bin/aitbc wallet show my-wallet
+aitbc-cli wallet show my-wallet
 ```
 
 ### Check Balance
@@ -80,7 +80,7 @@ The hub's CLI can list coin requests:
 
 ```bash
 # On the hub node
-/opt/aitbc/venv/bin/aitbc coin-requests list
+aitbc-cli coin-requests list
 ```
 
 ## Request Format Options
@@ -109,10 +109,10 @@ REQUEST_COINS: 1000 ait coins to address ait1xyz123abc
 **Manual approval on hub:**
 ```bash
 # Approve request
-/opt/aitbc/venv/bin/aitbc coin-requests approve <request-id> --reason "New node onboarding"
+aitbc-cli coin-requests approve <request-id> --reason "New node onboarding"
 
 # Execute transfer
-/opt/aitbc/venv/bin/aitbc coin-requests execute <request-id>
+aitbc-cli coin-requests execute <request-id>
 ```
 
 ## See Also

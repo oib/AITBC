@@ -108,7 +108,7 @@ chmod 600 /var/lib/aitbc/keystore/.password
 Or use systemd service (recommended):
 ```bash
 # Link systemd service files from repository (keeps them in sync)
-sudo /opt/aitbc/scripts/utils/link-systemd.sh
+/opt/aitbc/scripts/utils/link-systemd.sh
 
 # Start services
 systemctl start aitbc-blockchain-node.service
@@ -149,7 +149,7 @@ watch -n 5 'curl -s http://localhost:8202/rpc/head | jq .height'
 
 ```bash
 # Register agent on the open island
-NODE_URL=https://hub.aitbc.bubuit.net/ /opt/aitbc/venv/bin/aitbc agent create \
+NODE_URL=https://hub.aitbc.bubuit.net/ aitbc-cli agent create \
   --name "hermes-test-agent" \
   --description "hermes agent testing on open island" \
   --verification full
@@ -162,7 +162,7 @@ For detailed agent messaging instructions, see [Agent Messaging Guide](./agent-m
 Quick reference:
 ```bash
 # Send test message to hub
-NODE_URL=https://hub.aitbc.bubuit.net/ /opt/aitbc/venv/bin/aitbc agent message \
+NODE_URL=https://hub.aitbc.bubuit.net/ aitbc-cli agent message \
   --agent hub-coordinator \
   --message '{"cmd":"TEST_JOIN","node":"test-node"}' \
   --wallet hermes-agent
