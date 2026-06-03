@@ -107,15 +107,10 @@ chmod 600 /var/lib/aitbc/keystore/.password
 
 Or use systemd service (recommended):
 ```bash
-# Copy service file
-cp /opt/aitbc/systemd/aitbc-blockchain-node.service /etc/systemd/system/
-cp /opt/aitbc/systemd/aitbc-blockchain-p2p.service /etc/systemd/system/
-
-# Update paths in service files
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /etc/systemd/system/aitbc-blockchain-*.service
+# Link systemd service files from repository (keeps them in sync)
+sudo /opt/aitbc/scripts/utils/link-systemd.sh
 
 # Start services
-systemctl daemon-reload
 systemctl start aitbc-blockchain-node.service
 systemctl start aitbc-blockchain-p2p.service
 systemctl enable aitbc-blockchain-node.service
