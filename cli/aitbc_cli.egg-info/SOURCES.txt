@@ -18,6 +18,7 @@ aitbc_cli/commands/analytics.py
 aitbc_cli/commands/bridge.py
 aitbc_cli/commands/chain.py
 aitbc_cli/commands/cluster.py
+aitbc_cli/commands/coin_requests.py
 aitbc_cli/commands/compliance.py
 aitbc_cli/commands/config.py
 aitbc_cli/commands/contract.py
@@ -29,8 +30,10 @@ aitbc_cli/commands/exchange.py
 aitbc_cli/commands/exchange_island.py
 aitbc_cli/commands/genesis.py
 aitbc_cli/commands/gpu_marketplace.py
+aitbc_cli/commands/gpu_resources.py
 aitbc_cli/commands/hermes.py
 aitbc_cli/commands/hermes_training.py
+aitbc_cli/commands/market.py
 aitbc_cli/commands/marketplace_cmd.py
 aitbc_cli/commands/messaging.py
 aitbc_cli/commands/mining.py
@@ -77,10 +80,6 @@ aitbc_cli/utils/wallet_daemon_client.py
 auth/__init__.py
 config_data/__init__.py
 config_data/chains.py
-config_data/genesis_ait_devnet_proper.yaml
-config_data/genesis_multi_chain_dev.yaml
-config_data/healthcare_chain_config.yaml
-config_data/multichain_config.yaml
 handlers/__init__.py
 handlers/account.py
 handlers/ai.py

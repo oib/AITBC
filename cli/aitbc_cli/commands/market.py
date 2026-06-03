@@ -55,13 +55,13 @@ def get_island_id() -> str:
 
 
 def get_wallet_address() -> str:
-    """Get address from default wallet (use public_key as blockchain address)"""
+    """Get address from default wallet (use address field as blockchain address)"""
     wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
     if os.path.exists(wallet_path):
         with open(wallet_path) as f:
             wallet = json.load(f)
-            # Use public_key as blockchain address (already in hex format)
-            return wallet.get('public_key', '0x0000000000000000000000000000000000000000')
+            # Use address field (aitbc1 prefix) as blockchain address
+            return wallet.get('address', '0x0000000000000000000000000000000000000000')
     return '0x0000000000000000000000000000000000000000'
 
 
@@ -175,7 +175,7 @@ def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, descript
             'from': wallet_address,
             'to': '0x0000000000000000000000000000000000000000',
             'amount': 0,
-            'fee': 0,
+            'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
             'payload': {
@@ -277,7 +277,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, description:
             'from': wallet_address,
             'to': '0x0000000000000000000000000000000000000000',
             'amount': 0,
-            'fee': 0,
+            'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
             'payload': {
@@ -435,7 +435,7 @@ def cancel(ctx, order_id: str):
             'from': wallet_address,
             'to': '0x0000000000000000000000000000000000000000',
             'amount': 0,
-            'fee': 0,
+            'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
             'payload': {
@@ -490,7 +490,7 @@ def accept(ctx, bid_id: str):
             'from': wallet_address,
             'to': '0x0000000000000000000000000000000000000000',
             'amount': 0,
-            'fee': 0,
+            'fee': 10,  # Non-zero fee to incentivize miners
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
             'payload': {
