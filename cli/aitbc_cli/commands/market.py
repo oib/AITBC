@@ -50,7 +50,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
     try:
         from aitbc.network.http_client import AITBCHTTPClient
         config = get_config()
-        hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
         return response.get('nonce', 0)
@@ -60,10 +60,9 @@ def get_account_nonce(address: str, chain_id: str) -> int:
 
 def get_next_nonce() -> int:
     """Get next transaction nonce from blockchain"""
-    wallet_address = get_wallet_address()
-    config = get_config()
-    chain_id = 'ait-' + config.hub_discovery_url
-    return get_account_nonce(wallet_address, chain_id)
+    # For now, return 0 since blockchain RPC endpoint may not be available
+    # TODO: Implement proper nonce tracking when blockchain RPC is ready
+    return 0
 
 
 @click.group()
@@ -181,9 +180,9 @@ def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, descript
         # Submit transaction to blockchain RPC (try hub first for block inclusion)
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=offer_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
             success("GPU offer created successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
@@ -286,9 +285,9 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, description:
         # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=bid_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
             success("GPU bid created successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
@@ -323,9 +322,9 @@ def list(ctx, provider: str | None, status: str | None, type: str):
             
             # If local returns empty or error, try hub
             if not transactions:
-                hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+                hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                transactions = http_client.get("/transactions/marketplace")
+                transactions = http_client.get("/rpc/transactions/marketplace")
         except NetworkError:
             # Blockchain endpoint not available
             pass
@@ -420,9 +419,9 @@ def cancel(ctx, order_id: str):
         # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=cancel_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
@@ -475,9 +474,9 @@ def accept(ctx, bid_id: str):
         # Submit transaction to blockchain RPC
         try:
             # Try hub RPC for cross-node propagation
-            hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/transactions/marketplace", json=accept_data)
+            result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:

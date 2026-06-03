@@ -139,6 +139,12 @@ async def gpu_status() -> dict[str, str]:
     }
 
 
+@app.get("/v1/gpu/discover")
+async def gpu_discover() -> dict[str, Any]:
+    """Auto-discover GPU specifications using nvidia-smi"""
+    return discover_gpu_specs()
+
+
 async def get_session_dep() -> AsyncIterator[AsyncSession]:
     """Get database session dependency"""
     async with get_session() as session:
