@@ -43,6 +43,8 @@ MARKET_ROLE=customer       # customer or shop
 HARDWARE_PROFILE=nogpu    # gpu or nogpu
 ```
 
+> **For detailed environment configuration:** See [Environment Configuration Guide](../blockchain/ENVIRONMENT_CONFIGURATION.md) for complete reference on `blockchain.env`, `node.env`, and `blockchain-secrets.env`.
+
 ## Lease-Based Subscription System
 
 The blockchain node supports a lease-based push synchronization mechanism for efficient block propagation:
