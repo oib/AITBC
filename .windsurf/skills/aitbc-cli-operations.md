@@ -94,7 +94,7 @@ Activate when user requests AITBC CLI operations: wallet management (create, imp
 ```
 
 ## CLI Location
-**Main CLI:** `/opt/aitbc/venv/bin/python /opt/aitbc/cli/aitbc_cli.py`
+**Main CLI:** `/opt/aitbc/aitbc-cli` (shim that delegates to venv binary)
 
 **Usage:** Execute from `/opt/aitbc` directory
 
