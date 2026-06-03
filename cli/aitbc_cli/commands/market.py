@@ -677,7 +677,7 @@ def _get_blockchain_rpc_url(config) -> str:
 
 
 def _escrow_create(job_id: str, buyer: str, provider: str, amount, config) -> str | None:
-    """Create escrow on blockchain node. Returns contract_id or None."""
+    """Create escrow on local blockchain node. Returns contract_id or None."""
     rpc_url = _get_blockchain_rpc_url(config)
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
@@ -688,7 +688,8 @@ def _escrow_create(job_id: str, buyer: str, provider: str, amount, config) -> st
             'amount': float(amount) if amount else 0,
         })
         contract_id = result.get('contract_id') if isinstance(result, dict) else None
-        success(f"Escrow created: contract_id={contract_id}")
+        if contract_id:
+            success(f"Escrow created: contract_id={contract_id}")
         return contract_id
     except Exception as e:
         warning(f"Escrow creation skipped (non-fatal): {e}")
