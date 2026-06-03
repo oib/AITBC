@@ -175,7 +175,7 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
             # Try hub RPC for cross-node propagation
             hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
+            result = http_client.post("/transactions/marketplace", json=offer_data)
             success("GPU offer created successfully!")
             success(f"Offer ID: {offer_id}")
             success(f"Total Price: {total_price:.2f} AIT")
@@ -299,7 +299,7 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: str |
         try:
             hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
+            result = http_client.post("/transactions/marketplace", json=bid_data)
             success("GPU bid created successfully!")
             success(f"Bid ID: {bid_id}")
             success(f"Max Total Price: {max_total_price:.2f} AIT")
@@ -349,7 +349,7 @@ def list(ctx, provider: str | None, status: str | None, type: str):
                 params['action'] = type
 
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            transactions = http_client.get("/rpc/transactions", params=params)
+            transactions = http_client.get("/transactions", params=params)
 
             if not transactions:
                 info("No GPU marketplace transactions found")
@@ -474,7 +474,7 @@ def cancel(ctx, order_id: str):
         try:
             hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
+            result = http_client.post("/transactions/marketplace", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -559,7 +559,7 @@ def accept(ctx, bid_id: str):
         try:
             hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
+            result = http_client.post("/transactions/marketplace", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -594,7 +594,7 @@ def status(ctx, order_id: str):
             }
 
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            transactions = http_client.get("/rpc/transactions", params=params)
+            transactions = http_client.get("/transactions", params=params)
 
             if not transactions:
                 error(f"Order {order_id} not found")

@@ -46,7 +46,7 @@ class CLIConfig(BaseAITBCConfig):
 
     # Chain configuration
     chain_id: str = Field(default="ait-mainnet", description="Default chain ID for multichain operations")
-    hub_discovery_url: str = Field(default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)")
+    hub_discovery_url: str | None = Field(default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)")
 
     # Authentication
     api_key: str | None = Field(default=None, description="API key for authentication")
