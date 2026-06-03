@@ -7,6 +7,7 @@ import os
 import subprocess
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
@@ -146,6 +147,44 @@ async def get_session_dep() -> AsyncIterator[AsyncSession]:
 async def get_edge_service(session: AsyncSession = Depends(get_session_dep)) -> EdgeGPUService:
     """Get edge GPU service instance"""
     return EdgeGPUService(session)
+
+
+@app.get("/v1/gpu/{gpu_id}")
+async def get_gpu(
+    gpu_id: str,
+    session: AsyncSession = Depends(get_session_dep),
+):
+    """Get a specific GPU by ID"""
+    from sqlalchemy import select
+
+    from .domain.gpu_marketplace import GPURegistry
+
+    try:
+        result = await session.execute(
+            select(GPURegistry).where(GPURegistry.id == gpu_id)
+        )
+        gpu = result.scalar_one_or_none()
+
+        if not gpu:
+            return {"error": "GPU not found"}, 404
+
+        return {
+            "id": gpu.id,
+            "miner_id": gpu.miner_id,
+            "model": gpu.model,
+            "memory_gb": gpu.memory_gb,
+            "cuda_version": gpu.cuda_version,
+            "region": gpu.region,
+            "price_per_hour": gpu.price_per_hour,
+            "status": gpu.status,
+            "capabilities": gpu.capabilities,
+            "average_rating": gpu.average_rating,
+            "total_reviews": gpu.total_reviews,
+            "created_at": gpu.created_at.isoformat() if gpu.created_at else None
+        }
+    except Exception as e:
+        logger.error(f"Error getting GPU {gpu_id}: {e}")
+        return {"error": str(e)}, 500
 
 
 @app.get("/v1/marketplace/edge-gpu/profiles")

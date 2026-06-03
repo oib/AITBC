@@ -75,14 +75,13 @@ def gpu():
 
 
 @gpu.command()
-@click.argument('gpu_count', type=int)
-@click.argument('price_per_gpu', type=float)
+@click.argument('gpu_id')
+@click.argument('price_per_hour', type=float)
 @click.argument('duration_hours', type=int)
-@click.option('--specs', help='GPU specifications (JSON string) - auto-discovered if not provided')
 @click.option('--description', help='Description of the GPU offer')
 @click.pass_context
-def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs: str | None, description: str | None):
-    """Offer GPU power for sale in the marketplace"""
+def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, description: str | None):
+    """Offer a registered GPU for sale in the marketplace"""
     try:
         # Load CLI config
         config = get_config()
@@ -129,20 +128,31 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
                 error("No public key found in keystore or wallet")
                 raise click.Abort()
 
+        # Query GPU service for registered GPU
+        try:
+            gpu_http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            gpu_info = gpu_http_client.get(f"/v1/gpu/{gpu_id}")
+            
+            if not gpu_info or gpu_info.get('status') != 'available':
+                error(f"GPU {gpu_id} not found or not available")
+                raise click.Abort()
+            
+            gpu_specs = {
+                'model': gpu_info.get('model', 'Unknown'),
+                'memory_gb': gpu_info.get('memory_gb', 0),
+                'cuda_version': gpu_info.get('cuda_version', ''),
+                'capabilities': gpu_info.get('capabilities', [])
+            }
+            info(f"Using registered GPU: {gpu_specs['model']} ({gpu_specs['memory_gb']} GB)")
+        except Exception as e:
+            error(f"Failed to query GPU service: {e}")
+            raise click.Abort()
+
         # Calculate total price
-        total_price = price_per_gpu * gpu_count * duration_hours
+        total_price = price_per_hour * duration_hours
 
         # Generate offer ID
-        offer_id = f"gpu_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{provider_node_id}{gpu_count}{price_per_gpu}'.encode()).hexdigest()[:8]}"
-
-        # Parse specifications
-        gpu_specs = {}
-        if specs:
-            try:
-                gpu_specs = json.loads(specs)
-            except json.JSONDecodeError:
-                error("Invalid JSON specifications")
-                raise click.Abort()
+        offer_id = f"gpu_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{provider_node_id}{gpu_id}{price_per_hour}'.encode()).hexdigest()[:8]}"
 
         # Create offer transaction for blockchain
         wallet_address = get_wallet_address()
@@ -157,13 +167,13 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
                 'action': 'offer',
                 'offer_id': offer_id,
                 'provider_node_id': provider_node_id,
-                'gpu_count': gpu_count,
-                'price_per_gpu': float(price_per_gpu),
+                'gpu_id': gpu_id,
+                'price_per_hour': float(price_per_hour),
                 'duration_hours': duration_hours,
                 'total_price': float(total_price),
                 'status': 'active',
                 'specs': gpu_specs,
-                'description': description or f"{gpu_count} GPUs for {duration_hours} hours",
+                'description': description or f"{gpu_specs['model']} GPU for {duration_hours} hours",
                 'island_id': island_id,
                 'chain_id': chain_id,
                 'created_at': datetime.now().isoformat()
@@ -178,12 +188,14 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
             result = http_client.post("/transactions/marketplace", json=offer_data)
             success("GPU offer created successfully!")
             success(f"Offer ID: {offer_id}")
+            success(f"GPU: {gpu_id} ({gpu_specs['model']})")
             success(f"Total Price: {total_price:.2f} AIT")
 
             offer_info = {
                 "Offer ID": offer_id,
-                "GPU Count": gpu_count,
-                "Price per GPU": f"{price_per_gpu:.4f} AIT/hour",
+                "GPU ID": gpu_id,
+                "GPU Model": gpu_specs['model'],
+                "Price per Hour": f"{price_per_hour:.4f} AIT/hour",
                 "Duration": f"{duration_hours} hours",
                 "Total Price": f"{total_price:.2f} AIT",
                 "Status": "active",
