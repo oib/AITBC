@@ -65,14 +65,34 @@ aitbc market transcribe sw_offer_20260603125540_49d92c3c lecture.wav \
 
 1. `ffprobe` measures audio duration → estimates cost
 2. Escrow locked on aitbc3's blockchain node (buyer's funds held)
-3. Audio uploaded to `http://aitbc3:8110/transcribe` (GPU inference)
+3. Audio uploaded to `http://aitbc3.aitbc.bubuit.net/whisper/transcribe` via nginx (GPU inference on RTX 4060 Ti)
 4. Transcript returned — actual audio duration measured
 5. Metered escrow release: `actual_minutes × 0.02 AIT` → provider wallet
 6. On-chain TX confirms payment (visible on hub chain)
 
 ---
 
-## 4. Always get the latest offer_id
+## 4. Expose Whisper publicly on aitbc3 (nginx setup)
+
+The offer's public endpoint (`http://aitbc3.aitbc.bubuit.net/whisper`) is defined in `deployment/nginx-aitbc.conf`.
+
+On aitbc3, after `git pull`:
+
+```bash
+# Install/update nginx config
+sudo cp /opt/aitbc/deployment/nginx-aitbc.conf /etc/nginx/sites-available/aitbc
+sudo ln -sf /etc/nginx/sites-available/aitbc /etc/nginx/sites-enabled/aitbc
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+This exposes:
+- `http://aitbc3.aitbc.bubuit.net/whisper/transcribe` → `localhost:8110/transcribe`
+- `http://aitbc3.aitbc.bubuit.net/whisper/health` → `localhost:8110/health`
+- `http://aitbc3.aitbc.bubuit.net/ollama/api/generate` → `localhost:11434/api/generate`
+
+---
+
+## 5. Always get the latest offer_id
 
 Offers are re-published on node restart. Always resolve the current one:
 

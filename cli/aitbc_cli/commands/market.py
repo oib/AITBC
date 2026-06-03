@@ -900,6 +900,18 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
+        # Build public endpoint so remote buyers know where to send jobs
+        _local_ports = {'ollama': 11434, 'whisper': 8110, 'peertube_pruner': 8220}
+        _local_port = _local_ports.get(service_type, 8110)
+        _hub_hostname = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
+        _base_domain = _hub_hostname.removeprefix('hub.')
+        _node_hostname = socket.gethostname()
+        # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
+        _nginx_paths = {'ollama': 'ollama', 'whisper': 'whisper', 'peertube_pruner': 'peertube'}
+        _nginx_path = _nginx_paths.get(service_type, service_type)
+        _public_endpoint = f"http://{_node_hostname}.{_base_domain}/{_nginx_path}"
+        _local_endpoint = f"http://localhost:{_local_port}"
+
         offer_data = {
             'from': wallet_address,
             'to': '0x0000000000000000000000000000000000000000',
@@ -922,6 +934,7 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
                 'description': description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                 'island_id': island_id,
                 'chain_id': chain_id,
+                'endpoint': _public_endpoint,
                 'created_at': datetime.now().isoformat(),
             }
         }
@@ -1108,7 +1121,13 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         price_unit = offer.get('price_unit', 'per_audio_min')
         provider_address = offer.get('provider_address')
         model = offer.get('model', 'base')
+        # Use provider's public endpoint from offer; fall back to localhost for self-hosted
+        whisper_endpoint = offer.get('endpoint', 'http://localhost:8110')
+        # Normalise: strip trailing /whisper path if present, add /transcribe
+        whisper_base = whisper_endpoint.rstrip('/').removesuffix('/transcribe')
+        whisper_transcribe_url = whisper_base + '/transcribe'
         info(f"Offer: whisper/{model} at {price} AIT/{price_unit} — provider {provider_address}")
+        info(f"Whisper endpoint: {whisper_transcribe_url}")
 
         # Get audio duration via ffprobe for upfront escrow estimate
         import subprocess
@@ -1148,7 +1167,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         body += b'--' + boundary + b'--\r\n'
 
         req = _urllib.Request(
-            'http://localhost:8110/transcribe',
+            whisper_transcribe_url,
             data=body,
             headers={'Content-Type': f'multipart/form-data; boundary={boundary.decode()}'}
         )
