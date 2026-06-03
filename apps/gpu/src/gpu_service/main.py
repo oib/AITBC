@@ -425,7 +425,6 @@ async def register_gpu(
         gpu_id = gpu_data.get("gpu_id", f"gpu_{uuid4().hex[:8]}")
         miner_id = gpu_data.get("miner_id", "default_miner")
         specs = gpu_data.get("specs", {})
-        pricing = gpu_data.get("pricing", {})
         registered_by = gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")
 
         # Auto-discover specs if not provided
@@ -451,8 +450,6 @@ async def register_gpu(
                 existing_gpu.cuda_version = specs.get("cuda_version", existing_gpu.cuda_version)
                 existing_gpu.region = specs.get("region", existing_gpu.region)
                 existing_gpu.capabilities = specs.get("capabilities", existing_gpu.capabilities)
-            if pricing:
-                existing_gpu.price_per_hour = pricing.get("price_per_hour", existing_gpu.price_per_hour)
             existing_gpu.status = "available"
             await session.commit()
         else:
@@ -464,7 +461,7 @@ async def register_gpu(
                 memory_gb=specs.get("memory_gb", 0),
                 cuda_version=specs.get("cuda_version", ""),
                 region=specs.get("region", ""),
-                price_per_hour=pricing.get("price_per_hour", 0.0) if pricing else 0.0,
+                price_per_hour=0.0,
                 status="available",
                 capabilities=specs.get("capabilities", [])
             )

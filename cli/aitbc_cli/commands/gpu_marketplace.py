@@ -795,9 +795,8 @@ def providers(ctx):
 @gpu.command()
 @click.argument('gpu_id')
 @click.option('--specs', help='GPU specifications (JSON string) - auto-discovered if not provided')
-@click.option('--pricing', help='Pricing model (JSON string)')
 @click.pass_context
-def register(ctx, gpu_id: str, specs: str | None, pricing: str | None):
+def register(ctx, gpu_id: str, specs: str | None):
     """Register a GPU with the gpu-service (no island credentials required)"""
     config = get_config()
 
@@ -806,11 +805,11 @@ def register(ctx, gpu_id: str, specs: str | None, pricing: str | None):
 
         gpu_data = {"gpu_id": gpu_id}
 
-        if pricing:
+        if specs:
             try:
-                gpu_data["pricing"] = json.loads(pricing)
+                gpu_data["specs"] = json.loads(specs)
             except json.JSONDecodeError:
-                error("Invalid JSON pricing")
+                error("Invalid JSON specifications")
                 raise click.Abort()
 
         result = http_client.post("/v1/gpu/register", json=gpu_data)
