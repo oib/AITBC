@@ -900,12 +900,24 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
                 error(f"Whisper service not reachable at localhost:8110: {e}")
                 error("Start it with: systemctl start aitbc-whisper")
                 raise click.Abort()
+        elif service_type == 'peertube_transcoder':
+            try:
+                p_client = AITBCHTTPClient(base_url="http://localhost:8220", timeout=5)
+                health = p_client.get("/health")
+                if health.get('status') != 'ok':
+                    error("PeerTube transcoder service is not ready at localhost:8220")
+                    raise click.Abort()
+                info(f"Verified PeerTube transcoder service")
+            except NetworkError as e:
+                error(f"PeerTube transcoder service not reachable at localhost:8220: {e}")
+                error("Start it with: systemctl start aitbc-peertube-transcoder")
+                raise click.Abort()
 
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
         # Build public endpoint so remote buyers know where to send jobs
-        _local_ports = {'ollama': 11434, 'whisper': 8110, 'peertube_pruner': 8220}
+        _local_ports = {'ollama': 11434, 'whisper': 8110, 'peertube_transcoder': 8220}
         _local_port = _local_ports.get(service_type, 8110)
         _hub_hostname = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
         _base_domain = _hub_hostname.removeprefix('hub.')
@@ -913,8 +925,8 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         # If FQDN doesn't include domain, construct it from short hostname + base domain
         if _base_domain and _base_domain not in _node_hostname:
             _node_hostname = f"{socket.gethostname()}.{_base_domain}"
-        # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
-        _nginx_paths = {'ollama': 'ollama', 'whisper': 'whisper', 'peertube_pruner': 'peertube'}
+        # nginx routes: /whisper/ → :8110, /ollama/ → :11434, /peertube/ → :8220 (see deployment/nginx-aitbc.conf)
+        _nginx_paths = {'ollama': 'ollama', 'whisper': 'whisper', 'peertube_transcoder': 'peertube'}
         _nginx_path = _nginx_paths.get(service_type, service_type)
         _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
         _local_endpoint = f"http://localhost:{_local_port}"
@@ -956,7 +968,7 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         _health_urls = {
             'ollama': 'http://localhost:11434/api/tags',
             'whisper': 'http://localhost:8110/health',
-            'peertube_pruner': 'http://localhost:8220/health',
+            'peertube_transcoder': 'http://localhost:8220/health',
         }
         try:
             plugin_client = AITBCHTTPClient(base_url="http://localhost:8109", timeout=5)
@@ -1250,4 +1262,127 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
 
     except Exception as e:
         error(f"Error transcribing audio: {e}")
+        raise click.Abort()
+
+
+@market.command(name="transcode")
+@click.argument('offer_id')
+@click.argument('video_url')
+@click.option('--resolution', default='1080p', help='Target resolution (e.g. 1080p, 720p, 480p)')
+@click.option('--codec', default='h264', help='Target codec (e.g. h264, vp9, av1)')
+@click.option('--format', default='mp4', help='Output format (e.g. mp4, webm)')
+@click.pass_context
+def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: str, format: str):
+    """Transcode video using a peertube_transcoder software offer and pay metered escrow"""
+    try:
+        config = get_config()
+        wallet_address = get_wallet_address()
+        chain_id = get_chain_id()
+
+        # Resolve the offer from hub
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        result = http_client.get("/rpc/transactions", params={"limit": 1000})
+        offer = None
+        if result and not isinstance(result, dict):
+            for tx in result:
+                p = tx.get('payload', {})
+                if p.get('action') == 'software_offer' and p.get('offer_id') == offer_id and p.get('service_type') == 'peertube_transcoder':
+                    offer = p
+                    break
+        if not offer:
+            error(f"PeerTube transcoder offer '{offer_id}' not found on hub")
+            raise click.Abort()
+
+        price = float(offer.get('price', 0))
+        price_unit = offer.get('price_unit', 'per_video_min')
+        provider_address = offer.get('provider_address')
+        model = offer.get('model', 'default')
+
+        info(f"Offer: peertube_transcoder/{model} at {price} AIT/{price_unit} — provider {provider_address}")
+        info(f"Video URL: {video_url}")
+
+        # Estimate cost (assume 5 min default if unknown)
+        transcode_endpoint = offer.get('endpoint', 'http://localhost:8220')
+        estimated_minutes = 5.0
+        estimated_cost = estimated_minutes * price if price_unit == 'per_video_min' else price
+        info(f"Estimated duration: {estimated_minutes:.1f} min — locking escrow: ~{estimated_cost:.4f} AIT")
+
+        job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+        contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
+
+        # Run actual transcode
+        info("Running PeerTube transcoding...")
+        t_start = datetime.now()
+        transcode_client = AITBCHTTPClient(base_url=transcode_endpoint, timeout=600)
+        transcode_result = transcode_client.post("/transcode", json={
+            'video_url': video_url,
+            'target_resolution': resolution,
+            'target_codec': codec,
+            'output_format': format,
+        })
+        elapsed = (datetime.now() - t_start).total_seconds()
+
+        actual_minutes = transcode_result.get('duration_seconds', estimated_minutes * 60) / 60
+        actual_cost = actual_minutes * price if price_unit == 'per_video_min' else price
+        result_hash = transcode_result.get('result_hash', '')
+
+        info(f"Done in {elapsed:.1f}s — {actual_minutes:.2f} min video — actual cost: {actual_cost:.4f} AIT")
+        info(f"Transcoded URL: {transcode_result.get('transcoded_url')}")
+
+        # Post software_job TX on-chain as proof of work
+        job_tx_hash = None
+        if result_hash:
+            job_data = {
+                'from': wallet_address,
+                'to': '0x0000000000000000000000000000000000000000',
+                'amount': 0,
+                'fee': 10,
+                'nonce': get_next_nonce(),
+                'type': 'GPU_MARKETPLACE',
+                'chain_id': chain_id,
+                'payload': {
+                    'action': 'software_job',
+                    'job_id': job_id,
+                    'offer_id': offer_id,
+                    'buyer_address': wallet_address,
+                    'provider_address': provider_address or wallet_address,
+                    'result_hash': result_hash,
+                    'actual_video_minutes': round(actual_minutes, 4),
+                    'actual_cost': round(actual_cost, 6),
+                    'status': 'completed',
+                    'completed_at': datetime.now().isoformat(),
+                }
+            }
+            try:
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                job_result = http_client.post("/rpc/transactions/marketplace", json=job_data)
+                job_tx_hash = job_result.get('transaction_hash')
+                info(f"Job recorded on-chain: {job_tx_hash}")
+            except Exception as e:
+                warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
+
+        # Release metered escrow with job TX hash as proof
+        if contract_id:
+            rpc_url = _get_blockchain_rpc_url(config)
+            rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={'amount': actual_cost, 'job_tx_hash': job_tx_hash})
+            if release_result and release_result.get('tx_hash'):
+                success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            else:
+                warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+
+        output({
+            'job_id': job_id,
+            'offer_id': offer_id,
+            'video_url': video_url,
+            'transcoded_url': transcode_result.get('transcoded_url'),
+            'duration_minutes': round(actual_minutes, 4),
+            'actual_cost_ait': round(actual_cost, 6),
+            'elapsed_seconds': round(elapsed, 2),
+            'contract_id': contract_id,
+        }, ctx.obj.get('output_format', 'table'))
+
+    except Exception as e:
+        error(f"Error transcoding video: {e}")
         raise click.Abort()
