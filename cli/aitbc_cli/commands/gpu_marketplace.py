@@ -830,19 +830,24 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
 
         if pricing:
             try:
-                update_data["pricing"] = json.loads(pricing)
+                pricing_data = json.loads(pricing)
+                update_data["price_per_hour"] = pricing_data.get("price_per_hour", pricing_data)
             except json.JSONDecodeError:
-                error("Invalid JSON pricing")
-                raise click.Abort()
+                # Try as direct number
+                try:
+                    update_data["price_per_hour"] = float(pricing)
+                except ValueError:
+                    error("Invalid pricing value")
+                    raise click.Abort()
 
         if status:
             update_data["status"] = status
 
         if not update_data:
-            error("No updates provided. Specify --specs, --pricing, or --status")
+            error("No updates provided. Specify --pricing or --status")
             raise click.Abort()
 
-        result = http_client.put(f"/gpu/{gpu_id}", json=update_data)
+        result = http_client.put(f"/v1/gpu/{gpu_id}", json=update_data)
         success(f"GPU {gpu_id} updated successfully")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:

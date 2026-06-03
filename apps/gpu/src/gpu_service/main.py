@@ -215,6 +215,47 @@ async def delete_gpu(
         return {"error": str(e)}, 500
 
 
+@app.put("/v1/gpu/{gpu_id}")
+async def update_gpu(
+    gpu_id: str,
+    gpu_data: dict,
+    session: AsyncSession = Depends(get_session_dep),
+):
+    """Update a specific GPU by ID"""
+    from sqlalchemy import select
+
+    from .domain.gpu_marketplace import GPURegistry
+
+    try:
+        result = await session.execute(
+            select(GPURegistry).where(GPURegistry.id == gpu_id)
+        )
+        gpu = result.scalar_one_or_none()
+
+        if not gpu:
+            return {"error": "GPU not found"}, 404
+
+        # Update fields if provided
+        if 'price_per_hour' in gpu_data:
+            gpu.price_per_hour = gpu_data['price_per_hour']
+        if 'status' in gpu_data:
+            gpu.status = gpu_data['status']
+
+        await session.commit()
+        await session.refresh(gpu)
+
+        return {
+            "id": gpu.id,
+            "price_per_hour": gpu.price_per_hour,
+            "status": gpu.status,
+            "message": f"GPU {gpu_id} updated successfully"
+        }
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"Error updating GPU {gpu_id}: {e}")
+        return {"error": str(e)}, 500
+
+
 @app.get("/v1/marketplace/edge-gpu/profiles")
 async def get_consumer_gpu_profiles(
     architecture: str | None = None,
