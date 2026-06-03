@@ -22,7 +22,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 
 1. **System Requirements**:
    - Linux system with SSH access
-   - Python 3.11+ installed
+   - Python 3.13.5+ installed (minimum required version)
    - Git for cloning AITBC repository
    - At least 2GB RAM, 10GB disk space
 
