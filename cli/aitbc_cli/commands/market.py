@@ -470,6 +470,18 @@ def list(ctx, provider: str | None, status: str | None, type: str):
                     "Bidder": payload.get('bidder_node_id', '')[:16] + "...",
                     "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
                 })
+            elif action == 'software_offer':
+                market_data.append({
+                    "Offer ID": payload.get('offer_id', ''),
+                    "Type": "SOFTWARE",
+                    "Service": payload.get('service_type', ''),
+                    "Model": payload.get('model', ''),
+                    "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
+                    "Status": payload.get('status', 'active'),
+                    "Provider": payload.get('provider_address', '')[:30] + "...",
+                    "Description": (payload.get('description', '')[:35] + "...") if len(payload.get('description', '')) > 35 else payload.get('description', ''),
+                    "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
+                })
 
         output(market_data, ctx.obj.get('output_format', 'table'), title="GPU Marketplace Offers")
 
