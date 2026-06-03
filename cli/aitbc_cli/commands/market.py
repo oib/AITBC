@@ -60,9 +60,10 @@ def get_account_nonce(address: str, chain_id: str) -> int:
 
 def get_next_nonce() -> int:
     """Get next transaction nonce from blockchain"""
-    # For now, return 0 since blockchain RPC endpoint may not be available
-    # TODO: Implement proper nonce tracking when blockchain RPC is ready
-    return 0
+    wallet_address = get_wallet_address()
+    config = get_config()
+    chain_id = 'ait-' + config.hub_discovery_url
+    return get_account_nonce(wallet_address, chain_id)
 
 
 @click.group()
@@ -318,13 +319,20 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         try:
             # Try local blockchain RPC first, then hub for cross-node data
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            transactions = http_client.get("/rpc/transactions/marketplace")
+            transactions = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKETPLACE"})
             
             # If local returns empty or error, try hub
             if not transactions:
                 hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                transactions = http_client.get("/rpc/transactions/marketplace")
+                transactions = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKETPLACE"})
+            
+            # Also check mempool for pending transactions
+            if not transactions:
+                http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+                mempool = http_client.get("/rpc/mempool")
+                if mempool and isinstance(mempool, dict) and 'transactions' in mempool:
+                    transactions = [tx for tx in mempool['transactions'] if tx.get('type') == 'GPU_MARKETPLACE']
         except NetworkError:
             # Blockchain endpoint not available
             pass
@@ -336,7 +344,18 @@ def list(ctx, provider: str | None, status: str | None, type: str):
         # Format output for marketplace offers (blockchain data)
         market_data = []
         for tx in transactions:
-            payload = tx.get('payload', {})
+            # Handle both mempool format (payload is dict) and confirmed format (payload may be nested)
+            if isinstance(tx, dict) and 'payload' in tx:
+                payload = tx['payload']
+                # If payload is a string, parse it
+                if isinstance(payload, str):
+                    try:
+                        payload = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+            else:
+                continue
+            
             action = payload.get('action')
             
             if type != 'all' and action != type:
