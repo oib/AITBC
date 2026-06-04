@@ -584,6 +584,125 @@ class TestAgentDiscoveryService:
         assert "ws" in endpoints
         assert len(endpoints["http"]) == 1
 
+    @pytest.mark.asyncio
+    async def test_agent_info_serialization(self):
+        """Test AgentInfo serialization to dict and back"""
+        agent_info = AgentInfo(
+            agent_id="agent_serial",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8106"},
+            metadata={"region": "us-west"},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC),
+            load_metrics={"cpu": 0.5},
+            tags={"production"}
+        )
+        
+        # Convert to dict
+        agent_dict = agent_info.to_dict()
+        
+        assert agent_dict["agent_id"] == "agent_serial"
+        assert agent_dict["agent_type"] == "worker"
+        assert agent_dict["status"] == "active"
+        assert "gpu" in agent_dict["capabilities"]
+        assert agent_dict["load_metrics"]["cpu"] == 0.5
+        assert "production" in agent_dict["tags"]
+
+        # Convert back from dict
+        agent_back = AgentInfo.from_dict(agent_dict)
+        
+        assert agent_back.agent_id == "agent_serial"
+        assert agent_back.agent_type == AgentType.WORKER
+        assert agent_back.status == AgentStatus.ACTIVE
+
+    def test_agent_info_empty_capabilities(self):
+        """Test agent info with empty capabilities"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_empty_caps",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=[],
+            services=[],
+            endpoints={},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.capabilities) == 0
+        assert len(agent.services) == 0
+
+    def test_agent_info_multiple_endpoints(self):
+        """Test agent info with multiple endpoints"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_endpoints",
+            agent_type=AgentType.SPECIALIST,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={
+                "http": "http://localhost:8080",
+                "grpc": "grpc://localhost:9090",
+                "ws": "ws://localhost:8081"
+            },
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.endpoints) == 3
+        assert "http" in agent.endpoints
+        assert "grpc" in agent.endpoints
+        assert "ws" in agent.endpoints
+
+    def test_agent_info_with_multiple_capabilities(self):
+        """Test agent info with multiple capabilities"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_caps",
+            agent_type=AgentType.SPECIALIST,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu", "storage", "network", "compute"],
+            services=["inference", "backup", "routing", "training"],
+            endpoints={"http": "http://localhost:8086"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.capabilities) == 4
+        assert len(agent.services) == 4
+        assert "gpu" in agent.capabilities
+        assert "training" in agent.services
+
+    def test_agent_info_metadata_manipulation(self):
+        """Test agent info metadata manipulation"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_metadata",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8087"},
+            metadata={"region": "us-west"},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        # Add metadata
+        agent.metadata["gpu_model"] = "A100"
+        agent.metadata["zone"] = "us-west-1"
+        
+        assert len(agent.metadata) == 3
+        assert "gpu_model" in agent.metadata
+        assert agent.metadata["region"] == "us-west"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

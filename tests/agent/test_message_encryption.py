@@ -280,6 +280,81 @@ class TestMessageEncryption:
         
         assert decrypted is None
 
+    def test_encryption_with_large_message(self):
+        """Test encryption of large message"""
+        sender_id = "agent_large_1"
+        recipient_id = "agent_large_2"
+        
+        encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
+        encryptor.generate_key_pair(sender_id)
+        encryptor.generate_key_pair(recipient_id)
+        
+        # Large message
+        large_message = {"content": "A" * 10000}
+        
+        encrypted_msg = encryptor.encrypt_message(
+            message=large_message,
+            sender_id=sender_id,
+            recipient_id=recipient_id
+        )
+        
+        decrypted = encryptor.decrypt_message(
+            encrypted_msg=encrypted_msg,
+            recipient_id=recipient_id
+        )
+        
+        assert decrypted == large_message
+
+    def test_encryption_with_special_characters(self):
+        """Test encryption of message with special characters"""
+        sender_id = "agent_special_1"
+        recipient_id = "agent_special_2"
+        
+        encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
+        encryptor.generate_key_pair(sender_id)
+        encryptor.generate_key_pair(recipient_id)
+        
+        # Message with special characters
+        special_message = {"content": "Test @#$%^&*()_+-=[]{}|;':,.<>?/~"}
+        
+        encrypted_msg = encryptor.encrypt_message(
+            message=special_message,
+            sender_id=sender_id,
+            recipient_id=recipient_id
+        )
+        
+        decrypted = encryptor.decrypt_message(
+            encrypted_msg=encrypted_msg,
+            recipient_id=recipient_id
+        )
+        
+        assert decrypted == special_message
+
+    def test_encryption_with_multiple_recipients(self):
+        """Test encryption with multiple recipients"""
+        sender_id = "sender_multi"
+        recipients = ["recipient_1", "recipient_2", "recipient_3"]
+
+        encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
+        encryptor.generate_key_pair(sender_id)
+        for recipient in recipients:
+            encryptor.generate_key_pair(recipient)
+
+        message = {"content": "Broadcast message"}
+
+        # Encrypt for each recipient
+        for recipient in recipients:
+            encrypted_msg = encryptor.encrypt_message(
+                message=message,
+                sender_id=sender_id,
+                recipient_id=recipient
+            )
+            decrypted = encryptor.decrypt_message(
+                encrypted_msg=encrypted_msg,
+                recipient_id=recipient
+            )
+            assert decrypted == message
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

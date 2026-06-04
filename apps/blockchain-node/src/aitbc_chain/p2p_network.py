@@ -346,7 +346,19 @@ class P2PNetworkService:
                 writer.close()
                 return
 
-            message = json.loads(data.decode())
+            # Log the raw data for debugging (truncated if too long)
+            raw_data = data.decode()
+            if not raw_data.strip():
+                logger.warning(f"Received empty data from {addr}. Closing connection.")
+                writer.close()
+                return
+
+            try:
+                message = json.loads(raw_data)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Received invalid JSON from {addr}: {repr(raw_data[:100])}. Error: {e}")
+                writer.close()
+                return
             if message.get('type') != 'handshake':
                 logger.warning(f"Peer {addr} did not handshake first. Dropping.")
                 writer.close()
