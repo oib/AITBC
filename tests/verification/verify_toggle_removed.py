@@ -13,7 +13,7 @@ def main():
     # Get the explorer page
     print("\n1. Checking explorer page...")
     try:
-        response = requests.get("https://aitbc.bubuit.net/explorer/")
+        response = requests.get("https://hub.aitbc.bubuit.net/explorer/")
         if response.status_code == 200:
             print("✅ Explorer page loaded")
         else:
@@ -52,7 +52,7 @@ def main():
     # Check JS file
     print("\n3. Checking JavaScript file...")
     try:
-        js_response = requests.get("https://aitbc.bubuit.net/explorer/assets/index-7nlLaz1v.js")
+        js_response = requests.get("https://hub.aitbc.bubuit.net/explorer/assets/index-7nlLaz1v.js")
         if js_response.status_code == 200:
             js_content = js_response.text
 

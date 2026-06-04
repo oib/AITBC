@@ -4,6 +4,18 @@
 
 set -e  # Exit on any error
 
+
+# Source scenario configuration
+if [ -f "/opt/aitbc/.env.scenario" ]; then
+    source /opt/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "=== AITBC Multi-Node Blockchain Setup ==="
 echo "This script will set up a complete multi-node blockchain network"
 echo "with aitbc1 as genesis authority and aitbc as follower node"

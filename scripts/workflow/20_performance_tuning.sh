@@ -4,6 +4,18 @@
 # This script has been disabled to prevent system modifications
 # To re-enable, remove this notice and make the script executable
 
+
+# Source scenario configuration
+if [ -f "/opt/aitbc/.env.scenario" ]; then
+    source /opt/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "❌ PERFORMANCE TUNING SCRIPT DISABLED"
 echo "This script has been disabled to prevent system modifications."
 echo "To re-enable:"

@@ -703,6 +703,529 @@ class TestAgentDiscoveryService:
         assert "gpu_model" in agent.metadata
         assert agent.metadata["region"] == "us-west"
 
+    def test_agent_info_with_specialist_type(self):
+        """Test agent info with specialist agent type"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_specialist",
+            agent_type=AgentType.SPECIALIST,
+            status=AgentStatus.ACTIVE,
+            capabilities=["whisper", "transcription"],
+            services=["audio_processing"],
+            endpoints={"http": "http://localhost:8101"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert agent.agent_type == AgentType.SPECIALIST
+        assert "whisper" in agent.capabilities
+
+    def test_agent_info_with_coordinator_type(self):
+        """Test agent info with coordinator agent type"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_coordinator",
+            agent_type=AgentType.COORDINATOR,
+            status=AgentStatus.ACTIVE,
+            capabilities=["orchestration", "scheduling"],
+            services=["workflow_management"],
+            endpoints={"http": "http://localhost:8102"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert agent.agent_type == AgentType.COORDINATOR
+        assert "orchestration" in agent.capabilities
+
+    def test_agent_info_with_multiple_capabilities(self):
+        """Test agent info with multiple capabilities"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_cap",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu", "storage", "network"],
+            services=["training", "inference"],
+            endpoints={"http": "http://localhost:8113"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.capabilities) == 3
+        assert "gpu" in agent.capabilities
+        assert "storage" in agent.capabilities
+
+    def test_agent_info_with_single_service(self):
+        """Test agent info with single service"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_single_service",
+            agent_type=AgentType.SPECIALIST,
+            status=AgentStatus.ACTIVE,
+            capabilities=["transcription"],
+            services=["audio"],
+            endpoints={"http": "http://localhost:8114"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.services) == 1
+        assert agent.services[0] == "audio"
+
+    def test_agent_info_with_empty_endpoints(self):
+        """Test agent info with empty endpoints"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_no_endpoints",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["compute"],
+            services=["training"],
+            endpoints={},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.endpoints) == 0
+
+    def test_agent_info_with_multiple_endpoints(self):
+        """Test agent info with multiple endpoints"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_endpoints",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={
+                "http": "http://localhost:8116",
+                "grpc": "grpc://localhost:9096",
+                "ws": "ws://localhost:8096"
+            },
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.endpoints) == 3
+        assert "http" in agent.endpoints
+        assert "grpc" in agent.endpoints
+
+    def test_agent_info_with_no_services(self):
+        """Test agent info with no services"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_no_services",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["compute"],
+            services=[],
+            endpoints={"http": "http://localhost:8117"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.services) == 0
+
+    def test_agent_info_with_single_capability(self):
+        """Test agent info with single capability"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_single_cap",
+            agent_type=AgentType.SPECIALIST,
+            status=AgentStatus.ACTIVE,
+            capabilities=["transcription"],
+            services=["audio"],
+            endpoints={"http": "http://localhost:8118"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.capabilities) == 1
+        assert agent.capabilities[0] == "transcription"
+
+    def test_agent_info_with_specialist_type(self):
+        """Test agent info with specialist agent type"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_specialist",
+            agent_type=AgentType.SPECIALIST,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu", "cuda"],
+            services=["training"],
+            endpoints={"http": "http://localhost:8119"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert agent.agent_type == AgentType.SPECIALIST
+
+    def test_agent_info_with_maintenance_status(self):
+        """Test agent info with maintenance status"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_maintenance",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.MAINTENANCE,
+            capabilities=["storage"],
+            services=["backup"],
+            endpoints={"http": "http://localhost:8120"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert agent.status == AgentStatus.MAINTENANCE
+
+    def test_agent_info_with_numeric_agent_id(self):
+        """Test agent info with numeric characters in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_12345",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8121"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "12345" in agent.agent_id
+
+    def test_agent_info_with_long_name_in_metadata(self):
+        """Test agent info with long name in metadata"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_long_metadata",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8122"},
+            metadata={"name": "A very long agent name for testing purposes"},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.metadata["name"]) > 20
+
+    def test_agent_info_with_empty_metadata(self):
+        """Test agent info with empty metadata"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_empty_metadata",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8123"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.metadata) == 0
+
+    def test_agent_info_with_multiple_metadata_fields(self):
+        """Test agent info with multiple metadata fields"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_metadata",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8124"},
+            metadata={"name": "Agent", "version": "1.0", "region": "us-west"},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.metadata) == 3
+
+    def test_agent_info_with_single_capability(self):
+        """Test agent info with single capability"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_single_cap",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8125"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.capabilities) == 1
+
+    def test_agent_info_with_multiple_services(self):
+        """Test agent info with multiple services"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_services",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference", "training", "storage"],
+            endpoints={"http": "http://localhost:8126"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.services) == 3
+
+    def test_agent_info_with_empty_endpoints(self):
+        """Test agent info with empty endpoints"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_empty_endpoints",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.endpoints) == 0
+
+    def test_agent_info_with_single_endpoint(self):
+        """Test agent info with single endpoint"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_single_endpoint",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8127"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.endpoints) == 1
+
+    def test_agent_info_with_special_characters_in_agent_id(self):
+        """Test agent info with special characters in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent-123_special@",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8128"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "-" in agent.agent_id
+        assert "@" in agent.agent_id
+
+    def test_agent_info_with_underscore_in_agent_id(self):
+        """Test agent info with underscore in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_123_456",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8129"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "_" in agent.agent_id
+
+    def test_agent_info_with_mixed_case_agent_id(self):
+        """Test agent info with mixed case agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="Agent123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8130"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert agent.agent_id[0].isupper()
+
+    def test_agent_info_with_single_service(self):
+        """Test agent info with single service"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_single_service",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8131"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.services) == 1
+
+    def test_agent_info_with_empty_capabilities(self):
+        """Test agent info with empty capabilities"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_empty_caps",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=[],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8132"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.capabilities) == 0
+
+    def test_agent_info_with_multiple_metadata_keys(self):
+        """Test agent info with multiple metadata keys"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_meta",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8133"},
+            metadata={"key1": "value1", "key2": "value2", "key3": "value3"},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.metadata) == 3
+
+    def test_agent_info_with_empty_metadata(self):
+        """Test agent info with empty metadata"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_empty_meta_discovery",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8134"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.metadata) == 0
+
+    def test_agent_info_with_multiple_endpoints(self):
+        """Test agent info with multiple endpoints"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_multi_endpoints_discovery",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8135", "grpc": "localhost:8136"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.endpoints) == 2
+
+    def test_agent_info_with_single_capability(self):
+        """Test agent info with single capability"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_single_cap_discovery",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8137"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.capabilities) == 1
+
+    def test_agent_info_with_single_service(self):
+        """Test agent info with single service"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_single_service_discovery",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8138"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.services) == 1
+
+    def test_agent_info_with_numeric_agent_id(self):
+        """Test agent info with numeric characters in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8139"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "123" in agent.agent_id
+
+    def test_agent_info_with_hyphen_in_agent_id(self):
+        """Test agent info with hyphen in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent-123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8140"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "-" in agent.agent_id
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

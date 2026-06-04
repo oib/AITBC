@@ -157,6 +157,460 @@ class TestSubscribeRequest:
         assert request.topic == "alerts"
         assert request.filter == {}  # default
 
+    def test_send_message_request_with_broadcast_type(self):
+        """Test send message request with broadcast message type"""
+        request = SendMessageRequest(
+            sender="sender_broadcast",
+            recipient="*",
+            content={"data": "broadcast message"},
+            message_type="broadcast"
+        )
+        
+        assert request.message_type == "broadcast"
+        assert request.recipient == "*"
+
+    def test_subscribe_request_with_multiple_topics(self):
+        """Test subscribe request with multiple filter topics"""
+        request = SubscribeRequest(
+            agent_id="agent_multi_topic",
+            topic="tasks",
+            filter={
+                "topics": ["training", "inference", "storage"],
+                "priority": "high"
+            }
+        )
+        
+        assert len(request.filter["topics"]) == 3
+        assert "training" in request.filter["topics"]
+
+    def test_send_message_request_with_zero_ttl(self):
+        """Test send message request with zero TTL"""
+        request = SendMessageRequest(
+            sender="sender_zero_ttl",
+            recipient="recipient_zero_ttl",
+            content={"data": "immediate message"},
+            ttl=0
+        )
+        
+        assert request.ttl == 0
+
+    def test_subscribe_request_with_numeric_filter(self):
+        """Test subscribe request with numeric filter values"""
+        request = SubscribeRequest(
+            agent_id="agent_numeric",
+            topic="tasks",
+            filter={
+                "min_priority": 1,
+                "max_priority": 10,
+                "timeout": 300
+            }
+        )
+        
+        assert request.filter["min_priority"] == 1
+        assert request.filter["timeout"] == 300
+
+    def test_send_message_request_with_long_content(self):
+        """Test send message request with long content"""
+        long_content = "x" * 10000
+        request = SendMessageRequest(
+            sender="sender_long",
+            recipient="recipient_long",
+            content={"data": long_content},
+            ttl=3600
+        )
+        
+        assert len(request.content["data"]) == 10000
+
+    def test_subscribe_request_with_boolean_filter(self):
+        """Test subscribe request with boolean filter values"""
+        request = SubscribeRequest(
+            agent_id="agent_bool",
+            topic="alerts",
+            filter={
+                "enabled": True,
+                "urgent": False
+            }
+        )
+        
+        assert request.filter["enabled"] is True
+        assert request.filter["urgent"] is False
+
+    def test_send_message_request_with_high_ttl(self):
+        """Test send message request with high TTL"""
+        request = SendMessageRequest(
+            sender="sender_high_ttl",
+            recipient="recipient_high_ttl",
+            content={"data": "persistent message"},
+            ttl=86400  # 24 hours
+        )
+        
+        assert request.ttl == 86400
+
+    def test_subscribe_request_with_nested_filter(self):
+        """Test subscribe request with nested filter structure"""
+        request = SubscribeRequest(
+            agent_id="agent_nested",
+            topic="tasks",
+            filter={
+                "priority": {
+                    "min": 1,
+                    "max": 10
+                },
+                "type": "urgent"
+            }
+        )
+        
+        assert "priority" in request.filter
+        assert request.filter["type"] == "urgent"
+
+    def test_send_message_request_with_special_characters_in_content(self):
+        """Test send message request with special characters in content"""
+        request = SendMessageRequest(
+            sender="sender_special_chars",
+            recipient="recipient_special",
+            content={"data": "Hello! @#$%^&*()_+-=[]{}|;':\",./<>?"},
+            ttl=3600
+        )
+        
+        assert "@" in request.content["data"]
+
+    def test_subscribe_request_with_array_filter(self):
+        """Test subscribe request with array filter values"""
+        request = SubscribeRequest(
+            agent_id="agent_array",
+            topic="tasks",
+            filter={
+                "allowed_priorities": ["low", "normal", "high"],
+                "blocked_agents": ["agent_1", "agent_2"]
+            }
+        )
+        
+        assert isinstance(request.filter["allowed_priorities"], list)
+        assert len(request.filter["blocked_agents"]) == 2
+
+    def test_send_message_request_with_unicode_content(self):
+        """Test send message request with unicode content"""
+        request = SendMessageRequest(
+            sender="sender_unicode",
+            recipient="recipient_unicode",
+            content={"data": "Hello 世界 🌍"},
+            ttl=3600
+        )
+        
+        assert "世界" in request.content["data"]
+
+    def test_subscribe_request_with_empty_filter(self):
+        """Test subscribe request with empty filter"""
+        request = SubscribeRequest(
+            agent_id="agent_empty_filter",
+            topic="general",
+            filter={}
+        )
+        
+        assert len(request.filter) == 0
+
+    def test_send_message_request_with_numeric_content(self):
+        """Test send message request with numeric content"""
+        request = SendMessageRequest(
+            sender="sender_numeric",
+            recipient="recipient_numeric",
+            content={"value": 12345, "count": 42},
+            ttl=3600
+        )
+        
+        assert request.content["value"] == 12345
+        assert request.content["count"] == 42
+
+    def test_subscribe_request_with_topic_validation(self):
+        """Test subscribe request with topic field"""
+        request = SubscribeRequest(
+            agent_id="agent_topic",
+            topic="alerts",
+            filter={"level": "high"}
+        )
+        
+        assert request.topic == "alerts"
+        assert len(request.topic) > 0
+
+    def test_send_message_request_with_zero_ttl(self):
+        """Test send message request with zero TTL (edge case)"""
+        request = SendMessageRequest(
+            sender="sender_zero_ttl",
+            recipient="recipient_zero",
+            content={"data": "test"},
+            ttl=0
+        )
+        
+        assert request.ttl == 0
+
+    def test_subscribe_request_with_numeric_agent_id(self):
+        """Test subscribe request with numeric characters in agent_id"""
+        request = SubscribeRequest(
+            agent_id="agent_12345",
+            topic="notifications",
+            filter={"type": "info"}
+        )
+        
+        assert "12345" in request.agent_id
+
+    def test_send_message_request_with_empty_content(self):
+        """Test send message request with empty content (edge case)"""
+        request = SendMessageRequest(
+            sender="sender_empty",
+            recipient="recipient_empty",
+            content={},
+            ttl=3600
+        )
+        
+        assert len(request.content) == 0
+
+    def test_subscribe_request_with_special_topic(self):
+        """Test subscribe request with special characters in topic"""
+        request = SubscribeRequest(
+            agent_id="agent_special_topic",
+            topic="special-topic_@123",
+            filter={"type": "alert"}
+        )
+        
+        assert "-" in request.topic
+        assert "_" in request.topic
+        assert "@" in request.topic
+
+    def test_send_message_request_with_nested_content(self):
+        """Test send message request with nested content structure"""
+        request = SendMessageRequest(
+            sender="sender_nested",
+            recipient="recipient_nested",
+            content={"data": {"nested": {"deep": "value"}}},
+            ttl=3600
+        )
+        
+        assert "nested" in request.content["data"]
+
+    def test_subscribe_request_with_empty_filter(self):
+        """Test subscribe request with empty filter"""
+        request = SubscribeRequest(
+            agent_id="agent_empty_filter",
+            topic="general",
+            filter={}
+        )
+        
+        assert len(request.filter) == 0
+
+    def test_send_message_request_with_boolean_content(self):
+        """Test send message request with boolean content"""
+        request = SendMessageRequest(
+            sender="sender_boolean",
+            recipient="recipient_boolean",
+            content={"enabled": True, "active": False},
+            ttl=3600
+        )
+        
+        assert request.content["enabled"] == True
+        assert request.content["active"] == False
+
+    def test_subscribe_request_with_numeric_filter_values(self):
+        """Test subscribe request with numeric filter values"""
+        request = SubscribeRequest(
+            agent_id="agent_numeric_filter",
+            topic="alerts",
+            filter={"level": 5, "priority": 10}
+        )
+        
+        assert request.filter["level"] == 5
+        assert request.filter["priority"] == 10
+
+    def test_send_message_request_with_array_content(self):
+        """Test send message request with array content"""
+        request = SendMessageRequest(
+            sender="sender_array",
+            recipient="recipient_array",
+            content={"items": [1, 2, 3, 4, 5]},
+            ttl=3600
+        )
+        
+        assert isinstance(request.content["items"], list)
+        assert len(request.content["items"]) == 5
+
+    def test_subscribe_request_with_multiple_filters(self):
+        """Test subscribe request with multiple filter conditions"""
+        request = SubscribeRequest(
+            agent_id="agent_multi_filter",
+            topic="alerts",
+            filter={"type": "error", "level": "critical", "source": "system"}
+        )
+        
+        assert len(request.filter) == 3
+
+    def test_send_message_request_with_null_content(self):
+        """Test send message request with null content value"""
+        request = SendMessageRequest(
+            sender="sender_null",
+            recipient="recipient_null",
+            content={"value": None},
+            ttl=3600
+        )
+        
+        assert request.content["value"] is None
+
+    def test_subscribe_request_with_boolean_filter(self):
+        """Test subscribe request with boolean filter values"""
+        request = SubscribeRequest(
+            agent_id="agent_bool_filter",
+            topic="alerts",
+            filter={"enabled": True, "disabled": False}
+        )
+        
+        assert request.filter["enabled"] == True
+        assert request.filter["disabled"] == False
+
+    def test_send_message_request_with_string_content(self):
+        """Test send message request with string content"""
+        request = SendMessageRequest(
+            sender="sender_string",
+            recipient="recipient_string",
+            content={"message": "Hello, world!"},
+            ttl=3600
+        )
+        
+        assert isinstance(request.content["message"], str)
+
+    def test_subscribe_request_with_string_filter_value(self):
+        """Test subscribe request with string filter value"""
+        request = SubscribeRequest(
+            agent_id="agent_string_filter",
+            topic="alerts",
+            filter={"type": "error"}
+        )
+        
+        assert isinstance(request.filter["type"], str)
+
+    def test_send_message_request_with_numeric_content(self):
+        """Test send message request with numeric content"""
+        request = SendMessageRequest(
+            sender="sender_numeric",
+            recipient="recipient_numeric",
+            content={"value": 12345},
+            ttl=3600
+        )
+        
+        assert isinstance(request.content["value"], int)
+
+    def test_subscribe_request_with_numeric_filter_value(self):
+        """Test subscribe request with numeric filter value"""
+        request = SubscribeRequest(
+            agent_id="agent_numeric_filter",
+            topic="alerts",
+            filter={"priority": 1}
+        )
+        
+        assert isinstance(request.filter["priority"], int)
+
+    def test_send_message_request_with_empty_recipient(self):
+        """Test send message request with empty recipient (edge case)"""
+        request = SendMessageRequest(
+            sender="sender_empty_recipient",
+            recipient="",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert request.recipient == ""
+
+    def test_subscribe_request_with_empty_topic(self):
+        """Test subscribe request with empty topic (edge case)"""
+        request = SubscribeRequest(
+            agent_id="agent_empty_topic",
+            topic="",
+            filter={"type": "error"}
+        )
+        
+        assert request.topic == ""
+
+    def test_send_message_request_with_empty_sender(self):
+        """Test send message request with empty sender (edge case)"""
+        request = SendMessageRequest(
+            sender="",
+            recipient="recipient_empty_sender",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert request.sender == ""
+
+    def test_subscribe_request_with_empty_filter(self):
+        """Test subscribe request with empty filter (edge case)"""
+        request = SubscribeRequest(
+            agent_id="agent_empty_filter",
+            topic="alerts",
+            filter={}
+        )
+        
+        assert len(request.filter) == 0
+
+    def test_send_message_request_with_empty_content(self):
+        """Test send message request with empty content (edge case)"""
+        request = SendMessageRequest(
+            sender="sender_empty_content",
+            recipient="recipient_empty_content",
+            content={},
+            ttl=3600
+        )
+        
+        assert len(request.content) == 0
+
+    def test_subscribe_request_with_empty_agent_id(self):
+        """Test subscribe request with empty agent_id (edge case)"""
+        request = SubscribeRequest(
+            agent_id="",
+            topic="alerts",
+            filter={"type": "error"}
+        )
+        
+        assert request.agent_id == ""
+
+    def test_send_message_request_with_zero_ttl(self):
+        """Test send message request with zero TTL (edge case)"""
+        request = SendMessageRequest(
+            sender="sender_zero_ttl",
+            recipient="recipient_zero_ttl",
+            content={"message": "Hello"},
+            ttl=0
+        )
+        
+        assert request.ttl == 0
+
+    def test_subscribe_request_with_numeric_agent_id(self):
+        """Test subscribe request with numeric characters in agent_id"""
+        request = SubscribeRequest(
+            agent_id="agent123",
+            topic="alerts",
+            filter={"type": "error"}
+        )
+        
+        assert "123" in request.agent_id
+
+    def test_send_message_request_with_numeric_sender(self):
+        """Test send message request with numeric characters in sender"""
+        request = SendMessageRequest(
+            sender="sender123",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "123" in request.sender
+
+    def test_subscribe_request_with_mixed_case_topic(self):
+        """Test subscribe request with mixed case topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="Alerts",
+            filter={"type": "error"}
+        )
+        
+        assert "Alerts" == request.topic
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

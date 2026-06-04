@@ -179,6 +179,461 @@ class TestAgentStatusUpdate:
         assert request.status == "maintenance"
         assert request.load_metrics["cpu"] == 0.0
 
+    def test_registration_request_with_empty_services(self):
+        """Test registration request with empty services list"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_empty_services",
+            agent_type="worker",
+            capabilities=["storage"],
+            services=[],
+            endpoints={"http": "http://localhost:8100"}
+        )
+        
+        assert len(request.services) == 0
+        assert len(request.capabilities) == 1
+
+    def test_status_update_with_empty_metrics(self):
+        """Test status update with empty load metrics"""
+        request = AgentStatusUpdate(
+            status="idle",
+            load_metrics={}
+        )
+        
+        assert len(request.load_metrics) == 0
+        assert request.status == "idle"
+
+    def test_registration_request_with_specialist_type(self):
+        """Test registration request with specialist agent type"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_specialist",
+            agent_type="specialist",
+            capabilities=["whisper", "transcription"],
+            services=["audio_processing"],
+            endpoints={"http": "http://localhost:8110"}
+        )
+        
+        assert request.agent_type == "specialist"
+        assert "whisper" in request.capabilities
+
+    def test_status_update_with_degraded_status(self):
+        """Test status update with degraded status"""
+        request = AgentStatusUpdate(
+            status="degraded",
+            load_metrics={"cpu": 0.95, "memory": 0.90}
+        )
+        
+        assert request.status == "degraded"
+        assert request.load_metrics["cpu"] == 0.95
+
+    def test_registration_request_with_coordinator_type(self):
+        """Test registration request with coordinator agent type"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_coordinator",
+            agent_type="coordinator",
+            capabilities=["orchestration", "scheduling"],
+            services=["workflow_management"],
+            endpoints={"http": "http://localhost:8112"}
+        )
+        
+        assert request.agent_type == "coordinator"
+        assert "orchestration" in request.capabilities
+
+    def test_status_update_with_offline_status(self):
+        """Test status update with offline status"""
+        request = AgentStatusUpdate(
+            status="offline",
+            load_metrics={}
+        )
+        
+        assert request.status == "offline"
+        assert len(request.load_metrics) == 0
+
+    def test_registration_request_with_multiple_services(self):
+        """Test registration request with multiple services"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_multi_services",
+            agent_type="worker",
+            capabilities=["gpu", "storage", "network"],
+            services=["training", "inference", "backup"],
+            endpoints={"http": "http://localhost:8115"}
+        )
+        
+        assert len(request.services) == 3
+        assert "training" in request.services
+
+    def test_status_update_with_high_load_metrics(self):
+        """Test status update with high load metrics"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={
+                "cpu": 0.99,
+                "memory": 0.95,
+                "gpu": 1.0,
+                "disk": 0.85
+            }
+        )
+        
+        assert request.load_metrics["cpu"] == 0.99
+        assert request.load_metrics["gpu"] == 1.0
+
+    def test_registration_request_with_empty_capabilities(self):
+        """Test registration request with empty capabilities"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_no_caps",
+            agent_type="worker",
+            capabilities=[],
+            services=["monitoring"],
+            endpoints={"http": "http://localhost:8117"}
+        )
+        
+        assert len(request.capabilities) == 0
+
+    def test_status_update_with_single_metric(self):
+        """Test status update with single load metric"""
+        request = AgentStatusUpdate(
+            status="active",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert len(request.load_metrics) == 1
+        assert request.load_metrics["cpu"] == 0.5
+
+    def test_registration_request_with_single_endpoint(self):
+        """Test registration request with single endpoint"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_single_endpoint",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8118"}
+        )
+        
+        assert len(request.endpoints) == 1
+        assert "http" in request.endpoints
+
+    def test_status_update_with_empty_metrics(self):
+        """Test status update with empty load metrics"""
+        request = AgentStatusUpdate(
+            status="idle",
+            load_metrics={}
+        )
+        
+        assert len(request.load_metrics) == 0
+
+    def test_registration_request_with_special_agent_id(self):
+        """Test registration request with special characters in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_special-123_test",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8119"}
+        )
+        
+        assert "-" in request.agent_id
+        assert "_" in request.agent_id
+
+    def test_status_update_with_low_load_metrics(self):
+        """Test status update with low load metrics"""
+        request = AgentStatusUpdate(
+            status="idle",
+            load_metrics={
+                "cpu": 0.01,
+                "memory": 0.02,
+                "gpu": 0.0,
+                "disk": 0.1
+            }
+        )
+        
+        assert request.load_metrics["cpu"] == 0.01
+        assert request.load_metrics["gpu"] == 0.0
+
+    def test_registration_request_with_numeric_agent_id(self):
+        """Test registration request with numeric characters in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_12345",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8120"}
+        )
+        
+        assert "12345" in request.agent_id
+
+    def test_status_update_with_status_maintenance(self):
+        """Test status update with maintenance status"""
+        request = AgentStatusUpdate(
+            status="maintenance",
+            load_metrics={"cpu": 0.0}
+        )
+        
+        assert request.status == "maintenance"
+
+    def test_registration_request_with_multiple_endpoints(self):
+        """Test registration request with multiple endpoints"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_multi_endpoint",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={
+                "http": "http://localhost:8121",
+                "grpc": "grpc://localhost:8122",
+                "ws": "ws://localhost:8123"
+            }
+        )
+        
+        assert len(request.endpoints) == 3
+
+    def test_status_update_with_high_load_metrics(self):
+        """Test status update with high load metrics"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={
+                "cpu": 0.95,
+                "memory": 0.98,
+                "gpu": 0.99,
+                "disk": 0.90
+            }
+        )
+        
+        assert request.load_metrics["cpu"] == 0.95
+        assert request.load_metrics["gpu"] == 0.99
+
+    def test_registration_request_with_empty_capabilities(self):
+        """Test registration request with empty capabilities"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_empty_caps",
+            agent_type="worker",
+            capabilities=[],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8124"}
+        )
+        
+        assert len(request.capabilities) == 0
+
+    def test_status_update_with_single_metric(self):
+        """Test status update with single load metric"""
+        request = AgentStatusUpdate(
+            status="idle",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert len(request.load_metrics) == 1
+        assert "cpu" in request.load_metrics
+
+    def test_registration_request_with_single_capability(self):
+        """Test registration request with single capability"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_single_cap",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8125"}
+        )
+        
+        assert len(request.capabilities) == 1
+
+    def test_status_update_with_status_busy(self):
+        """Test status update with busy status"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={"cpu": 0.8}
+        )
+        
+        assert request.status == "busy"
+
+    def test_registration_request_with_single_endpoint(self):
+        """Test registration request with single endpoint"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_single_endpoint",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8126"}
+        )
+        
+        assert len(request.endpoints) == 1
+
+    def test_status_update_with_zero_load_metrics(self):
+        """Test status update with zero load metrics"""
+        request = AgentStatusUpdate(
+            status="idle",
+            load_metrics={"cpu": 0.0, "memory": 0.0}
+        )
+        
+        assert request.load_metrics["cpu"] == 0.0
+        assert request.load_metrics["memory"] == 0.0
+
+    def test_registration_request_with_multiple_endpoints(self):
+        """Test registration request with multiple endpoints"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_multi_endpoint",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8127", "grpc": "localhost:8128"}
+        )
+        
+        assert len(request.endpoints) == 2
+
+    def test_status_update_with_high_priority_status(self):
+        """Test status update with high priority status"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={"cpu": 0.95, "memory": 0.9}
+        )
+        
+        assert request.load_metrics["cpu"] > 0.9
+        assert request.load_metrics["memory"] > 0.8
+
+    def test_registration_request_with_multiple_capabilities(self):
+        """Test registration request with multiple capabilities"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_multi_caps",
+            agent_type="worker",
+            capabilities=["gpu", "cpu", "storage"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8129"}
+        )
+        
+        assert len(request.capabilities) == 3
+
+    def test_status_update_with_single_load_metric(self):
+        """Test status update with single load metric"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={"cpu": 0.8}
+        )
+        
+        assert len(request.load_metrics) == 1
+
+    def test_registration_request_with_empty_agent_type(self):
+        """Test registration request with empty agent_type (edge case)"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_empty_type",
+            agent_type="",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8130"}
+        )
+        
+        assert request.agent_type == ""
+
+    def test_status_update_with_empty_status(self):
+        """Test status update with empty status (edge case)"""
+        request = AgentStatusUpdate(
+            status="",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert request.status == ""
+
+    def test_registration_request_with_multiple_services(self):
+        """Test registration request with multiple services"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_multi_services",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference", "training", "storage"],
+            endpoints={"http": "http://localhost:8131"}
+        )
+        
+        assert len(request.services) == 3
+
+    def test_status_update_with_multiple_load_metrics(self):
+        """Test status update with multiple load metrics"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={"cpu": 0.8, "memory": 0.7, "gpu": 0.6}
+        )
+        
+        assert len(request.load_metrics) == 3
+
+    def test_registration_request_with_empty_endpoints(self):
+        """Test registration request with empty endpoints (edge case)"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_empty_endpoints",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={}
+        )
+        
+        assert len(request.endpoints) == 0
+
+    def test_status_update_with_empty_load_metrics(self):
+        """Test status update with empty load metrics (edge case)"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={}
+        )
+        
+        assert len(request.load_metrics) == 0
+
+    def test_registration_request_with_empty_capabilities(self):
+        """Test registration request with empty capabilities (edge case)"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_empty_caps",
+            agent_type="worker",
+            capabilities=[],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8132"}
+        )
+        
+        assert len(request.capabilities) == 0
+
+    def test_status_update_with_zero_load_metric(self):
+        """Test status update with zero load metric (edge case)"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={"cpu": 0.0}
+        )
+        
+        assert request.load_metrics["cpu"] == 0.0
+
+    def test_registration_request_with_empty_services(self):
+        """Test registration request with empty services (edge case)"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_empty_services",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=[],
+            endpoints={"http": "http://localhost:8133"}
+        )
+        
+        assert len(request.services) == 0
+
+    def test_status_update_with_negative_load_metric(self):
+        """Test status update with negative load metric (edge case)"""
+        request = AgentStatusUpdate(
+            status="busy",
+            load_metrics={"cpu": -0.1}
+        )
+        
+        assert request.load_metrics["cpu"] == -0.1
+
+    def test_registration_request_with_numeric_agent_id(self):
+        """Test registration request with numeric characters in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8134"}
+        )
+        
+        assert "123" in request.agent_id
+
+    def test_status_update_with_mixed_case_status(self):
+        """Test status update with mixed case status"""
+        request = AgentStatusUpdate(
+            status="Busy",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert request.status == "Busy"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

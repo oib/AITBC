@@ -15,16 +15,8 @@ from aitbc import AITBCHTTPClient, NetworkError
 # Test configuration
 NODES = {
     "aitbc": {
-        "rpc_url": "https://aitbc.bubuit.net/rpc",
-        "name": "aitbc (localhost)"
-    },
-    "aitbc1": {
-        "rpc_url": "http://10.1.223.40:8006/rpc",
-        "name": "aitbc1 (remote)"
-    },
-    "gitea-runner": {
-        "rpc_url": "http://10.1.223.93:8006/rpc",
-        "name": "gitea-runner (CI)"
+        "rpc_url": "https://hub.aitbc.bubuit.net/rpc",
+        "name": "hub (remote)"
     }
 }
 

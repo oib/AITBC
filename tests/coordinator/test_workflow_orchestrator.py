@@ -437,6 +437,438 @@ class TestWorkflowOrchestrator:
         assert execution.workflow_id == "wf_001"
         assert execution.status == WorkflowStatus.PENDING
 
+    def test_workflow_definition_with_empty_steps(self):
+        """Test workflow definition with empty steps"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_empty",
+            name="Empty Workflow",
+            steps={}
+        )
+        
+        assert len(definition.steps) == 0
+        assert definition.workflow_id == "wf_empty"
+
+    def test_workflow_definition_with_single_step(self):
+        """Test workflow definition with single step"""
+        step = WorkflowStep(
+            step_id="step_001",
+            agent_id="agent_001",
+            action="train"
+        )
+        
+        definition = WorkflowDefinition(
+            workflow_id="wf_single",
+            name="Single Step Workflow",
+            steps={"step_001": step}
+        )
+        
+        assert len(definition.steps) == 1
+        assert "step_001" in definition.steps
+
+    def test_workflow_step_action_validation(self):
+        """Test workflow step action field"""
+        step = WorkflowStep(
+            step_id="step_action",
+            agent_id="agent_001",
+            action="inference"
+        )
+        
+        assert step.action == "inference"
+        assert step.step_id == "step_action"
+
+    def test_workflow_execution_with_multiple_executions(self):
+        """Test multiple workflow executions for same workflow"""
+        execution1 = WorkflowExecution(
+            execution_id="exec_001",
+            workflow_id="wf_001"
+        )
+        
+        execution2 = WorkflowExecution(
+            execution_id="exec_002",
+            workflow_id="wf_001"
+        )
+        
+        assert execution1.workflow_id == execution2.workflow_id
+        assert execution1.execution_id != execution2.execution_id
+
+    def test_workflow_step_agent_assignment(self):
+        """Test workflow step agent assignment"""
+        step = WorkflowStep(
+            step_id="step_agent",
+            agent_id="agent_worker",
+            action="train"
+        )
+        
+        assert step.agent_id == "agent_worker"
+        assert step.action == "train"
+
+    def test_workflow_definition_name_validation(self):
+        """Test workflow definition name field"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_name_test",
+            name="Test Workflow Name",
+            steps={}
+        )
+        
+        assert definition.name == "Test Workflow Name"
+        assert len(definition.name) > 0
+
+    def test_workflow_step_status_default(self):
+        """Test workflow step default status"""
+        step = WorkflowStep(
+            step_id="step_default",
+            agent_id="agent_001",
+            action="validate"
+        )
+        
+        assert step.step_id == "step_default"
+        assert step.agent_id == "agent_001"
+
+    def test_workflow_execution_workflow_id_validation(self):
+        """Test workflow execution workflow_id field"""
+        execution = WorkflowExecution(
+            execution_id="exec_003",
+            workflow_id="wf_validation_test"
+        )
+        
+        assert execution.workflow_id == "wf_validation_test"
+        assert len(execution.workflow_id) > 0
+
+    def test_workflow_step_action_variations(self):
+        """Test workflow step with different actions"""
+        actions = ["train", "validate", "deploy", "monitor"]
+        
+        for action in actions:
+            step = WorkflowStep(
+                step_id=f"step_{action}",
+                agent_id="agent_001",
+                action=action
+            )
+            assert step.action == action
+
+    def test_workflow_definition_with_empty_name(self):
+        """Test workflow definition with empty name"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_empty_name",
+            name="",
+            steps={}
+        )
+        
+        assert definition.name == ""
+        assert len(definition.name) == 0
+
+    def test_workflow_execution_with_empty_workflow_id(self):
+        """Test workflow execution with empty workflow_id"""
+        execution = WorkflowExecution(
+            execution_id="exec_empty_wf",
+            workflow_id=""
+        )
+        
+        assert execution.workflow_id == ""
+        assert len(execution.workflow_id) == 0
+
+    def test_workflow_step_with_empty_action(self):
+        """Test workflow step with empty action"""
+        step = WorkflowStep(
+            step_id="step_empty_action",
+            agent_id="agent_002",
+            action=""
+        )
+        
+        assert step.action == ""
+        assert len(step.action) == 0
+
+    def test_workflow_step_with_long_agent_id(self):
+        """Test workflow step with long agent_id"""
+        step = WorkflowStep(
+            step_id="step_long_agent",
+            agent_id="agent_very_long_identifier_for_testing_purposes_12345",
+            action="process"
+        )
+        
+        assert len(step.agent_id) > 20
+
+    def test_workflow_definition_with_long_workflow_id(self):
+        """Test workflow definition with long workflow_id"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_very_long_identifier_for_testing_purposes_12345",
+            name="Test Workflow",
+            steps={}
+        )
+        
+        assert len(definition.workflow_id) > 20
+
+    def test_workflow_execution_with_long_execution_id(self):
+        """Test workflow execution with long execution_id"""
+        execution = WorkflowExecution(
+            execution_id="exec_very_long_identifier_for_testing_purposes_12345",
+            workflow_id="wf_test"
+        )
+        
+        assert len(execution.execution_id) > 20
+
+    def test_workflow_definition_with_special_characters_in_name(self):
+        """Test workflow definition with special characters in name"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_special",
+            name="Test-Workflow_Special@123",
+            steps={}
+        )
+        
+        assert "-" in definition.name
+        assert "_" in definition.name
+        assert "@" in definition.name
+
+    def test_workflow_step_with_special_characters_in_step_id(self):
+        """Test workflow step with special characters in step_id"""
+        step = WorkflowStep(
+            step_id="step_special-123_@",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "-" in step.step_id
+        assert "_" in step.step_id
+        assert "@" in step.step_id
+
+    def test_workflow_definition_with_numeric_workflow_id(self):
+        """Test workflow definition with numeric characters in workflow_id"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_12345",
+            name="Numeric Workflow",
+            steps={}
+        )
+        
+        assert "12345" in definition.workflow_id
+
+    def test_workflow_execution_with_numeric_execution_id(self):
+        """Test workflow execution with numeric characters in execution_id"""
+        execution = WorkflowExecution(
+            execution_id="exec_12345",
+            workflow_id="wf_test"
+        )
+        
+        assert "12345" in execution.execution_id
+
+    def test_workflow_definition_with_empty_name(self):
+        """Test workflow definition with empty name (edge case)"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_empty_name",
+            name="",
+            steps={}
+        )
+        
+        assert definition.name == ""
+
+    def test_workflow_step_with_empty_agent_id(self):
+        """Test workflow step with empty agent_id (edge case)"""
+        step = WorkflowStep(
+            step_id="step_empty_agent",
+            agent_id="",
+            action="process"
+        )
+        
+        assert step.agent_id == ""
+
+    def test_workflow_step_with_empty_action(self):
+        """Test workflow step with empty action (edge case)"""
+        step = WorkflowStep(
+            step_id="step_empty_action",
+            agent_id="agent_001",
+            action=""
+        )
+        
+        assert step.action == ""
+
+    def test_workflow_definition_with_empty_workflow_id(self):
+        """Test workflow definition with empty workflow_id (edge case)"""
+        definition = WorkflowDefinition(
+            workflow_id="",
+            name="Empty ID Workflow",
+            steps={}
+        )
+        
+        assert definition.workflow_id == ""
+
+    def test_workflow_step_with_numeric_step_id(self):
+        """Test workflow step with numeric characters in step_id"""
+        step = WorkflowStep(
+            step_id="step_12345",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "12345" in step.step_id
+
+    def test_workflow_execution_with_numeric_workflow_id(self):
+        """Test workflow execution with numeric characters in workflow_id"""
+        execution = WorkflowExecution(
+            execution_id="exec_test",
+            workflow_id="wf_12345"
+        )
+        
+        assert "12345" in execution.workflow_id
+
+    def test_workflow_step_with_special_characters_in_agent_id(self):
+        """Test workflow step with special characters in agent_id"""
+        step = WorkflowStep(
+            step_id="step_special_agent",
+            agent_id="agent-001_special@",
+            action="process"
+        )
+        
+        assert "-" in step.agent_id
+        assert "@" in step.agent_id
+
+    def test_workflow_definition_with_numeric_name(self):
+        """Test workflow definition with numeric characters in name"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_numeric_name",
+            name="Workflow123",
+            steps={}
+        )
+        
+        assert "123" in definition.name
+
+    def test_workflow_step_with_underscore_in_step_id(self):
+        """Test workflow step with underscore in step_id"""
+        step = WorkflowStep(
+            step_id="step_123_456",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "_" in step.step_id
+
+    def test_workflow_execution_with_special_characters_in_execution_id(self):
+        """Test workflow execution with special characters in execution_id"""
+        execution = WorkflowExecution(
+            execution_id="exec-123_special@",
+            workflow_id="wf_test"
+        )
+        
+        assert "-" in execution.execution_id
+        assert "@" in execution.execution_id
+
+    def test_workflow_definition_with_empty_steps(self):
+        """Test workflow definition with empty steps"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_empty_steps",
+            name="Empty Steps",
+            steps={}
+        )
+        
+        assert len(definition.steps) == 0
+
+    def test_workflow_step_with_empty_action(self):
+        """Test workflow step with empty action"""
+        step = WorkflowStep(
+            step_id="step_empty_action",
+            agent_id="agent_001",
+            action=""
+        )
+        
+        assert step.action == ""
+
+    def test_workflow_execution_with_empty_workflow_id(self):
+        """Test workflow execution with empty workflow_id (edge case)"""
+        execution = WorkflowExecution(
+            execution_id="exec_empty_wf",
+            workflow_id=""
+        )
+        
+        assert execution.workflow_id == ""
+
+    def test_workflow_definition_with_mixed_case_name(self):
+        """Test workflow definition with mixed case name"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_mixed_case",
+            name="MixedCaseName",
+            steps={}
+        )
+        
+        assert "Mixed" in definition.name
+        assert "Case" in definition.name
+
+    def test_workflow_step_with_underscore_in_agent_id(self):
+        """Test workflow step with underscore in agent_id"""
+        step = WorkflowStep(
+            step_id="step_underscore_agent",
+            agent_id="agent_123_456",
+            action="process"
+        )
+        
+        assert "_" in step.agent_id
+
+    def test_workflow_execution_with_numeric_execution_id(self):
+        """Test workflow execution with numeric characters in execution_id"""
+        execution = WorkflowExecution(
+            execution_id="exec123456",
+            workflow_id="wf_test"
+        )
+        
+        assert "123456" in execution.execution_id
+
+    def test_workflow_definition_with_underscore_in_workflow_id(self):
+        """Test workflow definition with underscore in workflow_id"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_123_456",
+            name="Underscore Workflow",
+            steps={}
+        )
+        
+        assert "_" in definition.workflow_id
+
+    def test_workflow_step_with_special_characters_in_step_id(self):
+        """Test workflow step with special characters in step_id"""
+        step = WorkflowStep(
+            step_id="step-123@special",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "-" in step.step_id
+        assert "@" in step.step_id
+
+    def test_workflow_definition_with_empty_name(self):
+        """Test workflow definition with empty name (edge case)"""
+        definition = WorkflowDefinition(
+            workflow_id="wf_empty_name",
+            name="",
+            steps={}
+        )
+        
+        assert definition.name == ""
+
+    def test_workflow_step_with_empty_agent_id(self):
+        """Test workflow step with empty agent_id (edge case)"""
+        step = WorkflowStep(
+            step_id="step_empty_agent",
+            agent_id="",
+            action="process"
+        )
+        
+        assert step.agent_id == ""
+
+    def test_workflow_execution_with_empty_execution_id(self):
+        """Test workflow execution with empty execution_id (edge case)"""
+        execution = WorkflowExecution(
+            execution_id="",
+            workflow_id="wf_test"
+        )
+        
+        assert execution.execution_id == ""
+
+    def test_workflow_definition_with_numeric_workflow_id(self):
+        """Test workflow definition with numeric characters in workflow_id"""
+        definition = WorkflowDefinition(
+            workflow_id="wf123",
+            name="Numeric Workflow",
+            steps={}
+        )
+        
+        assert "123" in definition.workflow_id
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

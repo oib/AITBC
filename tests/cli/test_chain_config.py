@@ -260,6 +260,493 @@ class TestChainConfig:
         assert "gpu marketplace" in config.purpose.lower()
         assert config.type == ChainType.TOPIC
 
+    def test_consensus_config_with_minimal_validators(self):
+        """Test consensus config with minimal validators"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2,
+            authorities=["validator_1"]
+        )
+        
+        assert len(consensus.authorities) == 1
+        assert "validator_1" in consensus.authorities
+
+    def test_chain_config_with_main_type(self):
+        """Test chain config with main type"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POS,
+            block_time=5
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Main blockchain network",
+            name="AITBC Main Network",
+            consensus=consensus
+        )
+        
+        assert config.type == ChainType.MAIN
+        assert "main" in config.purpose.lower()
+
+    def test_consensus_config_with_hybrid_algorithm(self):
+        """Test consensus config with hybrid algorithm"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.HYBRID,
+            block_time=10,
+            authorities=["validator_1", "validator_2"]
+        )
+        
+        assert consensus.algorithm == ConsensusAlgorithm.HYBRID
+        assert len(consensus.authorities) == 2
+
+    def test_chain_config_with_private_type(self):
+        """Test chain config with private type"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=3
+        )
+        
+        config = ChainConfig(
+            type=ChainType.PRIVATE,
+            purpose="Private chain for internal operations",
+            name="Internal Operations Chain",
+            consensus=consensus
+        )
+        
+        assert config.type == ChainType.PRIVATE
+        assert "internal" in config.purpose.lower()
+
+    def test_consensus_config_with_pos_algorithm(self):
+        """Test consensus config with POS algorithm"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POS,
+            block_time=15
+        )
+        
+        assert consensus.algorithm == ConsensusAlgorithm.POS
+        assert consensus.block_time == 15
+
+    def test_chain_config_with_topic_type(self):
+        """Test chain config with topic type"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.TOPIC,
+            purpose="Topic-specific chain for AI models",
+            name="AI Models Chain",
+            consensus=consensus
+        )
+        
+        assert config.type == ChainType.TOPIC
+        assert "ai models" in config.purpose.lower()
+
+    def test_consensus_config_with_pow_algorithm(self):
+        """Test consensus config with POW algorithm"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POW,
+            block_time=10
+        )
+        
+        assert consensus.algorithm == ConsensusAlgorithm.POW
+        assert consensus.block_time == 10
+
+    def test_chain_config_with_long_name(self):
+        """Test chain config with long name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Main blockchain network with extended name for testing",
+            name="AITBC Main Network Extended Name For Testing Purposes",
+            consensus=consensus
+        )
+        
+        assert len(config.name) > 20
+        assert config.type == ChainType.MAIN
+
+    def test_chain_config_with_short_purpose(self):
+        """Test chain config with short purpose"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.TOPIC,
+            purpose="AI",
+            name="AI Chain",
+            consensus=consensus
+        )
+        
+        assert len(config.purpose) == 2
+        assert config.purpose == "AI"
+
+    def test_consensus_config_with_zero_block_time(self):
+        """Test consensus config with zero block time"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=0
+        )
+        
+        assert consensus.block_time == 0
+
+    def test_chain_config_with_private_type(self):
+        """Test chain config with private type"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.PRIVATE,
+            purpose="Private network for testing",
+            name="Private Test Chain",
+            consensus=consensus
+        )
+        
+        assert config.type == ChainType.PRIVATE
+
+    def test_consensus_config_with_large_block_time(self):
+        """Test consensus config with large block time"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=3600  # 1 hour
+        )
+        
+        assert consensus.block_time == 3600
+
+    def test_chain_config_with_topic_type(self):
+        """Test chain config with topic type"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.TOPIC,
+            purpose="Topic-specific blockchain",
+            name="Topic Chain",
+            consensus=consensus
+        )
+        
+        assert config.type == ChainType.TOPIC
+
+    def test_consensus_config_with_negative_block_time(self):
+        """Test consensus config with negative block time (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=-1
+        )
+        
+        assert consensus.block_time == -1
+
+    def test_chain_config_with_hybrid_algorithm(self):
+        """Test chain config with hybrid consensus algorithm"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.HYBRID,
+            block_time=5
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Hybrid consensus chain",
+            name="Hybrid Chain",
+            consensus=consensus
+        )
+        
+        assert consensus.algorithm == ConsensusAlgorithm.HYBRID
+
+    def test_consensus_config_with_zero_block_time(self):
+        """Test consensus config with zero block time (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=0
+        )
+        
+        assert consensus.block_time == 0
+
+    def test_chain_config_with_long_purpose(self):
+        """Test chain config with long purpose description"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="A very long purpose description that describes the blockchain network in detail",
+            name="Long Purpose Chain",
+            consensus=consensus
+        )
+        
+        assert len(config.purpose) > 50
+
+    def test_consensus_config_with_large_block_time(self):
+        """Test consensus config with very large block time"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=86400  # 1 day
+        )
+        
+        assert consensus.block_time == 86400
+
+    def test_chain_config_with_numeric_name(self):
+        """Test chain config with numeric characters in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Numeric name chain",
+            name="Chain123",
+            consensus=consensus
+        )
+        
+        assert "123" in config.name
+
+    def test_consensus_config_with_negative_block_time(self):
+        """Test consensus config with negative block time (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=-1
+        )
+        
+        assert consensus.block_time == -1
+
+    def test_chain_config_with_special_characters_in_name(self):
+        """Test chain config with special characters in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Special characters chain",
+            name="Chain-Test_123@",
+            consensus=consensus
+        )
+        
+        assert "-" in config.name
+        assert "_" in config.name
+        assert "@" in config.name
+
+    def test_chain_config_with_empty_purpose(self):
+        """Test chain config with empty purpose (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="",
+            name="Empty Purpose Chain",
+            consensus=consensus
+        )
+        
+        assert config.purpose == ""
+
+    def test_chain_config_with_numeric_purpose(self):
+        """Test chain config with numeric characters in purpose"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Chain123",
+            name="Numeric Purpose Chain",
+            consensus=consensus
+        )
+        
+        assert "123" in config.purpose
+
+    def test_consensus_config_with_zero_block_time(self):
+        """Test consensus config with zero block time (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=0
+        )
+        
+        assert consensus.block_time == 0
+
+    def test_chain_config_with_very_long_name(self):
+        """Test chain config with very long name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Very long name test",
+            name="A" * 100,
+            consensus=consensus
+        )
+        
+        assert len(config.name) == 100
+
+    def test_consensus_config_with_large_block_time(self):
+        """Test consensus config with large block time"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=1000
+        )
+        
+        assert consensus.block_time == 1000
+
+    def test_chain_config_with_very_long_purpose(self):
+        """Test chain config with very long purpose"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="B" * 100,
+            name="Long Purpose Chain",
+            consensus=consensus
+        )
+        
+        assert len(config.purpose) == 100
+
+    def test_consensus_config_with_negative_block_time(self):
+        """Test consensus config with negative block time (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=-1
+        )
+        
+        assert consensus.block_time == -1
+
+    def test_chain_config_with_mixed_case_name(self):
+        """Test chain config with mixed case name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Mixed Case",
+            name="MixedCaseName",
+            consensus=consensus
+        )
+        
+        assert "Mixed" in config.name
+        assert "Case" in config.name
+
+    def test_chain_config_with_empty_name(self):
+        """Test chain config with empty name (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Empty Name",
+            name="",
+            consensus=consensus
+        )
+        
+        assert config.name == ""
+
+    def test_consensus_config_with_zero_algorithm(self):
+        """Test consensus config with empty algorithm (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        assert consensus.algorithm == ConsensusAlgorithm.POA
+
+    def test_chain_config_with_empty_purpose(self):
+        """Test chain config with empty purpose (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="",
+            name="Empty Purpose",
+            consensus=consensus
+        )
+        
+        assert config.purpose == ""
+
+    def test_consensus_config_with_positive_block_time(self):
+        """Test consensus config with positive block time"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=10
+        )
+        
+        assert consensus.block_time == 10
+
+    def test_chain_config_with_numeric_name(self):
+        """Test chain config with numeric characters in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Numeric Name",
+            name="Chain123",
+            consensus=consensus
+        )
+        
+        assert "123" in config.name
+
+    def test_consensus_config_with_algorithm_pos(self):
+        """Test consensus config with POS algorithm"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POS,
+            block_time=2
+        )
+        
+        assert consensus.algorithm == ConsensusAlgorithm.POS
+
+    def test_chain_config_with_underscore_in_name(self):
+        """Test chain config with underscore in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Underscore Name",
+            name="chain_123",
+            consensus=consensus
+        )
+        
+        assert "_" in config.name
+
+    def test_consensus_config_with_algorithm_pow(self):
+        """Test consensus config with POW algorithm"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POW,
+            block_time=2
+        )
+        
+        assert consensus.algorithm == ConsensusAlgorithm.POW
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

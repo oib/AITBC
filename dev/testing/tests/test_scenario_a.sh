@@ -1,69 +1,78 @@
 #!/bin/bash
-# Scenario A: Localhost GPU Miner → aitbc Marketplace Test
+# Scenario A: Software Offer Creation and Execution (Updated for v0.4.x)
 
-echo "🚀 Scenario A: Localhost GPU Miner → aitbc Marketplace"
-echo "=================================================="
+echo "🚀 Scenario A: Software Offer Creation and Execution"
+echo "======================================================"
 
-# Set up miner1 environment
-export MINER_ID="miner1"
-export MINER_WALLET="0x1234567890abcdef1234567890abcdef12345678"
-export MINER_REGION="localhost"
-export OLLAMA_BASE_URL="http://localhost:11434"
 
+# Source scenario configuration
+if [ -f "/opt/aitbc/.env.scenario" ]; then
+    source /opt/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "📋 Step 1: Check Ollama Models Available"
 echo "=========================================="
-ollama list
+ollama list || echo "Ollama not available, skipping model check"
 
 echo ""
-echo "📋 Step 2: Check miner1 wallet configuration"
-echo "=========================================="
-if [ -f "/home/oib/windsurf/aitbc/home/miner1/miner_wallet.json" ]; then
-    echo "✅ miner1 wallet found:"
-    cat /home/oib/windsurf/aitbc/home/miner1/miner_wallet.json
+echo "📋 Step 2: Check aitbc marketplace connectivity"
+echo "==============================================="
+aitbc market list || echo "Marketplace not available"
+
+echo ""
+echo "📋 Step 3: Create Ollama Software Offer"
+echo "======================================="
+echo "Creating software offer for ollama model..."
+OFFER_RESULT=$(aitbc market software-offer ollama llama2 0.001 2>&1)
+echo "$OFFER_RESULT"
+
+OFFER_ID=$(echo "$OFFER_RESULT" | grep -oP 'sw_offer_\w+' || echo "")
+if [ -n "$OFFER_ID" ]; then
+    echo "✅ Software offer created: $OFFER_ID"
 else
-    echo "❌ miner1 wallet not found"
+    echo "❌ Failed to create software offer"
+    exit 1
 fi
 
 echo ""
-echo "📋 Step 3: Verify aitbc marketplace connectivity"
+echo "📋 Step 4: Verify offer in plugin registry"
 echo "=========================================="
-curl -s http://127.0.0.1:8000/v1/health | jq .
+sleep 2
+curl -s $SHOP_URL/plugin/plugins/$OFFER_ID | jq .
 
 echo ""
-echo "📋 Step 4: Register miner1 with aitbc marketplace"
-echo "=========================================="
-aitbc marketplace gpu register \
-  --miner-id $MINER_ID \
-  --wallet $MINER_WALLET \
-  --region $MINER_REGION \
-  --gpu-model "NVIDIA-RTX-4060Ti" \
-  --gpu-memory "16GB" \
-  --compute-capability "8.9" \
-  --price-per-hour "0.001" \
-  --models "gemma3:1b,lauchacarro/qwen2.5-translator:latest" \
-  --endpoint "http://localhost:11434" \
-  --marketplace-url "http://127.0.0.1:8000"
+echo "📋 Step 5: Run inference with created offer"
+echo "==========================================="
+echo "Running inference test..."
+RUN_RESULT=$(aitbc market run $OFFER_ID "What is blockchain?" 2>&1)
+echo "$RUN_RESULT"
+
+JOB_ID=$(echo "$RUN_RESULT" | grep -oP 'sw_job_\w+' || echo "")
+if [ -n "$JOB_ID" ]; then
+    echo "✅ Inference job created: $JOB_ID"
+else
+    echo "❌ Failed to run inference"
+    exit 1
+fi
 
 echo ""
-echo "📋 Step 5: Verify registration on aitbc"
-echo "=========================================="
-sleep 5
-curl -s http://127.0.0.1:8000/v1/marketplace/offers | jq '.[] | select(.miner_id == "miner1")'
-
-echo ""
-echo "📋 Step 6: Test direct GPU service"
-echo "=========================================="
-curl -X POST http://localhost:11434/api/generate \
-  -H "Content-Type: application/json" \
-  -d '{"model": "gemma3:1b", "prompt": "What is blockchain?", "stream": false}' | jq .
-
-echo ""
-echo "📋 Step 7: Test GPU service via marketplace proxy"
-echo "=========================================="
-curl -X POST http://127.0.0.1:8000/v1/gpu/inference \
-  -H "Content-Type: application/json" \
-  -d '{"miner_id": "miner1", "model": "gemma3:1b", "prompt": "What is blockchain via proxy?"}' | jq .
+echo "📋 Step 6: Test direct Ollama service"
+echo "======================================"
+if command -v ollama &> /dev/null; then
+    curl -X POST http://localhost:11434/api/generate \
+      -H "Content-Type: application/json" \
+      -d '{"model": "llama2", "prompt": "What is blockchain?", "stream": false}' | jq . || echo "Direct Ollama test failed"
+else
+    echo "Ollama not available, skipping direct test"
+fi
 
 echo ""
 echo "🎉 Scenario A Complete!"
 echo "======================="
+echo "✅ Software offer workflow tested successfully"

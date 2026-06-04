@@ -1,86 +1,101 @@
 #!/bin/bash
-# Scenario D: aitbc1 Container User Operations Test
+# Configuration
 
-echo "🚀 Scenario D: aitbc1 Container User Operations"
-echo "==============================================="
+# Source scenario configuration
+if [ -f "/opt/aitbc/.env.scenario" ]; then
+    source /opt/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
+HUB_URL="https://hub.aitbc.bubuit.net"
+BLOCKCHAIN_RPC="http://localhost:8202"
+# Scenario D: Multi-Node Connectivity Test (Updated for v0.4.x)
 
-echo "📋 Step 1: Connect to aitbc1 container"
+echo "� Scenario D: Multi-Node Connectivity Test"
 echo "=========================================="
-ssh aitbc1-cascade "echo '✅ Connected to aitbc1 container'"
+
+echo "📋 Step 1: Test local blockchain RPC"
+echo "===================================="
+curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "Local RPC not responding"
 
 echo ""
-echo "📋 Step 2: Check container services status"
-echo "=========================================="
-ssh aitbc1-cascade "systemctl status coordinator-api | grep Active || echo 'Service not running'"
-ssh aitbc1-cascade "ps aux | grep python | grep coordinator || echo 'No coordinator process found'"
+echo "📋 Step 2: Test plugin registry"
+echo "=============================="
+curl -s $HUB_URL/plugin/plugins | jq . 2>/dev/null || echo "Plugin registry not available"
 
 echo ""
-echo "📋 Step 3: Test container CLI functionality"
-echo "=========================================="
-ssh aitbc1-cascade "python3 --version"
-ssh aitbc1-cascade "which aitbc || echo 'CLI not found in container PATH'"
+echo "📋 Step 3: Test Whisper service"
 
 echo ""
-echo "📋 Step 4: Test blockchain operations in container"
+echo "📋 Step 4: Test PeerTube transcoder at hub"
 echo "=========================================="
-ssh aitbc1-cascade "curl -s http://localhost:8000/v1/health | jq . 2>/dev/null || echo 'Health endpoint not responding'"
+curl -s $HUB_URL/peertube/health | jq . 2>/dev/null || echo "PeerTube transcoder not available"
+echo "==============================="
+curl -s $HUB_URL/whisper/health | jq . 2>/dev/null || echo "Whisper service not available"
 
 echo ""
-echo "📋 Step 5: Test marketplace access from container"
-echo "=========================================="
-ssh aitbc1-cascade "curl -s http://localhost:8000/v1/marketplace/offers | jq '.[] | select(.miner_id == \"miner1\")' 2>/dev/null || echo 'Marketplace offers not available'"
+echo "📋 Step 4: Test marketplace CLI"
+echo "=============================="
+aitbc market list 2>/dev/null || echo "Marketplace CLI not available"
 
 echo ""
-echo "📋 Step 6: Test GPU service discovery from container"
-echo "=========================================="
-ssh aitbc1-cascade "curl -X POST http://localhost:8000/v1/gpu/inference \
-  -H 'Content-Type: application/json' \
-  -d '{\"miner_id\": \"miner1\", \"model\": \"gemma3:1b\", \"prompt\": \"Test from aitbc1 container\"}' | jq . 2>/dev/null || echo 'GPU inference not available'"
+echo "📋 Step 5: Test P2P service"
+echo "==========================="
+# Check if P2P service is running
+systemctl status aitbc-blockchain-p2p | grep Active || echo "P2P service not running"
 
 echo ""
-echo "📋 Step 7: Test blockchain synchronization"
-echo "=========================================="
-ssh aitbc1-cascade "curl -s http://localhost:8000/v1/blockchain/sync/status | jq . 2>/dev/null || echo 'Sync status not available'"
+echo "📋 Step 6: Test Redis connectivity"
+echo "=================================="
+redis-cli ping 2>/dev/null || echo "Redis not available"
 
 echo ""
-echo "📋 Step 8: Test cross-site connectivity"
-echo "=========================================="
-# Test if aitbc1 can reach aitbc via host proxy
-ssh aitbc1-cascade "curl -s http://127.0.0.1:8000/v1/health | jq . 2>/dev/null || echo 'Cannot reach aitbc via proxy'"
+echo "📋 Step 7: Test agent coordinator (port 8107)"
+echo "=============================================="
+curl -s http://localhost:8107/health | jq . 2>/dev/null || echo "Agent coordinator not available"
 
 echo ""
-echo "📋 Step 9: Test analytics from container"
-echo "=========================================="
-ssh aitbc1-cascade "curl -s http://localhost:8000/v1/analytics/summary | jq .total_chains 2>/dev/null || echo 'Analytics not available'"
+echo "📋 Step 8: Test wallet service (port 8108)"
+echo "========================================="
+curl -s http://localhost:8108/v1/wallet/balance | jq . 2>/dev/null || echo "Wallet service not available"
 
 echo ""
-echo "📋 Step 10: Verify container has no GPU access"
+echo "📋 Step 9: Test trading service (port 8104)"
 echo "=========================================="
-ssh aitbc1-cascade "nvidia-smi 2>/dev/null || echo '✅ No GPU access (expected for container)'"
-ssh aitbc1-cascade "lspci | grep -i nvidia || echo '✅ No GPU devices found (expected)'"
+curl -s http://localhost:8104/health | jq . 2>/dev/null || echo "Trading service not available"
 
 echo ""
-echo "📋 Step 11: Test container resource usage"
-echo "=========================================="
-ssh aitbc1-cascade "free -h | head -2"
-ssh aitbc1-cascade "df -h | grep -E '^/dev/' | head -3"
+echo "📋 Step 10: Test governance service (port 8105)"
+echo "=============================================="
+curl -s http://localhost:8105/health | jq . 2>/dev/null || echo "Governance service not available"
 
 echo ""
-echo "📋 Step 12: Test network connectivity from container"
-echo "=========================================="
-ssh aitbc1-cascade "ping -c 2 10.1.223.93 && echo '✅ Can reach aitbc container' || echo '❌ Cannot reach aitbc container'"
-ssh aitbc1-cascade "ping -c 2 8.8.8.8 && echo '✅ Internet connectivity' || echo '❌ No internet connectivity'"
+echo "📋 Step 11: Test exchange service (port 8106)"
+echo "============================================"
+curl -s http://localhost:8106/health | jq . 2>/dev/null || echo "Exchange service not available"
 
 echo ""
-echo "📋 Step 13: Test container vs localhost differences"
+echo "📋 Step 12: Test Hermes service (port 8103)"
 echo "=========================================="
-echo "aitbc1 container services:"
-ssh aitbc1-cascade "ps aux | grep -E '(python|node|nginx)' | grep -v grep || echo 'No services found'"
+curl -s http://localhost:8103/health | jq . 2>/dev/null || echo "Hermes service not available"
 
 echo ""
-echo "aitbc1 container network interfaces:"
-ssh aitbc1-cascade "ip addr show | grep -E 'inet ' | head -3"
+echo "📋 Step 13: Network connectivity check"
+echo "===================================="
+ping -c 2 8.8.8.8 > /dev/null 2>&1 && echo "✅ Internet connectivity" || echo "❌ No internet connectivity"
+
+echo ""
+echo "📋 Step 14: System resource check"
+echo "================================"
+free -h | head -2
+df -h | grep -E '^/dev/' | head -3
 
 echo ""
 echo "🎉 Scenario D Complete!"
 echo "======================="
+echo "✅ Multi-node connectivity tested"

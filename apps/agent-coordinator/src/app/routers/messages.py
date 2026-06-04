@@ -134,6 +134,37 @@ async def get_inbox(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Get messages for agent (hermes polling compatibility)
+@router.get("/messages/{agent_id}")
+@rate_limit(rate=200, per=60)
+async def get_messages_for_agent(
+    request: Request,
+    agent_id: str
+):
+    """Get all messages for a specific agent (hermes polling compatibility)"""
+    try:
+        if not state.message_storage:
+            return {
+                "agent_id": agent_id,
+                "count": 0,
+                "messages": [],
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+
+        messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
+
+        return {
+            "agent_id": agent_id,
+            "count": len(messages),
+            "messages": messages,
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting messages for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Discover agents
 @router.get("/discover")
 @rate_limit(rate=200, per=60)
@@ -344,7 +375,7 @@ async def get_message_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get specific message
-@router.get("/messages/{message_id}")
+@router.get("/messages/id/{message_id}")
 @rate_limit(rate=200, per=60)
 async def get_message(
     request: Request, message_id: str

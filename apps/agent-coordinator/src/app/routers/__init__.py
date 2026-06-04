@@ -1,5 +1,5 @@
 from . import agents, ai, alerts, auth, consensus, health, messages, monitor, monitoring, swarm, tasks, users
-from . import agent_messaging, workflow, websocket
+from . import workflow, websocket
 
 ROUTERS = [
     health.router,
@@ -14,7 +14,6 @@ ROUTERS = [
     alerts.router,
     swarm.router,
     monitor.router,
-    agent_messaging.router,
     workflow.router,
     websocket.router,
 ]

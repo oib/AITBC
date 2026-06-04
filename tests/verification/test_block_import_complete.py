@@ -10,7 +10,7 @@ import requests
 
 from aitbc import AITBCHTTPClient
 
-BASE_URL = "https://aitbc.bubuit.net/rpc"
+BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
 
 def compute_block_hash(height, parent_hash, timestamp):

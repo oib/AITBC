@@ -5,6 +5,18 @@ echo "=== 🛒 SIMPLIFIED MARKETPLACE SCENARIO ==="
 echo "Timestamp: $(date)"
 echo ""
 
+# Source scenario configuration
+if [ -f "/opt/aitbc/.env.scenario" ]; then
+    source /opt/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
+
 # Addresses
 GENESIS_ADDR="ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r"
 USER_ADDR="ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b"

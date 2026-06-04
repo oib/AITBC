@@ -117,6 +117,278 @@ class TestHealthEndpoints:
         for part in parts:
             assert part.isdigit()
 
+    def test_service_name_format(self):
+        """Test service name follows expected format"""
+        service_name = "agent-coordinator"
+        
+        # Should be lowercase with hyphens
+        assert service_name.islower()
+        assert "-" in service_name
+        assert " " not in service_name
+
+    def test_version_format_with_patch(self):
+        """Test version format with patch version"""
+        version = "2.1.3"
+        
+        parts = version.split(".")
+        assert len(parts) == 3
+        assert parts[0] == "2"
+        assert parts[1] == "1"
+        assert parts[2] == "3"
+
+    def test_endpoint_without_parameters(self):
+        """Test endpoint without path parameters"""
+        endpoints = ["/health", "/metrics", "/status"]
+        
+        for endpoint in endpoints:
+            assert "{" not in endpoint
+            assert "}" not in endpoint
+
+    def test_endpoint_list_consistency(self):
+        """Test endpoint list contains expected endpoints"""
+        endpoints = ["/health", "/metrics", "/status", "/info"]
+        
+        assert "/health" in endpoints
+        assert "/metrics" in endpoints
+        assert len(endpoints) == 4
+
+    def test_service_name_case_consistency(self):
+        """Test service name uses consistent case"""
+        service_names = ["agent-coordinator", "workflow-orchestrator", "message-queue"]
+        
+        for name in service_names:
+            assert name.islower()
+            assert "-" in name
+
+    def test_version_string_format(self):
+        """Test version string format with multiple dots"""
+        version = "1.2.3.4"
+        
+        parts = version.split(".")
+        assert len(parts) == 4
+        assert parts[0] == "1"
+        assert parts[3] == "4"
+
+    def test_endpoint_path_validation(self):
+        """Test endpoint path starts with slash"""
+        endpoints = ["/health", "/metrics", "/status", "/info", "/ready"]
+        
+        for endpoint in endpoints:
+            assert endpoint.startswith("/")
+            assert len(endpoint) > 1
+
+    def test_service_name_without_spaces(self):
+        """Test service name has no spaces"""
+        service_names = ["agent-coordinator", "workflow-orchestrator", "message-queue"]
+        
+        for name in service_names:
+            assert " " not in name
+
+    def test_endpoint_without_double_slashes(self):
+        """Test endpoint path has no double slashes"""
+        endpoints = ["/health", "/metrics", "/status", "/info", "/ready"]
+        
+        for endpoint in endpoints:
+            assert "//" not in endpoint
+
+    def test_version_without_negative_numbers(self):
+        """Test version has no negative numbers"""
+        version = "1.2.3"
+        
+        parts = version.split(".")
+        for part in parts:
+            assert int(part) >= 0
+
+    def test_endpoint_without_trailing_slash(self):
+        """Test endpoint path has no trailing slash"""
+        endpoints = ["/health", "/metrics", "/status", "/info", "/ready"]
+        
+        for endpoint in endpoints:
+            assert not endpoint.endswith("/")
+
+    def test_service_name_with_hyphen(self):
+        """Test service name with hyphen"""
+        service_name = "agent-coordinator"
+        
+        assert "-" in service_name
+        assert len(service_name) > 0
+
+    def test_endpoint_with_numeric(self):
+        """Test endpoint path with numeric characters"""
+        endpoints = ["/api/v1/health", "/api/v2/metrics"]
+        
+        for endpoint in endpoints:
+            assert any(char.isdigit() for char in endpoint)
+
+    def test_version_with_multiple_dots(self):
+        """Test version string with multiple dots"""
+        version = "1.2.3.4"
+        
+        assert version.count(".") == 3
+        parts = version.split(".")
+        assert len(parts) == 4
+
+    def test_endpoint_with_special_characters(self):
+        """Test endpoint path with special characters"""
+        endpoints = ["/api/v1/health", "/api/v2/status"]
+        
+        for endpoint in endpoints:
+            assert "/" in endpoint
+            assert endpoint.startswith("/")
+
+    def test_version_with_patch_only(self):
+        """Test version string with only patch version"""
+        version = "1.0.0"
+        
+        parts = version.split(".")
+        assert len(parts) == 3
+
+    def test_endpoint_with_query_params(self):
+        """Test endpoint path with query parameters"""
+        endpoints = ["/health?format=json", "/metrics?format=txt"]
+        
+        for endpoint in endpoints:
+            assert "?" in endpoint
+            assert "=" in endpoint
+
+    def test_service_name_with_underscore(self):
+        """Test service name with underscore"""
+        service_name = "test_service"
+        
+        assert "_" in service_name
+        assert len(service_name) > 0
+
+    def test_endpoint_with_version_prefix(self):
+        """Test endpoint path with version prefix"""
+        endpoints = ["/v1/health", "/v2/metrics"]
+        
+        for endpoint in endpoints:
+            assert "/v" in endpoint
+            assert endpoint.startswith("/v")
+
+    def test_service_name_starts_with_letter(self):
+        """Test service name starts with letter"""
+        service_name = "HealthService"
+        
+        assert service_name[0].isalpha()
+
+    def test_endpoint_without_leading_slash(self):
+        """Test endpoint without leading slash (edge case)"""
+        endpoints = ["health", "metrics"]
+        
+        for endpoint in endpoints:
+            assert not endpoint.startswith("/")
+            assert len(endpoint) > 0
+
+    def test_service_name_with_mixed_case(self):
+        """Test service name with mixed case"""
+        service_name = "HealthServiceAPI"
+        
+        assert "Health" in service_name
+        assert "API" in service_name
+
+    def test_endpoint_with_trailing_slash(self):
+        """Test endpoint with trailing slash"""
+        endpoints = ["/health/", "/metrics/"]
+        
+        for endpoint in endpoints:
+            assert endpoint.endswith("/")
+            assert len(endpoint) > 1
+
+    def test_service_name_with_numbers(self):
+        """Test service name with numbers"""
+        service_name = "Service123"
+        
+        assert "123" in service_name
+
+    def test_endpoint_with_multiple_segments(self):
+        """Test endpoint with multiple path segments"""
+        endpoints = ["/api/v1/health", "/api/v2/metrics/status"]
+        
+        for endpoint in endpoints:
+            assert "/" in endpoint
+            assert endpoint.count("/") >= 3
+
+    def test_service_name_with_special_characters(self):
+        """Test service name with special characters"""
+        service_name = "Service@123!"
+        
+        assert "@" in service_name
+        assert "!" in service_name
+
+    def test_endpoint_with_query_params(self):
+        """Test endpoint with query parameters"""
+        endpoints = ["/health?format=json", "/metrics?verbose=true"]
+        
+        for endpoint in endpoints:
+            assert "?" in endpoint
+
+    def test_service_name_with_spaces(self):
+        """Test service name with spaces"""
+        service_name = "Service Name With Spaces"
+        
+        assert " " in service_name
+
+    def test_endpoint_without_leading_slash(self):
+        """Test endpoint without leading slash (edge case)"""
+        endpoints = ["health", "metrics"]
+        
+        for endpoint in endpoints:
+            assert not endpoint.startswith("/")
+
+    def test_service_name_with_underscores(self):
+        """Test service name with underscores"""
+        service_name = "service_name_with_underscores"
+        
+        assert "_" in service_name
+
+    def test_endpoint_with_hash_fragment(self):
+        """Test endpoint with hash fragment (edge case)"""
+        endpoints = ["/health#section", "/metrics#overview"]
+        
+        for endpoint in endpoints:
+            assert "#" in endpoint
+
+    def test_service_name_with_hyphen(self):
+        """Test service name with hyphen"""
+        service_name = "service-name"
+        
+        assert "-" in service_name
+
+    def test_endpoint_with_port(self):
+        """Test endpoint with port"""
+        endpoints = ["localhost:8080", "localhost:9090"]
+        
+        for endpoint in endpoints:
+            assert ":" in endpoint
+
+    def test_service_name_with_numbers(self):
+        """Test service name with numbers"""
+        service_name = "service123"
+        
+        assert "123" in service_name
+
+    def test_endpoint_with_trailing_slash(self):
+        """Test endpoint with trailing slash"""
+        endpoints = ["/health/", "/metrics/"]
+        
+        for endpoint in endpoints:
+            assert endpoint.endswith("/")
+
+    def test_service_name_with_mixed_case(self):
+        """Test service name with mixed case"""
+        service_name = "ServiceName"
+        
+        assert "Service" in service_name
+        assert "Name" in service_name
+
+    def test_endpoint_with_double_slash(self):
+        """Test endpoint with double slash (edge case)"""
+        endpoints = ["//health", "//metrics"]
+        
+        for endpoint in endpoints:
+            assert "//" in endpoint
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
