@@ -825,6 +825,226 @@ try:
         except Exception as e:
             error(f"Error cancelling job: {e}")
 
+    # Agent Coordinator integration commands
+    @agent.group()
+    def discover():
+        """Discover agents by capability"""
+        pass
+
+    @discover.command()
+    @click.option('--capability', help='Filter by capability')
+    @click.option('--agent-type', help='Filter by agent type')
+    @click.option('--min-health', type=float, default=0.0, help='Minimum health score')
+    @click.option('--limit', type=int, default=50, help='Maximum results')
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Agent coordinator URL')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def agents(ctx, capability, agent_type, min_health, limit, coordinator_url, format):
+        """Discover agents by capability"""
+        try:
+            import requests
+            params = {}
+            if capability:
+                params["capability"] = capability
+            if agent_type:
+                params["agent_type"] = agent_type
+            if min_health > 0:
+                params["min_health_score"] = min_health
+            if limit:
+                params["limit"] = limit
+
+            response = requests.get(f"{coordinator_url}/api/v1/agent/discover", params=params, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            output(result, ctx.obj.get('output_format', format), title="Discovered Agents")
+        except requests.exceptions.RequestException as e:
+            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+            error("Make sure the agent-coordinator service is running")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error discovering agents: {e}")
+            raise click.Abort()
+
+    @agent.command()
+    @click.option('--agent-id', required=True, help='Agent ID')
+    @click.option('--limit', type=int, default=100, help='Maximum messages')
+    @click.option('--unread-only', is_flag=True, help='Only unread messages')
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Agent coordinator URL')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def inbox(ctx, agent_id, limit, unread_only, coordinator_url, format):
+        """View agent inbox"""
+        try:
+            import requests
+            params = {
+                "agent_id": agent_id,
+                "limit": limit,
+                "unread_only": unread_only
+            }
+            response = requests.get(f"{coordinator_url}/api/v1/agent/messages/inbox", params=params, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            output(result, ctx.obj.get('output_format', format), title=f"Inbox for {agent_id}")
+        except requests.exceptions.RequestException as e:
+            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+            error("Make sure the agent-coordinator service is running")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error getting inbox: {e}")
+            raise click.Abort()
+
+    @agent.command()
+    @click.option('--agent-id', required=True, help='Agent ID')
+    @click.option('--topic', required=True, help='Topic to subscribe to')
+    @click.option('--filter', help='Filter criteria (JSON string)')
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Agent coordinator URL')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def subscribe(ctx, agent_id, topic, filter, coordinator_url, format):
+        """Subscribe to topic"""
+        try:
+            import requests
+            data = {
+                "agent_id": agent_id,
+                "topic": topic,
+                "filter": json.loads(filter) if filter else {}
+            }
+            response = requests.post(f"{coordinator_url}/api/v1/agent/subscribe", json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            output(result, ctx.obj.get('output_format', format), title="Subscription")
+            success(f"Agent {agent_id} subscribed to topic {topic}")
+        except json.JSONDecodeError as e:
+            error(f"Invalid JSON in filter: {e}")
+            raise click.Abort()
+        except requests.exceptions.RequestException as e:
+            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+            error("Make sure the agent-coordinator service is running")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error subscribing to topic: {e}")
+            raise click.Abort()
+
+    @agent.group()
+    def workflow():
+        """Workflow management"""
+        pass
+
+    @workflow.command()
+    @click.option('--name', required=True, help='Workflow name')
+    @click.option('--description', help='Workflow description')
+    @click.option('--steps-file', required=True, type=click.Path(exists=True), help='JSON file with workflow steps')
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Agent coordinator URL')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def create(ctx, name, description, steps_file, coordinator_url, format):
+        """Create workflow"""
+        try:
+            import requests
+            with open(steps_file, 'r') as f:
+                steps = json.load(f)
+
+            data = {
+                "name": name,
+                "description": description or "",
+                "steps": steps,
+                "created_by": "cli"
+            }
+            response = requests.post(f"{coordinator_url}/api/v1/agent/workflows", json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            output(result, ctx.obj.get('output_format', format), title="Created Workflow")
+            success(f"Workflow '{name}' created successfully")
+        except FileNotFoundError as e:
+            error(f"File not found: {e}")
+            raise click.Abort()
+        except json.JSONDecodeError as e:
+            error(f"Invalid JSON in steps file: {e}")
+            raise click.Abort()
+        except requests.exceptions.RequestException as e:
+            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+            error("Make sure the agent-coordinator service is running")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error creating workflow: {e}")
+            raise click.Abort()
+
+    @workflow.command()
+    @click.option('--workflow-id', required=True, help='Workflow ID')
+    @click.option('--input-file', type=click.Path(exists=True), help='JSON file with input parameters')
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Agent coordinator URL')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def execute(ctx, workflow_id, input_file, coordinator_url, format):
+        """Execute workflow"""
+        try:
+            import requests
+            input_params = {}
+            if input_file:
+                with open(input_file, 'r') as f:
+                    input_params = json.load(f)
+
+            data = {"input_parameters": input_params}
+            response = requests.post(f"{coordinator_url}/api/v1/agent/workflows/{workflow_id}/execute", json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            output(result, ctx.obj.get('output_format', format), title="Workflow Execution")
+            success(f"Workflow {workflow_id} execution started")
+        except FileNotFoundError as e:
+            error(f"File not found: {e}")
+            raise click.Abort()
+        except json.JSONDecodeError as e:
+            error(f"Invalid JSON in input file: {e}")
+            raise click.Abort()
+        except requests.exceptions.RequestException as e:
+            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+            error("Make sure the agent-coordinator service is running")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error executing workflow: {e}")
+            raise click.Abort()
+
+    @workflow.command()
+    @click.option('--workflow-id', required=True, help='Workflow ID')
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Agent coordinator URL')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def status(ctx, workflow_id, coordinator_url, format):
+        """Get workflow status"""
+        try:
+            import requests
+            response = requests.get(f"{coordinator_url}/api/v1/agent/workflows/{workflow_id}/status", timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            output(result, ctx.obj.get('output_format', format), title=f"Workflow Status: {workflow_id}")
+        except requests.exceptions.RequestException as e:
+            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+            error("Make sure the agent-coordinator service is running")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error getting workflow status: {e}")
+            raise click.Abort()
+
+    @workflow.command()
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Agent coordinator URL')
+    @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+    @click.pass_context
+    def list(ctx, coordinator_url, format):
+        """List workflows"""
+        try:
+            import requests
+            response = requests.get(f"{coordinator_url}/api/v1/agent/workflows", timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            output(result, ctx.obj.get('output_format', format), title="Workflows")
+        except requests.exceptions.RequestException as e:
+            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+            error("Make sure the agent-coordinator service is running")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error listing workflows: {e}")
+            raise click.Abort()
+
 except ImportError:
     # Click not available, commands will be added programmatically
     pass

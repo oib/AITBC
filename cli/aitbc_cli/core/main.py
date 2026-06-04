@@ -13,6 +13,7 @@ if str(CLI_DIR) not in sys.path:
 
 import click
 from aitbc_cli.commands.account import account
+from aitbc_cli.commands.ai import ai
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
 from aitbc_cli.commands.bridge import bridge
@@ -26,6 +27,7 @@ from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core d
 from aitbc_cli.commands.economics import economics
 from aitbc_cli.commands.edge import edge
 from aitbc_cli.commands.market import market
+from aitbc_cli.commands.reputation import reputation
 
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
@@ -149,9 +151,11 @@ cli.add_command(system)
 cli.add_command(market, name="market")
 cli.add_command(marketplace, name="marketplace")  # Keep old marketplace for compatibility
 cli.add_command(chain, name="blockchain")
-cli.add_command(agent, name="ai")
+cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
+cli.add_command(ai)  # AI job submission and inspection
 cli.add_command(analytics)  # Re-enabled - core.analytics exists
 cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
+cli.add_command(reputation)  # Reputation management
 # cli.add_command(deployment)  # Disabled - missing core.deployment module
 cli.add_command(monitor)  # Re-enabled - no core dependency
 # cli.add_command(node)  # Disabled - imports from non-existent aitbc_cli.core

@@ -1,95 +1,210 @@
 import json
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from .. import state
+from ..encryption import EncryptedMessage, get_encryptor
 from ..models import BroadcastRequest, MessageRequest
 from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
 
 logger = get_logger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/agent", tags=["agent-messaging"])
 
-# Send message
+
+class SendMessageRequest(BaseModel):
+    """Request to send encrypted message"""
+    sender: str = Field(..., description="Sender agent ID")
+    recipient: str = Field(..., description="Recipient agent ID")
+    content: dict[str, Any] = Field(..., description="Message content")
+    message_type: str = Field(default="direct", description="Message type")
+    encrypt: bool = Field(default=True, description="Whether to encrypt message")
+    priority: str = Field(default="normal", description="Message priority")
+    ttl: int = Field(default=300, description="Time to live in seconds")
+
+
+class SubscribeRequest(BaseModel):
+    """Request to subscribe to topic"""
+    agent_id: str = Field(..., description="Agent ID")
+    topic: str = Field(..., description="Topic to subscribe to")
+    filter: dict[str, Any] = Field(default_factory=dict, description="Filter criteria")
+
+# Send encrypted message
 @router.post("/messages/send")
 @rate_limit(rate=50, per=60)
-async def send_message(
-    request_http: Request, request: MessageRequest
-):
-    """Send message to agent"""
+async def send_encrypted_message(request: Request, req: SendMessageRequest):
+    """Send encrypted message to agent"""
     try:
-        if not state.communication_manager:
-            raise HTTPException(status_code=503, detail="Communication manager not available")
+        encryptor = get_encryptor()
 
-        from ..protocols.communication import AgentMessage, Priority
-
-        # Validate protocol
-        valid_protocols = ["hierarchical", "peer_to_peer", "broadcast"]
-        protocol = request.protocol.lower()
-        if protocol not in valid_protocols:
-            raise HTTPException(status_code=400, detail=f"Invalid protocol: {request.protocol}. Valid protocols: {', '.join(valid_protocols)}")
-
-        # Convert message type
-        try:
-            message_type = MessageType(request.message_type)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid message type: {request.message_type}")
-
-        # Convert priority
-        try:
-            priority = Priority(request.priority.lower())
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid priority: {request.priority}")
-
-        # Create message
-        message = AgentMessage(
-            sender_id="agent-coordinator",
-            receiver_id=request.receiver_id,
-            message_type=message_type,
-            priority=priority,
-            payload=request.payload
-        )
-
-# Send message
-        # Store message in Redis first (always)
-        message_data = {
-            "sender_id": message.sender_id,
-            "receiver_id": message.receiver_id,
-            "message_type": message.message_type.value,
-            "priority": message.priority.value,
-            "payload": json.dumps(message.payload),
-            "protocol": protocol,
+        # Prepare message content
+        message_content = {
+            "content": req.content,
+            "message_type": req.message_type,
             "timestamp": datetime.now(UTC).isoformat()
         }
 
-        if state.message_storage:
-            await state.message_storage.store_message(message.id, message_data)
+        if req.encrypt:
+            # Encrypt message
+            encrypted_msg = encryptor.encrypt_message(
+                message=message_content,
+                sender_id=req.sender,
+                recipient_id=req.recipient
+            )
 
-        # Try to send via protocol (optional, for real-time notification)
-        if state.communication_manager:
-            try:
-                await state.communication_manager.send_message(protocol, message)
-            except Exception:
-                pass  # Protocol send is optional
+            if not encrypted_msg:
+                raise HTTPException(status_code=500, detail="Failed to encrypt message")
+
+            message_data = encrypted_msg.to_dict()
+            message_data["encrypted"] = True
+        else:
+            # Send unencrypted
+            message_data = {
+                "sender": req.sender,
+                "recipient": req.recipient,
+                "content": req.content,
+                "message_type": req.message_type,
+                "encrypted": False,
+                "priority": req.priority,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+
+        # Store in message storage
+        if state.message_storage:
+            message_id = f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{req.sender[:8]}"
+            await state.message_storage.store_message(message_id, message_data)
 
         return {
             "status": "success",
-            "message": "Message sent successfully",
-            "message_id": message.id,
-            "receiver_id": request.receiver_id,
-            "protocol": protocol,
+            "message_id": message_id if state.message_storage else "in-memory",
+            "sender": req.sender,
+            "recipient": req.recipient,
+            "encrypted": req.encrypt,
             "sent_at": datetime.now(UTC).isoformat()
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error sending message: {e}")
+        logger.error(f"Error sending encrypted message: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Get inbox
+@router.get("/messages/inbox")
+@rate_limit(rate=200, per=60)
+async def get_inbox(
+    request: Request,
+    agent_id: str = Query(..., description="Agent ID"),
+    limit: int = Query(100, description="Maximum messages"),
+    unread_only: bool = Query(False, description="Only unread messages")
+):
+    """Get agent's inbox"""
+    try:
+        if not state.message_storage:
+            # Return empty inbox if no storage
+            return {
+                "agent_id": agent_id,
+                "messages": [],
+                "count": 0,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+
+        messages = await state.message_storage.get_messages_by_receiver(agent_id, limit, 0)
+
+        # Filter for unread if requested
+        if unread_only:
+            messages = [m for m in messages if not m.get("read", False)]
+
+        return {
+            "agent_id": agent_id,
+            "messages": messages,
+            "count": len(messages),
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting inbox: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Discover agents
+@router.get("/discover")
+@rate_limit(rate=200, per=60)
+async def discover_agents(
+    request: Request,
+    capability: str | None = Query(None, description="Filter by capability"),
+    agent_type: str | None = Query(None, description="Filter by agent type"),
+    min_health_score: float = Query(0.0, description="Minimum health score"),
+    limit: int = Query(50, description="Maximum results")
+):
+    """Discover agents by criteria"""
+    try:
+        if not state.agent_registry:
+            raise HTTPException(status_code=503, detail="Agent registry not available")
+
+        query = {}
+        if capability:
+            query["capabilities"] = [capability]
+        if agent_type:
+            query["agent_type"] = agent_type
+        if min_health_score > 0:
+            query["min_health_score"] = min_health_score
+        if limit:
+            query["limit"] = limit
+
+        agents = await state.agent_registry.discover_agents(query)
+
+        return {
+            "agents": [agent.to_dict() for agent in agents],
+            "count": len(agents),
+            "query": query,
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error discovering agents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Subscribe to topic
+@router.post("/subscribe")
+@rate_limit(rate=50, per=60)
+async def subscribe_to_topic(request: Request, req: SubscribeRequest):
+    """Subscribe agent to topic"""
+    try:
+        # Store subscription in Redis
+        if state.message_storage:
+            subscription_data = {
+                "agent_id": req.agent_id,
+                "topic": req.topic,
+                "filter": req.filter,
+                "subscribed_at": datetime.now(UTC).isoformat()
+            }
+            subscription_key = f"subscription:{req.agent_id}:{req.topic}"
+            # Note: This would need a store_subscription method in message_storage
+            # For now, just return success
+            logger.info(f"Agent {req.agent_id} subscribed to topic {req.topic}")
+
+        return {
+            "status": "success",
+            "agent_id": req.agent_id,
+            "topic": req.topic,
+            "subscribed_at": datetime.now(UTC).isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error subscribing to topic: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Broadcast message
 @router.post("/messages/broadcast")

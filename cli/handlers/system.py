@@ -1,9 +1,11 @@
 """System and utility handlers."""
 
-import logging
 import json
+import logging
 import random
 import sys
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -98,19 +100,115 @@ def handle_agent_action(args, agent_operations, render_mapping):
         # Handle case where result doesn't have 'action' field (e.g., message send)
         if 'action' in result:
             render_mapping(f"Agent {result['action']}:", result)
+
+
+def handle_agent_coordinator_action(args, render_mapping):
+    """Handle agent coordinator integration commands."""
+    coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
+    action = getattr(args, "agent_coordinator_action", None)
+
+    try:
+        if action == "discover":
+            # Discover agents by capability
+            params = {}
+            if hasattr(args, "capability") and args.capability:
+                params["capability"] = args.capability
+            if hasattr(args, "agent_type") and args.agent_type:
+                params["agent_type"] = args.agent_type
+            if hasattr(args, "min_health") and args.min_health > 0:
+                params["min_health_score"] = args.min_health
+            if hasattr(args, "limit"):
+                params["limit"] = args.limit
+
+            response = requests.get(f"{coordinator_url}/api/v1/agent/discover", params=params, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            render_mapping("Discovered Agents:", result)
+
+        elif action == "inbox":
+            # Get agent inbox
+            params = {
+                "agent_id": args.agent_id,
+                "limit": getattr(args, "limit", 100),
+                "unread_only": getattr(args, "unread_only", False)
+            }
+            response = requests.get(f"{coordinator_url}/api/v1/agent/messages/inbox", params=params, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            render_mapping(f"Inbox for {args.agent_id}:", result)
+
+        elif action == "subscribe":
+            # Subscribe to topic
+            data = {
+                "agent_id": args.agent_id,
+                "topic": args.topic,
+                "filter": json.loads(args.filter) if hasattr(args, "filter") and args.filter else {}
+            }
+            response = requests.post(f"{coordinator_url}/api/v1/agent/subscribe", json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            render_mapping("Subscription:", result)
+
+        elif action == "workflow_create":
+            # Create workflow
+            with open(args.steps_file, 'r') as f:
+                steps = json.load(f)
+
+            data = {
+                "name": args.name,
+                "description": getattr(args, "description", ""),
+                "steps": steps,
+                "created_by": "cli"
+            }
+            response = requests.post(f"{coordinator_url}/api/v1/agent/workflows", json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            render_mapping("Created Workflow:", result)
+
+        elif action == "workflow_execute":
+            # Execute workflow
+            input_params = {}
+            if hasattr(args, "input_file") and args.input_file:
+                with open(args.input_file, 'r') as f:
+                    input_params = json.load(f)
+
+            data = {"input_parameters": input_params}
+            response = requests.post(f"{coordinator_url}/api/v1/agent/workflows/{args.workflow_id}/execute", json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            render_mapping("Workflow Execution:", result)
+
+        elif action == "workflow_status":
+            # Get workflow status
+            response = requests.get(f"{coordinator_url}/api/v1/agent/workflows/{args.workflow_id}/status", timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            render_mapping("Workflow Status:", result)
+
+        elif action == "workflow_list":
+            # List workflows
+            response = requests.get(f"{coordinator_url}/api/v1/agent/workflows", timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            render_mapping("Workflows:", result)
+
         else:
-            # Just print success message for message send
-            logger.info("Agent operation completed successfully")
+            logger.error(f"Unknown agent coordinator action: {action}")
+            sys.exit(1)
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
+        logger.info("Make sure the agent-coordinator service is running")
+        sys.exit(1)
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON: {e}")
+        sys.exit(1)
     except Exception as e:
-        # Return stub data on error
-        stub_result = {
-            "action": args.agent_action,
-            "status": "simulated",
-            "error": str(e),
-            "timestamp": __import__('datetime').datetime.now().isoformat()
-        }
-        logger.error(f"Agent {args.agent_action} (simulated - error: {e})")
-        render_mapping(f"Agent {args.agent_action}:", stub_result)
+        logger.error(f"Error: {e}")
+        sys.exit(1)
 
 
 def handle_agent_sdk_action(args, render_mapping):
