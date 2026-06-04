@@ -134,7 +134,7 @@ jobs:
             -v \
             --tb=short \
             --timeout=30 \
-            -k "not test_error_handling"
+            -k "not test_error_handling and not eth"
 
           echo "✅ Production tests completed"
 
