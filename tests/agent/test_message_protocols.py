@@ -509,6 +509,42 @@ class TestMessageFactoryFunctions:
         assert message.message_type == MessageType.CONSENSUS
         assert "consensus_id" in message.payload
 
+    def test_message_with_nested_payload(self):
+        """Test message with nested payload structure"""
+        message = create_task_message(
+            sender_id="coordinator",
+            task_id="task_nested",
+            task_data={
+                "action": "train",
+                "model": {
+                    "name": "gpt-4",
+                    "parameters": {"layers": 12, "heads": 16}
+                },
+                "dataset": {
+                    "name": "common_crawl",
+                    "size": "1TB"
+                }
+            }
+        )
+        
+        assert message.message_type == MessageType.TASK
+        assert "model" in message.payload
+        assert "dataset" in message.payload
+
+    def test_message_with_array_payload(self):
+        """Test message with array payload"""
+        message = create_task_message(
+            sender_id="coordinator",
+            task_id="task_array",
+            task_data={
+                "actions": ["train", "validate", "test"],
+                "epochs": [10, 5, 2]
+            }
+        )
+        
+        assert isinstance(message.payload["actions"], list)
+        assert len(message.payload["actions"]) == 3
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
