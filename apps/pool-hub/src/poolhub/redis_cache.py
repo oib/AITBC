@@ -23,7 +23,10 @@ def create_redis() -> redis.Redis:
 
 def get_redis_client() -> redis.Redis:
     if _redis_client is None:
-        return create_redis()
+        client = create_redis()
+        if client is None:
+            logger.warning("Redis client unavailable - features requiring Redis will be disabled")
+        return client
     return _redis_client
 
 

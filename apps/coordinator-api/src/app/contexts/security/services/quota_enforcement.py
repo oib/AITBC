@@ -28,6 +28,9 @@ class QuotaEnforcementService:
         self._quota_cache = {}  # type: ignore[var-annotated]
         self._cache_ttl = 300  # 5 minutes
 
+        if self.redis is None:
+            self.logger.warning("Redis client not provided - quota caching disabled, falling back to database only")
+
     async def check_quota(self, resource_type: str, quantity: float, tenant_id: str | None = None) -> bool:
         """Check if tenant has sufficient quota for a resource"""
 
