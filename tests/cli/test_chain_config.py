@@ -747,6 +747,508 @@ class TestChainConfig:
         
         assert consensus.algorithm == ConsensusAlgorithm.POW
 
+    def test_chain_config_with_hyphen_in_name(self):
+        """Test chain config with hyphen in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Hyphen Name",
+            name="chain-123",
+            consensus=consensus
+        )
+        
+        assert "-" in config.name
+
+    def test_chain_config_with_empty_name(self):
+        """Test chain config with empty name (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Empty Name",
+            name="",
+            consensus=consensus
+        )
+        
+        assert config.name == ""
+
+    def test_chain_config_with_mixed_case_purpose(self):
+        """Test chain config with mixed case purpose"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Mixed Case",
+            name="chain",
+            consensus=consensus
+        )
+        
+        assert "Mixed" in config.purpose
+
+    def test_chain_config_with_empty_purpose(self):
+        """Test chain config with empty purpose (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="",
+            name="chain",
+            consensus=consensus
+        )
+        
+        assert config.purpose == ""
+
+    def test_chain_config_with_numeric_purpose(self):
+        """Test chain config with numeric purpose"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="123",
+            name="chain",
+            consensus=consensus
+        )
+        
+        assert config.purpose == "123"
+
+    def test_chain_config_with_hyphen_in_purpose(self):
+        """Test chain config with hyphen in purpose"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="hyphen-purpose",
+            name="chain",
+            consensus=consensus
+        )
+        
+        assert "-" in config.purpose
+
+    def test_chain_config_with_underscore_in_purpose(self):
+        """Test chain config with underscore in purpose"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="underscore_purpose",
+            name="chain",
+            consensus=consensus
+        )
+        
+        assert "_" in config.purpose
+
+    def test_chain_config_with_special_characters_in_name(self):
+        """Test chain config with special characters in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Special",
+            name="chain@#$",
+            consensus=consensus
+        )
+        
+        assert "@" in config.name
+        assert "#" in config.name
+        assert "$" in config.name
+
+    def test_chain_config_with_spaces_in_name(self):
+        """Test chain config with spaces in name (edge case)"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Spaces",
+            name="chain 123",
+            consensus=consensus
+        )
+        
+        assert " " in config.name
+
+    def test_chain_config_with_underscore_in_name(self):
+        """Test chain config with underscore in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Underscore",
+            name="chain_123",
+            consensus=consensus
+        )
+        
+        assert "_" in config.name
+
+    def test_chain_config_with_pipe_in_name(self):
+        """Test chain config with pipe in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Pipe",
+            name="chain|123",
+            consensus=consensus
+        )
+        
+        assert "|" in config.name
+
+    def test_chain_config_with_colon_in_name(self):
+        """Test chain config with colon in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Colon",
+            name="chain:123",
+            consensus=consensus
+        )
+        
+        assert ":" in config.name
+
+    def test_chain_config_with_semicolon_in_name(self):
+        """Test chain config with semicolon in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Semicolon",
+            name="chain;123",
+            consensus=consensus
+        )
+        
+        assert ";" in config.name
+
+    def test_chain_config_with_equals_in_name(self):
+        """Test chain config with equals in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Equals",
+            name="chain=123",
+            consensus=consensus
+        )
+        
+        assert "=" in config.name
+
+    def test_chain_config_with_plus_in_name(self):
+        """Test chain config with plus in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Plus",
+            name="chain+123",
+            consensus=consensus
+        )
+        
+        assert "+" in config.name
+
+    def test_chain_config_with_slash_in_name(self):
+        """Test chain config with slash in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Slash",
+            name="chain/123",
+            consensus=consensus
+        )
+        
+        assert "/" in config.name
+
+    def test_chain_config_with_backslash_in_name(self):
+        """Test chain config with backslash in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Backslash",
+            name="chain\\123",
+            consensus=consensus
+        )
+        
+        assert "\\" in config.name
+
+    def test_chain_config_with_bracket_in_name(self):
+        """Test chain config with bracket in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Bracket",
+            name="chain[123]",
+            consensus=consensus
+        )
+        
+        assert "[" in config.name
+        assert "]" in config.name
+
+    def test_chain_config_with_parenthesis_in_name(self):
+        """Test chain config with parenthesis in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Parenthesis",
+            name="chain(123)",
+            consensus=consensus
+        )
+        
+        assert "(" in config.name
+        assert ")" in config.name
+
+    def test_chain_config_with_curly_bracket_in_name(self):
+        """Test chain config with curly bracket in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="CurlyBracket",
+            name="chain{123}",
+            consensus=consensus
+        )
+        
+        assert "{" in config.name
+        assert "}" in config.name
+
+    def test_chain_config_with_angle_bracket_in_name(self):
+        """Test chain config with angle bracket in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="AngleBracket",
+            name="chain<123>",
+            consensus=consensus
+        )
+        
+        assert "<" in config.name
+        assert ">" in config.name
+
+    def test_chain_config_with_dollar_in_name(self):
+        """Test chain config with dollar in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Dollar",
+            name="chain$123",
+            consensus=consensus
+        )
+        
+        assert "$" in config.name
+
+    def test_chain_config_with_at_in_name(self):
+        """Test chain config with at in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="At",
+            name="chain@123",
+            consensus=consensus
+        )
+        
+        assert "@" in config.name
+
+    def test_chain_config_with_hash_in_name(self):
+        """Test chain config with hash in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Hash",
+            name="chain#123",
+            consensus=consensus
+        )
+        
+        assert "#" in config.name
+
+    def test_chain_config_with_exclamation_in_name(self):
+        """Test chain config with exclamation in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Exclamation",
+            name="chain!123",
+            consensus=consensus
+        )
+        
+        assert "!" in config.name
+
+    def test_chain_config_with_asterisk_in_name(self):
+        """Test chain config with asterisk in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Asterisk",
+            name="chain*123",
+            consensus=consensus
+        )
+        
+        assert "*" in config.name
+
+    def test_chain_config_with_plus_in_name(self):
+        """Test chain config with plus in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Plus",
+            name="chain+123",
+            consensus=consensus
+        )
+        
+        assert "+" in config.name
+
+    def test_chain_config_with_equals_in_name(self):
+        """Test chain config with equals in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Equals",
+            name="chain=123",
+            consensus=consensus
+        )
+        
+        assert "=" in config.name
+
+    def test_chain_config_with_bracket_in_name(self):
+        """Test chain config with bracket in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Bracket",
+            name="chain[123]",
+            consensus=consensus
+        )
+        
+        assert "[" in config.name
+
+    def test_chain_config_with_curly_brace_in_name(self):
+        """Test chain config with curly brace in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="CurlyBrace",
+            name="chain{123}",
+            consensus=consensus
+        )
+        
+        assert "{" in config.name
+
+    def test_chain_config_with_pipe_in_name(self):
+        """Test chain config with pipe in name"""
+        consensus = ConsensusConfig(
+            algorithm=ConsensusAlgorithm.POA,
+            block_time=2
+        )
+        
+        config = ChainConfig(
+            type=ChainType.MAIN,
+            purpose="Pipe",
+            name="chain|123",
+            consensus=consensus
+        )
+        
+        assert "|" in config.name
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

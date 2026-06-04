@@ -6,9 +6,9 @@
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -139,7 +139,7 @@ sysctl -p
 
 # Optimize P2P settings if configured
 if [ -f "/etc/aitbc/blockchain.env" ]; then
-    sed -i 's/p2p_bind_port=7070/p2p_bind_port=7070/' /etc/aitbc/blockchain.env
+    sed -i 's/p2p_bind_port=8200/p2p_bind_port=8200/' /etc/aitbc/blockchain.env
     echo 'p2p_max_connections=50' >> /etc/aitbc/blockchain.env
     echo 'p2p_connection_timeout=30' >> /etc/aitbc/blockchain.env
     echo -e "   ${GREEN}✅${NC} P2P settings optimized"
@@ -157,8 +157,8 @@ mkdir -p /opt/aitbc/performance
 CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
 MEM_USAGE=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
 DISK_USAGE=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
-BLOCK_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq -r .height 2>/dev/null || echo "0")
-RPC_RESPONSE=$(curl -s -w "%{time_total}" -o /dev/null http://localhost:8006/rpc/info)
+BLOCK_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo "0")
+RPC_RESPONSE=$(curl -s -w "%{time_total}" -o /dev/null $BLOCKCHAIN_RPC/rpc/info)
 
 # Create baseline report
 cat > /opt/aitbc/performance/baseline.txt << EOF
@@ -199,7 +199,7 @@ echo "======================"
 echo "Testing transaction throughput..."
 start_time=$(date +%s)
 for i in {1..10}; do
-    curl -s http://localhost:8006/rpc/info >/dev/null 2>&1
+    curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1
 done
 end_time=$(date +%s)
 throughput=$((10 / (end_time - start_time)))
@@ -208,7 +208,7 @@ echo "RPC throughput: $throughput requests/second"
 
 # Test blockchain sync
 echo "Testing blockchain performance..."
-current_height=$(curl -s http://localhost:8006/rpc/head | jq -r .height 2>/dev/null || echo "0")
+current_height=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo "0")
 echo "Current blockchain height: $current_height"
 
 # Test memory usage

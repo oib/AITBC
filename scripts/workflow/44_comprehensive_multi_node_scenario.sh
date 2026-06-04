@@ -6,9 +6,9 @@
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -22,7 +22,7 @@ set -e
 AITBC1_HOST="aitbc1"
 AITBC_HOST="localhost"
 GITEA_RUNNER_HOST="gitea-runner"
-GENESIS_PORT="8006"
+GENESIS_PORT="8202"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="$LOG_DIR/comprehensive_scenario_$(date +%Y%m%d_%H%M%S).log"
 ERROR_LOG="$LOG_DIR/comprehensive_scenario_errors_$(date +%Y%m%d_%H%M%S).log"
@@ -145,25 +145,25 @@ phase1_preflight_checks() {
     
     # Check AITBC services on aitbc1
     log_info "Checking AITBC services on aitbc1"
-    health_check "$AITBC1_HOST" "blockchain-node" "8006" || log_warning "Blockchain node on aitbc1 may not be healthy"
+    health_check "$AITBC1_HOST" "blockchain-node" "8202" || log_warning "Blockchain node on aitbc1 may not be healthy"
     health_check "$AITBC1_HOST" "coordinator-api" "8011" || log_warning "Coordinator API on aitbc1 may not be healthy"
     
     # Check AITBC services on localhost
     log_info "Checking AITBC services on localhost"
-    health_check "localhost" "blockchain-node" "8006" || log_warning "Blockchain node on localhost may not be healthy"
+    health_check "localhost" "blockchain-node" "8202" || log_warning "Blockchain node on localhost may not be healthy"
     health_check "localhost" "coordinator-api" "8011" || log_warning "Coordinator API on localhost may not be healthy"
     # blockchain-event-bridge service not configured - skipping health check
     
     # Check AITBC services on gitea-runner
     log_info "Checking AITBC services on gitea-runner"
-    health_check "$GITEA_RUNNER_HOST" "blockchain-node" "8006" || log_warning "Blockchain node on gitea-runner may not be healthy"
+    health_check "$GITEA_RUNNER_HOST" "blockchain-node" "8202" || log_warning "Blockchain node on gitea-runner may not be healthy"
     health_check "$GITEA_RUNNER_HOST" "blockchain-node" "8007" || log_warning "Blockchain node on gitea-runner may not be healthy"
     
     # Verify blockchain sync status
     log_info "Checking blockchain sync status across nodes"
-    local aitbc1_height=$(execute_on_node "$AITBC1_HOST" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
-    local aitbc_height=$(execute_on_node "localhost" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
-    local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local aitbc1_height=$(execute_on_node "$AITBC1_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     
     log_info "Blockchain heights - aitbc1: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
     
@@ -213,7 +213,7 @@ phase2_transaction_flow() {
     log_info "User address: $user_addr"
     
     # Check genesis balance via RPC (quiet mode to avoid debug output in variable)
-    local genesis_balance=$(execute_on_node "$AITBC1_HOST" "curl -s http://localhost:8006/rpc/getBalance/$genesis_addr" true 2>/dev/null | jq -r '.balance // 0' 2>/dev/null || echo "0")
+    local genesis_balance=$(execute_on_node "$AITBC1_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/getBalance/$genesis_addr" true 2>/dev/null | jq -r '.balance // 0' 2>/dev/null || echo "0")
     
     # Handle null or non-numeric balance
     if [ "$genesis_balance" = "null" ] || ! [[ "$genesis_balance" =~ ^[0-9]+$ ]]; then
@@ -228,12 +228,12 @@ phase2_transaction_flow() {
         log_info "Mining 5 blocks to fund genesis wallet..."
         for i in {1..5}; do
             log_debug "Mining block $i..."
-            execute_on_node "$AITBC1_HOST" "curl -s -X POST http://localhost:8006/rpc/mineBlock -H 'Content-Type: application/json' -d '{}'" >/dev/null 2>&1 || log_warning "Failed to mine block $i"
+            execute_on_node "$AITBC1_HOST" "curl -s -X POST $BLOCKCHAIN_RPC/rpc/mineBlock -H 'Content-Type: application/json' -d '{}'" >/dev/null 2>&1 || log_warning "Failed to mine block $i"
             sleep 1
         done
         
         # Check balance again after mining
-        genesis_balance=$(execute_on_node "$AITBC1_HOST" "curl -s http://localhost:8006/rpc/getBalance/$genesis_addr" true 2>/dev/null | jq -r '.balance // 0' 2>/dev/null || echo "0")
+        genesis_balance=$(execute_on_node "$AITBC1_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/getBalance/$genesis_addr" true 2>/dev/null | jq -r '.balance // 0' 2>/dev/null || echo "0")
         if [ "$genesis_balance" = "null" ] || ! [[ "$genesis_balance" =~ ^[0-9]+$ ]]; then
             genesis_balance=0
         fi
@@ -263,7 +263,7 @@ phase2_transaction_flow() {
     sleep 5
     
     # Verify balance updates via RPC
-    local user_balance=$(curl -s "http://localhost:8006/rpc/getBalance/$user_addr" | jq -r .balance 2>/dev/null || echo "0")
+    local user_balance=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$user_addr" | jq -r .balance 2>/dev/null || echo "0")
     log_info "User balance after transaction: $user_balance AIT"
     
     log_success "Phase 2: Transaction flow completed"
@@ -312,9 +312,9 @@ phase4_blockchain_sync_event_bridge() {
     /opt/aitbc/aitbc-cli bridge metrics || log_warning "Failed to get event bridge metrics"
     
     # Get current heights (quiet mode to avoid debug output in variables)
-    local aitbc1_height=$(execute_on_node "$AITBC1_HOST" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
-    local aitbc_height=$(execute_on_node "localhost" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
-    local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local aitbc1_height=$(execute_on_node "$AITBC1_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     
     log_info "Current heights - aitbc1: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
     
@@ -416,15 +416,15 @@ phase9_final_verification() {
     
     # Check blockchain heights consistency (quiet mode)
     log_info "Final blockchain height check"
-    local aitbc1_height=$(execute_on_node "$AITBC1_HOST" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
-    local aitbc_height=$(execute_on_node "localhost" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
-    local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s http://localhost:8006/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local aitbc1_height=$(execute_on_node "$AITBC1_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
+    local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     
     log_info "Final heights - aitbc1: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
     
     # Check service health
     log_info "Final service health check"
-    health_check "localhost" "blockchain-node" "8006" || log_error "Blockchain node unhealthy"
+    health_check "localhost" "blockchain-node" "8202" || log_error "Blockchain node unhealthy"
     health_check "localhost" "coordinator-api" "8011" || log_warning "Coordinator API unhealthy"
     health_check "localhost" "blockchain-event-bridge" "8204" || log_warning "Event bridge unhealthy"
     

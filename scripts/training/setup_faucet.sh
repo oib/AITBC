@@ -4,6 +4,18 @@
 #
 # DEPRECATED: This script is deprecated in favor of the Python-based setup system.
 # Use: python -m aitbc.training_setup.cli setup (includes faucet setup)
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 # See: /opt/aitbc/docs/agent-training/ENVIRONMENT_SETUP.md
 
 set -e

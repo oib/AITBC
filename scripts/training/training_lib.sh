@@ -4,6 +4,18 @@
 # Shared functions and utilities for all training stage scripts
 
 # Version: 1.0
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 # Last Updated: 2026-04-02
 
 TRAINING_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,16 +31,16 @@ export LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
 export WALLET_NAME="${WALLET_NAME:-hermes-trainee}"
 export WALLET_PASSWORD="${WALLET_PASSWORD:-trainee123}"
 export TRAINING_TIMEOUT="${TRAINING_TIMEOUT:-300}"
-export GENESIS_NODE="http://localhost:8006"
-export FOLLOWER_NODE="http://aitbc1:8006"
+export GENESIS_NODE="http://localhost:8202"
+export FOLLOWER_NODE="http://aitbc1:8202"
 
 # Service endpoints (per HERMES_AITBC_MASTERY_PLAN.md)
 export SERVICES=(
     "8011:Coordinator-API"
     "9001:Agent-Coordinator"
     "8001:Exchange-API"
-    "8006:Genesis-Node-RPC"
-    "8006:Follower-Node-RPC"
+    "8202:Genesis-Node-RPC"
+    "8202:Follower-Node-RPC"
     "11434:Ollama"
 )
 

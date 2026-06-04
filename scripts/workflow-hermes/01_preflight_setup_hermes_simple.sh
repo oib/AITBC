@@ -4,6 +4,18 @@
 
 set -e  # Exit on any error
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "=== Hermes AITBC Multi-Node Blockchain Pre-Flight Setup (Simplified) ==="
 
 # 1. Check Hermes System
@@ -62,11 +74,11 @@ BLOCK_TIME=5
 NETWORK_ID=1337
 CONSENSUS=proof_of_authority
 rpc_bind_host=0.0.0.0
-rpc_bind_port=8006
+rpc_bind_port=8202
 auto_sync_enabled=true
 island_id=ait-mainnet-island
 supported_chains=ait-mainnet,ait-testnet
-default_peer_rpc_url=http://aitbc1:8006
+default_peer_rpc_url=http://aitbc1:8202
 EOF
     echo "Created /etc/aitbc/blockchain.env"
 else

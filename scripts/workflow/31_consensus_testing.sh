@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -31,8 +31,8 @@ NC='\033[0m' # No Color
 # Configuration
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
-GENESIS_PORT="8006"
-FOLLOWER_PORT="8006"
+GENESIS_PORT="8202"
+FOLLOWER_PORT="8202"
 
 # Test counters
 TESTS_PASSED=0
@@ -205,7 +205,7 @@ echo "Simulating network partition by blocking sync..."
 # Temporarily block sync port (if firewall available)
 if command -v ufw >/dev/null 2>&1; then
     ufw --force enable >/dev/null 2>&1
-    ufw deny out to $FOLLOWER_NODE port 7070 >/dev/null 2>&1
+    ufw deny out to $FOLLOWER_NODE port 8200 >/dev/null 2>&1
     echo "Network partition simulated"
     sleep 3
     
@@ -227,7 +227,7 @@ if command -v ufw >/dev/null 2>&1; then
     sleep 5
     
     # Restore network
-    ufw --force delete deny out to $FOLLOWER_NODE port 7070 >/dev/null 2>&1
+    ufw --force delete deny out to $FOLLOWER_NODE port 8200 >/dev/null 2>&1
     echo "Network partition restored"
     
     # Wait for sync recovery

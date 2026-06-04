@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -58,7 +58,7 @@ check_rpc() {
 
 # Function to check blockchain sync
 check_sync() {
-    local height=$(curl -s --max-time 5 http://localhost:8006/rpc/head | jq .height 2>/dev/null)
+    local height=$(curl -s --max-time 5 $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null)
     if [ -n "$height" ] && [ "$height" -gt 0 ]; then
         echo "[$TIMESTAMP] ✅ Blockchain height: $height" >> $HEALTH_LOG
         return 0
@@ -73,7 +73,7 @@ FAILED_CHECKS=0
 
 check_service "aitbc-blockchain-node" || ((FAILED_CHECKS++))
 check_service "aitbc-blockchain-rpc" || ((FAILED_CHECKS++))
-check_rpc "http://localhost:8006/rpc/info" || ((FAILED_CHECKS++))
+check_rpc "$BLOCKCHAIN_RPC/rpc/info" || ((FAILED_CHECKS++))
 check_sync || ((FAILED_CHECKS++))
 
 # Check Redis if available
@@ -133,29 +133,29 @@ echo
 
 # Blockchain Status
 echo "⛓️  Blockchain Status:"
-BLOCK_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null)
-BLOCK_TIME=$(curl -s http://localhost:8006/rpc/info | jq .genesis_params.block_time_seconds 2>/dev/null)
+BLOCK_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null)
+BLOCK_TIME=$(curl -s $BLOCKCHAIN_RPC/rpc/info | jq .genesis_params.block_time_seconds 2>/dev/null)
 echo "   Height: $BLOCK_HEIGHT"
 echo "   Block Time: $BLOCK_TIME seconds"
 echo
 
 # Mining Status
 echo "⛏️  Mining Status:"
-MINING_STATUS=$(curl -s http://localhost:8006/rpc/mining/status | jq .active 2>/dev/null)
-HASH_RATE=$(curl -s http://localhost:8006/rpc/mining/status | jq .hash_rate 2>/dev/null)
+MINING_STATUS=$(curl -s $BLOCKCHAIN_RPC/rpc/mining/status | jq .active 2>/dev/null)
+HASH_RATE=$(curl -s $BLOCKCHAIN_RPC/rpc/mining/status | jq .hash_rate 2>/dev/null)
 echo "   Active: $MINING_STATUS"
 echo "   Hash Rate: $HASH_RATE H/s"
 echo
 
 # Marketplace Status
 echo "🏪 Marketplace Status:"
-MARKETPLACE_COUNT=$(curl -s http://localhost:8006/rpc/marketplace/listings | jq .total 2>/dev/null)
+MARKETPLACE_COUNT=$(curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total 2>/dev/null)
 echo "   Active Listings: $MARKETPLACE_COUNT"
 echo
 
 # AI Services Status
 echo "🤖 AI Services Status:"
-AI_STATS=$(curl -s http://localhost:8006/rpc/ai/stats | jq .total_jobs 2>/dev/null)
+AI_STATS=$(curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs 2>/dev/null)
 echo "   Total Jobs: $AI_STATS"
 echo
 

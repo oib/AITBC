@@ -6,15 +6,28 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
     export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
+fi
+
+# Check if already deployed
+if systemctl is-active --quiet aitbc-blockchain-node; then
+    echo "⚠️  Production services appear to be already running."
+    echo "   - aitbc-blockchain-node is active"
+    echo ""
+    read -p "Force production deployment? This will restart services. [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Skipping production deployment. Services already running."
+        exit 0
+    fi
 fi
 
 echo "=== 🚀 AITBC PRODUCTION DEPLOYMENT ==="
@@ -151,8 +164,8 @@ echo "======================"
 echo "Verifying cross-node synchronization..."
 
 # Get current heights
-LOCAL_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-REMOTE_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+LOCAL_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
+REMOTE_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
 SYNC_DIFF=$((LOCAL_HEIGHT - REMOTE_HEIGHT))
 
 echo "Local height: $LOCAL_HEIGHT"
@@ -164,7 +177,7 @@ if [ "$SYNC_DIFF" -gt 100 ]; then
     ssh aitbc "/opt/aitbc/scripts/fast_bulk_sync.sh"
     
     # Re-check after bulk sync
-    NEW_REMOTE_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+    NEW_REMOTE_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
     NEW_SYNC_DIFF=$((LOCAL_HEIGHT - NEW_REMOTE_HEIGHT))
     echo "Post-sync difference: $NEW_SYNC_DIFF"
 fi
@@ -244,8 +257,8 @@ echo "Environment: $DEPLOYMENT_ENV"
 echo "Backup location: $BACKUP_DIR"
 
 # Blockchain status
-FINAL_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-FINAL_TXS=$(curl -s http://localhost:8006/rpc/info | jq .total_transactions)
+FINAL_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
+FINAL_TXS=$(curl -s $BLOCKCHAIN_RPC/rpc/info | jq .total_transactions)
 
 echo "Blockchain height: $FINAL_HEIGHT"
 echo "Total transactions: $FINAL_TXS"
@@ -257,7 +270,7 @@ systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc
 # Access information
 echo ""
 echo "🌐 ACCESS INFORMATION:"
-echo "• RPC endpoint: http://$(hostname -I | awk '{print $1}'):8006"
+echo "• RPC endpoint: http://$(hostname -I | awk '{print $1}'):${BLOCKCHAIN_RPC_PORT:-8202}"
 echo "• Load balancer: http://$(hostname -I | awk '{print $1}'):80"
 echo "• Monitoring dashboard: http://$(hostname -I | awk '{print $1}'):8080"
 echo "• Load balancer stats: http://$(hostname -I | awk '{print $1}')/nginx_status"

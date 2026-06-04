@@ -6,9 +6,9 @@ echo "=== AITBC Complete Multi-Node Workflow ==="
 echo "This script sets up a complete two-node blockchain network"
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -86,8 +86,8 @@ echo
 echo "Final Status Check:"
 echo "=================="
 
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0")
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0"')
+AITBC1_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')
 
 echo "aitbc1 (Genesis):"
 echo "  Height: $AITBC1_HEIGHT"
@@ -102,7 +102,7 @@ echo
 echo "Wallet Status:"
 if [ -f "/var/lib/aitbc/keystore/aitbc-wallet.json" ]; then
   WALLET_ADDR=$(cat /var/lib/aitbc/keystore/aitbc-wallet.json | jq -r '.address')
-  WALLET_BALANCE=$(curl -s "http://localhost:8006/rpc/getBalance/$WALLET_ADDR" | jq .balance 2>/dev/null || echo "0")
+  WALLET_BALANCE=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$WALLET_ADDR" | jq .balance 2>/dev/null || echo "0")
   echo "  Wallet: $WALLET_ADDR"
   echo "  Balance: $WALLET_BALANCE AIT"
 else

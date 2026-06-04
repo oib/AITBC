@@ -4,6 +4,18 @@
 # Basic System Orientation and CLI Commands
 # Optimized version using training library
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 set -e
 
 # Source training library
@@ -30,54 +42,54 @@ genesis_block_initialization() {
     return 0
     
     print_status "Initializing blockchain on Follower Node..."
-    if NODE_URL="http://aitbc1:8006" cli_cmd "blockchain init --force"; then
+    if NODE_URL="http://aitbc1:8202" cli_cmd "blockchain init --force"; then
         print_success "Blockchain initialized on Follower Node"
     else
         print_warning "Blockchain may already be initialized on Follower Node"
     fi
     
-    print_status "Verifying RPC connectivity to Genesis Node (port 8006)..."
-    if curl -s --max-time 5 http://localhost:8006/health > /dev/null 2>&1; then
-        print_success "Genesis Node RPC (port 8006) is accessible"
+    print_status "Verifying RPC connectivity to Genesis Node (port 8202)..."
+    if curl -s --max-time 5 http://localhost:8202/health > /dev/null 2>&1; then
+        print_success "Genesis Node RPC (port 8202) is accessible"
     else
-        print_warning "Genesis Node RPC (port 8006) is not accessible"
+        print_warning "Genesis Node RPC (port 8202) is not accessible"
     fi
     
-    print_status "Verifying RPC connectivity to Follower Node (port 8006 on aitbc1)..."
-    if curl -s --max-time 5 http://aitbc1:8006/health > /dev/null 2>&1; then
-        print_success "Follower Node RPC (port 8006 on aitbc1) is accessible"
+    print_status "Verifying RPC connectivity to Follower Node (port 8202 on aitbc1)..."
+    if curl -s --max-time 5 http://aitbc1:8202/health > /dev/null 2>&1; then
+        print_success "Follower Node RPC (port 8202 on aitbc1) is accessible"
     else
-        print_warning "Follower Node RPC (port 8006 on aitbc1) is not accessible"
+        print_warning "Follower Node RPC (port 8202 on aitbc1) is not accessible"
     fi
     
-    print_status "Verifying Follower Node RPC also runs on port 8006..."
-    if ssh aitbc1 "curl -s --max-time 5 http://localhost:8006/health" > /dev/null 2>&1; then
-        print_success "Follower Node RPC also accessible on port 8006"
+    print_status "Verifying Follower Node RPC also runs on port 8202..."
+    if ssh aitbc1 "curl -s --max-time 5 http://localhost:8202/health" > /dev/null 2>&1; then
+        print_success "Follower Node RPC also accessible on port 8202"
     else
-        print_warning "Follower Node RPC not accessible on port 8006 (check follower node health)"
+        print_warning "Follower Node RPC not accessible on port 8202 (check follower node health)"
     fi
     
     print_status "Funding training wallet from genesis block initial coins..."
     # The genesis block contains actual AIT coins - mine a block to get the reward
     print_status "Starting mining to get genesis block reward..."
-    if NODE_URL="http://localhost:8006" cli_cmd "mining start --wallet $WALLET_NAME"; then
+    if NODE_URL="http://localhost:8202" cli_cmd "mining start --wallet $WALLET_NAME"; then
         print_success "Mining started for wallet $WALLET_NAME"
         sleep 5  # Wait for mining to produce a block
         
         print_status "Checking mining status..."
-        NODE_URL="http://localhost:8006" cli_cmd "mining status --wallet $WALLET_NAME" || print_warning "Mining status check failed"
+        NODE_URL="http://localhost:8202" cli_cmd "mining status --wallet $WALLET_NAME" || print_warning "Mining status check failed"
         
         print_status "Checking mining rewards..."
-        NODE_URL="http://localhost:8006" cli_cmd "mining rewards --wallet $WALLET_NAME" || print_warning "Mining rewards check failed"
+        NODE_URL="http://localhost:8202" cli_cmd "mining rewards --wallet $WALLET_NAME" || print_warning "Mining rewards check failed"
         
         print_status "Stopping mining after obtaining genesis reward..."
-        NODE_URL="http://localhost:8006" cli_cmd "mining stop" || print_warning "Mining stop failed"
+        NODE_URL="http://localhost:8202" cli_cmd "mining stop" || print_warning "Mining stop failed"
     else
         print_warning "Mining start failed - wallet may not have initial funds"
     fi
     
     print_status "Verifying wallet balance after mining genesis block..."
-    NODE_URL="http://localhost:8006" cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
+    NODE_URL="http://localhost:8202" cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
     
     update_progress "Genesis Block Initialization"
 }

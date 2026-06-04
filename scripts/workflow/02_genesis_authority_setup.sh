@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -16,6 +16,23 @@ else
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
+
+# Check if already setup as genesis authority
+if [ -f "/etc/aitbc/.env" ] && grep -q "enable_block_production=true" /etc/aitbc/.env; then
+    if systemctl is-active --quiet aitbc-blockchain-node; then
+        echo "⚠️  System appears to be already configured as genesis authority."
+        echo "   - enable_block_production=true in /etc/aitbc/.env"
+        echo "   - aitbc-blockchain-node is active"
+        echo ""
+        read -p "Force re-setup? This will reconfigure genesis authority. [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Skipping genesis authority setup. System already configured."
+            exit 0
+        fi
+    fi
+fi
+
 echo "=== AITBC Genesis Authority Setup (aitbc1) ==="
 
 # We are already on aitbc1 node (localhost)
@@ -65,8 +82,8 @@ set_env db_path /var/lib/aitbc/data/ait-mainnet/chain.db
 set_env enable_block_production true
 set_env gossip_backend broadcast
 set_env gossip_broadcast_url redis://localhost:6379
-set_env default_peer_rpc_url http://aitbc:8006
-set_env p2p_bind_port 7070
+set_env default_peer_rpc_url http://aitbc:8202
+set_env p2p_bind_port 8200
 
 # Ensure p2p_node_id exists in node.env (preserve if already set)
 if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then

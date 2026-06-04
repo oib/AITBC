@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -39,7 +39,7 @@ python /opt/aitbc/cli/aitbc_cli.py send \
   --amount 1000 \
   --fee 10 \
   --password-file /var/lib/aitbc/keystore/.password \
-  --rpc-url http://localhost:8006
+  --rpc-url http://localhost:8202
 
 # Get transaction hash from CLI
 echo "3. Transaction details..."

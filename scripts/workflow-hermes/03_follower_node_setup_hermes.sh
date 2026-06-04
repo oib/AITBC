@@ -4,6 +4,18 @@
 
 set -e  # Exit on any error
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "=== hermes AITBC Follower Node Setup (aitbc1) ==="
 
 # 1. Initialize hermes FollowerAgent
@@ -70,14 +82,14 @@ hermes execute --agent FollowerAgent --task update_follower_config --node aitbc1
     set_env enable_block_production false
     set_env gossip_backend broadcast
     set_env gossip_broadcast_url redis://10.1.223.40:6379
-    set_env default_peer_rpc_url http://aitbc:8006
+    set_env default_peer_rpc_url http://aitbc:8202
     set_env p2p_bind_port 7071'
 
     # Ensure p2p_node_id exists in node.env (preserve if already set)
     ssh aitbc1 'if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then echo "p2p_node_id=node-$(cat /proc/sys/kernel/random/uuid | tr -d '-')" >> /etc/aitbc/node.env; fi'
 
     # Add genesis node connection
-    ssh aitbc1 'echo "genesis_node=aitbc:8006" >> /etc/aitbc/.env'
+    ssh aitbc1 'echo "genesis_node=aitbc:8202" >> /etc/aitbc/.env'
     ssh aitbc1 'echo "trusted_proposers=aitbcgenesis" >> /etc/aitbc/.env'
 }
 
@@ -106,7 +118,7 @@ hermes execute --agent FollowerAgent --task wait_for_services --node aitbc1 || {
     ssh aitbc1 'sleep 10'
     # Wait for RPC service to be ready on aitbc1
     for i in {1..30}; do
-        if ssh aitbc1 'curl -s http://localhost:8006/health' >/dev/null 2>&1; then
+        if ssh aitbc1 'curl -s http://localhost:8202/health' >/dev/null 2>&1; then
             echo "✅ Follower RPC service is ready"
             break
         fi
@@ -120,7 +132,7 @@ echo "10. Establishing connection to genesis node via hermes FollowerAgent..."
 hermes execute --agent FollowerAgent --task connect_to_genesis --node aitbc1 || {
     echo "⚠️ hermes genesis connection failed - using manual method"
     # Test connection from aitbc1 to aitbc
-    ssh aitbc1 'curl -s http://aitbc:8006/health | jq .status' || echo "⚠️ Cannot reach genesis node"
+    ssh aitbc1 'curl -s http://aitbc:8202/health | jq .status' || echo "⚠️ Cannot reach genesis node"
 }
 
 # 11. Start blockchain sync process (via hermes)
@@ -128,7 +140,7 @@ echo "11. Starting blockchain sync process via hermes FollowerAgent..."
 hermes execute --agent FollowerAgent --task start_sync --node aitbc1 || {
     echo "⚠️ hermes sync start failed - using manual method"
     # Trigger sync process
-    ssh aitbc1 'curl -X POST http://localhost:8006/rpc/sync -H "Content-Type: application/json" -d "{\"peer\":\"aitbc:8006\"}"'
+    ssh aitbc1 'curl -X POST http://localhost:8202/rpc/sync -H "Content-Type: application/json" -d "{\"peer\":\"aitbc:8202\"}"'
 }
 
 # 12. Monitor sync progress (via hermes)
@@ -137,8 +149,8 @@ hermes execute --agent FollowerAgent --task monitor_sync --node aitbc1 || {
     echo "⚠️ hermes sync monitoring failed - using manual method"
     # Monitor sync progress manually
     for i in {1..60}; do
-        FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo 0')
-        GENESIS_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo 0)
+        FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo 0')
+        GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo 0)
         
         if [ "$FOLLOWER_HEIGHT" -ge "$GENESIS_HEIGHT" ]; then
             echo "✅ Sync completed! Follower height: $FOLLOWER_HEIGHT, Genesis height: $GENESIS_HEIGHT"
@@ -155,8 +167,8 @@ echo "13. Verifying sync status via hermes FollowerAgent..."
 hermes execute --agent FollowerAgent --task verify_sync --node aitbc1 || {
     echo "⚠️ hermes sync verification failed - using manual method"
     # Verify sync status
-    FOLLOWER_HEAD=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head')
-    GENESIS_HEAD=$(curl -s http://localhost:8006/rpc/head)
+    FOLLOWER_HEAD=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head')
+    GENESIS_HEAD=$(curl -s http://localhost:8202/rpc/head)
     
     echo "=== Follower Node Status ==="
     echo "$FOLLOWER_HEAD" | jq .
@@ -190,7 +202,7 @@ hermes report --agent FollowerAgent --task follower_setup --format json > /tmp/h
     "sync_completed": true,
     "services_running": true,
     "genesis_connected": true,
-    "rpc_port": 8006,
+    "rpc_port": 8202,
     "follower_height": 1,
     "genesis_height": 1,
     "timestamp": "2026-03-30T12:40:00Z"
@@ -212,14 +224,14 @@ echo "🤖 Follower node ready for wallet operations"
 # Display current status
 echo ""
 echo "=== Follower Node Status ==="
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height' 2>/dev/null || echo "RPC not responding"
-ssh aitbc1 'curl -s http://localhost:8006/health' 2>/dev/null | jq '.status' || echo "Health check failed"
+ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height' 2>/dev/null || echo "RPC not responding"
+ssh aitbc1 'curl -s http://localhost:8202/health' 2>/dev/null | jq '.status' || echo "Health check failed"
 
 # Display sync comparison
 echo ""
 echo "=== Sync Status Comparison ==="
-GENESIS_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "N/A")
-FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height' 2>/dev/null || echo "N/A")
+GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo "N/A")
+FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height' 2>/dev/null || echo "N/A")
 echo "Genesis Height: $GENESIS_HEIGHT"
 echo "Follower Height: $FOLLOWER_HEIGHT"
 

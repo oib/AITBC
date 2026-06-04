@@ -6,9 +6,9 @@ echo "=== AITBC Complete Blockchain Sync ==="
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -21,8 +21,8 @@ WALLET_ADDR="ait11c02342d4fec502240c20d609a8bb839ccd23838"
 
 # Check current heights
 echo "1. Current blockchain status:"
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0")
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC1_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
 
 echo "aitbc1 height: $AITBC1_HEIGHT"
 echo "aitbc height: $AITBC_HEIGHT"
@@ -56,18 +56,18 @@ while [ $CURRENT_HEIGHT -le $AITBC1_HEIGHT ]; do
     echo "     Importing block $height..."
     
     # Get block with proper proposer field
-    curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height" | \
+    curl -s "$BLOCKCHAIN_RPC/rpc/blocks-range?start=$height&end=$height" | \
       jq '.blocks[0] + {"proposer": "'$PROPOSER_ADDR'"}' > /tmp/block$height.json
     
     # Import to aitbc
     scp /tmp/block$height.json aitbc:/tmp/ 2>/dev/null
-    ssh aitbc "curl -X POST http://localhost:8006/rpc/importBlock -H 'Content-Type: application/json' -d @/tmp/block$height.json" > /dev/null 2>&1
+    ssh aitbc "curl -X POST $BLOCKCHAIN_RPC/rpc/importBlock -H 'Content-Type: application/json' -d @/tmp/block$height.json" > /dev/null 2>&1
     
     sleep 0.5
   done
   
   # Check progress
-  CURRENT_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0"')
+  CURRENT_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')
   PROGRESS=$((CURRENT_HEIGHT * 100 / AITBC1_HEIGHT))
   echo "   Progress: $PROGRESS% ($CURRENT_HEIGHT/$AITBC1_HEIGHT blocks)"
   
@@ -76,7 +76,7 @@ while [ $CURRENT_HEIGHT -le $AITBC1_HEIGHT ]; do
 done
 
 echo "3. Final verification:"
-FINAL_AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0"')
+FINAL_AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')
 FINAL_DIFF=$((AITBC1_HEIGHT - FINAL_AITBC_HEIGHT))
 
 echo "   aitbc1 final height: $AITBC1_HEIGHT"
@@ -92,7 +92,7 @@ fi
 # Final balance verification
 echo "4. Final balance verification:"
 if [ -n "$WALLET_ADDR" ]; then
-  FINAL_BALANCE=$(ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq .balance 2>/dev/null || echo "0"")
+  FINAL_BALANCE=$(ssh aitbc "curl -s \"$BLOCKCHAIN_RPC/rpc/getBalance/$WALLET_ADDR\" | jq .balance 2>/dev/null || echo "0"")
   echo "   Wallet balance: $FINAL_BALANCE AIT"
 fi
 

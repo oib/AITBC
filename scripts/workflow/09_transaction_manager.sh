@@ -6,9 +6,9 @@ echo "=== AITBC Transaction Manager ==="
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -44,8 +44,8 @@ echo "Target address: $TARGET_ADDR"
 
 # Check balances
 echo "3. Checking current balances..."
-GENESIS_BALANCE=$(curl -s "http://localhost:8006/rpc/accounts/$GENESIS_ADDR" | jq .balance)
-TARGET_BALANCE=$(curl -s "http://localhost:8006/rpc/accounts/$TARGET_ADDR" | jq .balance 2>/dev/null || echo "0")
+GENESIS_BALANCE=$(curl -s "http://localhost:8202/rpc/accounts/$GENESIS_ADDR" | jq .balance)
+TARGET_BALANCE=$(curl -s "http://localhost:8202/rpc/accounts/$TARGET_ADDR" | jq .balance 2>/dev/null || echo "0")
 
 echo "Genesis balance: $GENESIS_BALANCE AIT"
 echo "Target balance: $TARGET_BALANCE AIT"
@@ -70,7 +70,7 @@ echo "Transaction data: $TX_DATA"
 
 # Send transaction
 echo "5. Sending transaction..."
-TX_RESULT=$(curl -s -X POST http://localhost:8006/rpc/transaction \
+TX_RESULT=$(curl -s -X POST http://localhost:8202/rpc/transaction \
   -H "Content-Type: application/json" \
   -d "$TX_DATA")
 
@@ -87,7 +87,7 @@ if [ -n "$TX_HASH" ] && [ "$TX_HASH" != "null" ]; then
   echo "6. Waiting for transaction to be mined..."
   for i in {1..20}; do
     sleep 2
-    NEW_BALANCE=$(curl -s "http://localhost:8006/rpc/accounts/$TARGET_ADDR" | jq .balance 2>/dev/null || echo "0")
+    NEW_BALANCE=$(curl -s "http://localhost:8202/rpc/accounts/$TARGET_ADDR" | jq .balance 2>/dev/null || echo "0")
     echo "Check $i/20: Target balance = $NEW_BALANCE AIT"
     
     # Handle null balance
@@ -113,8 +113,8 @@ fi
 
 # Final verification
 echo "8. Final balance verification..."
-FINAL_GENESIS_BALANCE=$(curl -s "http://localhost:8006/rpc/accounts/$GENESIS_ADDR" | jq .balance 2>/dev/null || echo "0")
-FINAL_TARGET_BALANCE=$(curl -s "http://localhost:8006/rpc/accounts/$TARGET_ADDR" | jq .balance 2>/dev/null || echo "0")
+FINAL_GENESIS_BALANCE=$(curl -s "http://localhost:8202/rpc/accounts/$GENESIS_ADDR" | jq .balance 2>/dev/null || echo "0")
+FINAL_TARGET_BALANCE=$(curl -s "http://localhost:8202/rpc/accounts/$TARGET_ADDR" | jq .balance 2>/dev/null || echo "0")
 
 # Handle null values
 if [ "$FINAL_GENESIS_BALANCE" = "null" ] || [ "$FINAL_GENESIS_BALANCE" = "" ]; then

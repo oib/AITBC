@@ -4,6 +4,18 @@
 # Transaction failure debugging, node recovery, production monitoring, backup procedures
 # Uses Python-based training setup to execute JSON-defined operations
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 set -e
 
 # Source training library
@@ -59,7 +71,7 @@ main() {
         
         # Output learnings for skill update
         output_stage_learnings 10 "Failure Recovery" \
-            "aitbc-cli blockchain transaction <tx_id> --verbose|aitbc-cli wallet nonce <wallet>|curl -s http://localhost:8006/health|aitbc-cli blockchain sync --status|systemctl status aitbc-blockchain-node.service|aitbc-cli wallet export <wallet> --backup|aitbc-cli blockchain mempool|aitbc-cli blockchain transaction <tx_id> --trace|journalctl -fu aitbc-*|tail -f /var/log/aitbc/blockchain-node.log" \
+            "aitbc-cli blockchain transaction <tx_id> --verbose|aitbc-cli wallet nonce <wallet>|curl -s http://localhost:8202/health|aitbc-cli blockchain sync --status|systemctl status aitbc-blockchain-node.service|aitbc-cli wallet export <wallet> --backup|aitbc-cli blockchain mempool|aitbc-cli blockchain transaction <tx_id> --trace|journalctl -fu aitbc-*|tail -f /var/log/aitbc/blockchain-node.log" \
             "Nonce too low: check current nonce and pending transactions|Insufficient funds: check balance and fees before transaction|Node health: check /health endpoint and systemctl status|Wallet backup: export wallet and backup keystore file|Network partition: check peer connections and sync status|Log monitoring: use journalctl -fu aitbc-* or grep ERROR on /var/log/aitbc/" \
             "/var/lib/aitbc/keystore|/var/log/aitbc|/opt/aitbc/backups|/etc/aitbc/.env|/etc/aitbc/node.env" \
             "Transaction failure debugging|Node recovery procedures|Production monitoring|Backup and restore|Mempool inspection|Network partition handling"

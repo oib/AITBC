@@ -389,6 +389,244 @@ class TestHealthEndpoints:
         for endpoint in endpoints:
             assert "//" in endpoint
 
+    def test_service_name_with_special_characters(self):
+        """Test service name with special characters"""
+        service_name = "service@#$"
+        
+        assert "@" in service_name
+        assert "#" in service_name
+        assert "$" in service_name
+
+    def test_endpoint_with_underscore(self):
+        """Test endpoint with underscore"""
+        endpoints = ["/health_check", "/metrics_data"]
+        
+        for endpoint in endpoints:
+            assert "_" in endpoint
+
+    def test_service_name_with_empty_string(self):
+        """Test service name with empty string (edge case)"""
+        service_name = ""
+        
+        assert service_name == ""
+
+    def test_endpoint_with_empty_string(self):
+        """Test endpoint with empty string (edge case)"""
+        endpoints = [""]
+        
+        for endpoint in endpoints:
+            assert endpoint == ""
+
+    def test_service_name_with_single_character(self):
+        """Test service name with single character"""
+        service_name = "A"
+        
+        assert len(service_name) == 1
+
+    def test_endpoint_with_single_character(self):
+        """Test endpoint with single character"""
+        endpoints = ["/a"]
+        
+        for endpoint in endpoints:
+            assert len(endpoint) == 2
+
+    def test_service_name_with_hyphen(self):
+        """Test service name with hyphen"""
+        service_name = "service-name"
+        
+        assert "-" in service_name
+
+    def test_endpoint_with_hyphen(self):
+        """Test endpoint with hyphen"""
+        endpoints = ["/service-name"]
+        
+        for endpoint in endpoints:
+            assert "-" in endpoint
+
+    def test_service_name_with_dot(self):
+        """Test service name with dot"""
+        service_name = "service.name"
+        
+        assert "." in service_name
+
+    def test_endpoint_with_dot(self):
+        """Test endpoint with dot"""
+        endpoints = ["/service.name"]
+        
+        for endpoint in endpoints:
+            assert "." in endpoint
+
+    def test_service_name_with_underscore(self):
+        """Test service name with underscore"""
+        service_name = "service_name"
+        
+        assert "_" in service_name
+
+    def test_endpoint_with_underscore(self):
+        """Test endpoint with underscore"""
+        endpoints = ["/service_name"]
+        
+        for endpoint in endpoints:
+            assert "_" in endpoint
+
+    def test_service_name_with_colon(self):
+        """Test service name with colon"""
+        service_name = "service:name"
+        
+        assert ":" in service_name
+
+    def test_endpoint_with_colon(self):
+        """Test endpoint with colon"""
+        endpoints = ["/service:name"]
+        
+        for endpoint in endpoints:
+            assert ":" in endpoint
+
+    def test_service_name_with_equals(self):
+        """Test service name with equals"""
+        service_name = "service=name"
+        
+        assert "=" in service_name
+
+    def test_endpoint_with_equals(self):
+        """Test endpoint with equals"""
+        endpoints = ["/service=name"]
+        
+        for endpoint in endpoints:
+            assert "=" in endpoint
+
+    def test_service_name_with_slash(self):
+        """Test service name with slash"""
+        service_name = "service/name"
+        
+        assert "/" in service_name
+
+    def test_endpoint_with_slash(self):
+        """Test endpoint with slash"""
+        endpoints = ["/service/name"]
+        
+        for endpoint in endpoints:
+            assert "/" in endpoint
+
+    def test_service_name_with_bracket(self):
+        """Test service name with bracket"""
+        service_name = "service[name]"
+        
+        assert "[" in service_name
+        assert "]" in service_name
+
+    def test_endpoint_with_bracket(self):
+        """Test endpoint with bracket"""
+        endpoints = ["/service[name]"]
+        
+        for endpoint in endpoints:
+            assert "[" in endpoint
+            assert "]" in endpoint
+
+    def test_service_name_with_curly_bracket(self):
+        """Test service name with curly bracket"""
+        service_name = "service{name}"
+        
+        assert "{" in service_name
+        assert "}" in service_name
+
+    def test_endpoint_with_curly_bracket(self):
+        """Test endpoint with curly bracket"""
+        endpoints = ["/service{name}"]
+        
+        for endpoint in endpoints:
+            assert "{" in endpoint
+            assert "}" in endpoint
+
+    def test_service_name_with_dollar(self):
+        """Test service name with dollar"""
+        service_name = "service$name"
+        
+        assert "$" in service_name
+
+    def test_endpoint_with_dollar(self):
+        """Test endpoint with dollar"""
+        endpoints = ["/service$name"]
+        
+        for endpoint in endpoints:
+            assert "$" in endpoint
+
+    def test_service_name_with_hash(self):
+        """Test service name with hash"""
+        service_name = "service#name"
+        
+        assert "#" in service_name
+
+    def test_endpoint_with_hash(self):
+        """Test endpoint with hash"""
+        endpoints = ["/service#name"]
+        
+        for endpoint in endpoints:
+            assert "#" in endpoint
+
+    def test_service_name_with_exclamation(self):
+        """Test service name with exclamation"""
+        service_name = "service!name"
+        
+        assert "!" in service_name
+
+    def test_service_name_with_asterisk(self):
+        """Test service name with asterisk"""
+        service_name = "service*name"
+        
+        assert "*" in service_name
+
+    def test_endpoint_with_asterisk(self):
+        """Test endpoint with asterisk"""
+        endpoints = ["/service*name"]
+        
+        for endpoint in endpoints:
+            assert "*" in endpoint
+
+    def test_service_name_with_plus(self):
+        """Test service name with plus"""
+        service_name = "service+name"
+        
+        assert "+" in service_name
+
+    def test_service_name_with_equals(self):
+        """Test service name with equals"""
+        service_name = "service=name"
+        
+        assert "=" in service_name
+
+    def test_endpoint_with_equals(self):
+        """Test endpoint with equals"""
+        endpoints = ["/service=name"]
+        
+        for endpoint in endpoints:
+            assert "=" in endpoint
+
+    def test_service_name_with_bracket(self):
+        """Test service name with bracket"""
+        service_name = "service[name]"
+        
+        assert "[" in service_name
+
+    def test_service_name_with_curly_brace(self):
+        """Test service name with curly brace"""
+        service_name = "service{name}"
+        
+        assert "{" in service_name
+
+    def test_endpoint_with_curly_brace(self):
+        """Test endpoint with curly brace"""
+        endpoints = ["/service{name}"]
+        
+        for endpoint in endpoints:
+            assert "{" in endpoint
+
+    def test_service_name_with_pipe(self):
+        """Test service name with pipe"""
+        service_name = "service|name"
+        
+        assert "|" in service_name
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

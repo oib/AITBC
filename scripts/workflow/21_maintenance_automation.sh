@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -147,7 +147,7 @@ echo "========================"
 
 # Test RPC endpoints
 log_action "Starting RPC connectivity test"
-if curl -s http://localhost:8006/rpc/info >/dev/null 2>&1; then
+if curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1; then
     echo -e "   ${GREEN}✅${NC} Local RPC responding"
     log_action "SUCCESS: Local RPC responding"
 else
@@ -156,7 +156,7 @@ else
 fi
 
 # Test cross-node connectivity
-if ssh aitbc "curl -s http://localhost:8006/rpc/info" >/dev/null 2>&1; then
+if ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/info" >/dev/null 2>&1; then
     echo -e "   ${GREEN}✅${NC} Cross-node connectivity working"
     log_action "SUCCESS: Cross-node connectivity working"
 else
@@ -200,9 +200,9 @@ mkdir -p /opt/aitbc/performance
 cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
 mem_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
 disk_usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
-block_height=$(curl -s http://localhost:8006/rpc/head | jq -r .height 2>/dev/null || echo "0")
-total_accounts=$(curl -s http://localhost:8006/rpc/info | jq -r .total_accounts 2>/dev/null || echo "0")
-total_transactions=$(curl -s http://localhost:8006/rpc/info | jq -r .total_transactions 2>/dev/null || echo "0")
+block_height=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo "0")
+total_accounts=$(curl -s $BLOCKCHAIN_RPC/rpc/info | jq -r .total_accounts 2>/dev/null || echo "0")
+total_transactions=$(curl -s $BLOCKCHAIN_RPC/rpc/info | jq -r .total_transactions 2>/dev/null || echo "0")
 
 # Save metrics
 cat > "/opt/aitbc/performance/metrics_$(date +%Y%m%d_%H%M%S).txt" << EOF

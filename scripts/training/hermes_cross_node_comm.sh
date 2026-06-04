@@ -4,6 +4,18 @@
 # Teaches and validates agent-to-agent communication across the AITBC blockchain
 # Nodes: Genesis ($GENESIS_IP:$PORT) and Follower ($FOLLOWER_IP:$PORT)
 # Uses systemd-managed agent daemon service
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 #
 
 set -e
@@ -14,7 +26,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # Configuration
 GENESIS_IP="${GENESIS_IP:-10.1.223.40}"
 FOLLOWER_IP="${FOLLOWER_IP:-10.1.223.93}"
-PORT="${RPC_PORT:-8006}"
+PORT="${RPC_PORT:-8202}"
 CHAIN_ID="${CHAIN_ID:-ait-mainnet}"
 CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
 

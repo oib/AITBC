@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -89,4 +89,4 @@ echo "  Create wallet: ./04_create_wallet.sh"
 echo "  Send transaction: ./05_send_transaction.sh"
 echo
 echo "📚 Documentation: See workflow documentation for detailed information"
-echo "🌐 Web Interface: http://localhost:8006 (aitbc1) and http://10.1.223.40:8006 (aitbc)"
+echo "🌐 Web Interface: $BLOCKCHAIN_RPC (aitbc1) and http://10.1.223.40:${BLOCKCHAIN_RPC_PORT:-8202} (aitbc)"

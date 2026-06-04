@@ -6,9 +6,9 @@ echo "======================================================"
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -29,7 +29,7 @@ echo ""
 echo "📋 Step 3: Create Ollama Software Offer"
 echo "======================================="
 echo "Creating software offer for ollama model..."
-OFFER_RESULT=$(aitbc market software-offer ollama llama2 0.001 2>&1)
+OFFER_RESULT=$(aitbc market software-offer ollama llama3.2:3b 0.001 2>&1)
 echo "$OFFER_RESULT"
 
 OFFER_ID=$(echo "$OFFER_RESULT" | grep -oP 'sw_offer_\w+' || echo "")
@@ -67,7 +67,7 @@ echo "======================================"
 if command -v ollama &> /dev/null; then
     curl -X POST http://localhost:11434/api/generate \
       -H "Content-Type: application/json" \
-      -d '{"model": "llama2", "prompt": "What is blockchain?", "stream": false}' | jq . || echo "Direct Ollama test failed"
+      -d '{"model": "llama3.2:3b", "prompt": "What is blockchain?", "stream": false}' | jq . || echo "Direct Ollama test failed"
 else
     echo "Ollama not available, skipping direct test"
 fi

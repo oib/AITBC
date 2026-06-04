@@ -5,6 +5,18 @@
 
 set -e  # Exit on any error
 
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
+
 echo "=== hermes Advanced AI Workflow v5.0 ==="
 echo "Advanced AI Teaching Plan - All Phases Completed"
 echo "Phase 1: Advanced AI Workflow Orchestration ✅"
@@ -14,9 +26,9 @@ echo "Phase 3: AI Resource Optimization ✅"
 # Configuration
 GENESIS_NODE="aitbc"
 FOLLOWER_NODE="aitbc1"
-LOCAL_RPC="http://localhost:8006"
-GENESIS_RPC="http://10.1.223.93:8006"
-FOLLOWER_RPC="http://10.1.223.40:8006"
+LOCAL_RPC="http://localhost:8202"
+GENESIS_RPC="http://10.1.223.93:8202"
+FOLLOWER_RPC="http://10.1.223.40:8202"
 WALLET_PASSWORD="123"
 
 # Colors for output
@@ -116,7 +128,7 @@ ai_log "Submitting multi-modal AI jobs..."
 echo "4. Cross-Node Multi-Modal Coordination..."
 ai_log "Creating multi-modal coordination topic..."
 
-TOPIC_ID=$(curl -sf -X POST http://localhost:8006/rpc/messaging/topics/create \
+TOPIC_ID=$(curl -sf -X POST http://localhost:8202/rpc/messaging/topics/create \
     -H "Content-Type: application/json" \
     -d "{\"agent_id\": \"genesis-multimodal\", \"agent_address\": \"ait158ec7a0713f30ccfb1aac6bfbab71f36271c5871\", \"title\": \"Multi-Modal AI Coordination\", \"description\": \"Cross-node multi-modal AI processing coordination\", \"tags\": [\"multimodal\", \"ai\", \"coordination\", \"fusion\"]}" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[\"topic_id\"])" 2>/dev/null || echo "topic_7c245a01a6e7feea")
@@ -124,13 +136,13 @@ TOPIC_ID=$(curl -sf -X POST http://localhost:8006/rpc/messaging/topics/create \
 ai_log "Topic created: $TOPIC_ID"
 
 # Genesis node posts capabilities
-curl -sf -X POST http://localhost:8006/rpc/messaging/messages/post \
+curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post \
     -H "Content-Type: application/json" \
     -d "{\"agent_id\": \"genesis-multimodal\", \"agent_address\": \"ait158ec7a0713f30ccfb1aac6bfbab71f36271c5871\", \"topic_id\": \"$TOPIC_ID\", \"content\": \"Genesis node ready for multi-modal AI coordination. Capabilities: Text analysis (BERT, RoBERTa), Image analysis (ResNet, CLIP), Audio analysis (Whisper, Wav2Vec2), Cross-modal fusion (attention mechanisms). Ready for cross-modal fusion coordination.\"}" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"Message posted: {d.get(\"message_id\", d.get(\"error\"))}\")" 2>/dev/null
 
 # Follower node responds
-ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8006/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-multimodal\\\", \\\"agent_address\\\": \\\"ait141b3bae6eea3a74273ef3961861ee58e12b6d855\\\", \\\"topic_id\\\": \\\"$TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for multi-modal AI coordination. Specialized capabilities: Text analysis (sentiment, entities, topics), Resource provision (CPU/memory), Verification (result validation). Ready for cross-modal fusion participation.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
+ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-multimodal\\\", \\\"agent_address\\\": \\\"ait141b3bae6eea3a74273ef3961861ee58e12b6d855\\\", \\\"topic_id\\\": \\\"$TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for multi-modal AI coordination. Specialized capabilities: Text analysis (sentiment, entities, topics), Resource provision (CPU/memory), Verification (result validation). Ready for cross-modal fusion participation.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
 
 # 5. Advanced AI Operations - Phase 3: Resource Optimization
 echo "5. Phase 3: AI Resource Optimization..."
@@ -160,7 +172,7 @@ ai_log "Submitting resource optimization jobs..."
 echo "6. Cross-Node Resource Optimization Coordination..."
 ai_log "Creating resource optimization coordination topic..."
 
-RESOURCE_TOPIC_ID=$(curl -sf -X POST http://localhost:8006/rpc/messaging/topics/create \
+RESOURCE_TOPIC_ID=$(curl -sf -X POST http://localhost:8202/rpc/messaging/topics/create \
     -H "Content-Type: application/json" \
     -d "{\"agent_id\": \"genesis-resource\", \"agent_address\": \"ait158ec7a0713f30ccfb1aac6bfbab71f36271c5871\", \"title\": \"AI Resource Optimization Coordination\", \"description\": \"Cross-node AI resource optimization and performance tuning coordination\", \"tags\": [\"resource\", \"optimization\", \"performance\", \"coordination\"]}" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[\"topic_id\"])" 2>/dev/null || echo "topic_7c245a01a6e7feea")
@@ -168,13 +180,13 @@ RESOURCE_TOPIC_ID=$(curl -sf -X POST http://localhost:8006/rpc/messaging/topics/
 ai_log "Resource topic created: $RESOURCE_TOPIC_ID"
 
 # Genesis node posts resource capabilities
-curl -sf -X POST http://localhost:8006/rpc/messaging/messages/post \
+curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post \
     -H "Content-Type: application/json" \
     -d "{\"agent_id\": \"genesis-resource\", \"agent_address\": \"ait158ec7a0713f30ccfb1aac6bfbab71f36271c5871\", \"topic_id\": \"$RESOURCE_TOPIC_ID\", \"content\": \"Genesis node ready for AI resource optimization coordination. Capabilities: Dynamic resource allocation (GPU pools RTX 4090/A100/H100), demand forecasting (ARIMA/LSTM), cost optimization (spot market integration), auto-scaling (proactive/reactive), performance tuning (model optimization, inference acceleration, system tuning). Available resources: GPU 1/1, CPU 4/8, Memory 10GB/16GB. Ready to coordinate resource optimization.\"}" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"Message posted: {d.get(\"message_id\", d.get(\"error\"))}\")" 2>/dev/null
 
 # Follower node responds with resource capabilities
-ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8006/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-resource\\\", \\\"agent_address\\\": \\\"ait141b3bae6eea3a74273ef3961861ee58e12b6d855\\\", \\\"topic_id\\\": \\\"$RESOURCE_TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for AI resource optimization coordination. Specialized capabilities: Resource monitoring (real-time utilization), performance tuning (model optimization, caching), cost optimization (resource pricing, waste identification), auto-scaling (demand detection, threshold setting). Available resources: GPU 0/0 (can allocate), CPU 8/8, Memory 16GB/16GB. Proposed coordination: Genesis handles GPU-intensive optimization, follower handles CPU/memory optimization and monitoring. Ready for distributed resource optimization.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
+ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-resource\\\", \\\"agent_address\\\": \\\"ait141b3bae6eea3a74273ef3961861ee58e12b6d855\\\", \\\"topic_id\\\": \\\"$RESOURCE_TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for AI resource optimization coordination. Specialized capabilities: Resource monitoring (real-time utilization), performance tuning (model optimization, caching), cost optimization (resource pricing, waste identification), auto-scaling (demand detection, threshold setting). Available resources: GPU 0/0 (can allocate), CPU 8/8, Memory 16GB/16GB. Proposed coordination: Genesis handles GPU-intensive optimization, follower handles CPU/memory optimization and monitoring. Ready for distributed resource optimization.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
 
 # 7. Resource Allocation Testing
 echo "7. Resource Allocation Testing..."

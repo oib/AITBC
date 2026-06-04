@@ -8,7 +8,12 @@ Scenario scripts use a centralized configuration file to make them flexible for 
 
 The configuration file is located at:
 ```
-/opt/aitbc/.env.scenario
+/etc/aitbc/.env.scenario
+```
+
+An example configuration is available at:
+```
+/opt/aitbc/examples/.env.scenario.example
 ```
 
 ## Configuration Variables
@@ -50,10 +55,14 @@ The configuration file is located at:
 Scenario scripts will automatically use the configuration file if it exists. If it doesn't exist, they fall back to sensible defaults:
 
 ```bash
-./scripts/workflow/24_marketplace_scenario.sh
+Copy the example an/ edscripts/workflow/24_marketplace_scenario.sh
 ```
 
-### 2. Customizing Configuration
+# Copy example to productio# loc#tio#
+cp / pt/aitbc/examples/.env.scenario.example2.etc/aitbc/.env.scenario
+
+# Edit configuration
+nan  /eucstomizing Configuration
 
 Edit the configuration file to match your environment:
 
@@ -108,8 +117,8 @@ All scenario scripts in the following directories use this configuration:
 ### Configuration Not Loading
 
 If you see "⚠️ Using default configuration (env file not found)", ensure:
-1. The file exists at `/opt/aitbc/.env.scenario`
-2. The file has proper permissions (`chmod 644 /opt/aitbc/.env.scenario`)
+1. The file exists at `/etc/aitbc/.env.scenario`
+2. The file has proper permissions (`chmod 644 /etc/aitbc/.env.scenario`)
 
 ### Service Unavailable
 

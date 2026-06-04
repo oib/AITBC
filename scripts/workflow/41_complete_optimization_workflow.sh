@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -31,7 +31,7 @@ NC='\033[0m' # No Color
 # Configuration
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
-GENESIS_PORT="8006"
+GENESIS_PORT="8202"
 COORDINATOR_PORT="8011"
 
 echo "🚀 COMPLETE SYSTEM OPTIMIZATION"
@@ -92,7 +92,7 @@ run_test_verbose "Blockchain optimization" "
     echo 'Optimizing blockchain performance...'
     systemctl restart aitbc-blockchain-node
     sleep 3
-    curl -s http://localhost:8006/rpc/info | jq .total_transactions
+    curl -s $BLOCKCHAIN_RPC/rpc/info | jq .total_transactions
 "
 
 # 3. AGENT COMMUNICATION OPTIMIZATION
@@ -142,7 +142,7 @@ echo "=========================="
 
 run_test_verbose "Marketplace optimization" "
     echo 'Optimizing marketplace performance...'
-    curl -s http://localhost:8006/rpc/marketplace/listings | jq .total
+    curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total
 "
 
 # 8. AI SERVICE OPTIMIZATION
@@ -152,7 +152,7 @@ echo "=========================="
 
 run_test_verbose "AI service optimization" "
     echo 'Optimizing AI service performance...'
-    ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats | jq .total_jobs'
+    ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs'
 "
 
 # 10. CROSS-NODE OPTIMIZATION
@@ -162,8 +162,8 @@ echo "============================"
 
 run_test_verbose "Cross-node optimization" "
     echo 'Optimizing cross-node synchronization...'
-    LOCAL_HEIGHT=\$(curl -s http://localhost:8006/rpc/head | jq .height)
-    REMOTE_HEIGHT=\$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+    LOCAL_HEIGHT=\$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
+    REMOTE_HEIGHT=\$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
     SYNC_DIFF=\$((LOCAL_HEIGHT - REMOTE_HEIGHT))
     echo \"Local height: \$LOCAL_HEIGHT\"
     echo \"Remote height: \$REMOTE_HEIGHT\"
@@ -224,11 +224,11 @@ run_test_verbose "Comprehensive system test" "
     echo 'Running comprehensive system validation...'
     
     echo 'Testing all major services:'
-    echo \"✅ Blockchain RPC: \$(curl -s http://localhost:8006/rpc/info >/dev/null && echo 'Working' || echo 'Failed')\"
+    echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Coordinator API: \$(curl -s http://localhost:8011/health/live >/dev/null && echo 'Working' || echo 'Failed')\"
-    echo \"✅ Marketplace: \$(curl -s http://localhost:8006/rpc/marketplace/listings >/dev/null && echo 'Working' || echo 'Failed')\"
-    echo \"✅ AI Service: \$(ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats' >/dev/null && echo 'Working' || echo 'Failed')\"
-    echo \"✅ Agent Communication: \$(curl -s http://localhost:8006/rpc/messaging/topics >/dev/null && echo 'Working' || echo 'Failed')\"
+    echo \"✅ Marketplace: \$(curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings >/dev/null && echo 'Working' || echo 'Failed')\"
+    echo \"✅ AI Service: \$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'Working' || echo 'Failed')\"
+    echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'Working' || echo 'Failed')\"
 "
 
 # 15. OPTIMIZATION REPORT

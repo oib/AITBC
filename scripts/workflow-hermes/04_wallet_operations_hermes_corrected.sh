@@ -4,6 +4,18 @@
 
 set -e  # Exit on any error
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "=== hermes AITBC Wallet Operations (Corrected) ==="
 
 # 1. Initialize hermes Agent Communication
@@ -198,4 +210,4 @@ hermes agents list | head -10
 # Display blockchain status
 echo ""
 echo "=== Blockchain Status ==="
-curl -s http://localhost:8006/rpc/head | jq '.height, .tx_count' 2>/dev/null || echo "Blockchain status unavailable"
+curl -s http://localhost:8202/rpc/head | jq '.height, .tx_count' 2>/dev/null || echo "Blockchain status unavailable"

@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -31,8 +31,8 @@ NC='\033[0m' # No Color
 # Configuration
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
-GENESIS_PORT="8006"
-FOLLOWER_PORT="8006"
+GENESIS_PORT="8202"
+FOLLOWER_PORT="8202"
 COORDINATOR_PORT="8011"
 
 # Contract configuration

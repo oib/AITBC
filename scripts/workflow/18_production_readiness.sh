@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -86,14 +86,14 @@ check_service "redis"
 
 echo ""
 echo "2. Network Connectivity Checks"
-check_endpoint "http://localhost:8006/rpc/info" "RPC endpoint"
-check_endpoint "http://localhost:8006/rpc/head" "Blockchain head"
-check_endpoint "http://localhost:8006/rpc/mempool" "Mempool"
+check_endpoint "$BLOCKCHAIN_RPC/rpc/info" "RPC endpoint"
+check_endpoint "$BLOCKCHAIN_RPC/rpc/head" "Blockchain head"
+check_endpoint "$BLOCKCHAIN_RPC/rpc/mempool" "Mempool"
 
 echo ""
 echo "3. Blockchain Functionality Checks"
-check "Blockchain height" "curl -s http://localhost:8006/rpc/head | jq .height" "^[0-9]"
-check "Genesis block exists" "curl -s http://localhost:8006/rpc/blocks/0" "hash"
+check "Blockchain height" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height" "^[0-9]"
+check "Genesis block exists" "curl -s $BLOCKCHAIN_RPC/rpc/blocks/0" "hash"
 
 echo ""
 echo "4. Security Configuration Checks"
@@ -118,7 +118,7 @@ else
 fi
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 
-if ssh aitbc 'curl -s http://localhost:8006/rpc/info' >/dev/null 2>&1; then
+if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/info' >/dev/null 2>&1; then
     echo "   Remote RPC: ✅ PASS"
     PASSED_CHECKS=$((PASSED_CHECKS + 1))
 else
@@ -212,12 +212,12 @@ SYSTEM METRICS:
 - Uptime: $(uptime -p)
 
 BLOCKCHAIN METRICS:
-- Current Height: $(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "Unknown")
-- Block Time: $(curl -s http://localhost:8006/rpc/info | jq .genesis_params.block_time_seconds 2>/dev/null || echo "Unknown")s
-- Mining Status: $(curl -s http://localhost:8006/rpc/mining/status | jq .active 2>/dev/null || echo "Unknown")
+- Current Height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "Unknown")
+- Block Time: $(curl -s $BLOCKCHAIN_RPC/rpc/info | jq .genesis_params.block_time_seconds 2>/dev/null || echo "Unknown")s
+- Mining Status: $(curl -s $BLOCKCHAIN_RPC/rpc/mining/status | jq .active 2>/dev/null || echo "Unknown")
 
 NETWORK METRICS:
-- RPC Response Time: $(curl -o /dev/null -s -w '%{time_total}' http://localhost:8006/rpc/info)s
+- RPC Response Time: $(curl -o /dev/null -s -w '%{time_total}' $BLOCKCHAIN_RPC/rpc/info)s
 - SSH Connectivity: $(ssh -o ConnectTimeout=5 aitbc 'echo "OK"' 2>/dev/null || echo "Failed")
 
 Use this baseline for future performance monitoring.

@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -49,8 +49,8 @@ log_health() {
 
 # Check blockchain health
 check_blockchain() {
-    local height=$(curl -s http://localhost:8006/rpc/head | jq -r .height 2>/dev/null || echo "0")
-    local status=$(curl -s http://localhost:8006/rpc/info >/dev/null 2>&1 && echo "healthy" || echo "unhealthy")
+    local height=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo "0")
+    local status=$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1 && echo "healthy" || echo "unhealthy")
     echo "$height,$status"
 }
 
@@ -166,10 +166,10 @@ CORS(app)
 def get_metrics():
     try:
         # Get blockchain height
-        height = subprocess.getoutput("curl -s http://localhost:8006/rpc/head | jq -r .height 2>/dev/null || echo 0")
+        height = subprocess.getoutput("curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo 0")
         
         # Check blockchain health
-        health = "healthy" if subprocess.getoutput("curl -s http://localhost:8006/rpc/info >/dev/null 2>&1 && echo healthy || echo unhealthy").strip() == "healthy"
+        health = "healthy" if subprocess.getoutput("curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1 && echo healthy || echo unhealthy").strip() == "healthy"
         
         # Get system metrics
         cpu = subprocess.getoutput("top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | sed 's/%us,//'")

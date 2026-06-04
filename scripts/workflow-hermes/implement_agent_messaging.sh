@@ -4,6 +4,18 @@
 
 set -e
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "=== Advanced hermes Agent Blockchain Messaging Implementation ==="
 
 # Create session for implementation
@@ -39,8 +51,8 @@ cat > /tmp/blockchain_messaging_workflow.json << 'EOF'
         "chain_id": "ait-mainnet",
         "messaging_contract": "AgentMessagingContract",
         "rpc_endpoints": {
-            "genesis": "http://localhost:8006",
-            "follower": "http://aitbc1:8006"
+            "genesis": "http://localhost:8202",
+            "follower": "http://aitbc1:8202"
         }
     },
     "message_types": {
@@ -80,10 +92,10 @@ EOF
 echo "3. Training agents on specific blockchain messaging scenarios..."
 
 echo "Training Genesis Node Agent:"
-hermes agent --agent main --session-id $SESSION_ID --message "As the genesis node agent, I need to learn how to: 1) Create forum topics for coordination, 2) Post status updates about block production, 3) Respond to follower node queries, 4) Moderate discussions, 5) Build reputation through helpful contributions. Current blockchain height is $(curl -s http://localhost:8006/rpc/head | jq .height)." --thinking high
+hermes agent --agent main --session-id $SESSION_ID --message "As the genesis node agent, I need to learn how to: 1) Create forum topics for coordination, 2) Post status updates about block production, 3) Respond to follower node queries, 4) Moderate discussions, 5) Build reputation through helpful contributions. Current blockchain height is $(curl -s http://localhost:8202/rpc/head | jq .height)." --thinking high
 
 echo "Training Follower Node Agent:"
-ssh aitbc1 "cd /opt/aitbc && SESSION_ID='$SESSION_ID' hermes agent --agent main --session-id \$SESSION_ID --message 'As the follower node agent, I need to learn how to: 1) Participate in coordination topics, 2) Report sync status and issues, 3) Ask questions about genesis node operations, 4) Collaborate on troubleshooting, 5) Build reputation through active participation. Current blockchain height is \$(curl -s http://localhost:8006/rpc/head | jq .height).' --thinking high"
+ssh aitbc1 "cd /opt/aitbc && SESSION_ID='$SESSION_ID' hermes agent --agent main --session-id \$SESSION_ID --message 'As the follower node agent, I need to learn how to: 1) Participate in coordination topics, 2) Report sync status and issues, 3) Ask questions about genesis node operations, 4) Collaborate on troubleshooting, 5) Build reputation through active participation. Current blockchain height is \$(curl -s http://localhost:8202/rpc/head | jq .height).' --thinking high"
 
 # 4. Demonstrate practical messaging scenarios
 echo "4. Demonstrating practical blockchain messaging scenarios..."
@@ -94,9 +106,9 @@ hermes agent --agent main --session-id $SESSION_ID --message "Create a forum top
 
 # Scenario 2: Status update broadcasting
 echo "Scenario 2: Broadcasting status updates..."
-hermes agent --agent main --session-id $SESSION_ID --message "Post a status update to the coordination topic: 'Genesis node agent reporting: Block height $(curl -s http://localhost:8006/rpc/head | jq .height), RPC service operational, ready for cross-node agent coordination. All systems nominal.'" --thinking medium
+hermes agent --agent main --session-id $SESSION_ID --message "Post a status update to the coordination topic: 'Genesis node agent reporting: Block height $(curl -s http://localhost:8202/rpc/head | jq .height), RPC service operational, ready for cross-node agent coordination. All systems nominal.'" --thinking medium
 
-ssh aitbc1 "cd /opt/aitbc && SESSION_ID='$SESSION_ID' hermes agent --agent main --session-id \$SESSION_ID --message 'Post a status update to the coordination topic: \"Follower node agent reporting: Block height \$(curl -s http://localhost:8006/rpc/head | jq .height), sync status active, ready for cross-node collaboration. Node operational and responding to genesis node.\"' --thinking medium"
+ssh aitbc1 "cd /opt/aitbc && SESSION_ID='$SESSION_ID' hermes agent --agent main --session-id \$SESSION_ID --message 'Post a status update to the coordination topic: \"Follower node agent reporting: Block height \$(curl -s http://localhost:8202/rpc/head | jq .height), sync status active, ready for cross-node collaboration. Node operational and responding to genesis node.\"' --thinking medium"
 
 # Scenario 3: Cross-node collaboration
 echo "Scenario 3: Cross-node collaboration demonstration..."
@@ -136,12 +148,12 @@ cat > /tmp/hermes_messaging_implementation_report.json << EOF
     "nodes_configured": {
         "genesis_node": {
             "agent_status": "trained_and_active",
-            "blockchain_height": $(curl -s http://localhost:8006/rpc/head | jq .height),
+            "blockchain_height": $(curl -s http://localhost:8202/rpc/head | jq .height),
             "capabilities": ["coordination", "moderation", "status_broadcasting"]
         },
         "follower_node": {
             "agent_status": "trained_and_active", 
-            "blockchain_height": $(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'),
+            "blockchain_height": $(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height'),
             "capabilities": ["participation", "status_reporting", "collaboration"]
         }
     },

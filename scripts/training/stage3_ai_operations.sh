@@ -4,6 +4,18 @@
 source "$(dirname "$0")/training_lib.sh"
 
 # hermes AITBC Training - Stage 3: AI Operations Mastery
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 # AI Job Submission, Resource Management, Ollama Integration
 
 set -e
@@ -249,7 +261,7 @@ ai_service_integration() {
 node_specific_ai() {
     print_status "Node-Specific AI Operations"
 
-    print_status "Testing AI operations on Genesis Node (port 8006)..."
+    print_status "Testing AI operations on Genesis Node (port 8202)..."
     GENESIS_TASK_RESPONSE=$(submit_ai_task "genesis-node-$(date +%s)" "Genesis node test")
     if [ -n "$(echo "$GENESIS_TASK_RESPONSE" | jq -r '.task_id // empty' 2>/dev/null || echo "")" ]; then
         print_success "Genesis node AI task submission succeeded"
@@ -260,7 +272,7 @@ node_specific_ai() {
     fi
     log "Genesis node AI operations tested"
 
-    print_status "Testing AI operations on Follower Node (port 8006 on aitbc1)..."
+    print_status "Testing AI operations on Follower Node (port 8202 on aitbc1)..."
     FOLLOWER_TASK_RESPONSE=$(submit_ai_task "follower-node-$(date +%s)" "Follower node test")
     if [ -n "$(echo "$FOLLOWER_TASK_RESPONSE" | jq -r '.task_id // empty' 2>/dev/null || echo "")" ]; then
         print_success "Follower node AI task submission succeeded"

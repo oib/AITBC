@@ -6,9 +6,9 @@
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -22,7 +22,7 @@ set -e
 AITBC1_HOST="aitbc1"
 AITBC_HOST="localhost"
 GITEA_RUNNER_HOST="gitea-runner"
-GENESIS_PORT="8006"
+GENESIS_PORT="8202"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="$LOG_DIR/multi_chain_island_test_$(date +%Y%m%d_%H%M%S).log"
 ERROR_LOG="$LOG_DIR/multi_chain_island_test_errors_$(date +%Y%m%d_%H%M%S).log"

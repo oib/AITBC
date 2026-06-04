@@ -4,6 +4,18 @@
 # Advanced Wallet Management, Blockchain Operations, Smart Contracts
 # Optimized version using training library
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 set -e
 
 # Source training library
@@ -269,17 +281,17 @@ except Exception as e:
 node_specific_blockchain() {
     print_status "Node-Specific Blockchain Operations"
     
-    print_status "Testing Genesis Node blockchain operations (port 8006, verbose mode)..."
-    NODE_URL="http://localhost:8006" $CLI_PATH blockchain info --verbose 2>/dev/null || print_warning "Genesis node blockchain info not available"
+    print_status "Testing Genesis Node blockchain operations (port 8202, verbose mode)..."
+    NODE_URL="http://localhost:8202" $CLI_PATH blockchain info --verbose 2>/dev/null || print_warning "Genesis node blockchain info not available"
     log "Genesis node blockchain operations tested"
     
-    print_status "Testing Follower Node blockchain operations (port 8006 on aitbc1, debug mode)..."
-    NODE_URL="http://aitbc1:8006" $CLI_PATH blockchain info --debug 2>/dev/null || print_warning "Follower node blockchain info not available"
+    print_status "Testing Follower Node blockchain operations (port 8202 on aitbc1, debug mode)..."
+    NODE_URL="http://aitbc1:8202" $CLI_PATH blockchain info --debug 2>/dev/null || print_warning "Follower node blockchain info not available"
     log "Follower node blockchain operations tested"
     
     print_status "Comparing blockchain heights between nodes (output json)..."
-    GENESIS_HEIGHT=$(NODE_URL="http://localhost:8006" $CLI_PATH blockchain height --output json 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
-    FOLLOWER_HEIGHT=$(NODE_URL="http://aitbc1:8006" $CLI_PATH blockchain height --output json 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
+    GENESIS_HEIGHT=$(NODE_URL="http://localhost:8202" $CLI_PATH blockchain height --output json 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
+    FOLLOWER_HEIGHT=$(NODE_URL="http://aitbc1:8202" $CLI_PATH blockchain height --output json 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
     
     print_status "Genesis height: $GENESIS_HEIGHT, Follower height: $FOLLOWER_HEIGHT"
     log "Node comparison: Genesis=$GENESIS_HEIGHT, Follower=$FOLLOWER_HEIGHT"

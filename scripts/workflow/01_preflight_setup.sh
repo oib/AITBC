@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -16,6 +16,26 @@ else
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
+
+# Check if already setup
+ALREADY_SETUP=false
+if [ -f "/etc/aitbc/blockchain.env" ] && [ -f "/var/lib/aitbc/keystore/.password" ]; then
+    if systemctl is-active --quiet aitbc-blockchain-node; then
+        echo "⚠️  System appears to be already set up and running."
+        echo "   - blockchain.env exists"
+        echo "   - keystore password file exists"
+        echo "   - aitbc-blockchain-node is active"
+        echo ""
+        read -p "Force re-setup? This will stop services and clean data. [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Skipping setup. System already configured."
+            exit 0
+        fi
+        ALREADY_SETUP=true
+    fi
+fi
+
 echo "=== AITBC Multi-Node Blockchain Pre-Flight Setup ==="
 
 # 1. Stop existing services
@@ -48,11 +68,11 @@ BLOCK_TIME=5
 NETWORK_ID=1337
 CONSENSUS=proof_of_authority
 rpc_bind_host=0.0.0.0
-rpc_bind_port=8006
+rpc_bind_port=8202
 auto_sync_enabled=true
 island_id=ait-mainnet-island
 supported_chains=ait-mainnet,ait-testnet
-default_peer_rpc_url=http://aitbc1:8006
+default_peer_rpc_url=http://aitbc1:8202
 EOF
     echo "Created /etc/aitbc/blockchain.env"
 else

@@ -4,6 +4,18 @@
 source "$(dirname "$0")/training_lib.sh"
 
 # hermes AITBC Training - Master Training Launcher
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 # Orchestrates all 5 training stages with progress tracking
 
 set -e
@@ -100,8 +112,8 @@ show_overview() {
     echo
     
     echo -e "${BOLD}🏗️ Two-Node Architecture:${NC}"
-    echo "• Genesis Node (aitbc) - Port 8006 - Primary operations"
-    echo "• Follower Node (aitbc1) - Port 8006 - Secondary operations"
+    echo "• Genesis Node (aitbc) - Port 8202 - Primary operations"
+    echo "• Follower Node (aitbc1) - Port 8202 - Secondary operations"
     echo "• CLI Tool: $CLI_PATH"
     echo
     
@@ -117,7 +129,7 @@ show_overview() {
     
     echo -e "${BOLD}📊 Prerequisites:${NC}"
     echo "• AITBC CLI accessible at $CLI_PATH"
-    echo "• Services running on ports 8011 (Coordinator-API), 9001 (Agent-Coordinator), 8001 (Exchange-API), 8006 (Blockchain RPC)"
+    echo "• Services running on ports 8011 (Coordinator-API), 9001 (Agent-Coordinator), 8001 (Exchange-API), 8202 (Blockchain RPC)"
     echo "• Basic computer skills and command-line familiarity"
     echo
 }
@@ -137,7 +149,7 @@ check_system_readiness() {
     fi
     
     # Check service availability
-    local services=("8001:Exchange" "9001:Agent-Coordinator" "8006:Genesis-Node" "8006:Follower-Node")
+    local services=("8001:Exchange" "9001:Agent-Coordinator" "8202:Genesis-Node" "8202:Follower-Node")
     for service in "${services[@]}"; do
         local port=$(echo "$service" | cut -d: -f1)
         local name=$(echo "$service" | cut -d: -f2)

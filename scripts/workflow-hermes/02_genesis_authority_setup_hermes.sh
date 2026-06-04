@@ -4,6 +4,18 @@
 
 set -e  # Exit on any error
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "=== hermes AITBC Genesis Authority Setup (aitbc) ==="
 
 # 1. Initialize hermes GenesisAgent
@@ -61,8 +73,8 @@ hermes execute --agent GenesisAgent --task update_genesis_config || {
     set_env enable_block_production true
     set_env gossip_backend broadcast
     set_env gossip_broadcast_url redis://localhost:6379
-    set_env default_peer_rpc_url http://aitbc:8006
-    set_env p2p_bind_port 7070
+    set_env default_peer_rpc_url http://aitbc:8202
+    set_env p2p_bind_port 8200
 
     # Ensure p2p_node_id exists in node.env (preserve if already set)
     if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
@@ -109,7 +121,7 @@ hermes execute --agent GenesisAgent --task wait_for_services || {
     sleep 10
     # Wait for RPC service to be ready
     for i in {1..30}; do
-        if curl -s http://localhost:8006/health >/dev/null 2>&1; then
+        if curl -s http://localhost:8202/health >/dev/null 2>&1; then
             echo "✅ Blockchain RPC service is ready"
             break
         fi
@@ -122,9 +134,9 @@ hermes execute --agent GenesisAgent --task wait_for_services || {
 echo "10. Verifying genesis block creation via hermes GenesisAgent..."
 hermes execute --agent GenesisAgent --task verify_genesis_block || {
     echo "⚠️ hermes genesis verification failed - using manual method"
-    curl -s http://localhost:8006/rpc/head | jq .
-    curl -s http://localhost:8006/rpc/info | jq .
-    curl -s http://localhost:8006/rpc/supply | jq .
+    curl -s http://localhost:8202/rpc/head | jq .
+    curl -s http://localhost:8202/rpc/info | jq .
+    curl -s http://localhost:8202/rpc/supply | jq .
 }
 
 # 11. Check genesis wallet balance (via hermes)
@@ -132,7 +144,7 @@ echo "11. Checking genesis wallet balance via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task check_genesis_balance || {
     echo "⚠️ hermes balance check failed - using manual method"
     GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbcgenesis.json | jq -r '.address')
-    curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .
+    curl -s "http://localhost:8202/rpc/getBalance/$GENESIS_ADDR" | jq .
 }
 
 # 12. Notify CoordinatorAgent of completion (via hermes)
@@ -160,7 +172,7 @@ hermes report --agent GenesisAgent --task genesis_setup --format json > /tmp/her
     "genesis_block": true,
     "services_running": true,
     "wallets_created": 3,
-    "rpc_port": 8006,
+    "rpc_port": 8202,
     "genesis_address": "aitbcgenesis",
     "total_supply": 1000000000,
     "timestamp": "2026-03-30T12:40:00Z"
@@ -182,8 +194,8 @@ echo "🤖 Genesis node ready for follower synchronization"
 # Display current status
 echo ""
 echo "=== Genesis Node Status ==="
-curl -s http://localhost:8006/rpc/head | jq '.height' 2>/dev/null || echo "RPC not responding"
-curl -s http://localhost:8006/health 2>/dev/null | jq '.status' || echo "Health check failed"
+curl -s http://localhost:8202/rpc/head | jq '.height' 2>/dev/null || echo "RPC not responding"
+curl -s http://localhost:8202/health 2>/dev/null | jq '.status' || echo "Health check failed"
 
 # Display agent status
 echo ""

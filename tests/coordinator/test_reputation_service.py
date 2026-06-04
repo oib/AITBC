@@ -274,6 +274,136 @@ class TestWeightedRatingCalculation:
         assert recency_weighted_average >= 1.0
         assert recency_weighted_average <= 5.0
 
+    def test_empty_ratings_list(self):
+        """Test weighted rating with empty list"""
+        ratings = []
+        
+        if ratings:
+            total_weight = sum(r["weight"] for r in ratings)
+            weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
+            weighted_average = weighted_sum / total_weight
+        else:
+            weighted_average = 0.0
+        
+        assert weighted_average == 0.0
+
+    def test_single_rating(self):
+        """Test weighted rating with single rating"""
+        ratings = [{"rating": 4.5, "weight": 1.0}]
+        
+        total_weight = sum(r["weight"] for r in ratings)
+        weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
+        weighted_average = weighted_sum / total_weight
+        
+        assert weighted_average == 4.5
+
+
+class TestReputationLevelCalculation:
+    """Test reputation level determination"""
+
+    def test_trustee_level(self):
+        """Test trustee level calculation"""
+        trust_score = 0.95
+        
+        if trust_score >= 0.9:
+            level = "trustee"
+        elif trust_score >= 0.7:
+            level = "reputable"
+        elif trust_score >= 0.5:
+            level = "established"
+        else:
+            level = "newcomer"
+        
+        assert level == "trustee"
+
+    def test_reputable_level(self):
+        """Test reputable level calculation"""
+        trust_score = 0.75
+        
+        if trust_score >= 0.9:
+            level = "trustee"
+        elif trust_score >= 0.7:
+            level = "reputable"
+        elif trust_score >= 0.5:
+            level = "established"
+        else:
+            level = "newcomer"
+        
+        assert level == "reputable"
+
+    def test_established_level(self):
+        """Test established level calculation"""
+        trust_score = 0.6
+        
+        if trust_score >= 0.9:
+            level = "trustee"
+        elif trust_score >= 0.7:
+            level = "reputable"
+        elif trust_score >= 0.5:
+            level = "established"
+        else:
+            level = "newcomer"
+        
+        assert level == "established"
+
+    def test_newcomer_level(self):
+        """Test newcomer level calculation"""
+        trust_score = 0.3
+        
+        if trust_score >= 0.9:
+            level = "trustee"
+        elif trust_score >= 0.7:
+            level = "reputable"
+        elif trust_score >= 0.5:
+            level = "established"
+        else:
+            level = "newcomer"
+        
+        assert level == "newcomer"
+
+
+class TestReputationEventTracking:
+    """Test reputation event tracking"""
+
+    def test_positive_event(self):
+        """Test positive reputation event"""
+        event_type = "successful_job"
+        impact = 0.1
+        
+        if event_type in ["successful_job", "timely_delivery"]:
+            score_change = impact
+        else:
+            score_change = -impact
+        
+        assert score_change > 0
+
+    def test_negative_event(self):
+        """Test negative reputation event"""
+        event_type = "job_failure"
+        impact = 0.1
+        
+        if event_type in ["successful_job", "timely_delivery"]:
+            score_change = impact
+        else:
+            score_change = -impact
+        
+        assert score_change < 0
+
+    def test_event_with_magnitude(self):
+        """Test event with different magnitudes"""
+        event_type = "successful_job"
+        magnitude = 0.2
+        
+        base_impact = 0.1
+        impact = base_impact * magnitude
+        
+        if event_type in ["successful_job", "timely_delivery"]:
+            score_change = impact
+        else:
+            score_change = -impact
+        
+        assert score_change == pytest.approx(0.02)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

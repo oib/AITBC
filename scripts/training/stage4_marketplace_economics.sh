@@ -4,6 +4,18 @@
 source "$(dirname "$0")/training_lib.sh"
 
 # hermes AITBC Training - Stage 4: Marketplace & Economic Intelligence
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 # Marketplace Operations, Economic Modeling, Distributed AI Economics
 
 set -e
@@ -181,17 +193,17 @@ advanced_analytics() {
 node_specific_marketplace() {
     print_status "Node-Specific Marketplace Operations"
     
-    print_status "Testing marketplace on Genesis Node (port 8006, verbose mode)..."
-    NODE_URL="http://localhost:8006" $CLI_PATH marketplace list --verbose 2>/dev/null || print_warning "Genesis node marketplace not available"
+    print_status "Testing marketplace on Genesis Node (port 8202, verbose mode)..."
+    NODE_URL="http://localhost:8202" $CLI_PATH marketplace list --verbose 2>/dev/null || print_warning "Genesis node marketplace not available"
     log "Genesis node marketplace operations tested"
     
-    print_status "Testing marketplace on Follower Node (port 8006 on aitbc1, debug mode)..."
-    NODE_URL="http://aitbc1:8006" $CLI_PATH marketplace list --debug 2>/dev/null || print_warning "Follower node marketplace not available"
+    print_status "Testing marketplace on Follower Node (port 8202 on aitbc1, debug mode)..."
+    NODE_URL="http://aitbc1:8202" $CLI_PATH marketplace list --debug 2>/dev/null || print_warning "Follower node marketplace not available"
     log "Follower node marketplace operations tested"
     
     print_status "Comparing marketplace data between nodes (output json)..."
-    GENESIS_ITEMS=$(NODE_URL="http://localhost:8006" $CLI_PATH marketplace list --output json 2>/dev/null | wc -l || echo "0")
-    FOLLOWER_ITEMS=$(NODE_URL="http://aitbc1:8006" $CLI_PATH marketplace list --output json 2>/dev/null | wc -l || echo "0")
+    GENESIS_ITEMS=$(NODE_URL="http://localhost:8202" $CLI_PATH marketplace list --output json 2>/dev/null | wc -l || echo "0")
+    FOLLOWER_ITEMS=$(NODE_URL="http://aitbc1:8202" $CLI_PATH marketplace list --output json 2>/dev/null | wc -l || echo "0")
     
     print_status "Genesis marketplace items: $GENESIS_ITEMS"
     print_status "Follower marketplace items: $FOLLOWER_ITEMS"
@@ -249,11 +261,11 @@ cross_node_coordination() {
     print_status "Testing economic data synchronization (verbose mode)..."
     
     # Generate economic data on genesis node
-    NODE_URL="http://localhost:8006" $CLI_PATH economics market --analyze --verbose 2>/dev/null || print_warning "Genesis node economic analysis failed"
+    NODE_URL="http://localhost:8202" $CLI_PATH economics market --analyze --verbose 2>/dev/null || print_warning "Genesis node economic analysis failed"
     log "Genesis node economic data generated"
     
     # Generate economic data on follower node
-    NODE_URL="http://aitbc1:8006" $CLI_PATH economics market --analyze --verbose 2>/dev/null || print_warning "Follower node economic analysis failed"
+    NODE_URL="http://aitbc1:8202" $CLI_PATH economics market --analyze --verbose 2>/dev/null || print_warning "Follower node economic analysis failed"
     log "Follower node economic data generated"
     
     # Test economic coordination

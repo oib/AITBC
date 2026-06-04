@@ -256,6 +256,32 @@ async def get_blocks_range_route(
     return await get_blocks_range(request, start, end, include_tx, chain_id)
 
 
+@router.get("/info", summary="Get blockchain information")
+@rate_limit(rate=200, per=60)
+async def get_info_route(request: Request, chain_id: str = None) -> dict[str, Any]:
+    """Get comprehensive blockchain information including transactions, accounts, and genesis parameters"""
+    head = await get_head(request, chain_id)
+    
+    # Get genesis parameters from head or settings
+    genesis_params = head.get("genesis_params", {})
+    if not genesis_params:
+        genesis_params = {
+            "block_time_seconds": getattr(settings, "block_time", 2),
+            "max_block_size": getattr(settings, "max_block_size", 1000000),
+            "difficulty": getattr(settings, "difficulty", 1),
+        }
+    
+    return {
+        "chain_id": getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net"),
+        "height": head.get("height", 0),
+        "total_transactions": head.get("total_transactions", 0),
+        "total_accounts": head.get("total_accounts", 0),
+        "genesis_params": genesis_params,
+        "last_block_hash": head.get("hash", ""),
+        "timestamp": head.get("timestamp", datetime.now(UTC).isoformat()),
+    }
+
+
 @router.get("/network-info", summary="Get network information for joining")
 @rate_limit(rate=100, per=60)
 async def get_network_info_route(request: Request) -> dict[str, Any]:

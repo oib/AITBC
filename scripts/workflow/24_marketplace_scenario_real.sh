@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -30,8 +30,8 @@ NC='\033[0m' # No Color
 # Configuration
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
-GENESIS_PORT="8006"
-FOLLOWER_PORT="8006"
+GENESIS_PORT="8202"
+FOLLOWER_PORT="8202"
 
 # Addresses
 GENESIS_ADDR="ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r"
@@ -134,7 +134,7 @@ AI_RESULT=$(ssh $FOLLOWER_NODE "curl -s -X POST http://localhost:$FOLLOWER_PORT/
   -H 'Content-Type: application/json' \
   -d '{
     \"prompt\": \"Explain how GPU acceleration works in machine learning with CUDA\",
-    \"model\": \"llama2\",
+    \"model\": \"llama3.2:3b\",
     \"max_tokens\": 200,
     \"temperature\": 0.7
   }'" 2>/dev/null)

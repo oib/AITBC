@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -31,13 +31,13 @@ fi
 # Check both nodes are in sync using CLI
 echo "1. Checking blockchain heights..."
 echo "=== aitbc height (localhost) ==="
-AITBC_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq -r '.height')
+AITBC_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq -r '.height')
 echo $AITBC_HEIGHT
 
 echo "=== aitbc1 height (remote) ==="
 # Try to get aitbc1 height, but handle SSH issues gracefully
-if command -v ssh >/dev/null 2>&1 && ssh -o ConnectTimeout=5 aitbc1 'curl -s http://localhost:8006/rpc/head' >/dev/null 2>&1; then
-  AITBC1_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq -r ".height"')
+if command -v ssh >/dev/null 2>&1 && ssh -o ConnectTimeout=5 aitbc1 'curl -s http://localhost:8202/rpc/head' >/dev/null 2>&1; then
+  AITBC1_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq -r ".height"')
 else
   echo "SSH to aitbc1 not available - skipping remote check"
   AITBC1_HEIGHT=$AITBC_HEIGHT

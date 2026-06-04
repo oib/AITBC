@@ -29,14 +29,24 @@ def import_wallets():
 
     print(f"Found {len(wallet_files)} wallet(s) in {WALLET_DIR}")
 
-    # Check daemon is up
-    try:
-        r = httpx.get(f"{WALLET_DAEMON_URL}/health", timeout=5)
-        r.raise_for_status()
-        print(f"Daemon healthy: {r.json()}")
-    except Exception as e:
-        print(f"Daemon not available at {WALLET_DAEMON_URL}: {e}")
-        sys.exit(1)
+    # Check daemon is up with retry logic
+    import time
+    max_retries = 10
+    retry_delay = 1
+
+    for attempt in range(max_retries):
+        try:
+            r = httpx.get(f"{WALLET_DAEMON_URL}/health", timeout=5)
+            r.raise_for_status()
+            print(f"Daemon healthy: {r.json()}")
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"Daemon not ready, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(retry_delay)
+            else:
+                print(f"Daemon not available at {WALLET_DAEMON_URL} after {max_retries} attempts: {e}")
+                sys.exit(1)
 
     # Check existing wallets
     existing = set()

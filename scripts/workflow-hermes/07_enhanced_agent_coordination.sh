@@ -5,6 +5,18 @@
 
 set -e  # Exit on any error
 
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
+
 echo "=== Enhanced Agent Coordination v6.0 ==="
 echo "Multi-Agent Communication Patterns"
 echo "Distributed Decision Making"
@@ -13,9 +25,9 @@ echo "Scalable Agent Architectures"
 # Configuration
 GENESIS_NODE="aitbc"
 FOLLOWER_NODE="aitbc1"
-LOCAL_RPC="http://localhost:8006"
-GENESIS_RPC="http://10.1.223.93:8006"
-FOLLOWER_RPC="http://10.1.223.40:8006"
+LOCAL_RPC="http://localhost:8202"
+GENESIS_RPC="http://10.1.223.93:8202"
+FOLLOWER_RPC="http://10.1.223.40:8202"
 WALLET_PASSWORD="123"
 
 # Colors for output

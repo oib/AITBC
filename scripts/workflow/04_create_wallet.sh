@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -25,6 +25,18 @@ echo "=== AITBC Wallet Creation (Enhanced CLI) ==="
 echo "1. Pre-creation verification..."
 echo "=== Current wallets on aitbc ==="
 "$CLI_PATH" wallet list
+
+# Check if wallet already exists
+if "$CLI_PATH" wallet balance aitbc-user >/dev/null 2>&1; then
+    echo "⚠️  Wallet 'aitbc-user' already exists."
+    echo ""
+    read -p "Create new wallet? This will overwrite existing wallet. [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Skipping wallet creation. Wallet already exists."
+        exit 0
+    fi
+fi
 
 echo "2. Creating new wallet on aitbc..."
 "$CLI_PATH" wallet create aitbc-user $(cat /var/lib/aitbc/keystore/.password)

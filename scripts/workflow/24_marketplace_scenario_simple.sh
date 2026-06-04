@@ -6,9 +6,9 @@ echo "Timestamp: $(date)"
 echo ""
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -44,7 +44,7 @@ BID_AMOUNT=100
 echo "Bid amount: $BID_AMOUNT AIT"
 
 # Check user balance
-USER_BALANCE=$(curl -s "http://localhost:8006/rpc/getBalance/$USER_ADDR" | jq .balance)
+USER_BALANCE=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$USER_ADDR" | jq .balance)
 echo "User balance: $USER_BALANCE AIT"
 
 if [ "$USER_BALANCE" -lt "$BID_AMOUNT" ]; then
@@ -70,12 +70,12 @@ echo "======================"
 echo "Attempting AI task submission..."
 
 # Try AI submit endpoint
-AI_RESULT=$(curl -s -X POST http://localhost:8006/rpc/ai-submit \
+AI_RESULT=$(curl -s -X POST $BLOCKCHAIN_RPC/rpc/ai-submit \
   -H "Content-Type: application/json" \
   -d "{
     \"job_id\": \"$JOB_ID\",
     \"task_type\": \"llm_inference\",
-    \"model\": \"llama2\",
+    \"model\": \"llama3.2:3b\",
     \"prompt\": \"What is blockchain technology?\",
     \"parameters\": {
       \"max_tokens\": 100,
@@ -100,7 +100,7 @@ echo "======================"
 echo "Processing payment for completed job..."
 
 # Create payment transaction
-PAYMENT_RESULT=$(curl -s -X POST http://localhost:8006/rpc/sendTx \
+PAYMENT_RESULT=$(curl -s -X POST $BLOCKCHAIN_RPC/rpc/sendTx \
   -H "Content-Type: application/json" \
   -d "{
     \"type\": \"TRANSFER\",
@@ -123,7 +123,7 @@ if [ "$PAYMENT_TX" != "unknown" ] && [ "$PAYMENT_TX" != "null" ]; then
     # Wait for mining
     echo "Waiting for payment to be mined..."
     for i in {1..10}; do
-        TX_STATUS=$(curl -s "http://localhost:8006/rpc/tx/$PAYMENT_TX" | jq -r .block_height 2>/dev/null || echo "pending")
+        TX_STATUS=$(curl -s "$BLOCKCHAIN_RPC/rpc/tx/$PAYMENT_TX" | jq -r .block_height 2>/dev/null || echo "pending")
         if [ "$TX_STATUS" != "null" ] && [ "$TX_STATUS" != "pending" ]; then
             echo "✅ Payment mined in block: $TX_STATUS"
             break
@@ -140,8 +140,8 @@ echo "6. 📊 FINAL BALANCE VERIFICATION"
 echo "=============================="
 
 # Check final balances
-GENESIS_BALANCE=$(curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .balance)
-USER_FINAL_BALANCE=$(curl -s "http://localhost:8006/rpc/getBalance/$USER_ADDR" | jq .balance)
+GENESIS_BALANCE=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$GENESIS_ADDR" | jq .balance)
+USER_FINAL_BALANCE=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$USER_ADDR" | jq .balance)
 
 echo "Genesis final balance: $GENESIS_BALANCE AIT"
 echo "User final balance: $USER_FINAL_BALANCE AIT"

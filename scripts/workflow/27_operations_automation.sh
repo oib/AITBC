@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -84,9 +84,9 @@ check_blockchain_health() {
     echo "========================"
     
     # Check local node
-    if curl -s http://localhost:8006/rpc/info >/dev/null 2>&1; then
-        local height=$(curl -s http://localhost:8006/rpc/head | jq .height)
-        local txs=$(curl -s http://localhost:8006/rpc/info | jq .total_transactions)
+    if curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1; then
+        local height=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
+        local txs=$(curl -s $BLOCKCHAIN_RPC/rpc/info | jq .total_transactions)
         echo "Local node: Height=$height, Transactions=$txs"
         log_ops "Local blockchain: height=$height, txs=$txs"
     else
@@ -95,8 +95,8 @@ check_blockchain_health() {
     fi
     
     # Check remote node
-    if ssh aitbc 'curl -s http://localhost:8006/rpc/info' >/dev/null 2>&1; then
-        local remote_height=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+    if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/info' >/dev/null 2>&1; then
+        local remote_height=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
         echo "Remote node: Height=$remote_height"
         log_ops "Remote blockchain: height=$remote_height"
         
@@ -159,12 +159,12 @@ check_marketplace_activity() {
     echo "🛒 MARKETPLACE ACTIVITY CHECK"
     echo "==========================="
     
-    if ssh aitbc 'curl -s http://localhost:8006/rpc/marketplace/listings' >/dev/null 2>&1; then
-        local listings=$(ssh aitbc 'curl -s http://localhost:8006/rpc/marketplace/listings | jq .total')
+    if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings' >/dev/null 2>&1; then
+        local listings=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total')
         echo "Active listings: $listings"
         
         # Check AI activity
-        local ai_stats=$(ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats 2>/dev/null || echo "{}"')
+        local ai_stats=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats 2>/dev/null || echo "{}"')
         echo "AI service status: Available"
         
         log_ops "Marketplace: listings=$listings"
@@ -233,9 +233,9 @@ Disk Usage: $(df / | awk 'NR==2 {print $5}' | sed 's/%//')%
 
 BLOCKCHAIN STATUS
 ----------------
-Local Height: $(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "N/A")
-Total Transactions: $(curl -s http://localhost:8006/rpc/info | jq .total_transactions 2>/dev/null || echo "N/A")
-Remote Height: $(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height' 2>/dev/null || echo "N/A")
+Local Height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "N/A")
+Total Transactions: $(curl -s $BLOCKCHAIN_RPC/rpc/info | jq .total_transactions 2>/dev/null || echo "N/A")
+Remote Height: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height' 2>/dev/null || echo "N/A")
 
 GPU STATUS
 ----------
@@ -243,7 +243,7 @@ $(ssh aitbc "nvidia-smi --query-gpu=name,utilization.gpu,temperature.gpu --forma
 
 MARKETPLACE STATUS
 ------------------
-Active Listings: $(ssh aitbc 'curl -s http://localhost:8006/rpc/marketplace/listings | jq .total' 2>/dev/null || echo "N/A")
+Active Listings: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total' 2>/dev/null || echo "N/A")
 
 SERVICES
 --------

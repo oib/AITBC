@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -87,8 +87,8 @@ for service in "${services[@]}"; do
 done
 
 # Check blockchain height
-if curl -s http://localhost:8006/rpc/head >/dev/null 2>&1; then
-    height=$(curl -s http://localhost:8006/rpc/head | jq -r .height 2>/dev/null || echo "0")
+if curl -s $BLOCKCHAIN_RPC/rpc/head >/dev/null 2>&1; then
+    height=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo "0")
     if [ "$height" -gt 1000 ]; then
         check_pass "Blockchain height: $height blocks"
     else
@@ -100,7 +100,7 @@ fi
 
 # Check RPC response time
 start_time=$(date +%s%N)
-curl -s http://localhost:8006/rpc/info >/dev/null 2>&1
+curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1
 end_time=$(date +%s%N)
 response_time=$(( (end_time - start_time) / 1000000 )) # Convert to milliseconds
 
@@ -179,15 +179,15 @@ echo "5. 🌐 NETWORK VALIDATION"
 echo "========================"
 
 # Check cross-node connectivity
-if ssh aitbc "curl -s http://localhost:8006/rpc/info" >/dev/null 2>&1; then
+if ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/info" >/dev/null 2>&1; then
     check_pass "Cross-node connectivity working"
 else
     check_fail "Cross-node connectivity failed"
 fi
 
 # Check blockchain sync
-local_height=$(curl -s http://localhost:8006/rpc/head | jq -r .height 2>/dev/null || echo "0")
-remote_height=$(ssh aitbc "curl -s http://localhost:8006/rpc/head | jq -r .height" 2>/dev/null || echo "0")
+local_height=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo "0")
+remote_height=$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" 2>/dev/null || echo "0")
 height_diff=$((local_height - remote_height))
 
 if [ ${height_diff#-} -lt 10 ]; then
@@ -201,8 +201,8 @@ echo "6. 💰 WALLET VALIDATION"
 echo "======================"
 
 # Check genesis wallet
-if curl -s "http://localhost:8006/rpc/getBalance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r" >/dev/null 2>&1; then
-    genesis_balance=$(curl -s "http://localhost:8006/rpc/getBalance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r" | jq -r .balance 2>/dev/null || echo "0")
+if curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r" >/dev/null 2>&1; then
+    genesis_balance=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r" | jq -r .balance 2>/dev/null || echo "0")
     if [ "$genesis_balance" -gt 900000000 ]; then
         check_pass "Genesis wallet balance: $genesis_balance AIT"
     else
@@ -215,8 +215,8 @@ fi
 # Check aitbc-user wallet
 if ssh aitbc "cat /var/lib/aitbc/keystore/aitbc-user.json" >/dev/null 2>&1; then
     aitbc_user_addr=$(ssh aitbc "cat /var/lib/aitbc/keystore/aitbc-user.json | jq -r .address")
-    if curl -s "http://localhost:8006/rpc/getBalance/$aitbc_user_addr" >/dev/null 2>&1; then
-        user_balance=$(curl -s "http://localhost:8006/rpc/getBalance/$aitbc_user_addr" | jq -r .balance 2>/dev/null || echo "0")
+    if curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$aitbc_user_addr" >/dev/null 2>&1; then
+        user_balance=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$aitbc_user_addr" | jq -r .balance 2>/dev/null || echo "0")
         check_pass "AITBC-user wallet balance: $user_balance AIT"
     else
         check_fail "Cannot access AITBC-user wallet balance"

@@ -634,6 +634,347 @@ class TestAgentStatusUpdate:
         
         assert request.status == "Busy"
 
+    def test_registration_request_with_mixed_case_agent_type(self):
+        """Test registration request with mixed case agent_type"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_mixed_type",
+            agent_type="Worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8135"}
+        )
+        
+        assert request.agent_type == "Worker"
+
+    def test_status_update_with_numeric_status(self):
+        """Test status update with numeric characters in status"""
+        request = AgentStatusUpdate(
+            status="status123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "123" in request.status
+
+    def test_registration_request_with_empty_agent_id(self):
+        """Test registration request with empty agent_id (edge case)"""
+        request = AgentRegistrationRequest(
+            agent_id="",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8136"}
+        )
+        
+        assert request.agent_id == ""
+
+    def test_status_update_with_empty_status(self):
+        """Test status update with empty status (edge case)"""
+        request = AgentStatusUpdate(
+            status="",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert request.status == ""
+
+    def test_registration_request_with_single_character_agent_id(self):
+        """Test registration request with single character agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="A",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8137"}
+        )
+        
+        assert len(request.agent_id) == 1
+
+    def test_status_update_with_single_character_status(self):
+        """Test status update with single character status"""
+        request = AgentStatusUpdate(
+            status="B",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert len(request.status) == 1
+
+    def test_registration_request_with_numeric_agent_id(self):
+        """Test registration request with numeric agent_id (edge case)"""
+        request = AgentRegistrationRequest(
+            agent_id="123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8138"}
+        )
+        
+        assert request.agent_id == "123"
+
+    def test_status_update_with_numeric_status(self):
+        """Test status update with numeric status (edge case)"""
+        request = AgentStatusUpdate(
+            status="123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert request.status == "123"
+
+    def test_registration_request_with_special_characters_agent_id(self):
+        """Test registration request with special characters in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent@#$",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8139"}
+        )
+        
+        assert "@" in request.agent_id
+        assert "#" in request.agent_id
+        assert "$" in request.agent_id
+
+    def test_status_update_with_special_characters_status(self):
+        """Test status update with special characters in status"""
+        request = AgentStatusUpdate(
+            status="status@#$",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "@" in request.status
+        assert "#" in request.status
+        assert "$" in request.status
+
+    def test_registration_request_with_spaces_agent_id(self):
+        """Test registration request with spaces in agent_id (edge case)"""
+        request = AgentRegistrationRequest(
+            agent_id="agent 123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8140"}
+        )
+        
+        assert " " in request.agent_id
+
+    def test_status_update_with_spaces_status(self):
+        """Test status update with spaces in status (edge case)"""
+        request = AgentStatusUpdate(
+            status="status 123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert " " in request.status
+
+    def test_registration_request_with_underscore_agent_id(self):
+        """Test registration request with underscore in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent_123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8141"}
+        )
+        
+        assert "_" in request.agent_id
+
+    def test_status_update_with_underscore_status(self):
+        """Test status update with underscore in status"""
+        request = AgentStatusUpdate(
+            status="status_123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "_" in request.status
+
+    def test_registration_request_with_colon_agent_id(self):
+        """Test registration request with colon in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent:123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8142"}
+        )
+        
+        assert ":" in request.agent_id
+
+    def test_status_update_with_colon_status(self):
+        """Test status update with colon in status"""
+        request = AgentStatusUpdate(
+            status="status:123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert ":" in request.status
+
+    def test_registration_request_with_equals_agent_id(self):
+        """Test registration request with equals in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent=123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8143"}
+        )
+        
+        assert "=" in request.agent_id
+
+    def test_status_update_with_equals_status(self):
+        """Test status update with equals in status"""
+        request = AgentStatusUpdate(
+            status="status=123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "=" in request.status
+
+    def test_registration_request_with_bracket_agent_id(self):
+        """Test registration request with bracket in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent[123]",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8144"}
+        )
+        
+        assert "[" in request.agent_id
+        assert "]" in request.agent_id
+
+    def test_status_update_with_bracket_status(self):
+        """Test status update with bracket in status"""
+        request = AgentStatusUpdate(
+            status="status[123]",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "[" in request.status
+        assert "]" in request.status
+
+    def test_registration_request_with_curly_bracket_agent_id(self):
+        """Test registration request with curly bracket in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent{123}",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8145"}
+        )
+        
+        assert "{" in request.agent_id
+        assert "}" in request.agent_id
+
+    def test_status_update_with_curly_bracket_status(self):
+        """Test status update with curly bracket in status"""
+        request = AgentStatusUpdate(
+            status="status{123}",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "{" in request.status
+        assert "}" in request.status
+
+    def test_registration_request_with_dollar_agent_id(self):
+        """Test registration request with dollar in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent$123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8146"}
+        )
+        
+        assert "$" in request.agent_id
+
+    def test_status_update_with_dollar_status(self):
+        """Test status update with dollar in status"""
+        request = AgentStatusUpdate(
+            status="status$123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "$" in request.status
+
+    def test_status_update_with_hash_status(self):
+        """Test status update with hash in status"""
+        request = AgentStatusUpdate(
+            status="status#123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "#" in request.status
+
+    def test_status_update_with_exclamation_status(self):
+        """Test status update with exclamation in status"""
+        request = AgentStatusUpdate(
+            status="status!123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "!" in request.status
+
+    def test_registration_request_with_asterisk_agent_id(self):
+        """Test registration request with asterisk in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent*123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8161"}
+        )
+        
+        assert "*" in request.agent_id
+
+    def test_status_update_with_asterisk_status(self):
+        """Test status update with asterisk in status"""
+        request = AgentStatusUpdate(
+            status="status*123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "*" in request.status
+
+    def test_registration_request_with_equals_agent_id(self):
+        """Test registration request with equals in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent=123",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8162"}
+        )
+        
+        assert "=" in request.agent_id
+
+    def test_status_update_with_equals_status(self):
+        """Test status update with equals in status"""
+        request = AgentStatusUpdate(
+            status="status=123",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "=" in request.status
+
+    def test_registration_request_with_curly_brace_agent_id(self):
+        """Test registration request with curly brace in agent_id"""
+        request = AgentRegistrationRequest(
+            agent_id="agent{123}",
+            agent_type="worker",
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8163"}
+        )
+        
+        assert "{" in request.agent_id
+
+    def test_status_update_with_curly_brace_status(self):
+        """Test status update with curly brace in status"""
+        request = AgentStatusUpdate(
+            status="status{123}",
+            load_metrics={"cpu": 0.5}
+        )
+        
+        assert "{" in request.status
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

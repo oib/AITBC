@@ -5,14 +5,26 @@
 
 set -e  # Exit on any error
 
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
+
 echo "=== Hermes Complete Multi-Node Blockchain Workflow v4.0 ==="
 
 # Configuration
 GENESIS_NODE="aitbc"
 FOLLOWER_NODE="aitbc1"
-LOCAL_RPC="http://localhost:8006"
-GENESIS_RPC="http://10.1.223.93:8006"
-FOLLOWER_RPC="http://10.1.223.40:8006"
+LOCAL_RPC="http://localhost:8202"
+GENESIS_RPC="http://10.1.223.93:8202"
+FOLLOWER_RPC="http://10.1.223.40:8202"
 WALLET_PASSWORD="123"
 
 # Colors for output
@@ -107,14 +119,14 @@ hermes execute --agent CoordinatorAgent --task comprehensive_verification || {
     
     # Check both nodes are running
     echo "Checking aitbc node..."
-    curl -s http://localhost:8006/health | jq .status
+    curl -s http://localhost:8202/health | jq .status
     
     echo "Checking aitbc1 node..."
-    ssh aitbc1 'curl -s http://localhost:8006/health | jq .status'
+    ssh aitbc1 'curl -s http://localhost:8202/health | jq .status'
     
     # Check sync status
-    GENESIS_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-    FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height')
+    GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
+    FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')
     
     echo "Sync Status: Genesis=$GENESIS_HEIGHT, Follower=$FOLLOWER_HEIGHT"
     
@@ -129,11 +141,11 @@ hermes execute --agent CoordinatorAgent --task comprehensive_verification || {
     
     # Check blockchain height
     echo "Blockchain Height:"
-    curl -s http://localhost:8006/rpc/head | jq .height
+    curl -s http://localhost:8202/rpc/head | jq .height
     
     # Check proposer
     echo "Proposer:"
-    curl -s http://localhost:8006/health | jq .proposer_id
+    curl -s http://localhost:8202/health | jq .proposer_id
     
     # Check services
     echo "Services:"
@@ -178,8 +190,8 @@ hermes execute --agent CoordinatorAgent --task performance_testing || {
     
     # Test RPC response times
     echo "Testing RPC response times..."
-    time curl -s http://localhost:8006/rpc/head > /dev/null
-    time ssh aitbc1 'curl -s http://localhost:8006/rpc/head > /dev/null'
+    time curl -s http://localhost:8202/rpc/head > /dev/null
+    time ssh aitbc1 'curl -s http://localhost:8202/rpc/head > /dev/null'
     
     # Test transaction speed
     cd /opt/aitbc
@@ -213,8 +225,8 @@ hermes execute --agent CoordinatorAgent --task network_health_check || {
     ping -c 1 aitbc1 >/dev/null 2>&1 && echo "✅ aitbc1 reachable" || echo "❌ aitbc1 not reachable"
     
     # Check blockchain sync
-    GENESIS_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-    FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height')
+    GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
+    FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')
     
     if [ "$GENESIS_HEIGHT" -eq "$FOLLOWER_HEIGHT" ]; then
         echo "✅ Blockchain sync: Nodes are synchronized"
@@ -292,14 +304,14 @@ echo "=== Final Summary ==="
 
 # Display node status
 echo "📊 Node Status:"
-echo "aitbc (Genesis): $(curl -s http://localhost:8006/health | jq .status 2>/dev/null || echo 'Unknown')"
-echo "aitbc1 (Follower): $(ssh aitbc1 'curl -s http://localhost:8006/health | jq .status' 2>/dev/null || echo 'Unknown')"
+echo "aitbc (Genesis): $(curl -s http://localhost:8202/health | jq .status 2>/dev/null || echo 'Unknown')"
+echo "aitbc1 (Follower): $(ssh aitbc1 'curl -s http://localhost:8202/health | jq .status' 2>/dev/null || echo 'Unknown')"
 
 # Display blockchain height
 echo ""
 echo "⛓️ Blockchain Status:"
-GENESIS_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "N/A")
-FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height' 2>/dev/null || echo "N/A")
+GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo "N/A")
+FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height' 2>/dev/null || echo "N/A")
 echo "Genesis Height: $GENESIS_HEIGHT"
 echo "Follower Height: $FOLLOWER_HEIGHT"
 

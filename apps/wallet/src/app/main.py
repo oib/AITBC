@@ -72,14 +72,101 @@ async def _import_genesis_wallet_from_env():
         logger.warning(f"Could not auto-import genesis wallet: {e}")
 
 
+async def _import_file_wallets():
+    """Auto-import wallets from ~/.aitbc/wallets/ into daemon on startup."""
+    import httpx
+    import json
+    from pathlib import Path
+
+    wallet_dir = Path("/root/.aitbc/wallets")
+    if not wallet_dir.exists():
+        return
+
+    wallet_files = list(wallet_dir.glob("*.json"))
+    if not wallet_files:
+        return
+
+    daemon_url = "http://localhost:8108"
+    password = os.getenv("WALLET_IMPORT_PASSWORD", "Aitbc-Password-123")
+
+    # Retry logic for daemon readiness
+    import asyncio
+    max_retries = 10
+    retry_delay = 2
+
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                # Check existing wallets
+                r = await client.get(f"{daemon_url}/v1/wallets")
+                existing = {w["wallet_id"] for w in r.json().get("items", [])}
+
+                imported = 0
+                for wallet_file in wallet_files:
+                    try:
+                        with open(wallet_file) as f:
+                            data = json.load(f)
+
+                        wallet_id = data.get("wallet_id") or wallet_file.stem
+                        address = data.get("address", "")
+                        private_key_hex = data.get("private_key", "").lstrip("0x")
+                        chain_id = data.get("chain_id", "ait-hub.aitbc.bubuit.net")
+
+                        if wallet_id in existing:
+                            continue
+
+                        if not private_key_hex:
+                            continue
+
+                        secret_b64 = base64.b64encode(bytes.fromhex(private_key_hex)).decode()
+                        payload = {
+                            "wallet_id": wallet_id,
+                            "chain_id": chain_id,
+                            "password": password,
+                            "secret_key": secret_b64,
+                            "metadata": {
+                                "address": address,
+                                "imported_from": str(wallet_file),
+                                "original_address": address,
+                            }
+                        }
+
+                        r = await client.post(f"{daemon_url}/v1/wallets", json=payload)
+                        if r.status_code in (200, 201):
+                            imported += 1
+                            logger.info(f"Auto-imported wallet: {wallet_id} ({address})")
+                    except Exception as e:
+                        logger.warning(f"Failed to import wallet {wallet_file.name}: {e}")
+
+                if imported > 0:
+                    logger.info(f"Auto-imported {imported} wallet(s) from {wallet_dir}")
+                return  # Success, exit retry loop
+        except httpx.ConnectError as e:
+            if attempt < max_retries - 1:
+                logger.info(f"Daemon not ready, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.warning(f"Could not auto-import file wallets: Daemon not ready after {max_retries} attempts")
+        except Exception as e:
+            logger.warning(f"Could not auto-import file wallets: {e}")
+            return
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await _import_genesis_wallet_from_env()
+    # Import wallets in background after server is ready
+    import asyncio
+    asyncio.create_task(_import_genesis_wallet_from_env())
+    asyncio.create_task(_import_file_wallets())
     yield
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+    app = FastAPI(
+        title=settings.app_name,
+        debug=settings.debug,
+        lifespan=lifespan
+    )
 
     # Add rate limiting middleware
     app.add_middleware(

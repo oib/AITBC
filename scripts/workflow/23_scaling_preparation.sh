@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -44,8 +44,8 @@ fi
 cat > /etc/nginx/sites-available/aitbc-loadbalancer << 'EOF'
 # AITBC Load Balancer Configuration
 upstream aitbc_backend {
-    server 127.0.0.1:8006 weight=1 max_fails=3 fail_timeout=30s;
-    server 10.1.223.40:8006 weight=1 max_fails=3 fail_timeout=30s;
+    server 127.0.0.1:${BLOCKCHAIN_RPC_PORT:-8202} weight=1 max_fails=3 fail_timeout=30s;
+    server 10.1.223.40:${BLOCKCHAIN_RPC_PORT:-8202} weight=1 max_fails=3 fail_timeout=30s;
 }
 
 server {
@@ -126,15 +126,15 @@ nodes:
   - name: "aitbc1"
     role: "genesis_authority"
     host: "127.0.0.1"
-    port: 8006
-    p2p_port: 7070
+    port: 8202
+    p2p_port: 8200
     priority: 100
   
   - name: "aitbc2"
     role: "follower"
     host: "10.1.223.40"
-    port: 8006
-    p2p_port: 7070
+    port: 8202
+    p2p_port: 8200
     priority: 50
 
 # Load Balancing
@@ -187,7 +187,7 @@ log_scale() {
 get_current_load() {
     local cpu_load=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
     local mem_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
-    local rpc_response=$(curl -s -w "%{time_total}" -o /dev/null http://localhost:8006/rpc/info)
+    local rpc_response=$(curl -s -w "%{time_total}" -o /dev/null $BLOCKCHAIN_RPC/rpc/info)
     
     echo "$cpu_load,$mem_usage,$rpc_response"
 }
@@ -281,21 +281,21 @@ cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
   "services": {
     "aitbc-blockchain": {
       "name": "AITBC Blockchain Nodes",
-      "port": 8006,
+      "port": 8202,
       "health_check": "/rpc/info",
       "protocol": "http",
       "nodes": [
         {
           "id": "aitbc1",
           "host": "127.0.0.1",
-          "port": 8006,
+          "port": 8202,
           "role": "genesis_authority",
           "status": "active"
         },
         {
           "id": "aitbc2", 
           "host": "10.1.223.40",
-          "port": 8006,
+          "port": 8202,
           "role": "follower",
           "status": "active"
         }
@@ -303,19 +303,19 @@ cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
     },
     "aitbc-p2p": {
       "name": "AITBC P2P Network",
-      "port": 7070,
+      "port": 8200,
       "protocol": "tcp",
       "nodes": [
         {
           "id": "aitbc1",
           "host": "127.0.0.1",
-          "port": 7070,
+          "port": 8200,
           "role": "seed"
         },
         {
           "id": "aitbc2",
           "host": "10.1.223.40", 
-          "port": 7070,
+          "port": 8200,
           "role": "peer"
         }
       ]
@@ -323,7 +323,7 @@ cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
   },
   "load_balancer": {
     "frontend_port": 80,
-    "backend_port": 8006,
+    "backend_port": 8202,
     "algorithm": "round_robin",
     "health_check_interval": 30,
     "type": "nginx"

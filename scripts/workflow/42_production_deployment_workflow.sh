@@ -6,9 +6,9 @@
 set -e
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -31,7 +31,7 @@ NC='\033[0m' # No Color
 # Configuration
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
-GENESIS_PORT="8006"
+GENESIS_PORT="8202"
 COORDINATOR_PORT="8011"
 
 echo "🚀 PRODUCTION DEPLOYMENT"
@@ -136,7 +136,7 @@ run_test_verbose "Agent communication deployment" "
     
     # Test agent communication
     echo 'Agent communication test:'
-    curl -s http://localhost:8006/rpc/messaging/topics | jq .success 2>/dev/null || echo 'Messaging endpoints available'
+    curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics | jq .success 2>/dev/null || echo 'Messaging endpoints available'
     
     echo '✅ Agent communication deployed'
 "
@@ -204,7 +204,7 @@ run_test_verbose "Marketplace deployment" "
     
     # Test marketplace functionality
     echo 'Marketplace test:'
-    curl -s http://localhost:8006/rpc/marketplace/listings | jq .total 2>/dev/null || echo 'Marketplace responding'
+    curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total 2>/dev/null || echo 'Marketplace responding'
     
     echo '✅ Marketplace deployed'
 "
@@ -219,7 +219,7 @@ run_test_verbose "AI services deployment" "
     
     # Test AI service on follower node
     echo 'AI service test:'
-    ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo 'AI service responding'
+    ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo 'AI service responding'
     
     echo '✅ AI services deployed'
 "
@@ -233,8 +233,8 @@ run_test_verbose "Cross-node deployment" "
     echo 'Deploying cross-node systems...'
     
     # Test cross-node synchronization
-    LOCAL_HEIGHT=\$(curl -s http://localhost:8006/rpc/head | jq .height)
-    REMOTE_HEIGHT=\$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+    LOCAL_HEIGHT=\$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
+    REMOTE_HEIGHT=\$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
     SYNC_DIFF=\$((LOCAL_HEIGHT - REMOTE_HEIGHT))
     
     echo \"Cross-node sync status: \$SYNC_DIFF blocks difference\"
@@ -255,11 +255,11 @@ run_test_verbose "Production validation" "
     echo 'Validating production deployment...'
     
     echo 'Production validation checklist:'
-    echo \"✅ Blockchain RPC: \$(curl -s http://localhost:8006/rpc/info >/dev/null && echo 'PASS' || echo 'FAIL')\"
+    echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Coordinator API: \$(curl -s http://localhost:8011/health/live >/dev/null && echo 'PASS' || echo 'FAIL')\"
-    echo \"✅ Marketplace: \$(curl -s http://localhost:8006/rpc/marketplace/listings >/dev/null && echo 'PASS' || echo 'FAIL')\"
-    echo \"✅ AI Service: \$(ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats' >/dev/null && echo 'PASS' || echo 'FAIL')\"
-    echo \"✅ Agent Communication: \$(curl -s http://localhost:8006/rpc/messaging/topics >/dev/null && echo 'PASS' || echo 'FAIL')\"
+    echo \"✅ Marketplace: \$(curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings >/dev/null && echo 'PASS' || echo 'FAIL')\"
+    echo \"✅ AI Service: \$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'PASS' || echo 'FAIL')\"
+    echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Security Systems: \$(test -d /opt/aitbc/security_reports && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Monitoring Systems: \$(test -d /var/log/aitbc/events && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Analytics Systems: \$(test -d /var/log/aitbc/analytics && echo 'PASS' || echo 'FAIL')\"
@@ -310,7 +310,7 @@ Network Status: $(ping -c 1 localhost >/dev/null 2>&1 && echo "Connected" || ech
 
 SECURITY STATUS:
 Firewall: $(ufw status 2>/dev/null | head -1 || echo "Not configured")
-SSL/TLS: $(curl -s --connect-timeout 5 https://localhost:8006 >/dev/null 2>&1 && echo "Available" || echo "Not configured")
+SSL/TLS: $(curl -s --connect-timeout 5 https://localhost:${BLOCKCHAIN_RPC_PORT:-8202} >/dev/null 2>&1 && echo "Available" || echo "Not configured")
 Access Control: Agent authentication enabled
 
 MONITORING STATUS:

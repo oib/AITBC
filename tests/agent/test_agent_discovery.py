@@ -1226,6 +1226,913 @@ class TestAgentDiscoveryService:
         
         assert "-" in agent.agent_id
 
+    def test_agent_info_with_special_characters_in_agent_id(self):
+        """Test agent info with special characters in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent@#$",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8141"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "@" in agent.agent_id
+        assert "#" in agent.agent_id
+        assert "$" in agent.agent_id
+
+    def test_agent_info_with_underscore_in_agent_id(self):
+        """Test agent info with underscore in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8142"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "_" in agent.agent_id
+
+    def test_agent_info_with_empty_agent_id(self):
+        """Test agent info with empty agent_id (edge case)"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8143"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert agent.agent_id == ""
+
+    def test_agent_info_with_single_character_agent_id(self):
+        """Test agent info with single character agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="A",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8144"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert len(agent.agent_id) == 1
+
+    def test_agent_info_with_mixed_case_agent_id(self):
+        """Test agent info with mixed case agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="AgentID",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8145"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "Agent" in agent.agent_id
+        assert "ID" in agent.agent_id
+
+    def test_agent_info_with_numeric_agent_id(self):
+        """Test agent info with numeric agent_id (edge case)"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8146"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert agent.agent_id == "123"
+
+    def test_agent_info_with_hyphen_in_agent_id(self):
+        """Test agent info with hyphen in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent-123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8147"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "-" in agent.agent_id
+
+    def test_agent_info_with_dot_in_agent_id(self):
+        """Test agent info with dot in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent.123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8148"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "." in agent.agent_id
+
+    def test_agent_info_with_special_characters_in_agent_id(self):
+        """Test agent info with various special characters in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent@#$",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8149"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "@" in agent.agent_id
+        assert "#" in agent.agent_id
+        assert "$" in agent.agent_id
+
+    def test_agent_info_with_spaces_in_agent_id(self):
+        """Test agent info with spaces in agent_id (edge case)"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent 123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8150"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert " " in agent.agent_id
+
+    def test_agent_info_with_underscore_in_agent_id(self):
+        """Test agent info with underscore in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent_123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8151"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "_" in agent.agent_id
+
+    def test_agent_info_with_pipe_in_agent_id(self):
+        """Test agent info with pipe in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent|123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8152"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "|" in agent.agent_id
+
+    def test_agent_info_with_colon_in_agent_id(self):
+        """Test agent info with colon in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent:123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8153"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert ":" in agent.agent_id
+
+    def test_agent_info_with_semicolon_in_agent_id(self):
+        """Test agent info with semicolon in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent;123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8154"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert ";" in agent.agent_id
+
+    def test_agent_info_with_equals_in_agent_id(self):
+        """Test agent info with equals in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent=123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8155"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "=" in agent.agent_id
+
+    def test_agent_info_with_plus_in_agent_id(self):
+        """Test agent info with plus in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent+123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8156"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "+" in agent.agent_id
+
+    def test_agent_info_with_slash_in_agent_id(self):
+        """Test agent info with slash in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent/123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8157"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "/" in agent.agent_id
+
+    def test_agent_info_with_backslash_in_agent_id(self):
+        """Test agent info with backslash in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent\\123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8158"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "\\" in agent.agent_id
+
+    def test_agent_info_with_bracket_in_agent_id(self):
+        """Test agent info with bracket in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent[123]",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8159"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "[" in agent.agent_id
+        assert "]" in agent.agent_id
+
+    def test_agent_info_with_parenthesis_in_agent_id(self):
+        """Test agent info with parenthesis in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent(123)",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8160"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "(" in agent.agent_id
+        assert ")" in agent.agent_id
+
+    def test_agent_info_with_curly_bracket_in_agent_id(self):
+        """Test agent info with curly bracket in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent{123}",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8161"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "{" in agent.agent_id
+        assert "}" in agent.agent_id
+
+    def test_agent_info_with_angle_bracket_in_agent_id(self):
+        """Test agent info with angle bracket in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent<123>",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8162"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "<" in agent.agent_id
+        assert ">" in agent.agent_id
+
+    def test_agent_info_with_dollar_in_agent_id(self):
+        """Test agent info with dollar in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent$123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8163"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "$" in agent.agent_id
+
+    def test_agent_info_with_at_in_agent_id(self):
+        """Test agent info with at in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent@123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8164"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "@" in agent.agent_id
+
+    def test_agent_info_with_percent_in_agent_id(self):
+        """Test agent info with percent in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent%123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8165"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "%" in agent.agent_id
+
+    def test_agent_info_with_ampersand_in_agent_id(self):
+        """Test agent info with ampersand in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent&123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8166"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "&" in agent.agent_id
+
+    def test_agent_info_with_hash_in_agent_id(self):
+        """Test agent info with hash in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent#123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8167"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "#" in agent.agent_id
+
+    def test_agent_info_with_exclamation_in_agent_id(self):
+        """Test agent info with exclamation in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent!123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8168"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "!" in agent.agent_id
+
+    def test_agent_info_with_asterisk_in_agent_id(self):
+        """Test agent info with asterisk in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent*123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8169"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "*" in agent.agent_id
+
+    def test_agent_info_with_plus_in_agent_id(self):
+        """Test agent info with plus in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent+123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8170"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "+" in agent.agent_id
+
+    def test_agent_info_with_equals_in_agent_id(self):
+        """Test agent info with equals in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent=123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8171"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "=" in agent.agent_id
+
+    def test_agent_info_with_bracket_in_agent_id(self):
+        """Test agent info with bracket in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent[123]",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8172"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "[" in agent.agent_id
+
+    def test_agent_info_with_curly_brace_in_agent_id(self):
+        """Test agent info with curly brace in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent{123}",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8173"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "{" in agent.agent_id
+
+    def test_agent_info_with_pipe_in_agent_id(self):
+        """Test agent info with pipe in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent|123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8174"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "|" in agent.agent_id
+
+    def test_agent_info_with_colon_in_agent_id(self):
+        """Test agent info with colon in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent:123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8175"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert ":" in agent.agent_id
+
+    def test_agent_info_with_semicolon_in_agent_id(self):
+        """Test agent info with semicolon in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent;123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8176"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert ";" in agent.agent_id
+
+    def test_agent_info_with_comma_in_agent_id(self):
+        """Test agent info with comma in agent_id"""
+        now = datetime.now(UTC)
+        agent = AgentInfo(
+            agent_id="agent,123",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8177"},
+            metadata={},
+            last_heartbeat=now,
+            registration_time=now
+        )
+        
+        assert "," in agent.agent_id
+
+    @pytest.mark.asyncio
+    async def test_get_agents_by_type(self):
+        """Test getting agents by type"""
+        registry = AgentRegistry()
+        
+        worker_agent = AgentInfo(
+            agent_id="worker_agent",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8178"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC)
+        )
+        
+        specialist_agent = AgentInfo(
+            agent_id="specialist_agent",
+            agent_type=AgentType.SPECIALIST,
+            status=AgentStatus.ACTIVE,
+            capabilities=["storage"],
+            services=["backup"],
+            endpoints={"http": "http://localhost:8179"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC)
+        )
+        
+        await registry.register_agent(worker_agent)
+        await registry.register_agent(specialist_agent)
+        
+        workers = await registry.get_agents_by_type(AgentType.WORKER)
+        
+        assert len(workers) == 1
+        assert workers[0].agent_id == "worker_agent"
+        assert workers[0].agent_type == AgentType.WORKER
+
+    @pytest.mark.asyncio
+    async def test_get_service_endpoints(self):
+        """Test getting service endpoints"""
+        registry = AgentRegistry()
+        service = AgentDiscoveryService(registry)
+        
+        agent_info = AgentInfo(
+            agent_id="endpoint_agent",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8180", "grpc": "grpc://localhost:8181"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC)
+        )
+        
+        await registry.register_agent(agent_info)
+        endpoints = await service.get_service_endpoints("inference")
+        
+        assert "http" in endpoints
+        assert "grpc" in endpoints
+        assert len(endpoints["http"]) == 1
+        assert len(endpoints["grpc"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_agent_by_id_not_found(self):
+        """Test getting non-existent agent by ID"""
+        registry = AgentRegistry()
+        
+        retrieved_agent = await registry.get_agent_by_id("nonexistent_agent")
+        
+        assert retrieved_agent is None
+
+    @pytest.mark.asyncio
+    async def test_get_agents_by_service_empty(self):
+        """Test getting agents by service when no agents registered"""
+        registry = AgentRegistry()
+        
+        agents = await registry.get_agents_by_service("inference")
+        
+        assert len(agents) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_agents_by_capability_empty(self):
+        """Test getting agents by capability when no agents registered"""
+        registry = AgentRegistry()
+        
+        agents = await registry.get_agents_by_capability("gpu")
+        
+        assert len(agents) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_agents_by_type_empty(self):
+        """Test getting agents by type when no agents registered"""
+        registry = AgentRegistry()
+        
+        workers = await registry.get_agents_by_type(AgentType.WORKER)
+        
+        assert len(workers) == 0
+
+    @pytest.mark.asyncio
+    async def test_unregister_nonexistent_agent(self):
+        """Test unregistering a non-existent agent"""
+        registry = AgentRegistry()
+        
+        success = await registry.unregister_agent("nonexistent_agent")
+        
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_update_status_nonexistent_agent(self):
+        """Test updating status of non-existent agent"""
+        registry = AgentRegistry()
+        
+        success = await registry.update_agent_status("nonexistent_agent", AgentStatus.BUSY)
+        
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_update_heartbeat_nonexistent_agent(self):
+        """Test updating heartbeat of non-existent agent"""
+        registry = AgentRegistry()
+        
+        success = await registry.update_agent_heartbeat("nonexistent_agent")
+        
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_register_duplicate_agent(self):
+        """Test registering an agent that already exists"""
+        registry = AgentRegistry()
+        
+        agent_info = AgentInfo(
+            agent_id="duplicate_agent",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8182"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC)
+        )
+        
+        await registry.register_agent(agent_info)
+        success = await registry.register_agent(agent_info)
+        
+        assert success is True
+
+    @pytest.mark.asyncio
+    async def test_discover_agents_empty_query(self):
+        """Test discovering agents with empty query"""
+        registry = AgentRegistry()
+        
+        agent_info = AgentInfo(
+            agent_id="agent_query",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8183"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC)
+        )
+        
+        await registry.register_agent(agent_info)
+        all_agents = await registry.discover_agents({})
+        
+        assert len(all_agents) == 1
+        assert all_agents[0].agent_id == "agent_query"
+
+    @pytest.mark.asyncio
+    async def test_discover_agents_with_multiple_filters(self):
+        """Test discovering agents with multiple filters"""
+        registry = AgentRegistry()
+        
+        agent_info = AgentInfo(
+            agent_id="agent_multi",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu", "cuda"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8184"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC),
+            health_score=0.9
+        )
+        
+        await registry.register_agent(agent_info)
+        filtered_agents = await registry.discover_agents({
+            "agent_type": "worker",
+            "capabilities": ["gpu"],
+            "min_health_score": 0.8
+        })
+        
+        assert len(filtered_agents) == 1
+        assert filtered_agents[0].agent_id == "agent_multi"
+
+    @pytest.mark.asyncio
+    async def test_find_best_agent_with_requirements(self):
+        """Test finding best agent with specific requirements"""
+        registry = AgentRegistry()
+        service = AgentDiscoveryService(registry)
+        
+        best_agent = AgentInfo(
+            agent_id="best_agent_test",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["gpu", "cuda"],
+            services=["inference"],
+            endpoints={"http": "http://localhost:8185"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC),
+            health_score=0.95
+        )
+        
+        await registry.register_agent(best_agent)
+        found = await service.find_best_agent({
+            "capabilities": ["gpu"],
+            "min_health_score": 0.9
+        })
+        
+        assert found is not None
+        assert found.agent_id == "best_agent_test"
+
+    @pytest.mark.asyncio
+    async def test_find_best_agent_no_match(self):
+        """Test finding best agent when no agent matches requirements"""
+        registry = AgentRegistry()
+        service = AgentDiscoveryService(registry)
+        
+        agent_info = AgentInfo(
+            agent_id="low_health_agent",
+            agent_type=AgentType.WORKER,
+            status=AgentStatus.ACTIVE,
+            capabilities=["cpu"],
+            services=["compute"],
+            endpoints={"http": "http://localhost:8186"},
+            metadata={},
+            last_heartbeat=datetime.now(UTC),
+            registration_time=datetime.now(UTC),
+            health_score=0.5
+        )
+        
+        await registry.register_agent(agent_info)
+        found = await service.find_best_agent({
+            "capabilities": ["gpu"],
+            "min_health_score": 0.9
+        })
+        
+        assert found is None
+
+    @pytest.mark.asyncio
+    async def test_get_registry_stats_empty(self):
+        """Test getting registry stats when no agents registered"""
+        registry = AgentRegistry()
+        
+        stats = await registry.get_registry_stats()
+        
+        assert stats["total_agents"] == 0
+        # Status counts and type counts might be empty or have default values
+        if "status_counts" in stats:
+            assert stats.get("status_counts", {}).get("active", 0) == 0
+        if "type_counts" in stats:
+            assert stats.get("type_counts", {}).get("worker", 0) == 0
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

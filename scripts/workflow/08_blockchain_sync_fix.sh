@@ -6,9 +6,9 @@ echo "=== AITBC Blockchain Sync Fix ==="
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -18,8 +18,8 @@ else
 fi
 # Check current status
 echo "1. Current blockchain status:"
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0")
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0"')
+AITBC1_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo "0"')
 
 echo "aitbc1 height: $AITBC1_HEIGHT"
 echo "aitbc height: $AITBC_HEIGHT"
@@ -58,7 +58,7 @@ EOF'
   
   # Import genesis block
   echo "   Importing genesis block..."
-  ssh aitbc 'curl -X POST http://localhost:8006/rpc/importBlock -H "Content-Type: application/json" -d @/tmp/genesis_proper.json'
+  ssh aitbc 'curl -X POST http://localhost:8202/rpc/importBlock -H "Content-Type: application/json" -d @/tmp/genesis_proper.json'
   
   # Restart services
   echo "   Restarting aitbc services..."
@@ -68,7 +68,7 @@ EOF'
   sleep 5
   
   # Check status again
-  AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0"')
+  AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo "0"')
   echo "   aitbc height after genesis import: $AITBC_HEIGHT"
 fi
 
@@ -83,12 +83,12 @@ if [ "$AITBC_HEIGHT" -lt "$((AITBC1_HEIGHT - 5))" ]; then
     echo "   Importing block $height..."
     
     # Get block from aitbc1
-    curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height" | \
+    curl -s "http://localhost:8202/rpc/blocks-range?start=$height&end=$height" | \
       jq '.blocks[0] + {"proposer": "'$PROPOSER'"}' > /tmp/block$height.json
     
     # Import to aitbc
     scp /tmp/block$height.json aitbc:/tmp/
-    ssh aitbc "curl -X POST http://localhost:8006/rpc/importBlock -H 'Content-Type: application/json' -d @/tmp/block$height.json"
+    ssh aitbc "curl -X POST http://localhost:8202/rpc/importBlock -H 'Content-Type: application/json' -d @/tmp/block$height.json"
     
     sleep 1
   done
@@ -98,8 +98,8 @@ fi
 
 # Final verification
 echo "4. Final sync verification:"
-AITBC1_FINAL=$(curl -s http://localhost:8006/rpc/head | jq .height)
-AITBC_FINAL=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+AITBC1_FINAL=$(curl -s http://localhost:8202/rpc/head | jq .height)
+AITBC_FINAL=$(ssh aitbc 'curl -s http://localhost:8202/rpc/head | jq .height')
 
 echo "aitbc1 final height: $AITBC1_FINAL"
 echo "aitbc final height: $AITBC_FINAL"

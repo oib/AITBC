@@ -11,6 +11,7 @@ WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
+Environment=WALLET_IMPORT_PASSWORD=Aitbc-Password-123
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/wallet/aitbc-wallet-wrapper.py
 KillMode=mixed
 TimeoutStopSec=5
@@ -23,7 +24,7 @@ StartLimitBurst=3
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-wallet-daemon
+SyslogIdentifier=aitbc-wallet
 
 # Allow database writes for SQLite WAL mode
 ProtectSystem=no

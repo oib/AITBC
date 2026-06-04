@@ -6,9 +6,9 @@ echo "=== AITBC Production Ready Deployment ==="
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -83,8 +83,8 @@ echo "   aitbc services: $AITBC_SERVICES/2 active"
 
 # Blockchain status
 echo "4. Blockchain Status:"
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0")
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC1_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
 
 echo "   aitbc1 height: $AITBC1_HEIGHT"
 echo "   aitbc height: $AITBC_HEIGHT"
@@ -92,8 +92,8 @@ echo "   Sync difference: $((AITBC1_HEIGHT - AITBC_HEIGHT)) blocks"
 
 # Network performance
 echo "5. Network Performance:"
-AITBC1_RPC_TIME=$(curl -w "%{time_total}" -s -o /dev/null http://localhost:8006/rpc/head)
-AITBC_RPC_TIME=$(ssh aitbc 'curl -w "%{time_total}" -s -o /dev/null http://localhost:8006/rpc/head')
+AITBC1_RPC_TIME=$(curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head)
+AITBC_RPC_TIME=$(ssh aitbc 'curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head')
 NETWORK_LATENCY=$(ping -c 1 10.1.223.93 | grep "time=" | cut -d= -f2 | cut -d" " -f1)
 
 echo "   aitbc1 RPC time: ${AITBC1_RPC_TIME}s"

@@ -4,6 +4,18 @@
 
 set -e
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 echo "=== Hermes Agent Smart Contract Messaging Training ==="
 
 # Create session for training
@@ -49,8 +61,8 @@ cat > /tmp/agent_messaging_workflow.json << 'EOF'
         "chain_id": "ait-mainnet",
         "contract_address": "agent_messaging_contract",
         "rpc_endpoints": [
-            "http://localhost:8006",
-            "http://aitbc1:8006"
+            "http://localhost:8202",
+            "http://aitbc1:8202"
         ]
     },
     "cross_node_strategy": {
@@ -71,10 +83,10 @@ hermes agent --agent main --session-id $SESSION_ID --message "Teach me practical
 # 6. Demonstrate cross-node messaging
 echo "6. Demonstrating cross-node agent messaging..."
 echo "Current node status:"
-echo "- Genesis Node (aitbc): $(curl -s http://localhost:8006/rpc/head | jq .height)"
-echo "- Follower Node (aitbc1): $(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height')"
+echo "- Genesis Node (aitbc): $(curl -s http://localhost:8202/rpc/head | jq .height)"
+echo "- Follower Node (aitbc1): $(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')"
 
-hermes agent --agent main --session-id $SESSION_ID --message "We have a multi-node blockchain setup with genesis node at height $(curl -s http://localhost:8006/rpc/head | jq .height) and follower node at height $(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height). How can we use the smart contract messaging to coordinate between agents running on different nodes?" --thinking high
+hermes agent --agent main --session-id $SESSION_ID --message "We have a multi-node blockchain setup with genesis node at height $(curl -s http://localhost:8202/rpc/head | jq .height) and follower node at height $(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height). How can we use the smart contract messaging to coordinate between agents running on different nodes?" --thinking high
 
 # 7. Create training completion report
 echo "7. Creating training completion report..."
@@ -102,7 +114,7 @@ cat > /tmp/hermes_messaging_training_report.json << EOF
     "blockchain_integration": {
         "chain_id": "ait-mainnet",
         "nodes": ["aitbc", "aitbc1"],
-        "rpc_endpoints": ["http://localhost:8006", "http://aitbc1:8006"],
+        "rpc_endpoints": ["http://localhost:8202", "http://aitbc1:8202"],
         "smart_contract": "AgentMessagingContract"
     },
     "next_steps": [

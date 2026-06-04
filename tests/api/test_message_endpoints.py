@@ -611,6 +611,336 @@ class TestSubscribeRequest:
         
         assert "Alerts" == request.topic
 
+    def test_send_message_request_with_numeric_recipient(self):
+        """Test send message request with numeric characters in recipient"""
+        request = SendMessageRequest(
+            sender="sender",
+            recipient="recipient123",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "123" in request.recipient
+
+    def test_subscribe_request_with_numeric_filter_value(self):
+        """Test subscribe request with numeric characters in filter value"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="alerts",
+            filter={"type": "error123"}
+        )
+        
+        assert "123" in request.filter["type"]
+
+    def test_send_message_request_with_empty_sender(self):
+        """Test send message request with empty sender (edge case)"""
+        request = SendMessageRequest(
+            sender="",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert request.sender == ""
+
+    def test_subscribe_request_with_empty_topic(self):
+        """Test subscribe request with empty topic (edge case)"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="",
+            filter={"type": "error"}
+        )
+        
+        assert request.topic == ""
+
+    def test_send_message_request_with_single_character_sender(self):
+        """Test send message request with single character sender"""
+        request = SendMessageRequest(
+            sender="S",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert len(request.sender) == 1
+
+    def test_subscribe_request_with_single_character_topic(self):
+        """Test subscribe request with single character topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="A",
+            filter={"type": "error"}
+        )
+        
+        assert len(request.topic) == 1
+
+    def test_send_message_request_with_numeric_sender(self):
+        """Test send message request with numeric sender (edge case)"""
+        request = SendMessageRequest(
+            sender="123",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert request.sender == "123"
+
+    def test_subscribe_request_with_numeric_topic(self):
+        """Test subscribe request with numeric topic (edge case)"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="123",
+            filter={"type": "error"}
+        )
+        
+        assert request.topic == "123"
+
+    def test_send_message_request_with_special_characters_sender(self):
+        """Test send message request with special characters in sender"""
+        request = SendMessageRequest(
+            sender="sender@#$",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "@" in request.sender
+        assert "#" in request.sender
+        assert "$" in request.sender
+
+    def test_subscribe_request_with_special_characters_topic(self):
+        """Test subscribe request with special characters in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic@#$",
+            filter={"type": "error"}
+        )
+        
+        assert "@" in request.topic
+        assert "#" in request.topic
+        assert "$" in request.topic
+
+    def test_send_message_request_with_spaces_sender(self):
+        """Test send message request with spaces in sender (edge case)"""
+        request = SendMessageRequest(
+            sender="sender 123",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert " " in request.sender
+
+    def test_subscribe_request_with_spaces_topic(self):
+        """Test subscribe request with spaces in topic (edge case)"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic 123",
+            filter={"type": "error"}
+        )
+        
+        assert " " in request.topic
+
+    def test_send_message_request_with_underscore_sender(self):
+        """Test send message request with underscore in sender"""
+        request = SendMessageRequest(
+            sender="sender_123",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "_" in request.sender
+
+    def test_subscribe_request_with_underscore_topic(self):
+        """Test subscribe request with underscore in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic_123",
+            filter={"type": "error"}
+        )
+        
+        assert "_" in request.topic
+
+    def test_send_message_request_with_colon_sender(self):
+        """Test send message request with colon in sender"""
+        request = SendMessageRequest(
+            sender="sender:123",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert ":" in request.sender
+
+    def test_subscribe_request_with_colon_topic(self):
+        """Test subscribe request with colon in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic:123",
+            filter={"type": "error"}
+        )
+        
+        assert ":" in request.topic
+
+    def test_send_message_request_with_equals_sender(self):
+        """Test send message request with equals in sender"""
+        request = SendMessageRequest(
+            sender="sender=123",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "=" in request.sender
+
+    def test_subscribe_request_with_equals_topic(self):
+        """Test subscribe request with equals in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic=123",
+            filter={"type": "error"}
+        )
+        
+        assert "=" in request.topic
+
+    def test_send_message_request_with_bracket_sender(self):
+        """Test send message request with bracket in sender"""
+        request = SendMessageRequest(
+            sender="sender[123]",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "[" in request.sender
+        assert "]" in request.sender
+
+    def test_subscribe_request_with_bracket_topic(self):
+        """Test subscribe request with bracket in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic[123]",
+            filter={"type": "error"}
+        )
+        
+        assert "[" in request.topic
+        assert "]" in request.topic
+
+    def test_send_message_request_with_curly_bracket_sender(self):
+        """Test send message request with curly bracket in sender"""
+        request = SendMessageRequest(
+            sender="sender{123}",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "{" in request.sender
+        assert "}" in request.sender
+
+    def test_subscribe_request_with_curly_bracket_topic(self):
+        """Test subscribe request with curly bracket in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic{123}",
+            filter={"type": "error"}
+        )
+        
+        assert "{" in request.topic
+        assert "}" in request.topic
+
+    def test_send_message_request_with_dollar_sender(self):
+        """Test send message request with dollar in sender"""
+        request = SendMessageRequest(
+            sender="sender$123",
+            recipient="recipient",
+            content={"message": "Hello"},
+            ttl=3600
+        )
+        
+        assert "$" in request.sender
+
+    def test_subscribe_request_with_dollar_topic(self):
+        """Test subscribe request with dollar in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic$123",
+            filter={"type": "error"}
+        )
+        
+        assert "$" in request.topic
+
+    def test_subscribe_request_with_hash_topic(self):
+        """Test subscribe request with hash in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic#123",
+            filter={"type": "error"}
+        )
+        
+        assert "#" in request.topic
+
+    def test_subscribe_request_with_exclamation_topic(self):
+        """Test subscribe request with exclamation in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic!123",
+            filter={"type": "error"}
+        )
+        
+        assert "!" in request.topic
+
+    def test_subscribe_request_with_asterisk_topic(self):
+        """Test subscribe request with asterisk in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic*123",
+            filter={"type": "error"}
+        )
+        
+        assert "*" in request.topic
+
+    def test_subscribe_request_with_equals_topic(self):
+        """Test subscribe request with equals in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic=123",
+            filter={"type": "error"}
+        )
+        
+        assert "=" in request.topic
+
+    def test_subscribe_request_with_bracket_topic(self):
+        """Test subscribe request with bracket in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic[123]",
+            filter={"type": "error"}
+        )
+        
+        assert "[" in request.topic
+
+    def test_subscribe_request_with_curly_brace_topic(self):
+        """Test subscribe request with curly brace in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic{123}",
+            filter={"type": "error"}
+        )
+        
+        assert "{" in request.topic
+
+    def test_subscribe_request_with_pipe_topic(self):
+        """Test subscribe request with pipe in topic"""
+        request = SubscribeRequest(
+            agent_id="agent",
+            topic="topic|123",
+            filter={"type": "error"}
+        )
+        
+        assert "|" in request.topic
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

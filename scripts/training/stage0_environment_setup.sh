@@ -4,6 +4,18 @@
 # System prerequisites and environment configuration
 # Uses Python-based training setup to execute JSON-defined operations
 
+
+# Source scenario configuration
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
+else
+    # Fallback to defaults
+    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+    echo "⚠️  Using default configuration (env file not found)"
+fi
 set -e
 
 # Source training library
@@ -60,7 +72,7 @@ main() {
         # Output learnings for skill update
         output_stage_learnings 0 "Environment Setup" \
             "python3 -m aitbc.training_setup.cli setup|./aitbc-cli blockchain genesis|systemctl status aitbc-blockchain-node.service" \
-            "Genesis password location: /var/lib/aitbc/keystore/.genesis_password|Blockchain RPC on port 8006|Environment variables in /etc/aitbc/.env" \
+            "Genesis password location: /var/lib/aitbc/keystore/.genesis_password|Blockchain RPC on port 8202|Environment variables in /etc/aitbc/.env" \
             "/var/lib/aitbc/keystore/.genesis_password|/etc/aitbc/.env|/etc/aitbc/node.env" \
             "Genesis block initialization|Environment setup|Service management"
         

@@ -869,6 +869,432 @@ class TestWorkflowOrchestrator:
         
         assert "123" in definition.workflow_id
 
+    def test_workflow_execution_with_numeric_workflow_id(self):
+        """Test workflow execution with numeric characters in workflow_id"""
+        execution = WorkflowExecution(
+            execution_id="exec",
+            workflow_id="wf123"
+        )
+        
+        assert "123" in execution.workflow_id
+
+    def test_workflow_step_with_numeric_step_id(self):
+        """Test workflow step with numeric characters in step_id"""
+        step = WorkflowStep(
+            step_id="step123",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "123" in step.step_id
+
+    def test_workflow_definition_with_empty_workflow_id(self):
+        """Test workflow definition with empty workflow_id (edge case)"""
+        definition = WorkflowDefinition(
+            workflow_id="",
+            name="Empty Workflow ID",
+            steps={}
+        )
+        
+        assert definition.workflow_id == ""
+
+    def test_workflow_execution_with_empty_workflow_id(self):
+        """Test workflow execution with empty workflow_id (edge case)"""
+        execution = WorkflowExecution(
+            execution_id="exec",
+            workflow_id=""
+        )
+        
+        assert execution.workflow_id == ""
+
+    def test_workflow_step_with_empty_step_id(self):
+        """Test workflow step with empty step_id (edge case)"""
+        step = WorkflowStep(
+            step_id="",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert step.step_id == ""
+
+    def test_workflow_step_with_empty_action(self):
+        """Test workflow step with empty action (edge case)"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action=""
+        )
+        
+        assert step.action == ""
+
+    def test_workflow_step_with_numeric_step_id(self):
+        """Test workflow step with numeric step_id (edge case)"""
+        step = WorkflowStep(
+            step_id="123",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert step.step_id == "123"
+
+    def test_workflow_step_with_numeric_action(self):
+        """Test workflow step with numeric action (edge case)"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="123"
+        )
+        
+        assert step.action == "123"
+
+    def test_workflow_step_with_special_characters_step_id(self):
+        """Test workflow step with special characters in step_id"""
+        step = WorkflowStep(
+            step_id="step@#$",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "@" in step.step_id
+        assert "#" in step.step_id
+        assert "$" in step.step_id
+
+    def test_workflow_step_with_special_characters_action(self):
+        """Test workflow step with special characters in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action@#$"
+        )
+        
+        assert "@" in step.action
+        assert "#" in step.action
+        assert "$" in step.action
+
+    def test_workflow_step_with_underscore_step_id(self):
+        """Test workflow step with underscore in step_id"""
+        step = WorkflowStep(
+            step_id="step_123",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "_" in step.step_id
+
+    def test_workflow_step_with_underscore_action(self):
+        """Test workflow step with underscore in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action_123"
+        )
+        
+        assert "_" in step.action
+
+    def test_workflow_step_with_colon_step_id(self):
+        """Test workflow step with colon in step_id"""
+        step = WorkflowStep(
+            step_id="step:123",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert ":" in step.step_id
+
+    def test_workflow_step_with_colon_action(self):
+        """Test workflow step with colon in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action:123"
+        )
+        
+        assert ":" in step.action
+
+    def test_workflow_step_with_equals_step_id(self):
+        """Test workflow step with equals in step_id"""
+        step = WorkflowStep(
+            step_id="step=123",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "=" in step.step_id
+
+    def test_workflow_step_with_equals_action(self):
+        """Test workflow step with equals in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action=123"
+        )
+        
+        assert "=" in step.action
+
+    def test_workflow_step_with_slash_step_id(self):
+        """Test workflow step with slash in step_id"""
+        step = WorkflowStep(
+            step_id="step/123",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "/" in step.step_id
+
+    def test_workflow_step_with_slash_action(self):
+        """Test workflow step with slash in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action/123"
+        )
+        
+        assert "/" in step.action
+
+    def test_workflow_step_with_bracket_step_id(self):
+        """Test workflow step with bracket in step_id"""
+        step = WorkflowStep(
+            step_id="step[123]",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "[" in step.step_id
+        assert "]" in step.step_id
+
+    def test_workflow_step_with_bracket_action(self):
+        """Test workflow step with bracket in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action[123]"
+        )
+        
+        assert "[" in step.action
+        assert "]" in step.action
+
+    def test_workflow_step_with_curly_bracket_step_id(self):
+        """Test workflow step with curly bracket in step_id"""
+        step = WorkflowStep(
+            step_id="step{123}",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "{" in step.step_id
+        assert "}" in step.step_id
+
+    def test_workflow_step_with_curly_bracket_action(self):
+        """Test workflow step with curly bracket in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action{123}"
+        )
+        
+        assert "{" in step.action
+        assert "}" in step.action
+
+    def test_workflow_step_with_dollar_step_id(self):
+        """Test workflow step with dollar in step_id"""
+        step = WorkflowStep(
+            step_id="step$123",
+            agent_id="agent_001",
+            action="process"
+        )
+        
+        assert "$" in step.step_id
+
+    def test_workflow_step_with_dollar_action(self):
+        """Test workflow step with dollar in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action$123"
+        )
+        
+        assert "$" in step.action
+
+    def test_workflow_step_with_hash_step_id(self):
+        """Test workflow step with hash in step_id"""
+        step = WorkflowStep(
+            step_id="step#123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "#" in step.step_id
+
+    def test_workflow_step_with_hash_action(self):
+        """Test workflow step with hash in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action#123"
+        )
+        
+        assert "#" in step.action
+
+    def test_workflow_step_with_exclamation_step_id(self):
+        """Test workflow step with exclamation in step_id"""
+        step = WorkflowStep(
+            step_id="step!123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "!" in step.step_id
+
+    def test_workflow_step_with_exclamation_action(self):
+        """Test workflow step with exclamation in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action!123"
+        )
+        
+        assert "!" in step.action
+
+    def test_workflow_step_with_percent_step_id(self):
+        """Test workflow step with percent in step_id"""
+        step = WorkflowStep(
+            step_id="step%123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "%" in step.step_id
+
+    def test_workflow_step_with_ampersand_step_id(self):
+        """Test workflow step with ampersand in step_id"""
+        step = WorkflowStep(
+            step_id="step&123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "&" in step.step_id
+
+    def test_workflow_step_with_asterisk_step_id(self):
+        """Test workflow step with asterisk in step_id"""
+        step = WorkflowStep(
+            step_id="step*123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "*" in step.step_id
+
+    def test_workflow_step_with_asterisk_action(self):
+        """Test workflow step with asterisk in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action*123"
+        )
+        
+        assert "*" in step.action
+
+    def test_workflow_step_with_plus_step_id(self):
+        """Test workflow step with plus in step_id"""
+        step = WorkflowStep(
+            step_id="step+123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "+" in step.step_id
+
+    def test_workflow_step_with_plus_action(self):
+        """Test workflow step with plus in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action+123"
+        )
+        
+        assert "+" in step.action
+
+    def test_workflow_step_with_equals_step_id(self):
+        """Test workflow step with equals in step_id"""
+        step = WorkflowStep(
+            step_id="step=123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "=" in step.step_id
+
+    def test_workflow_step_with_equals_action(self):
+        """Test workflow step with equals in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action=123"
+        )
+        
+        assert "=" in step.action
+
+    def test_workflow_step_with_bracket_step_id(self):
+        """Test workflow step with bracket in step_id"""
+        step = WorkflowStep(
+            step_id="step[123]",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "[" in step.step_id
+
+    def test_workflow_step_with_bracket_action(self):
+        """Test workflow step with bracket in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action[123]"
+        )
+        
+        assert "[" in step.action
+
+    def test_workflow_step_with_curly_brace_step_id(self):
+        """Test workflow step with curly brace in step_id"""
+        step = WorkflowStep(
+            step_id="step{123}",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "{" in step.step_id
+
+    def test_workflow_step_with_curly_brace_action(self):
+        """Test workflow step with curly brace in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action{123}"
+        )
+        
+        assert "{" in step.action
+
+    def test_workflow_step_with_pipe_step_id(self):
+        """Test workflow step with pipe in step_id"""
+        step = WorkflowStep(
+            step_id="step|123",
+            agent_id="agent_001",
+            action="action"
+        )
+        
+        assert "|" in step.step_id
+
+    def test_workflow_step_with_pipe_action(self):
+        """Test workflow step with pipe in action"""
+        step = WorkflowStep(
+            step_id="step",
+            agent_id="agent_001",
+            action="action|123"
+        )
+        
+        assert "|" in step.action
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -6,9 +6,9 @@ echo "=== AITBC Network Optimization ==="
 
 
 # Source scenario configuration
-if [ -f "/opt/aitbc/.env.scenario" ]; then
-    source /opt/aitbc/.env.scenario
-    echo "✅ Loaded scenario configuration from /opt/aitbc/.env.scenario"
+if [ -f "/etc/aitbc/.env.scenario" ]; then
+    source /etc/aitbc/.env.scenario
+    echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
@@ -18,8 +18,8 @@ else
 fi
 # Check current network status
 echo "1. Current network status:"
-echo "   aitbc1 height: $(curl -s http://localhost:8006/rpc/head | jq .height)"
-echo "   aitbc height: $(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0"')"
+echo "   aitbc1 height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)"
+echo "   aitbc height: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')"
 echo "   Network latency: $(ping -c 1 10.1.223.93 | grep "time=" | cut -d= -f2)"
 
 # Optimize Redis configuration
@@ -33,7 +33,7 @@ redis-cli CONFIG SET timeout 0
 echo "3. Optimizing blockchain node configuration..."
 # Update environment file for better performance
 sed -i 's|block_time_seconds=10|block_time_seconds=2|g' /etc/aitbc/blockchain.env
-sed -i 's|p2p_bind_port=7070|p2p_bind_port=7070|g' /etc/aitbc/blockchain.env
+sed -i 's|p2p_bind_port=8200|p2p_bind_port=8200|g' /etc/aitbc/blockchain.env
 
 # Copy optimized config to aitbc
 scp /etc/aitbc/blockchain.env aitbc:/etc/aitbc/blockchain.env
@@ -48,8 +48,8 @@ sleep 5
 
 # Verify optimization
 echo "5. Verifying optimization results..."
-echo "   aitbc1 RPC response time: $(curl -w "%{time_total}" -s -o /dev/null http://localhost:8006/rpc/head) seconds"
-echo "   aitbc RPC response time: $(ssh aitbc 'curl -w "%{time_total}" -s -o /dev/null http://localhost:8006/rpc/head') seconds"
+echo "   aitbc1 RPC response time: $(curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head) seconds"
+echo "   aitbc RPC response time: $(ssh aitbc 'curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head') seconds"
 
 # Check system resources
 echo "6. System resource optimization..."
@@ -72,8 +72,8 @@ cat > /opt/aitbc/scripts/network_monitor.sh << 'EOF'
 # Network monitoring script
 echo "=== Network Monitor ==="
 echo "Time: $(date)"
-echo "aitbc1 height: $(curl -s http://localhost:8006/rpc/head | jq .height)"
-echo "aitbc height: $(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height 2>/dev/null || echo "0"')"
+echo "aitbc1 height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)"
+echo "aitbc height: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')"
 echo "Redis status: $(redis-cli ping)"
 echo "Network latency: $(ping -c 1 10.1.223.93 | grep "time=" | cut -d= -f2)"
 echo "Memory usage: $(free -h | grep Mem)"
