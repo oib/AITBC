@@ -124,13 +124,12 @@ run_test_verbose "Transaction submission" "curl -s -X POST http://localhost:$GEN
   -H 'Content-Type: application/json' \
   -d '{
     \"type\": \"TRANSFER\",
-    \"sender\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\",
-    \"nonce\": 1,
+    \"from\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\",
+    \"to\": \"ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b\",
+    \"amount\": 10,
     \"fee\": 5,
-    \"payload\": {
-      \"to\": \"ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b\",
-      \"amount\": 10
-    }
+    \"nonce\": 1,
+    \"signature\": \"0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"
   }' | jq .tx_hash"
 
 run_test "Mempool functionality" "curl -s http://localhost:$GENESIS_PORT/rpc/mempool | jq .total"
