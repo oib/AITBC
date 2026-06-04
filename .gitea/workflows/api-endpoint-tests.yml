@@ -31,7 +31,7 @@ jobs:
           rm -rf "${{ env.WORKSPACE }}"
           mkdir -p "${{ env.WORKSPACE }}"
           cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
