@@ -50,12 +50,15 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
+          # Approve build scripts for native dependencies
+          pnpm approve-builds
+
           pnpm install
           echo "✅ Node.js environment ready"
 
@@ -109,12 +112,15 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
+          # Approve build scripts for native dependencies
+          pnpm approve-builds
+
           pnpm install
           echo "✅ Node.js environment ready"
 
@@ -166,12 +172,15 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "${{ env.WORKSPACE }}/repo/contracts"
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
+          # Approve build scripts for native dependencies
+          pnpm approve-builds
+
           pnpm install
           echo "✅ Node.js environment ready"
 
