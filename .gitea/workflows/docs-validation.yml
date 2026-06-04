@@ -21,7 +21,7 @@ concurrency:
 
 env:
   WORKSPACE_BASE: /var/lib/aitbc-workspaces
-  REPO_URL: http://gitea.bubuit.net:3000/oib/aitbc.git
+  REPO_URL: http://aitbc:h2S%21%23.d9S%26%40h4%3f%3e@gitea.bubuit.net:3000/oib/aitbc.git
   STANDARD_DIRS: /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
 jobs:
