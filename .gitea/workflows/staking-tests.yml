@@ -32,7 +32,7 @@ jobs:
           rm -rf "${{ env.WORKSPACE }}"
           mkdir -p "${{ env.WORKSPACE }}"
           cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc1:syt_YWl0YmMx_zqRFSehNszEvachiIFXD_2tu68S@10.0.3.107:3000/oib/aitbc.git repo
+          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc:h2S%21%23.d9S%26%40h4%3f%3e@10.0.3.107:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
@@ -88,7 +88,7 @@ jobs:
           rm -rf "${{ env.WORKSPACE }}"
           mkdir -p "${{ env.WORKSPACE }}"
           cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc1:syt_YWl0YmMx_zqRFSehNszEvachiIFXD_2tu68S@10.0.3.107:3000/oib/aitbc.git repo
+          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc:h2S%21%23.d9S%26%40h4%3f%3e@10.0.3.107:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
@@ -134,7 +134,7 @@ jobs:
           rm -rf "${{ env.WORKSPACE }}"
           mkdir -p "${{ env.WORKSPACE }}"
           cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc1:syt_YWl0YmMx_zqRFSehNszEvachiIFXD_2tu68S@10.0.3.107:3000/oib/aitbc.git repo
+          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc:h2S%21%23.d9S%26%40h4%3f%3e@10.0.3.107:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
@@ -180,7 +180,7 @@ jobs:
           rm -rf "${{ env.WORKSPACE }}"
           mkdir -p "${{ env.WORKSPACE }}"
           cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc1:syt_YWl0YmMx_zqRFSehNszEvachiIFXD_2tu68S@10.0.3.107:3000/oib/aitbc.git repo
+          git clone --depth 1 --single-branch --branch ${GITHUB_REF_NAME:-main} http://aitbc:h2S%21%23.d9S%26%40h4%3f%3e@10.0.3.107:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
