@@ -161,7 +161,7 @@ class MarketplaceService:
         """List plugins from database"""
         from sqlalchemy import select
 
-        from .domain.marketplace import Plugin
+        from ..domain.marketplace import Plugin
 
         try:
             stmt = select(Plugin)
@@ -196,7 +196,7 @@ class MarketplaceService:
 
     async def register_plugin(self, plugin_data: dict) -> dict:
         """Register a new plugin"""
-        from .domain.marketplace import Plugin
+        from ..domain.marketplace import Plugin
 
         try:
             plugin = Plugin(**plugin_data)
@@ -215,7 +215,7 @@ class MarketplaceService:
 
     async def list_software_services(self, service_type: str | None = None, status: str | None = None) -> list:
         """List software services with optional filters"""
-        from .domain.marketplace import SoftwareService
+        from ..domain.marketplace import SoftwareService
         from sqlalchemy import select
 
         try:
@@ -255,7 +255,7 @@ class MarketplaceService:
 
     async def get_software_service(self, plugin_id: str) -> dict | None:
         """Get a specific software service"""
-        from .domain.marketplace import SoftwareService
+        from ..domain.marketplace import SoftwareService
         from sqlalchemy import select
 
         try:
@@ -293,7 +293,7 @@ class MarketplaceService:
 
     async def register_software_service(self, data: dict) -> dict:
         """Register or update a software service"""
-        from .domain.marketplace import SoftwareService
+        from ..domain.marketplace import SoftwareService
         from sqlalchemy import select
         from datetime import datetime
 
@@ -341,7 +341,7 @@ class MarketplaceService:
 
     async def unregister_software_service(self, plugin_id: str) -> dict:
         """Unregister a software service"""
-        from .domain.marketplace import SoftwareService
+        from ..domain.marketplace import SoftwareService
         from sqlalchemy import select
 
         try:
@@ -363,7 +363,7 @@ class MarketplaceService:
 
     async def create_graph(self, graph_data: dict) -> dict:
         """Create a new knowledge graph"""
-        from .domain.marketplace import KnowledgeGraph
+        from ..domain.marketplace import KnowledgeGraph
 
         try:
             graph = KnowledgeGraph(**graph_data)
@@ -382,7 +382,7 @@ class MarketplaceService:
 
     async def add_node(self, node_data: dict) -> dict:
         """Add a node to a knowledge graph"""
-        from .domain.marketplace import GraphNode
+        from ..domain.marketplace import GraphNode
 
         try:
             node = GraphNode(**node_data)
@@ -401,7 +401,7 @@ class MarketplaceService:
 
     async def add_edge(self, edge_data: dict) -> dict:
         """Add an edge to a knowledge graph"""
-        from .domain.marketplace import GraphEdge
+        from ..domain.marketplace import GraphEdge
 
         try:
             edge = GraphEdge(**edge_data)
@@ -423,7 +423,7 @@ class MarketplaceService:
         """Query a knowledge graph (get all nodes and edges)"""
         from sqlalchemy import select
 
-        from .domain.marketplace import GraphEdge, GraphNode
+        from ..domain.marketplace import GraphEdge, GraphNode
 
         try:
             # Get nodes

@@ -10,11 +10,10 @@ from .global_marketplace import (
     MarketplaceStatus,
     RegionStatus,
 )
-from .marketplace import MarketplaceBid, MarketplaceOffer
+from .marketplace import MarketplaceOffer
 
 __all__ = [
     "MarketplaceOffer",
-    "MarketplaceBid",
     "MarketplaceStatus",
     "RegionStatus",
     "MarketplaceRegion",

@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from ..domain import MarketplaceBid, MarketplaceOffer  # type: ignore[attr-defined]
+from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 
 
 class RoyaltyTier(StrEnum):
@@ -210,8 +210,8 @@ class EnhancedMarketplaceService:
             offers_query = select(MarketplaceOffer).where(MarketplaceOffer.created_at >= start_date)
             offers = self.session.execute(offers_query).scalars().all()
 
-            bids_query = select(MarketplaceBid).where(MarketplaceBid.submitted_at >= start_date)
-            bids = self.session.execute(bids_query).scalars().all()
+            # Bids deprecated in v0.4.7 - no bid queries needed
+            bids = []
 
             # Calculate analytics
             analytics = {
@@ -245,7 +245,7 @@ class EnhancedMarketplaceService:
 
             if "revenue" in metrics:
                 analytics["metrics"]["revenue"] = {  # type: ignore[index]
-                    "total_revenue": sum(bid.price or 0 for bid in bids),
+                    "total_revenue": 0.0,  # Bids deprecated in v0.4.7
                     "average_price": sum(offer.price or 0 for offer in offers) / len(offers) if offers else 0,
                     "revenue_growth": 0.12,
                 }

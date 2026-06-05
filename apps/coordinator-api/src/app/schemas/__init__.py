@@ -360,21 +360,8 @@ class MarketplaceStatsView(BaseModel):
     activeBids: int
 
 
-class MarketplaceBidRequest(BaseModel):
-    provider: str = Field(..., min_length=1)
-    capacity: int = Field(..., gt=0)
-    price: float = Field(..., gt=0)
-    notes: str | None = Field(default=None, max_length=1024)
-
-
-class MarketplaceBidView(BaseModel):
-    id: str
-    provider: str
-    capacity: int
-    price: float
-    notes: str | None = None
-    status: str
-    submitted_at: datetime
+# Bids deprecated in v0.4.7 - GPU-only marketplace removed
+# MarketplaceBidRequest and MarketplaceBidView no longer available
 
 
 class BlockSummary(BaseModel):
