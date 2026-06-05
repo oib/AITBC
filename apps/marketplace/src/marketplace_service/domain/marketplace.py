@@ -55,7 +55,7 @@ class SoftwareService(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     plugin_id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
-    service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, peertube_transcoder
+    service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, peertube_transcoder, cloud_ollama
     model: str = Field(default="", index=True)
     price: float = Field(default=0.0)
     price_unit: str = Field(default="per_1k_tokens")  # per_1k_tokens, per_audio_min, per_processing_hour

@@ -608,7 +608,7 @@ def offer(ctx, service_type: str, model_or_variant: str, price: float,
         elif gpu_device is None and not is_cloud:
             gpu_device = "0"  # Default to first GPU
 
-        # Verify the service is actually running locally
+        # Verify the service is actually running locally or reachable for cloud
         if service_type == 'ollama':
             try:
                 ol_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=5)
