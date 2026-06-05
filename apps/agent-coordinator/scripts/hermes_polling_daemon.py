@@ -58,7 +58,7 @@ class HermesPollingDaemon:
 
     def send_message(self, sender: str, recipient: str, content: str):
         """Send a message via Hermes API"""
-        url = f"{self.coordinator_url}/api/v1/agent/messages/send"
+        url = f"{self.coordinator_url}/v1/hermes/messages/send"
         payload = {
             "sender": sender,
             "recipient": recipient,
@@ -80,7 +80,7 @@ class HermesPollingDaemon:
 
     def poll_messages(self) -> list:
         """Poll Hermes API for messages"""
-        url = f"{self.coordinator_url}/api/v1/agent/messages/{self.agent_id}"
+        url = f"{self.coordinator_url}/v1/hermes/messages/{self.agent_id}"
 
         try:
             response = requests.get(url, timeout=10)
@@ -118,7 +118,7 @@ class HermesPollingDaemon:
     def run(self):
         """Main polling loop"""
         self.logger.info(f"Hermes polling daemon started for agent: {self.agent_id}")
-        self.logger.info(f"Polling {self.coordinator_url}/api/v1/agent/messages/{self.agent_id}")
+        self.logger.info(f"Polling {self.coordinator_url}/v1/hermes/messages/{self.agent_id}")
         self.logger.info(f"Poll interval: {self.poll_interval} seconds")
 
         while self.running:

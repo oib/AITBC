@@ -15,7 +15,7 @@ from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/messages", tags=["agent-messaging"])
+router = APIRouter(prefix="/api/v1/agent/messages", tags=["agent-messaging"])
 
 
 class SendMessageRequest(BaseModel):
@@ -36,7 +36,7 @@ class SubscribeRequest(BaseModel):
     filter: dict[str, Any] = Field(default_factory=dict, description="Filter criteria")
 
 # Send encrypted message
-@router.post("/messages/send")
+@router.post("/send")
 @rate_limit(rate=50, per=60)
 async def send_encrypted_message(request: Request, req: SendMessageRequest):
     """Send encrypted message to agent"""
@@ -99,7 +99,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest):
 
 
 # Get inbox
-@router.get("/messages/inbox")
+@router.get("/inbox")
 @rate_limit(rate=200, per=60)
 async def get_inbox(
     request: Request,
@@ -147,13 +147,10 @@ async def get_messages_for_agent_compatibility(
     return await get_messages_for_agent(request, agent_id)
 
 # Get messages for agent (hermes polling compatibility)
-@router.get("/messages/{agent_id}")
-@rate_limit(rate=200, per=60)
 async def get_messages_for_agent(
     request: Request,
     agent_id: str
 ):
-    """Get all messages for a specific agent (hermes polling compatibility)"""
     try:
         if not state.message_storage:
             return {
@@ -250,7 +247,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest):
 
 
 # Broadcast message
-@router.post("/messages/broadcast")
+@router.post("/broadcast")
 @rate_limit(rate=50, per=60)
 async def broadcast_message(
     request_http: Request, request: BroadcastRequest
@@ -344,7 +341,7 @@ async def broadcast_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get message history
-@router.get("/messages/history")
+@router.get("/history")
 @rate_limit(rate=200, per=60)
 async def get_message_history(
     request: Request,
@@ -387,7 +384,7 @@ async def get_message_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get specific message
-@router.get("/messages/id/{message_id}")
+@router.get("/id/{message_id}")
 @rate_limit(rate=200, per=60)
 async def get_message(
     request: Request, message_id: str

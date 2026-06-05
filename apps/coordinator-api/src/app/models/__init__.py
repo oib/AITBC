@@ -52,7 +52,6 @@ from ..schemas import (
     KeyRegistrationRequest,
     KeyRegistrationResponse,
     KeyRotationLog,
-    MarketplaceBidRequest,
     MarketplaceOfferView,
     MarketplaceStatsView,
     MinerHeartbeat,

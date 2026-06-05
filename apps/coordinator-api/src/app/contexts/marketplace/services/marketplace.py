@@ -8,8 +8,6 @@ from uuid import uuid4
 from sqlmodel import Session, select
 
 from ....schemas import (
-    MarketplaceBidRequest,
-    MarketplaceBidView,
     MarketplaceOfferView,
     MarketplaceStatsView,
 )

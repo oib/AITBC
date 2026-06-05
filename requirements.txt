@@ -28,6 +28,9 @@ bech32>=1.2.0
 web3>=6.11.0
 eth-account>=0.13.0
 
+# IPFS & Distributed Storage
+ipfshttpclient>=0.7.0
+
 # Common Utilities
 python-dotenv>=1.0.0
 requests>=2.28.0
