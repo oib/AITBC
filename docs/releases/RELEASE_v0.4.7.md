@@ -12,6 +12,7 @@ AITBC v0.4.7 enhances the software marketplace with multi-model Ollama support (
 - ✅ Multi-Model Ollama Support - Fully Implemented
 - ✅ Hardware+Software Bundle Offers - Fully Implemented
 - ✅ FFmpeg Video Processing Service - Fully Implemented
+- ✅ **Service Stability Fixes** - All core services operational (2026-06-05)
 
 ## 🎯 Release Highlights
 
@@ -49,6 +50,14 @@ AITBC v0.4.7 enhances the software marketplace with multi-model Ollama support (
 - ✅ Ollama cloud model inference via public endpoint
 - ✅ Full customer journey: discovery → messaging → inference → payment
 - ✅ End-to-end verified: hub ↔ aitbc3 agent communication
+
+### Service Stability Fixes (2026-06-05)
+- ✅ **Coordinator API**: Fixed import errors and deprecated schema references
+- ✅ **AgentDaemon**: Resolved polling URL configuration and endpoint connectivity
+- ✅ **Marketplace Service**: Fixed database schema with missing rating columns
+- ✅ **Service Dependencies**: Resolved missing ipfshttpclient and other dependencies
+- ✅ **Service Management**: Fixed systemd service unit file linking
+- ✅ **Database Migrations**: Applied schema updates for rating system functionality
 
 ### CLI Enhancements
 - ✅ `aitbc market offer` — renamed from `software-offer` (hardware+software bundle)
@@ -420,6 +429,74 @@ FFmpeg service added to SERVICES dict in `/opt/aitbc/apps/api-gateway/src/api_ga
    aitbc market offer ffmpeg default 0.15 --unit per_processing_hour
    ```
 
+## 🔧 Service Stability Fixes (2026-06-05)
+
+### Issues Resolved
+
+#### 1. Coordinator API Import Errors
+**Problem**: Coordinator API failed to start due to deprecated schema imports
+```bash
+ImportError: cannot import name 'MarketplaceBidRequest' from 'app.schemas'
+```
+
+**Solution**: 
+- Removed deprecated `MarketplaceBidRequest` and `MarketplaceBidView` imports from multiple files
+- Updated `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/services/marketplace.py`
+- Updated `/opt/aitbc/apps/coordinator-api/src/app/models/__init__.py`
+- Service now starts successfully on port 8203
+
+#### 2. AgentDaemon Connection Issues
+**Problem**: AgentDaemon unable to connect to Coordinator API
+```bash
+HTTPConnectionPool(host='localhost', port=8203): Max retries exceeded with url: /v1/hermes/messages/owl-hub
+Connection refused
+```
+
+**Solution**:
+- Fixed polling URL configuration in `/opt/aitbc/apps/agent-coordinator/scripts/hermes_polling_daemon.py`
+- Updated coordinator URL from port 8107 to 8203 in `/etc/aitbc/node.env`
+- Corrected endpoint path from `/api/v1/agent/messages/` to `/v1/hermes/messages/`
+- AgentDaemon now successfully polls every 10 seconds
+
+#### 3. Marketplace Service Database Schema
+**Problem**: Marketplace service crashed due to missing database columns
+```bash
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: softwareservice.avg_rating
+```
+
+**Solution**:
+- Added missing `avg_rating` and `rating_count` columns to `softwareservice` table
+- Applied database migration: `ALTER TABLE softwareservice ADD COLUMN avg_rating FLOAT DEFAULT 0.0`
+- Service now runs without database errors
+
+#### 4. Missing Dependencies
+**Problem**: Coordinator API missing required Python packages
+```bash
+No module named 'ipfshttpclient'
+```
+
+**Solution**:
+- Added `ipfshttpclient>=0.7.0` to `/opt/aitbc/requirements.txt`
+- Installed dependency in virtual environment
+- IPFS features now properly enabled
+
+#### 5. Service Management Issues
+**Problem**: Marketplace service unit file missing from systemd
+```bash
+Failed to restart aitbc-marketplace.service: Unit aitbc-marketplace.service not found
+```
+
+**Solution**:
+- Recreated systemd symlink: `ln -s /opt/aitbc/apps/marketplace/aitbc-marketplace.service /etc/systemd/system/`
+- Reloaded systemd daemon
+- Service now properly manageable with systemctl commands
+
+### Current Service Status (2026-06-05)
+- ✅ **aitbc-coordinator-api.service**: Running on port 8203, Hermes endpoints operational
+- ✅ **aitbc-agent-daemon.service**: Running, polling successfully every 10 seconds
+- ✅ **aitbc-marketplace.service**: Running, database schema updated and healthy
+- ✅ **All dependencies**: Installed and functional
+
 ## 🧪 Testing
 
 ### Ollama Multi-Model Testing
@@ -527,7 +604,7 @@ location /ollama/ {
 
 ### Documentation
 
-Updated howto guide at `/opt/aitbc/docs/howto/agent-nemotron-cloud-inference.md` with:
+Updated howto guide at `/opt/aitbc/docs/marketplace/agent-nemotron-cloud-inference.md` with:
 - Working examples for all components
 - Troubleshooting steps for common issues
 - Agent messaging workflow documentation
@@ -586,6 +663,10 @@ Based on the current architecture, here are additional features to consider for 
 - ✅ On-chain proof of work for FFmpeg jobs
 - ✅ Documentation complete
 - ✅ Migration guide tested
+- ✅ **All core services operational and stable**
+- ✅ **Service startup issues resolved**
+- ✅ **Database schema updated and functional**
+- ✅ **Agent messaging system working end-to-end**
 
 ## 🔗 Related Files
 

@@ -9,28 +9,38 @@ This guide shows how an agent can discover, use, and pay for the NVIDIA Nemotron
 - AITBC CLI installed and configured
 - Wallet with sufficient AIT tokens
 - Network access to aitbc3.aitbc.bubuit.net
-- **Important**: aitbc3 operator must open firewall ports 8102/8203 for cross-node access
+- **All services operational** (comprehensive fixes applied 2026-06-05)
+
+**Service Status Updates (2026-06-05)**:
+- ✅ **Coordinator API**: Fixed import errors, now running on port 8203
+- ✅ **AgentDaemon**: Fixed polling URL and endpoint connectivity
+- ✅ **Marketplace Service**: Fixed database schema (added avg_rating columns)
+- ✅ **Service Dependencies**: Resolved ipfshttpclient and other missing dependencies
 
 ## Network Topology
 
 ```
 Hub Node (Customer)              aitbc3 Node (Provider)
 ├── aitbc market list            ├── API Gateway (8201) → Marketplace Service (8102)
-├── aitbc market run             ├── Ollama Service (11434) → nginx proxy (443)
-└── Direct API calls             └── Coordinator API (8203)
-                                 └── nginx SSL termination (443)
+├── aitbc market run             ├── Ollama Service (11434) → nginx proxy (80) ✅ FIXED
+└── Direct API calls             └── Coordinator API (8203) → API Gateway (/v1/coordinator)
+                                 └── nginx SSL termination (443) on host
 ```
 
 **Access Routes**:
-- **Marketplace**: `https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer` (via API Gateway)
-- **Plugin Discovery**: `https://aitbc3.aitbc.bubuit.net/api/v1/plugin/` (via API Gateway)
-- **Ollama API**: `https://aitbc3.aitbc.bubuit.net/ollama/api/generate` (via nginx proxy)
-- **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/hermes/messages` (via API Gateway)
+- **Marketplace**: `https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer` (via API Gateway) ✅
+- **Plugin Discovery**: `https://aitbc3.aitbc.bubuit.net/api/v1/plugin/` (via API Gateway) ✅
+- **Ollama API**: `https://aitbc3.aitbc.bubuit.net/ollama/api/generate` (via nginx proxy) ✅ **WORKING**
+- **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages` (via API Gateway) ✅
 
-**Current Status**: 
+**Current Status** (as of 2026-06-05):
 - ✅ Marketplace discovery via API Gateway
-- ✅ Agent messaging via Coordinator API  
-- ✅ Ollama inference (fully operational)
+- ✅ Agent messaging via Coordinator API (routed through API Gateway at `/v1/coordinator`)
+- ✅ Ollama inference — fully operational (nginx proxy fixed)
+- ✅ **All core services operational after comprehensive fixes**
+- ✅ Coordinator API: Running on port 8203 with Hermes endpoints
+- ✅ AgentDaemon: Successfully polling every 10 seconds
+- ✅ Marketplace Service: Database schema updated and healthy
 
 ## Step 1: Discover Available Offers
 
@@ -54,7 +64,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron
 # Alternative: Plugin discovery endpoint
 curl -s https://aitbc3.aitbc.bubuit.net/api/v1/plugin/ | jq '.offers[]'
 
-# Direct Ollama API (via nginx proxy)
+# Direct Ollama API (via nginx proxy) — NOW WORKING
 curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
 ```
 
@@ -78,7 +88,8 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
 
 ## Step 2: Run Inference with Payment
 
-### Method A: Direct API (Cross-Node - Fully Working)
+### Method A: Direct API (Cross-Node — **Fully Working**)
+
 ```bash
 # 1. Create escrow contract
 ESCROW_TX=$(aitbc wallet escrow-create \
@@ -113,7 +124,10 @@ aitbc wallet escrow-release \
   --actual-tokens $TOKENS_USED
 ```
 
-### Method B: Agent Messaging Workflow (Fully Working)
+### Method B: Agent Messaging Workflow (**Fully Working**)
+
+This approach works well when you want the shop agent to handle the inference and respond via the messaging system.
+
 ```bash
 # 1. Discover offer (working)
 curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
@@ -122,11 +136,16 @@ curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0
 curl -X POST https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages/send \
   -d '{"sender":"owl-hub","recipient":"owl-aitbc3","content":"Customer inquiry: Explain quantum computing","message_type":"direct"}'
 
-# 3. Shop agent responds with inference (fully operational)
-# Shop agent on aitbc3 processes the message and calls Ollama API
+# 3. Shop agent on aitbc3 receives and processes
+# Shop polls: curl https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages/owl-aitbc3
+# Shop calls Ollama locally: curl http://localhost:11434/api/generate ...
+# Shop sends response back to customer
+
+# 4. Customer polls for response
+curl -s https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages/owl-hub
 ```
 
-### Method B: CLI (Limited Functionality)
+### Method C: CLI (Limited Functionality)
 ```bash
 # Note: aitbc market run queries blockchain transactions, not marketplace service
 # This won't find the cloud offer unless it's also registered on-chain
@@ -184,7 +203,7 @@ class NemotronCloudClient:
         return result.stdout
     
     def direct_api_call(self, prompt):
-        """Direct API call (requires manual escrow management)"""
+        """Direct API call (fully working via nginx proxy)"""
         payload = {
             "model": "nemotron-3-super:cloud",
             "prompt": prompt,
@@ -273,15 +292,28 @@ class NemotronAgent:
    curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
    ```
 
-4. **Ollama Proxy Issues (Resolved)**
+4. **Ollama Proxy Issues (Fixed — Was 403)**
    ```bash
-   # Test Ollama endpoint (should work)
+   # Test Ollama endpoint (now works)
    curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags
+   # Returns: model list including nemotron-3-super:cloud
    
-   # Test inference (should work)
+   # Test inference (now works)
    curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
      -H "Content-Type: application/json" \
      -d '{"model":"nemotron-3-super:cloud","prompt":"test","stream":false}'
+   
+   # Applied fix on aitbc3 host nginx (HTTP port 80 block):
+   # location /ollama/ {
+   #     proxy_pass http://127.0.0.1:11434/;
+   #     proxy_set_header Host "localhost";  # KEY FIX - Ollama rejects external Host
+   #     proxy_set_header X-Real-IP $remote_addr;
+   #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   #     proxy_set_header X-Forwarded-Proto $scheme;
+   #     proxy_http_version 1.1;
+   #     proxy_set_header Upgrade $http_upgrade;
+   #     proxy_set_header Connection "upgrade";
+   # }
    ```
 
 5. **Escrow Issues**
@@ -299,12 +331,31 @@ class NemotronAgent:
    curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer
    ```
 
+7. **Service Startup Issues (Fixed 2026-06-05)**
+   ```bash
+   # If Coordinator API fails to start:
+   systemctl status aitbc-coordinator-api.service
+   # Check for import errors - fixed deprecated MarketplaceBidRequest imports
+   
+   # If AgentDaemon has connection errors:
+   systemctl status aitbc-agent-daemon.service
+   # Check if Coordinator API is ready before AgentDaemon starts
+   
+   # If Marketplace Service has database errors:
+   systemctl status aitbc-marketplace.service
+   # Check for missing database columns - fixed avg_rating schema
+   ```
+
 ### Error Messages
 
 - **"Offer not found"**: Check offer ID and marketplace status
 - **"Insufficient funds"**: Add AIT tokens to wallet
 - **"Service unavailable"**: Check aitbc3 service status
 - **"Escrow failed"**: Verify wallet configuration and network
+- **"Cannot import name 'MarketplaceBidRequest'"**: Fixed - removed deprecated imports
+- **"No such column: softwareservice.avg_rating"**: Fixed - added missing database columns
+- **"Connection refused" on port 8203**: Fixed - ensure Coordinator API starts before AgentDaemon
+- **"No module named 'ipfshttpclient'"**: Fixed - installed missing dependency
 
 ## Best Practices
 
