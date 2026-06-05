@@ -138,6 +138,57 @@ async def calculate_exchange(eth_amount: float):
     }
 
 
+@router.get("/history")
+async def get_price_history():
+    """
+    Get price history and all-time averages.
+    """
+    from .bridge_db import get_all_time_average
+    from .price_api import get_exchange_rate
+    
+    # Get current rates
+    current_rates = get_exchange_rate()
+    
+    if not current_rates["success"]:
+        return current_rates
+    
+    # Get all-time averages
+    averages = get_all_time_average()
+    
+    if not averages:
+        # No history yet, return current rates as averages
+        return {
+            "success": True,
+            "current": current_rates,
+            "averages": None,
+            "change_vs_average": None,
+            "timestamp": current_rates["timestamp"]
+        }
+    
+    # Calculate change vs average
+    change_usd = ((current_rates["eth_usd"] - averages["eth_usd_avg"]) / averages["eth_usd_avg"]) * 100
+    change_eur = ((current_rates["eth_eur"] - averages["eth_eur_avg"]) / averages["eth_eur_avg"]) * 100
+    
+    return {
+        "success": True,
+        "current": current_rates,
+        "averages": {
+            "eth_usd": averages["eth_usd_avg"],
+            "eth_eur": averages["eth_eur_avg"],
+            "ait_usd": 1.0,  # Fixed
+            "ait_eur": 1.0 * (averages["eth_eur_avg"] / averages["eth_usd_avg"]),
+            "eth_ait_rate_usd": averages["eth_usd_avg"],
+            "eth_ait_rate_eur": averages["eth_eur_avg"] / (1.0 * (averages["eth_eur_avg"] / averages["eth_usd_avg"])),
+            "count": averages["count"]
+        },
+        "change_vs_average": {
+            "eth_usd_percent": change_usd,
+            "eth_eur_percent": change_eur
+        },
+        "timestamp": current_rates["timestamp"]
+    }
+
+
 @router.get("/status")
 async def get_bridge_status():
     """

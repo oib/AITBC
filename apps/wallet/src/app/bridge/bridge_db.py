@@ -31,6 +31,17 @@ def init_db():
         )
     """)
     
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            eth_usd_price REAL NOT NULL,
+            eth_eur_price REAL NOT NULL,
+            exchange_rate_usd REAL NOT NULL,
+            exchange_rate_eur REAL NOT NULL
+        )
+    """)
+    
     conn.commit()
     conn.close()
 
@@ -171,3 +182,69 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> List[Dict]:
         }
         for row in rows
     ]
+
+
+def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: float, exchange_rate_eur: float):
+    """Insert a new price history record."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        """
+        INSERT INTO price_history (eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur)
+        VALUES (?, ?, ?, ?)
+        """,
+        (eth_usd, eth_eur, exchange_rate_usd, exchange_rate_eur)
+    )
+    
+    conn.commit()
+    conn.close()
+
+
+def get_all_time_average() -> Dict:
+    """Get all-time average prices from history."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT 
+            AVG(eth_usd_price) as avg_usd,
+            AVG(eth_eur_price) as avg_eur,
+            AVG(exchange_rate_usd) as avg_rate_usd,
+            AVG(exchange_rate_eur) as avg_rate_eur,
+            COUNT(*) as count
+        FROM price_history
+    """)
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result and result[4] > 0:  # count > 0
+        return {
+            "eth_usd_avg": result[0],
+            "eth_eur_avg": result[1],
+            "exchange_rate_usd_avg": result[2],
+            "exchange_rate_eur_avg": result[3],
+            "count": result[4]
+        }
+    
+    return None
+
+
+def cleanup_old_prices(days: int = 30):
+    """Clean up price history older than specified days."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        """
+        DELETE FROM price_history
+        WHERE timestamp < datetime('now', '-{} days')
+        """.format(days)
+    )
+    
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return deleted_count

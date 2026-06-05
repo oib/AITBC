@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Exchange - ETH-AIT Bridge</title>
+    <meta name="description" content="AITBC Exchange - Real-time ETH-AIT token prices and bridge information">
+    <meta name="robots" content="index, follow">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/assets/css/style.css">
+    
+    <style>
+        .price-up { color: #10b981; }
+        .price-down { color: #ef4444; }
+        .price-neutral { color: #6b7280; }
+        .loading { color: #9ca3af; font-style: italic; }
+        .error { color: #ef4444; }
+        .refresh-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+        .price-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (max-width: 768px) {
+            .price-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="api-badge">Exchange</div>
+            <h1>AITBC Exchange</h1>
+            <p class="subtitle">ETH-AIT Bridge and Token Pricing</p>
+        </header>
+
+        <div class="price-grid">
+            <!-- USD Price Card -->
+            <div class="card">
+                <h2>Current Price (USD)</h2>
+                <div id="usd-prices">
+                    <p class="loading">Loading...</p>
+                </div>
+            </div>
+
+            <!-- EUR Price Card -->
+            <div class="card">
+                <h2>Current Price (EUR)</h2>
+                <div id="eur-prices">
+                    <p class="loading">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Get Free AIT Card -->
+        <div class="card">
+            <h2>Get Free AIT</h2>
+            <div id="free-ait">
+                <p><strong>Message:</strong> "ask for coins" to get free AIT tokens</p>
+                <p><strong>Status:</strong> <span id="free-ait-status">Available for new agents</span></p>
+                <p><strong>Note:</strong> No ETH required for initial tokens</p>
+            </div>
+        </div>
+
+        <!-- Bridge Status Card -->
+        <div class="card">
+            <h2>Bridge Status</h2>
+            <div id="bridge-status">
+                <p class="loading">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Quick Actions Card -->
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <div class="grid">
+                <a href="/" class="endpoint endpoint-link">
+                    <span class="method">HOME</span> <span class="path">Main Page</span>
+                </a>
+                <button class="refresh-btn" onclick="refreshPrices()">Refresh Prices</button>
+                <a href="https://github.com/oib/AITBC" class="endpoint endpoint-link" target="_blank">
+                    <span class="method">DOC</span> <span class="path">Documentation</span>
+                </a>
+            </div>
+            <p class="endpoint-note" id="last-updated">Last updated: loading...</p>
+        </div>
+
+        <!-- API Endpoints Card -->
+        <div class="card">
+            <h2>API Endpoints</h2>
+            <a href="/exchange/price.json" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/exchange/price.json</span>
+            </a>
+            <p class="endpoint-note">Current prices in JSON format for agents</p>
+            
+            <a href="/v1/exchange/price" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/v1/exchange/price</span>
+            </a>
+            <p class="endpoint-note">Bridge API price endpoint</p>
+            
+            <a href="/v1/exchange/history" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/v1/exchange/history</span>
+            </a>
+            <p class="endpoint-note">Historical data and averages</p>
+        </div>
+    </div>
+
+    <script>
+        let refreshInterval;
+        
+        async function fetchPrices() {
+            try {
+                const response = await fetch('/v1/exchange/history');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch prices');
+                }
+                
+                updatePrices(data);
+            } catch (error) {
+                console.error('Error fetching prices:', error);
+                document.getElementById('usd-prices').innerHTML = '<p class="error">Failed to load prices</p>';
+                document.getElementById('eur-prices').innerHTML = '<p class="error">Failed to load prices</p>';
+            }
+        }
+        
+        async function fetchBridgeStatus() {
+            try {
+                const response = await fetch('/v1/exchange/status');
+                const data = await response.json();
+                
+                updateBridgeStatus(data);
+            } catch (error) {
+                console.error('Error fetching bridge status:', error);
+                document.getElementById('bridge-status').innerHTML = '<p class="error">Failed to load bridge status</p>';
+            }
+        }
+        
+        function updatePrices(data) {
+            const current = data.current;
+            const averages = data.averages;
+            const change = data.change_vs_average;
+            
+            // Update USD prices
+            let usdHtml = '';
+            usdHtml += `<p><strong>ETH Price:</strong> $${current.eth_usd.toFixed(2)} USD</p>`;
+            usdHtml += `<p><strong>AIT Price:</strong> $${current.ait_usd.toFixed(2)} USD</p>`;
+            usdHtml += `<p><strong>Exchange Rate:</strong> 1 ETH = ${current.eth_ait_rate_usd.toFixed(2)} AIT</p>`;
+            
+            if (averages) {
+                const changeClass = change.eth_usd_percent >= 0 ? 'price-up' : 'price-down';
+                const arrow = change.eth_usd_percent >= 0 ? '↑' : '↓';
+                usdHtml += `<p><strong>All-Time Average:</strong> $${averages.eth_usd.toFixed(2)} USD</p>`;
+                usdHtml += `<p><strong>vs Average:</strong> <span class="${changeClass}">${Math.abs(change.eth_usd_percent).toFixed(2)}% ${arrow}</span></p>`;
+            }
+            
+            document.getElementById('usd-prices').innerHTML = usdHtml;
+            
+            // Update EUR prices
+            let eurHtml = '';
+            eurHtml += `<p><strong>ETH Price:</strong> €${current.eth_eur.toFixed(2)} EUR</p>`;
+            eurHtml += `<p><strong>AIT Price:</strong> €${current.ait_eur.toFixed(2)} EUR</p>`;
+            eurHtml += `<p><strong>Exchange Rate:</strong> 1 ETH = ${current.eth_ait_rate_eur.toFixed(2)} AIT</p>`;
+            
+            if (averages) {
+                const changeClass = change.eth_eur_percent >= 0 ? 'price-up' : 'price-down';
+                const arrow = change.eth_eur_percent >= 0 ? '↑' : '↓';
+                eurHtml += `<p><strong>All-Time Average:</strong> €${averages.eth_eur.toFixed(2)} EUR</p>`;
+                eurHtml += `<p><strong>vs Average:</strong> <span class="${changeClass}">${Math.abs(change.eth_eur_percent).toFixed(2)}% ${arrow}</span></p>`;
+            }
+            
+            document.getElementById('eur-prices').innerHTML = eurHtml;
+            
+            // Update timestamp
+            document.getElementById('last-updated').textContent = `Last updated: ${new Date(current.timestamp).toLocaleString()}`;
+        }
+        
+        function updateBridgeStatus(data) {
+            let statusHtml = '';
+            statusHtml += `<p><strong>Status:</strong> ${data.enabled ? 'Enabled' : 'Disabled'}</p>`;
+            statusHtml += `<p><strong>Pending Deposits:</strong> <span id="pending-count">loading...</span></p>`;
+            
+            document.getElementById('bridge-status').innerHTML = statusHtml;
+            
+            // Fetch pending deposits count
+            fetchPendingDeposits();
+        }
+        
+        async function fetchPendingDeposits() {
+            try {
+                const response = await fetch('/v1/exchange/deposits?status=pending&limit=1');
+                const data = await response.json();
+                
+                const countElement = document.getElementById('pending-count');
+                if (countElement) {
+                    countElement.textContent = data.count || 0;
+                }
+            } catch (error) {
+                console.error('Error fetching pending deposits:', error);
+            }
+        }
+        
+        function refreshPrices() {
+            fetchPrices();
+            fetchBridgeStatus();
+        }
+        
+        function startAutoRefresh() {
+            // Refresh every 30 seconds
+            refreshInterval = setInterval(refreshPrices, 30000);
+        }
+        
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshPrices();
+            startAutoRefresh();
+        });
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', stopAutoRefresh);
+    </script>
+</body>
+</html>
