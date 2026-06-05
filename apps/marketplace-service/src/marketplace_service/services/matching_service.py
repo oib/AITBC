@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from aitbc import get_logger
 
-from ..domain.marketplace import MarketplaceBid, MarketplaceOffer
+from ..domain.marketplace import MarketplaceOffer
 
 logger = get_logger(__name__)
 

@@ -1,6 +1,6 @@
 """
 Marketplace Service main application
-Manages GPU marketplace operations
+Manages hardware+software bundle marketplace operations
 """
 
 from collections.abc import AsyncIterator
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="AITBC Marketplace Service",
-    description="Manages GPU marketplace operations",
+    description="Manages hardware+software bundle marketplace operations",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -235,54 +235,6 @@ async def create_offer(
         raise
 
 
-@app.get("/v1/marketplace/bids")
-async def get_bids(
-    status: str | None = None,
-    provider: str | None = None,
-    svc: MarketplaceService = Depends(get_marketplace_service),
-):
-    """Get marketplace bids"""
-    try:
-        logger.info(f"GET /v1/marketplace/bids called with filters: status={status}, provider={provider}")
-        result = await svc.list_bids(status=status, provider=provider)
-        logger.info(f"GET /v1/marketplace/bids returned {len(result)} bids")
-        return result
-    except Exception as e:
-        logger.error(f"Error in GET /v1/marketplace/bids: {type(e).__name__}: {str(e)}")
-        raise
-
-
-@app.post("/v1/marketplace/bids")
-async def create_bid(
-    bid_data: dict,
-    svc: MarketplaceService = Depends(get_marketplace_service),
-):
-    """Create a new marketplace bid"""
-    try:
-        logger.info(f"POST /v1/marketplace/bids called with data keys: {bid_data.keys()}")
-        result = await svc.create_bid(bid_data)
-        logger.info(f"POST /v1/marketplace/bids created bid with id: {result.id}")
-        return result
-    except Exception as e:
-        logger.error(f"Error in POST /v1/marketplace/bids: {type(e).__name__}: {str(e)}")
-        raise
-
-
-@app.get("/v1/marketplace/orders")
-async def get_orders(
-    wallet: str | None = None,
-    svc: MarketplaceService = Depends(get_marketplace_service),
-):
-    """Get marketplace orders (alias for bids for CLI compatibility)"""
-    try:
-        logger.info(f"GET /v1/marketplace/orders called with wallet={wallet}")
-        # Use list_bids with provider filter as orders are stored as bids
-        result = await svc.list_bids(provider=wallet)
-        # Return in format expected by CLI
-        return {"orders": result}
-    except Exception as e:
-        logger.error(f"Error in GET /v1/marketplace/orders: {type(e).__name__}: {str(e)}")
-        raise
 
 
 @app.get("/v1/marketplace/analytics")
@@ -300,15 +252,13 @@ async def get_analytics(
 async def get_marketplace_overview(
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
-    """Get general marketplace overview (migrated from Coordinator API)"""
+    """Get hardware+software bundle marketplace overview"""
     logger.info("GET /v1/marketplace called - marketplace overview")
     
     # Get marketplace statistics
     offers = await svc.list_offers()
-    bids = await svc.list_bids()
     
     active_offers = [o for o in offers if o.get("status") == "active"]
-    active_bids = [b for b in bids if b.get("status") == "active"]
     
     # Calculate average price
     avg_price = 0
@@ -320,76 +270,13 @@ async def get_marketplace_overview(
         "status": "operational",
         "total_offers": len(offers),
         "active_offers": len(active_offers),
-        "total_bids": len(bids),
-        "active_bids": len(active_bids),
         "average_price_per_hour": avg_price,
         "regions": list(set(o.get("region", "unknown") for o in active_offers)),
-        "gpu_models": list(set(o.get("gpu_model", "unknown") for o in active_offers)),
+        "service_types": list(set(o.get("service_type", "unknown") for o in active_offers)),
         "timestamp": svc.get_current_timestamp()
     }
 
 
-@app.get("/v1/marketplace/gpu")
-async def get_gpu_listings(
-    gpu_model: str | None = None,
-    min_memory: int | None = None,
-    region: str | None = None,
-    max_price: float | None = None,
-    svc: MarketplaceService = Depends(get_marketplace_service),
-):
-    """Get GPU-specific marketplace listings (migrated from Coordinator API)"""
-    logger.info(f"GET /v1/marketplace/gpu called with filters: gpu_model={gpu_model}, min_memory={min_memory}")
-    
-    # Get offers and filter for GPU-specific criteria
-    offers = await svc.list_offers(status="active", region=region, gpu_model=gpu_model)
-    
-    # Apply additional filters
-    if min_memory:
-        offers = [o for o in offers if o.get("gpu_memory_gb", 0) >= min_memory]
-    if max_price:
-        offers = [o for o in offers if o.get("price_per_hour", 0) <= max_price]
-    
-    return {
-        "gpu_listings": offers,
-        "total": len(offers),
-        "filters": {
-            "gpu_model": gpu_model,
-            "min_memory": min_memory,
-            "region": region,
-            "max_price": max_price
-        }
-    }
-
-
-@app.post("/v1/marketplace/gpu")
-async def create_gpu_listing(
-    gpu_data: dict,
-    svc: MarketplaceService = Depends(get_marketplace_service),
-):
-    """Create GPU listing (migrated from Coordinator API)"""
-    logger.info(f"POST /v1/marketplace/gpu called with data keys: {gpu_data.keys()}")
-    
-    # Ensure required GPU-specific fields
-    if "gpu_model" not in gpu_data:
-        return {"error": "gpu_model is required"}, 400
-    if "gpu_memory_gb" not in gpu_data:
-        return {"error": "gpu_memory_gb is required"}, 400
-    
-    # Create as a marketplace offer
-    offer_data = {
-        "provider": gpu_data.get("provider", "default-provider"),
-        "gpu_model": gpu_data["gpu_model"],
-        "gpu_memory_gb": gpu_data["gpu_memory_gb"],
-        "gpu_count": gpu_data.get("gpu_count", 1),
-        "price_per_hour": gpu_data.get("price_per_hour", 0),
-        "region": gpu_data.get("region", "us-east"),
-        "capacity": gpu_data.get("capacity", 100),
-        "status": "active"
-    }
-    
-    result = await svc.create_offer(offer_data)
-    logger.info(f"Created GPU listing with id: {result.id}")
-    return result
 
 
 @app.get("/v1/marketplace/offers/{offer_id}/history")
@@ -664,6 +551,75 @@ async def register_plugin(
         raise
 
 
+# ===== Software Service Registry (migrated from plugin service) =====
+
+@app.get("/v1/marketplace/software-services")
+async def get_software_services(
+    service_type: str | None = None,
+    status: str | None = None,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """List software services (migrated from plugin service)"""
+    try:
+        logger.info(f"GET /v1/marketplace/software-services called with filters: service_type={service_type}, status={status}")
+        result = await svc.list_software_services(service_type=service_type, status=status)
+        logger.info(f"GET /v1/marketplace/software-services returned {len(result)} services")
+        return {"services": result, "total": len(result)}
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/software-services: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.get("/v1/marketplace/software-services/{plugin_id}")
+async def get_software_service(
+    plugin_id: str,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get a specific software service"""
+    try:
+        logger.info(f"GET /v1/marketplace/software-services/{plugin_id} called")
+        result = await svc.get_software_service(plugin_id)
+        if not result:
+            return {"error": "Service not found"}, 404
+        logger.info(f"GET /v1/marketplace/software-services/{plugin_id} returned service")
+        return result
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/software-services/{plugin_id}: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.post("/v1/marketplace/software-services")
+async def register_software_service(
+    service_data: dict,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Register or update a software service"""
+    try:
+        logger.info(f"POST /v1/marketplace/software-services called with data keys: {service_data.keys()}")
+        result = await svc.register_software_service(service_data)
+        logger.info(f"POST /v1/marketplace/software-services registered service: {result['plugin_id']}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/software-services: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.delete("/v1/marketplace/software-services/{plugin_id}")
+async def unregister_software_service(
+    plugin_id: str,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Unregister a software service"""
+    try:
+        logger.info(f"DELETE /v1/marketplace/software-services/{plugin_id} called")
+        result = await svc.unregister_software_service(plugin_id)
+        logger.info(f"DELETE /v1/marketplace/software-services/{plugin_id} completed")
+        return result
+    except Exception as e:
+        logger.error(f"Error in DELETE /v1/marketplace/software-services/{plugin_id}: {type(e).__name__}: {str(e)}")
+        raise
+
+
 @app.post("/v1/knowledge-graph")
 async def create_graph(
     graph_data: dict,
@@ -734,7 +690,7 @@ async def query_graph(
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit marketplace transaction"""
-    from .domain.marketplace import MarketplaceBid, MarketplaceOffer
+    from .domain.marketplace import MarketplaceOffer
 
     # Validate transaction type
     transaction_type = transaction_data.get('type')
@@ -747,11 +703,8 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession = Dep
         if action == 'offer':
             offer = MarketplaceOffer(**transaction_data)
             session.add(offer)
-        elif action == 'bid':
-            bid = MarketplaceBid(**transaction_data)
-            session.add(bid)
         else:
-            return {"error": f"Invalid action: {action}. Only 'offer' and 'bid' are currently supported"}, 400
+            return {"error": f"Invalid action: {action}. Only 'offer' is currently supported"}, 400
 
         await session.commit()
         return {"status": "success"}
@@ -772,7 +725,7 @@ async def get_transactions(
     """Query marketplace transactions"""
     from sqlalchemy import select
 
-    from .domain.marketplace import MarketplaceBid, MarketplaceOffer
+    from .domain.marketplace import MarketplaceOffer
 
     try:
         transactions = []
@@ -795,20 +748,6 @@ async def get_transactions(
                 "region": o.region,
                 "created_at": o.created_at.isoformat() if o.created_at else None
             } for o in offers])
-
-        # Query bids
-        if action == 'bid' or not action:
-            result = await session.execute(select(MarketplaceBid))
-            bids = result.scalars().all()
-            transactions.extend([{
-                "id": b.id,
-                "action": "bid",
-                "provider": b.provider,
-                "capacity": b.capacity,
-                "price": b.price,
-                "status": b.status,
-                "submitted_at": b.submitted_at.isoformat() if b.submitted_at else None
-            } for b in bids])
 
         # Apply filters
         if status:

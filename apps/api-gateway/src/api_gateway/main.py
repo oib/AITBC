@@ -93,8 +93,15 @@ SERVICES = {
         "prefix": "/v1/escrow",
     },
     "plugin": {
-        "base_url": os.getenv("PLUGIN_SERVICE_URL", "http://localhost:8109"),
+        "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
         "prefix": "/v1/plugin",
+        "rewrite": {
+            "/v1/plugin/": "/v1/marketplace/software-services/"
+        }
+    },
+    "ffmpeg": {
+        "base_url": os.getenv("FFMPEG_SERVICE_URL", "http://localhost:8230"),
+        "prefix": "/v1/ffmpeg",
     },
 }
 
@@ -278,6 +285,13 @@ async def proxy_request(
     prefix = service_config["prefix"].lstrip("/")
     if path.startswith(prefix):
         target_path = path[len(prefix):].lstrip("/")
+
+    # Apply path rewrite if configured
+    if "rewrite" in service_config:
+        for old_prefix, new_prefix in service_config["rewrite"].items():
+            if target_path.startswith(old_prefix.lstrip("/")):
+                target_path = new_prefix.lstrip("/") + target_path[len(old_prefix.lstrip("/")):]
+                break
 
     target_url = f"{service_config['base_url']}/{target_path}"
 

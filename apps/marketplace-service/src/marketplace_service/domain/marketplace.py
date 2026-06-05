@@ -28,17 +28,6 @@ class MarketplaceOffer(SQLModel, table=True):
     region: str | None = Field(default=None, index=True)
 
 
-class MarketplaceBid(SQLModel, table=True):
-    __tablename__ = "marketplacebid"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
-    provider: str = Field(index=True)
-    capacity: int = Field(default=0, nullable=False)
-    price: float = Field(default=0.0, nullable=False)
-    notes: str | None = Field(default=None)
-    status: str = Field(default="pending", nullable=False)
-    submitted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
 
 
 class Plugin(SQLModel, table=True):
@@ -58,6 +47,32 @@ class Plugin(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     download_count: int = Field(default=0)
     rating: float = Field(default=0.0)
+
+
+class SoftwareService(SQLModel, table=True):
+    """Software service registry for marketplace (migrated from plugin service)"""
+    __tablename__ = "softwareservice"
+    __table_args__ = {"extend_existing": True}
+
+    plugin_id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, peertube_transcoder
+    model: str = Field(default="", index=True)
+    price: float = Field(default=0.0)
+    price_unit: str = Field(default="per_1k_tokens")  # per_1k_tokens, per_audio_min, per_processing_hour
+    offer_id: str | None = Field(default=None, index=True)  # Live offer_id from hub
+    endpoint: str = Field(default="")  # Local endpoint
+    public_endpoint: str = Field(default="")  # Public endpoint
+    health_url: str = Field(default="")
+    provider_address: str = Field(default="", index=True)
+    node_id: str = Field(default="")
+    gpu_name: str = Field(default="")  # GPU name from nvidia-smi
+    gpu_device: str = Field(default="0")  # GPU device ID (0, 1, 2, etc.)
+    gpu_uuid: str | None = Field(default=None)  # GPU UUID from nvidia-smi
+    gpu_offer_id: str | None = Field(default=None)  # GPU marketplace offer ID
+    description: str = Field(default="")
+    status: str = Field(default="active", index=True)  # active, inactive
+    registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
 class KnowledgeGraph(SQLModel, table=True):

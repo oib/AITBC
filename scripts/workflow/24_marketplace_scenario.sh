@@ -65,8 +65,8 @@ echo ""
 echo "2. 📝 CREATE SOFTWARE OFFER (Ollama)"
 echo "======================================"
 
-echo "Creating Ollama software offer..."
-OFFER_RESULT=$(aitbc market software-offer ollama llama3.2:3b 0.001 2>&1)
+echo "Creating Ollama hardware+software bundle offer..."
+OFFER_RESULT=$(aitbc market offer ollama llama3.2:3b 0.001 2>&1)
 echo "$OFFER_RESULT"
 
 # Extract transaction_hash from JSON output (handle mixed plain text + JSON)
@@ -192,8 +192,8 @@ echo ""
 echo "7. 🎤 TEST WHISPER TRANSCRIPTION"
 echo "================================"
 
-echo "Creating Whisper software offer..."
-WHISPER_OFFER_RESULT=$(aitbc market software-offer whisper base 0.002 2>&1)
+echo "Creating Whisper hardware+software bundle offer..."
+WHISPER_OFFER_RESULT=$(aitbc market offer whisper base 0.002 2>&1)
 echo "$WHISPER_OFFER_RESULT"
 
 # Extract transaction_hash from JSON output (handle mixed plain text + JSON)

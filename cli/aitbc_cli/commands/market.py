@@ -143,236 +143,10 @@ def market():
 
 
 @market.command()
-@click.argument('gpu_id')
-@click.argument('price_per_hour', type=float)
-@click.argument('duration_hours', type=int)
-@click.option('--description', help='Description of the GPU offer')
+@click.option('--provider', help='Filter by provider address')
+@click.option('--status', help='Filter by status (active, inactive)')
 @click.pass_context
-def offer(ctx, gpu_id: str, price_per_hour: float, duration_hours: int, description: str | None):
-    """Offer a registered GPU for sale in the blockchain marketplace"""
-    try:
-        # Load CLI config
-        config = get_config()
-
-        # Load island credentials
-        credentials = safe_load_credentials()
-        if not credentials:
-            return
-        chain_id = get_chain_id()
-        island_id = get_island_id()
-
-        # Get provider node ID
-        hostname = socket.gethostname()
-        local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-
-        # Get public key for node ID generation
-        public_key_pem = None
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
-                    break
-        
-        # Fallback to wallet keys
-        if not public_key_pem:
-            wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
-            if os.path.exists(wallet_path):
-                with open(wallet_path) as f:
-                    wallet = json.load(f)
-                    public_key_pem = wallet.get('public_key')
-        
-        if public_key_pem:
-            content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
-            provider_node_id = hashlib.sha256(content.encode()).hexdigest()
-        else:
-            # Use hostname as fallback for testing
-            warning("No public key found in keystore or wallet, using hostname as node ID")
-            provider_node_id = hashlib.sha256(hostname.encode()).hexdigest()
-
-        # Query GPU service for registered GPU
-        try:
-            gpu_http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            gpu_info = gpu_http_client.get(f"/v1/gpu/{gpu_id}")
-            
-            if not gpu_info or gpu_info.get('status') != 'available':
-                error(f"GPU {gpu_id} not found or not available")
-                raise click.Abort()
-            
-            gpu_specs = {
-                'model': gpu_info.get('model', 'Unknown'),
-                'memory_gb': gpu_info.get('memory_gb', 0),
-                'cuda_version': gpu_info.get('cuda_version', ''),
-                'capabilities': gpu_info.get('capabilities', [])
-            }
-            info(f"Using registered GPU: {gpu_specs['model']} ({gpu_specs['memory_gb']} GB)")
-        except Exception as e:
-            error(f"Failed to query GPU service: {e}")
-            raise click.Abort()
-
-        # Calculate total price
-        total_price = price_per_hour * duration_hours
-
-        # Generate offer ID
-        offer_id = f"gpu_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{provider_node_id}{gpu_id}{price_per_hour}'.encode()).hexdigest()[:8]}"
-
-        # Create offer transaction for blockchain
-        wallet_address = get_wallet_address()
-        offer_data = {
-            'from': wallet_address,
-            'to': '0x0000000000000000000000000000000000000000',
-            'amount': 0,
-            'fee': 10,  # Non-zero fee to incentivize miners
-            'nonce': get_next_nonce(),
-            'type': 'GPU_MARKETPLACE',
-            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
-            'payload': {
-                'action': 'offer',
-                'offer_id': offer_id,
-                'provider_node_id': provider_node_id,
-                'gpu_id': gpu_id,
-                'price_per_hour': float(price_per_hour),
-                'duration_hours': duration_hours,
-                'total_price': float(total_price),
-                'status': 'active',
-                'specs': gpu_specs,
-                'description': description or f"{gpu_specs['model']} GPU for {duration_hours} hours",
-                'island_id': island_id,
-                'chain_id': chain_id,
-                'created_at': datetime.now().isoformat()
-            }
-        }
-
-        # Submit transaction to blockchain RPC
-        try:
-            # Try hub RPC for cross-node propagation
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
-            success("GPU offer created successfully!")
-            output(result, ctx.obj.get("output_format", "table"))
-        except NetworkError:
-            # Fallback to local blockchain RPC
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
-            success("GPU offer created successfully!")
-            output(result, ctx.obj.get("output_format", "table"))
-
-    except Exception as e:
-        error(f"Error creating GPU offer: {e}")
-        raise click.Abort()
-
-
-@market.command()
-@click.argument('gpu_count', type=int)
-@click.argument('max_price', type=float)
-@click.argument('duration_hours', type=int)
-@click.option('--description', help='Description of the GPU bid')
-@click.pass_context
-def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, description: str | None):
-    """Bid on GPU power in the marketplace"""
-    try:
-        # Load CLI config
-        config = get_config()
-
-        # Load island credentials
-        credentials = safe_load_credentials()
-        if not credentials:
-            return
-        chain_id = get_chain_id()
-        island_id = get_island_id()
-
-        # Get bidder node ID
-        hostname = socket.gethostname()
-        local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
-
-        # Get public key for node ID generation
-        public_key_pem = None
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
-                    break
-        
-        # Fallback to wallet keys
-        if not public_key_pem:
-            wallet_path = '/root/.aitbc/wallets/my-agent-wallet.json'
-            if os.path.exists(wallet_path):
-                with open(wallet_path) as f:
-                    wallet = json.load(f)
-                    public_key_pem = wallet.get('public_key')
-        
-        if public_key_pem:
-            content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
-            bidder_node_id = hashlib.sha256(content.encode()).hexdigest()
-        else:
-            # Use hostname as fallback for testing
-            warning("No public key found in keystore or wallet, using hostname as node ID")
-            bidder_node_id = hashlib.sha256(hostname.encode()).hexdigest()
-
-        # Calculate max total price
-        max_total_price = max_price * duration_hours
-
-        # Generate bid ID
-        bid_id = f"gpu_bid_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{bidder_node_id}{gpu_count}{max_price}'.encode()).hexdigest()[:8]}"
-
-        # Create bid transaction for blockchain
-        wallet_address = get_wallet_address()
-        bid_data = {
-            'from': wallet_address,
-            'to': '0x0000000000000000000000000000000000000000',
-            'amount': 0,
-            'fee': 10,  # Non-zero fee to incentivize miners
-            'nonce': get_next_nonce(),
-            'type': 'GPU_MARKETPLACE',
-            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
-            'payload': {
-                'action': 'bid',
-                'bid_id': bid_id,
-                'bidder_node_id': bidder_node_id,
-                'gpu_count': gpu_count,
-                'max_price_per_gpu': float(max_price),
-                'duration_hours': duration_hours,
-                'max_total_price': float(max_total_price),
-                'status': 'pending',
-                'description': description or f"Bid for {gpu_count} GPU(s) for {duration_hours} hours",
-                'island_id': island_id,
-                'chain_id': chain_id,
-                'created_at': datetime.now().isoformat()
-            }
-        }
-
-        # Submit transaction to blockchain RPC
-        try:
-            # Try hub RPC for cross-node propagation
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
-            success("GPU bid created successfully!")
-            output(result, ctx.obj.get("output_format", "table"))
-        except NetworkError:
-            # Fallback to local blockchain RPC
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=bid_data)
-            success("GPU bid created successfully!")
-            output(result, ctx.obj.get("output_format", "table"))
-
-    except Exception as e:
-        error(f"Error creating GPU bid: {e}")
-        raise click.Abort()
-
-
-@market.command()
-@click.option('--provider', help='Filter by provider node ID')
-@click.option('--status', help='Filter by status (active, pending, accepted, completed, cancelled)')
-@click.option('--type', type=click.Choice(['offer', 'bid', 'all']), default='all', help='Filter by type')
-@click.pass_context
-def list(ctx, provider: str | None, status: str | None, type: str):
+def list(ctx, provider: str | None, status: str | None):
     """List blockchain marketplace offers and bids"""
     try:
         # Load CLI config
@@ -436,54 +210,31 @@ def list(ctx, provider: str | None, status: str | None, type: str):
             
             action = payload.get('action')
             
-            if type != 'all' and action != type:
+            # Only show hardware+software bundle offers
+            if action != 'software_offer':
                 continue
             if status and payload.get('status') != status:
                 continue
-            if provider and payload.get('provider_node_id') != provider:
+            if provider and payload.get('provider_address') != provider:
                 continue
 
-            if action == 'offer':
-                specs = payload.get('specs', {})
-                market_data.append({
-                    "Offer ID": payload.get('offer_id', '')[:20] + "...",
-                    "GPU ID": payload.get('gpu_id'),
-                    "Model": specs.get('model', 'Unknown'),
-                    "Memory (GB)": specs.get('memory_gb', 0),
-                    "Price/Hour": f"{payload.get('price_per_hour', 0):.4f} AIT",
-                    "Duration": f"{payload.get('duration_hours')}h",
-                    "Total": f"{payload.get('total_price', 0):.2f} AIT",
-                    "Status": payload.get('status'),
-                    "Provider": payload.get('provider_node_id', '')[:16] + "...",
-                    "Description": payload.get('description', '')[:30] + "..." if len(payload.get('description', '')) > 30 else payload.get('description', ''),
-                    "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
-                })
-            elif action == 'bid':
-                market_data.append({
-                    "Bid ID": payload.get('bid_id', '')[:20] + "...",
-                    "Type": "BID",
-                    "GPU Count": payload.get('gpu_count'),
-                    "Max Price": f"{payload.get('max_price_per_gpu', 0):.4f} AIT/h",
-                    "Duration": f"{payload.get('duration_hours')}h",
-                    "Max Total": f"{payload.get('max_total_price', 0):.2f} AIT",
-                    "Status": payload.get('status'),
-                    "Bidder": payload.get('bidder_node_id', '')[:16] + "...",
-                    "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
-                })
-            elif action == 'software_offer':
-                market_data.append({
-                    "Offer ID": payload.get('offer_id', ''),
-                    "Type": "SOFTWARE",
-                    "Service": payload.get('service_type', ''),
-                    "Model": payload.get('model', ''),
-                    "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
-                    "Status": payload.get('status', 'active'),
-                    "Provider": payload.get('provider_address', '')[:30] + "...",
-                    "Description": (payload.get('description', '')[:35] + "...") if len(payload.get('description', '')) > 35 else payload.get('description', ''),
-                    "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
-                })
+            gpu_name = payload.get('gpu_name', 'N/A')
+            deployment_type = payload.get('deployment_type', 'local')
+            gpu_device = payload.get('gpu_device', '0')
+            gpu_name_display = f"{gpu_name} [GPU {gpu_device}]" if deployment_type == 'local' else "N/A (cloud)"
+            market_data.append({
+                "Offer ID": payload.get('offer_id', ''),
+                "Type": payload.get('service_type', '').upper(),
+                "Model": payload.get('model', ''),
+                "GPU": gpu_name_display[:35] + "..." if len(gpu_name_display) > 35 else gpu_name_display,
+                "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
+                "Status": payload.get('status', 'active'),
+                "Provider": payload.get('provider_address', '')[:30] + "...",
+                "Description": (payload.get('description', '')[:35] + "...") if len(payload.get('description', '')) > 35 else payload.get('description', ''),
+                "Created": payload.get('created_at', '')[:19] if payload.get('created_at') else 'N/A'
+            })
 
-        output(market_data, ctx.obj.get('output_format', 'table'), title="GPU Marketplace Offers")
+        output(market_data, ctx.obj.get('output_format', 'table'), title="Hardware+Software Bundle Offers")
 
     except Exception as e:
         error(f"Error listing GPU marketplace: {str(e)}")
@@ -494,28 +245,24 @@ def list(ctx, provider: str | None, status: str | None, type: str):
 @click.argument('order_id')
 @click.pass_context
 def cancel(ctx, order_id: str):
-    """Cancel a GPU offer or bid"""
+    """Cancel a hardware+software bundle offer"""
     try:
-        # Load CLI config
         config = get_config()
-
-        # Load island credentials
         credentials = safe_load_credentials()
         if not credentials:
             return
         chain_id = get_chain_id()
         island_id = get_island_id()
 
-        # Create cancel transaction for blockchain
         wallet_address = get_wallet_address()
         cancel_data = {
             'from': wallet_address,
             'to': '0x0000000000000000000000000000000000000000',
             'amount': 0,
-            'fee': 10,  # Non-zero fee to incentivize miners
+            'fee': 10,
             'nonce': get_next_nonce(),
             'type': 'GPU_MARKETPLACE',
-            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
+            'chain_id': chain_id,
             'payload': {
                 'action': 'cancel',
                 'order_id': order_id,
@@ -526,82 +273,20 @@ def cancel(ctx, order_id: str):
             }
         }
 
-        # Submit transaction to blockchain RPC
         try:
-            # Try hub RPC for cross-node propagation
             hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
-            success(f"Order {order_id} cancelled successfully!")
+            success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
-            # Fallback to local blockchain RPC
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
-            success(f"Order {order_id} cancelled successfully!")
+            success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
-        error(f"Error cancelling order: {e}")
-        raise click.Abort()
-
-
-@market.command()
-@click.argument('bid_id')
-@click.pass_context
-def accept(ctx, bid_id: str):
-    """Accept a GPU bid (provider only)"""
-    try:
-        # Load CLI config
-        config = get_config()
-
-        # Load island credentials
-        credentials = safe_load_credentials()
-        if not credentials:
-            return
-        chain_id = get_chain_id()
-        island_id = get_island_id()
-
-        # Create accept transaction for blockchain
-        wallet_address = get_wallet_address()
-        accept_data = {
-            'from': wallet_address,
-            'to': '0x0000000000000000000000000000000000000000',
-            'amount': 0,
-            'fee': 10,  # Non-zero fee to incentivize miners
-            'nonce': get_next_nonce(),
-            'type': 'GPU_MARKETPLACE',
-            'chain_id': chain_id,  # Set chain_id at top level for RPC validation
-            'payload': {
-                'action': 'accept',
-                'bid_id': bid_id,
-                'status': 'accepted',
-                'island_id': island_id,
-                'chain_id': chain_id,
-                'created_at': datetime.now().isoformat()
-            }
-        }
-
-        # Submit transaction to blockchain RPC
-        try:
-            # Try hub RPC for cross-node propagation
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
-            success(f"Bid {bid_id} accepted successfully!")
-            output(result, ctx.obj.get("output_format", "table"))
-        except NetworkError:
-            # Fallback to local blockchain RPC
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=accept_data)
-            success(f"Bid {bid_id} accepted successfully!")
-            output(result, ctx.obj.get("output_format", "table"))
-
-        # Auto-create blockchain escrow to lock buyer funds
-        _escrow_create(bid_id, wallet_address, wallet_address, 0, config)
-
-    except Exception as e:
-        error(f"Error accepting bid: {e}")
+        error(f"Error cancelling offer: {e}")
         raise click.Abort()
 
 
@@ -855,24 +540,73 @@ def providers(ctx):
 # Software marketplace — Ollama inference, Whisper, PeerTube pruner
 # ---------------------------------------------------------------------------
 
-@market.command(name="software-offer")
-@click.argument('service_type', type=click.Choice(['ollama', 'whisper', 'peertube_pruner']))
+@market.command(name="offer")
+@click.argument('service_type', type=click.Choice(['ollama', 'whisper', 'peertube_pruner', 'ffmpeg']))
 @click.argument('model_or_variant')
 @click.argument('price', type=float)
 @click.option('--unit', default='per_1k_tokens',
-              type=click.Choice(['per_1k_tokens', 'per_audio_min', 'per_gb']),
+              type=click.Choice(['per_1k_tokens', 'per_audio_min', 'per_gb', 'per_processing_hour']),
               help='Pricing unit')
 @click.option('--description', help='Description of the service')
 @click.option('--context-window', type=int, default=4096, help='Context window size (ollama)')
+@click.option('--gpu-name', help='GPU name from nvidia-smi (auto-detected if omitted)')
+@click.option('--gpu-device', help='GPU device ID (0, 1, 2, etc.) for multi-GPU servers')
+@click.option('--gpu-offer-id', help='GPU marketplace offer ID for cross-reference')
 @click.pass_context
-def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
-                   unit: str, description: str | None, context_window: int):
-    """List a software service (Ollama/Whisper/PeerTube) in the marketplace"""
+def offer(ctx, service_type: str, model_or_variant: str, price: float,
+           unit: str, description: str | None, context_window: int,
+           gpu_name: str | None, gpu_device: str | None, gpu_offer_id: str | None):
+    """List a hardware+software bundle offer (Ollama/Whisper/PeerTube/FFmpeg) in the marketplace"""
     try:
         config = get_config()
         chain_id = get_chain_id()
         island_id = get_island_id()
         wallet_address = get_wallet_address()
+
+        # Auto-detect deployment type from model name suffix
+        is_cloud = model_or_variant.endswith(':cloud')
+        deployment_type = 'cloud' if is_cloud else 'local'
+        info(f"Auto-detected deployment type: {deployment_type}")
+
+        # Auto-detect GPU info from nvidia-smi if not provided and not cloud
+        gpu_uuid = None
+        if gpu_name is None and not is_cloud:
+            try:
+                import subprocess
+                # Get GPU name, device ID, and UUID
+                result = subprocess.run(
+                    ['nvidia-smi', '-L'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    # Parse output: "GPU 0: NVIDIA GeForce RTX 4060 Ti (UUID: GPU-ba5c6553-6396-ab66-5706-17e6de30a93a)"
+                    for line in result.stdout.strip().split('\n'):
+                        if line.startswith('GPU'):
+                            # Extract device ID, name, and UUID
+                            parts = line.split(':')
+                            device_part = parts[0].strip()  # "GPU 0"
+                            gpu_name = parts[1].split('(')[0].strip()  # "NVIDIA GeForce RTX 4060 Ti "
+                            uuid_part = parts[1].split('UUID:')[1].rstrip(')') if 'UUID:' in parts[1] else None
+                            
+                            # Use specified device or default to first GPU
+                            if gpu_device is None:
+                                gpu_device = device_part.split()[1]  # Extract "0" from "GPU 0"
+                                gpu_uuid = uuid_part
+                                info(f"Auto-detected GPU: {gpu_name} (device {gpu_device}, UUID: {gpu_uuid})")
+                                break
+                            elif device_part == f"GPU {gpu_device}":
+                                gpu_uuid = uuid_part
+                                info(f"Auto-detected GPU: {gpu_name} (device {gpu_device}, UUID: {gpu_uuid})")
+                                break
+            except Exception as e:
+                warning(f"Failed to auto-detect GPU info: {e}")
+                gpu_name = "Unknown GPU"
+                gpu_device = "0"
+        elif gpu_name is None and is_cloud:
+            gpu_name = "N/A (cloud)"
+            gpu_device = "N/A"
+        elif gpu_device is None and not is_cloud:
+            gpu_device = "0"  # Default to first GPU
 
         # Verify the service is actually running locally
         if service_type == 'ollama':
@@ -912,12 +646,24 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
                 error(f"PeerTube transcoder service not reachable at localhost:8220: {e}")
                 error("Start it with: systemctl start aitbc-peertube-transcoder")
                 raise click.Abort()
+        elif service_type == 'ffmpeg':
+            try:
+                f_client = AITBCHTTPClient(base_url="http://localhost:8230", timeout=5)
+                health = f_client.get("/health")
+                if health.get('status') != 'ok':
+                    error("FFmpeg service is not ready at localhost:8230")
+                    raise click.Abort()
+                info(f"Verified FFmpeg service")
+            except NetworkError as e:
+                error(f"FFmpeg service not reachable at localhost:8230: {e}")
+                error("Start it with: systemctl start aitbc-ffmpeg")
+                raise click.Abort()
 
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
         # Build public endpoint so remote buyers know where to send jobs
-        _local_ports = {'ollama': 11434, 'whisper': 8110, 'peertube_transcoder': 8220}
+        _local_ports = {'ollama': 11434, 'whisper': 8110, 'peertube_transcoder': 8220, 'ffmpeg': 8230}
         _local_port = _local_ports.get(service_type, 8110)
         _hub_hostname = config.hub_discovery_url or 'hub.aitbc.bubuit.net'
         _base_domain = _hub_hostname.removeprefix('hub.')
@@ -926,7 +672,7 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         if _base_domain and _base_domain not in _node_hostname:
             _node_hostname = f"{socket.gethostname()}.{_base_domain}"
         # nginx routes: /whisper/ → :8110, /ollama/ → :11434, /peertube/ → :8220 (see deployment/nginx-aitbc.conf)
-        _nginx_paths = {'ollama': 'ollama', 'whisper': 'whisper', 'peertube_transcoder': 'peertube'}
+        _nginx_paths = {'ollama': 'ollama', 'whisper': 'whisper', 'peertube_transcoder': 'peertube', 'ffmpeg': 'ffmpeg'}
         _nginx_path = _nginx_paths.get(service_type, service_type)
         _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
         _local_endpoint = f"http://localhost:{_local_port}"
@@ -949,6 +695,11 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
                 'price': float(price),
                 'price_unit': unit,
                 'context_window': context_window if service_type == 'ollama' else None,
+                'deployment_type': deployment_type,
+                'gpu_name': gpu_name,
+                'gpu_device': gpu_device,
+                'gpu_uuid': gpu_uuid,
+                'gpu_offer_id': gpu_offer_id,
                 'status': 'active',
                 'description': description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                 'island_id': island_id,
@@ -964,15 +715,16 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
         success(f"Software offer listed on marketplace!")
         output(result, ctx.obj.get("output_format", "table"))
 
-        # Auto-register in local plugin registry so agents can discover it
+        # Auto-register in marketplace service so agents can discover it
         _health_urls = {
             'ollama': 'http://localhost:11434/api/tags',
             'whisper': 'http://localhost:8110/health',
             'peertube_transcoder': 'http://localhost:8220/health',
+            'ffmpeg': 'http://localhost:8230/health',
         }
         try:
-            plugin_client = AITBCHTTPClient(base_url="http://localhost:8109", timeout=5)
-            plugin_client.post("/register", json={
+            plugin_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=5)
+            plugin_client.post("/v1/marketplace/software-services", json={
                 'service_type': service_type,
                 'model': model_or_variant,
                 'price': float(price),
@@ -983,12 +735,17 @@ def software_offer(ctx, service_type: str, model_or_variant: str, price: float,
                 'health_url': _health_urls.get(service_type, ''),
                 'provider_address': wallet_address,
                 'node_id': provider_node_id,
+                'deployment_type': deployment_type,
+                'gpu_name': gpu_name,
+                'gpu_device': gpu_device,
+                'gpu_uuid': gpu_uuid,
+                'gpu_offer_id': gpu_offer_id,
                 'description': description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                 'status': 'active',
             })
-            info(f"Plugin registered in local registry (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})")
+            info(f"Software service registered in marketplace (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})")
         except Exception:
-            pass  # Non-fatal — plugin service may not be running
+            pass  # Non-fatal — marketplace service may not be running
 
     except Exception as e:
         error(f"Error creating software offer: {e}")
@@ -1385,4 +1142,151 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
 
     except Exception as e:
         error(f"Error transcoding video: {e}")
+        raise click.Abort()
+
+
+@market.command(name="process")
+@click.argument('offer_id')
+@click.argument('input_file', type=click.Path(exists=True))
+@click.option('--format', default='mp4', help='Output format (e.g. mp4, webm)')
+@click.option('--codec', default='h264', help='Target codec (e.g. h264, vp9, av1)')
+@click.option('--resolution', default='1080p', help='Target resolution (e.g. 1080p, 720p, 480p)')
+@click.option('--bitrate', default='5M', help='Target bitrate (e.g. 5M, 10M)')
+@click.pass_context
+def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, resolution: str, bitrate: str):
+    """Process video using FFmpeg software offer and pay metered escrow"""
+    import urllib.request as _urllib
+    try:
+        config = get_config()
+        wallet_address = get_wallet_address()
+        chain_id = get_chain_id()
+
+        # Resolve the offer from hub
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        result = http_client.get("/rpc/transactions", params={"limit": 1000})
+        offer = None
+        if result and not isinstance(result, dict):
+            for tx in result:
+                p = tx.get('payload', {})
+                if p.get('action') == 'software_offer' and p.get('offer_id') == offer_id and p.get('service_type') == 'ffmpeg':
+                    offer = p
+                    break
+        if not offer:
+            error(f"FFmpeg offer '{offer_id}' not found on hub")
+            raise click.Abort()
+
+        price = float(offer.get('price', 0))
+        price_unit = offer.get('price_unit', 'per_processing_hour')
+        provider_address = offer.get('provider_address')
+        model = offer.get('model', 'default')
+
+        info(f"Offer: ffmpeg/{model} at {price} AIT/{price_unit} — provider {provider_address}")
+        info(f"Input file: {input_file}")
+
+        # Use provider's public endpoint from offer; fall back to localhost for self-hosted
+        ffmpeg_endpoint = offer.get('endpoint', 'http://localhost:8230')
+        # Normalise: strip trailing /process if present, add /process
+        ffmpeg_base = ffmpeg_endpoint.rstrip('/').removesuffix('/process')
+        ffmpeg_process_url = ffmpeg_base + '/process'
+        info(f"FFmpeg endpoint: {ffmpeg_process_url}")
+
+        # Estimate cost (assume 5 min default if unknown)
+        estimated_hours = 0.1  # 6 minutes default
+        estimated_cost = estimated_hours * price if price_unit == 'per_processing_hour' else price
+        info(f"Estimated duration: {estimated_hours:.2f} hours — locking escrow: ~{estimated_cost:.4f} AIT")
+
+        job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+        contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
+
+        # Submit video to FFmpeg service
+        info("Sending video to FFmpeg service...")
+        t_start = datetime.now()
+        with open(input_file, 'rb') as af:
+            video_bytes = af.read()
+        filename = os.path.basename(input_file)
+        boundary = b'----FFmpegBoundary'
+        body = (
+            b'--' + boundary + b'\r\n'
+            b'Content-Disposition: form-data; name="file"; filename="' + filename.encode() + b'"\r\n'
+            b'Content-Type: application/octet-stream\r\n\r\n' +
+            video_bytes + b'\r\n'
+        )
+        body += b'--' + boundary + b'\r\nContent-Disposition: form-data; name="output_format"\r\n\r\n' + format.encode() + b'\r\n'
+        body += b'--' + boundary + b'\r\nContent-Disposition: form-data; name="codec"\r\n\r\n' + codec.encode() + b'\r\n'
+        body += b'--' + boundary + b'\r\nContent-Disposition: form-data; name="resolution"\r\n\r\n' + resolution.encode() + b'\r\n'
+        body += b'--' + boundary + b'\r\nContent-Disposition: form-data; name="bitrate"\r\n\r\n' + bitrate.encode() + b'\r\n'
+        body += b'--' + boundary + b'--\r\n'
+
+        req = _urllib.Request(
+            ffmpeg_process_url,
+            data=body,
+            headers={'Content-Type': f'multipart/form-data; boundary={boundary.decode()}'}
+        )
+        with _urllib.urlopen(req, timeout=3600) as resp:
+            resp_data = json.loads(resp.read())
+
+        elapsed = (datetime.now() - t_start).total_seconds()
+        actual_hours = resp_data.get('processing_time_hours', estimated_hours)
+        actual_cost = actual_hours * price if price_unit == 'per_processing_hour' else price
+        result_hash = resp_data.get('result_hash', '')
+
+        info(f"Done in {elapsed:.1f}s — {actual_hours:.4f} hours processing — actual cost: {actual_cost:.4f} AIT")
+        info(f"Output file: {resp_data.get('output_path')}")
+
+        # Post software_job TX on-chain as proof of work
+        job_tx_hash = None
+        if result_hash:
+            job_data = {
+                'from': wallet_address,
+                'to': '0x0000000000000000000000000000000000000000',
+                'amount': 0,
+                'fee': 10,
+                'nonce': get_next_nonce(),
+                'type': 'GPU_MARKETPLACE',
+                'chain_id': chain_id,
+                'payload': {
+                    'action': 'software_job',
+                    'job_id': job_id,
+                    'offer_id': offer_id,
+                    'buyer_address': wallet_address,
+                    'provider_address': provider_address or wallet_address,
+                    'result_hash': result_hash,
+                    'actual_processing_hours': round(actual_hours, 4),
+                    'actual_cost': round(actual_cost, 6),
+                    'status': 'completed',
+                    'completed_at': datetime.now().isoformat(),
+                }
+            }
+            try:
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                job_result = http_client.post("/rpc/transactions/marketplace", json=job_data)
+                job_tx_hash = job_result.get('transaction_hash')
+                info(f"Job recorded on-chain: {job_tx_hash}")
+            except Exception as e:
+                warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
+
+        # Release metered escrow with job TX hash as proof
+        if contract_id:
+            rpc_url = _get_blockchain_rpc_url(config)
+            rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={'amount': actual_cost, 'job_tx_hash': job_tx_hash})
+            if release_result and release_result.get('tx_hash'):
+                success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            else:
+                warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+
+        output({
+            'job_id': job_id,
+            'offer_id': offer_id,
+            'input_file': input_file,
+            'output_path': resp_data.get('output_path'),
+            'processing_hours': round(actual_hours, 4),
+            'actual_cost_ait': round(actual_cost, 6),
+            'elapsed_seconds': round(elapsed, 2),
+            'contract_id': contract_id,
+        }, ctx.obj.get('output_format', 'table'))
+
+    except Exception as e:
+        error(f"Error processing video: {e}")
         raise click.Abort()
