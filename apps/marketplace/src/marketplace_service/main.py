@@ -485,70 +485,70 @@ async def register_plugin(
 
 # ===== Software Service Registry (migrated from plugin service) =====
 
-@app.get("/v1/marketplace/software-services")
-async def get_software_services(
+@app.get("/v1/marketplace/offer")
+async def get_offers(
     service_type: str | None = None,
     status: str | None = None,
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
-    """List software services (migrated from plugin service)"""
+    """List marketplace offers (hardware+software bundles)"""
     try:
-        logger.info(f"GET /v1/marketplace/software-services called with filters: service_type={service_type}, status={status}")
+        logger.info(f"GET /v1/marketplace/offer called with filters: service_type={service_type}, status={status}")
         result = await svc.list_software_services(service_type=service_type, status=status)
-        logger.info(f"GET /v1/marketplace/software-services returned {len(result)} services")
-        return {"services": result, "total": len(result)}
+        logger.info(f"GET /v1/marketplace/offer returned {len(result)} offers")
+        return {"offers": result, "total": len(result)}
     except Exception as e:
-        logger.error(f"Error in GET /v1/marketplace/software-services: {type(e).__name__}: {str(e)}")
+        logger.error(f"Error in GET /v1/marketplace/offer: {type(e).__name__}: {str(e)}")
         raise
 
 
-@app.get("/v1/marketplace/software-services/{plugin_id}")
-async def get_software_service(
+@app.get("/v1/marketplace/offer/{plugin_id}")
+async def get_offer(
     plugin_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
-    """Get a specific software service"""
+    """Get a specific marketplace offer"""
     try:
-        logger.info(f"GET /v1/marketplace/software-services/{plugin_id} called")
+        logger.info(f"GET /v1/marketplace/offer/{plugin_id} called")
         result = await svc.get_software_service(plugin_id)
         if not result:
-            return {"error": "Service not found"}, 404
-        logger.info(f"GET /v1/marketplace/software-services/{plugin_id} returned service")
+            return {"error": "Offer not found"}, 404
+        logger.info(f"GET /v1/marketplace/offer/{plugin_id} returned offer")
         return result
     except Exception as e:
-        logger.error(f"Error in GET /v1/marketplace/software-services/{plugin_id}: {type(e).__name__}: {str(e)}")
+        logger.error(f"Error in GET /v1/marketplace/offer/{plugin_id}: {type(e).__name__}: {str(e)}")
         raise
 
 
-@app.post("/v1/marketplace/software-services")
-async def register_software_service(
+@app.post("/v1/marketplace/offer")
+async def register_offer(
     service_data: dict,
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
-    """Register or update a software service"""
+    """Register or update a marketplace offer"""
     try:
-        logger.info(f"POST /v1/marketplace/software-services called with data keys: {service_data.keys()}")
+        logger.info(f"POST /v1/marketplace/offer called with data keys: {service_data.keys()}")
         result = await svc.register_software_service(service_data)
-        logger.info(f"POST /v1/marketplace/software-services registered service: {result['plugin_id']}")
+        logger.info(f"POST /v1/marketplace/offer registered offer: {result['plugin_id']}")
         return result
     except Exception as e:
-        logger.error(f"Error in POST /v1/marketplace/software-services: {type(e).__name__}: {str(e)}")
+        logger.error(f"Error in POST /v1/marketplace/offer: {type(e).__name__}: {str(e)}")
         raise
 
 
-@app.delete("/v1/marketplace/software-services/{plugin_id}")
-async def unregister_software_service(
+@app.delete("/v1/marketplace/offer/{plugin_id}")
+async def unregister_offer(
     plugin_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
-    """Unregister a software service"""
+    """Unregister a marketplace offer"""
     try:
-        logger.info(f"DELETE /v1/marketplace/software-services/{plugin_id} called")
+        logger.info(f"DELETE /v1/marketplace/offer/{plugin_id} called")
         result = await svc.unregister_software_service(plugin_id)
-        logger.info(f"DELETE /v1/marketplace/software-services/{plugin_id} completed")
+        logger.info(f"DELETE /v1/marketplace/offer/{plugin_id} completed")
         return result
     except Exception as e:
-        logger.error(f"Error in DELETE /v1/marketplace/software-services/{plugin_id}: {type(e).__name__}: {str(e)}")
+        logger.error(f"Error in DELETE /v1/marketplace/offer/{plugin_id}: {type(e).__name__}: {str(e)}")
         raise
 
 

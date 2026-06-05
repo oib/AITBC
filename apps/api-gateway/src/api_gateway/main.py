@@ -96,7 +96,7 @@ SERVICES = {
         "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
         "prefix": "/v1/plugin",
         "rewrite": {
-            "/v1/plugin/": "/v1/marketplace/software-services/"
+            "/v1/plugin/": "/v1/marketplace/offer/"
         }
     },
     "ffmpeg": {
@@ -283,16 +283,26 @@ async def proxy_request(
     # Build target URL
     target_path = path
     prefix = service_config["prefix"].lstrip("/")
-    if path.startswith(prefix):
-        target_path = path[len(prefix):].lstrip("/")
-
-    # Apply path rewrite if configured
+    
+    # Apply path rewrite if configured (before prefix removal)
     if "rewrite" in service_config:
         for old_prefix, new_prefix in service_config["rewrite"].items():
             if target_path.startswith(old_prefix.lstrip("/")):
-                target_path = new_prefix.lstrip("/") + target_path[len(old_prefix.lstrip("/")):]
+                # Remove the old prefix and replace with new prefix
+                remaining_path = target_path[len(old_prefix.lstrip("/")):]
+                target_path = new_prefix.lstrip("/") + remaining_path
                 break
+    # For marketplace service, keep the full path
+    elif service_name == "marketplace":
+        # Don't strip prefix for marketplace service - keep full path
+        pass
+    elif path.startswith(prefix):
+        target_path = path[len(prefix):].lstrip("/")
 
+    # Remove trailing slash to avoid double slashes
+    if target_path.endswith("/"):
+        target_path = target_path.rstrip("/")
+    
     target_url = f"{service_config['base_url']}/{target_path}"
 
     # Proxy the request using pooled HTTP client with retry logic
