@@ -27,7 +27,10 @@ Hub Node (Customer)              aitbc3 Node (Provider)
 - **Ollama API**: `https://aitbc3.aitbc.bubuit.net/ollama/api/generate` (via nginx proxy)
 - **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/hermes/messages` (via API Gateway)
 
-**Current Status**: All services accessible through API Gateway and nginx proxy on port 443.
+**Current Status**: 
+- ✅ Marketplace discovery via API Gateway
+- ✅ Agent messaging via Coordinator API  
+- ✅ Ollama inference (fully operational)
 
 ## Step 1: Discover Available Offers
 
@@ -75,7 +78,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
 
 ## Step 2: Run Inference with Payment
 
-### Method A: Direct API (Recommended for Cross-Node)
+### Method A: Direct API (Cross-Node - Fully Working)
 ```bash
 # 1. Create escrow contract
 ESCROW_TX=$(aitbc wallet escrow-create \
@@ -85,7 +88,7 @@ ESCROW_TX=$(aitbc wallet escrow-create \
 
 echo "Escrow TX: $ESCROW_TX"
 
-# 2. Send prompt to Ollama endpoint (requires nginx proxy)
+# 2. Send prompt to Ollama endpoint (fully operational)
 RESPONSE=$(curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
   -H "Content-Type: application/json" \
   -d '{
@@ -108,6 +111,19 @@ aitbc wallet escrow-release \
   --escrow-tx $ESCROW_TX \
   --job-tx-hash $(echo $RESPONSE | jq -r '.job_tx_hash') \
   --actual-tokens $TOKENS_USED
+```
+
+### Method B: Agent Messaging Workflow (Fully Working)
+```bash
+# 1. Discover offer (working)
+curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
+
+# 2. Send message to shop agent (working)
+curl -X POST https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages/send \
+  -d '{"sender":"owl-hub","recipient":"owl-aitbc3","content":"Customer inquiry: Explain quantum computing","message_type":"direct"}'
+
+# 3. Shop agent responds with inference (fully operational)
+# Shop agent on aitbc3 processes the message and calls Ollama API
 ```
 
 ### Method B: CLI (Limited Functionality)
@@ -257,13 +273,15 @@ class NemotronAgent:
    curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
    ```
 
-4. **Nginx Proxy Issues**
+4. **Ollama Proxy Issues (Resolved)**
    ```bash
-   # Test Ollama proxy (requires nginx configuration)
+   # Test Ollama endpoint (should work)
    curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags
    
-   # If 403/404, check nginx config:
-   nginx -t && systemctl reload nginx
+   # Test inference (should work)
+   curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
+     -H "Content-Type: application/json" \
+     -d '{"model":"nemotron-3-super:cloud","prompt":"test","stream":false}'
    ```
 
 5. **Escrow Issues**
