@@ -1,7 +1,7 @@
 ---
-description: Comprehensive AITBC service-to-port mapping reference for all nodes and environments
+description: Comprehensive AITBC service-to-port mapping reference for all nodes and environments (v0.4.7+)
 title: AITBC Service Port Mapping
-version: 1.0
+version: 2.0
 ---
 
 # AITBC Service Port Mapping Skill
@@ -12,15 +12,23 @@ Provide comprehensive service-to-port mapping reference for AITBC blockchain pla
 ## Activation
 Trigger when user needs to know which service runs on which port, troubleshoot port conflicts, configure service endpoints, or understand service architecture.
 
-## Core AITBC Services
+## Core AITBC Services (v0.4.7+ Architecture)
+
+### API Gateway & Routing
+- **8201**: API Gateway (api_gateway.main)
+  - Purpose: Routes requests to all microservices (marketplace, coordinator, blockchain, etc.)
+  - Nodes: localhost, aitbc1
+  - Service: aitbc-api-gateway.service
+  - Config: Hardcoded in service (port 8201)
+  - Routes: /api/* → microservices
 
 ### Blockchain Layer
-- **8006**: Blockchain RPC (aitbc_chain.app)
+- **8202**: Blockchain RPC (aitbc_chain.app)
   - Purpose: Main blockchain RPC endpoint for block queries, transactions, and chain operations
   - Nodes: localhost, aitbc1, gitea-runner
   - Service: aitbc-blockchain-rpc.service, aitbc-blockchain-node.service
   - Wrapper: aitbc-blockchain-rpc-wrapper.py
-  - Config: RPC_BIND_PORT environment variable (default: 8006)
+  - Config: RPC_BIND_PORT environment variable (default: 8202)
 
 - **7070**: P2P Mesh Network (aitbc_chain.p2p_network)
   - Purpose: Peer-to-peer gossip protocol for block propagation and node discovery
@@ -29,92 +37,57 @@ Trigger when user needs to know which service runs on which port, troubleshoot p
   - Wrapper: aitbc-blockchain-p2p-wrapper.py
   - Config: P2P_BIND_PORT environment variable (default: 7070)
 
-- **8204**: Blockchain Event Bridge (blockchain_event_bridge.main)
-  - Purpose: Event streaming service for blockchain events to external systems
-  - Nodes: localhost, aitbc1
-  - Service: aitbc-blockchain-event-bridge.service
-  - Wrapper: aitbc-blockchain-event-bridge-wrapper.py
-  - Config: bind_port environment variable (default: 8204)
-
-### Coordinator Layer
-- **8011**: Coordinator API (app.main)
-  - Purpose: Main coordinator API for AI job submission, miner registration, marketplace operations
+### Coordinator & Agent Layer
+- **8203**: Coordinator API (app.main)
+  - Purpose: Agent coordination, messaging, and cross-node communication
   - Nodes: localhost, aitbc1
   - Service: aitbc-coordinator-api.service
-  - Wrapper: aitbc-coordinator-api-wrapper.py
-  - Config: Hardcoded in wrapper (port 8011)
+  - Config: Hardcoded in service (port 8203)
+  - Routes: /v1/coordinator/*, /v1/hermes/*
 
-- **8012**: Adaptive Learning Service (app.services.adaptive_learning_app)
-  - Purpose: AI model adaptive learning and optimization service
-  - Nodes: localhost, aitbc1
-  - Service: aitbc-learning.service
-  - Config: Hardcoded in systemd (port 8012)
-  - Note: Changed from 8011 to 8012 to avoid port conflict with coordinator API
-
-- **9001**: Agent Coordinator
-  - Purpose: Agent coordination, communication, and session management
-  - Nodes: localhost
-  - Service: aitbc-agent-coordinator.service
-  - Config: AITBC_COORDINATOR_PORT environment variable (default: 9001)
-  - Documentation: docs/agent-coordinator/ARCHITECTURE.md
-
-### Exchange & Trading
-- **8001**: Exchange API (simple_exchange_api.py)
-  - Purpose: Cross-chain exchange and trading platform
-  - Nodes: aitbc1
-  - Service: aitbc-exchange-api.service
-  - Wrapper: aitbc-exchange-api-wrapper.py
-  - Config: Hardcoded in wrapper (port 8001)
-
-### Wallet Services
-- **8003**: Wallet Daemon (simple_daemon.py)
-  - Purpose: Background wallet service for transaction signing and key management
-  - Nodes: localhost, aitbc1
-  - Service: aitbc-wallet.service
-  - Wrapper: aitbc-wallet-wrapper.py
-  - Config: Uses internal wallet RPC (no external port)
-
-### AI Services
-- **8005**: AI Service (src.ai_service.main)
-  - Purpose: AI model inference and computation service
-  - Nodes: localhost, aitbc1
-  - Service: aitbc-ai.service
-  - Config: Hardcoded in systemd (port 8005)
-
-- **8020**: Multimodal Service (src.app.services.multimodal_app)
-  - Purpose: Multimodal AI processing and integration
-  - Nodes: aitbc1
-  - Service: aitbc-multimodal.service
-  - Config: Hardcoded in systemd (port 8020)
-
-- **8021**: Modality Optimization Service (src.app.services.modality_optimization_app)
-  - Purpose: AI modality optimization and tuning
-  - Nodes: aitbc1
-  - Service: aitbc-modality-optimization.service
-  - Config: Hardcoded in systemd (port 8021)
-
-### Agent Services
-- **8014**: Hermes (aitbc-hermes-wrapper.py)
+- **8103**: Hermes (aitbc-hermes-wrapper.py)
   - Purpose: AI agent communication and coordination framework
   - Nodes: localhost
   - Service: aitbc-hermes.service
   - Wrapper: aitbc-hermes-wrapper.py
-  - Config: Hardcoded in wrapper (port 8014)
+  - Config: Hardcoded in wrapper (port 8103)
 
-- **8016**: Plugin Registry (aitbc-plugin-wrapper.py)
-  - Purpose: Agent plugin management and registry service
-  - Nodes: aitbc1
+### Marketplace & Services
+- **8102**: Marketplace Service (marketplace_service.main)
+  - Purpose: Software service registry with reputation system
+  - Nodes: localhost, aitbc1
+  - Service: aitbc-marketplace.service
+  - Config: Hardcoded in service (port 8102)
+  - Routes: /v1/marketplace/*, /v1/plugin/*
+
+- **8109**: Plugin Registry (plugin_service.main)
+  - Purpose: Service plugin management and registry
+  - Nodes: localhost, aitbc1
   - Service: aitbc-plugin.service
-  - Wrapper: aitbc-plugin-wrapper.py
-  - Config: Hardcoded in wrapper (port 8016)
+  - Config: Hardcoded in service (port 8109)
+  - Routes: /plugin/*
 
-### Monitoring & Observability
-- **8002**: Monitoring Service
-  - Purpose: System monitoring, metrics collection, and health checks
-  - Nodes: aitbc1
-  - Service: aitbc-monitoring.service
-  - Wrapper: aitbc-monitoring-wrapper.py
-  - Config: Hardcoded in wrapper (port 8002)
+### AI & Media Services
+- **11434**: Ollama (ollama serve)
+  - Purpose: Local LLM inference service for AI operations
+  - Nodes: localhost
+  - Service: ollama
+  - Config: Default Ollama port (11434)
+  - Routes: /ollama/*
+
+- **8110**: Whisper (whisper_service.main)
+  - Purpose: Audio transcription service with GPU acceleration
+  - Nodes: localhost, aitbc1
+  - Service: aitbc-whisper.service
+  - Config: Hardcoded in service (port 8110)
+  - Routes: /whisper/*
+
+- **8230**: FFmpeg (ffmpeg_service.main)
+  - Purpose: GPU-accelerated video processing service
+  - Nodes: localhost, aitbc1
+  - Service: aitbc-ffmpeg.service
+  - Config: Hardcoded in service (port 8230)
+  - Routes: /v1/ffmpeg/*
 
 ## Infrastructure Services
 
@@ -165,17 +138,18 @@ Trigger when user needs to know which service runs on which port, troubleshoot p
 
 ## Port Conflict Resolution
 
-### Known Conflicts & Resolutions
-- **8011 vs 8012**: Coordinator API (8011) conflicted with Adaptive Learning Service (8011)
-  - Resolution: Changed Adaptive Learning Service to port 8012 on all nodes
-  - Files modified: /etc/systemd/system/aitbc-learning.service
+### Known Conflicts & Resolutions (v0.4.7+)
+- No known port conflicts in current architecture
+- Legacy conflicts resolved by service consolidation and reorganization
 
-### Port Allocation Guidelines
-- **8000-8099**: Core AITBC services (blockchain, coordinator, exchange, wallet)
-- **8100-8199**: AI and agent services (multimodal, optimization, plugins)
-- **8200-8299**: Event streaming and bridge services
-- **9000-9099**: Agent coordination and orchestration
-- **7000-7099**: P2P and networking services
+### Port Allocation Guidelines (v0.4.7+)
+- **7000-7099**: P2P and networking services (7070: P2P mesh)
+- **8000-8099**: Legacy services (deprecated in v0.4.7)
+- **8100-8199**: Core microservices (8102: Marketplace, 8103: Hermes, 8109: Plugin Registry, 8110: Whisper)
+- **8200-8299**: API Gateway and infrastructure (8201: API Gateway, 8202: Blockchain RPC, 8203: Coordinator API)
+- **8230-8299**: Media processing (8230: FFmpeg)
+- **9000-9099**: Agent coordination and orchestration (if needed)
+- **11434**: Ollama LLM inference (standard port)
 
 ## Service Discovery Commands
 
@@ -207,28 +181,48 @@ grep -r "port" /etc/systemd/system/aitbc-*.service
 grep -r "port" /opt/aitbc/apps/*/aitbc-*-wrapper.py
 ```
 
-### Test Service Endpoints
+### Test Service Endpoints (v0.4.7+)
 ```bash
-# Coordinator API health
-curl http://localhost:8011/v1/health
+# API Gateway health
+curl http://localhost:8201/health
 
 # Blockchain RPC head
-curl http://localhost:8006/rpc/head
+curl http://localhost:8202/rpc/head
 
-# Exchange API
-curl http://localhost:8001/v1/health
+# Coordinator API health
+curl http://localhost:8203/v1/health
 
-# Agent Coordinator
-curl http://localhost:9001/v1/health
+# Marketplace service health
+curl http://localhost:8102/v1/marketplace/health
+
+# Hermes health
+curl http://localhost:8103/v1/hermes/health
+
+# Whisper health
+curl http://localhost:8110/health
+
+# Plugin registry
+curl http://localhost:8109/plugins
+
+# Ollama models
+curl http://localhost:11434/api/tags
+
+# FFmpeg health
+curl http://localhost:8230/health
 ```
 
 ## Environment Variables
 
-### Port Configuration Variables
-- `RPC_BIND_PORT`: Blockchain RPC port (default: 8006)
+### Port Configuration Variables (v0.4.7+)
+- `RPC_BIND_PORT`: Blockchain RPC port (default: 8202)
 - `P2P_BIND_PORT`: P2P network port (default: 7070)
-- `AITBC_COORDINATOR_PORT`: Agent coordinator port (default: 9001)
-- `bind_port`: Event bridge port (default: 8204)
+- `API_GATEWAY_PORT`: API Gateway port (default: 8201)
+- `COORDINATOR_API_PORT`: Coordinator API port (default: 8203)
+- `MARKETPLACE_SERVICE_PORT`: Marketplace service port (default: 8102)
+- `HERMES_PORT`: Hermes port (default: 8103)
+- `WHISPER_PORT`: Whisper port (default: 8110)
+- `PLUGIN_REGISTRY_PORT`: Plugin registry port (default: 8109)
+- `FFMPEG_PORT`: FFmpeg port (default: 8230)
 
 ### Node-Specific Configuration
 - `/etc/aitbc/.env`: Environment configuration
@@ -255,25 +249,29 @@ curl http://localhost:9001/v1/health
 4. Reload systemd: `sudo systemctl daemon-reload`
 5. Restart affected services
 
-## Node-Specific Service Distribution
+## Node-Specific Service Distribution (v0.4.7+)
 
-### Localhost (aitbc - Genesis Node)
-- Core: 8006, 7070, 8204, 8011, 8012
-- AI: 8005, 8014, 9001
-- Wallet: 8003
-- Infrastructure: 80, 443, 5432, 6379, 11434
+### aitbc3 (Production Node)
+- Core: 8202 (Blockchain RPC), 7070 (P2P)
+- Gateway: 8201 (API Gateway)
+- Coordinator: 8203 (Coordinator API), 8103 (Hermes)
+- Marketplace: 8102 (Marketplace Service), 8109 (Plugin Registry)
+- Services: 8110 (Whisper), 8230 (FFmpeg), 11434 (Ollama)
+- Infrastructure: 80, 443 (Nginx), 5432 (PostgreSQL), 6379 (Redis)
 
-### aitbc1 (Follower Node)
-- Core: 8006, 7070, 8204, 8011, 8012
-- Exchange: 8001
-- AI: 8005, 8020, 8021, 8016
-- Monitoring: 8002
-- Wallet: 8003
-- Infrastructure: 5432, 6379
+### Hub Node (aitbc)
+- Core: 8202 (Blockchain RPC), 7070 (P2P)
+- Gateway: 8201 (API Gateway)
+- Coordinator: 8203 (Coordinator API), 8103 (Hermes)
+- Marketplace: 8102 (Marketplace Service)
+- Services: 11434 (Ollama)
+- Infrastructure: 80, 443 (Nginx), 5432 (PostgreSQL), 6379 (Redis)
 
-### gitea-runner (CI/CD Node)
-- Infrastructure only: 5432, 6379, 22, 25
-- No AITBC services running (CI execution environment)
+### Shop Nodes
+- Core: 8202 (Blockchain RPC), 7070 (P2P)
+- Gateway: 8201 (API Gateway)
+- Services: 11434 (Ollama), 8110 (Whisper - if GPU available)
+- Infrastructure: 5432 (PostgreSQL), 6379 (Redis)
 
 ## Best Practices
 

@@ -1,12 +1,12 @@
 ---
-description: Configuration overview, verification commands, system overview, success metrics, and best practices
+description: Configuration overview, verification commands, system overview, success metrics, and best practices (v0.4.7+)
 title: Multi-Node Blockchain Setup - Reference Module
-version: 1.0
+version: 2.0
 ---
 
 # Multi-Node Blockchain Setup - Reference Module
 
-This module provides comprehensive reference information including configuration overview, verification commands, system overview, success metrics, and best practices for the multi-node AITBC blockchain network.
+This module provides comprehensive reference information including configuration overview, verification commands, system overview, success metrics, and best practices for the multi-node AITBC blockchain network (v0.4.7+ architecture).
 
 ## Configuration Overview
 
@@ -68,7 +68,7 @@ PRAGMA mmap_size = 268435456;
 
 ```bash
 # RPC service
-Port: 8006
+Port: 8202 (v0.4.7+)
 Protocol: HTTP/HTTPS
 TLS: Optional (production)
 
@@ -93,16 +93,16 @@ systemctl status aitbc-blockchain-node.service aitbc-blockchain-rpc.service
 ssh aitbc1 'systemctl status aitbc-blockchain-node.service aitbc-blockchain-rpc.service'
 
 # Check blockchain health
-curl -s http://localhost:8006/health | jq .
-ssh aitbc1 'curl -s http://localhost:8006/health | jq .'
+curl -s http://localhost:8202/health | jq .
+ssh aitbc1 'curl -s http://localhost:8202/health | jq .'
 
 # Check blockchain height
-curl -s http://localhost:8006/rpc/head | jq .height
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
+curl -s http://localhost:8202/rpc/head | jq .height
+ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height'
 
 # Verify sync status
-GENESIS_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height)
+GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
+FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height)
 echo "Height difference: $((FOLLOWER_HEIGHT - GENESIS_HEIGHT))"
 ```
 
@@ -132,8 +132,8 @@ ping -c 3 aitbc1
 ssh aitbc1 'ping -c 3 localhost'
 
 # Test RPC endpoints
-curl -s http://localhost:8006/rpc/head > /dev/null && echo "Local RPC OK"
-ssh aitbc1 'curl -s http://localhost:8007/rpc/head > /dev/null && echo "Remote RPC OK"'
+curl -s http://localhost:8202/rpc/head > /dev/null && echo "Local RPC OK"
+ssh aitbc1 'curl -s http://localhost:8202/rpc/head > /dev/null && echo "Remote RPC OK"'
 
 # Test P2P connectivity
 telnet aitbc1 7070
@@ -165,7 +165,7 @@ ping -c 5 aitbc1 | tail -1
 ./aitbc-cli contract list
 
 # Test messaging system
-curl -X POST http://localhost:8006/rpc/messaging/topics/create \
+curl -X POST http://localhost:8202/rpc/messaging/topics/create \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "test", "agent_address": "address", "title": "Test", "description": "Test"}'
 
@@ -269,7 +269,7 @@ Redis Service (for gossip)
 systemctl status aitbc-blockchain-node.service aitbc-blockchain-rpc.service
 
 # Cross-node sync check
-curl -s http://localhost:8006/rpc/head | jq .height && ssh aitbc1 'curl -s http://localhost:8007/rpc/head | jq .height'
+curl -s http://localhost:8202/rpc/head | jq .height && ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height'
 
 # Wallet balance check
 ./aitbc-cli wallet balance genesis-ops
@@ -350,7 +350,7 @@ hermes agent --agent main --session-id $SESSION_ID --message "Task description"
 ./aitbc-cli wallet transactions wallet-name --limit 5
 
 # Monitor cross-node synchronization
-watch -n 10 'curl -s http://localhost:8006/rpc/head | jq .height && ssh aitbc1 "curl -s http://localhost:8007/rpc/head | jq .height"'
+watch -n 10 'curl -s http://localhost:8202/rpc/head | jq .height && ssh aitbc1 "curl -s http://localhost:8202/rpc/head | jq .height"'
 ```
 
 ### Development Best Practices
@@ -396,11 +396,11 @@ ssh aitbc1 'ping -c 3 localhost'
 
 # Check firewall
 sudo ufw status
-sudo ufw allow 8006/tcp
+sudo ufw allow 8202/tcp
 sudo ufw allow 7070/tcp
 
 # Check port availability
-netstat -tlnp | grep -E "(8006|7070)"
+netstat -tlnp | grep -E "(8202|7070)"
 ```
 
 #### Blockchain Issues
@@ -408,8 +408,8 @@ netstat -tlnp | grep -E "(8006|7070)"
 **Problem**: Nodes out of sync
 ```bash
 # Check heights
-curl -s http://localhost:8006/rpc/head | jq .height
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
+curl -s http://localhost:8202/rpc/head | jq .height
+ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height'
 
 # Check gossip status
 redis-cli ping
