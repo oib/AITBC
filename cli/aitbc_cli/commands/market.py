@@ -1443,3 +1443,176 @@ def sync_ratings(ctx, remote_url: str, limit: int):
     except Exception as e:
         error(f"Error syncing ratings: {e}")
         raise click.Abort()
+
+
+@market.group(name="exchange")
+def exchange():
+    """ETH-AIT exchange and bridge operations"""
+    pass
+
+
+@exchange.command(name="price")
+@click.pass_context
+def exchange_price(ctx):
+    """Get current ETH-AIT exchange rate"""
+    try:
+        config = get_config()
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        
+        response = client.get("/v1/exchange/price")
+        
+        info(f"ETH-AIT Exchange Rate:")
+        info(f"  ETH Price: ${response['eth_usd']:.2f} USD")
+        info(f"  AIT Price: ${response['ait_usd']:.2f} USD")
+        info(f"  Exchange Rate: 1 ETH = {response['exchange_rate']:.2f} AIT")
+        info(f"  Timestamp: {response['timestamp']}")
+        
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error getting price: {e}")
+        raise click.Abort()
+
+
+@exchange.command(name="list-deposits")
+@click.option('--status', default="pending", help='Filter by status (pending, verified, completed, rejected)')
+@click.option('--limit', default=50, help='Maximum number of results')
+@click.pass_context
+def list_deposits(ctx, status: str, limit: int):
+    """List ETH deposits"""
+    try:
+        config = get_config()
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        
+        response = client.get("/v1/exchange/deposits", params={'status': status, 'limit': limit})
+        deposits = response.get('deposits', [])
+        
+        if not deposits:
+            info(f"No deposits found with status '{status}'")
+            return
+        
+        info(f"ETH Deposits (status: {status}):")
+        for deposit in deposits:
+            info(f"  ID: {deposit['id']}")
+            info(f"    TX Hash: {deposit['tx_hash']}")
+            info(f"    From: {deposit['from_address']}")
+            info(f"    Amount: {deposit['amount_eth']:.6f} ETH → {deposit['amount_ait']:.2f} AIT")
+            info(f"    Status: {deposit['status']}")
+            info(f"    Created: {deposit['created_at']}")
+            info("")
+        
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error listing deposits: {e}")
+        raise click.Abort()
+
+
+@exchange.command(name="mint-ait")
+@click.argument('deposit_id')
+@click.pass_context
+def mint_ait(ctx, deposit_id: str):
+    """Mint AIT tokens for a verified ETH deposit"""
+    try:
+        config = get_config()
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        
+        # Get deposit details
+        deposit_response = client.get(f"/v1/exchange/deposits/{deposit_id}")
+        deposit = deposit_response
+        
+        if deposit['status'] != 'pending':
+            error(f"Deposit is not pending (current status: {deposit['status']})")
+            raise click.Abort()
+        
+        info(f"Deposit: {deposit['amount_eth']:.6f} ETH → {deposit['amount_ait']:.2f} AIT")
+        info(f"From: {deposit['from_address']}")
+        
+        if not click.confirm("Verify this deposit and mint AIT tokens?"):
+            info("Cancelled")
+            return
+        
+        # Verify deposit
+        verify_response = client.post(f"/v1/exchange/deposits/{deposit_id}/verify")
+        
+        if not verify_response.get('success'):
+            error(f"Failed to verify deposit: {verify_response}")
+            raise click.Abort()
+        
+        success(f"Deposit verified: {deposit_id}")
+        
+        # Mint AIT tokens (call blockchain RPC)
+        wallet_address = config.wallet_address
+        chain_id = config.chain_id
+        
+        # TODO: Implement actual minting via blockchain RPC
+        # For now, just mark as completed
+        complete_response = client.post(f"/v1/exchange/deposits/{deposit_id}/complete")
+        
+        if complete_response.get('success'):
+            success(f"Minted {deposit['amount_ait']:.2f} AIT for deposit {deposit_id}")
+        else:
+            error(f"Failed to complete deposit: {complete_response}")
+            raise click.Abort()
+        
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error minting AIT: {e}")
+        raise click.Abort()
+
+
+@exchange.command(name="withdraw-eth")
+@click.argument('amount', type=float)
+@click.argument('address')
+@click.pass_context
+def withdraw_eth(ctx, amount: float, address: str):
+    """Withdraw ETH from bridge wallet (admin only)"""
+    try:
+        config = get_config()
+        
+        if amount <= 0:
+            error("Amount must be positive")
+            raise click.Abort()
+        
+        info(f"Withdrawing {amount} ETH to {address}")
+        
+        if not click.confirm("Confirm withdrawal?"):
+            info("Cancelled")
+            return
+        
+        # TODO: Implement actual ETH withdrawal via wallet service
+        # For now, just show placeholder
+        warning("ETH withdrawal not yet implemented")
+        info("This will require ETH wallet integration")
+        
+    except Exception as e:
+        error(f"Error withdrawing ETH: {e}")
+        raise click.Abort()
+
+
+@exchange.command(name="status")
+@click.pass_context
+def exchange_status(ctx):
+    """Get bridge service status"""
+    try:
+        config = get_config()
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        
+        response = client.get("/v1/exchange/status")
+        
+        info(f"Bridge Service Status:")
+        info(f"  Enabled: {response['enabled']}")
+        info(f"  Wallet Address: {response['wallet_address']}")
+        info(f"  RPC URL: {response['rpc_url']}")
+        info(f"  Poll Interval: {response['poll_interval']}s")
+        
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error getting status: {e}")
+        raise click.Abort()

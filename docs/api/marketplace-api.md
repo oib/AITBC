@@ -1,8 +1,8 @@
 # Marketplace API Reference
 
-**Last Updated:** June 3, 2026  
-**Base URL:** `http://localhost:8102/v1/marketplace` (marketplace-service)  
-**API Gateway:** `http://localhost:8201/v1/marketplace`  
+**Last Updated:** June 5, 2026
+**Base URL:** `http://localhost:8102/v1/marketplace` (marketplace-service)
+**API Gateway:** `http://localhost:8201/v1/marketplace`
 **Authentication:** API Key (Bearer token)
 
 > **Note:** The legacy coordinator-api (port 8203) is deprecated. Use port 8102 directly or 8201 via the API gateway.
@@ -146,6 +146,151 @@ Update agent reputation (internal use by marketplace service).
 ```
 
 **Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py:41`
+
+### Service Rating System
+
+#### POST /offer/{service_id}/rate
+
+Submit a rating for a software service (1-5 scale).
+
+**Request:**
+```json
+{
+  "rating": 4.5,
+  "reviewer_id": "ait1abc123...",
+  "comment": "Great service!"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "rating": {
+    "id": "rating-uuid",
+    "service_id": "ollama-llama3.2:3b",
+    "rating": 4.5,
+    "reviewer_id": "ait1abc123...",
+    "comment": "Great service!",
+    "created_at": "2026-06-05T10:40:43.469518",
+    "source_node": "local"
+  }
+}
+```
+
+**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:622`
+
+#### GET /offer/{service_id}/ratings
+
+Retrieve ratings for a service with pagination.
+
+**Query Parameters:**
+- `limit`: Number of ratings to return (default: 50)
+- `offset`: Pagination offset (default: 0)
+
+**Response:**
+```json
+{
+  "service_id": "ollama-llama3.2:3b",
+  "service_info": {
+    "avg_rating": 4.2,
+    "rating_count": 5
+  },
+  "ratings": [
+    {
+      "id": "rating-uuid",
+      "service_id": "ollama-llama3.2:3b",
+      "rating": 4.5,
+      "reviewer_id": "ait1abc123...",
+      "comment": "Great service!",
+      "created_at": "2026-06-05T10:40:43.469518",
+      "source_node": "local"
+    }
+  ],
+  "count": 5,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:676`
+
+#### GET /ratings/unsynced
+
+Fetch ratings that haven't been synced to remote nodes.
+
+**Query Parameters:**
+- `limit`: Number of ratings to return (default: 100)
+
+**Response:**
+```json
+{
+  "ratings": [
+    {
+      "id": "rating-uuid",
+      "service_id": "ollama-llama3.2:3b",
+      "rating": 4.5,
+      "reviewer_id": "ait1abc123...",
+      "comment": "Great service!",
+      "created_at": "2026-06-05T10:40:43.469518",
+      "source_node": "local"
+    }
+  ],
+  "count": 3
+}
+```
+
+**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:718`
+
+#### POST /ratings/sync
+
+Sync ratings from a remote node with conflict resolution.
+
+**Request:**
+```json
+[
+  {
+    "id": "rating-uuid",
+    "service_id": "ollama-llama3.2:3b",
+    "rating": 4.5,
+    "reviewer_id": "ait1abc123...",
+    "comment": "Great service!",
+    "created_at": "2026-06-05T10:40:43.469518",
+    "source_node": "hub"
+  }
+]
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "synced": 1,
+  "updated": 0,
+  "skipped": 0
+}
+```
+
+**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:728`
+
+#### POST /ratings/mark-synced
+
+Mark ratings as synced after successful propagation.
+
+**Request:**
+```json
+["rating-uuid-1", "rating-uuid-2"]
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "marked_synced": 2
+}
+```
+
+**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:745`
 
 ### Dynamic Pricing
 

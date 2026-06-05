@@ -1,24 +1,24 @@
 # AITBC v0.5.3 Release Notes
 
-**Date**: June 3, 2026  
-**Status**: 📝 Concept Plan  
-**Scope: External Blockchain Exchange (BTC/ETH → AIT)
+**Date**: June 3, 2026
+**Status**: 📝 Concept Plan
+**Scope: External Blockchain Exchange (ETH → AIT)
 
 ## 🎯 Overview
 
-AITBC v0.5.3 introduces external blockchain exchange integration, enabling users to swap external cryptocurrencies (BTC, ETH, USDC, etc.) for AIT tokens to participate in the software marketplace. This release implements a simple bridge/swap service with oracle-based pricing and bridge operations for seamless on-ramping from external blockchains to the AITBC ecosystem. The exchange service provides price feeds and trading pairs for external assets.
+AITBC v0.5.3 introduces external blockchain exchange integration, enabling users to swap Ethereum (ETH) for AIT tokens to participate in the software marketplace. This release implements a simple bridge/swap service with oracle-based pricing and bridge operations for seamless on-ramping from Ethereum to the AITBC ecosystem. The exchange service provides price feeds and trading pairs for ETH-AIT. Future releases will add support for additional chains (Polygon, Arbitrum, BTC).
 
 ## 🎯 Release Highlights
 
 ### External Blockchain Exchange
-- ✅ Trading pairs: BTC-AIT, ETH-AIT, USDC-AIT, USDT-AIT
-- ✅ Bridge integration with external chains (Ethereum, Polygon, Arbitrum)
+- ✅ Trading pair: ETH-AIT (initial release)
+- ✅ Bridge integration with Ethereum (Mainnet, Sepolia testnet)
 - ✅ Oracle-based pricing (Chainlink, Band Protocol)
-- ✅ Simple swap operations (deposit external → receive AIT)
+- ✅ Simple swap operations (deposit ETH → receive AIT)
 
 ### Bridge Operations
-- ✅ Deposit external assets (BTC, ETH, USDC) via bridge
-- ✅ Withdraw AIT to external chains
+- ✅ Deposit ETH via bridge
+- ✅ Withdraw AIT to Ethereum
 - ✅ Bridge transaction monitoring and status tracking
 - ✅ Bridge fee optimization
 - ✅ Multi-sig bridge contract security
@@ -31,18 +31,31 @@ AITBC v0.5.3 introduces external blockchain exchange integration, enabling users
 - ✅ Rate limiting
 
 ### CLI Enhancements
-- ✅ `aitbc exchange deposit` — deposit external assets
-- ✅ `aitbc exchange withdraw` — withdraw AIT to external chain
-- ✅ `aitbc exchange swap` — swap external assets for AIT
-- ✅ `aitbc exchange price` — get oracle prices
+- ✅ `aitbc exchange deposit` — deposit ETH
+- ✅ `aitbc exchange withdraw` — withdraw AIT to Ethereum
+- ✅ `aitbc exchange swap` — swap ETH for AIT
+- ✅ `aitbc exchange price` — get oracle price (ETH-AIT)
 - ✅ `aitbc exchange status` — check bridge status
 
 ## 📋 Detailed Features
 
 ### Supported External Chains
-- **Ethereum**: Mainnet, Sepolia testnet
-- **Polygon**: Mainnet, Amoy testnet
-- **Arbitrum**: Mainnet, Sepolia testnet
+- **Ethereum**: Mainnet, Sepolia testnet (initial release)
+- **Future**: Polygon, Arbitrum, BTC (planned for later releases)
+
+### Bridge Architecture
+- **No full node required**: Hub uses RPC endpoints to interact with external chains
+- **Wallet-only approach**: Hub generates wallet addresses on external chains to receive deposits
+- **RPC providers**: Use public RPC endpoints (Infura, Alchemy, QuickNode) or self-hosted RPC
+- **Monitoring options**: RPC polling, webhooks (Blocknative, Alchemy), or light clients
+- **Bridge contracts**: Deployed on each supported chain for asset locking/unlocking
+
+### Wallet-Only Bridge Flow
+1. User deposits ETH to hub's wallet address on Ethereum
+2. Bridge service monitors wallet via RPC/webhook for incoming transactions
+3. Deposit detected → verify transaction on Ethereum
+4. Mint equivalent AIT tokens on AITBC chain at oracle price
+5. Update bridge status and notify user
 
 ### Bridge Contracts
 Each supported chain has a bridge contract for:
@@ -55,13 +68,13 @@ Each supported chain has a bridge contract for:
 
 #### Price Feeds
 ```bash
-aitbc exchange price --pair BTC-AIT
+aitbc exchange price --pair ETH-AIT
 ```
 
 **Price Response:**
 ```json
 {
-  "pair": "BTC-AIT",
+  "pair": "ETH-AIT",
   "price": 1000.5,
   "source": "chainlink",
   "timestamp": "2026-06-03T...",
@@ -76,31 +89,29 @@ aitbc exchange price --pair BTC-AIT
 
 ### Bridge Operations
 
-#### Deposit External Assets
+#### Deposit ETH
 ```bash
-aitbc exchange deposit --chain ethereum --amount 0.1 --token ETH
+aitbc exchange deposit --chain ethereum --amount 0.1
 ```
 
 **Deposit Process:**
-1. User sends ETH to Ethereum bridge contract
-2. Bridge contract locks ETH
-3. Bridge transaction relayed to AITBC chain
-4. AITBC chain verifies lock
-5. AIT tokens minted to user at oracle price
-6. Transaction completed
+1. User sends ETH to hub's Ethereum wallet address
+2. Bridge service monitors wallet via RPC/webhook
+3. Deposit detected → verify transaction on Ethereum
+4. AIT tokens minted to user at oracle price
+5. Transaction completed
 
-#### Withdraw AIT to External Chain
+#### Withdraw AIT to Ethereum
 ```bash
-aitbc exchange withdraw --chain ethereum --amount 100 --token AIT
+aitbc exchange withdraw --chain ethereum --amount 100
 ```
 
 **Withdraw Process:**
 1. User locks AIT on AITBC chain
-2. Bridge transaction relayed to external chain
-3. External chain verifies lock
-4. External asset released to user at oracle price
-5. AIT burned on AITBC chain
-6. Transaction completed
+2. Bridge transaction relayed to Ethereum
+3. ETH released to user at oracle price
+4. AIT burned on AITBC chain
+5. Transaction completed
 
 #### Bridge Status
 ```bash
@@ -144,15 +155,14 @@ ws://exchange.aitbc.bubuit.net/v1/exchange/stream/status/{tx_id}
 
 #### Exchange Commands
 ```bash
-# Deposit external assets
-aitbc exchange deposit --chain ethereum --amount 0.1 --token ETH
+# Deposit ETH
+aitbc exchange deposit --chain ethereum --amount 0.1
 
-# Withdraw AIT to external chain
-aitbc exchange withdraw --chain ethereum --amount 100 --token AIT
+# Withdraw AIT to Ethereum
+aitbc exchange withdraw --chain ethereum --amount 100
 
-# Get oracle prices
-aitbc exchange price --pair BTC-AIT
-aitbc exchange price --all-pairs
+# Get oracle price
+aitbc exchange price --pair ETH-AIT
 
 # Check bridge status
 aitbc exchange status --tx-id 0x...
@@ -163,28 +173,26 @@ aitbc exchange history --chain ethereum
 
 ## 🔧 Breaking Changes
 
-- Exchange service requires bridge contract deployment on all supported chains
-- Software marketplace now supports multi-chain offers
+- Exchange service requires bridge contract deployment on Ethereum
+- Software marketplace now supports ETH-AIT trading pair
 - Escrow service updated for cross-chain synchronization
-- CLI commands require `--chain` parameter for multi-chain operations
+- CLI commands require `--chain ethereum` parameter for ETH operations
 
 ## 📊 Migration Guide
 
 ### v0.5.2 → v0.5.3
 
-1. **Deploy Bridge Contracts**
+1. **Deploy Bridge Contract**
    ```bash
-   # Deploy on each supported chain
+   # Deploy on Ethereum
    aitbc exchange deploy-bridge --chain ethereum
-   aitbc exchange deploy-bridge --chain polygon
-   aitbc exchange deploy-bridge --chain arbitrum
    ```
 
 2. **Configure Exchange Service**
    ```bash
    # /etc/aitbc/exchange.env
    EXCHANGE_ENABLED=true
-   SUPPORTED_CHAINS=aitbc,ethereum,polygon,arbitrum
+   SUPPORTED_CHAINS=aitbc,ethereum
    BRIDGE_FEE_RATE=0.005
    DEFAULT_CHAIN=aitbc
    ```
@@ -194,63 +202,41 @@ aitbc exchange history --chain ethereum
    systemctl start aitbc-exchange-api
    ```
 
-4. **Create Liquidity Pools**
+4. **Update CLI Usage**
    ```bash
-   aitbc exchange pool create --pair AIT-USDC --amount-ait 1000 --amount-usdc 5000
-   ```
+   # Deposit ETH
+   aitbc exchange deposit --chain ethereum --amount 0.1
 
-5. **Update CLI Usage**
-   ```bash
-   # Old way (v0.5.2 - single chain)
-   aitbc market trade create --offer-id sw_offer_... --type spot --quantity 1000
-
-   # New way (v0.5.3 - multi-chain)
-   aitbc market trade create --offer-id sw_offer_... --chain ethereum --type spot --quantity 1000
+   # Withdraw AIT to Ethereum
+   aitbc exchange withdraw --chain ethereum --amount 100
    ```
 
 ## 🧪 Testing
 
-### Cross-Chain Exchange Testing
-- ✅ Asset swapping between chains
-- ✅ Atomic swap execution
-- ✅ Bridge contract deployment
+### ETH-AIT Exchange Testing
+- ✅ ETH to AIT swapping
+- ✅ Bridge contract deployment on Ethereum
 - ✅ Bridge transaction monitoring
-- ✅ Cross-chain asset locking/unlocking
+- ✅ ETH locking/unlocking
+- ✅ AIT minting/burning
 
 ### Exchange API Testing
 - ✅ REST API endpoints
 - ✅ WebSocket streams
-- ✅ Order book management
-- ✅ Trade execution
-- ✅ Price feeds
-
-### Liquidity Pool Testing
-- ✅ Pool creation
-- ✅ Liquidity addition/removal
-- ✅ Swap execution with slippage
-- ✅ LP token minting/burning
-- ✅ Fee calculation
-
-### Cross-Chain Marketplace Testing
-- ✅ Multi-chain offer discovery
-- ✅ Cross-chain trade execution
-- ✅ Multi-chain escrow locking
-- ✅ Cross-chain proof verification
-- ✅ Multi-chain settlement
+- ✅ Price feeds (ETH-AIT)
+- ✅ Bridge status monitoring
+- ✅ Transaction history
 
 ### Test Coverage
-- Cross-chain exchange: 85%
+- ETH-AIT exchange: 90%
 - Exchange API: 90%
-- Liquidity pools: 80%
-- Bridge operations: 75%
-- Cross-chain marketplace: 70%
+- Bridge operations: 85%
 
 ## 📚 Documentation
 
-- [CROSS_CHAIN_GUIDE.md](../exchange/CROSS_CHAIN_GUIDE.md)
+- [ETH_BRIDGE_GUIDE.md](../exchange/ETH_BRIDGE_GUIDE.md)
 - [BRIDGE_OPERATIONS.md](../exchange/BRIDGE_OPERATIONS.md)
 - [EXCHANGE_API.md](../exchange/EXCHANGE_API.md)
-- [LIQUIDITY_POOLS.md](../exchange/LIQUIDITY_POOLS.md)
 - [CLI_EXCHANGE.md](../cli/CLI_EXCHANGE.md)
 
 ## 🚀 Dependencies
@@ -277,27 +263,23 @@ aitbc exchange history --chain ethereum
 
 ## 📈 Performance Improvements
 
-- **Cross-chain trading**: Access to liquidity across chains
+- **ETH-AIT trading**: Access to Ethereum liquidity
 - **Atomic swaps**: Trustless cross-chain transactions
-- **AMM liquidity**: Continuous market making
-- **Price discovery**: Unified pricing across chains
+- **Price discovery**: Oracle-based ETH-AIT pricing
 - **Bridge optimization**: Minimized bridge fees
 
 ### Performance Metrics
-- Swap latency: <5s (same chain), <30s (cross-chain)
+- Swap latency: <30s (ETH → AIT)
 - Bridge transaction: <2min confirmation
 - API response: <100ms
 - WebSocket latency: <50ms
-- Pool swap: <200ms
 
 ## 🎯 Success Criteria
 
-- ✅ Bridge contracts deployed on all chains
-- ✅ Asset swapping functional
+- ✅ Bridge contract deployed on Ethereum
+- ✅ ETH-AIT swapping functional
 - ✅ Exchange API operational
-- ✅ Liquidity pools working
-- ✅ Cross-chain marketplace functional
-- ✅ Multi-chain escrow operational
+- ✅ Bridge operations working
 - ✅ CLI exchange commands working
 - ✅ Documentation complete
 - ✅ Migration guide tested
@@ -305,18 +287,17 @@ aitbc exchange history --chain ethereum
 ## 🚀 Next Steps
 
 ### v0.5.4 Planning
-- Additional chain support (Solana, Avalanche)
+- Additional chain support (Polygon, Arbitrum)
 - Advanced AMM features (concentrated liquidity)
 - Cross-chain arbitrage bots
-- Oracle integration for price feeds
 - Layer 2 scaling solutions
 
 ### v0.6.0 Planning
+- BTC bridge support
 - Decentralized exchange (DEX) full implementation
 - Cross-chain governance
 - Multi-chain reputation system
 - Advanced bridge features (NFT bridging)
-- Cross-chain agent coordination
 
 ---
 

@@ -1,12 +1,12 @@
-# AITBC v0.5.2 Release Notes
+# AITBC v0.8.0 Release Notes
 
-**Date**: June 3, 2026  
-**Status**: 📝 Concept Plan  
+**Date**: June 3, 2026
+**Status**: 📝 Concept Plan
 **Scope**: Inter-Chain Trading Service (AITBC-to-AITBC)
 
 ## 🎯 Overview
 
-AITBC v0.5.2 introduces inter-chain trading between different AITBC blockchain networks (islands). This release enables trading of software services, GPU resources, and tokens across multiple AITBC chains, allowing agents to discover offers on other islands, execute cross-chain trades, and settle transactions via inter-chain escrow. The trading service provides a unified marketplace across all AITBC chains with atomic cross-chain settlement.
+AITBC v0.8.0 introduces inter-chain trading between different AITBC blockchain networks (islands). This release enables trading of software services, GPU resources, and tokens across multiple AITBC chains, allowing agents to discover offers on other islands, execute cross-chain trades, and settle transactions via inter-chain escrow. The trading service provides a unified marketplace across all AITBC chains with atomic cross-chain settlement.
 
 ## 🎯 Release Highlights
 

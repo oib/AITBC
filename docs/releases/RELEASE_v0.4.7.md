@@ -2,16 +2,18 @@
 
 **Date**: June 5, 2026
 **Status**: ✅ Implemented
-**Scope**: Multi-Model Ollama Support, Hardware+Software Bundle Offers (GPU-only marketplace deprecated), FFmpeg Video Processing Service
+**Scope**: Multi-Model Ollama Support, Hardware+Software Bundle Offers (GPU-only marketplace deprecated), FFmpeg Video Processing Service, Service Reputation System
 
 ## 🎯 Overview
 
-AITBC v0.4.7 enhances the software marketplace with multi-model Ollama support (local and cloud deployment), hardware+software bundle offers with GPU information, and a new FFmpeg video processing service with GPU acceleration. This release enables shop owners to offer multiple Ollama models with different pricing, link software offers to specific GPU hardware, and provide GPU-accelerated video processing as a metered service.
+AITBC v0.4.7 enhances the software marketplace with multi-model Ollama support (local and cloud deployment), hardware+software bundle offers with GPU information, a new FFmpeg video processing service with GPU acceleration, and a comprehensive service reputation system with cross-node rating synchronization. This release enables shop owners to offer multiple Ollama models with different pricing, link software offers to specific GPU hardware, provide GPU-accelerated video processing as a metered service, and allow customers to rate and review services with automatic synchronization across nodes.
 
 **Implementation Status:**
 - ✅ Multi-Model Ollama Support - Fully Implemented
 - ✅ Hardware+Software Bundle Offers - Fully Implemented
 - ✅ FFmpeg Video Processing Service - Fully Implemented
+- ✅ Service Reputation System - Fully Implemented
+- ✅ Cross-Node Rating Synchronization - Fully Implemented
 - ✅ **Service Stability Fixes** - All core services operational (2026-06-05)
 
 ## 🎯 Release Highlights
@@ -51,6 +53,25 @@ AITBC v0.4.7 enhances the software marketplace with multi-model Ollama support (
 - ✅ Full customer journey: discovery → messaging → inference → payment
 - ✅ End-to-end verified: hub ↔ aitbc3 agent communication
 
+### Service Reputation System
+- ✅ ServiceRating model with service_id, rating (1-5), reviewer_id, comment, created_at
+- ✅ SoftwareService model extended with avg_rating and rating_count fields
+- ✅ Automatic rating aggregation and average calculation
+- ✅ Rating submission via API and CLI
+- ✅ Rating retrieval with pagination support
+- ✅ Rating display in marketplace listings
+- ✅ Database schema with sync metadata (synced_at, source_node)
+
+### Cross-Node Rating Synchronization
+- ✅ Sync metadata fields: synced_at, source_node
+- ✅ GET `/v1/marketplace/ratings/unsynced` - Fetch unsynced ratings
+- ✅ POST `/v1/marketplace/ratings/sync` - Sync ratings from remote with conflict resolution
+- ✅ POST `/v1/marketplace/ratings/mark-synced` - Mark ratings as synced
+- ✅ CLI command: `aitbc market sync-ratings [--remote-url] [--limit]`
+- ✅ Conflict resolution: keep most recent rating based on timestamp
+- ✅ Sync tracking and audit trail
+- ✅ End-to-end tested: hub → aitbc3 rating propagation
+
 ### Service Stability Fixes (2026-06-05)
 - ✅ **Coordinator API**: Fixed import errors and deprecated schema references
 - ✅ **AgentDaemon**: Resolved polling URL configuration and endpoint connectivity
@@ -72,7 +93,19 @@ AITBC v0.4.7 enhances the software marketplace with multi-model Ollama support (
   - `--codec` — target codec (h264, vp9, av1)
   - `--resolution` — target resolution (1080p, 720p, 480p)
   - `--bitrate` — target bitrate (5M, 10M)
-- ✅ `aitbc market list` — updated to show GPU device
+- ✅ `aitbc market list` — updated to show GPU device and service ratings
+- ✅ `aitbc market rate` — NEW rating submission command
+  - `service_id` — service to rate (plugin_id or offer_id)
+  - `rating` — rating value (1.0-5.0)
+  - `--comment` — optional review text
+  - `--reviewer-id` — reviewer ID (defaults to wallet address)
+- ✅ `aitbc market ratings` — NEW rating retrieval command
+  - `service_id` — service to view ratings for
+  - `--limit` — number of ratings to return (default: 50)
+  - `--offset` — pagination offset (default: 0)
+- ✅ `aitbc market sync-ratings` — NEW cross-node sync command
+  - `--remote-url` — remote marketplace service URL (default: https://aitbc3.aitbc.bubuit.net/api)
+  - `--limit` — number of ratings to sync (default: 100)
 
 ### API Gateway Integration
 - ✅ FFmpeg service added to service registry

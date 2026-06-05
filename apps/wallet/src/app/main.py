@@ -13,6 +13,7 @@ from aitbc.rate_limiting import RateLimitMiddleware
 from .api_jsonrpc import router as jsonrpc_router
 from .api_rest import router as receipts_router
 from .settings import settings
+from .bridge import start_monitoring, init_db
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,12 @@ async def _import_file_wallets():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize bridge database
+    init_db()
+    
+    # Start bridge monitoring
+    start_monitoring()
+    
     # Import wallets in background after server is ready
     import asyncio
     asyncio.create_task(_import_genesis_wallet_from_env())
@@ -177,6 +184,10 @@ def create_app() -> FastAPI:
 
     app.include_router(receipts_router, prefix="/v1")
     app.include_router(jsonrpc_router, prefix="/v1")
+    
+    # Add bridge routes
+    from .bridge import router as bridge_router
+    app.include_router(bridge_router)
 
     # Add health check endpoint
     @app.get("/health")
