@@ -24,7 +24,6 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
-    "-m",
-    "marketplace_service.main"
+    f"{REPO_DIR}/apps/marketplace/scripts/marketplace.py"
 ]
 os.execvp(exec_cmd[0], exec_cmd)

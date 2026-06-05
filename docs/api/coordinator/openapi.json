@@ -1359,8 +1359,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MarketplaceBidRequest"
-              }
+                              }
             }
           }
         },
@@ -1466,8 +1465,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MarketplaceBidView"
-                  },
+                                      },
                   "title": "Response List Marketplace Bids V1 Marketplace Bids Get"
                 }
               }
@@ -1510,8 +1508,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MarketplaceBidView"
-                }
+                                  }
               }
             }
           },
@@ -19097,95 +19094,7 @@
         "title": "MarketplaceAnalyticsRequest",
         "description": "Request for marketplace analytics"
       },
-      "MarketplaceBidRequest": {
-        "properties": {
-          "provider": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Provider"
-          },
-          "capacity": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Capacity"
-          },
-          "price": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
-            "title": "Price"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1024
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "provider",
-          "capacity",
-          "price"
-        ],
-        "title": "MarketplaceBidRequest"
-      },
-      "MarketplaceBidView": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "provider": {
-            "type": "string",
-            "title": "Provider"
-          },
-          "capacity": {
-            "type": "integer",
-            "title": "Capacity"
-          },
-          "price": {
-            "type": "number",
-            "title": "Price"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "submitted_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Submitted At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "provider",
-          "capacity",
-          "price",
-          "status",
-          "submitted_at"
-        ],
-        "title": "MarketplaceBidView"
-      },
-      "MarketplaceOfferView": {
+                  "MarketplaceOfferView": {
         "properties": {
           "id": {
             "type": "string",

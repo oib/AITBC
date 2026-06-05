@@ -15,7 +15,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/marketplace_service.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/marketplace_service.db")
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -38,7 +38,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         logger.debug(f"Creating database session, engine={engine}, id={id(engine)}")
         AsyncSessionClass = AsyncSession
         logger.debug(f"AsyncSession class: {AsyncSessionClass}, callable: {callable(AsyncSessionClass)}")
-        session = AsyncSessionClass(engine)
+        session = AsyncSessionClass(engine, expire_on_commit=False)
         logger.debug(f"Session created: {session}")
         async with session:
             logger.debug("Database session yielded")

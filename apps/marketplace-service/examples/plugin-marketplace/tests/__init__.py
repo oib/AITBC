@@ -1,1 +1,0 @@
-"""Plugin marketplace service tests"""

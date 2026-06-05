@@ -2,6 +2,7 @@
 Marketplace service for managing marketplace operations
 """
 
+import time
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,7 @@ from sqlmodel import select
 
 from aitbc import get_logger
 
-from marketplace_service.marketplace import MarketplaceBid, MarketplaceOffer
+from ..domain.marketplace import MarketplaceOffer
 
 logger = get_logger(__name__)
 
@@ -100,8 +101,10 @@ class MarketplaceService:
             return {
                 'bid_id': bid.id,
                 'offer_id': offer_id,
+                'provider': offer.provider,
                 'status': 'pending',
-                'message': 'Bid created successfully'
+                'message': 'Bid created successfully',
+                'escrow_contract_id': None,
             }
         except Exception as e:
             logger.error(f"Error in book_offer: {type(e).__name__}: {str(e)}")
@@ -125,56 +128,7 @@ class MarketplaceService:
             logger.error(f"Error in create_offer: {type(e).__name__}: {str(e)}")
             raise
 
-    async def list_bids(
-        self,
-        status: str | None = None,
-        provider: str | None = None,
-    ) -> list[dict]:
-        """List marketplace bids"""
-        try:
-            logger.info(f"list_bids called with filters: status={status}, provider={provider}")
-            stmt = select(MarketplaceBid)
-            if status:
-                stmt = stmt.where(MarketplaceBid.status == status)
-            if provider:
-                stmt = stmt.where(MarketplaceBid.provider == provider)
-            logger.info("Executing database query for bids")
-            result = list((await self.session.execute(stmt)).all())
-            logger.info(f"Retrieved {len(result)} bids")
-            # Convert SQLAlchemy model objects to dictionaries for JSON serialization
-            bids_list = []
-            for row in result:
-                bid = row[0] if row else None
-                if bid:
-                    bids_list.append({
-                        'id': bid.id,
-                        'provider': bid.provider,
-                        'capacity': bid.capacity,
-                        'price': bid.price,
-                        'notes': bid.notes,
-                        'status': bid.status,
-                        'submitted_at': bid.submitted_at.isoformat() if bid.submitted_at else None,
-                    })
-            logger.info(f"Converted {len(bids_list)} bids to dictionaries")
-            return bids_list
-        except Exception as e:
-            logger.error(f"Error in list_bids: {type(e).__name__}: {str(e)}")
-            raise
-
-    async def create_bid(self, bid_data: dict) -> MarketplaceBid:
-        """Create a new marketplace bid"""
-        try:
-            logger.info(f"create_bid called with data keys: {bid_data.keys()}")
-            bid = MarketplaceBid(**bid_data)
-            self.session.add(bid)
-            await self.session.commit()
-            await self.session.refresh(bid)
-            logger.info(f"Created bid with id: {bid.id}")
-            return bid
-        except Exception as e:
-            logger.error(f"Error in create_bid: {type(e).__name__}: {str(e)}")
-            raise
-
+    
     async def get_analytics(self, period_type: str = "daily") -> dict[str, Any]:
         """Get marketplace analytics"""
         from sqlalchemy import func, select
@@ -183,11 +137,6 @@ class MarketplaceService:
         offer_count_stmt = select(func.count()).select_from(MarketplaceOffer)
         offer_count_result = await self.session.execute(offer_count_stmt)
         total_offers = offer_count_result.scalar() or 0
-
-        # Count bids
-        bid_count_stmt = select(func.count()).select_from(MarketplaceBid)
-        bid_count_result = await self.session.execute(bid_count_stmt)
-        total_bids = bid_count_result.scalar() or 0
 
         # Average price of offers
         avg_price_stmt = select(func.avg(MarketplaceOffer.price_per_hour)).where(
@@ -204,7 +153,6 @@ class MarketplaceService:
         return {
             "period_type": period_type,
             "total_offers": total_offers,
-            "total_bids": total_bids,
             "total_capacity": total_capacity,
             "average_price": round(float(avg_price), 2),
         }
@@ -213,7 +161,7 @@ class MarketplaceService:
         """List plugins from database"""
         from sqlalchemy import select
 
-        from .domain.marketplace import Plugin
+        from ..domain.marketplace import Plugin
 
         try:
             stmt = select(Plugin)
@@ -248,7 +196,7 @@ class MarketplaceService:
 
     async def register_plugin(self, plugin_data: dict) -> dict:
         """Register a new plugin"""
-        from .domain.marketplace import Plugin
+        from ..domain.marketplace import Plugin
 
         try:
             plugin = Plugin(**plugin_data)
@@ -265,9 +213,157 @@ class MarketplaceService:
             logger.error(f"Error in register_plugin: {type(e).__name__}: {str(e)}")
             raise
 
+    async def list_software_services(self, service_type: str | None = None, status: str | None = None) -> list:
+        """List software services with optional filters"""
+        from ..domain.marketplace import SoftwareService
+        from sqlalchemy import select
+
+        try:
+            query = select(SoftwareService)
+            if service_type:
+                query = query.where(SoftwareService.service_type == service_type)
+            if status:
+                query = query.where(SoftwareService.status == status)
+            
+            result = await self.session.execute(query)
+            services = result.scalars().all()
+            
+            return [{
+                "plugin_id": s.plugin_id,
+                "service_type": s.service_type,
+                "model": s.model,
+                "price": s.price,
+                "price_unit": s.price_unit,
+                "offer_id": s.offer_id,
+                "endpoint": s.endpoint,
+                "public_endpoint": s.public_endpoint,
+                "health_url": s.health_url,
+                "provider_address": s.provider_address,
+                "node_id": s.node_id,
+                "gpu_name": s.gpu_name,
+                "gpu_device": s.gpu_device,
+                "gpu_uuid": s.gpu_uuid,
+                "gpu_offer_id": s.gpu_offer_id,
+                "description": s.description,
+                "status": s.status,
+                "registered_at": s.registered_at.isoformat() if s.registered_at else None,
+                "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+            } for s in services]
+        except Exception as e:
+            logger.error(f"Error in list_software_services: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def get_software_service(self, plugin_id: str) -> dict | None:
+        """Get a specific software service"""
+        from ..domain.marketplace import SoftwareService
+        from sqlalchemy import select
+
+        try:
+            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
+            result = await self.session.execute(query)
+            service = result.scalar_one_or_none()
+            
+            if not service:
+                return None
+            
+            return {
+                "plugin_id": service.plugin_id,
+                "service_type": service.service_type,
+                "model": service.model,
+                "price": service.price,
+                "price_unit": service.price_unit,
+                "offer_id": service.offer_id,
+                "endpoint": service.endpoint,
+                "public_endpoint": service.public_endpoint,
+                "health_url": service.health_url,
+                "provider_address": service.provider_address,
+                "node_id": service.node_id,
+                "gpu_name": service.gpu_name,
+                "gpu_device": service.gpu_device,
+                "gpu_uuid": service.gpu_uuid,
+                "gpu_offer_id": service.gpu_offer_id,
+                "description": service.description,
+                "status": service.status,
+                "registered_at": service.registered_at.isoformat() if service.registered_at else None,
+                "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+            }
+        except Exception as e:
+            logger.error(f"Error in get_software_service: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def register_software_service(self, data: dict) -> dict:
+        """Register or update a software service"""
+        from ..domain.marketplace import SoftwareService
+        from sqlalchemy import select
+        from datetime import datetime
+
+        try:
+            # Auto-generate plugin_id if not provided
+            plugin_id = data.get("plugin_id")
+            if not plugin_id:
+                service_type = data.get("service_type", "unknown")
+                model = data.get("model", "")
+                plugin_id = f"{service_type}-{model}".strip("-").replace(":", "-").replace("/", "-")
+            
+            # Check if exists
+            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
+            result = await self.session.execute(query)
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                # Update existing
+                for key, value in data.items():
+                    if hasattr(existing, key) and value is not None:
+                        setattr(existing, key, value)
+                existing.updated_at = datetime.utcnow()
+                await self.session.commit()
+                await self.session.refresh(existing)
+                logger.info(f"Updated software service: {plugin_id}")
+            else:
+                # Create new
+                data["plugin_id"] = plugin_id
+                service = SoftwareService(**data)
+                self.session.add(service)
+                await self.session.commit()
+                await self.session.refresh(service)
+                existing = service
+                logger.info(f"Registered software service: {plugin_id}")
+            
+            return {
+                "plugin_id": existing.plugin_id,
+                "service_type": existing.service_type,
+                "model": existing.model,
+                "status": existing.status,
+            }
+        except Exception as e:
+            logger.error(f"Error in register_software_service: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def unregister_software_service(self, plugin_id: str) -> dict:
+        """Unregister a software service"""
+        from ..domain.marketplace import SoftwareService
+        from sqlalchemy import select
+
+        try:
+            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
+            result = await self.session.execute(query)
+            service = result.scalar_one_or_none()
+            
+            if not service:
+                return {"error": "Service not found"}, 404
+            
+            await self.session.delete(service)
+            await self.session.commit()
+            logger.info(f"Unregistered software service: {plugin_id}")
+            
+            return {"plugin_id": plugin_id, "status": "unregistered"}
+        except Exception as e:
+            logger.error(f"Error in unregister_software_service: {type(e).__name__}: {str(e)}")
+            raise
+
     async def create_graph(self, graph_data: dict) -> dict:
         """Create a new knowledge graph"""
-        from .domain.marketplace import KnowledgeGraph
+        from ..domain.marketplace import KnowledgeGraph
 
         try:
             graph = KnowledgeGraph(**graph_data)
@@ -286,7 +382,7 @@ class MarketplaceService:
 
     async def add_node(self, node_data: dict) -> dict:
         """Add a node to a knowledge graph"""
-        from marketplace_service.marketplace import GraphNode
+        from ..domain.marketplace import GraphNode
 
         try:
             node = GraphNode(**node_data)
@@ -305,7 +401,7 @@ class MarketplaceService:
 
     async def add_edge(self, edge_data: dict) -> dict:
         """Add an edge to a knowledge graph"""
-        from marketplace_service.marketplace import GraphEdge
+        from ..domain.marketplace import GraphEdge
 
         try:
             edge = GraphEdge(**edge_data)
@@ -327,7 +423,7 @@ class MarketplaceService:
         """Query a knowledge graph (get all nodes and edges)"""
         from sqlalchemy import select
 
-        from marketplace_service.marketplace import GraphEdge, GraphNode
+        from ..domain.marketplace import GraphEdge, GraphNode
 
         try:
             # Get nodes
@@ -366,3 +462,25 @@ class MarketplaceService:
         except Exception as e:
             logger.error(f"Error in query_graph: {type(e).__name__}: {str(e)}")
             raise
+
+    async def update_offer_status(self, offer_id: str, status: str) -> MarketplaceOffer | None:
+        """Update offer status"""
+        try:
+            stmt = select(MarketplaceOffer).where(MarketplaceOffer.id == offer_id)
+            result = await self.session.execute(stmt)
+            offer = result.scalars().first()
+            
+            if offer:
+                offer.status = status
+                await self.session.commit()
+                await self.session.refresh(offer)
+                logger.info(f"Updated offer {offer_id} status to {status}")
+            
+            return offer
+        except Exception as e:
+            logger.error(f"Error in update_offer_status: {type(e).__name__}: {str(e)}")
+            raise
+
+    def get_current_timestamp(self) -> int:
+        """Get current Unix timestamp"""
+        return int(time.time())

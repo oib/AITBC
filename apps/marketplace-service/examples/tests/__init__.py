@@ -1,1 +1,0 @@
-"""Plugin analytics service tests"""

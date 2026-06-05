@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from aitbc import get_logger
 
-from marketplace_service.marketplace import MarketplaceBid, MarketplaceOffer
+from ..domain.marketplace import MarketplaceOffer
 
 logger = get_logger(__name__)
 
@@ -140,56 +140,9 @@ class MatchingService:
         Returns:
             Match record as dict
         """
-        try:
-            logger.info(f"Creating match: bid_id={bid_id}, offer_id={offer_id}")
-
-            # Get bid and offer
-            bid_stmt = select(MarketplaceBid).where(MarketplaceBid.id == bid_id)
-            bid_result = await self.session.execute(bid_stmt)
-            bid = bid_result.scalar_one_or_none()
-
-            if not bid:
-                raise ValueError(f"Bid not found: {bid_id}")
-
-            offer_stmt = select(MarketplaceOffer).where(MarketplaceOffer.id == offer_id)
-            offer_result = await self.session.execute(offer_stmt)
-            offer = offer_result.scalar_one_or_none()
-
-            if not offer:
-                raise ValueError(f"Offer not found: {offer_id}")
-
-            # Update bid status to matched
-            bid.status = "matched"
-            bid.notes = f"Matched with offer {offer_id}"
-
-            # Update offer status if capacity is fully utilized
-            if offer.capacity <= bid.capacity:
-                offer.status = "booked"
-            else:
-                offer.capacity -= bid.capacity
-
-            await self.session.commit()
-
-            match_record = {
-                'match_id': f"match_{bid_id[:8]}_{offer_id[:8]}",
-                'bid_id': bid_id,
-                'offer_id': offer_id,
-                'provider': offer.provider,
-                'consumer': bid.provider,
-                'price_per_hour': offer.price_per_hour,
-                'capacity': bid.capacity,
-                'status': 'active',
-                'created_at': datetime.now(UTC).isoformat(),
-                'match_score': match_data.get('match_score', 0.0),
-            }
-
-            logger.info(f"Created match: {match_record['match_id']}")
-            return match_record
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error(f"Error in create_match: {type(e).__name__}: {str(e)}")
-            raise
+        # Bids deprecated in v0.4.7 - GPU-only marketplace removed
+        # This method is no longer functional
+        raise NotImplementedError("Bid-based matching deprecated in v0.4.7")
 
     async def list_matches(
         self,
@@ -206,41 +159,8 @@ class MatchingService:
         Returns:
             List of match records
         """
-        try:
-            logger.info(f"Listing matches with filters: status={status}, provider={provider}")
-
-            # Query matched bids
-            stmt = select(MarketplaceBid).where(MarketplaceBid.status == "matched")
-
-            if provider:
-                stmt = stmt.where(MarketplaceBid.provider == provider)
-
-            result = await self.session.execute(stmt)
-            bids = result.scalars().all()
-
-            matches = []
-            for bid in bids:
-                # Extract offer_id from notes
-                offer_id = None
-                if bid.notes and "Matched with offer" in bid.notes:
-                    offer_id = bid.notes.split()[-1]
-
-                matches.append({
-                    'bid_id': bid.id,
-                    'offer_id': offer_id,
-                    'provider': bid.provider,
-                    'capacity': bid.capacity,
-                    'price': bid.price,
-                    'status': bid.status,
-                    'created_at': bid.submitted_at.isoformat() if bid.submitted_at else None,
-                })
-
-            logger.info(f"Found {len(matches)} matches")
-            return matches
-
-        except Exception as e:
-            logger.error(f"Error in list_matches: {type(e).__name__}: {str(e)}")
-            raise
+        # Bids deprecated in v0.4.7 - no bid matching available
+        raise NotImplementedError("Bid-based matching deprecated in v0.4.7")
 
     async def auto_match_pending_bids(self) -> dict:
         """
@@ -249,52 +169,5 @@ class MatchingService:
         Returns:
             Summary of matching results
         """
-        try:
-            logger.info("Starting auto-match for pending bids")
-
-            # Get all pending bids
-            stmt = select(MarketplaceBid).where(MarketplaceBid.status == "pending")
-            result = await self.session.execute(stmt)
-            pending_bids = result.scalars().all()
-
-            matched_count = 0
-            failed_count = 0
-
-            for bid in pending_bids:
-                try:
-                    # Find best match
-                    match = await self.find_best_match(
-                        bid_requirements={
-                            'capacity': bid.capacity,
-                            'max_price': bid.price,
-                        }
-                    )
-
-                    if match:
-                        # Create the match
-                        await self.create_match(
-                            bid_id=bid.id,
-                            offer_id=match['id'],
-                            match_data=match
-                        )
-                        matched_count += 1
-                    else:
-                        failed_count += 1
-
-                except Exception as e:
-                    logger.error(f"Failed to match bid {bid.id}: {e}")
-                    failed_count += 1
-
-            summary = {
-                'total_pending': len(pending_bids),
-                'matched': matched_count,
-                'failed': failed_count,
-                'timestamp': datetime.now(UTC).isoformat(),
-            }
-
-            logger.info(f"Auto-match complete: {summary}")
-            return summary
-
-        except Exception as e:
-            logger.error(f"Error in auto_match_pending_bids: {type(e).__name__}: {str(e)}")
-            raise
+        # Bids deprecated in v0.4.7 - auto-matching no longer available
+        raise NotImplementedError("Bid-based auto-matching deprecated in v0.4.7")
