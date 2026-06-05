@@ -1,8 +1,22 @@
 
 #!/bin/bash
 
-# AITBC GPU Miner Startup Script
-# Copy to start_gpu_miner.sh and adjust variables for your environment
+# AITBC GPU Miner Startup Script (DEPRECATED - v0.4.7+)
+# ⚠️  This script is for the legacy GPU-only marketplace architecture
+# 
+# For v0.4.7+, use the new Hardware+Software Bundle architecture:
+# - Register software offers with GPU information via: aitbc market offer ollama <model> <price>
+# - GPU mining is now integrated with software service offers
+# - See: /opt/aitbc/docs/releases/RELEASE_v0.4.7.md
+#
+# If you need GPU resource registration for the new architecture:
+# - Use CLI: aitbc edge gpu register
+# - Or API: POST /v1/gpu/resources (through API Gateway)
+#
+# Legacy architecture (pre-v0.4.7):
+# - GPU-only marketplace on port 8101
+# - Coordinator API on port 8000
+# - Separate miner registration system
 
 set -e
 
@@ -12,7 +26,10 @@ MINER_API_KEY="your_miner_api_key"
 OLLAMA_HOST="http://127.0.0.1:11434"
 GPU_ID="gpu-0"
 
-echo "🔧 Starting AITBC GPU Miner"
+echo "⚠️  WARNING: This script uses the legacy GPU mining architecture (pre-v0.4.7)"
+echo "For v0.4.7+, use: aitbc market offer ollama <model> <price> --gpu-device <device>"
+echo ""
+echo "🔧 Starting AITBC GPU Miner (Legacy)"
 echo "Coordinator: $COORDINATOR_URL"
 echo "Ollama: $OLLAMA_HOST"
 echo ""

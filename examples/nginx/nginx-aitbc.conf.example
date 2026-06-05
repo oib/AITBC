@@ -5,6 +5,16 @@
 # You can use sed to replace: sed 's/127.0.0.1/YOUR_CONTAINER_IP/g' nginx-aitbc.conf.example > nginx-aitbc.conf
 #
 # After deployment, run: certbot --nginx -d YOUR_DOMAIN to enable SSL
+#
+# Service Architecture (v0.4.7+):
+# - API Gateway (8201): Routes to all microservices
+# - Marketplace Service (8102): Software service registry with reputation system
+# - Coordinator API (8203): Agent coordination and messaging
+# - Blockchain RPC (8202): Blockchain operations and escrow
+# - Hermes (8103): Message bus for agent communication
+# - Whisper (8110): Audio transcription service
+# - Plugin Registry (8109): Service plugin management
+# - Ollama (11434): LLM inference service
 
 # Backend IP address - set to container IP if running in Incus/LXD
 map $host $backend_ip {
@@ -30,9 +40,10 @@ server {
     gzip_min_length 1024;
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
 
-    # Coordinator API
+    # API Gateway - Routes to all microservices
     location /api/ {
-        proxy_pass http://$backend_ip:8000/v1/;
+        rewrite ^/api/(.*) /$1 break;
+        proxy_pass http://$backend_ip:8201/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -56,9 +67,9 @@ server {
         }
     }
 
-    # Blockchain RPC
+    # Blockchain RPC - Direct access to blockchain operations
     location /rpc/ {
-        proxy_pass http://$backend_ip:8006/;
+        proxy_pass http://$backend_ip:8202/rpc/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -66,31 +77,9 @@ server {
         proxy_buffering off;
     }
 
-    # Marketplace UI
-    location /Marketplace {
-        proxy_pass http://$backend_ip:8007/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        rewrite ^/Marketplace/(.*)$ /$1 break;
-        proxy_buffering off;
-    }
-
-    # Trade Exchange
-    location /Exchange {
-        proxy_pass http://$backend_ip:8008/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        rewrite ^/Exchange/(.*)$ /$1 break;
-        proxy_buffering off;
-    }
-
-    # Exchange API Routes
-    location /api/trades/ {
-        proxy_pass http://$backend_ip:8008/api/trades/;
+    # Coordinator API - Agent coordination and messaging
+    location /c/ {
+        proxy_pass http://$backend_ip:8203/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -98,28 +87,45 @@ server {
         proxy_buffering off;
     }
 
-    location /api/orders {
-        proxy_pass http://$backend_ip:8008/api/orders;
+    # Whisper transcription service (large audio uploads)
+    location /whisper/ {
+        client_max_body_size 500M;
+        rewrite ^/whisper/(.*) /$1 break;
+        proxy_pass http://$backend_ip:8110;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
     }
 
-    # Wallet API
-    location /wallet/ {
-        proxy_pass http://$backend_ip:8003/;
+    # Plugin registry
+    location /plugin/ {
+        rewrite ^/plugin/(.*) /$1 break;
+        proxy_pass http://$backend_ip:8109;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Ollama service (for cloud model access)
+    location /ollama/ {
+        proxy_pass http://$backend_ip:11434/;
+        proxy_set_header Host "localhost";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 
     # Health check
     location /health {
-        proxy_pass http://$backend_ip:8000/v1/health;
-        proxy_set_header Host $host;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
     }
 
     # Default — serve static website
@@ -168,22 +174,5 @@ server {
         alias /usr/share/fonts-font-awesome/;
         expires 1y;
         add_header Cache-Control "public, immutable";
-    }
-
-    # Admin endpoints
-    location = /api/treasury-balance {
-        proxy_pass http://$backend_ip:8085;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location = /api/exchange/wallet/info {
-        proxy_pass http://$backend_ip:8085;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
