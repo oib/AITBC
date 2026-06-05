@@ -5,7 +5,7 @@ Fetches ETH price from CoinGecko and calculates AIT exchange rate.
 
 import os
 import requests
-from typing import Optional
+from typing import Optional, Dict
 
 
 # Fixed AIT price in USD (for simplicity in MVP)
