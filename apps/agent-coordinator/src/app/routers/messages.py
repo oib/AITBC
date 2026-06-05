@@ -15,7 +15,7 @@ from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/api/v1/agent", tags=["agent-messaging"])
+router = APIRouter(prefix="/messages", tags=["agent-messaging"])
 
 
 class SendMessageRequest(BaseModel):
@@ -133,6 +133,16 @@ async def get_inbox(
         logger.error(f"Error getting inbox: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# Compatibility route for AgentDaemon (direct /v1/messages/{agent_id})
+@router.get("/{agent_id}")
+@rate_limit(rate=200, per=60)
+async def get_messages_for_agent_compatibility(
+    request: Request,
+    agent_id: str
+):
+    """Get messages for agent - AgentDaemon compatibility route"""
+    return await get_messages_for_agent(request, agent_id)
 
 # Get messages for agent (hermes polling compatibility)
 @router.get("/messages/{agent_id}")
