@@ -1,8 +1,10 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-06-02
+**Last Updated:** 2026-06-05
 
 Quick reference guide for AITBC setup and onboarding.
+
+> **🟢 Service Status**: All core services are operational as of June 5, 2026. See [Service Status](../infrastructure/SYSTEMD_SERVICES.md#current-service-status-june-5-2026) for details.
 
 ## 5-Minute Quick Start
 
