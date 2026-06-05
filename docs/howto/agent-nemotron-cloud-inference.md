@@ -9,6 +9,25 @@ This guide shows how an agent can discover, use, and pay for the NVIDIA Nemotron
 - AITBC CLI installed and configured
 - Wallet with sufficient AIT tokens
 - Network access to aitbc3.aitbc.bubuit.net
+- **Important**: aitbc3 operator must open firewall ports 8102/8203 for cross-node access
+
+## Network Topology
+
+```
+Hub Node (Customer)              aitbc3 Node (Provider)
+├── aitbc market list            ├── API Gateway (8201) → Marketplace Service (8102)
+├── aitbc market run             ├── Ollama Service (11434) → nginx proxy (443)
+└── Direct API calls             └── Coordinator API (8203)
+                                 └── nginx SSL termination (443)
+```
+
+**Access Routes**:
+- **Marketplace**: `https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer` (via API Gateway)
+- **Plugin Discovery**: `https://aitbc3.aitbc.bubuit.net/api/v1/plugin/` (via API Gateway)
+- **Ollama API**: `https://aitbc3.aitbc.bubuit.net/ollama/api/generate` (via nginx proxy)
+- **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/hermes/messages` (via API Gateway)
+
+**Current Status**: All services accessible through API Gateway and nginx proxy on port 443.
 
 ## Step 1: Discover Available Offers
 
@@ -23,11 +42,17 @@ aitbc market list | grep ollama
 
 ### Method B: API Discovery
 ```bash
-# Get all offers
+# Get all offers (via API Gateway)
 curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[]'
 
-# Get specific offer details
+# Get specific offer details (via API Gateway)
 curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.'
+
+# Alternative: Plugin discovery endpoint
+curl -s https://aitbc3.aitbc.bubuit.net/api/v1/plugin/ | jq '.offers[]'
+
+# Direct Ollama API (via nginx proxy)
+curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
 ```
 
 ### Expected Offer Details
@@ -50,18 +75,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron
 
 ## Step 2: Run Inference with Payment
 
-### Method A: CLI (Recommended)
-```bash
-# Run inference with automatic escrow payment
-aitbc market run sw_offer_20260605110316_a343d309 "Explain quantum computing in simple terms"
-
-# With custom parameters
-aitbc market run sw_offer_20260605110316_a343d309 "Write a Python function for fibonacci" \
-  --max-tokens 500 \
-  --temperature 0.7
-```
-
-### Method B: Direct API (Advanced)
+### Method A: Direct API (Recommended for Cross-Node)
 ```bash
 # 1. Create escrow contract
 ESCROW_TX=$(aitbc wallet escrow-create \
@@ -71,7 +85,7 @@ ESCROW_TX=$(aitbc wallet escrow-create \
 
 echo "Escrow TX: $ESCROW_TX"
 
-# 2. Send prompt to Ollama endpoint
+# 2. Send prompt to Ollama endpoint (requires nginx proxy)
 RESPONSE=$(curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
   -H "Content-Type: application/json" \
   -d '{
@@ -94,6 +108,16 @@ aitbc wallet escrow-release \
   --escrow-tx $ESCROW_TX \
   --job-tx-hash $(echo $RESPONSE | jq -r '.job_tx_hash') \
   --actual-tokens $TOKENS_USED
+```
+
+### Method B: CLI (Limited Functionality)
+```bash
+# Note: aitbc market run queries blockchain transactions, not marketplace service
+# This won't find the cloud offer unless it's also registered on-chain
+aitbc market run sw_offer_20260605110316_a343d309 "Explain quantum computing"
+
+# Alternative: Use marketplace service directly
+curl -s http://aitbc3.aitbc.bubuit.net:8102/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.'
 ```
 
 ## Step 3: Monitor Usage and Costs
@@ -206,31 +230,55 @@ class NemotronAgent:
 
 ### Common Issues
 
-1. **Insufficient Balance**
+1. **API Gateway Issues**
+   ```bash
+   # Test API Gateway routing (should work via port 443)
+   curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
+   curl -s https://aitbc3.aitbc.bubuit.net/api/v1/plugin/ | jq '.offers[0].plugin_id'
+   
+   # If API Gateway not responding, check service status:
+   systemctl status aitbc-api-gateway
+   systemctl restart aitbc-api-gateway
+   ```
+
+2. **Insufficient Balance**
    ```bash
    aitbc wallet balance
    # Add funds if needed
    aitbc wallet deposit <amount>
    ```
 
-2. **Offer Not Available**
+3. **Offer Not Available**
    ```bash
-   # Check offer status
+   # Check offer status (via API Gateway)
    curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
+   
+   # Check local Ollama service (on aitbc3)
+   curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
    ```
 
-3. **Network Issues**
+4. **Nginx Proxy Issues**
    ```bash
-   # Test connectivity
+   # Test Ollama proxy (requires nginx configuration)
    curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags
+   
+   # If 403/404, check nginx config:
+   nginx -t && systemctl reload nginx
    ```
 
-4. **Escrow Issues**
+5. **Escrow Issues**
    ```bash
    # Check escrow status
    aitbc wallet escrow-status <tx_hash>
    # Release stuck escrow
    aitbc wallet escrow-release --escrow-tx <tx_hash> --force
+   ```
+
+6. **CLI Limitations**
+   ```bash
+   # aitbc market run queries blockchain, not marketplace service
+   # Use API Gateway calls instead:
+   curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer
    ```
 
 ### Error Messages

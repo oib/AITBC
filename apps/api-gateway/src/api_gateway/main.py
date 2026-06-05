@@ -84,6 +84,10 @@ SERVICES = {
         "base_url": os.getenv("AGENT_COORDINATOR_URL", "http://localhost:8107"),
         "prefix": "/v1/agent-coordinator",
     },
+    "coordinator": {
+        "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"),
+        "prefix": "/v1/coordinator",
+    },
     "wallet": {
         "base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"),
         "prefix": "/v1/wallet",
