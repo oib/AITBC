@@ -489,7 +489,7 @@ class MarketplaceService:
         """Get current Unix timestamp"""
         return int(time.time())
 
-    async def add_service_rating(self, service_id: str, rating: float, reviewer_id: str, comment: str = "") -> ServiceRating:
+    async def add_service_rating(self, service_id: str, rating: float, reviewer_id: str, comment: str = "", source_node: str = "local") -> ServiceRating:
         """Add a service rating and update service average rating"""
         try:
             # Validate rating scale (1-5)
@@ -501,12 +501,13 @@ class MarketplaceService:
                 service_id=service_id,
                 rating=rating,
                 reviewer_id=reviewer_id,
-                comment=comment
+                comment=comment,
+                source_node=source_node
             )
             self.session.add(service_rating)
             await self.session.commit()
             await self.session.refresh(service_rating)
-            logger.info(f"Added rating {rating} for service {service_id} by reviewer {reviewer_id}")
+            logger.info(f"Added rating {rating} for service {service_id} by reviewer {reviewer_id} from {source_node}")
 
             # Update service average rating
             await self._update_service_rating(service_id)
@@ -535,9 +536,115 @@ class MarketplaceService:
                 "reviewer_id": r.reviewer_id,
                 "comment": r.comment,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
+                "source_node": r.source_node,
             } for r in ratings]
         except Exception as e:
             logger.error(f"Error in get_service_ratings: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def get_unsynced_ratings(self, limit: int = 100) -> list[dict]:
+        """Get ratings that haven't been synced yet"""
+        try:
+            from sqlalchemy import select
+
+            stmt = select(ServiceRating).where(ServiceRating.synced_at.is_(None)).limit(limit)
+            result = await self.session.execute(stmt)
+            ratings = result.scalars().all()
+
+            return [
+                {
+                    "id": r.id,
+                    "service_id": r.service_id,
+                    "rating": r.rating,
+                    "reviewer_id": r.reviewer_id,
+                    "comment": r.comment,
+                    "created_at": r.created_at.isoformat(),
+                    "source_node": r.source_node,
+                }
+                for r in ratings
+            ]
+        except Exception as e:
+            logger.error(f"Error in get_unsynced_ratings: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def mark_ratings_synced(self, rating_ids: list[str]) -> int:
+        """Mark ratings as synced"""
+        try:
+            from sqlalchemy import select
+            from datetime import datetime
+
+            stmt = select(ServiceRating).where(ServiceRating.id.in_(rating_ids))
+            result = await self.session.execute(stmt)
+            ratings = result.scalars().all()
+
+            for rating in ratings:
+                rating.synced_at = datetime.utcnow()
+
+            await self.session.commit()
+            logger.info(f"Marked {len(ratings)} ratings as synced")
+            return len(ratings)
+        except Exception as e:
+            logger.error(f"Error in mark_ratings_synced: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def sync_ratings_from_remote(self, remote_ratings: list[dict]) -> dict:
+        """Sync ratings from remote node"""
+        try:
+            from sqlalchemy import select
+            from datetime import datetime
+
+            synced_count = 0
+            updated_count = 0
+            skipped_count = 0
+
+            for remote_rating in remote_ratings:
+                # Check if rating already exists
+                stmt = select(ServiceRating).where(
+                    ServiceRating.service_id == remote_rating["service_id"],
+                    ServiceRating.reviewer_id == remote_rating["reviewer_id"],
+                )
+                result = await self.session.execute(stmt)
+                existing = result.scalar_one_or_none()
+
+                if existing:
+                    # Conflict resolution: keep the most recent rating
+                    remote_created = datetime.fromisoformat(remote_rating["created_at"])
+                    if remote_created > existing.created_at:
+                        existing.rating = remote_rating["rating"]
+                        existing.comment = remote_rating["comment"]
+                        existing.synced_at = datetime.utcnow()
+                        updated_count += 1
+                    else:
+                        skipped_count += 1
+                else:
+                    # Create new rating from remote
+                    new_rating = ServiceRating(
+                        id=remote_rating["id"],
+                        service_id=remote_rating["service_id"],
+                        rating=remote_rating["rating"],
+                        reviewer_id=remote_rating["reviewer_id"],
+                        comment=remote_rating["comment"],
+                        created_at=datetime.fromisoformat(remote_rating["created_at"]),
+                        synced_at=datetime.utcnow(),
+                        source_node=remote_rating.get("source_node", "remote"),
+                    )
+                    self.session.add(new_rating)
+                    synced_count += 1
+
+            await self.session.commit()
+            logger.info(f"Synced {synced_count} new, updated {updated_count}, skipped {skipped_count} ratings")
+
+            # Update service averages
+            for remote_rating in remote_ratings:
+                await self._update_service_rating(remote_rating["service_id"])
+
+            return {
+                "synced": synced_count,
+                "updated": updated_count,
+                "skipped": skipped_count,
+            }
+        except Exception as e:
+            logger.error(f"Error in sync_ratings_from_remote: {type(e).__name__}: {str(e)}")
             raise
 
     async def _update_service_rating(self, service_id: str) -> None:

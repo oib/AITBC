@@ -715,6 +715,60 @@ async def get_offer_by_id(
         raise
 
 
+@app.get("/v1/marketplace/ratings/unsynced")
+async def get_unsynced_ratings(
+    limit: int = 100,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get ratings that haven't been synced to remote nodes"""
+    try:
+        logger.info(f"GET /v1/marketplace/ratings/unsynced called")
+        ratings = await svc.get_unsynced_ratings(limit)
+        return {
+            "ratings": ratings,
+            "count": len(ratings),
+        }
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/ratings/unsynced: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.post("/v1/marketplace/ratings/sync")
+async def sync_ratings(
+    ratings: list[dict],
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Sync ratings from remote node"""
+    try:
+        logger.info(f"POST /v1/marketplace/ratings/sync called with {len(ratings)} ratings")
+        result = await svc.sync_ratings_from_remote(ratings)
+        return {
+            "status": "success",
+            **result,
+        }
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/ratings/sync: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.post("/v1/marketplace/ratings/mark-synced")
+async def mark_ratings_synced(
+    rating_ids: list[str],
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Mark ratings as synced to remote nodes"""
+    try:
+        logger.info(f"POST /v1/marketplace/ratings/mark-synced called with {len(rating_ids)} IDs")
+        count = await svc.mark_ratings_synced(rating_ids)
+        return {
+            "status": "success",
+            "marked_synced": count,
+        }
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/ratings/mark-synced: {type(e).__name__}: {str(e)}")
+        raise
+
+
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit marketplace transaction"""

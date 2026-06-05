@@ -88,6 +88,8 @@ class ServiceRating(SQLModel, table=True):
     reviewer_id: str = Field(index=True)  # ID of the user providing the rating
     comment: str = Field(default="")  # Optional comment/review text
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    synced_at: datetime | None = Field(default=None, nullable=True)  # Last sync timestamp
+    source_node: str = Field(default="local", index=True)  # Origin node of the rating
 
 
 class KnowledgeGraph(SQLModel, table=True):
