@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Simplified Marketplace Scenario using existing blockchain endpoints
-echo "=== 🛒 SIMPLIFIED MARKETPLACE SCENARIO ==="
+# Simplified Hardware+Software Bundle Marketplace Scenario using existing blockchain endpoints
+echo "=== 🛒 SIMPLIFIED HARDWARE+SOFTWARE BUNDLE MARKETPLACE SCENARIO ==="
 echo "Timestamp: $(date)"
 echo ""
 
@@ -21,47 +21,38 @@ fi
 GENESIS_ADDR="ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r"
 USER_ADDR="ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b"
 
-echo "🎯 SIMPLIFIED MARKETPLACE WORKFLOW"
-echo "Testing marketplace-like functionality using blockchain"
+echo "🎯 SIMPLIFIED HARDWARE+SOFTWARE BUNDLE MARKETPLACE WORKFLOW"
+echo "Testing hardware+software bundle marketplace functionality using blockchain"
 echo ""
 
-# 1. SIMULATE MARKETPLACE LISTING
-echo "1. 📋 SIMULATED GPU LISTING"
-echo "=========================="
-echo "Creating simulated GPU listing..."
-LISTING_ID="gpu_listing_$(date +%s)"
-echo "Listing ID: $LISTING_ID"
-echo "Title: NVIDIA RTX 4090 GPU"
-echo "Price: 100 AIT"
+# 1. CREATE HARDWARE+SOFTWARE BUNDLE OFFER
+echo "1. 📋 CREATING HARDWARE+SOFTWARE BUNDLE OFFER"
+echo "=========================================="
+echo "Creating hardware+software bundle offer..."
+OFFER_ID="bundle_offer_$(date +%s)"
+echo "Bundle Offer ID: $OFFER_ID"
+echo "Service Type: Ollama"
+echo "Model: llama3.2:3b"
+echo "GPU: NVIDIA RTX 4090"
+echo "Price: 0.001 AIT per 1k tokens"
 echo "Provider: $GENESIS_ADDR"
 
-# 2. USER BIDDING SIMULATION
+# 2. VERIFY BUNDLE REGISTRATION
 echo ""
-echo "2. 🎯 USER BIDDING SIMULATION"
-echo "============================"
-echo "Simulating bid from user $USER_ADDR..."
-BID_AMOUNT=100
-echo "Bid amount: $BID_AMOUNT AIT"
+echo "2. 🔍 VERIFY BUNDLE REGISTRATION"
+echo "=============================="
+echo "Checking bundle registration in plugin registry..."
+BUNDLE_CHECK=$(curl -s "http://localhost:8109/plugins" 2>/dev/null || echo "[]")
+echo "Registry response: $BUNDLE_CHECK"
 
-# Check user balance
-USER_BALANCE=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$USER_ADDR" | jq .balance)
-echo "User balance: $USER_BALANCE AIT"
-
-if [ "$USER_BALANCE" -lt "$BID_AMOUNT" ]; then
-    echo "❌ Insufficient balance for bid"
-    exit 1
-fi
-
-echo "✅ User has sufficient balance"
-
-# 3. PROVIDER CONFIRMATION
+# 3. BUNDLE EXECUTION
 echo ""
-echo "3. ✅ PROVIDER CONFIRMATION"
-echo "========================"
-echo "Provider confirming bid..."
-JOB_ID="job_$(date +%s)"
+echo "3. ✅ BUNDLE EXECUTION"
+echo "===================="
+echo "Executing bundle job..."
+JOB_ID="bundle_job_$(date +%s)"
 echo "Job ID: $JOB_ID"
-echo "Status: confirmed"
+echo "Status: executing"
 
 # 4. AI TASK EXECUTION (if available)
 echo ""
@@ -93,13 +84,14 @@ else
     echo "Simulated task ID: $TASK_ID"
 fi
 
-# 5. BLOCKCHAIN PAYMENT SIMULATION
+# 5. ESCROW PAYMENT FOR BUNDLE USAGE
 echo ""
-echo "5. 💰 BLOCKCHAIN PAYMENT"
-echo "======================"
-echo "Processing payment for completed job..."
+echo "5. 💰 ESCROW PAYMENT FOR BUNDLE USAGE"
+echo "=================================="
+echo "Processing escrow payment for completed bundle job..."
 
-# Create payment transaction
+# Create escrow payment transaction
+BUNDLE_COST=10  # Simulated cost in milli-AIT
 PAYMENT_RESULT=$(curl -s -X POST $BLOCKCHAIN_RPC/rpc/sendTx \
   -H "Content-Type: application/json" \
   -d "{
@@ -109,7 +101,7 @@ PAYMENT_RESULT=$(curl -s -X POST $BLOCKCHAIN_RPC/rpc/sendTx \
     \"fee\": 5,
     \"payload\": {
       \"to\": \"$GENESIS_ADDR\",
-      \"amount\": $BID_AMOUNT
+      \"amount\": $BUNDLE_COST
     }
   }")
 
@@ -118,7 +110,7 @@ PAYMENT_TX=$(echo "$PAYMENT_RESULT" | jq -r .tx_hash 2>/dev/null || echo "unknow
 echo "Payment transaction: $PAYMENT_TX"
 
 if [ "$PAYMENT_TX" != "unknown" ] && [ "$PAYMENT_TX" != "null" ]; then
-    echo "✅ Payment transaction created"
+    echo "✅ Escrow payment transaction created"
     
     # Wait for mining
     echo "Waiting for payment to be mined..."
@@ -134,10 +126,10 @@ else
     echo "❌ Payment transaction failed"
 fi
 
-# 6. FINAL BALANCE VERIFICATION
+# 6. FINAL VERIFICATION
 echo ""
-echo "6. 📊 FINAL BALANCE VERIFICATION"
-echo "=============================="
+echo "6. 📊 FINAL VERIFICATION"
+echo "======================"
 
 # Check final balances
 GENESIS_BALANCE=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/$GENESIS_ADDR" | jq .balance)
@@ -147,14 +139,15 @@ echo "Genesis final balance: $GENESIS_BALANCE AIT"
 echo "User final balance: $USER_FINAL_BALANCE AIT"
 
 echo ""
-echo "=== 🛒 SIMPLIFIED MARKETPLACE SCENARIO COMPLETE ==="
+echo "=== 🛒 SIMPLIFIED HARDWARE+SOFTWARE BUNDLE MARKETPLACE SCENARIO COMPLETE ==="
 echo ""
 echo "✅ SCENARIO RESULTS:"
-echo "• Listing ID: $LISTING_ID"
+echo "• Bundle Offer ID: $OFFER_ID"
 echo "• Job ID: $JOB_ID"
 echo "• Task ID: $TASK_ID"
 echo "• Payment transaction: $PAYMENT_TX"
+echo "• Bundle cost: $BUNDLE_COST milli-AIT"
 echo "• Genesis balance: $GENESIS_BALANCE AIT"
 echo "• User balance: $USER_FINAL_BALANCE AIT"
 echo ""
-echo "🎯 MARKETPLACE WORKFLOW: SIMULATED"
+echo "🎯 HARDWARE+SOFTWARE BUNDLE MARKETPLACE WORKFLOW: SIMULATED"

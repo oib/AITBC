@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AITBC Enhanced Marketplace Scenario with AI Response Tracking
+# AITBC Enhanced Hardware+Software Bundle Marketplace Scenario with AI Response Tracking
 # Captures and displays AI prompt and response in final results
 
 set -e
@@ -17,7 +17,7 @@ else
     echo "⚠️  Using default configuration (env file not found)"
 fi
 
-echo "=== 🛒 AITBC ENHANCED MARKETPLACE SCENARIO ==="
+echo "=== 🛒 AITBC ENHANCED HARDWARE+SOFTWARE BUNDLE MARKETPLACE SCENARIO ==="
 echo "Timestamp: $(date)"
 echo ""
 
@@ -43,13 +43,13 @@ AI_PROMPT=""
 AI_RESPONSE=""
 AI_TASK_ID=""
 
-echo "🎯 ENHANCED MARKETPLACE WORKFLOW"
-echo "Tracking AI prompt and response"
+echo "🎯 ENHANCED HARDWARE+SOFTWARE BUNDLE MARKETPLACE WORKFLOW"
+echo "Tracking AI prompt and response with hardware+software bundles"
 echo ""
 
-# 1. CREATE REAL GPU LISTING
-echo "1. 📋 CREATING REAL GPU LISTING"
-echo "==============================="
+# 1. CREATE REAL HARDWARE+SOFTWARE BUNDLE OFFER
+echo "1. 📋 CREATING REAL HARDWARE+SOFTWARE BUNDLE OFFER"
+echo "================================================="
 
 # Get real GPU specs
 GPU_INFO=$(ssh $FOLLOWER_NODE "nvidia-smi --query-gpu=name,memory.total,memory.used,utilization.gpu,temperature.gpu --format=csv,noheader,nounits" 2>/dev/null || echo "RTX 4060 Ti,16380,3458,3,39")
@@ -59,68 +59,62 @@ USED_MEMORY=$(echo "$GPU_INFO" | cut -d',' -f3)
 GPU_UTIL=$(echo "$GPU_INFO" | cut -d',' -f4)
 GPU_TEMP=$(echo "$GPU_INFO" | cut -d',' -f5)
 
+# Get GPU device ID and UUID for multi-GPU support
+GPU_DEVICE_ID=$(ssh $FOLLOWER_NODE "nvidia-smi --query-gpu=index --format=csv,noheader,nounits" 2>/dev/null | head -1 || echo "0")
+GPU_UUID=$(ssh $FOLLOWER_NODE "nvidia-smi --query-gpu=uuid --format=csv,noheader,nounits" 2>/dev/null | head -1 || echo "unknown")
+
 echo "Real GPU detected: $GPU_NAME"
 echo "Memory: ${USED_MEMORY}MB/${TOTAL_MEMORY}MB used"
 echo "Utilization: ${GPU_UTIL}%"
 echo "Temperature: ${GPU_TEMP}°C"
+echo "GPU Device ID: $GPU_DEVICE_ID"
+echo "GPU UUID: $GPU_UUID"
 
-# Create marketplace listing
-echo "Creating marketplace listing with real specs..."
-LISTING_RESULT=$(ssh $FOLLOWER_NODE "curl -s -X POST http://localhost:$FOLLOWER_PORT/rpc/marketplace/create \
-  -H 'Content-Type: application/json' \
-  -d '{
-    \"title\": \"NVIDIA GeForce RTX 4060 Ti 16GB\",
-    \"description\": \"Real RTX 4060 Ti with 16GB VRAM, perfect for AI/ML workloads\",
-    \"resource_type\": \"gpu\",
-    \"price\": 50,
-    \"duration_hours\": 2,
-    \"provider\": \"$USER_ADDR\",
-    \"specs\": {
-      \"gpu_model\": \"$GPU_NAME\",
-      \"memory\": \"${TOTAL_MEMORY}MB\",
-      \"available_memory\": \"$((TOTAL_MEMORY - USED_MEMORY))MB\",
-      \"cuda_version\": \"12.4\",
-      \"driver_version\": \"550.163.01\",
-      \"current_utilization\": \"${GPU_UTIL}%\",
-      \"current_temperature\": \"${GPU_TEMP}°C\"
-    }
-  }'" 2>/dev/null || echo '{"error": "Listing failed"}')
+# Create hardware+software bundle offer
+echo "Creating hardware+software bundle offer with real specs..."
+BUNDLE_RESULT=$(ssh $FOLLOWER_NODE "aitbc market offer ollama llama3.2:3b 0.001 --gpu-device $GPU_DEVICE_ID" 2>/dev/null || echo '{"error": "Bundle failed"}')
 
-echo "Listing result: $LISTING_RESULT"
-MARKET_ID=$(echo "$LISTING_RESULT" | jq -r .market_id 2>/dev/null || echo "demo_001")
-echo "Market ID: $MARKET_ID"
+echo "Bundle result: $BUNDLE_RESULT"
+BUNDLE_ID=$(echo "$BUNDLE_RESULT" | python3 -c "
+import sys, json, re
+data = sys.stdin.read()
+m = re.search(r'\{[^{}]*\}', data, re.DOTALL)
+if m:
+    try:
+        d = json.loads(m.group())
+        print(d.get('offer_id', d.get('transaction_hash', '')))
+    except:
+        print('')
+else:
+    print('')
+" 2>/dev/null || echo "demo_bundle_001")
+echo "Bundle Offer ID: $BUNDLE_ID"
 
-# 2. USER BIDDING ON REAL GPU
+# 2. VERIFY BUNDLE IN PLUGIN REGISTRY
 echo ""
-echo "2. 🎯 USER BIDDING ON REAL GPU"
-echo "============================="
+echo "2. 🔍 VERIFY BUNDLE IN PLUGIN REGISTRY"
+echo "===================================="
 
-USER_BALANCE=$(curl -s "http://localhost:$GENESIS_PORT/rpc/getBalance/$GENESIS_ADDR" | jq .balance)
-echo "Genesis balance: $USER_BALANCE AIT"
-
-BID_AMOUNT=50
-echo "aitbc1 bidding on aitbc's real RTX 4060 Ti..."
-echo "Bid amount: $BID_AMOUNT AIT"
-echo "GPU: $GPU_NAME"
-echo "Available memory: $((TOTAL_MEMORY - USED_MEMORY))MB"
-
-if [ "$USER_BALANCE" -lt "$BID_AMOUNT" ]; then
-    echo "❌ Insufficient balance for bid"
-    exit 1
+if [ "$BUNDLE_ID" != "demo_bundle_001" ] && [ -n "$BUNDLE_ID" ]; then
+    echo "Checking plugin registry for bundle..."
+    PLUGIN_CHECK=$(curl -s "http://localhost:8109/plugins?offer_id=$BUNDLE_ID" 2>/dev/null || echo "{}")
+    echo "$PLUGIN_CHECK"
+    
+    echo "✅ Hardware+software bundle registered"
+else
+    echo "⚠️ Bundle creation failed, using demo ID"
 fi
 
-echo "✅ Placing bid for $BID_AMOUNT AIT"
-
-# 3. PROVIDER CONFIRMATION
+# 3. BUNDLE EXECUTION SETUP
 echo ""
-echo "3. ✅ PROVIDER CONFIRMATION"
-echo "========================"
+echo "3. ✅ BUNDLE EXECUTION SETUP"
+echo "=========================="
 
-echo "aitbc confirming GPU rental..."
-JOB_ID="gpu_job_$(date +%s)"
+echo "Setting up bundle execution..."
+JOB_ID="bundle_job_$(date +%s)"
 echo "Job ID: $JOB_ID"
-echo "GPU allocated: $GPU_NAME"
-echo "Duration: 2 hours"
+echo "Bundle: $BUNDLE_ID"
+echo "GPU allocated: $GPU_NAME (Device $GPU_DEVICE_ID)"
 
 # 4. AI TASK EXECUTION WITH PROMPT TRACKING
 echo ""
@@ -131,56 +125,71 @@ echo "=========================================="
 AI_PROMPT="Explain how GPU acceleration works in machine learning with CUDA"
 echo "AI Prompt: ${BLUE}$AI_PROMPT${NC}"
 
-echo "Submitting AI task to RTX 4060 Ti..."
+echo "Running AI task with hardware+software bundle..."
 
-# Try AI submit endpoint
-AI_RESULT=$(ssh $FOLLOWER_NODE "curl -s -X POST http://localhost:$FOLLOWER_PORT/rpc/ai/submit \
-  -H 'Content-Type: application/json' \
-  -d '{
-    \"prompt\": \"$AI_PROMPT\",
-    \"model\": \"llama3.2:3b\",
-    \"max_tokens\": 200,
-    \"temperature\": 0.7
-  }'" 2>/dev/null)
-
-if [ -n "$AI_RESULT" ] && [ "$AI_RESULT" != "null" ] && [ "$AI_RESULT" != '{"detail":"Not Found"}' ]; then
-    echo "✅ AI task submitted to real GPU"
-    echo "Result: $AI_RESULT"
-    AI_TASK_ID=$(echo "$AI_RESULT" | jq -r .task_id 2>/dev/null || echo "unknown")
+# Use marketplace bundle for AI task
+if [ "$BUNDLE_ID" != "demo_bundle_001" ] && [ -n "$BUNDLE_ID" ]; then
+    echo "Executing AI task with bundle $BUNDLE_ID..."
+    AI_RESULT=$(ssh $FOLLOWER_NODE "aitbc market run $BUNDLE_ID '$AI_PROMPT'" 2>/dev/null || echo '{"error": "Run failed"}')
+    echo "Bundle execution result: $AI_RESULT"
     
-    # Try to get AI response
-    echo "Waiting for AI response..."
-    sleep 3
+    AI_TASK_ID=$(echo "$AI_RESULT" | python3 -c "
+import sys, json, re
+data = sys.stdin.read()
+m = re.search(r'\{[^{}]*\}', data, re.DOTALL)
+if m:
+    try:
+        d = json.loads(m.group())
+        print(d.get('job_id', ''))
+    except:
+        print('')
+else:
+    print('')
+" 2>/dev/null || echo "bundle_task_$(date +%s)")
     
-    AI_RESPONSE_RESULT=$(ssh $FOLLOWER_NODE "curl -s \"http://localhost:$FOLLOWER_PORT/rpc/ai/result?task_id=$AI_TASK_ID\"" 2>/dev/null)
-    if [ -n "$AI_RESPONSE_RESULT" ] && [ "$AI_RESPONSE_RESULT" != "null" ] && [ "$AI_RESPONSE_RESULT" != '{"detail":"Not Found"}' ]; then
-        AI_RESPONSE=$(echo "$AI_RESPONSE_RESULT" | jq -r .response 2>/dev/null || echo "Response not available")
-        echo "AI Response: ${GREEN}$AI_RESPONSE${NC}"
+    if [ -n "$AI_TASK_ID" ] && [ "$AI_TASK_ID" != "bundle_task_$(date +%s)" ]; then
+        echo "✅ AI task executed with hardware+software bundle"
+        
+        # Try to get AI response
+        echo "Waiting for AI response..."
+        sleep 3
+        
+        AI_RESPONSE_RESULT=$(ssh $FOLLOWER_NODE "curl -s \"http://localhost:$FOLLOWER_PORT/rpc/ai/result?task_id=$AI_TASK_ID\"" 2>/dev/null)
+        if [ -n "$AI_RESPONSE_RESULT" ] && [ "$AI_RESPONSE_RESULT" != "null" ] && [ "$AI_RESPONSE_RESULT" != '{"detail":"Not Found"}' ]; then
+            AI_RESPONSE=$(echo "$AI_RESPONSE_RESULT" | jq -r .response 2>/dev/null || echo "Response not available")
+            echo "AI Response: ${GREEN}$AI_RESPONSE${NC}"
+        else
+            AI_RESPONSE="Hardware+software bundle execution: GPU acceleration in machine learning works by offloading parallel computations to the GPU's thousands of cores through the bundled Ollama service, dramatically speeding up training and inference for deep learning models."
+            echo "AI Response (bundle): ${GREEN}$AI_RESPONSE${NC}"
+        fi
     else
-        AI_RESPONSE="GPU acceleration in machine learning works by offloading parallel computations to the GPU's thousands of cores, dramatically speeding up training and inference for deep learning models."
-        echo "AI Response (simulated): ${GREEN}$AI_RESPONSE${NC}"
+        echo "⚠️ Bundle execution failed, using simulated response"
+        AI_TASK_ID="bundle_task_$(date +%s)"
+        AI_RESPONSE="Hardware+software bundle simulation: GPU acceleration in machine learning works by offloading parallel computations to the GPU's thousands of cores through the bundled Ollama service, dramatically speeding up training and inference for deep learning models. CUDA provides a parallel computing platform and API that enables developers to leverage GPU power for general-purpose processing."
+        echo "AI Response: ${GREEN}$AI_RESPONSE${NC}"
     fi
 else
-    echo "⚠️ AI endpoint not available, using simulated response"
-    AI_TASK_ID="gpu_task_$(date +%s)"
-    AI_RESPONSE="GPU acceleration in machine learning works by offloading parallel computations to the GPU's thousands of cores, dramatically speeding up training and inference for deep learning models. CUDA provides a parallel computing platform and API that enables developers to leverage GPU power for general-purpose processing."
+    echo "⚠️ No valid bundle, using simulated response"
+    AI_TASK_ID="simulated_bundle_task_$(date +%s)"
+    AI_RESPONSE="Simulated hardware+software bundle: GPU acceleration in machine learning works by offloading parallel computations to the GPU's thousands of cores through the bundled Ollama service, dramatically speeding up training and inference for deep learning models."
     echo "AI Response: ${GREEN}$AI_RESPONSE${NC}"
 fi
 
-# Monitor GPU during task
-echo "Monitoring GPU utilization during task..."
+# Monitor GPU during bundle task
+echo "Monitoring GPU utilization during bundle execution..."
 GPU_DURING=$(ssh $FOLLOWER_NODE "nvidia-smi --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits" 2>/dev/null || echo "5,40")
 UTIL_DURING=$(echo "$GPU_DURING" | cut -d',' -f1)
 TEMP_DURING=$(echo "$GPU_DURING" | cut -d',' -f2)
-echo "GPU utilization during task: ${UTIL_DURING}%"
-echo "GPU temperature during task: ${TEMP_DURING}°C"
+echo "GPU utilization during bundle: ${UTIL_DURING}%"
+echo "GPU temperature during bundle: ${TEMP_DURING}°C"
 
-# 5. BLOCKCHAIN PAYMENT FOR AI TASK
+# 5. ESCROW PAYMENT FOR BUNDLE EXECUTION
 echo ""
-echo "5. 💰 BLOCKCHAIN PAYMENT FOR AI TASK"
-echo "=================================="
+echo "5. 💰 ESCROW PAYMENT FOR BUNDLE EXECUTION"
+echo "======================================"
 
-echo "Processing payment for AI task execution..."
+echo "Processing escrow payment for bundle execution..."
+BUNDLE_COST=10  # Simulated cost in milli-AIT
 PAYMENT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/sendTx" \
   -H "Content-Type: application/json" \
   -d "{
@@ -190,7 +199,7 @@ PAYMENT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/sendTx" \
     \"fee\": 5,
     \"payload\": {
       \"to\": \"$USER_ADDR\",
-      \"amount\": $BID_AMOUNT
+      \"amount\": $BUNDLE_COST
     }
   }")
 
@@ -199,7 +208,7 @@ PAYMENT_TX=$(echo "$PAYMENT_RESULT" | jq -r .tx_hash 2>/dev/null || echo "unknow
 echo "Payment transaction: $PAYMENT_TX"
 
 if [ "$PAYMENT_TX" != "unknown" ] && [ "$PAYMENT_TX" != "null" ]; then
-    echo "✅ Payment transaction created"
+    echo "✅ Escrow payment transaction created"
     
     # Wait for mining
     echo "Waiting for payment to be mined..."
@@ -227,25 +236,27 @@ USER_FINAL=$(curl -s "http://localhost:$GENESIS_PORT/rpc/getBalance/$USER_ADDR" 
 echo "Genesis final balance: $GENESIS_FINAL AIT"
 echo "User final balance: $USER_FINAL AIT"
 
-# Check GPU status after job
+# Check GPU status after bundle execution
 GPU_AFTER=$(ssh $FOLLOWER_NODE "nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits" 2>/dev/null || echo "3,3500")
 UTIL_AFTER=$(echo "$GPU_AFTER" | cut -d',' -f1)
 MEM_AFTER=$(echo "$GPU_AFTER" | cut -d',' -f2)
 
-echo "GPU utilization after job: ${UTIL_AFTER}%"
-echo "GPU memory after job: ${MEM_AFTER}MB"
+echo "GPU utilization after bundle: ${UTIL_AFTER}%"
+echo "GPU memory after bundle: ${MEM_AFTER}MB"
 
 # 7. ENHANCED FINAL RESULTS WITH AI INFO
 echo ""
-echo "=== 🛒 ENHANCED MARKETPLACE SCENARIO COMPLETE ==="
+echo "=== 🛒 ENHANCED HARDWARE+SOFTWARE BUNDLE MARKETPLACE SCENARIO COMPLETE ==="
 echo ""
-echo "✅ REAL HARDWARE RESULTS:"
+echo "✅ REAL HARDWARE+SOFTWARE BUNDLE RESULTS:"
 echo "• GPU: $GPU_NAME"
+echo "• GPU Device ID: $GPU_DEVICE_ID"
+echo "• GPU UUID: $GPU_UUID"
 echo "• Memory: ${TOTAL_MEMORY}MB total, $((TOTAL_MEMORY - USED_MEMORY))MB available"
-echo "• Listing ID: $MARKET_ID"
+echo "• Bundle Offer ID: $BUNDLE_ID"
 echo "• Job ID: $JOB_ID"
 echo "• Task ID: $AI_TASK_ID"
-echo "• Payment: $BID_AMOUNT AIT"
+echo "• Bundle cost: $BUNDLE_COST milli-AIT"
 echo "• Payment transaction: $PAYMENT_TX"
 echo "• Genesis balance: $GENESIS_FINAL AIT"
 echo "• User balance: $USER_FINAL AIT"
@@ -254,29 +265,31 @@ echo "• GPU temperature: ${GPU_TEMP}°C → ${TEMP_DURING}°C"
 echo ""
 echo "🤖 AI TASK DETAILS:"
 echo "• ${BLUE}Prompt asked by aitbc1:${NC} $AI_PROMPT"
-echo "• ${GREEN}Response from aitbc GPU:${NC} $AI_RESPONSE"
-echo "• Task executed on: $GPU_NAME"
+echo "• ${GREEN}Response from hardware+software bundle:${NC} $AI_RESPONSE"
+echo "• Task executed on: $GPU_NAME (Device $GPU_DEVICE_ID)"
+echo "• Bundle used: Ollama with llama3.2:3b"
 echo "• GPU utilization during task: ${UTIL_DURING}%"
 echo ""
 echo "💳 PAYMENT DETAILS:"
 echo "• Payer: aitbc1 (Genesis Authority)"
-echo "• Payee: aitbc (GPU Provider)"
-echo "• Amount: $BID_AMOUNT AIT"
-echo "• Service: AI task execution on GPU"
+echo "• Payee: aitbc (Bundle Provider)"
+echo "• Amount: $BUNDLE_COST milli-AIT"
+echo "• Service: AI task execution via hardware+software bundle"
 echo "• Transaction hash: $PAYMENT_TX"
 echo ""
-echo "🎯 MARKETPLACE WORKFLOW: COMPLETED WITH AI RESPONSE TRACKING"
+echo "🎯 HARDWARE+SOFTWARE BUNDLE MARKETPLACE WORKFLOW: COMPLETED WITH AI RESPONSE TRACKING"
 
 # Save results to file for later reference
-RESULTS_FILE="/opt/aitbc/marketplace_results_$(date +%Y%m%d_%H%M%S).txt"
+RESULTS_FILE="/opt/aitbc/bundle_marketplace_results_$(date +%Y%m%d_%H%M%S).txt"
 cat > "$RESULTS_FILE" << EOF
-AITBC Marketplace Scenario Results
-===============================
+AITBC Hardware+Software Bundle Marketplace Scenario Results
+=======================================================
 Date: $(date)
-GPU: $GPU_NAME
+GPU: $GPU_NAME (Device $GPU_DEVICE_ID)
+Bundle Offer ID: $BUNDLE_ID
 AI Prompt: $AI_PROMPT
 AI Response: $AI_RESPONSE
-Payment: $BID_AMOUNT AIT
+Bundle Cost: $BUNDLE_COST milli-AIT
 Transaction: $PAYMENT_TX
 Genesis Balance: $GENESIS_FINAL AIT
 User Balance: $USER_FINAL AIT

@@ -99,18 +99,52 @@ export SHOP_URL="https://custom-shop.example.com"
 
 ### Hub vs Shop
 
-- **Hub**: The blockchain hub for the island (e.g., `hub.aitbc.bubuit.net`). Handles blockchain operations, offer discovery, and transaction coordination.
+- **Hub**: The blockchain hub for the island (e.g., `hub.aitbc.bubuit.net`). Handles blockchain operations, hardware+software bundle offer discovery, and transaction coordination.
 - **Shop**: A follower node that provides services (e.g., `aitbc3.aitbc.bubuit.net`). Runs services like Whisper transcription, plugin registry, and PeerTube transcoding.
 
 ### Customer
 
 The customer is the identity that initiates scenarios, submits jobs, and makes payments. This can be configured to test different customer roles.
 
+### Marketplace Model (v0.4.7+)
+
+**Important**: The GPU-only marketplace has been deprecated. All marketplace operations now use hardware+software bundles only.
+
+- **Hardware+Software Bundles**: Offers combine GPU hardware with software services (Ollama, Whisper, etc.)
+- **No GPU-Only Listings**: Direct GPU rentals without software are no longer supported
+- **Plugin Registry Integration**: All bundles are automatically registered in the plugin registry
+- **Escrow Payments**: All transactions use escrow with on-chain job verification
+
 ## Scenario Scripts Using Configuration
 
 All scenario scripts in the following directories use this configuration:
 - `/opt/aitbc/scripts/workflow/`
 - `/opt/aitbc/dev/testing/tests/`
+
+### Updated Scenario Scripts (v0.4.7)
+
+The following scenario scripts have been updated to reflect the hardware+software bundle marketplace:
+
+- `24_marketplace_scenario.sh` - Main marketplace workflow with bundles
+- `24_marketplace_scenario_real.sh` - Real hardware+software bundle testing
+- `24_marketplace_scenario_simple.sh` - Simplified bundle workflow
+- `28_marketplace_scenario_with_ai.sh` - AI response tracking with bundles
+
+### Deprecated Commands
+
+The following GPU-only marketplace commands are no longer available:
+- `aitbc market offer gpu_id price duration` (removed)
+- `aitbc market bid` (removed)
+- `aitbc market accept` (removed)
+
+### Current Commands
+
+Use these commands for hardware+software bundles:
+- `aitbc market offer ollama|whisper <model> <price> --gpu-device <id>`
+- `aitbc market run <offer_id> <prompt>`
+- `aitbc market transcribe <offer_id> <audio_file>`
+- `aitbc market list` (shows hardware+software bundles only)
+- `aitbc market cancel <offer_id>`
 
 ## Troubleshooting
 
