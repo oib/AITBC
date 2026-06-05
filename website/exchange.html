@@ -16,19 +16,7 @@
         .price-neutral { color: #6b7280; }
         .loading { color: #9ca3af; font-style: italic; }
         .error { color: #ef4444; }
-        .refresh-btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-        }
-        .refresh-btn:hover {
-            background: #2563eb;
-        }
-        .price-grid {
+                .price-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
@@ -43,7 +31,7 @@
 <body>
     <div class="container">
         <header>
-            <div class="api-badge">Exchange</div>
+            <a href="/" class="api-badge" style="text-decoration: none; cursor: pointer;">Agent API</a>
             <h1>AITBC Exchange</h1>
             <p class="subtitle">ETH-AIT Bridge and Token Pricing</p>
         </header>
@@ -73,6 +61,11 @@
                 <p><strong>Message:</strong> "ask for coins" to get free AIT tokens</p>
                 <p><strong>Status:</strong> <span id="free-ait-status">Available for new agents</span></p>
                 <p><strong>Note:</strong> No ETH required for initial tokens</p>
+                <p style="margin-top: 1rem;">
+                    <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/free-ait.md" class="endpoint endpoint-link" target="_blank" style="text-decoration: none;">
+                        <span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;">VIEW DETAILS</span>
+                    </a>
+                </p>
             </div>
         </div>
 
@@ -91,8 +84,7 @@
                 <a href="/" class="endpoint endpoint-link">
                     <span class="method">HOME</span> <span class="path">Main Page</span>
                 </a>
-                <button class="refresh-btn" onclick="refreshPrices()">Refresh Prices</button>
-                <a href="https://github.com/oib/AITBC" class="endpoint endpoint-link" target="_blank">
+                                <a href="https://github.com/oib/AITBC" class="endpoint endpoint-link" target="_blank">
                     <span class="method">DOC</span> <span class="path">Documentation</span>
                 </a>
             </div>
@@ -101,7 +93,7 @@
 
         <!-- API Endpoints Card -->
         <div class="card">
-            <h2>API Endpoints</h2>
+            <h2><a href="/" style="text-decoration: none; color: inherit;">API Endpoints</a></h2>
             <a href="/exchange/price.json" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/exchange/price.json</span>
             </a>
@@ -120,11 +112,10 @@
     </div>
 
     <script>
-        let refreshInterval;
-        
+                
         async function fetchPrices() {
             try {
-                const response = await fetch('/v1/exchange/history');
+                const response = await fetch('http://hub.aitbc.bubuit.net/v1/exchange/history');
                 const data = await response.json();
                 
                 if (!data.success) {
@@ -141,7 +132,7 @@
         
         async function fetchBridgeStatus() {
             try {
-                const response = await fetch('/v1/exchange/status');
+                const response = await fetch('http://hub.aitbc.bubuit.net/v1/exchange/status');
                 const data = await response.json();
                 
                 updateBridgeStatus(data);
@@ -203,7 +194,7 @@
         
         async function fetchPendingDeposits() {
             try {
-                const response = await fetch('/v1/exchange/deposits?status=pending&limit=1');
+                const response = await fetch('http://hub.aitbc.bubuit.net/v1/exchange/deposits?status=pending&limit=1');
                 const data = await response.json();
                 
                 const countElement = document.getElementById('pending-count');
@@ -215,30 +206,11 @@
             }
         }
         
-        function refreshPrices() {
-            fetchPrices();
-            fetchBridgeStatus();
-        }
-        
-        function startAutoRefresh() {
-            // Refresh every 30 seconds
-            refreshInterval = setInterval(refreshPrices, 30000);
-        }
-        
-        function stopAutoRefresh() {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-            }
-        }
-        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
-            refreshPrices();
-            startAutoRefresh();
+            fetchPrices();
+            fetchBridgeStatus();
         });
-        
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', stopAutoRefresh);
     </script>
 </body>
 </html>
