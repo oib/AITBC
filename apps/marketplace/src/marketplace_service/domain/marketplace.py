@@ -73,6 +73,21 @@ class SoftwareService(SQLModel, table=True):
     status: str = Field(default="active", index=True)  # active, inactive
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    avg_rating: float = Field(default=0.0)  # Average service rating (1-5 scale)
+    rating_count: int = Field(default=0)  # Number of ratings received
+
+
+class ServiceRating(SQLModel, table=True):
+    """Service-specific ratings for marketplace offers"""
+    __tablename__ = "servicerating"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    service_id: str = Field(index=True)  # Foreign key to SoftwareService.plugin_id
+    rating: float = Field(default=0.0)  # Rating value (1-5 scale)
+    reviewer_id: str = Field(index=True)  # ID of the user providing the rating
+    comment: str = Field(default="")  # Optional comment/review text
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
 
 
 class KnowledgeGraph(SQLModel, table=True):

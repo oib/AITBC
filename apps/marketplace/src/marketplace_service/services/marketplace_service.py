@@ -10,7 +10,7 @@ from sqlmodel import select
 
 from aitbc import get_logger
 
-from ..domain.marketplace import MarketplaceOffer
+from ..domain.marketplace import MarketplaceOffer, ServiceRating, SoftwareService
 
 logger = get_logger(__name__)
 
@@ -248,6 +248,8 @@ class MarketplaceService:
                 "status": s.status,
                 "registered_at": s.registered_at.isoformat() if s.registered_at else None,
                 "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+                "avg_rating": s.avg_rating,
+                "rating_count": s.rating_count,
             } for s in services]
         except Exception as e:
             logger.error(f"Error in list_software_services: {type(e).__name__}: {str(e)}")
@@ -286,6 +288,8 @@ class MarketplaceService:
                 "status": service.status,
                 "registered_at": service.registered_at.isoformat() if service.registered_at else None,
                 "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+                "avg_rating": service.avg_rating,
+                "rating_count": service.rating_count,
             }
         except Exception as e:
             logger.error(f"Error in get_software_service: {type(e).__name__}: {str(e)}")
@@ -484,3 +488,124 @@ class MarketplaceService:
     def get_current_timestamp(self) -> int:
         """Get current Unix timestamp"""
         return int(time.time())
+
+    async def add_service_rating(self, service_id: str, rating: float, reviewer_id: str, comment: str = "") -> ServiceRating:
+        """Add a service rating and update service average rating"""
+        try:
+            # Validate rating scale (1-5)
+            if not (1.0 <= rating <= 5.0):
+                raise ValueError("Rating must be between 1.0 and 5.0")
+
+            # Create rating record
+            service_rating = ServiceRating(
+                service_id=service_id,
+                rating=rating,
+                reviewer_id=reviewer_id,
+                comment=comment
+            )
+            self.session.add(service_rating)
+            await self.session.commit()
+            await self.session.refresh(service_rating)
+            logger.info(f"Added rating {rating} for service {service_id} by reviewer {reviewer_id}")
+
+            # Update service average rating
+            await self._update_service_rating(service_id)
+
+            return service_rating
+        except Exception as e:
+            logger.error(f"Error in add_service_rating: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def get_service_ratings(self, service_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
+        """Get ratings for a specific service"""
+        try:
+            from sqlalchemy import select
+
+            stmt = select(ServiceRating).where(ServiceRating.service_id == service_id)
+            stmt = stmt.order_by(ServiceRating.created_at.desc())
+            stmt = stmt.limit(limit).offset(offset)
+
+            result = await self.session.execute(stmt)
+            ratings = result.scalars().all()
+
+            return [{
+                "id": r.id,
+                "service_id": r.service_id,
+                "rating": r.rating,
+                "reviewer_id": r.reviewer_id,
+                "comment": r.comment,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            } for r in ratings]
+        except Exception as e:
+            logger.error(f"Error in get_service_ratings: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def _update_service_rating(self, service_id: str) -> None:
+        """Calculate and update service average rating"""
+        try:
+            from sqlalchemy import func, select
+
+            # Get all ratings for the service
+            stmt = select(func.avg(ServiceRating.rating), func.count(ServiceRating.id))
+            stmt = stmt.where(ServiceRating.service_id == service_id)
+            result = await self.session.execute(stmt)
+            avg_rating, count = result.first()
+
+            # Update service record (try plugin_id first, then offer_id)
+            service_stmt = select(SoftwareService).where(SoftwareService.plugin_id == service_id)
+            service_result = await self.session.execute(service_stmt)
+            service = service_result.scalar_one_or_none()
+            
+            if not service:
+                # Try to find by offer_id
+                service_stmt = select(SoftwareService).where(SoftwareService.offer_id == service_id)
+                service_result = await self.session.execute(service_stmt)
+                service = service_result.scalar_one_or_none()
+
+            if service:
+                service.avg_rating = float(avg_rating) if avg_rating else 0.0
+                service.rating_count = int(count) if count else 0
+                await self.session.commit()
+                logger.info(f"Updated service {service_id} rating: avg={service.avg_rating}, count={service.rating_count}")
+        except Exception as e:
+            logger.error(f"Error in _update_service_rating: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def get_service_by_offer_id(self, offer_id: str) -> dict | None:
+        """Get a software service by offer_id"""
+        from sqlalchemy import select
+
+        try:
+            stmt = select(SoftwareService).where(SoftwareService.offer_id == offer_id)
+            result = await self.session.execute(stmt)
+            service = result.scalar_one_or_none()
+            
+            if not service:
+                return None
+            
+            return {
+                "plugin_id": service.plugin_id,
+                "service_type": service.service_type,
+                "model": service.model,
+                "price": service.price,
+                "price_unit": service.price_unit,
+                "offer_id": service.offer_id,
+                "endpoint": service.endpoint,
+                "public_endpoint": service.public_endpoint,
+                "health_url": service.health_url,
+                "provider_address": service.provider_address,
+                "node_id": service.node_id,
+                "gpu_name": service.gpu_name,
+                "gpu_device": service.gpu_device,
+                "gpu_uuid": service.gpu_uuid,
+                "gpu_offer_id": service.gpu_offer_id,
+                "description": service.description,
+                "status": service.status,
+                "registered_at": service.registered_at.isoformat() if service.registered_at else None,
+                "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+                "avg_rating": service.avg_rating,
+                "rating_count": service.rating_count,
+            }
+        except Exception as e:
+            logger.error(f"Error in get_service_by_offer_id: {type(e).__name__}: {str(e)}")
+            raise

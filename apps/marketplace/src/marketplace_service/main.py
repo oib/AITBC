@@ -619,6 +619,102 @@ async def query_graph(
         raise
 
 
+class RatingRequest(BaseModel):
+    """Request model for service rating"""
+    rating: float
+    reviewer_id: str
+    comment: str = ""
+
+
+@app.post("/v1/marketplace/offer/{service_id}/rate")
+async def rate_service(
+    service_id: str,
+    rating_data: RatingRequest,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Rate a marketplace service offer"""
+    try:
+        logger.info(f"POST /v1/marketplace/offer/{service_id}/rate called with rating={rating_data.rating}")
+        rating = await svc.add_service_rating(
+            service_id=service_id,
+            rating=rating_data.rating,
+            reviewer_id=rating_data.reviewer_id,
+            comment=rating_data.comment
+        )
+        return {
+            "status": "success",
+            "rating": {
+                "id": rating.id,
+                "service_id": rating.service_id,
+                "rating": rating.rating,
+                "reviewer_id": rating.reviewer_id,
+                "comment": rating.comment,
+                "created_at": rating.created_at.isoformat() if rating.created_at else None,
+            }
+        }
+    except ValueError as e:
+        logger.error(f"Validation error in rate_service: {str(e)}")
+        return {"error": str(e)}, 400
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/offer/{service_id}/rate: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.get("/v1/marketplace/offer/{service_id}/ratings")
+async def get_service_ratings(
+    service_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get ratings for a marketplace service offer"""
+    try:
+        logger.info(f"GET /v1/marketplace/offer/{service_id}/ratings called")
+        ratings = await svc.get_service_ratings(service_id, limit, offset)
+        
+        # Get service info for context (try plugin_id first, then offer_id)
+        service = await svc.get_software_service(service_id)
+        if not service:
+            # Try to find service by offer_id
+            service = await svc.get_service_by_offer_id(service_id)
+        
+        service_info = {
+            "avg_rating": service.get("avg_rating", 0.0) if service else 0.0,
+            "rating_count": service.get("rating_count", 0) if service else 0,
+        } if service else {"avg_rating": 0.0, "rating_count": 0}
+        
+        return {
+            "service_id": service_id,
+            "service_info": service_info,
+            "ratings": ratings,
+            "count": len(ratings),
+            "limit": limit,
+            "offset": offset,
+        }
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/offer/{service_id}/ratings: {type(e).__name__}: {str(e)}")
+        raise
+
+
+@app.get("/v1/marketplace/offer-by-id/{offer_id}")
+async def get_offer_by_id(
+    offer_id: str,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get a marketplace service offer by offer_id (blockchain offer ID)"""
+    try:
+        logger.info(f"GET /v1/marketplace/offer-by-id/{offer_id} called")
+        service = await svc.get_service_by_offer_id(offer_id)
+        
+        if not service:
+            return {"error": "Service not found"}, 404
+        
+        return service
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/offer-by-id/{offer_id}: {type(e).__name__}: {str(e)}")
+        raise
+
+
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit marketplace transaction"""

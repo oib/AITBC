@@ -222,12 +222,30 @@ def list(ctx, provider: str | None, status: str | None):
             deployment_type = payload.get('deployment_type', 'local')
             gpu_device = payload.get('gpu_device', '0')
             gpu_name_display = f"{gpu_name} [GPU {gpu_device}]" if deployment_type == 'local' else "N/A (cloud)"
+            
+            # Get rating info from marketplace service if available
+            rating_display = "N/A"
+            try:
+                client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=5)
+                # Use offer_id to lookup service via new endpoint
+                offer_id = payload.get('offer_id', '')
+                if offer_id:
+                    service_response = client.get(f"/v1/marketplace/offer-by-id/{offer_id}")
+                    if service_response and not service_response.get('error'):
+                        avg_rating = service_response.get('avg_rating', 0.0)
+                        rating_count = service_response.get('rating_count', 0)
+                        if rating_count > 0:
+                            rating_display = f"⭐ {avg_rating:.1f} ({rating_count})"
+            except:
+                pass  # Marketplace service not available, skip ratings
+            
             market_data.append({
                 "Offer ID": payload.get('offer_id', ''),
                 "Type": payload.get('service_type', '').upper(),
                 "Model": payload.get('model', ''),
                 "GPU": gpu_name_display[:35] + "..." if len(gpu_name_display) > 35 else gpu_name_display,
                 "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
+                "Rating": rating_display,
                 "Status": payload.get('status', 'active'),
                 "Provider": payload.get('provider_address', '')[:30] + "...",
                 "Description": (payload.get('description', '')[:35] + "...") if len(payload.get('description', '')) > 35 else payload.get('description', ''),
@@ -1289,4 +1307,95 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
 
     except Exception as e:
         error(f"Error processing video: {e}")
+        raise click.Abort()
+
+
+@market.command(name="rate")
+@click.argument('service_id')
+@click.argument('rating', type=float)
+@click.option('--comment', help='Optional comment/review text')
+@click.option('--reviewer-id', help='Reviewer ID (defaults to wallet address)')
+@click.pass_context
+def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
+    """Rate a marketplace service offer (1-5 scale)"""
+    try:
+        config = get_config()
+        
+        # Validate rating scale
+        if not (1.0 <= rating <= 5.0):
+            error("Rating must be between 1.0 and 5.0")
+            raise click.Abort()
+        
+        # Default reviewer_id to wallet address
+        if not reviewer_id:
+            reviewer_id = get_wallet_address()
+        
+        # Call marketplace service API
+        client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
+        response = client.post(f"/v1/marketplace/offer/{service_id}/rate", json={
+            'rating': rating,
+            'reviewer_id': reviewer_id,
+            'comment': comment or ''
+        })
+        
+        if response.get('status') == 'success':
+            rating_data = response.get('rating', {})
+            success(f"Service rated successfully!")
+            output({
+                'service_id': rating_data.get('service_id'),
+                'rating': rating_data.get('rating'),
+                'reviewer_id': rating_data.get('reviewer_id'),
+                'comment': rating_data.get('comment'),
+                'created_at': rating_data.get('created_at')
+            }, ctx.obj.get('output_format', 'table'))
+        else:
+            error(f"Failed to rate service: {response.get('message', 'Unknown error')}")
+            output(response)
+            raise click.Abort()
+            
+    except NetworkError as e:
+        error(f"Marketplace service not reachable: {e}")
+        error("Ensure marketplace-service is running at http://localhost:8102")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error rating service: {e}")
+        raise click.Abort()
+
+
+@market.command(name="ratings")
+@click.argument('service_id')
+@click.option('--limit', default=50, help='Number of ratings to return')
+@click.option('--offset', default=0, help='Offset for pagination')
+@click.pass_context
+def ratings(ctx, service_id: str, limit: int, offset: int):
+    """View ratings for a marketplace service offer"""
+    try:
+        config = get_config()
+        
+        # Call marketplace service API
+        client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
+        response = client.get(f"/v1/marketplace/offer/{service_id}/ratings", params={
+            'limit': limit,
+            'offset': offset
+        })
+        
+        service_info = response.get('service_info', {})
+        ratings_list = response.get('ratings', [])
+        
+        info(f"Service: {service_id}")
+        info(f"Average Rating: {service_info.get('avg_rating', 0.0):.1f}/5.0")
+        info(f"Total Ratings: {service_info.get('rating_count', 0)}")
+        info(f"Showing {len(ratings_list)} ratings")
+        
+        if ratings_list:
+            output(ratings_list, ctx.obj.get('output_format', 'table'))
+        else:
+            info("No ratings found for this service")
+            
+    except NetworkError as e:
+        error(f"Marketplace service not reachable: {e}")
+        error("Ensure marketplace-service is running at http://localhost:8102")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error getting ratings: {e}")
         raise click.Abort()
