@@ -39,12 +39,12 @@ class MessageStorage:
             await self.redis.hset(f"message:{message_id}", mapping=message_data)
 
             # Index by sender
-            sender_id = message_data.get("sender_id")
+            sender_id = message_data.get("sender")
             if sender_id:
                 await self.redis.sadd(f"messages:sender:{sender_id}", message_id)
 
             # Index by receiver
-            receiver_id = message_data.get("receiver_id")
+            receiver_id = message_data.get("recipient")
             if receiver_id:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
 

@@ -68,7 +68,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest):
             message_data = {
                 "sender": req.sender,
                 "recipient": req.recipient,
-                "content": req.content,
+                "content": json.dumps(req.content),
                 "message_type": req.message_type,
                 "encrypted": False,
                 "priority": req.priority,
@@ -78,7 +78,9 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest):
         # Store in message storage
         if state.message_storage:
             message_id = f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{req.sender[:8]}"
-            await state.message_storage.store_message(message_id, message_data)
+            # Convert all values to strings for Redis compatibility
+            redis_message_data = {k: str(v) if not isinstance(v, str) else v for k, v in message_data.items()}
+            await state.message_storage.store_message(message_id, redis_message_data)
 
         return {
             "status": "success",

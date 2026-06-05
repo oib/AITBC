@@ -140,14 +140,9 @@ class MatchingService:
         Returns:
             Match record as dict
         """
-        try:
-            logger.info(f"Creating match: bid_id={bid_id}, offer_id={offer_id}")
-
-            # Bids deprecated in v0.4.7 - GPU-only marketplace removed
-            # This method is no longer functional
-            raise NotImplementedError("Bid-based matching deprecated in v0.4.7")
-
-            # Method deprecated - GPU-only marketplace removed in v0.4.7
+        # Bids deprecated in v0.4.7 - GPU-only marketplace removed
+        # This method is no longer functional
+        raise NotImplementedError("Bid-based matching deprecated in v0.4.7")
 
     async def list_matches(
         self,
@@ -164,11 +159,8 @@ class MatchingService:
         Returns:
             List of match records
         """
-        try:
-            logger.info(f"Listing matches with filters: status={status}, provider={provider}")
-
-            # Bids deprecated in v0.4.7 - no bid matching available
-            raise NotImplementedError("Bid-based matching deprecated in v0.4.7")
+        # Bids deprecated in v0.4.7 - no bid matching available
+        raise NotImplementedError("Bid-based matching deprecated in v0.4.7")
 
     async def auto_match_pending_bids(self) -> dict:
         """
@@ -177,8 +169,5 @@ class MatchingService:
         Returns:
             Summary of matching results
         """
-        try:
-            logger.info("Starting auto-match for pending bids")
-
-            # Bids deprecated in v0.4.7 - auto-matching no longer available
-            raise NotImplementedError("Bid-based auto-matching deprecated in v0.4.7")
+        # Bids deprecated in v0.4.7 - auto-matching no longer available
+        raise NotImplementedError("Bid-based auto-matching deprecated in v0.4.7")
