@@ -1,0 +1,108 @@
+name: CLI Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'cli/**'
+      - 'tests/cli-test-*.sh'
+      - 'pyproject.toml'
+      - '.gitea/workflows/cli-level1-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: cli-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-cli:
+    runs-on: debian
+    timeout-minutes: 10
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/cli-tests
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --requirements-file "$PWD/cli/requirements-cli.txt" \
+            --extra-packages "PyYAML requests cryptography pydantic pydantic-settings fastapi httpx"
+          echo "✅ Python environment ready"
+
+      - name: Verify CLI imports
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          source venv/bin/activate
+          export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
+
+          python3 -c "from core.main import cli; print('✅ CLI imports OK')"
+
+      - name: Run CLI tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          source venv/bin/activate
+          export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
+
+          # Test both chains for blockchain commands
+          export CHAINS="ait-mainnet,ait-testnet"
+
+          if [[ -d "cli/tests" ]]; then
+            # Run the CLI test runner that uses virtual environment
+            python3 cli/tests/run_cli_tests.py
+          else
+            echo "❌ No CLI tests directory"
+            exit 1
+          fi
+
+          echo "✅ CLI tests completed"
+
+      - name: Run /v1 prefix verification
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          if [[ -f "tests/cli-test-v1-prefix.sh" ]]; then
+            bash tests/cli-test-v1-prefix.sh
+            echo "✅ /v1 prefix verification completed"
+          else
+            echo "⚠️ /v1 prefix verification script not found"
+          fi
+
+      - name: Run CLI command tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          if [[ -f "tests/cli-test-commands.sh" ]]; then
+            bash tests/cli-test-commands.sh
+            echo "✅ CLI command tests completed"
+          else
+            echo "⚠️ CLI command tests script not found"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"

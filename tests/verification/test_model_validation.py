@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""
+Test the BlockImportRequest model
+"""
+
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from aitbc import validate_address, validate_hash
+
+
+class TransactionData(BaseModel):
+    tx_hash: str
+    sender: str
+    recipient: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+class BlockImportRequest(BaseModel):
+    height: int = Field(gt=0)
+    hash: str
+    parent_hash: str
+    proposer: str
+    timestamp: str
+    tx_count: int = Field(ge=0)
+    state_root: str | None = None
+    transactions: list[TransactionData] = Field(default_factory=list)
+
+# Test creating the request
+test_data = {
+    "height": 1,
+    "hash": "0xtest",
+    "parent_hash": "0x00",
+    "proposer": "test",
+    "timestamp": "2026-01-29T10:20:00",
+    "tx_count": 1,
+    "transactions": [{
+        "tx_hash": "0xtx123",
+        "sender": "0xsender",
+        "recipient": "0xrecipient",
+        "payload": {"test": "data"}
+    }]
+}
+
+print("Test data:")
+print(test_data)
+
+# Validate address and hash using aitbc validators
+try:
+    validate_address(test_data["proposer"])
+    validate_hash(test_data["hash"])
+    print("✅ Address and hash validation passed")
+except Exception as e:
+    print(f"⚠️  Validation warning: {e}")
+
+try:
+    request = BlockImportRequest(**test_data)
+    print("\n✅ Request validated successfully!")
+    print(f"Transactions count: {len(request.transactions)}")
+    if request.transactions:
+        tx = request.transactions[0]
+        print("First transaction:")
+        print(f"  tx_hash: {tx.tx_hash}")
+        print(f"  sender: {tx.sender}")
+        print(f"  recipient: {tx.recipient}")
+except Exception as e:
+    print(f"\n❌ Validation failed: {e}")
+    import traceback
+    traceback.print_exc()

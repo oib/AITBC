@@ -1,0 +1,151 @@
+name: Systemd Sync
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'systemd/**'
+      - '.gitea/workflows/systemd-sync.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: systemd-sync-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-systemd:
+    runs-on: debian
+    timeout-minutes: 5
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/systemd-sync
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Validate service files
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          echo "=== Validating systemd service files ==="
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          if [[ ! -d "systemd" ]]; then
+            echo "⚠️ No systemd directory found"
+            exit 0
+          fi
+
+          errors=0
+          for f in systemd/*.service; do
+            fname=$(basename "$f")
+            echo -n "  $fname: "
+
+            # Check required fields
+            if grep -q "ExecStart=" "$f" && grep -q "Description=" "$f"; then
+              echo "✅ valid"
+            else
+              echo "❌ missing ExecStart or Description"
+              errors=$((errors + 1))
+            fi
+          done
+
+          echo "=== Found $(ls systemd/*.service 2>/dev/null | wc -l) service files, $errors errors ==="
+
+          if [[ $errors -gt 0 ]]; then
+            exit 1
+          fi
+
+      - name: Sync service files
+        if: github.event_name != 'pull_request'
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          if [[ ! -d "systemd" ]]; then
+            exit 0
+          fi
+
+          echo "=== Syncing systemd files ==="
+          if [[ -x scripts/utils/link-systemd.sh ]]; then
+            if [[ $EUID -eq 0 ]]; then
+              ./scripts/utils/link-systemd.sh
+            else
+              sudo ./scripts/utils/link-systemd.sh
+            fi
+          else
+            echo "⚠️ scripts/utils/link-systemd.sh not found"
+            exit 1
+          fi
+
+          systemctl daemon-reload
+          echo "✅ Systemd daemon reloaded"
+
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found to enable/start"
+          fi
+
+          # Enable services
+          echo "=== Enabling services ==="
+          for svc in "${services[@]}"; do
+            if systemctl list-unit-files | grep -q "^$svc.service"; then
+              systemctl enable "$svc" 2>/dev/null || echo "  ⚠️ $svc enable failed"
+              echo "  ✅ $svc enable attempted"
+            else
+              echo "  ⚠️ $svc service file not found"
+            fi
+          done
+
+          # Start services
+          echo "=== Starting services ==="
+          for svc in "${services[@]}"; do
+            if systemctl list-unit-files | grep -q "^$svc.service"; then
+              systemctl start "$svc" 2>/dev/null || echo "  ⚠️ $svc start failed"
+              echo "  ✅ $svc start attempted"
+            else
+              echo "  ⚠️ $svc service file not found"
+            fi
+          done
+
+      - name: Service status check
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          echo "=== AITBC Service Status ==="
+
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found"
+            exit 0
+          fi
+
+          for svc in "${services[@]}"; do
+            status=$(systemctl is-active "$svc" 2>/dev/null) || status="not-found"
+            enabled=$(systemctl is-enabled "$svc" 2>/dev/null) || enabled="not-found"
+            printf "  %-35s active=%-10s enabled=%s\n" "$svc" "$status" "$enabled"
+          done
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"

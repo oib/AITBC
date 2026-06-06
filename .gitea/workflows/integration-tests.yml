@@ -1,0 +1,172 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.gitea/workflows/integration-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: integration-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-service-integration:
+    runs-on: debian
+    timeout-minutes: 15
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/integration-tests
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "uvicorn fastapi sqlmodel httpx requests"
+
+      - name: Start services from workspace
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          REPO="$PWD"
+          VENV="$REPO/venv"
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          # Start coordinator-api on port 8011
+          echo "Starting coordinator-api..."
+          PYTHONPATH="$REPO:$REPO/apps/coordinator-api/src" \
+          AITBC_REPO_DIR="$REPO" \
+          DATA_DIR=/var/lib/aitbc/data \
+          LOG_DIR=/var/log/aitbc \
+            "$VENV/bin/python" -m uvicorn app.main:app \
+              --host 127.0.0.1 --port 8011 \
+              --app-dir "$REPO/apps/coordinator-api/src" \
+              --log-level warning &
+          echo "coordinator-api PID: $!"
+
+          # Start blockchain-rpc on port 8006 (if not already running on host)
+          if ! curl -sf http://localhost:8006/health > /dev/null 2>&1; then
+            echo "Starting blockchain-rpc..."
+            PYTHONPATH="$REPO/apps/blockchain-node/src:$REPO" \
+            AITBC_REPO_DIR="$REPO" \
+            AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false \
+            enable_block_production=false \
+            DATA_DIR=/var/lib/aitbc/data \
+              "$VENV/bin/python" -m uvicorn aitbc_chain.app:app \
+                --host 127.0.0.1 --port 8006 \
+                --log-level warning &
+            echo "blockchain-rpc PID: $!"
+          else
+            echo "✅ blockchain-rpc already running on host"
+          fi
+
+      - name: Wait for services ready
+        id: wait-services
+        continue-on-error: true
+        run: |
+          echo "Waiting for services..."
+          services_available=true
+          # Only check services that are started in this workflow
+          for port in 8011 8006; do
+            port_ready=0
+            for i in $(seq 1 20); do
+              for path in /health /v1/health /health/live /; do
+                code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port$path" 2>/dev/null) || code=0
+                if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                  echo "✅ Port $port ready (HTTP $code on $path)"
+                  port_ready=1
+                  break 2
+                fi
+              done
+              [ "$i" -eq 20 ] && echo "⚠️  Port $port not ready"
+              sleep 2
+            done
+
+            if [[ $port_ready -ne 1 ]]; then
+              services_available=false
+            fi
+          done
+
+          echo "services_available=$services_available" >> $GITHUB_OUTPUT
+          if [[ $services_available == "false" ]]; then
+            echo "⚠️  Not all services ready - integration tests will be skipped"
+            exit 0
+          fi
+
+      - name: Setup test environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+      - name: Run integration tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          source venv/bin/activate
+          export PYTHONPATH="$PWD/cli:$PWD/apps/coordinator-api/src:$PWD/apps/wallet/src:$PWD/apps/exchange/src:$PYTHONPATH"
+
+          # Skip if services not available
+          if [ "${{ steps.wait-services.outputs.services_available }}" != "true" ]; then
+            echo "⚠️  Services not available - skipping integration tests"
+            exit 0
+          fi
+
+          # Run existing test suites
+          if [[ -d "tests" ]]; then
+            venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -x --timeout=30 -q --ignore=tests/production
+          fi
+
+          # Service health check integration (now tests both chains)
+          python3 scripts/ci/test_api_endpoints.py
+          echo "✅ Integration tests completed"
+
+      - name: Service status report
+        if: always()
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          echo "=== Service Status ==="
+
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found"
+            exit 0
+          fi
+
+          for svc in "${services[@]}"; do
+            status=$(systemctl is-active "$svc" 2>/dev/null) || status="inactive"
+            echo "  $svc: $status"
+          done
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"

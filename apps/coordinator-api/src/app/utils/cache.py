@@ -1,0 +1,283 @@
+"""
+Caching strategy for expensive queries
+"""
+
+import asyncio
+import gc
+import hashlib
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from functools import wraps
+from typing import Any
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
+
+class CacheManager:
+    """Simple in-memory cache with TTL support and memory management"""
+
+    def __init__(self, max_size: int = 1000, max_memory_mb: int = 100) -> None:
+        self._cache: dict[str, dict[str, Any]] = {}
+        self._stats = {"hits": 0, "misses": 0, "sets": 0, "evictions": 0}
+        self.max_size = max_size
+        self.max_memory_mb = max_memory_mb
+
+    def get(self, key: str) -> Any | None:
+        """Get value from cache"""
+        if key not in self._cache:
+            self._stats["misses"] += 1
+            return None
+
+        cache_entry = self._cache[key]
+
+        # Check if expired
+        if datetime.now() > cache_entry["expires_at"]:
+            del self._cache[key]
+            self._stats["evictions"] += 1
+            self._stats["misses"] += 1
+            return None
+
+        self._stats["hits"] += 1
+        logger.debug(f"Cache hit for key: {key}")
+        return cache_entry["value"]
+
+    def set(self, key: str, value: Any, ttl_seconds: int = 300) -> None:
+        """Set value in cache with TTL and enforce size/memory limits"""
+        # Check size limit
+        if len(self._cache) >= self.max_size:
+            self._evict_oldest()
+
+        expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
+
+        self._cache[key] = {"value": value, "expires_at": expires_at, "created_at": datetime.now(), "ttl": ttl_seconds}
+
+        self._stats["sets"] += 1
+        logger.debug(f"Cache set for key: {key}, TTL: {ttl_seconds}s")
+
+        # Check memory limit periodically
+        if self._stats["sets"] % 100 == 0:
+            self._check_memory_limit()
+
+    def delete(self, key: str) -> bool:
+        """Delete key from cache"""
+        if key in self._cache:
+            del self._cache[key]
+            return True
+        return False
+
+    def clear(self) -> None:
+        """Clear all cache entries"""
+        self._cache.clear()
+        logger.info("Cache cleared")
+
+    def cleanup_expired(self) -> int:
+        """Remove expired entries and return count removed"""
+        now = datetime.now()
+        expired_keys = [key for key, entry in self._cache.items() if now > entry["expires_at"]]
+
+        for key in expired_keys:
+            del self._cache[key]
+
+        self._stats["evictions"] += len(expired_keys)
+
+        if expired_keys:
+            logger.info(f"Cleaned up {len(expired_keys)} expired cache entries")
+
+        return len(expired_keys)
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics"""
+        total_requests = self._stats["hits"] + self._stats["misses"]
+        hit_rate = (self._stats["hits"] / total_requests * 100) if total_requests > 0 else 0
+
+        return {
+            **self._stats,
+            "total_entries": len(self._cache),
+            "hit_rate_percent": round(hit_rate, 2),
+            "total_requests": total_requests,
+            "max_size": self.max_size,
+            "max_memory_mb": self.max_memory_mb,
+        }
+
+    def _evict_oldest(self) -> None:
+        """Evict the oldest cache entry"""
+        if not self._cache:
+            return
+
+        # Find oldest entry by created_at timestamp
+        oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]["created_at"])
+        del self._cache[oldest_key]
+        self._stats["evictions"] += 1
+        logger.debug(f"Evicted oldest cache entry: {oldest_key}")
+
+    def _check_memory_limit(self) -> None:
+        """Check if cache exceeds memory limit and evict if needed"""
+        import sys
+
+        # Estimate cache memory usage (rough approximation)
+        cache_size_mb = sys.getsizeof(self._cache) / (1024 * 1024)
+
+        if cache_size_mb > self.max_memory_mb:
+            logger.warning(f"Cache memory limit exceeded ({cache_size_mb:.2f}MB > {self.max_memory_mb}MB), evicting entries")
+            # Evict 20% of entries to reduce memory
+            evict_count = max(1, int(len(self._cache) * 0.2))
+            for _ in range(evict_count):
+                self._evict_oldest()
+
+            # Force garbage collection
+            gc.collect()
+
+
+# Global cache manager instance with optimized settings
+cache_manager = CacheManager(max_size=1000, max_memory_mb=100)
+
+
+def cache_key_generator(*args: Any, **kwargs: Any) -> str:
+    """Generate a cache key from function arguments"""
+    # Create a deterministic string representation
+    key_parts = []
+
+    # Add function args
+    for arg in args:
+        if hasattr(arg, "__dict__"):
+            # For objects, use their dict representation
+            key_parts.append(str(sorted(arg.__dict__.items())))
+        else:
+            key_parts.append(str(arg))
+
+    # Add function kwargs
+    if kwargs:
+        key_parts.append(str(sorted(kwargs.items())))
+
+    # Create hash for consistent key length
+    key_string = "|".join(key_parts)
+    return hashlib.sha256(key_string.encode()).hexdigest()
+
+
+def cached(ttl_seconds: int = 300, key_prefix: str = "") -> Callable[[Any], Any]:
+    """Decorator for caching function results"""
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Generate cache key
+            cache_key = f"{key_prefix}{func.__name__}_{cache_key_generator(*args, **kwargs)}"
+
+            # Try to get from cache
+            cached_result = cache_manager.get(cache_key)
+            if cached_result is not None:
+                return cached_result
+
+            # Execute function and cache result
+            result = await func(*args, **kwargs)
+            cache_manager.set(cache_key, result, ttl_seconds)
+
+            return result
+
+        @wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Generate cache key
+            cache_key = f"{key_prefix}{func.__name__}_{cache_key_generator(*args, **kwargs)}"
+
+            # Try to get from cache
+            cached_result = cache_manager.get(cache_key)
+            if cached_result is not None:
+                return cached_result
+
+            # Execute function and cache result
+            result = func(*args, **kwargs)
+            cache_manager.set(cache_key, result, ttl_seconds)
+
+            return result
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+
+    return decorator
+
+
+# Cache configurations for different query types
+CACHE_CONFIGS = {
+    "marketplace_stats": {"ttl_seconds": 300, "key_prefix": "marketplace_"},  # 5 minutes
+    "job_list": {"ttl_seconds": 60, "key_prefix": "jobs_"},  # 1 minute
+    "miner_list": {"ttl_seconds": 120, "key_prefix": "miners_"},  # 2 minutes
+    "user_balance": {"ttl_seconds": 30, "key_prefix": "balance_"},  # 30 seconds
+    "exchange_rates": {"ttl_seconds": 600, "key_prefix": "rates_"},  # 10 minutes
+}
+
+
+def get_cache_config(cache_type: str) -> dict[str, Any]:
+    """Get cache configuration for a specific type"""
+    return CACHE_CONFIGS.get(cache_type, {"ttl_seconds": 300, "key_prefix": ""})
+
+
+# Periodic cleanup task
+async def cleanup_expired_cache() -> None:
+    """Background task to clean up expired cache entries"""
+    while True:
+        try:
+            removed_count = cache_manager.cleanup_expired()
+            if removed_count > 0:
+                logger.info(f"Background cleanup removed {removed_count} expired entries")
+
+            # Run cleanup every 5 minutes
+            await asyncio.sleep(300)
+
+        except Exception as e:
+            logger.error(f"Cache cleanup error: {e}")
+            await asyncio.sleep(60)  # Retry after 1 minute on error
+
+
+# Cache warming utilities
+class CacheWarmer:
+    """Utility class for warming up cache with common queries"""
+
+    def __init__(self, session: Any) -> None:
+        self.session = session
+
+    async def warm_marketplace_stats(self) -> None:
+        """Warm up marketplace statistics cache"""
+        try:
+            from ..contexts.marketplace.services.marketplace import MarketplaceService
+
+            service = MarketplaceService(self.session)
+
+            # Cache common stats queries
+            stats = service.get_stats()
+            cache_manager.set("marketplace_stats_overview", stats, ttl_seconds=300)
+
+            logger.info("Marketplace stats cache warmed up")
+
+        except Exception as e:
+            logger.error(f"Failed to warm marketplace stats cache: {e}")
+
+    async def warm_exchange_rates(self) -> None:
+        """Warm up exchange rates cache"""
+        try:
+            # This would call an exchange rate API
+            # For now, just set a placeholder
+            rates = {"AITBC_BTC": 0.00001, "AITBC_USD": 0.10}
+            cache_manager.set("exchange_rates_current", rates, ttl_seconds=600)
+
+            logger.info("Exchange rates cache warmed up")
+
+        except Exception as e:
+            logger.error(f"Failed to warm exchange rates cache: {e}")
+
+
+# Cache middleware for FastAPI
+async def cache_middleware(request: Any, call_next: Any) -> Any:
+    """FastAPI middleware to add cache headers and track cache performance"""
+    response = await call_next(request)
+
+    # Add cache statistics to response headers (for debugging)
+    stats = cache_manager.get_stats()
+    response.headers["X-Cache-Hits"] = str(stats["hits"])
+    response.headers["X-Cache-Misses"] = str(stats["misses"])
+    response.headers["X-Cache-Hit-Rate"] = f"{stats['hit_rate_percent']}%"
+
+    return response

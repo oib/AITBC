@@ -1,0 +1,130 @@
+name: Build Debian Miner Binary
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-miner:
+    runs-on: debian
+    timeout-minutes: 30
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/build-miner
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Install dependencies
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          apt update
+          apt install -y \
+            python3 \
+            python3-venv \
+            python3-dev \
+            build-essential \
+            nvidia-driver-full \
+            nvidia-cuda-toolkit \
+            git \
+            wget \
+            curl
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          rm -rf venv
+          python3 -m venv venv
+          venv/bin/pip install --upgrade pip
+          venv/bin/pip install pyinstaller vllm torch transformers
+
+      - name: Build binary
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          venv/bin/pyinstaller scripts/gpu/miner.spec
+
+      - name: Package distribution
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/scripts/gpu"
+          cp dist/aitbc-miner-debian .
+          sha256sum aitbc-miner-debian > SHA256SUMS
+          tar -czf aitbc-miner-debian-package.tar.gz \
+            aitbc-miner-debian \
+            README.md \
+            install.sh \
+            verify-install.sh \
+            miner.env.template \
+            SHA256SUMS
+          sha256sum aitbc-miner-debian-package.tar.gz >> SHA256SUMS
+
+      - name: Get version
+        id: version
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION"
+
+      - name: Create Gitea release
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Create release using Gitea API
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            http://gitea.bubuit.net:3000/api/v1/repos/oib/aitbc/releases \
+            -d "{
+              \"tag_name\": \"v${VERSION}\",
+              \"target_commitish\": \"main\",
+              \"name\": \"AITBC Miner v${VERSION}\",
+              \"body\": \"AITBC Miner for Debian Stable (trixie)\\n\\n## Changes\\n- See commit history for details\",
+              \"draft\": false,
+              \"prerelease\": false
+            }"
+
+      - name: Upload binary to Gitea release
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Upload binary
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+            -F "attachment=@scripts/gpu/aitbc-miner-debian" \
+            http://gitea.bubuit.net:3000/api/v1/repos/oib/aitbc/releases/v${VERSION}/assets
+
+      - name: Upload package to Gitea release
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Upload package
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+            -F "attachment=@scripts/gpu/aitbc-miner-debian-package.tar.gz" \
+            http://gitea.bubuit.net:3000/api/v1/repos/oib/aitbc/releases/v${VERSION}/assets
+
+      - name: Upload checksums to Gitea release
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Upload checksums
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+            -F "attachment=@scripts/gpu/SHA256SUMS" \
+            http://gitea.bubuit.net:3000/api/v1/repos/oib/aitbc/releases/v${VERSION}/assets

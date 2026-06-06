@@ -1,0 +1,33 @@
+description: Research chain template for experimental AI projects
+genesis:
+  chain_type: "temporary"
+  purpose: "research"
+  name: "Research Experiment Chain"
+  description: "A temporary chain for AI research experiments"
+  
+  consensus:
+    algorithm: "poa"
+    block_time: 2
+    max_validators: 5
+    authorities: []
+  
+  privacy:
+    visibility: "public"
+    access_control: "open"
+    require_invitation: false
+    encryption_enabled: false
+  
+  parameters:
+    max_block_size: 2097152     # 2MB
+    max_gas_per_block: 20000000
+    min_gas_price: 1000000000   # 1 gwei
+    block_reward: "1000000000000000000"  # 1 ETH
+  
+  limits:
+    max_participants: 50
+    max_contracts: 20
+    max_transactions_per_block: 1000
+    max_storage_size: 2147483648  # 2GB
+  
+  accounts: []
+  contracts: []

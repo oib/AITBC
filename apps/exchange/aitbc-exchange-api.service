@@ -1,0 +1,26 @@
+[Unit]
+Description=AITBC Exchange API Service
+After=network.target aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/aitbc/apps/exchange
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/node.env
+Environment="PYTHONPATH=/opt/aitbc"
+ExecStart=/opt/aitbc/venv/bin/python simple_exchange_api.py --port 8106
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-exchange-api
+
+# Allow database writes for SQLite WAL mode
+ProtectSystem=no
+
+[Install]
+WantedBy=multi-user.target

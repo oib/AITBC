@@ -1,0 +1,146 @@
+# AITBC System Components
+
+Overview of all components in the AITBC platform, their status, and documentation links.
+
+## Core Components
+
+### Blockchain Node
+<span class="component-status live">● Live</span>
+
+PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
+
+[Learn More →](../8_development/1_overview.md#blockchain-node)
+
+### Coordinator API
+<span class="component-status live">● Live</span>
+
+FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.
+
+[Learn More →](../8_development/1_overview.md#coordinator-api)
+
+### Marketplace Web
+<span class="component-status live">● Live</span>
+
+Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
+
+[Learn More →](../2_clients/0_readme.md)
+
+### Blockchain Explorer
+<span class="component-status live">● Live</span>
+
+Agent-first Python FastAPI blockchain explorer with complete API and built-in HTML interface. TypeScript frontend merged and deleted for simplified architecture. Production-ready on port 8016.
+
+[Learn More →](../18_explorer/)
+
+### Wallet Daemon
+<span class="component-status live">● Live</span>
+
+Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.
+
+[Learn More →](../6_architecture/7_wallet.md)
+
+### Trade Exchange
+<span class="component-status live">● Live</span>
+
+Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
+
+[Learn More →](../6_architecture/6_trade-exchange.md)
+
+### ZK Circuits Engine
+<span class="component-status live">● Live</span>
+
+Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inference verification, training verification, and cryptographic proof generation using Groth16.
+
+[Learn More →](../8_development/zk-circuits.md)
+
+### FHE Service
+<span class="component-status live">● Live</span>
+
+Fully Homomorphic Encryption service for encrypted computation on sensitive ML data. TenSEAL integration with CKKS/BFV scheme support.
+
+[Learn More →](../8_development/fhe-service.md)
+
+### Enhanced Edge GPU
+<span class="component-status live">● Live</span>
+
+Consumer GPU optimization with dynamic discovery, latency measurement, and edge-aware scheduling. Supports Turing, Ampere, and Ada Lovelace architectures.
+
+[Learn More →](../6_architecture/edge_gpu_setup.md)
+
+Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.
+
+[Learn More →](../8_development/1_overview.md#pool-hub)
+
+## Architecture Overview
+
+The AITBC platform consists of 7 core components working together to provide a complete AI blockchain computing solution:
+
+### Infrastructure Layer
+
+- **Blockchain Node** - Distributed ledger with PoA/PoS consensus
+- **Coordinator API** - Job orchestration and management
+- **Wallet Daemon** - Secure wallet management
+
+### Application Layer
+
+- **Marketplace Web** - GPU compute marketplace
+- **Trade Exchange** - Token trading platform
+- **Explorer Web** - Blockchain explorer
+- **Pool Hub** - Miner coordination service
+
+### CLI & Tooling
+
+- **AITBC CLI** - 12 command groups, 90+ subcommands (165/165 tests passing)
+  - Client, miner, wallet, auth, blockchain, marketplace, admin, config, monitor, simulate, governance, plugin
+  - 141 unit tests + 24 integration tests (CLI → live coordinator)
+  - CI/CD via GitHub Actions, man page, shell completion
+
+## Component Interactions
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Clients   │────▶│ Coordinator  │────▶│ Blockchain  │
+│             │     │     API      │     │    Node     │
+└─────────────┘     └──────────────┘     └─────────────┘
+       │                     │                     │
+       ▼                     ▼                     ▼
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Wallet    │     │   Pool Hub   │     │   Miners    │
+│   Daemon    │     │              │     │             │
+└─────────────┘     └──────────────┘     └─────────────┘
+```
+
+## Quick Links
+
+[Trade Exchange](https://aitbc.bubuit.net/Exchange/)
+[Marketplace](https://aitbc.bubuit.net/marketplace/)
+[Explorer](https://aitbc.bubuit.net/explorer/)
+[API Docs](https://aitbc.bubuit.net/api/docs)
+
+## Status Legend
+
+- <span class="component-status live">● Live</span> - Production ready and deployed
+- <span class="component-status beta">● Beta</span> - In testing, limited availability
+- <span class="component-status dev">● Development</span> - Under active development
+
+## Deployment Information
+
+All components are containerized and can be deployed using Docker Compose:
+
+```bash
+# Deploy all components
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+## Support
+
+For component-specific issues:
+- Check individual documentation pages
+- Visit the [GitHub repository](https://github.com/aitbc/platform)
+- Contact: [aitbc@bubuit.net](mailto:aitbc@bubuit.net)

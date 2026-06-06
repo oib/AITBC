@@ -1,0 +1,319 @@
+"""Genesis block and wallet generation commands for AITBC CLI"""
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import click
+import httpx
+
+from ..utils import error, output, success
+
+
+@click.group()
+def genesis():
+    """Genesis block and wallet generation commands"""
+    pass
+
+
+@genesis.command()
+@click.option("--chain-id", default=None, help="Chain ID for genesis (auto-detected from config if not provided)")
+@click.option("--create-wallet", is_flag=True, help="Create genesis wallet with secure random key")
+@click.option("--password", help="Wallet password (auto-generated if not provided)")
+@click.option("--proposer", help="Proposer address (defaults to genesis wallet)")
+@click.option("--force", is_flag=True, help="Force overwrite existing genesis")
+@click.option("--register-service", is_flag=True, help="Register genesis wallet with wallet service")
+@click.option("--service-url", default="http://localhost:8003", help="Wallet service URL")
+@click.pass_context
+def init(ctx, chain_id: str, create_wallet: bool, password: str | None, proposer: str | None,
+          force: bool, register_service: bool, service_url: str):
+    """Initialize genesis block and wallet for a blockchain"""
+    # Auto-detect chain_id from config if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+
+    script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
+
+    if not script_path.exists():
+        error(f"Genesis generation script not found: {script_path}")
+        return
+
+    # Build command
+    cmd = [
+        sys.executable,
+        str(script_path),
+        "--chain-id", chain_id
+    ]
+
+    if create_wallet:
+        cmd.append("--create-wallet")
+
+    if password:
+        cmd.extend(["--password", password])
+
+    if proposer:
+        cmd.extend(["--proposer", proposer])
+
+    if force:
+        cmd.append("--force")
+
+    if register_service:
+        cmd.append("--register-service")
+        cmd.extend(["--service-url", service_url])
+
+    try:
+        success(f"Running genesis generation for {chain_id}...")
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        output(result.stdout, ctx.obj.get("output_format", "table"))
+        success("Genesis generation completed successfully")
+    except subprocess.CalledProcessError as e:
+        error(f"Genesis generation failed: {e.stderr}")
+        return
+
+
+@genesis.command()
+@click.option("--chain-id", default=None, help="Chain ID to verify (auto-detected from config if not provided)")
+@click.pass_context
+def verify(ctx, chain_id: str):
+    """Verify genesis block and wallet configuration"""
+    # Auto-detect chain_id from config if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+
+    import json
+    import sqlite3
+
+    # Check genesis config file
+    genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
+    if not genesis_path.exists():
+        error(f"Genesis config not found: {genesis_path}")
+        return
+
+    try:
+        with open(genesis_path) as f:
+            genesis_data = json.load(f)
+
+        success(f"✓ Genesis config found: {genesis_path}")
+        output({
+            "chain_id": genesis_data.get("chain_id"),
+            "genesis_hash": genesis_data.get("block", {}).get("hash"),
+            "proposer": genesis_data.get("block", {}).get("proposer"),
+            "allocations_count": len(genesis_data.get("allocations", []))
+        }, ctx.obj.get("output_format", "table"))
+    except Exception as e:
+        error(f"Failed to read genesis config: {e}")
+        return
+
+    # Check database (chain-specific path)
+    db_path = Path(f"/var/lib/aitbc/data/{chain_id}/chain.db")
+    if not db_path.exists():
+        # Fallback to legacy path
+        db_path = Path("/var/lib/aitbc/data/chain.db")
+        if not db_path.exists():
+            error("Database not found at chain-specific or legacy path")
+            return
+
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        # Check genesis block
+        cursor.execute("SELECT * FROM block WHERE height=0 AND chain_id=?", (chain_id,))
+        genesis_block = cursor.fetchone()
+
+        if genesis_block:
+            success("✓ Genesis block found in database")
+            output({
+                "height": genesis_block[1],
+                "hash": genesis_block[2],
+                "proposer": genesis_block[4]
+            }, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Genesis block not found in database for chain {chain_id}")
+
+        # Check genesis accounts
+        cursor.execute("SELECT COUNT(*) FROM account WHERE chain_id=?", (chain_id,))
+        account_count = cursor.fetchone()[0]
+
+        if account_count > 0:
+            success(f"✓ Found {account_count} accounts in database")
+        else:
+            error(f"No accounts found in database for chain {chain_id}")
+
+        conn.close()
+    except Exception as e:
+        error(f"Failed to verify database: {e}")
+        return
+
+    # Check genesis wallet
+    wallet_path = Path("/var/lib/aitbc/keystore/genesis.json")
+    if wallet_path.exists():
+        success(f"✓ Genesis wallet found: {wallet_path}")
+        try:
+            with open(wallet_path) as f:
+                wallet_data = json.load(f)
+            output({
+                "address": wallet_data.get("address"),
+                "public_key": wallet_data.get("public_key")[:16] + "..." if wallet_data.get("public_key") else None
+            }, ctx.obj.get("output_format", "table"))
+        except Exception as e:
+            error(f"Failed to read genesis wallet: {e}")
+    else:
+        error(f"Genesis wallet not found: {wallet_path}")
+
+
+@genesis.command()
+@click.option("--chain-id", default=None, help="Chain ID to show info for (auto-detected from blockchain node if not provided)")
+@click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL for chain ID auto-detection (default: http://localhost:8006)")
+@click.pass_context
+def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
+    """Show genesis block information"""
+    # Auto-detect chain_id from blockchain node if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+
+        # Try to get chain_id from RPC health endpoint
+        if not rpc_url:
+            rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+
+        try:
+            from ..utils.chain_id import get_chain_id
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        except Exception:
+            # Fallback to config or default
+            chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+
+    # Use provided data dir or default
+    if not data_dir:
+        data_dir = "/var/lib/aitbc/data"
+
+    import json
+
+    genesis_path = Path(data_dir) / chain_id / "genesis.json"
+    if not genesis_path.exists():
+        error(f"Genesis config not found: {genesis_path}")
+        error(f"Chain ID: {chain_id}, Data directory: {data_dir}")
+        error(f"RPC URL used for detection: {rpc_url}")
+        error("Run 'aitbc genesis init' to create genesis block")
+        return
+
+    try:
+        with open(genesis_path) as f:
+            genesis_data = json.load(f)
+
+        block = genesis_data.get("block", {})
+        allocations = genesis_data.get("allocations", [])
+
+        output({
+            "chain_id": genesis_data.get("chain_id"),
+            "genesis_block": {
+                "height": block.get("height"),
+                "hash": block.get("hash"),
+                "parent_hash": block.get("parent_hash"),
+                "proposer": block.get("proposer"),
+                "timestamp": block.get("timestamp"),
+                "tx_count": block.get("tx_count")
+            },
+            "allocations": [
+                {
+                    "address": alloc.get("address"),
+                    "balance": alloc.get("balance"),
+                    "nonce": alloc.get("nonce")
+                }
+                for alloc in allocations[:5]  # Show first 5
+            ],
+            "total_allocations": len(allocations)
+        }, ctx.obj.get("output_format", "table"))
+
+    except Exception as e:
+        error(f"Failed to read genesis info: {e}")
+
+
+@genesis.command()
+@click.option("--chain-id", default=None, help="Chain ID to sync genesis for (auto-detected from config if not provided)")
+@click.option("--rpc-url", default=None, help="Hub RPC URL to fetch genesis from (default: from config)")
+@click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
+@click.option("--force", is_flag=True, help="Force overwrite existing genesis.json")
+@click.pass_context
+def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None, force: bool):
+    """Sync genesis.json from hub RPC endpoint"""
+    # Auto-detect chain_id from config if not provided
+    if not chain_id:
+        from ..config import get_config
+        config = get_config()
+        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+
+    # Auto-detect rpc_url from config if not provided
+    if not rpc_url:
+        from ..config import get_config
+        config = get_config()
+        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+
+    # Use provided data dir or default
+    if not data_dir:
+        data_dir = "/var/lib/aitbc/data"
+
+    genesis_dir = Path(data_dir) / chain_id
+    genesis_path = genesis_dir / "genesis.json"
+
+    # Check if genesis.json already exists
+    if genesis_path.exists() and not force:
+        error(f"Genesis file already exists: {genesis_path}")
+        error("Use --force to overwrite")
+        return
+
+    # Create directory if it doesn't exist
+    genesis_dir.mkdir(parents=True, exist_ok=True)
+
+    success(f"Fetching genesis from hub: {rpc_url}")
+    success(f"Chain ID: {chain_id}")
+
+    try:
+        # Fetch genesis from hub RPC endpoint
+        # The hub should expose a /rpc/genesis endpoint or similar
+        # For now, we'll try to fetch from the block endpoint
+        with httpx.Client(timeout=10.0) as client:
+            # Try to get genesis block from RPC
+            response = client.get(f"{rpc_url}/rpc/blocks/0?chain_id={chain_id}")
+            response.raise_for_status()
+            block_data = response.json()
+
+            # Construct genesis data from block
+            genesis_data = {
+                "genesis_hash": block_data.get("hash"),
+                "parent_hash": block_data.get("parent_hash", "0x00"),
+                "proposer": block_data.get("proposer", "genesis"),
+                "timestamp": block_data.get("timestamp"),
+                "state_root": block_data.get("state_root", "0x0000000000000000000000000000000000000000000000000000000000000000"),
+                "allocations": []
+            }
+
+            # Write genesis.json
+            with open(genesis_path, 'w') as f:
+                json.dump(genesis_data, f, indent=2, default=str)
+
+            success(f"✓ Genesis synced successfully: {genesis_path}")
+            output({
+                "chain_id": chain_id,
+                "genesis_hash": genesis_data["genesis_hash"],
+                "timestamp": genesis_data["timestamp"],
+                "file_path": str(genesis_path)
+            }, ctx.obj.get("output_format", "table"))
+
+    except httpx.HTTPStatusError as e:
+        error(f"Failed to fetch genesis from hub: HTTP {e.response.status_code}")
+        error(f"Response: {e.response.text}")
+        return
+    except httpx.RequestError as e:
+        error(f"Failed to connect to hub: {e}")
+        return
+    except Exception as e:
+        error(f"Failed to sync genesis: {e}")
+        return

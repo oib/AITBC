@@ -1,0 +1,71 @@
+name: Blockchain Synchronization Verification
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/blockchain-node/**'
+      - 'scripts/multi-node/**'
+      - '.gitea/workflows/blockchain-sync-verification.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/blockchain-node/**'
+      - 'scripts/multi-node/**'
+      - '.gitea/workflows/blockchain-sync-verification.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: blockchain-sync-verification-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-verification:
+    runs-on: debian
+    timeout-minutes: 20
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/blockchain-sync-verification
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests psutil"
+
+      - name: Run blockchain synchronization verification
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          CHECK_CHAIN_ID_CONSISTENCY=false CHAINS="ait-mainnet,ait-testnet" bash scripts/multi-node/sync-verification.sh
+
+      - name: Sync verification report
+        if: always()
+        run: |
+          echo "=== Blockchain Synchronization Verification Report ==="
+          if [ -f /var/log/aitbc/sync-verification.log ]; then
+            tail -50 /var/log/aitbc/sync-verification.log
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"

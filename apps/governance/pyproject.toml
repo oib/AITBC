@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "governance-service"
+version = "0.1.0"
+description = "AITBC Governance Service for governance operations"
+authors = ["AITBC Team <team@aitbc.dev>"]
+
+[tool.poetry.dependencies]
+python = ">=3.13.5,<3.14"
+fastapi = ">=0.115.6"
+uvicorn = {extras = ["standard"], version = ">=0.34.0"}
+sqlmodel = ">=0.0.38"
+asyncpg = ">=0.30.0"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = ">=9.0.3"
+pytest-asyncio = ">=1.3.0"
+httpx = ">=0.28.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

@@ -1,0 +1,265 @@
+name: Documentation Validation
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - '.gitea/workflows/docs-validation.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - '.gitea/workflows/docs-validation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docs-validation-${{ gitea.ref }}
+  cancel-in-progress: true
+
+env:
+  WORKSPACE_BASE: /var/lib/aitbc-workspaces
+  REPO_URL: http://gitea.bubuit.net:3000/oib/aitbc.git
+  STANDARD_DIRS: /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+jobs:
+  validate-docs:
+    runs-on: debian
+    timeout-minutes: 10
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="${{ env.WORKSPACE_BASE }}/docs-validation"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 "${{ env.REPO_URL }}" repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Ensure standard directories
+        run: mkdir -p ${{ env.STANDARD_DIRS }}
+
+      - name: Install tools
+        run: |
+          npm install -g markdownlint-cli 2>/dev/null || echo "⚠️ markdownlint not installed"
+
+      - name: Lint Markdown files
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          
+          echo "=== Linting Markdown ==="
+          if command -v markdownlint >/dev/null 2>&1; then
+            shopt -s globstar nullglob
+            targets=(
+              *.md
+              docs/*.md
+              docs/about/**/*.md
+              docs/agents/**/*.md
+              docs/agent-sdk/**/*.md
+              docs/agent-training/**/*.md
+              docs/apps/**/*.md
+              docs/archive/**/*.md
+              docs/architecture/**/*.md
+              docs/backend/**/*.md
+              docs/blockchain/**/*.md
+              docs/cli/**/*.md
+              docs/contracts/**/*.md
+              docs/deployment/**/*.md
+              docs/development/**/*.md
+              docs/enterprise/**/*.md
+              docs/guides/**/*.md
+              docs/infrastructure/**/*.md
+              docs/mining/**/*.md
+              docs/hermes/**/*.md
+              docs/packages/**/*.md
+              docs/reference/**/*.md
+              docs/releases/**/*.md
+              docs/reports/**/*.md
+              docs/scenarios/**/*.md
+              docs/security/**/*.md
+              docs/testing/**/*.md
+              docs/workflows/**/*.md
+            )
+
+            if [[ ${#targets[@]} -eq 0 ]]; then
+              echo "⚠️ No curated Markdown targets matched"
+            else
+              echo "Curated advisory scope: ${#targets[@]} Markdown files"
+              echo "Included the docs home, about hub, learning paths, and the top-level operational hubs added during remediation"
+              markdownlint "${targets[@]}" --ignore "node_modules/**" || echo "⚠️ Markdown linting warnings in curated docs scope"
+            fi
+          else
+            echo "⚠️ markdownlint not available, skipping"
+          fi
+          echo "✅ Markdown linting completed"
+
+      - name: Check documentation structure
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          echo "=== Documentation Structure ==="
+          required_files=(
+            docs/README.md
+            docs/MASTER_INDEX.md
+            docs/about/README.md
+            docs/agents/README.md
+            docs/agent-sdk/README.md
+            docs/agent-training/README.md
+            docs/apps/README.md
+            docs/archive/README.md
+            docs/architecture/README.md
+            docs/backend/README.md
+            docs/blockchain/README.md
+            docs/cli/README.md
+            docs/contracts/README.md
+            docs/deployment/README.md
+            docs/development/README.md
+            docs/enterprise/README.md
+            docs/guides/README.md
+            docs/infrastructure/README.md
+            docs/mining/README.md
+            docs/hermes/README.md
+            docs/packages/README.md
+            docs/reference/README.md
+            docs/releases/README.md
+            docs/reports/README.md
+            docs/scenarios/README.md
+            docs/security/README.md
+            docs/testing/README.md
+            docs/workflows/README.md
+          )
+
+          for f in "${required_files[@]}"; do
+            if [[ -f "$f" ]]; then
+              echo "  $f exists"
+            else
+              echo "  ❌ $f missing"
+              exit 1
+            fi
+          done
+
+      - name: Validate master index structure
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          echo "=== Master Index Structure ==="
+
+          master_index_markers=(
+            "## 📦 **Applications Documentation**"
+            "## 🏠 **Main Documentation**"
+            "## 🔗 **External Documentation (Symlinks)**"
+            "## 🎯 **Topic-Specific Areas**"
+          )
+
+          for marker in "${master_index_markers[@]}"; do
+            if ! grep -qF "$marker" docs/MASTER_INDEX.md; then
+              echo "  ❌ docs/MASTER_INDEX.md missing required marker: $marker"
+              exit 1
+            fi
+          done
+
+          echo "✅ Master index structure validated"
+
+      - name: Validate priority docs metadata
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          echo "=== Priority Documentation Metadata ==="
+
+          priority_docs=(
+            docs/README.md
+            docs/about/README.md
+            docs/agent-sdk/README.md
+            docs/blockchain/README.md
+            docs/apps/README.md
+            docs/cli/README.md
+            docs/testing/README.md
+          )
+
+          required_markers=(
+            "## 🧭 **Navigation Path:**"
+            "## 🎯 **See Also:**"
+            "**Level**:"
+            "**Prerequisites**:"
+            "**Estimated Time**:"
+            "**Last Updated**:"
+            "**Version**:"
+          )
+
+          for f in "${priority_docs[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "  ❌ $f missing"
+              exit 1
+            fi
+
+            for marker in "${required_markers[@]}"; do
+              if ! grep -qF "$marker" "$f"; then
+                echo "  ❌ $f missing required marker: $marker"
+                exit 1
+              fi
+            done
+          done
+
+          echo "✅ Priority documentation metadata validated"
+
+      - name: Documentation stats
+        if: always()
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          echo "=== Documentation Statistics ==="
+          echo "  Markdown files: $(find docs -name '*.md' 2>/dev/null | wc -l)"
+          echo "  Total size: $(du -sh docs 2>/dev/null | cut -f1)"
+          echo "  Categories: $(ls -1 docs 2>/dev/null | wc -l)"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE_BASE }}/docs-validation"
+
+  validate-policies-strict:
+    runs-on: debian
+    timeout-minutes: 10
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="${{ env.WORKSPACE_BASE }}/docs-validation-policies"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 "${{ env.REPO_URL }}" repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation-policies/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Ensure standard directories
+        run: mkdir -p ${{ env.STANDARD_DIRS }}
+
+      - name: Install markdownlint
+        run: |
+          npm install -g markdownlint-cli
+
+      - name: Strict lint policy docs
+        run: |
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation-policies/repo"
+
+          shopt -s globstar nullglob
+          mapfile -t targets < <(printf '%s\n' docs/policies/*.md docs/policies/**/*.md | awk '!seen[$0]++')
+
+          if [[ ${#targets[@]} -eq 0 ]]; then
+            echo "❌ No policy Markdown files found"
+            exit 1
+          fi
+
+          echo "Strict docs scope: ${#targets[@]} policy Markdown files"
+          markdownlint "${targets[@]}"
+          echo "✅ Policy docs lint passed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE_BASE }}/docs-validation-policies"

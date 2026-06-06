@@ -1,0 +1,279 @@
+name: Smart Contract Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/solidity/**'
+      - 'apps/zk-circuits/**'
+      - 'contracts/**'
+      - '.gitea/workflows/smart-contract-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: smart-contract-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-solidity:
+    runs-on: debian
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        project:
+          - name: "aitbc-token"
+            path: "packages/solidity/aitbc-token"
+          - name: "aitbc-contracts"
+            path: "contracts"
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup and test
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/${{ matrix.project.path }}"
+          echo "=== Testing ${{ matrix.project.name }} ==="
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          if [[ ! -f "package.json" ]]; then
+            echo "⚠️ No package.json, skipping"
+            exit 0
+          fi
+
+          echo "Node: $(node --version), pnpm: $(pnpm --version)"
+
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+
+          # Install
+          pnpm install
+
+          # Compile
+          if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
+            pnpm hardhat compile
+            echo "✅ Compiled"
+            pnpm hardhat test
+            echo "✅ Tests passed"
+          elif [[ -f "foundry.toml" ]]; then
+            forge build
+            echo "✅ Compiled"
+            forge test
+            echo "✅ Tests passed"
+          else
+            if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.compile ? 0 : 1)"; then
+              pnpm run compile
+              echo "✅ Compiled"
+            elif node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.build ? 0 : 1)"; then
+              pnpm run build
+              echo "✅ Compiled"
+            else
+              echo "❌ No compile or build script found"
+              exit 1
+            fi
+
+            if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
+              pnpm test
+              echo "✅ Tests passed"
+            else
+              echo "❌ No test script found"
+              exit 1
+            fi
+          fi
+
+          echo "✅ ${{ matrix.project.name }} completed"
+
+  test-foundry:
+    runs-on: debian
+    timeout-minutes: 20
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/foundry
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Install Foundry
+        run: |
+          if ! command -v forge &> /dev/null; then
+            curl -L https://foundry.paradigm.xyz | bash
+            export PATH="$HOME/.foundry/bin:$PATH"
+            foundryup
+            export PATH="$HOME/.foundry/bin:$PATH"
+          fi
+          forge --version
+
+      - name: Test contracts with Foundry
+        run: |
+          export PATH="$HOME/.foundry/bin:$PATH"
+          cd "${{ env.WORKSPACE }}/repo/contracts"
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          echo "=== Running Foundry Tests ==="
+          
+          # Install OpenZeppelin dependencies (v4.9.6 for compatibility with existing imports)
+          forge install OpenZeppelin/openzeppelin-contracts
+          cd lib/openzeppelin-contracts && git checkout v4.9.6 && cd ../..
+          echo "✅ OpenZeppelin dependencies installed (v4.9.6)"
+          
+          # Build contracts
+          forge build
+          echo "✅ Foundry build completed"
+          
+          # Run tests
+          forge test
+          echo "✅ Foundry tests passed"
+          
+          # Run fuzz tests
+          forge test --match-path "test/fuzz/**/*.t.sol"
+          echo "✅ Foundry fuzz tests passed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
+
+  lint-solidity:
+    runs-on: debian
+    timeout-minutes: 10
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/solidity-lint
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Lint contracts
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          for project in packages/solidity/aitbc-token contracts; do
+            if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
+              echo "=== Linting $project ==="
+              cd "$project"
+              
+              # Install pnpm if not available
+              if ! command -v pnpm &> /dev/null; then
+                npm install -g pnpm
+              fi
+              pnpm install
+
+              if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.lint ? 0 : 1)"; then
+                pnpm run lint
+                echo "✅ Lint passed"
+              else
+                echo "⚠️ No lint script for $project, skipping"
+              fi
+              cd "${{ env.WORKSPACE }}/repo"
+            fi
+          done
+
+          echo "✅ Solidity linting completed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
+
+  deploy-contracts:
+    runs-on: debian
+    timeout-minutes: 15
+    if: gitea.ref == 'refs/heads/main' || gitea.ref == 'refs/heads/develop'
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/deployment
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Deploy contracts to localhost
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/contracts"
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          echo "=== Deploying Contracts to Localhost ==="
+          
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          # Install dependencies
+          pnpm install
+          
+          # Compile contracts
+          pnpm hardhat compile
+          
+          # Start local node in background
+          pnpm hardhat node &
+          NODE_PID=$!
+          sleep 10
+          
+          # Deploy contracts
+          pnpm hardhat run scripts/deploy-automation.js --network localhost
+          echo "✅ Contracts deployed successfully"
+          
+          # Verify deployment
+          DEPLOYMENT_FILE="deployments-localhost.json" pnpm hardhat run scripts/verify-deployment.js --network localhost
+          echo "✅ Deployment verified"
+          
+          # Cleanup
+          kill $NODE_PID 2>/dev/null || true
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"

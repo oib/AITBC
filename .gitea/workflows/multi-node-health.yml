@@ -1,0 +1,67 @@
+name: Multi-Node Blockchain Health Monitoring
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/blockchain-node/**'
+      - 'scripts/multi-node/**'
+      - '.gitea/workflows/multi-node-health.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: multi-node-health-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  health-check:
+    runs-on: debian
+    timeout-minutes: 15
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/multi-node-health
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests psutil"
+
+      - name: Run multi-node health check
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          CHAINS="ait-mainnet,ait-testnet" bash scripts/multi-node/blockchain-health-check.sh
+
+      - name: Health check report
+        if: always()
+        run: |
+          echo "=== Multi-Node Health Check Report ==="
+          if [ -f /var/log/aitbc/multi-node-health.log ]; then
+            tail -50 /var/log/aitbc/multi-node-health.log
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
