@@ -159,7 +159,7 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
             "chain_id": chain_id,
             "duration": duration
         }
-        result = http_client.post("/rpc/subscription/register", json=subscription_data)
+        result = http_client.post("/rpc/subscribe", json=subscription_data)
         output(result, ctx.obj.get('output_format', 'table'), title="Subscription Registered")
     except NetworkError as e:
         error(f"Network error: {e}")
