@@ -1,0 +1,211 @@
+name: Package Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/**'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.gitea/workflows/package-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: package-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-python-packages:
+    name: Python package - ${{ matrix.package.name }}
+    runs-on: debian
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        package:
+          - name: "aitbc-core"
+            path: "packages/py/aitbc-core"
+          - name: "aitbc-crypto"
+            path: "packages/py/aitbc-crypto"
+          - name: "aitbc-sdk"
+            path: "packages/py/aitbc-sdk"
+          - name: "aitbc-agent-sdk"
+            path: "packages/py/aitbc-agent-sdk"
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/pkg-${{ matrix.package.name }}
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup and test package
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/${{ matrix.package.path }}"
+          echo "=== Testing ${{ matrix.package.name }} ==="
+          echo "Directory: $(pwd)"
+          ls -la
+
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv venv-build
+
+          bash "${{ env.WORKSPACE }}/repo/scripts/ci/setup-python-venv.sh" \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --mode copy \
+            --extra-packages "pytest mypy black pydantic-settings fastapi uvicorn httpx requests"
+
+          if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
+            venv/bin/python -m pip install -q -e "${{ env.WORKSPACE }}/repo/packages/py/aitbc-crypto"
+          fi
+
+          # Install dependencies
+          if [[ -f "pyproject.toml" ]]; then
+            venv/bin/python -m pip install -q -e ".[dev]" 2>/dev/null || venv/bin/python -m pip install -q -e .
+          fi
+          if [[ -f "requirements.txt" ]]; then
+            venv/bin/python -m pip install -q -r requirements.txt
+          fi
+
+          # Verify package installation
+          echo "=== Installed packages ==="
+          venv/bin/python -m pip list | grep -i aitbc || true
+
+          # Linting
+          echo "=== Linting ==="
+          if [[ -d "src" ]]; then
+            venv/bin/python -m mypy src/ --ignore-missing-imports --no-error-summary 2>/dev/null || echo "⚠️ MyPy warnings"
+            venv/bin/python -m black --check src/ 2>/dev/null || echo "⚠️ Black warnings"
+          fi
+
+          # Tests
+          echo "=== Tests ==="
+          if [[ -d "tests" ]]; then
+            # Make package src first, then repo root for shared imports (e.g. `from aitbc import ...`)
+            # Combined with `-c /dev/null`, this avoids monorepo pytest.ini path conflicts.
+            export PYTHONPATH="$PWD/src:${{ env.WORKSPACE }}/repo:$PYTHONPATH"
+            echo "=== Debug Info ==="
+            echo "PWD: $PWD"
+            echo "PYTHONPATH: $PYTHONPATH"
+            echo "Package name: ${{ matrix.package.name }}"
+            echo "=== Package Installation Status ==="
+            venv/bin/python -m pip show aitbc-core || echo "aitbc-core not installed"
+            echo "=== Import Test ==="
+            venv/bin/python -c "import sys; print('Python paths:'); [print(p) for p in sys.path]"
+            echo "=== Test Import ==="
+            if [[ "${{ matrix.package.name }}" == "aitbc-core" ]]; then
+              venv/bin/python -c "from aitbc.logging import StructuredLogFormatter; print('Import successful')" || echo "Import failed"
+            else
+              echo "Skipping aitbc.logging import check for ${{ matrix.package.name }}"
+            fi
+            echo "=== Running Tests ==="
+            venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -q --tb=short
+          else
+            echo "⚠️ No tests directory found"
+          fi
+
+          echo "✅ ${{ matrix.package.name }} testing completed"
+
+      - name: Build package
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/${{ matrix.package.path }}"
+
+          if [[ -f "pyproject.toml" ]]; then
+            bash "${{ env.WORKSPACE }}/repo/scripts/ci/setup-python-venv.sh" \
+              --repo-dir "$PWD" \
+              --venv-dir "$PWD/venv-build" \
+              --skip-requirements \
+              --extra-packages "build"
+
+            venv-build/bin/python -m build
+            echo "✅ Package built"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
+
+  test-javascript-packages:
+    name: JavaScript package - ${{ matrix.package.name }}
+    runs-on: debian
+    timeout-minutes: 30
+
+    strategy:
+      max-parallel: 1
+      matrix:
+        package:
+          - name: "aitbc-sdk-js"
+            path: "packages/js/aitbc-sdk"
+          - name: "aitbc-token"
+            path: "packages/solidity/aitbc-token"
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/jspkg-${{ matrix.package.name }}
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup and test package
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/${{ matrix.package.path }}"
+          echo "=== Testing ${{ matrix.package.name }} ==="
+
+          if [[ ! -f "package.json" ]]; then
+            echo "⚠️ No package.json found, skipping"
+            exit 0
+          fi
+
+          node --version
+          pnpm --version
+
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+
+          pnpm install
+
+          # Build
+          pnpm run build
+          echo "✅ Build passed"
+
+          # Lint
+          pnpm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
+
+          # Test
+          if [[ "${{ matrix.package.name }}" == "aitbc-token" ]]; then
+            pnpm hardhat test --no-compile
+          else
+            pnpm test
+          fi
+          echo "✅ Tests passed"
+
+          echo "✅ ${{ matrix.package.name }} completed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"

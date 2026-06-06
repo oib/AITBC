@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "blockchain-event-bridge"
+version = "0.1.0"
+description = "Bridge between AITBC blockchain events and hermes agent triggers"
+authors = ["AITBC Team"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+# All dependencies managed centrally in root pyproject.toml
+# This file only defines package structure for the blockchain-event-bridge
+
+[tool.poetry.group.dev.dependencies]
+# Dev dependencies managed centrally in root pyproject.toml
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,36 @@
+groups:
+  - name: gossip_metrics
+    interval: 15s
+    rules:
+      - record: gossip_publications_rate_per_sec
+        expr: rate(gossip_publications_total[1m])
+
+      - record: gossip_broadcast_publications_rate_per_sec
+        expr: rate(gossip_broadcast_publications_total[1m])
+
+      - record: gossip_publications_topic_rate_per_sec
+        expr: label_replace(
+          rate({__name__=~"gossip_publications_topic_.*"}[1m]),
+          "topic",
+          "$1",
+          "__name__",
+          "gossip_publications_topic_(.*)"
+        )
+
+      - record: gossip_queue_size_by_topic
+        expr: label_replace(
+          {__name__=~"gossip_queue_size_.*"},
+          "topic",
+          "$1",
+          "__name__",
+          "gossip_queue_size_(.*)"
+        )
+
+      - record: gossip_subscribers_by_topic
+        expr: label_replace(
+          {__name__=~"gossip_subscribers_topic_.*"},
+          "topic",
+          "$1",
+          "__name__",
+          "gossip_subscribers_topic_(.*)"
+        )

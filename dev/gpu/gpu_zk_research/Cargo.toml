@@ -1,0 +1,12 @@
+[package]
+name = "gpu_zk_research"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+halo2 = { version = "0.1.0-beta.2" }
+halo2_proofs = { version = "0.1.0-beta.2" }
+halo2_gadgets = { version = "0.1.0-beta.2" }
+pasta_curves = "0.5"
+rand = "0.8"
+anyhow = "1.0"

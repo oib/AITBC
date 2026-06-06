@@ -1,0 +1,158 @@
+name: Production Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tests/production/**'
+      - 'apps/coordinator-api/**'
+      - '.gitea/workflows/production-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: production-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-production:
+    name: Production Integration Tests
+    runs-on: debian
+    timeout-minutes: 20
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/production-tests
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup test environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "pytest pytest-asyncio pytest-timeout requests httpx pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client celery aiohttp pydantic pydantic-settings python-dotenv cryptography slowapi sqlmodel sqlalchemy"
+
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+      - name: Ensure Redis server
+        run: |
+          if command -v redis-server >/dev/null 2>&1 && command -v redis-cli >/dev/null 2>&1; then
+            echo "✅ Redis binaries already available"
+            exit 0
+          fi
+
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server
+
+      - name: Start Redis
+        run: |
+          redis-server --daemonize yes --port 6379
+          sleep 2
+          redis-cli ping || exit 1
+          echo "✅ Redis started"
+
+      - name: Start agent coordinator
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          export PYTHONPATH="apps/coordinator-api/src:$PYTHONPATH"
+
+          echo "Ensuring default port 8011 is available..."
+          pkill -f "uvicorn app.main:app" 2>/dev/null || true
+          if command -v lsof >/dev/null 2>&1; then
+            pids=$(lsof -tiTCP:8011 -sTCP:LISTEN || true)
+            if [ -n "$pids" ]; then
+              echo "⚠️ Port 8011 already in use by PID(s): $pids; terminating"
+              kill $pids 2>/dev/null || true
+              sleep 2
+            fi
+            if lsof -tiTCP:8011 -sTCP:LISTEN >/dev/null 2>&1; then
+              echo "❌ Port 8011 is still in use; aborting startup"
+              lsof -iTCP:8011 -sTCP:LISTEN || true
+              exit 1
+            fi
+          fi
+
+          # Start agent coordinator in background
+          nohup env PYTHONUNBUFFERED=1 venv/bin/uvicorn app.main:app \
+            --host 0.0.0.0 \
+            --port 8011 \
+            --log-level info \
+            > /tmp/coordinator-api.log 2>&1 &
+
+          echo $! > /tmp/coordinator-api.pid
+          sleep 2
+          if ! kill -0 "$(cat /tmp/coordinator-api.pid)" 2>/dev/null; then
+            echo "❌ Coordinator API exited during startup"
+            cat /tmp/coordinator-api.log
+            exit 1
+          fi
+          echo "✅ Coordinator API started (PID: $(cat /tmp/coordinator-api.pid))"
+
+      - name: Wait for coordinator API ready
+        run: |
+          echo "Waiting for coordinator API on port 8011..."
+          for i in $(seq 1 30); do
+            code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:8011/health" 2>/dev/null) || code=0
+            if [ "$code" -ge 200 ] && [ "$code" -lt 600 ]; then
+              echo "✅ Coordinator API ready (HTTP $code)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "❌ Coordinator API not ready"
+          cat /tmp/coordinator-api.log
+          exit 1
+
+      - name: Run production tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          export PYTHONPATH="apps/coordinator-api/src:$PYTHONPATH"
+
+          # Test both chains
+          export CHAINS="ait-mainnet,ait-testnet"
+
+          venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/production/ \
+            -v \
+            --tb=short \
+            --timeout=30 \
+            -k "not test_error_handling and not eth"
+
+          echo "✅ Production tests completed"
+
+      - name: Print coordinator API logs
+        if: always()
+        run: |
+          if [ -f /tmp/coordinator-api.log ]; then
+            echo "=== Coordinator API Logs ==="
+            cat /tmp/coordinator-api.log
+          fi
+
+      - name: Cleanup coordinator API
+        if: always()
+        run: |
+          if [ -f /tmp/coordinator-api.pid ]; then
+            kill $(cat /tmp/coordinator-api.pid) 2>/dev/null || true
+            rm -f /tmp/coordinator-api.pid
+          fi
+          pkill -f "uvicorn app.main:app" 2>/dev/null || true
+          redis-cli shutdown 2>/dev/null || true
+          rm -rf "${{ env.WORKSPACE }}"

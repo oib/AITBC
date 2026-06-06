@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "aitbc-shared-core"
+version = "0.1.0"
+description = "Shared core utilities for AITBC microservices"
+authors = ["AITBC Team <team@aitbc.dev>"]
+readme = "README.md"
+packages = [{include = "app", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.13.5,<3.14"
+aitbc = {path = "../../../"}  # Root aitbc package
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=9.0.3"
+pytest-asyncio = ">=1.3.0"
+pytest-cov = ">=6.0.0"
+httpx = ">=0.28.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,47 @@
+groups:
+  - name: chain_isolation_alerts
+    interval: 30s
+    rules:
+      # Alert on chain isolation violations
+      - alert: ChainIsolationViolationDetected
+        expr: chain_isolation_violations_total > 0
+        for: 0s
+        labels:
+          severity: critical
+          component: blockchain
+        annotations:
+          summary: "Chain isolation violation detected"
+          description: "Chain isolation violation of type {{ $labels.violation_type }} detected on node {{ $labels.node }}"
+
+      # Alert on cross-chain transaction attempts
+      - alert: CrossChainTransactionAttempt
+        expr: rate(cross_chain_transaction_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: blockchain
+        annotations:
+          summary: "Cross-chain transaction attempts detected"
+          description: "{{ $value }} cross-chain transaction attempts per second from {{ $labels.source_chain }} to {{ $labels.target_chain }} on node {{ $labels.node }}"
+
+      # Alert on chain_id validation failures
+      - alert: ChainIdValidationFailure
+        expr: rate(chain_id_validation_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: blockchain
+        annotations:
+          summary: "Chain ID validation failures detected"
+          description: "{{ $value }} chain_id validation failures per second (expected: {{ $labels.expected_chain }}, actual: {{ $labels.actual_chain }}) on node {{ $labels.node }}"
+
+      # Alert on bridge request chain mismatches
+      - alert: BridgeRequestChainMismatch
+        expr: rate(bridge_request_chain_mismatches_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: coordinator-api
+        annotations:
+          summary: "Bridge request chain mismatches detected"
+          description: "{{ $value }} bridge request chain mismatches per second from {{ $labels.source_chain }} to {{ $labels.target_chain }} on node {{ $labels.node }}"

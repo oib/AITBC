@@ -1,0 +1,98 @@
+name: Coverage Phase 1 (70% Target)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**/*.py'
+      - 'packages/py/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - '.gitea/workflows/coverage-phase-1.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: coverage-phase-1-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-coverage-70:
+    runs-on: debian
+    timeout-minutes: 20
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/coverage-phase-1
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          rm -rf venv
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --mode copy \
+            --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust pydantic-settings fastapi uvicorn aiohttp>=3.12.14 sqlmodel>=0.0.38 PyJWT"
+
+      - name: Install packages
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          venv/bin/python -m pip install -e packages/py/aitbc-crypto/
+          venv/bin/python -m pip install -e packages/py/aitbc-sdk/
+          venv/bin/python -m pip install -e packages/py/aitbc-agent-sdk/
+
+      - name: Run tests with 70% coverage gate
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD/packages/py/aitbc-agent-sdk/src:$PWD:$PYTHONPATH"
+
+          venv/bin/python -m pytest tests/ \
+            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            --tb=short -q --timeout=30 \
+            -o asyncio_mode=auto \
+            --cov=apps --cov=packages --cov=cli \
+            --cov-report=term-missing --cov-report=html \
+            --cov-report=json:coverage.json \
+            --cov-fail-under=70
+
+      - name: Upload coverage artifact
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          mkdir -p coverage-artifacts
+          cp coverage.json coverage-artifacts/
+          cp htmlcov/index.html coverage-artifacts/coverage-summary.html
+          echo "Coverage report uploaded to artifacts"
+
+      - name: Count TODOs
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          TODO_COUNT=$(rg -c "TODO|FIXME" apps/ packages/py/ cli/ --type py 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}')
+          echo "TODO_COUNT=${TODO_COUNT}" >> $GITHUB_ENV
+          echo "Found ${TODO_COUNT} TODO/FIXME comments"
+
+      - name: Publish coverage metrics
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          COVERAGE=$(python -c "import json; print(json.load(open('coverage.json')).get('totals', {}).get('percent_covered', 0))")
+          echo "Coverage: ${COVERAGE}%"
+          echo "TODOs: ${TODO_COUNT}"

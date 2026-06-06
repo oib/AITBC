@@ -1,0 +1,7 @@
+name: pack/aitbc-codeql-db-python
+version: 0.0.0
+library: true
+extensionTargets:
+  codeql/python-all: '*'
+dataExtensions:
+  - models/**/*.yml

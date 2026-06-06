@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 10s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "127.0.0.1:9093"
+
+scrape_configs:
+  - job_name: "blockchain-node"
+    static_configs:
+      - targets:
+          - "127.0.0.1:8080"
+        labels:
+          service: "blockchain-node"
+
+  - job_name: "mock-coordinator"
+    static_configs:
+      - targets:
+          - "127.0.0.1:8090"
+        labels:
+          service: "mock-coordinator"
+
+rule_files:
+  - alerts.yml
+  - gossip-recording-rules.yml

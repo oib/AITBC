@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+
+# Pre-removal script for aitbc-cli
+
+case "$1" in
+    remove|upgrade|failed-upgrade)
+        # Remove symlink
+        if [ -L "/usr/local/bin/aitbc" ]; then
+            rm -f /usr/local/bin/aitbc
+        fi
+        
+        # Remove virtual environment (optional, keep data)
+        # VENV_PATH="/opt/aitbc/venv"
+        # if [ -d "$VENV_PATH" ]; then
+        #     rm -rf "$VENV_PATH"
+        # fi
+        ;;
+    
+    disappear)
+        # Package is being removed
+        rm -f /usr/local/bin/aitbc
+        ;;
+esac
+
+exit 0

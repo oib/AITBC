@@ -1,0 +1,79 @@
+name: JavaScript SDK Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/js/**'
+      - '.gitea/workflows/js-sdk-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: js-sdk-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-js-sdk:
+    runs-on: debian
+    timeout-minutes: 10
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/js-sdk-tests
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Verify Node.js
+        run: |
+          echo "Node: $(node --version)"
+          echo "npm: $(npm --version)"
+
+      - name: Install dependencies
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+          
+          if [[ -f package-lock.json ]]; then
+            npm ci
+          else
+            npm install
+          fi
+          echo "✅ Dependencies installed"
+
+      - name: Build TypeScript
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
+          npm run build
+          echo "✅ TypeScript build completed"
+
+      - name: Lint
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
+          npm run lint
+          echo "✅ Lint passed"
+          npx prettier --check "src/**/*.ts"
+          echo "✅ Prettier passed"
+
+      - name: Run tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
+          npm test
+          echo "✅ Tests passed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
