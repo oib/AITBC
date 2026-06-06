@@ -1,7 +1,7 @@
 [Unit]
 Description=AITBC Production Blockchain Node
-After=network.target postgresql.service redis.service
-Wants=postgresql.service redis.service
+After=network.target postgresql.service redis.service aitbc-load-secrets.service
+Wants=postgresql.service redis.service aitbc-load-secrets.service
 
 [Service]
 Type=simple
@@ -9,7 +9,6 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh
 EnvironmentFile=/run/aitbc/secrets/.env
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env

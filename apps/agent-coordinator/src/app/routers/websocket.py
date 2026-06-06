@@ -18,7 +18,7 @@ async def websocket_message_stream(
     websocket: WebSocket,
     agent_id: str = Query(..., description="Agent ID")
 ):
-    """WebSocket endpoint for real-time agent messaging"""
+    """WebSocket endpoint for real-time agent messaging with automatic handler triggering"""
     connection_manager = get_connection_manager()
     stream_handler = AgentStreamHandler(connection_manager)
 
@@ -35,3 +35,18 @@ async def websocket_presence_stream(
     stream_handler = AgentStreamHandler(connection_manager)
 
     await stream_handler.handle_presence_stream(websocket, agent_id)
+
+
+@router.get("/ws/status")
+async def websocket_status():
+    """Get WebSocket listener status"""
+    connection_manager = get_connection_manager()
+    return {
+        "active_connections": len(connection_manager.active_connections),
+        "connected_agents": list(connection_manager.active_connections.keys()),
+        "registered_handlers": list(connection_manager.message_handlers.keys()),
+        "queued_messages": {
+            agent_id: len(messages) 
+            for agent_id, messages in connection_manager.agent_inboxes.items()
+        }
+    }
