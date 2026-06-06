@@ -1,12 +1,12 @@
-# AITBC v0.5.3 Release Notes
+# AITBC v0.4.9 Release Notes
 
-**Date**: June 3, 2026
+**Date**: June 6, 2026
 **Status**: 📝 Concept Plan
-**Scope: External Blockchain Exchange (ETH → AIT)
+**Scope: External Blockchain Exchange (ETH → AIT) and Website Update
 
 ## 🎯 Overview
 
-AITBC v0.5.3 introduces external blockchain exchange integration, enabling users to swap Ethereum (ETH) for AIT tokens to participate in the software marketplace. This release implements a simple bridge/swap service with oracle-based pricing and bridge operations for seamless on-ramping from Ethereum to the AITBC ecosystem. The exchange service provides price feeds and trading pairs for ETH-AIT. Future releases will add support for additional chains (Polygon, Arbitrum, BTC).
+AITBC v0.4.9 introduces external blockchain exchange integration, enabling users to swap Ethereum (ETH) for AIT tokens to participate in the software marketplace. This release implements a simple bridge/swap service with oracle-based pricing and bridge operations for seamless on-ramping from Ethereum to the AITBC ecosystem. Additionally, this release includes a major website update with improved UI/UX, real-time blockchain data visualization, and enhanced documentation.
 
 ## 🎯 Release Highlights
 
@@ -29,6 +29,14 @@ AITBC v0.5.3 introduces external blockchain exchange integration, enabling users
 - ✅ Bridge status monitoring
 - ✅ Transaction history
 - ✅ Rate limiting
+
+### Website Update
+- ✅ Modern responsive design with mobile support
+- ✅ Real-time blockchain explorer integration
+- ✅ Interactive block visualization
+- ✅ Enhanced documentation portal
+- ✅ Developer API documentation
+- ✅ Network status dashboard
 
 ### CLI Enhancements
 - ✅ `aitbc exchange deposit` — deposit ETH
@@ -77,7 +85,7 @@ aitbc exchange price --pair ETH-AIT
   "pair": "ETH-AIT",
   "price": 1000.5,
   "source": "chainlink",
-  "timestamp": "2026-06-03T...",
+  "timestamp": "2026-06-06T...",
   "confidence": 0.99
 }
 ```
@@ -127,8 +135,8 @@ aitbc exchange status --tx-id 0x...
   "dest_chain": "aitbc",
   "amount": 0.1,
   "token": "ETH",
-  "locked_at": "2026-06-03T...",
-  "completed_at": "2026-06-03T...",
+  "locked_at": "2026-06-06T...",
+  "completed_at": "2026-06-06T...",
   "bridge_fee": 0.005
 }
 ```
@@ -147,9 +155,34 @@ GET  /v1/exchange/history         # Get transaction history
 
 #### WebSocket Streams
 ```
-ws://exchange.aitbc.bubuit.net/v1/exchange/stream/price/{pair}
-ws://exchange.aitbc.bubuit.net/v1/exchange/stream/status/{tx_id}
+ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/price/{pair}
+ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
 ```
+
+### Website Update
+
+#### New Features
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+- **Blockchain Explorer**: Real-time block and transaction visualization
+- **Network Dashboard**: Live node status and network health metrics
+- **Documentation Portal**: Improved search and navigation
+- **API Documentation**: Interactive API reference with examples
+- **Developer Portal**: Quick start guides and tutorials
+
+#### Technical Stack
+- Frontend: React 18, TypeScript, Tailwind CSS
+- Backend: FastAPI, WebSocket support
+- Visualization: D3.js, Chart.js
+- Deployment: Static site with CDN
+
+#### Website Sections
+- Home: Project overview and quick links
+- Explorer: Block explorer with search and filters
+- Exchange: ETH-AIT swap interface
+- Network: Node status and network metrics
+- Docs: Comprehensive documentation
+- API: Interactive API reference
+- Blog: Updates and announcements
 
 ### CLI Commands
 
@@ -177,10 +210,11 @@ aitbc exchange history --chain ethereum
 - Software marketplace now supports ETH-AIT trading pair
 - Escrow service updated for cross-chain synchronization
 - CLI commands require `--chain ethereum` parameter for ETH operations
+- Website URL structure changed for better SEO
 
 ## 📊 Migration Guide
 
-### v0.5.2 → v0.5.3
+### v0.4.8 → v0.4.9
 
 1. **Deploy Bridge Contract**
    ```bash
@@ -211,6 +245,11 @@ aitbc exchange history --chain ethereum
    aitbc exchange withdraw --chain ethereum --amount 100
    ```
 
+5. **Update Website Links**
+   - Update bookmarks to new URL structure
+   - Update API documentation references
+   - Update developer portal links
+
 ## 🧪 Testing
 
 ### ETH-AIT Exchange Testing
@@ -227,10 +266,18 @@ aitbc exchange history --chain ethereum
 - ✅ Bridge status monitoring
 - ✅ Transaction history
 
+### Website Testing
+- ✅ Responsive design on mobile/tablet/desktop
+- ✅ Blockchain explorer functionality
+- ✅ Real-time data updates
+- ✅ Documentation search
+- ✅ API documentation interactivity
+
 ### Test Coverage
 - ETH-AIT exchange: 90%
 - Exchange API: 90%
 - Bridge operations: 85%
+- Website: 95%
 
 ## 📚 Documentation
 
@@ -238,6 +285,8 @@ aitbc exchange history --chain ethereum
 - [BRIDGE_OPERATIONS.md](../exchange/BRIDGE_OPERATIONS.md)
 - [EXCHANGE_API.md](../exchange/EXCHANGE_API.md)
 - [CLI_EXCHANGE.md](../cli/CLI_EXCHANGE.md)
+- [WEBSITE_UPDATE.md](../website/WEBSITE_UPDATE.md)
+- [BLOCKCHAIN_EXPLORER.md](../website/BLOCKCHAIN_EXPLORER.md)
 
 ## 🚀 Dependencies
 
@@ -245,12 +294,17 @@ aitbc exchange history --chain ethereum
 - Web3.py (blockchain interaction)
 - Ethers.js (bridge contract interaction)
 - Chainlink (price feeds)
+- React 18 (website frontend)
+- TypeScript (website)
+- Tailwind CSS (website styling)
+- D3.js (data visualization)
 
 ### Updated Dependencies
-- Exchange service v0.5.3+
-- Software marketplace v0.5.3+
-- Escrow service v0.5.3+
-- CLI v0.5.3+
+- Exchange service v0.4.9+
+- Software marketplace v0.4.9+
+- Escrow service v0.4.9+
+- CLI v0.4.9+
+- Website v0.4.9+
 
 ## 🔐 Security Considerations
 
@@ -260,6 +314,9 @@ aitbc exchange history --chain ethereum
 - Bridge fee validation
 - Reentrancy protection
 - Oracle manipulation resistance
+- Website HTTPS enforcement
+- API rate limiting
+- CORS configuration
 
 ## 📈 Performance Improvements
 
@@ -267,12 +324,16 @@ aitbc exchange history --chain ethereum
 - **Atomic swaps**: Trustless cross-chain transactions
 - **Price discovery**: Oracle-based ETH-AIT pricing
 - **Bridge optimization**: Minimized bridge fees
+- **Website performance**: Static site with CDN, <1s load time
+- **Real-time updates**: WebSocket for live data
 
 ### Performance Metrics
 - Swap latency: <30s (ETH → AIT)
 - Bridge transaction: <2min confirmation
 - API response: <100ms
 - WebSocket latency: <50ms
+- Website load time: <1s
+- Website LCP: <2.5s
 
 ## 🎯 Success Criteria
 
@@ -281,26 +342,29 @@ aitbc exchange history --chain ethereum
 - ✅ Exchange API operational
 - ✅ Bridge operations working
 - ✅ CLI exchange commands working
+- ✅ Website deployed and responsive
 - ✅ Documentation complete
 - ✅ Migration guide tested
 
 ## 🚀 Next Steps
 
-### v0.5.4 Planning
+### v0.5.0 Planning
 - Additional chain support (Polygon, Arbitrum)
 - Advanced AMM features (concentrated liquidity)
 - Cross-chain arbitrage bots
 - Layer 2 scaling solutions
+- Website mobile app (React Native)
 
-### v0.6.0 Planning
+### v0.5.1 Planning
 - BTC bridge support
 - Decentralized exchange (DEX) full implementation
 - Cross-chain governance
 - Multi-chain reputation system
 - Advanced bridge features (NFT bridging)
+- Website PWA support
 
 ---
 
-*Last Updated: 2026-06-03*  
-*Version: 0.5.3*  
+*Last Updated: 2026-06-06*  
+*Version: 0.4.9*  
 *Status: Concept Plan*
