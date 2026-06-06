@@ -1,0 +1,17 @@
+[Unit]
+Description=AITBC Governance Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=aitbc
+WorkingDirectory=/opt/aitbc/apps/governance-service
+Environment="PATH=/opt/aitbc/venv/bin"
+Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/governance-service/src:/opt/aitbc"
+Environment="DATABASE_URL=postgresql+asyncpg://aitbc_governance:password@localhost:5432/aitbc_governance"
+ExecStart=/opt/aitbc/venv/bin/python -m governance_service.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "aitbc-wallet-daemon"
+version = "v0.2.3"
+description = "AITBC Wallet Daemon Service"
+authors = ["AITBC Team <team@aitbc.dev>"]
+readme = "README.md"
+packages = [{include = "app", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+# All other dependencies managed centrally in root pyproject.toml
+# This file only defines package structure for the wallet daemon
+
+[tool.poetry.group.dev.dependencies]
+# Dev dependencies managed centrally in root pyproject.toml
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

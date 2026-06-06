@@ -1,0 +1,67 @@
+name: Cross-Node Transaction Testing
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+
+concurrency:
+  group: cross-node-transaction-testing-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  transaction-test:
+    runs-on: debian
+    timeout-minutes: 15
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/cross-node-transaction-testing
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests psutil"
+
+      - name: Run cross-node transaction test
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          CHAINS="ait-mainnet,ait-testnet" bash scripts/multi-node/cross-node-transaction-test.sh
+
+      - name: Transaction test report
+        if: always()
+        run: |
+          echo "=== Cross-Node Transaction Test Report ==="
+          if [ -f /var/log/aitbc/cross-node-transaction-test.log ]; then
+            tail -50 /var/log/aitbc/cross-node-transaction-test.log
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"

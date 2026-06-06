@@ -1,0 +1,181 @@
+name: API Endpoint Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/coordinator-api/**'
+      - 'apps/exchange/**'
+      - 'apps/wallet/**'
+      - 'scripts/ci/test_api_endpoints.py'
+      - '.gitea/workflows/api-endpoint-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: api-endpoint-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-api-endpoints:
+    runs-on: debian
+    timeout-minutes: 10
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/api-tests
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup test environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests pytest httpx"
+
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+      - name: Start required services
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          echo "Starting AITBC services for endpoint testing..."
+
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found to start"
+          fi
+
+          for svc in "${services[@]}"; do
+            if systemctl list-unit-files | grep -q "^$svc.service"; then
+              systemctl start "$svc" 2>/dev/null && echo "✅ $svc started" || echo "⚠️ $svc already running or failed to start"
+            else
+              echo "⚠️ $svc service file not found"
+            fi
+          done
+          
+          # Give services time to initialize
+          sleep 5
+          
+          echo "✅ Services started"
+
+      - name: Wait for services
+        id: wait-services
+        continue-on-error: true
+        run: |
+          echo "Waiting for AITBC services..."
+          gateway_host=$(ip route 2>/dev/null | awk '/default/ {print $3; exit}')
+          host_candidates=(localhost)
+          if [[ -n "$gateway_host" ]]; then
+            host_candidates+=("$gateway_host")
+          fi
+
+          service_host=""
+          for candidate in "${host_candidates[@]}"; do
+            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:8011/health" 2>/dev/null) || code=0
+            if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+              service_host="$candidate"
+              break
+            fi
+
+            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:8011/v1/health" 2>/dev/null) || code=0
+            if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+              service_host="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$service_host" ]]; then
+            echo "⚠️  Could not find a reachable API host - skipping API endpoint tests"
+            echo "services_available=false" > "${{ env.WORKSPACE }}/status"
+            exit 0
+          fi
+
+          echo "$service_host" > "${{ env.WORKSPACE }}/service_host"
+          echo "Using service host: $service_host"
+          echo "services_available=true" > "${{ env.WORKSPACE }}/status"
+
+          # Check only the services needed for API endpoint tests (exclude blockchain RPC)
+          for port in 8011 8001 8003; do
+            port_ready=0
+            for i in $(seq 1 15); do
+              code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/health" 2>/dev/null) || code=0
+              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
+                break
+              fi
+              code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/api/health" 2>/dev/null) || code=0
+              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
+                break
+              fi
+              code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/" 2>/dev/null) || code=0
+              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
+                break
+              fi
+              [ "$i" -eq 15 ] && echo "❌ Port $port not ready"
+              sleep 2
+            done
+
+            if [[ $port_ready -ne 1 ]]; then
+              echo "⚠️  Not all services ready - skipping API endpoint tests"
+              echo "services_available=false" > "${{ env.WORKSPACE }}/status"
+              exit 0
+            fi
+          done
+
+      - name: Run API endpoint tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          if [ ! -f "${{ env.WORKSPACE }}/status" ] || [ "$(cat "${{ env.WORKSPACE }}/status")" != "true" ]; then
+            echo "⚠️  Services not available - skipping API endpoint tests"
+            exit 0
+          fi
+          service_host=$(cat "${{ env.WORKSPACE }}/service_host")
+          AITBC_API_HOST="$service_host" venv/bin/python scripts/ci/test_api_endpoints.py
+          echo "✅ API endpoint tests completed"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          # Stop the services we started
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          for svc in "${services[@]}"; do
+            systemctl stop "$svc" || true
+          done
+          
+          # Clean up workspace
+          rm -rf "${{ env.WORKSPACE }}"

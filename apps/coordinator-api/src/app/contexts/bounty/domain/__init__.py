@@ -1,0 +1,1 @@
+"""Bounty domain models."""

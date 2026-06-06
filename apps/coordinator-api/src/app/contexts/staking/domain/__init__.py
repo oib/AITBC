@@ -1,0 +1,1 @@
+"""Staking domain models."""

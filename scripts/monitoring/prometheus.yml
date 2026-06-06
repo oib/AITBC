@@ -1,0 +1,85 @@
+# Prometheus Configuration for AITBC Monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'aitbc-test'
+    environment: 'test'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "alert_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Coordinator API metrics
+  - job_name: 'coordinator-api'
+    static_configs:
+      - targets: ['localhost:8011']
+    metrics_path: '/metrics/'
+    scrape_interval: 15s
+
+  # Blockchain Node metrics
+  - job_name: 'blockchain-node'
+    static_configs:
+      - targets: ['localhost:8006']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Marketplace metrics
+  - job_name: 'marketplace'
+    static_configs:
+      - targets: ['localhost:8102']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Agent Coordinator metrics (disabled - no /metrics endpoint)
+  # - job_name: 'agent-coordinator'
+  #   static_configs:
+  #     - targets: ['localhost:9001']
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 15s
+
+  # Edge API metrics (disabled - no /metrics endpoint)
+  # - job_name: 'edge-api'
+  #   static_configs:
+  #     - targets: ['localhost:8103']
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 15s
+
+  # AI Service metrics (disabled - no /metrics endpoint)
+  # - job_name: 'ai-service'
+  #   static_configs:
+  #     - targets: ['localhost:8005']
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 15s
+
+  # PostgreSQL metrics (using postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis metrics (using redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Node exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s

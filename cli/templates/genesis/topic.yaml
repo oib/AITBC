@@ -1,0 +1,34 @@
+description: Topic-specific chain template for specialized domains
+genesis:
+  chain_type: "topic"
+  purpose: "healthcare"
+  name: "Healthcare AI Chain"
+  description: "A specialized chain for healthcare AI applications"
+  
+  consensus:
+    algorithm: "pos"
+    block_time: 3
+    max_validators: 21
+    min_stake: 1000000000000000000  # 1 ETH
+    authorities: []
+  
+  privacy:
+    visibility: "public"
+    access_control: "open"
+    require_invitation: false
+    encryption_enabled: false
+  
+  parameters:
+    max_block_size: 1048576     # 1MB
+    max_gas_per_block: 10000000
+    min_gas_price: 20000000000  # 20 gwei
+    block_reward: "5000000000000000000"  # 5 ETH
+  
+  limits:
+    max_participants: 1000
+    max_contracts: 100
+    max_transactions_per_block: 500
+    max_storage_size: 1073741824  # 1GB
+  
+  accounts: []
+  contracts: []
