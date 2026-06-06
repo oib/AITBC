@@ -189,13 +189,15 @@ async def lifespan(app: FastAPI):
         "hardware_profile": settings.hardware_profile
     })
 
-    # Start lease tracker on hub nodes
-    if settings.blockchain_mode == "hub":
-        try:
-            await lease_tracker.start()
+    # Start lease tracker on all nodes when subscription is enabled
+    try:
+        await lease_tracker.start()
+        if settings.blockchain_mode == "hub":
             _app_logger.info("Lease tracker started on hub node (RPC service)")
-        except Exception as e:
-            _app_logger.error(f"Failed to start lease tracker in RPC service: {e}", exc_info=True)
+        else:
+            _app_logger.info("Lease tracker started on follower node (RPC service)")
+    except Exception as e:
+        _app_logger.error(f"Failed to start lease tracker in RPC service: {e}", exc_info=True)
 
     try:
         yield
