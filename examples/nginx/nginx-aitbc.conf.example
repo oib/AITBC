@@ -1,0 +1,178 @@
+# AITBC Services Nginx Configuration
+# Copy to nginx-aitbc.conf and replace YOUR_DOMAIN with your actual domain
+# Adjust BACKEND_IP if running in containers (default: 127.0.0.1 for localhost)
+# For Incus containers, set BACKEND_IP to the container IP address
+# You can use sed to replace: sed 's/127.0.0.1/YOUR_CONTAINER_IP/g' nginx-aitbc.conf.example > nginx-aitbc.conf
+#
+# After deployment, run: certbot --nginx -d YOUR_DOMAIN to enable SSL
+#
+# Service Architecture (v0.4.7+):
+# - API Gateway (8201): Routes to all microservices
+# - Marketplace Service (8102): Software service registry with reputation system
+# - Coordinator API (8203): Agent coordination and messaging
+# - Blockchain RPC (8202): Blockchain operations and escrow
+# - Hermes (8103): Message bus for agent communication
+# - Whisper (8110): Audio transcription service
+# - Plugin Registry (8109): Service plugin management
+# - Ollama (11434): LLM inference service
+
+# Backend IP address - set to container IP if running in Incus/LXD
+map $host $backend_ip {
+    default 127.0.0.1;
+    # Uncomment and set your container IP below:
+    # host.example.com 10.0.0.100;
+}
+
+server {
+    listen 80;
+    server_name YOUR_DOMAIN;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+
+    # API Gateway - Routes to all microservices
+    location /api/ {
+        rewrite ^/api/(.*) /$1 break;
+        proxy_pass http://$backend_ip:8201/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+
+        # CORS headers for API
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Api-Key" always;
+
+        # Handle preflight requests
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin "*";
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Api-Key";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type "text/plain; charset=utf-8";
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+
+    # Blockchain RPC - Direct access to blockchain operations
+    location /rpc/ {
+        proxy_pass http://$backend_ip:8202/rpc/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Coordinator API - Agent coordination and messaging
+    location /c/ {
+        proxy_pass http://$backend_ip:8203/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Whisper transcription service (large audio uploads)
+    location /whisper/ {
+        client_max_body_size 500M;
+        rewrite ^/whisper/(.*) /$1 break;
+        proxy_pass http://$backend_ip:8110;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    # Plugin registry
+    location /plugin/ {
+        rewrite ^/plugin/(.*) /$1 break;
+        proxy_pass http://$backend_ip:8109;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Ollama service (for cloud model access)
+    location /ollama/ {
+        proxy_pass http://$backend_ip:11434/;
+        proxy_set_header Host "localhost";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Health check
+    location /health {
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Default — serve static website
+    location / {
+        root /var/www/html;
+        index index.html;
+        try_files $uri $uri/ =404;
+
+        # WebSocket support if needed
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Custom error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+
+    # Static file caching
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Serve production assets
+    location /assets/ {
+        alias /var/www/html/assets/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options nosniff;
+    }
+
+    # Font serving
+    location /fonts-font-awesome/ {
+        alias /usr/share/fonts-font-awesome/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}

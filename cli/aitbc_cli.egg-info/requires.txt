@@ -1,0 +1,15 @@
+click>=8.0
+rich>=13.0
+PyYAML
+requests
+cryptography
+aitbc>=0.6.0
+
+[dev]
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+black>=22.0.0
+isort>=5.10.0
+flake8>=5.0.0

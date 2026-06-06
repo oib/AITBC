@@ -1,0 +1,22 @@
+[project]
+name = "aitbc-agent-sdk"
+version = "0.1.0"
+description = "AITBC Agent SDK"
+authors = [
+    {name = "AITBC Team", email = "team@aitbc.dev"}
+]
+readme = "README.md"
+requires-python = ">=3.13.5,<3.14"
+dependencies = [
+    "requests>=2.32.4",
+    "pydantic>=2.11.0"
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [
+    { include = "aitbc_agent", from = "src" }
+]

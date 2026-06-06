@@ -1,0 +1,32 @@
+[Unit]
+Description=AITBC Agent Live API
+Documentation=https://github.com/oib/AITBC
+After=aitbc-blockchain-rpc.service
+Wants=aitbc-blockchain-rpc.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc/website/agent
+
+# Environment variables - customize for your node
+Environment="AITBC_RPC_URL=http://localhost:8006/rpc"
+Environment="NODE_ID=aitbc"
+Environment="ISLAND_ID=ait-mainnet-island"
+Environment="CHAIN_ID=ait-mainnet"
+Environment="NODE_ROLE=hub"
+Environment="PYTHONUNBUFFERED=1"
+
+# For testnet hub (aitbc1), use these instead:
+# Environment="NODE_ID=aitbc1"
+# Environment="ISLAND_ID=ait-testnet-island"
+# Environment="CHAIN_ID=ait-testnet"
+
+# Python path - update if your venv is elsewhere
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/website/agent/live_api.py --host 127.0.0.1 --port 8081
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
