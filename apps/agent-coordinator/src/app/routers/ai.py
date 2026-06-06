@@ -1,0 +1,156 @@
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
+
+from ..ai.advanced_ai import ai_integration
+from ..ai.realtime_learning import learning_system
+
+logger = get_logger(__name__)
+router = APIRouter()
+
+# Advanced AI/ML endpoints
+@router.post("/ai/learning/experience")
+@rate_limit(rate=50, per=60)
+async def record_learning_experience(
+    request: Request, experience_data: dict[str, Any]
+):
+    """Record a learning experience for the AI system"""
+    try:
+        result = await learning_system.record_experience(experience_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error recording learning experience: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ai/learning/statistics")
+@rate_limit(rate=200, per=60)
+async def get_learning_statistics(
+    request: Request
+):
+    """Get learning system statistics"""
+    try:
+        result = await learning_system.get_learning_statistics()
+        return result
+    except Exception as e:
+        logger.error(f"Error getting learning statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/learning/predict")
+@rate_limit(rate=100, per=60)
+async def predict_performance(
+    request: Request, context: dict[str, Any], action: str = Query(...)
+):
+    """Predict performance for a given action"""
+    try:
+        result = await learning_system.predict_performance(context, action)
+        return result
+    except Exception as e:
+        logger.error(f"Error predicting performance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/learning/recommend")
+@rate_limit(rate=100, per=60)
+async def recommend_action(
+    request: Request, context: dict[str, Any], available_actions: list[str]
+):
+    """Get AI-recommended action"""
+    try:
+        result = await learning_system.recommend_action(context, available_actions)
+        return result
+    except Exception as e:
+        logger.error(f"Error recommending action: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/neural-network/create")
+@rate_limit(rate=50, per=60)
+async def create_neural_network(
+    request: Request, config: dict[str, Any]
+):
+    """Create a new neural network"""
+    try:
+        result = await ai_integration.create_neural_network(config)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating neural network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/neural-network/{network_id}/train")
+@rate_limit(rate=50, per=60)
+async def train_neural_network(
+    request: Request, network_id: str, training_data: list[dict[str, Any]], epochs: int = 100
+):
+    """Train a neural network"""
+    try:
+        result = await ai_integration.train_neural_network(network_id, training_data, epochs)
+        return result
+    except Exception as e:
+        logger.error(f"Error training neural network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/neural-network/{network_id}/predict")
+@rate_limit(rate=100, per=60)
+async def predict_with_neural_network(
+    request: Request, network_id: str, features: list[float]
+):
+    """Make prediction with neural network"""
+    try:
+        result = await ai_integration.predict_with_neural_network(network_id, features)
+        return result
+    except Exception as e:
+        logger.error(f"Error predicting with neural network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/ml-model/create")
+@rate_limit(rate=50, per=60)
+async def create_ml_model(
+    request: Request, config: dict[str, Any]
+):
+    """Create a new ML model"""
+    try:
+        result = await ai_integration.create_ml_model(config)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating ML model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/ml-model/{model_id}/train")
+@rate_limit(rate=50, per=60)
+async def train_ml_model(
+    request: Request, model_id: str, training_data: list[dict[str, Any]]
+):
+    """Train an ML model"""
+    try:
+        result = await ai_integration.train_ml_model(model_id, training_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error training ML model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/ml-model/{model_id}/predict")
+@rate_limit(rate=100, per=60)
+async def predict_with_ml_model(
+    request: Request, model_id: str, features: list[float]
+):
+    """Make prediction with ML model"""
+    try:
+        result = await ai_integration.predict_with_ml_model(model_id, features)
+        return result
+    except Exception as e:
+        logger.error(f"Error predicting with ML model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ai/statistics")
+@rate_limit(rate=200, per=60)
+async def get_ai_statistics(
+    request: Request
+):
+    """Get comprehensive AI/ML statistics"""
+    try:
+        result = await ai_integration.get_ai_statistics()
+        return result
+    except Exception as e:
+        logger.error(f"Error getting AI statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

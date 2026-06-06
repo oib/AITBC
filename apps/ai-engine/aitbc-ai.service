@@ -1,0 +1,21 @@
+[Unit]
+Description=AITBC AI Service
+After=network.target redis.service postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/aitbc/apps/ai-engine
+Environment="PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/node.env
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.ai_service:app --host 0.0.0.0 --port 8005
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-ai
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,208 @@
+from typing import Annotated
+
+from sqlalchemy.orm import Session
+
+"""
+User Management Router for AITBC
+"""
+
+import hashlib
+import time
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlmodel import Session, select
+
+from aitbc.rate_limiting import rate_limit
+
+from ..domain import User, Wallet
+from ..schemas import UserBalance, UserCreate, UserLogin, UserProfile
+from ..storage import get_session
+
+router = APIRouter(tags=["users"])
+
+# In-memory session storage for demo (use Redis in production)
+user_sessions: dict[str, dict] = {}
+
+
+def create_session_token(user_id: str) -> str:
+    """Create a session token for a user"""
+    token_data = f"{user_id}:{int(time.time())}"
+    token = hashlib.sha256(token_data.encode()).hexdigest()
+
+    # Store session
+    user_sessions[token] = {
+        "user_id": user_id,
+        "created_at": int(time.time()),
+        "expires_at": int(time.time()) + 86400,  # 24 hours
+    }
+
+    return token
+
+
+def verify_session_token(token: str) -> str | None:
+    """Verify a session token and return user_id"""
+    if token not in user_sessions:
+        return None
+
+    session = user_sessions[token]
+
+    # Check if expired
+    if int(time.time()) > session["expires_at"]:
+        del user_sessions[token]
+        return None
+
+    return session["user_id"]  # type: ignore[no-any-return]
+
+
+@router.post("/register", response_model=UserProfile)
+@rate_limit(rate=10, per=60)
+async def register_user(user_data: UserCreate, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+    """Register a new user"""
+
+    # Check if user already exists
+    existing_user = session.execute(select(User).where(User.email == user_data.email)).first()
+
+    if existing_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+
+    # Create new user
+    user = User(
+        id=str(uuid.uuid4()),
+        email=user_data.email,
+        username=user_data.username,
+        created_at=datetime.now(UTC),
+        last_login=datetime.now(UTC),
+    )
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    # Create wallet for user
+    wallet = Wallet(user_id=user.id, address=f"aitbc_{user.id[:8]}", balance=0.0, created_at=datetime.now(UTC))
+
+    session.add(wallet)
+    session.commit()
+
+    # Create session token
+    token = create_session_token(user.id)
+
+    return {
+        "user_id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "created_at": user.created_at.isoformat(),
+        "session_token": token,
+    }
+
+
+@router.post("/login", response_model=UserProfile)
+@rate_limit(rate=20, per=60)
+async def login_user(login_data: UserLogin, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+    """Login user with wallet address"""
+
+    # For demo, we'll create or get user by wallet address
+    # In production, implement proper authentication
+
+    # Find user by wallet address
+    wallet = session.execute(select(Wallet).where(Wallet.address == login_data.wallet_address)).first()
+
+    if not wallet:
+        # Create new user for wallet
+        user = User(
+            id=str(uuid.uuid4()),
+            email=f"{login_data.wallet_address}@aitbc.local",
+            username=f"user_{login_data.wallet_address[-8:]}_{str(uuid.uuid4())[:8]}",
+            created_at=datetime.now(UTC),
+            last_login=datetime.now(UTC),
+        )
+
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        # Create wallet
+        wallet = Wallet(user_id=user.id, address=login_data.wallet_address, balance=0.0, created_at=datetime.now(UTC))  # type: ignore[assignment]
+
+        session.add(wallet)
+        session.commit()
+    else:
+        # Update last login
+        user = session.execute(select(User).where(User.id == wallet.user_id)).first()  # type: ignore[assignment]
+        user.last_login = datetime.now(UTC)
+        session.commit()
+
+    # Create session token
+    token = create_session_token(user.id)
+
+    return {
+        "user_id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "created_at": user.created_at.isoformat(),
+        "session_token": token,
+    }
+
+
+@router.get("/users/me", response_model=UserProfile)
+@rate_limit(rate=100, per=60)
+async def get_current_user(session: Annotated[Session, Depends(get_session)], token: str, request: Request) -> dict[str, Any]:
+    """Get current user profile"""
+
+    user_id = verify_session_token(token)
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    return {
+        "user_id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "created_at": user.created_at.isoformat(),
+        "session_token": token,
+    }
+
+
+@router.get("/users/{user_id}/balance", response_model=UserBalance)
+@rate_limit(rate=50, per=60)
+async def get_user_balance(user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+    """Get user's AITBC balance"""
+
+    wallet = session.execute(select(Wallet).where(Wallet.user_id == user_id)).first()
+
+    if not wallet:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wallet not found")
+
+    return {
+        "user_id": user_id,
+        "address": wallet.address,
+        "balance": wallet.balance,
+        "updated_at": wallet.updated_at.isoformat() if wallet.updated_at else None,
+    }
+
+
+@router.post("/logout")
+@rate_limit(rate=20, per=60)
+async def logout_user(token: str, request: Request) -> dict[str, str]:
+    """Logout user and invalidate session"""
+
+    if token in user_sessions:
+        del user_sessions[token]
+
+    return {"message": "Logged out successfully"}
+
+
+@router.get("/users/{user_id}/transactions")
+@rate_limit(rate=50, per=60)
+async def get_user_transactions(user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+    """Get user's transaction history"""
+
+    # For demo, return empty list
+    # In production, query from transaction table
+    return {"user_id": user_id, "transactions": [], "total": 0}

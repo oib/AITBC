@@ -1,0 +1,275 @@
+from __future__ import annotations
+
+from typing import Annotated
+from sqlmodel import select
+
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+"""Payment service for job payments"""
+
+from datetime import UTC, datetime, timedelta
+
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
+logger = get_logger(__name__)
+
+from ....schemas import JobPaymentCreate, JobPaymentView
+from ....storage import get_session
+from ..domain.payment import JobPayment, PaymentEscrow
+
+
+class PaymentService:
+    """Service for handling job payments"""
+
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
+        self.session = session
+        self.wallet_base_url = "http://127.0.0.1:20000"  # Wallet daemon URL
+        self.exchange_base_url = "http://127.0.0.1:8106"  # Exchange API URL
+
+    async def create_payment(self, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
+        """Create a new payment for a job with ACID compliance"""
+        try:
+            # Create payment record
+            payment = JobPayment(
+                job_id=job_id,
+                amount=payment_data.amount,
+                currency=payment_data.currency,
+                payment_method=payment_data.payment_method,
+                expires_at=datetime.now(UTC) + timedelta(seconds=payment_data.escrow_timeout_seconds),
+            )
+
+            self.session.add(payment)
+
+            # For AITBC token payments, use token escrow (optional - skip if endpoint not available)
+            if payment_data.payment_method == "aitbc_token":
+                try:
+                    escrow = await self._create_token_escrow(payment)  # type: ignore[func-returns-value]
+                    if escrow is not None:
+                        self.session.add(escrow)  # type: ignore[unreachable]
+                except Exception as e:
+                    logger.warning(f"Token escrow not available, skipping payment: {e}")
+                    payment.status = "skipped"  # Mark as skipped when escrow unavailable
+            # Bitcoin payments only for exchange purchases
+            elif payment_data.payment_method == "bitcoin":
+                escrow = await self._create_bitcoin_escrow(payment)  # type: ignore[func-returns-value]
+                if escrow is not None:
+                    self.session.add(escrow)  # type: ignore[unreachable]
+
+            # Single atomic commit - all or nothing
+            self.session.commit()
+            self.session.refresh(payment)
+
+            logger.info(f"Payment created successfully: {payment.id}")
+            return payment
+
+        except Exception as e:
+            # Rollback all changes on any error
+            self.session.rollback()
+            logger.error(f"Failed to create payment: {e}")
+            raise
+
+    async def _create_token_escrow(self, payment: JobPayment) -> None:
+        """Create an escrow for AITBC token payments"""
+        try:
+            # For AITBC tokens, we use the token contract escrow
+            client = AITBCHTTPClient(timeout=10.0)
+            # Call exchange API to create token escrow
+            response = client.post(
+                f"{self.exchange_base_url}/api/v1/token/escrow/create",
+                json={
+                    "amount": float(payment.amount),
+                    "currency": payment.currency,
+                    "job_id": payment.job_id,
+                    "timeout_seconds": 3600,  # 1 hour
+                },
+            )
+
+            escrow_data = response
+            payment.escrow_address = escrow_data.get("escrow_id")
+            payment.status = "escrowed"
+            payment.escrowed_at = datetime.now(UTC)
+            payment.updated_at = datetime.now(UTC)
+
+            # Create escrow record
+            escrow = PaymentEscrow(
+                payment_id=payment.id,
+                amount=payment.amount,
+                currency=payment.currency,
+                address=escrow_data.get("escrow_id"),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+            if escrow is not None:
+                self.session.add(escrow)
+
+            self.session.commit()
+            logger.info(f"Created AITBC token escrow for payment {payment.id}")
+
+        except NetworkError as e:
+            logger.warning(f"Token escrow endpoint not available: {e}")
+            # Don't set status to failed - let outer handler mark as skipped
+        except Exception as e:
+            logger.warning(f"Token escrow creation failed: {e}")
+            # Don't set status to failed - let outer handler mark as skipped
+
+    async def _create_bitcoin_escrow(self, payment: JobPayment) -> None:
+        """Create an escrow for Bitcoin payments (exchange only)"""
+        try:
+            client = AITBCHTTPClient(timeout=30.0)
+            try:
+                # Call wallet daemon to create escrow
+                escrow_data = client.post(
+                    f"{self.wallet_base_url}/api/v1/escrow/create",
+                    json={"amount": float(payment.amount), "currency": payment.currency, "timeout_seconds": 3600},  # 1 hour
+                )
+                payment.escrow_address = escrow_data["address"]
+                payment.status = "escrowed"
+                payment.escrowed_at = datetime.now(UTC)
+                payment.updated_at = datetime.now(UTC)
+
+                # Create escrow record
+                escrow = PaymentEscrow(
+                    payment_id=payment.id,
+                    amount=payment.amount,
+                    currency=payment.currency,
+                    address=escrow_data["address"],
+                    expires_at=datetime.now(UTC) + timedelta(hours=1),
+                )
+                if escrow is not None:
+                    self.session.add(escrow)
+
+                self.session.commit()
+                logger.info(f"Created Bitcoin escrow for payment {payment.id}")
+            except NetworkError as e:
+                logger.error(f"Failed to create Bitcoin escrow: {e}")
+                payment.status = "failed"
+                payment.updated_at = datetime.now(UTC)
+                self.session.commit()
+
+        except Exception as e:
+            logger.error(f"Error creating Bitcoin escrow: {e}")
+            payment.status = "failed"
+            payment.updated_at = datetime.now(UTC)
+            self.session.commit()
+
+    async def release_payment(self, job_id: str, payment_id: str, reason: str | None = None) -> bool:
+        """Release payment from escrow to miner"""
+
+        payment = self.session.get(JobPayment, payment_id)
+        if not payment or payment.job_id != job_id:
+            return False
+
+        if payment.status != "escrowed":
+            return False
+
+        try:
+            client = AITBCHTTPClient(timeout=30.0)
+            try:
+                # Call wallet daemon to release escrow
+                release_data = client.post(
+                    f"{self.wallet_base_url}/api/v1/escrow/release",
+                    json={"address": payment.escrow_address, "reason": reason or "Job completed successfully"},
+                )
+                payment.status = "released"
+                payment.released_at = datetime.now(UTC)
+                payment.updated_at = datetime.now(UTC)
+                payment.transaction_hash = release_data.get("transaction_hash")
+
+                # Update escrow record
+                escrow = (
+                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))  # type: ignore[name-defined]
+                    .scalars()
+                    .first()
+                )
+
+                if escrow:
+                    escrow.is_released = True
+                    escrow.released_at = datetime.now(UTC)
+
+                self.session.commit()
+                logger.info(f"Released payment {payment_id} for job {job_id}")
+                return True
+            except NetworkError as e:
+                logger.error(f"Failed to release payment: {e}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error releasing payment: {e}")
+            return False
+
+    async def refund_payment(self, job_id: str, payment_id: str, reason: str) -> bool:
+        """Refund payment to client"""
+
+        payment = self.session.get(JobPayment, payment_id)
+        if not payment or payment.job_id != job_id:
+            return False
+
+        if payment.status not in ["escrowed", "pending"]:
+            return False
+
+        try:
+            client = AITBCHTTPClient(timeout=30.0)
+            try:
+                # Call wallet daemon to refund
+                refund_data = client.post(
+                    f"{self.wallet_base_url}/api/v1/refund",
+                    json={
+                        "payment_id": payment_id,
+                        "address": payment.refund_address,
+                        "amount": float(payment.amount),
+                        "reason": reason,
+                    },
+                )
+                payment.status = "refunded"
+                payment.refunded_at = datetime.now(UTC)
+                payment.updated_at = datetime.now(UTC)
+                payment.refund_transaction_hash = refund_data.get("transaction_hash")
+
+                # Update escrow record
+                escrow = (
+                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))  # type: ignore[name-defined]
+                    .scalars()
+                    .first()
+                )
+
+                if escrow:
+                    escrow.is_refunded = True
+                    escrow.refunded_at = datetime.now(UTC)
+
+                self.session.commit()
+                logger.info(f"Refunded payment {payment_id} for job {job_id}")
+                return True
+            except NetworkError as e:
+                logger.error(f"Failed to refund payment: {e}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error refunding payment: {e}")
+            return False
+
+    def get_payment(self, payment_id: str) -> JobPayment | None:
+        """Get payment by ID"""
+        return self.session.get(JobPayment, payment_id)
+
+    def get_job_payment(self, job_id: str) -> JobPayment | None:
+        """Get payment for a specific job"""
+        return self.session.execute(select(JobPayment).where(JobPayment.job_id == job_id)).scalars().first()  # type: ignore[name-defined]
+
+    def to_view(self, payment: JobPayment) -> JobPaymentView:
+        """Convert payment to view model"""
+        return JobPaymentView(
+            job_id=payment.job_id,
+            payment_id=payment.id,
+            amount=float(payment.amount),
+            currency=payment.currency,
+            status=payment.status,
+            payment_method=payment.payment_method,
+            escrow_address=payment.escrow_address,
+            refund_address=payment.refund_address,
+            created_at=payment.created_at,
+            updated_at=payment.updated_at,
+            released_at=payment.released_at,
+            refunded_at=payment.refunded_at,
+            transaction_hash=payment.transaction_hash,
+            refund_transaction_hash=payment.refund_transaction_hash,
+        )

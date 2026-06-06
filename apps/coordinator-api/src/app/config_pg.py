@@ -1,0 +1,79 @@
+"""Coordinator API configuration with PostgreSQL support"""
+
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application settings"""
+
+    # API Configuration
+    api_host: str = "0.0.0.0"  # nosec B104
+    api_port: int = 8011
+    api_prefix: str = "/v1"
+    debug: bool = False
+
+    # Database Configuration
+    database_url: str = "postgresql://localhost:5432/aitbc_coordinator"
+
+    # JWT Configuration
+    jwt_secret: str = ""  # Must be provided via environment
+    jwt_algorithm: str = "HS256"
+    jwt_expiration_hours: int = 24
+
+    # Job Configuration
+    default_job_ttl_seconds: int = 3600  # 1 hour
+    max_job_ttl_seconds: int = 86400  # 24 hours
+    job_cleanup_interval_seconds: int = 300  # 5 minutes
+
+    # Miner Configuration
+    miner_heartbeat_timeout_seconds: int = 120  # 2 minutes
+    miner_max_inflight: int = 10
+
+    # Marketplace Configuration
+    marketplace_offer_ttl_seconds: int = 3600  # 1 hour
+
+    # Wallet Configuration
+    wallet_rpc_url: str = "http://localhost:8003"  # Updated to new port logic
+
+    # CORS Configuration
+    cors_origins: list[str] = [
+        "http://localhost:8011",  # Coordinator API
+        "http://localhost:8001",  # Exchange API
+        "http://localhost:8002",  # Blockchain Node
+        "http://localhost:8003",  # Blockchain RPC
+        "http://localhost:8010",  # Multimodal GPU
+        "http://localhost:8011",  # GPU Multimodal
+        "http://localhost:8012",  # Modality Optimization
+        "http://localhost:8013",  # Adaptive Learning
+        "http://localhost:8014",  # Marketplace Enhanced
+        "http://localhost:8015",  # hermes Enhanced
+        "http://localhost:8016",  # Web UI
+        "https://aitbc.bubuit.net",
+        "https://aitbc.bubuit.net:8011",
+        "https://aitbc.bubuit.net:8001",
+        "https://aitbc.bubuit.net:8003",
+        "https://aitbc.bubuit.net:8016",
+    ]
+
+    # Logging Configuration
+    log_level: str = "INFO"
+    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+    def validate_secrets(self) -> None:
+        """Validate that all required secrets are provided"""
+        if not self.jwt_secret:
+            raise ValueError("JWT_SECRET environment variable is required")
+        if self.jwt_secret == "change-me-in-production":
+            raise ValueError("JWT_SECRET must be changed from default value")
+
+
+# Create global settings instance
+settings = Settings()
+
+# Validate secrets on import
+settings.validate_secrets()
