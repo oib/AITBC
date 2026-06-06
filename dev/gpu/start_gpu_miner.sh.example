@@ -1,0 +1,72 @@
+
+#!/bin/bash
+
+# AITBC GPU Miner Startup Script (DEPRECATED - v0.4.7+)
+# ⚠️  This script is for the legacy GPU-only marketplace architecture
+# 
+# For v0.4.7+, use the new Hardware+Software Bundle architecture:
+# - Register software offers with GPU information via: aitbc market offer ollama <model> <price>
+# - GPU mining is now integrated with software service offers
+# - See: /opt/aitbc/docs/releases/RELEASE_v0.4.7.md
+#
+# If you need GPU resource registration for the new architecture:
+# - Use CLI: aitbc edge gpu register
+# - Or API: POST /v1/gpu/resources (through API Gateway)
+#
+# Legacy architecture (pre-v0.4.7):
+# - GPU-only marketplace on port 8101
+# - Coordinator API on port 8000
+# - Separate miner registration system
+
+set -e
+
+# === CONFIGURE THESE ===
+COORDINATOR_URL="http://YOUR_COORDINATOR_IP:8000"
+MINER_API_KEY="your_miner_api_key"
+OLLAMA_HOST="http://127.0.0.1:11434"
+GPU_ID="gpu-0"
+
+echo "⚠️  WARNING: This script uses the legacy GPU mining architecture (pre-v0.4.7)"
+echo "For v0.4.7+, use: aitbc market offer ollama <model> <price> --gpu-device <device>"
+echo ""
+echo "🔧 Starting AITBC GPU Miner (Legacy)"
+echo "Coordinator: $COORDINATOR_URL"
+echo "Ollama: $OLLAMA_HOST"
+echo ""
+
+# Check Ollama is running
+if ! curl -s "$OLLAMA_HOST/api/tags" > /dev/null 2>&1; then
+    echo "❌ Ollama not running at $OLLAMA_HOST"
+    echo "Start it with: ollama serve"
+    exit 1
+fi
+
+echo "✅ Ollama is running"
+
+# Check GPU (NVIDIA required)
+if command -v nvidia-smi &> /dev/null; then
+    echo "GPU detected:"
+    nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+else
+    echo "❌ No NVIDIA GPU detected"
+    echo "NVIDIA GPU is required for GPU mining"
+    exit 1
+fi
+
+# Register miner
+echo ""
+echo "Registering miner with coordinator..."
+curl -s -X POST "$COORDINATOR_URL/v1/miners/register" \
+    -H "X-Api-Key: $MINER_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\"gpu_id\": \"$GPU_ID\", \"ollama_url\": \"$OLLAMA_HOST\"}"
+
+echo ""
+echo "✅ Miner registered. Starting heartbeat loop..."
+
+# Heartbeat + job polling loop
+while true; do
+    curl -s -X POST "$COORDINATOR_URL/v1/miners/heartbeat" \
+        -H "X-Api-Key: $MINER_API_KEY" > /dev/null 2>&1
+    sleep 10
+done

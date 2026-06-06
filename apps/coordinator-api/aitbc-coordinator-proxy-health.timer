@@ -1,0 +1,10 @@
+[Unit]
+Description=Run AITBC Coordinator Proxy Health Check
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Unit=aitbc-coordinator-proxy-health.service
+
+[Install]
+WantedBy=timers.target

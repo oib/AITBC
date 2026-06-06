@@ -1,0 +1,144 @@
+# AITBC Host Reverse Proxy Configuration
+# This configuration runs on the HOST machine and forwards requests to the AITBC container
+# Copy to nginx-aitbc-proxy.conf and replace CONTAINER_IP with your actual container IP
+# Enable SSL with: certbot --nginx -d YOUR_DOMAIN
+#
+# Architecture:
+# Host (this config) → Container (nginx-aitbc.conf) → Services
+# SSL termination happens here on the host
+# Container IP should be the Incus/LXD container IP address
+
+upstream aitbc_container {
+    server CONTAINER_IP:80;  # Container nginx listens on port 80
+    keepalive 32;
+}
+
+server {
+    server_name YOUR_DOMAIN;
+    client_max_body_size 500M;  # For audio uploads to Whisper service
+
+    # Ollama API (WebSocket support for streaming inference)
+    location /ollama/ {
+        proxy_pass http://aitbc_container/ollama/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket support for streaming
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Timeouts for inference
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        
+        # Buffer settings for streaming
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_request_buffering off;
+    }
+
+    # API Gateway and all other services
+    location /api/ {
+        proxy_pass http://aitbc_container/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+    }
+
+    # Blockchain RPC (direct access)
+    location /rpc/ {
+        proxy_pass http://aitbc_container/rpc/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Coordinator API (agent coordination)
+    location /c/ {
+        proxy_pass http://aitbc_container/c/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Whisper transcription service
+    location /whisper/ {
+        proxy_pass http://aitbc_container/whisper/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Plugin registry
+    location /plugin/ {
+        proxy_pass http://aitbc_container/plugin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Health check
+    location /health {
+        proxy_pass http://aitbc_container/health;
+        proxy_set_header Host $host;
+    }
+
+    # All other requests (default fallback to container)
+    location / {
+        proxy_pass http://aitbc_container/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+    }
+    
+    # SSL Configuration (after running certbot)
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+# HTTP to HTTPS redirect (after running certbot)
+server {
+    if ($host = YOUR_DOMAIN) {
+        return 308 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    server_name YOUR_DOMAIN;
+    return 404; # managed by Certbot
+}

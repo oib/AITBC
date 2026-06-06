@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e
+
+# Post-installation script for aitbc-cli
+
+case "$1" in
+    configure)
+        # Create virtual environment after installation
+        VENV_PATH="/opt/aitbc/venv"
+        
+        if [ ! -d "$VENV_PATH" ]; then
+            echo "Creating AITBC CLI virtual environment..."
+            python3 -m venv "$VENV_PATH"
+            
+            # Install the CLI in the virtual environment
+            "$VENV_PATH/bin/pip" install --upgrade pip
+            "$VENV_PATH/bin/pip" install /usr/share/aitbc/dist/aitbc_cli-0.1.0-py3-none-any.whl
+            
+            # Create symlink for system-wide access
+            ln -sf "$VENV_PATH/bin/aitbc" /usr/local/bin/aitbc
+            
+            echo "AITBC CLI installed successfully!"
+        fi
+        
+        # Set up completion
+        if [ -f "/etc/bash_completion.d/aitbc" ]; then
+            . /etc/bash_completion.d/aitbc
+        fi
+        ;;
+    
+    abort-upgrade|failed-upgrade)
+        echo "Post-installation script failed"
+        exit 1
+        ;;
+esac
+
+exit 0

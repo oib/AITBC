@@ -1,0 +1,16 @@
+"""Marketplace context database schema."""
+
+from __future__ import annotations
+
+# Table name prefixes for marketplace context
+MARKETPLACE_TABLE_PREFIX = "marketplace_"
+
+# Marketplace context table names
+MARKETPLACE_OFFER_TABLE = f"{MARKETPLACE_TABLE_PREFIX}offer"
+MARKETPLACE_BID_TABLE = f"{MARKETPLACE_TABLE_PREFIX}bid"
+MARKETPLACE_STATS_TABLE = f"{MARKETPLACE_TABLE_PREFIX}stats"
+GPU_REGISTRY_TABLE = f"{MARKETPLACE_TABLE_PREFIX}gpu_registry"
+GPU_BOOKING_TABLE = f"{MARKETPLACE_TABLE_PREFIX}gpu_booking"
+GPU_REVIEW_TABLE = f"{MARKETPLACE_TABLE_PREFIX}gpu_review"
+GLOBAL_MARKETPLACE_OFFER_TABLE = f"{MARKETPLACE_TABLE_PREFIX}global_offer"
+GLOBAL_MARKETPLACE_TRANSACTION_TABLE = f"{MARKETPLACE_TABLE_PREFIX}global_transaction"

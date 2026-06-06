@@ -1,0 +1,214 @@
+name: Staking Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tests/services/test_staking_service.py'
+      - 'tests/integration/test_staking_lifecycle.py'
+      - 'contracts/test/AgentStaking.test.js'
+      - 'apps/coordinator-api/src/app/services/staking_service.py'
+      - 'apps/coordinator-api/src/app/domain/bounty.py'
+      - '.gitea/workflows/staking-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: staking-tests-${{ gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-staking-service:
+    runs-on: debian
+    timeout-minutes: 15
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/staking-tests
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "pytest pytest-asyncio sqlmodel click"
+          echo "✅ Python environment ready"
+
+      - name: Run staking service tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
+
+          echo "🧪 Running staking service tests..."
+          venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/services/test_staking_service.py -v --tb=short
+          echo "✅ Service tests completed"
+
+      - name: Generate test data
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          
+          echo "🔧 Generating test data..."
+          venv/bin/python scripts/testing/generate_staking_test_data.py
+          echo "✅ Test data generated"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
+
+  test-staking-integration:
+    runs-on: debian
+    timeout-minutes: 20
+    needs: test-staking-service
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/staking-integration
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "pytest pytest-asyncio sqlmodel click"
+          echo "✅ Python environment ready"
+
+      - name: Run staking integration tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
+
+          echo "🧪 Running staking integration tests..."
+          venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/integration/test_staking_lifecycle.py -v --tb=short
+          echo "✅ Integration tests completed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
+
+  test-staking-contract:
+    runs-on: debian
+    timeout-minutes: 15
+    needs: test-staking-service
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/staking-contract
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Node.js environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/contracts"
+          
+          # Install pnpm if not available
+          if ! command -v pnpm &> /dev/null; then
+            npm install -g pnpm
+          fi
+          
+          pnpm install
+          echo "✅ Node.js environment ready"
+
+      - name: Run staking contract tests
+        run: |
+          cd "${{ env.WORKSPACE }}/repo/contracts"
+          
+          echo "🧪 Running staking contract tests..."
+          pnpm hardhat compile
+          pnpm hardhat test test/AgentStaking.test.js
+          echo "✅ Contract tests completed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
+
+  run-staking-test-runner:
+    runs-on: debian
+    timeout-minutes: 25
+    needs: [test-staking-service, test-staking-integration, test-staking-contract]
+
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/staking-runner
+
+    steps:
+      - name: Clone repository
+        run: |
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
+          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv"
+          echo "✅ Python environment ready"
+
+      - name: Run staking test runner
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          chmod +x scripts/testing/run_staking_tests.sh
+          bash scripts/testing/run_staking_tests.sh
+          echo "✅ Staking test runner completed"
+
+      - name: Upload test reports
+        if: always()
+        run: |
+          echo "📊 Test reports available in /var/log/aitbc/tests/staking/"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ env.WORKSPACE }}"
