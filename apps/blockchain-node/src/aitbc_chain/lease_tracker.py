@@ -49,7 +49,7 @@ class LeaseTracker:
             else:
                 self._redis = redis.Redis(host="127.0.0.1", port=6379, decode_responses=True)
 
-            logger.info(f"Redis client created: {self._redis}")
+            logger.info(f"Redis client created: connected to {self._redis_url}")
             # Test connection
             pong = await asyncio.to_thread(self._redis.ping)
             logger.info(f"Redis ping successful: {pong}")

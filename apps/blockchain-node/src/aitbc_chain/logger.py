@@ -1,11 +1,9 @@
 import logging
 import sys
-from datetime import UTC, datetime
 
 
 class TextFormatter(logging.Formatter):
     def format(self, record):
-        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
         message = record.getMessage()
         
         # Add any extra arguments passed to the logger
@@ -26,7 +24,7 @@ class TextFormatter(logging.Formatter):
         if extra_fields:
             message = f"{message} [{', '.join(extra_fields)}]"
         
-        return f"{timestamp} {record.levelname} {record.name} {message}"
+        return f"{record.levelname} {record.name} {message}"
 
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
