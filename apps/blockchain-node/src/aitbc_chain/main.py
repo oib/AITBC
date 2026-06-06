@@ -16,7 +16,7 @@ from .mempool import init_mempool
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
 
-logger = get_logger(__name__)
+logger = get_logger("aitbc_chain.main")
 
 # Try to import island manager - may fail if module has issues
 try:
