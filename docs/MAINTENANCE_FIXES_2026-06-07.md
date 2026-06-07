@@ -60,11 +60,11 @@ This document summarizes the comprehensive system maintenance and fixes performe
 **Issue**: Services failing due to missing `data` directories.
 
 **Fix**:
-- Created `apps/governance-service/data/.gitkeep`
+- Created `apps/governance/data/.gitkeep`
 - Created `apps/trading-service/data/.gitkeep`
 
 **Files Modified**:
-- `apps/governance-service/data/.gitkeep`
+- `apps/governance/data/.gitkeep`
 - `apps/trading-service/data/.gitkeep`
 
 **Result**: Governance and trading services now start successfully.
@@ -216,7 +216,7 @@ This document summarizes the comprehensive system maintenance and fixes performe
 - `docs/development/17_windsurf-testing.md`
 
 ### Directory Structure
-- `apps/governance-service/data/.gitkeep` (new)
+- `apps/governance/data/.gitkeep` (new)
 - `apps/trading-service/data/.gitkeep` (new)
 - `tests/htmlcov/` (moved from root)
 
