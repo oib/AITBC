@@ -31,7 +31,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-services/aitbc-agent-daemon-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py
 Restart=always
 RestartSec=5
 

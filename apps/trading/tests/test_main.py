@@ -19,7 +19,7 @@ def test_health_check(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["service"] == "trading-service"
+    assert data["service"] == "trading"
 
 
 def test_trading_status(client):
@@ -28,7 +28,7 @@ def test_trading_status(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "operational"
-    assert data["service"] == "trading-service"
+    assert data["service"] == "trading"
 
 
 def test_get_trade_requests(client):
