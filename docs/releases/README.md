@@ -25,6 +25,7 @@
 
 Read the release notes newest-first:
 
+- **[v0.4.11](RELEASE_v0.4.11.md)** - June 7, 2026 - **System Maintenance & Fixes**
 - **[v0.4.10](RELEASE_v0.4.10.md)** - January 4, 2025 - **Security & Performance Major Release**
 - **[v0.4.9](RELEASE_v0.4.9.md)** - June 6, 2026
 - **[v0.4.8](RELEASE_v0.4.8.md)** - June 6, 2026
