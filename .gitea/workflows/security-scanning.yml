@@ -55,7 +55,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "bandit pip-audit"
+            --extra-packages "bandit pip-audit safety"
 
           echo "✅ Security tools installed"
 
@@ -65,6 +65,14 @@ jobs:
           echo "=== Dependency Audit ==="
           venv/bin/pip-audit -r requirements.txt --desc
           echo "✅ Dependency audit completed"
+
+      - name: Safety security scan
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          echo "=== Safety Security Scan ==="
+          venv/bin/safety check --file requirements.txt --json --output safety-report.json || true
+          venv/bin/safety check --file requirements.txt
+          echo "✅ Safety scan completed"
 
       - name: Bandit security scan
         run: |
