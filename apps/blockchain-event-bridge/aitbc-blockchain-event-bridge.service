@@ -4,8 +4,8 @@ After=network.target aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-public
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
@@ -17,8 +17,8 @@ StandardError=journal
 SyslogIdentifier=EventBridge
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
+# ProtectSystem=strict - Removed for service user compatibility
+# ProtectHome=true - Removed for service user compatibility
 ReadWritePaths=/var/lib/aitbc
 ReadWritePaths=/var/log/aitbc
 

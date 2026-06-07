@@ -5,8 +5,8 @@ Wants=aitbc-coordinator-api.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-internal
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/
 Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
 EnvironmentFile=/etc/aitbc/blockchain.env
@@ -26,7 +26,7 @@ SyslogIdentifier=aitbc-adaptive-learning
 
 # Security
 NoNewPrivileges=true
-ProtectHome=true
+# ProtectHome=true - Removed for service user compatibility
 
 [Install]
 WantedBy=multi-user.target

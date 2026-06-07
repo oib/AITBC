@@ -37,6 +37,14 @@ exec_cmd = [
     "--host",
     rpc_host,
     "--port",
-    rpc_port
+    rpc_port,
+    "--workers",
+    "4",
+    "--timeout-keep-alive",
+    "30",
+    "--limit-concurrency",
+    "500",
+    "--backlog",
+    "1024"
 ]
 os.execvp(exec_cmd[0], exec_cmd)

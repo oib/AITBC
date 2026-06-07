@@ -74,12 +74,12 @@ async def _import_genesis_wallet_from_env():
 
 
 async def _import_file_wallets():
-    """Auto-import wallets from ~/.aitbc/wallets/ into daemon on startup."""
+    """Auto-import wallets from wallet directory into daemon on startup."""
     import httpx
     import json
     from pathlib import Path
 
-    wallet_dir = Path("/root/.aitbc/wallets")
+    wallet_dir = Path(os.getenv("WALLET_DIR", "/root/.aitbc/wallets"))
     if not wallet_dir.exists():
         return
 
