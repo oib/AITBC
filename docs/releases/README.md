@@ -3,8 +3,8 @@
 **Level**: All Levels  
 **Prerequisites**: None  
 **Estimated Time**: 5-15 minutes  
-**Last Updated**: 2026-05-09  
-**Version**: 1.0
+**Last Updated**: June 7, 2026  
+**Version**: 1.1
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **📋 Releases** → *You are here*
@@ -25,6 +25,17 @@
 
 Read the release notes newest-first:
 
+- **[v0.4.10](RELEASE_v0.4.10.md)** - January 4, 2025 - **Security & Performance Major Release**
+- **[v0.4.9](RELEASE_v0.4.9.md)** - June 6, 2026
+- **[v0.4.8](RELEASE_v0.4.8.md)** - June 6, 2026
+- **[v0.4.7](RELEASE_v0.4.7.md)** - May 14, 2026
+- **[v0.4.6](RELEASE_v0.4.6.md)** - April 17, 2026
+- **[v0.4.5](RELEASE_v0.4.5.md)** - March 14, 2026
+- **[v0.4.4](RELEASE_v0.4.4.md)** - March 14, 2026
+- **[v0.4.3](RELEASE_v0.4.3.md)** - June 2, 2026
+- **[v0.4.2](RELEASE_v0.4.2.md)** - June 2, 2026
+- **[v0.4.1](RELEASE_v0.4.1.md)** - June 2, 2026
+- **[v0.4.0](RELEASE_v0.4.0.md)** - June 2, 2026
 - **[v0.3.9](RELEASE_v0.3.9.md)** - May 13, 2026
 - **[v0.3.8](RELEASE_v0.3.8.md)** - May 12, 2026
 - **[v0.3.7](RELEASE_v0.3.7.md)** - May 11, 2026
@@ -82,6 +93,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: June 7, 2026*  
+*Version: 1.1*  
 *Status: Release index*
