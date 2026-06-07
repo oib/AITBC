@@ -93,7 +93,7 @@ class TrainingEnvironment:
     def check_prerequisites(self) -> bool:
         """
         Check if basic prerequisites are met.
-        
+
         Returns:
             True if prerequisites are met, raises PrerequisitesError otherwise
         """
@@ -131,7 +131,7 @@ class TrainingEnvironment:
         """
         Check genesis wallet and blockchain status.
         Genesis block already exists, so we skip initialization.
-        
+
         Returns:
             Dictionary with allocation status
         """
@@ -180,7 +180,7 @@ class TrainingEnvironment:
         """
         Check genesis wallet status for funding.
         Genesis wallet is pre-funded with 999,999,890 AIT and used as funding source.
-        
+
         Returns:
             Dictionary with funding source status
         """
@@ -211,11 +211,11 @@ class TrainingEnvironment:
     def fund_training_wallet(self, wallet_name: str, password: str = "training123") -> dict[str, Any]:
         """
         Fund a training wallet from genesis.
-        
+
         Args:
             wallet_name: Name of the wallet to fund
             password: Wallet password
-            
+
         Returns:
             Dictionary with funding status
         """
@@ -284,7 +284,7 @@ class TrainingEnvironment:
     def generate_auth_token(self) -> str:
         """
         Generate authentication token for messaging.
-        
+
         Returns:
             Generated token
         """
@@ -297,11 +297,11 @@ class TrainingEnvironment:
     def configure_messaging_auth(self, wallet_name: str, password: str = "training123") -> dict[str, Any]:
         """
         Configure messaging authentication for a wallet.
-        
+
         Args:
             wallet_name: Name of the wallet
             password: Wallet password
-            
+
         Returns:
             Dictionary with configuration status
         """
@@ -349,7 +349,7 @@ class TrainingEnvironment:
     def test_messaging_connectivity(self) -> bool:
         """
         Test messaging connectivity.
-        
+
         Returns:
             True if connectivity test passes
         """
@@ -377,7 +377,7 @@ class TrainingEnvironment:
     def verify_environment(self) -> dict[str, Any]:
         """
         Verify training environment is properly configured.
-        
+
         Returns:
             Dictionary with verification results
         """
@@ -425,7 +425,7 @@ class TrainingEnvironment:
     def setup_full_environment(self) -> dict[str, Any]:
         """
         Setup complete training environment.
-        
+
         Returns:
             Dictionary with setup status
         """
@@ -484,10 +484,10 @@ class TrainingEnvironment:
     def get_wallet_name(self, index: int) -> str:
         """
         Generate deterministic wallet name based on index.
-        
+
         Args:
             index: Wallet index (1-based)
-            
+
         Returns:
             Deterministic wallet name
         """
@@ -496,10 +496,10 @@ class TrainingEnvironment:
     def run_stage_from_json(self, json_path: str) -> dict[str, Any]:
         """
         Execute a training stage from JSON schema definition.
-        
+
         Args:
             json_path: Path to stage JSON file
-            
+
         Returns:
             Dictionary with stage execution results
         """

@@ -54,7 +54,7 @@ class PerformanceProfiler:
     def record(self, function_name: str, execution_time: float) -> None:
         """
         Record execution time for a function
-        
+
         Args:
             function_name: Name of the function
             execution_time: Execution time in seconds
@@ -65,10 +65,10 @@ class PerformanceProfiler:
     def get_stats(self, function_name: str | None = None) -> ProfilingResult | dict[str, ProfilingResult]:
         """
         Get profiling statistics for a function or all functions
-        
+
         Args:
             function_name: Specific function name, or None for all functions
-            
+
         Returns:
             ProfilingResult or dictionary of results
         """
@@ -105,7 +105,7 @@ class PerformanceProfiler:
     def print_stats(self, function_name: str | None = None) -> None:
         """
         Print profiling statistics to console
-        
+
         Args:
             function_name: Specific function name, or None for all functions
         """
@@ -134,10 +134,10 @@ _global_profiler = PerformanceProfiler()
 def profile_function(profiler: PerformanceProfiler | None = None):
     """
     Decorator to profile function execution time
-    
+
     Args:
         profiler: Custom profiler instance, or None to use global profiler
-        
+
     Returns:
         Decorated function with profiling
     """
@@ -163,11 +163,11 @@ def profile_function(profiler: PerformanceProfiler | None = None):
 def profile_context(name: str, profiler: PerformanceProfiler | None = None):
     """
     Context manager for profiling code blocks
-    
+
     Args:
         name: Name for the profiling context
         profiler: Custom profiler instance, or None to use global profiler
-        
+
     Yields:
         None
     """
@@ -184,10 +184,10 @@ def profile_context(name: str, profiler: PerformanceProfiler | None = None):
 def profile_cprofile(func: Callable) -> Callable:
     """
     Decorator to profile function using cProfile
-    
+
     Args:
         func: Function to profile
-        
+
     Returns:
         Decorated function with cProfile profiling
     """
@@ -213,7 +213,7 @@ def profile_cprofile(func: Callable) -> Callable:
 def get_global_profiler() -> PerformanceProfiler:
     """
     Get the global performance profiler instance
-    
+
     Returns:
         Global PerformanceProfiler instance
     """
@@ -233,7 +233,7 @@ def disable_global_profiling() -> None:
 def get_profiling_summary() -> dict[str, ProfilingResult]:
     """
     Get summary of all profiling data
-    
+
     Returns:
         Dictionary of profiling results
     """

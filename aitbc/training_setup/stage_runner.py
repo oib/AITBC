@@ -52,10 +52,10 @@ class StageRunner:
     def load_stage_from_json(self, json_path: str) -> StageDefinition:
         """
         Load a stage definition from JSON file.
-        
+
         Args:
             json_path: Path to JSON file
-            
+
         Returns:
             StageDefinition object
         """
@@ -179,10 +179,10 @@ class StageRunner:
     def _extract_tx_hash(self, output: str) -> str | None:
         """
         Extract transaction hash from command output.
-        
+
         Args:
             output: Command output text
-            
+
         Returns:
             Transaction hash if found, None otherwise
         """
@@ -206,10 +206,10 @@ class StageRunner:
     def validate_conditions(self, expected: dict[str, ExpectedCondition]) -> dict[str, Any]:
         """
         Validate expected conditions after command execution.
-        
+
         Args:
             expected: Dictionary of expected conditions
-            
+
         Returns:
             Dictionary with validation results
         """
@@ -241,10 +241,10 @@ class StageRunner:
     def run_stage(self, stage: StageDefinition) -> dict[str, Any]:
         """
         Execute a complete training stage.
-        
+
         Args:
             stage: StageDefinition to execute
-            
+
         Returns:
             Dictionary with stage execution results
         """
@@ -284,10 +284,10 @@ class StageRunner:
     def run_stage_from_json(self, json_path: str) -> dict[str, Any]:
         """
         Load and execute a stage from JSON file.
-        
+
         Args:
             json_path: Path to JSON file
-            
+
         Returns:
             Dictionary with stage execution results
         """
@@ -298,7 +298,7 @@ class StageRunner:
 def create_example_stage_json(output_path: str):
     """
     Create an example stage JSON file.
-    
+
     Args:
         output_path: Path where to save the example JSON
     """

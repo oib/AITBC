@@ -90,7 +90,7 @@ class RPCBlockchainService(BlockchainService):
     def __init__(self, rpc_url: str, timeout: int = 30):
         """
         Initialize RPC blockchain service
-        
+
         Args:
             rpc_url: Blockchain RPC endpoint URL
             timeout: Request timeout in seconds
@@ -102,13 +102,13 @@ class RPCBlockchainService(BlockchainService):
     def get_block(self, block_identifier: int | str) -> Block:
         """
         Get block by height or hash
-        
+
         Args:
             block_identifier: Block height (int) or hash (str)
-            
+
         Returns:
             Block object with block data
-            
+
         Raises:
             ValueError: If block not found
             NetworkError: If RPC call fails
@@ -139,10 +139,10 @@ class RPCBlockchainService(BlockchainService):
     def get_head_block(self) -> Block:
         """
         Get current head block
-        
+
         Returns:
             Block object with head block data
-            
+
         Raises:
             NetworkError: If RPC call fails
         """
@@ -167,13 +167,13 @@ class RPCBlockchainService(BlockchainService):
     def get_transaction(self, tx_hash: str) -> Transaction:
         """
         Get transaction by hash
-        
+
         Args:
             tx_hash: Transaction hash
-            
+
         Returns:
             Transaction object with transaction data
-            
+
         Raises:
             ValueError: If transaction not found
             NetworkError: If RPC call fails
@@ -202,13 +202,13 @@ class RPCBlockchainService(BlockchainService):
     def get_account_balance(self, address: str) -> Account:
         """
         Get account information including balance
-        
+
         Args:
             address: Account address
-            
+
         Returns:
             Account object with account data
-            
+
         Raises:
             ValueError: If address is invalid
             NetworkError: If RPC call fails
@@ -229,13 +229,13 @@ class RPCBlockchainService(BlockchainService):
     def send_transaction(self, tx_data: dict[str, Any]) -> str:
         """
         Send transaction and return transaction hash
-        
+
         Args:
             tx_data: Transaction data dictionary
-            
+
         Returns:
             Transaction hash
-            
+
         Raises:
             ValueError: If transaction data is invalid
             NetworkError: If RPC call fails
@@ -257,10 +257,10 @@ class RPCBlockchainService(BlockchainService):
     def get_status(self) -> dict[str, Any]:
         """
         Get blockchain node status
-        
+
         Returns:
             Dictionary with node status information
-            
+
         Raises:
             NetworkError: If RPC call fails
         """
@@ -279,11 +279,11 @@ class BlockchainServiceFactory:
     def create_rpc_service(rpc_url: str, timeout: int = 30) -> RPCBlockchainService:
         """
         Create RPC blockchain service
-        
+
         Args:
             rpc_url: Blockchain RPC endpoint URL
             timeout: Request timeout in seconds
-            
+
         Returns:
             RPCBlockchainService instance
         """
@@ -293,14 +293,14 @@ class BlockchainServiceFactory:
     def create_service(service_type: str = "rpc", **kwargs) -> BlockchainService:
         """
         Create blockchain service by type
-        
+
         Args:
             service_type: Type of service ("rpc")
             **kwargs: Service-specific configuration
-            
+
         Returns:
             BlockchainService instance
-            
+
         Raises:
             ValueError: If service type is unknown
         """

@@ -30,7 +30,7 @@ class Web3Client:
             if not self.w3.is_connected():
                 raise ConnectionError(f"Failed to connect to RPC URL: {rpc_url}")
         except Exception as e:
-            raise ConnectionError(f"Failed to initialize Web3 client: {e}")
+            raise ConnectionError(f"Failed to initialize Web3 client: {e}") from e
 
     def get_eth_balance(self, address: str) -> str:
         """Get ETH balance in wei"""
@@ -38,7 +38,7 @@ class Web3Client:
             balance_wei = self.w3.eth.get_balance(address)
             return str(balance_wei)
         except Exception as e:
-            raise ValueError(f"Failed to get ETH balance: {e}")
+            raise ValueError(f"Failed to get ETH balance: {e}") from e
 
     def get_token_balance(self, address: str, token_address: str) -> dict[str, Any]:
         """Get ERC-20 token balance"""
@@ -82,7 +82,7 @@ class Web3Client:
                 "symbol": symbol
             }
         except Exception as e:
-            raise ValueError(f"Failed to get token balance: {e}")
+            raise ValueError(f"Failed to get token balance: {e}") from e
 
     def get_gas_price(self) -> int:
         """Get current gas price in wei"""
@@ -90,7 +90,7 @@ class Web3Client:
             gas_price = self.w3.eth.gas_price
             return gas_price
         except Exception as e:
-            raise ValueError(f"Failed to get gas price: {e}")
+            raise ValueError(f"Failed to get gas price: {e}") from e
 
     def get_gas_price_gwei(self) -> float:
         """Get current gas price in Gwei"""
@@ -98,7 +98,7 @@ class Web3Client:
             gas_price_wei = self.get_gas_price()
             return float(gas_price_wei) / 10**9
         except Exception as e:
-            raise ValueError(f"Failed to get gas price in Gwei: {e}")
+            raise ValueError(f"Failed to get gas price in Gwei: {e}") from e
 
     def get_nonce(self, address: str) -> int:
         """Get transaction nonce for address"""
@@ -106,7 +106,7 @@ class Web3Client:
             nonce = self.w3.eth.get_transaction_count(address)
             return nonce
         except Exception as e:
-            raise ValueError(f"Failed to get nonce: {e}")
+            raise ValueError(f"Failed to get nonce: {e}") from e
 
     def send_raw_transaction(self, signed_transaction: str) -> str:
         """Send raw transaction to blockchain"""
@@ -114,7 +114,7 @@ class Web3Client:
             tx_hash = self.w3.eth.send_raw_transaction(signed_transaction)
             return tx_hash.hex()
         except Exception as e:
-            raise ValueError(f"Failed to send raw transaction: {e}")
+            raise ValueError(f"Failed to send raw transaction: {e}") from e
 
     def get_transaction_receipt(self, tx_hash: str) -> dict[str, Any] | None:
         """Get transaction receipt"""
@@ -132,7 +132,7 @@ class Web3Client:
                 "logs": receipt['logs'],
             }
         except Exception as e:
-            raise ValueError(f"Failed to get transaction receipt: {e}")
+            raise ValueError(f"Failed to get transaction receipt: {e}") from e
 
     def get_transaction_by_hash(self, tx_hash: str) -> dict[str, Any]:
         """Get transaction by hash"""
@@ -149,7 +149,7 @@ class Web3Client:
                 "blockNumber": hex(tx['blockNumber']) if tx['blockNumber'] else None,
             }
         except Exception as e:
-            raise ValueError(f"Failed to get transaction by hash: {e}")
+            raise ValueError(f"Failed to get transaction by hash: {e}") from e
 
     def estimate_gas(self, transaction: dict[str, Any]) -> int:
         """Estimate gas for transaction"""
@@ -157,14 +157,14 @@ class Web3Client:
             gas_estimate = self.w3.eth.estimate_gas(transaction)
             return gas_estimate
         except Exception as e:
-            raise ValueError(f"Failed to estimate gas: {e}")
+            raise ValueError(f"Failed to estimate gas: {e}") from e
 
     def get_block_number(self) -> int:
         """Get current block number"""
         try:
             return self.w3.eth.block_number
         except Exception as e:
-            raise ValueError(f"Failed to get block number: {e}")
+            raise ValueError(f"Failed to get block number: {e}") from e
 
     def get_wallet_transactions(self, address: str, limit: int = 100) -> list[dict[str, Any]]:
         """Get wallet transactions (simplified implementation)"""
@@ -202,7 +202,7 @@ class Web3Client:
 
             return transactions
         except Exception as e:
-            raise ValueError(f"Failed to get wallet transactions: {e}")
+            raise ValueError(f"Failed to get wallet transactions: {e}") from e
 
 
 def create_web3_client(rpc_url: str, timeout: int = 30) -> Web3Client:

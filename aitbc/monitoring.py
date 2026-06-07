@@ -25,7 +25,7 @@ class MetricsCollector:
     def increment(self, metric: str, value: int = 1) -> None:
         """
         Increment a counter metric.
-        
+
         Args:
             metric: Metric name
             value: Value to increment by
@@ -36,7 +36,7 @@ class MetricsCollector:
     def decrement(self, metric: str, value: int = 1) -> None:
         """
         Decrement a counter metric.
-        
+
         Args:
             metric: Metric name
             value: Value to decrement by
@@ -47,7 +47,7 @@ class MetricsCollector:
     def timing(self, metric: str, duration: float) -> None:
         """
         Record a timing metric.
-        
+
         Args:
             metric: Metric name
             duration: Duration in seconds
@@ -58,7 +58,7 @@ class MetricsCollector:
     def set_gauge(self, metric: str, value: float) -> None:
         """
         Set a gauge metric.
-        
+
         Args:
             metric: Metric name
             value: Gauge value
@@ -69,10 +69,10 @@ class MetricsCollector:
     def get_counter(self, metric: str) -> int:
         """
         Get counter value.
-        
+
         Args:
             metric: Metric name
-            
+
         Returns:
             Counter value
         """
@@ -81,10 +81,10 @@ class MetricsCollector:
     def get_timer_stats(self, metric: str) -> dict[str, float]:
         """
         Get timer statistics for a metric.
-        
+
         Args:
             metric: Metric name
-            
+
         Returns:
             Dictionary with min, max, avg, count
         """
@@ -102,10 +102,10 @@ class MetricsCollector:
     def get_gauge(self, metric: str) -> float | None:
         """
         Get gauge value.
-        
+
         Args:
             metric: Metric name
-            
+
         Returns:
             Gauge value or None
         """
@@ -114,7 +114,7 @@ class MetricsCollector:
     def get_all_metrics(self) -> dict[str, Any]:
         """
         Get all collected metrics.
-        
+
         Returns:
             Dictionary of all metrics
         """
@@ -128,7 +128,7 @@ class MetricsCollector:
     def reset_metric(self, metric: str) -> None:
         """
         Reset a specific metric.
-        
+
         Args:
             metric: Metric name
         """
@@ -157,7 +157,7 @@ class PerformanceTimer:
     def __init__(self, collector: MetricsCollector, metric: str):
         """
         Initialize timer.
-        
+
         Args:
             collector: MetricsCollector instance
             metric: Metric name
@@ -191,7 +191,7 @@ class HealthChecker:
     def add_check(self, name: str, check_func: callable) -> None:
         """
         Add a health check.
-        
+
         Args:
             name: Check name
             check_func: Function that returns (status, message)
@@ -201,10 +201,10 @@ class HealthChecker:
     def run_check(self, name: str) -> dict[str, Any]:
         """
         Run a specific health check.
-        
+
         Args:
             name: Check name
-            
+
         Returns:
             Check result with status and message
         """
@@ -220,7 +220,7 @@ class HealthChecker:
     def run_all_checks(self) -> dict[str, Any]:
         """
         Run all health checks.
-        
+
         Returns:
             Dictionary of all check results
         """
@@ -239,10 +239,10 @@ class HealthChecker:
     def _get_overall_status(self, results: dict[str, Any]) -> str:
         """
         Determine overall health status.
-        
+
         Args:
             results: Check results
-            
+
         Returns:
             Overall status (healthy, degraded, unhealthy)
         """
