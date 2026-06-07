@@ -77,7 +77,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8203`)
 - **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (uses env var `p2p_bind_port` from blockchain.env)
 - **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-node-wrapper.py` (uses combined_main with settings.rpc_bind_port)
-- **Hermes Service**: `apps/agent-services/aitbc-hermes-wrapper.py` (line 33: `--port 8103`)
+- **Hermes Service**: `apps/hermes/aitbc-hermes-wrapper.py` (line 33: `--port 8103`)
 - **Trading Service**: `apps/trading/aitbc-trading-wrapper.py` (line 32: `--port 8104`)
 - **Governance Service**: `apps/governance/src/governance_service/main.py` (line 286: `port=8105`)
 - **Exchange API**: `apps/exchange/aitbc-exchange-api.service` (line 14: `--port 8106`)
@@ -87,7 +87,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 ### Application Main Files
 - **GPU Service**: `apps/gpu-service/src/gpu_service/main.py` (line 458: `port=8101`)
 - **Marketplace Service**: `apps/marketplace-service/src/marketplace_service/main.py` (line 559: `port=8102`)
-- **Hermes Service**: `apps/agent-services/aitbc-hermes-wrapper.py` (line 33: `--port 8103`)
+- **Hermes Service**: `apps/hermes/aitbc-hermes-wrapper.py` (line 33: `--port 8103`)
 - **Trading Service**: `apps/trading/aitbc-trading-wrapper.py` (line 32: `--port 8104`)
 - **Governance Service**: `apps/governance/src/governance_service/main.py` (line 286: `port=8105`)
 - **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8108`)

@@ -1,1 +1,0 @@
-"""Trading engine service tests"""
