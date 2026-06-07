@@ -206,7 +206,7 @@ For apps using PostgreSQL:
 ### Phase 3: Complex Apps (4 apps)
 - miner (44 tests) - GPU miner with coordinator communication
 - marketplace (49 tests) - Agent-first GPU marketplace
-- agent-services (22 tests) - Agent registry and coordination
+- agent-registry (22 tests) - Agent registry and coordination
 - blockchain-explorer (46 tests) - Blockchain exploration UI
 - Test files renamed with app-specific suffixes (e.g., test_unit_miner.py)
 

@@ -29,15 +29,15 @@ We discovered that while the CLI commands were simulated, the underlying Coordin
    - Auto-restart on failure
 
 ## Configuration
-The service is configured in `/opt/aitbc/apps/agent-services/aitbc-agent-daemon.service`:
+The service is configured in `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon.service`:
 - `ENABLE_HERMES_POLLING=true` - Enable Hermes polling
 - `HERMES_AGENT_IDS=owl-aitbc3` - Agent ID to poll for
 - `HERMES_COORDINATOR_URL=http://localhost:8203` - Hub coordinator endpoint
 
 ## Implementation Files
 - `/opt/aitbc/apps/agent-coordinator/scripts/hermes_polling_daemon.py` - Python polling daemon
-- `/opt/aitbc/apps/agent-services/aitbc-agent-daemon-wrapper.py` - Service wrapper
-- `/opt/aitbc/apps/agent-services/aitbc-agent-daemon.service` - Systemd service unit
+- `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py` - Service wrapper
+- `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon.service` - Systemd service unit
 
 ## Usage
 To start the listener service:

@@ -129,7 +129,7 @@ ensure_newline_before_comments = true
 [tool.mypy]
 python_version = "3.13"
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
-exclude = "^apps/(agent-management|agent-coordinator|agent-services|blockchain-node|computing-node|identity-node|marketplace|mining-pool)/.*"
+exclude = "^apps/(agent-management|agent-coordinator|blockchain-node|computing-node|identity-node|marketplace|mining-pool)/.*"
 warn_return_any = true
 warn_unused_configs = true
 # Tightened mypy configuration for better type safety

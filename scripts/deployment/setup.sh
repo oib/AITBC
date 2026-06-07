@@ -605,27 +605,52 @@ setup_venvs() {
         fi
     fi
     
-    # Install dependencies using central requirements system
-    log "Installing dependencies using central requirements system..."
+    # Install dependencies using install-profiles.sh
+    log "Installing dependencies using install-profiles.sh..."
 
-    # Install core production dependencies
-    if [ -f "/opt/aitbc/requirements.txt" ]; then
-        log "Installing core production dependencies..."
-        pip install -r /opt/aitbc/requirements.txt || warning "Failed to install core dependencies"
+    # Detect appropriate profile based on configuration
+    local PROFILE="server-no-gpu"  # default
+    
+    # Check if install-profiles.sh exists
+    if [ -f "/opt/aitbc/scripts/deployment/install-profiles.sh" ]; then
+        log "Using install-profiles.sh for dependency installation..."
+        
+        # Try to detect profile from environment if available
+        if [ -f "/etc/aitbc/blockchain.env" ]; then
+            source /etc/aitbc/blockchain.env
+            if [ "$HARDWARE_PROFILE" = "gpu" ] && [ "$MARKET_ROLE" = "shop" ]; then
+                PROFILE="provider-gpu"
+            elif [ "$BLOCKCHAIN_MODE" = "hub" ]; then
+                PROFILE="hub"
+            elif [ "$MARKET_ROLE" = "customer" ]; then
+                PROFILE="customer-no-gpu"
+            fi
+        fi
+        
+        log "Installing profile: $PROFILE"
+        /opt/aitbc/scripts/deployment/install-profiles.sh "$PROFILE" || warning "Failed to install profile $PROFILE"
     else
-        warning "requirements.txt not found, installing critical dependencies manually..."
-        pip install fastapi uvicorn sqlmodel || warning "Failed to install core packages"
-    fi
+        log "install-profiles.sh not found, using manual installation..."
+        
+        # Fallback to manual installation
+        if [ -f "/opt/aitbc/requirements.txt" ]; then
+            log "Installing core production dependencies..."
+            pip install -r /opt/aitbc/requirements.txt || warning "Failed to install core dependencies"
+        else
+            warning "requirements.txt not found, installing critical dependencies manually..."
+            pip install fastapi uvicorn sqlmodel || warning "Failed to install core packages"
+        fi
 
-    # Install development dependencies (optional for production)
-    if [ -f "/opt/aitbc/requirements-dev.txt" ]; then
-        log "Installing development dependencies..."
-        pip install -r /opt/aitbc/requirements-dev.txt || warning "Failed to install dev dependencies"
-    fi
+        # Install development dependencies (optional for production)
+        if [ -f "/opt/aitbc/requirements-dev.txt" ]; then
+            log "Installing development dependencies..."
+            pip install -r /opt/aitbc/requirements-dev.txt || warning "Failed to install dev dependencies"
+        fi
 
-    # Install critical PostgreSQL driver
-    log "Installing psycopg2 for PostgreSQL support..."
-    pip install psycopg2-binary || warning "Failed to install psycopg2-binary"
+        # Install critical PostgreSQL driver
+        log "Installing psycopg2 for PostgreSQL support..."
+        pip install psycopg2-binary || warning "Failed to install psycopg2-binary"
+    fi
     
     success "Virtual environments setup completed"
 }
