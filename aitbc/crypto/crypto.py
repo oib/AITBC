@@ -23,9 +23,9 @@ def derive_ethereum_address(private_key: str) -> str:
         account = Account.from_key(private_key)
         return account.address
     except ImportError:
-        raise ImportError("eth-account is required for Ethereum address derivation. Install with: pip install eth-account")
+        raise ImportError("eth-account is required for Ethereum address derivation. Install with: pip install eth-account") from None
     except Exception as e:
-        raise ValueError(f"Failed to derive address from private key: {e}")
+        raise ValueError(f"Failed to derive address from private key: {e}") from e
 
 
 def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
@@ -42,9 +42,9 @@ def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
         signed_message = account.sign_hash(bytes.fromhex(transaction_hash))
         return signed_message.signature.hex()
     except ImportError:
-        raise ImportError("eth-account is required for signing. Install with: pip install eth-account")
+        raise ImportError("eth-account is required for signing. Install with: pip install eth-account") from None
     except Exception as e:
-        raise ValueError(f"Failed to sign transaction hash: {e}")
+        raise ValueError(f"Failed to sign transaction hash: {e}") from e
 
 
 def verify_signature(message_hash: str, signature: str, address: str) -> bool:
@@ -67,9 +67,9 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
         recovered_address = Account.recover_message(message_bytes, signature_bytes)
         return recovered_address.lower() == address.lower()
     except ImportError:
-        raise ImportError("eth-account and eth-utils are required for signature verification. Install with: pip install eth-account eth-utils")
+        raise ImportError("eth-account and eth-utils are required for signature verification. Install with: pip install eth-account eth-utils") from None
     except Exception as e:
-        raise ValueError(f"Failed to verify signature: {e}")
+        raise ValueError(f"Failed to verify signature: {e}") from e
 
 
 def encrypt_private_key(private_key: str, password: str) -> str:
@@ -94,7 +94,7 @@ def encrypt_private_key(private_key: str, password: str) -> str:
         combined = salt + encrypted_key
         return base64.urlsafe_b64encode(combined).decode('utf-8')
     except Exception as e:
-        raise ValueError(f"Failed to encrypt private key: {e}")
+        raise ValueError(f"Failed to encrypt private key: {e}") from e
 
 
 def decrypt_private_key(encrypted_key: str, password: str) -> str:
@@ -123,7 +123,7 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
         decrypted_key = fernet.decrypt(encrypted_data)
         return decrypted_key.decode('utf-8')
     except Exception as e:
-        raise ValueError(f"Failed to decrypt private key: {e}")
+        raise ValueError(f"Failed to decrypt private key: {e}") from e
 
 
 def generate_secure_random_bytes(length: int = 32) -> str:
@@ -139,9 +139,9 @@ def keccak256_hash(data: str) -> str:
             data = data.encode('utf-8')
         return keccak(data).hex()
     except ImportError:
-        raise ImportError("eth-hash is required for Keccak-256 hashing. Install with: pip install eth-hash")
+        raise ImportError("eth-hash is required for Keccak-256 hashing. Install with: pip install eth-hash") from None
     except Exception as e:
-        raise ValueError(f"Failed to compute Keccak-256 hash: {e}")
+        raise ValueError(f"Failed to compute Keccak-256 hash: {e}") from e
 
 
 def sha256_hash(data: str) -> str:
@@ -151,7 +151,7 @@ def sha256_hash(data: str) -> str:
             data = data.encode('utf-8')
         return hashlib.sha256(data).hexdigest()
     except Exception as e:
-        raise ValueError(f"Failed to compute SHA-256 hash: {e}")
+        raise ValueError(f"Failed to compute SHA-256 hash: {e}") from e
 
 
 def validate_ethereum_address(address: str) -> bool:
@@ -160,7 +160,7 @@ def validate_ethereum_address(address: str) -> bool:
         from eth_utils import is_address, is_checksum_address
         return is_address(address) and is_checksum_address(address)
     except ImportError:
-        raise ImportError("eth-utils is required for address validation. Install with: pip install eth-utils")
+        raise ImportError("eth-utils is required for address validation. Install with: pip install eth-utils") from None
     except Exception:
         return False
 
@@ -172,6 +172,6 @@ def generate_ethereum_private_key() -> str:
         account = Account.create()
         return account.key.hex()
     except ImportError:
-        raise ImportError("eth-account is required for private key generation. Install with: pip install eth-account")
+        raise ImportError("eth-account is required for private key generation. Install with: pip install eth-account") from None
     except Exception as e:
-        raise ValueError(f"Failed to generate private key: {e}")
+        raise ValueError(f"Failed to generate private key: {e}") from e

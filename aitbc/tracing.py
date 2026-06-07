@@ -39,7 +39,7 @@ def setup_tracing(
 ) -> None:
     """
     Setup OpenTelemetry tracing for the service
-    
+
     Args:
         service_name: Name of the service
         service_version: Version of the service
@@ -89,7 +89,7 @@ def setup_tracing(
 def get_tracer() -> object | None:
     """
     Get the global tracer instance
-    
+
     Returns:
         Tracer instance or None if not configured
     """
@@ -99,7 +99,7 @@ def get_tracer() -> object | None:
 def instrument_fastapi(app) -> None:
     """
     Instrument FastAPI application with tracing
-    
+
     Args:
         app: FastAPI application instance
     """
@@ -130,7 +130,7 @@ def instrument_httpx() -> None:
 def instrument_sqlalchemy(engine) -> None:
     """
     Instrument SQLAlchemy engine with tracing
-    
+
     Args:
         engine: SQLAlchemy engine instance
     """
@@ -152,11 +152,11 @@ def trace_span(
 ):
     """
     Context manager for creating a trace span
-    
+
     Args:
         name: Span name
         attributes: Span attributes
-        
+
     Yields:
         Span object if tracing is available
     """
@@ -171,10 +171,10 @@ def trace_span(
 def trace_function(name: str | None = None):
     """
     Decorator for tracing function execution
-    
+
     Args:
         name: Span name (defaults to function name)
-        
+
     Returns:
         Decorated function
     """
@@ -212,10 +212,10 @@ def trace_function(name: str | None = None):
 def trace_async_function(name: str | None = None):
     """
     Decorator for tracing async function execution
-    
+
     Args:
         name: Span name (defaults to function name)
-        
+
     Returns:
         Decorated async function
     """
@@ -253,7 +253,7 @@ def trace_async_function(name: str | None = None):
 def set_span_attribute(key: str, value: Any) -> None:
     """
     Set an attribute on the current span
-    
+
     Args:
         key: Attribute key
         value: Attribute value
@@ -269,7 +269,7 @@ def set_span_attribute(key: str, value: Any) -> None:
 def set_span_error(exception: Exception) -> None:
     """
     Record an exception on the current span
-    
+
     Args:
         exception: Exception to record
     """
@@ -285,7 +285,7 @@ def set_span_error(exception: Exception) -> None:
 def add_span_event(name: str, attributes: dict[str, Any] | None = None) -> None:
     """
     Add an event to the current span
-    
+
     Args:
         name: Event name
         attributes: Event attributes

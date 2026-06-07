@@ -119,7 +119,7 @@ class AsyncEventBus(EventBus):
 
         tasks = []
         for handler in handlers:
-            async def safe_handler():
+            async def safe_handler(handler=handler):
                 async with self.semaphore:
                     try:
                         if inspect.iscoroutinefunction(handler):

@@ -50,7 +50,7 @@ class TracingManager:
     ):
         """
         Initialize tracing manager
-        
+
         Args:
             service_name: Name of the service
             jaeger_host: Jaeger agent host
@@ -120,7 +120,7 @@ class TracingManager:
     def get_tracer(self):
         """
         Get OpenTelemetry tracer
-        
+
         Returns:
             Tracer instance or None if not enabled
         """
@@ -129,11 +129,11 @@ class TracingManager:
     def start_span(self, name: str, attributes: dict[str, Any] | None = None):
         """
         Start a new span
-        
+
         Args:
             name: Span name
             attributes: Span attributes
-            
+
         Returns:
             Span context or None if not enabled
         """
@@ -146,7 +146,7 @@ class TracingManager:
     def end_span(self, span) -> None:
         """
         End a span
-        
+
         Args:
             span: Span to end
         """
@@ -157,11 +157,11 @@ class TracingManager:
     def trace(self, name: str, attributes: dict[str, Any] | None = None):
         """
         Context manager for tracing code blocks
-        
+
         Args:
             name: Span name
             attributes: Span attributes
-            
+
         Yields:
             Span or None
         """
@@ -181,11 +181,11 @@ class TracingManager:
 def traced(name: str | None = None, attributes: dict[str, Any] | None = None):
     """
     Decorator to trace function execution
-    
+
     Args:
         name: Span name (uses function name if None)
         attributes: Span attributes
-        
+
     Returns:
         Decorated function with tracing
     """
@@ -225,7 +225,7 @@ class TraceContext:
     def get_current_span():
         """
         Get current span from context
-        
+
         Returns:
             Current span or None
         """
@@ -237,7 +237,7 @@ class TraceContext:
     def add_event(name: str, attributes: dict[str, Any] | None = None) -> None:
         """
         Add event to current span
-        
+
         Args:
             name: Event name
             attributes: Event attributes
@@ -253,7 +253,7 @@ class TraceContext:
     def set_attribute(key: str, value: Any) -> None:
         """
         Set attribute on current span
-        
+
         Args:
             key: Attribute key
             value: Attribute value
@@ -269,7 +269,7 @@ class TraceContext:
     def set_error(exception: Exception) -> None:
         """
         Set error on current span
-        
+
         Args:
             exception: Exception to record
         """
@@ -294,13 +294,13 @@ def initialize_tracing(
 ) -> TracingManager:
     """
     Initialize global tracing manager
-    
+
     Args:
         service_name: Name of the service
         jaeger_host: Jaeger agent host
         jaeger_port: Jaeger agent port
         enabled: Whether tracing is enabled
-        
+
     Returns:
         TracingManager instance
     """
@@ -314,7 +314,7 @@ def initialize_tracing(
 def get_tracing_manager() -> TracingManager | None:
     """
     Get global tracing manager instance
-    
+
     Returns:
         TracingManager instance or None
     """

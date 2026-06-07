@@ -34,7 +34,7 @@ class AITBCHTTPClient:
     ):
         """
         Initialize HTTP client.
-        
+
         Args:
             base_url: Base URL for all requests
             timeout: Request timeout in seconds
@@ -74,10 +74,10 @@ class AITBCHTTPClient:
     def _build_url(self, endpoint: str) -> str:
         """
         Build full URL from base URL and endpoint.
-        
+
         Args:
             endpoint: API endpoint
-            
+
         Returns:
             Full URL
         """
@@ -176,7 +176,7 @@ class AITBCHTTPClient:
                 else:
                     if self.enable_logging:
                         self.logger.error(f"All retry attempts exhausted: {e}")
-                    raise RetryError(f"Retry attempts exhausted: {e}")
+                    raise RetryError(f"Retry attempts exhausted: {e}") from e
             except requests.RequestException as e:
                 last_error = e
                 if attempt < self.max_retries:
@@ -186,7 +186,7 @@ class AITBCHTTPClient:
                 else:
                     if self.enable_logging:
                         self.logger.error(f"All retry attempts exhausted: {e}")
-                    raise RetryError(f"Retry attempts exhausted: {e}")
+                    raise RetryError(f"Retry attempts exhausted: {e}") from e
 
         raise NetworkError(f"Request failed: {last_error}")
 
@@ -198,15 +198,15 @@ class AITBCHTTPClient:
     ) -> dict[str, Any]:
         """
         Perform GET request.
-        
+
         Args:
             endpoint: API endpoint
             params: Query parameters
             headers: Additional headers
-            
+
         Returns:
             Response data as dictionary
-            
+
         Raises:
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
@@ -260,7 +260,7 @@ class AITBCHTTPClient:
             raise
         except requests.RequestException as e:
             self._record_failure()
-            raise NetworkError(f"GET request failed: {e}")
+            raise NetworkError(f"GET request failed: {e}") from e
 
     def post(
         self,
@@ -271,16 +271,16 @@ class AITBCHTTPClient:
     ) -> dict[str, Any]:
         """
         Perform POST request.
-        
+
         Args:
             endpoint: API endpoint
             data: Form data
             json: JSON data
             headers: Additional headers
-            
+
         Returns:
             Response data as dictionary
-            
+
         Raises:
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
@@ -326,7 +326,7 @@ class AITBCHTTPClient:
             raise
         except requests.RequestException as e:
             self._record_failure()
-            raise NetworkError(f"POST request failed: {e}")
+            raise NetworkError(f"POST request failed: {e}") from e
 
     def put(
         self,
@@ -337,16 +337,16 @@ class AITBCHTTPClient:
     ) -> dict[str, Any]:
         """
         Perform PUT request.
-        
+
         Args:
             endpoint: API endpoint
             data: Form data
             json: JSON data
             headers: Additional headers
-            
+
         Returns:
             Response data as dictionary
-            
+
         Raises:
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
@@ -392,7 +392,7 @@ class AITBCHTTPClient:
             raise
         except requests.RequestException as e:
             self._record_failure()
-            raise NetworkError(f"PUT request failed: {e}")
+            raise NetworkError(f"PUT request failed: {e}") from e
 
     def delete(
         self,
@@ -402,15 +402,15 @@ class AITBCHTTPClient:
     ) -> dict[str, Any]:
         """
         Perform DELETE request.
-        
+
         Args:
             endpoint: API endpoint
             params: Query parameters
             headers: Additional headers
-            
+
         Returns:
             Response data as dictionary
-            
+
         Raises:
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
@@ -455,7 +455,7 @@ class AITBCHTTPClient:
             raise
         except requests.RequestException as e:
             self._record_failure()
-            raise NetworkError(f"DELETE request failed: {e}")
+            raise NetworkError(f"DELETE request failed: {e}") from e
 
     def close(self) -> None:
         """Close the HTTP session."""
@@ -490,7 +490,7 @@ class AsyncAITBCHTTPClient:
     ):
         """
         Initialize async HTTP client.
-        
+
         Args:
             base_url: Base URL for all requests
             timeout: Request timeout in seconds
@@ -628,7 +628,7 @@ class AsyncAITBCHTTPClient:
                 else:
                     if self.enable_logging:
                         self.logger.error(f"All retry attempts exhausted: {e}")
-                    raise RetryError(f"Retry attempts exhausted: {e}")
+                    raise RetryError(f"Retry attempts exhausted: {e}") from e
 
         raise NetworkError(f"Request failed: {last_error}")
 
@@ -640,12 +640,12 @@ class AsyncAITBCHTTPClient:
     ) -> dict[str, Any]:
         """
         Perform async GET request.
-        
+
         Args:
             endpoint: API endpoint
             params: Query parameters
             headers: Additional headers
-            
+
         Returns:
             Response data as dictionary
         """
@@ -689,7 +689,7 @@ class AsyncAITBCHTTPClient:
             raise
         except Exception as e:
             self._record_failure()
-            raise NetworkError(f"ASYNC GET request failed: {e}")
+            raise NetworkError(f"ASYNC GET request failed: {e}") from e
 
     async def async_post(
         self,
@@ -700,13 +700,13 @@ class AsyncAITBCHTTPClient:
     ) -> dict[str, Any]:
         """
         Perform async POST request.
-        
+
         Args:
             endpoint: API endpoint
             data: Form data
             json: JSON data
             headers: Additional headers
-            
+
         Returns:
             Response data as dictionary
         """
@@ -743,4 +743,4 @@ class AsyncAITBCHTTPClient:
             raise
         except Exception as e:
             self._record_failure()
-            raise NetworkError(f"ASYNC POST request failed: {e}")
+            raise NetworkError(f"ASYNC POST request failed: {e}") from e
