@@ -80,7 +80,7 @@ jobs:
           cd "${{ env.WORKSPACE }}/repo"
           mkdir -p coverage-artifacts
           cp coverage.json coverage-artifacts/
-          cp htmlcov/index.html coverage-artifacts/coverage-summary.html
+          cp tests/htmlcov/index.html coverage-artifacts/coverage-summary.html
           echo "Coverage report uploaded to artifacts"
 
       - name: Count TODOs
