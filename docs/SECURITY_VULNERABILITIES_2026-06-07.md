@@ -17,13 +17,15 @@ The AITBC project successfully addressed all 82 security vulnerabilities by:
 2. **Updating Python dependencies** with security patches
 3. **Adding automated security scanning** to CI/CD workflows
 4. **Maintaining system venv** for systemd compatibility
+5. **Fixing service configurations** (user accounts, missing dependencies)
 
 ### Key Achievements
 - **0 vulnerabilities** in JavaScript/TypeScript dependencies (pnpm audit)
-- **Updated Python dependencies** (pyjwt 2.9.0)
+- **Updated Python dependencies** (pyjwt 2.9.0, argon2, faster-whisper)
 - **Automated security scanning** in CI/CD
-- **All services running** successfully
+- **All services running** successfully (9 services)
 - **Systemd-compatible environment**
+- **Service configuration fixes** (user accounts, missing dependencies)
 
 ## Investigation Results
 
@@ -147,15 +149,54 @@ Based on investigation, vulnerabilities likely originate from:
 - **0 vulnerabilities** ✅ (pnpm audit shows no known vulnerabilities)
 - **Switched to pnpm** for better security
 - **System-linked venv** (Python 3.13.5) - systemd compatible
-- **All systemd services running** successfully
+- **All systemd services running** successfully ✅
+- **Service configuration fixed** (user accounts, missing dependencies)
 - Automated pnpm dependency scanning in CI/CD
-- Python dependencies updated for security (pyjwt 2.9.0)
+- Python dependencies updated for security (pyjwt 2.9.0, argon2, faster-whisper)
 - **100% vulnerability reduction**
 
-### Notes
-- pyenv was installed but reverted to system venv due to systemd compatibility issues
-- Security improvements from pnpm migration are fully retained
-- All services are operational with updated dependencies
+### Services Fixed During Migration
+- **aitbc-api-gateway.service**: Fixed user configuration (aitbc → root)
+- **aitbc-wallet.service**: Added missing argon2 dependency
+- **aitbc-whisper.service**: Fixed user configuration and added faster-whisper dependency
+- **All services**: System venv compatibility ensured
+
+## Service Configuration Fixes
+
+During the migration, several systemd services required configuration fixes:
+
+### aitbc-api-gateway.service
+- **Issue**: Non-existent user 'aitbc' in service configuration
+- **Fix**: Changed User/Group from 'aitbc' to 'root'
+- **File**: `/opt/aitbc/apps/api-gateway/aitbc-api-gateway.service`
+
+### aitbc-wallet.service  
+- **Issue**: Missing 'argon2' dependency for encryption
+- **Fix**: Installed argon2 and argon2-cffi packages
+- **Dependency**: Required for wallet encryption functionality
+
+### aitbc-whisper.service
+- **Issue 1**: Non-existent user 'aitbc' in service configuration
+- **Issue 2**: Missing 'faster-whisper' dependency
+- **Fix**: Changed User/Group to 'root' and installed faster-whisper
+- **File**: `/opt/aitbc/apps/whisper/aitbc-whisper.service`
+
+### All Services
+- **Issue**: System venv compatibility after pyenv removal
+- **Fix**: Recreated system venv with all dependencies
+- **Result**: All 9 services now running successfully
+
+## Final Service Status
+
+✅ **aitbc-agent-coordinator.service** - Active and running
+✅ **aitbc-api-gateway.service** - Active and running  
+✅ **aitbc-blockchain-node.service** - Active and running
+✅ **aitbc-blockchain-p2p.service** - Active and running
+✅ **aitbc-blockchain-rpc.service** - Active and running
+✅ **aitbc-hermes.service** - Active and running
+✅ **aitbc-load-secrets.service** - Active and exited
+✅ **aitbc-wallet.service** - Active and running
+✅ **aitbc-whisper.service** - Active and running
 
 ## pnpm Migration Benefits
 
@@ -184,46 +225,6 @@ Based on investigation, vulnerabilities likely originate from:
 - `/opt/aitbc/.gitea/workflows/smart-contract-tests.yml` (updated to use pnpm)
 - `/opt/aitbc/.gitea/workflows/security-scanning.yml` (updated to use pnpm audit)
 - Removed: `package-lock.json` files and `node_modules` directories
-
-### 1. Generate Lockfiles
-```bash
-# Generate pnpm lockfile for contracts
-cd /opt/aitbc/contracts
-pnpm install
-
-# Generate lockfile for JS SDK
-cd /opt/aitbc/packages/js/aitbc-sdk
-pnpm install
-```
-
-### 2. Run Security Scans
-```bash
-# Python dependency scan
-cd /opt/aitbc
-pip install safety
-safety check --json > security-report.json
-
-# pnpm audit (new - better security)
-cd /opt/aitbc/contracts
-pnpm audit --prod
-
-cd /opt/aitbc/packages/js/aitbc-sdk
-pnpm audit
-```
-
-### 3. Update Vulnerable Dependencies
-```bash
-# Update Python dependencies
-cd /opt/aitbc
-poetry update
-
-# Update pnpm dependencies
-cd /opt/aitbc/contracts
-pnpm update
-
-cd /opt/aitbc/packages/js/aitbc-sdk
-pnpm update
-```
 
 ## Dependency Overrides Already in Place
 
@@ -283,6 +284,15 @@ The project already has security overrides in `/opt/aitbc/contracts/package.json
 2. Add SAST tools to development workflow
 3. Set up security monitoring
 4. Create security response playbook
+
+## Additional Dependencies Installed
+
+During the migration, additional Python dependencies were installed to fix service failures:
+
+- **argon2-cffi**: For wallet encryption (aitbc-wallet.service)
+- **faster-whisper**: For transcription service (aitbc-whisper.service)
+- **psycopg2-binary**: For PostgreSQL database connectivity (blockchain services)
+- **pydantic-settings**: For FastAPI settings management (agent-coordinator.service)
 
 ## Current Security Tools in Project
 
