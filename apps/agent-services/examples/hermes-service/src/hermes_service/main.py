@@ -16,9 +16,10 @@ from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db
 from .services.transaction_service import TransactionService
 
 # Configure logging to output to stdout (which systemd captures)
+# Note: systemd/journald already adds timestamp, so we don't include %(asctime)s
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
