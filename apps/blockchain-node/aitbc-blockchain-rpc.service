@@ -4,8 +4,8 @@ After=network.target aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-blockchain
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/aitbc/blockchain.env
@@ -18,6 +18,8 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=BlockchainRPC
+MemoryMax=512M
+MemoryLimit=512M
 
 [Install]
 WantedBy=multi-user.target
