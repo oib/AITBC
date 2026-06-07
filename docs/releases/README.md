@@ -25,6 +25,7 @@
 
 Read the release notes newest-first:
 
+- **[v0.4.12](RELEASE_v0.4.12.md)** - June 7, 2026 - **Governance Service & DAO Integration** (Concept Plan)
 - **[v0.4.11](RELEASE_v0.4.11.md)** - June 7, 2026 - **System Maintenance & Fixes**
 - **[v0.4.10](RELEASE_v0.4.10.md)** - January 4, 2025 - **Security & Performance Major Release**
 - **[v0.4.9](RELEASE_v0.4.9.md)** - June 6, 2026

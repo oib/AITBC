@@ -1,3 +1,0 @@
-"""
-Governance service tests
-"""
