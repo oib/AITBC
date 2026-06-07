@@ -2627,9 +2627,9 @@ EOF
 create_agent_tests() {
     log_info "Creating agent network test suite..."
     
-    mkdir -p "/opt/aitbc/apps/agent-services/tests"
+    mkdir -p "/opt/aitbc/aitbc/agent_registry/tests"
     
-    cat > "/opt/aitbc/apps/agent-services/tests/test_registration.py" << 'EOF'
+    cat > "/opt/aitbc/aitbc/agent_registry/tests/test_registration.py" << 'EOF'
 """
 Tests for Agent Registration System
 """
@@ -2937,7 +2937,7 @@ EOF
 run_agent_tests() {
     log_info "Running agent network tests..."
     
-    cd /opt/aitbc/apps/agent-services
+    cd /opt/aitbc/aitbc/agent_registry
     
     # Install test dependencies if needed
     if ! python -c "import pytest" 2>/dev/null; then

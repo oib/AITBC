@@ -111,7 +111,7 @@ start_agents() {
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "
 import sys
-sys.path.insert(0, '/opt/aitbc/apps/agent-services/agent-registry/src')
+sys.path.insert(0, '/opt/aitbc/aitbc/agent_registry/src')
 
 try:
     from aitbc_agents.registry import AgentRegistry
@@ -199,7 +199,7 @@ except:
     # Check agents
     agent_status=$("$PYTHON_CMD" -c "
 import sys
-sys.path.insert(0, '/opt/aitbc/apps/agent-services/agent-registry/src')
+sys.path.insert(0, '/opt/aitbc/aitbc/agent_registry/src')
 try:
     from aitbc_agents.registry import AgentRegistry
     registry = AgentRegistry()

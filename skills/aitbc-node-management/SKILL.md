@@ -462,13 +462,13 @@ Key subdirectories:
 
 ## Edge API Service Setup
 
-The edge API service file is at `/opt/aitbc/apps/aitbc-edge/edge-api.service` (NOT in `/opt/aitbc/systemd/`). To deploy:
+The edge API service file is at `/opt/aitbc/apps/edge/aitbc-edge.service` (NOT in `/opt/aitbc/systemd/`). To deploy:
 
 ```bash
 # Link service
-ln -sf /opt/aitbc/apps/aitbc-edge/edge-api.service /etc/systemd/system/edge-api.service
+ln -sf /opt/aitbc/apps/edge/aitbc-edge.service /etc/systemd/system/aitbc-edge.service
 systemctl daemon-reload
-systemctl start edge-api
+systemctl start aitbc-edge
 ```
 
 The edge API uses SQLite (aiosqlite) for storage and runs on port 8103 by default.

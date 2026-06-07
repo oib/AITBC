@@ -179,9 +179,9 @@
 - apps/coordinator-api/src/app/routers/agent_integration_router.py
 
 ### Agent Services
-- apps/agent-services/agent-trading/src/trading_agent.py
-- apps/agent-services/agent-compliance/src/compliance_agent.py
-- apps/agent-services/agent-bridge/src/integration_layer.py
+- aitbc/agent_trading/src/trading_agent.py
+- aitbc/agent_compliance/src/compliance_agent.py
+- aitbc/agent_bridge/src/integration_layer.py
 
 ### Blockchain Node
 - apps/blockchain-node/src/aitbc_chain/rpc/router.py

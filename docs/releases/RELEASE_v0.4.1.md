@@ -214,7 +214,7 @@ systemctl daemon-reload
 # Edge API now uses SQLite (no PostgreSQL required)
 # Database location: /var/lib/aitbc/data/edge.db
 # Service automatically uses new configuration
-systemctl restart aitbc-edge-api.service
+systemctl restart aitbc-edge
 ```
 
 ## 📝 Migration Notes

@@ -6,7 +6,7 @@ Manages trading operations.
 
 ```bash
 cd /opt/aitbc
-poetry install --with trading-service
+poetry install --with trading
 ```
 
 ## Database Setup
@@ -14,7 +14,7 @@ poetry install --with trading-service
 Create a separate database for the trading service:
 
 ```bash
-sudo -u postgres psql -f apps/trading-service/scripts/setup-database.sql
+sudo -u postgres psql -f apps/trading/scripts/setup-database.sql
 ```
 
 Or manually:
@@ -32,8 +32,8 @@ GRANT ALL PRIVILEGES ON DATABASE aitbc_trading TO aitbc_trading;
 python -m trading_service.main
 
 # Production (systemd)
-sudo systemctl start trading-service
-sudo systemctl enable trading-service
+sudo systemctl start trading
+sudo systemctl enable trading
 ```
 
 ## Endpoints
@@ -76,7 +76,7 @@ curl http://localhost:8104/health
 
 Expected response:
 ```json
-{"status": "healthy", "service": "trading-service"}
+{"status": "healthy", "service": "trading"}
 ```
 
 ### Trading Status
@@ -89,7 +89,7 @@ Expected response:
 ```json
 {
   "status": "operational",
-  "service": "trading-service",
+  "service": "trading",
   "message": "Trading service is running"
 }
 ```

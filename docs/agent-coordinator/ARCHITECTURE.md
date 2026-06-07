@@ -15,7 +15,7 @@ The AITBC Agent Coordinator is a distributed task distribution system that manag
 **Port:** 9001
 **Systemd Service:** `aitbc-agent-coordinator.service`
 
-**DO NOT USE:** `/opt/aitbc/apps/agent-services/agent-coordinator/src/coordinator.py` (this is an older/incorrect implementation)
+**DO NOT USE:** `/opt/aitbc/aitbc/agent_coordinator/src/coordinator.py` (this is an older/incorrect implementation - DELETED)
 
 ## Core Components
 
