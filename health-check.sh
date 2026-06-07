@@ -1,0 +1,1 @@
+/opt/aitbc/scripts/monitoring/health_check.sh

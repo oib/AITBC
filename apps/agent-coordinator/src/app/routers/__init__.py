@@ -2,7 +2,6 @@ from . import agents, ai, alerts, auth, consensus, health, messages, monitor, mo
 from . import workflow, websocket
 
 ROUTERS = [
-    health.router,
     agents.router,
     tasks.router,
     messages.router,

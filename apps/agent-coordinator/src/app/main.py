@@ -9,6 +9,7 @@ from .exceptions import register_exception_handlers
 from .lifespan import lifespan
 from .middleware import register_middleware
 from .routers import ROUTERS
+from .routers.health import router as health_router
 
 
 def create_app() -> FastAPI:
@@ -40,6 +41,12 @@ def create_app() -> FastAPI:
             app.include_router(router)
         else:
             app.include_router(router, prefix="/v1")
+
+    # Add health router without prefix for direct access to /health
+    app.include_router(health_router)
+
+    # Add health router without prefix for direct access
+    app.include_router(health_router)
 
     register_middleware(app)
     register_exception_handlers(app)
