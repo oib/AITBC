@@ -68,6 +68,11 @@ jobs:
           # Install
           pnpm install
 
+          # Approve build scripts if needed
+          if pnpm list keccak secp256k1 2>/dev/null | grep -q "keccak\|secp256k1"; then
+            pnpm approve-builds keccak secp256k1 || true
+          fi
+
           # Compile
           if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
             pnpm hardhat compile
