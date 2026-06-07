@@ -21,6 +21,10 @@ os.environ["PYTHONPATH"] = f"{REPO_DIR}/apps/wallet/src:{REPO_DIR}/packages/py/a
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
+# Override wallet directory if specified
+if os.getenv("WALLET_DIR"):
+    os.environ["WALLET_DIR"] = os.getenv("WALLET_DIR")
+
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
