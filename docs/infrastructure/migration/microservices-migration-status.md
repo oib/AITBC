@@ -433,8 +433,8 @@ The core microservice migration is complete. All essential functionality has bee
 The following features remain in Coordinator API (8203) and can be extracted to dedicated services on-demand based on usage patterns:
 
 1. **Job Service** (port 8115) - Client job management
-2. **Services Service** (port 8110) - Workload management
-3. **Training Service** (port 8111) - Training operations
+2. **Services Service** (port TBD) - Workload management (8110 now used by Whisper)
+3. **Training Service** (port TBD) - Training operations (8111 now used by Edge)
 4. **Inference Service** (port 8112) - Model inference
 5. **Swarm Service** (port 8113) - Compute clustering
 6. **Admin Service** (port 8114) - Admin/debug endpoints

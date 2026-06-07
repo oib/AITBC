@@ -61,10 +61,10 @@ else:
 daemon_script = f"{REPO_DIR}/apps/agent-coordinator/scripts/agent_daemon.py"
 base_args = [
     "--wallet", "my-agent-wallet",
-    "--address", "aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f",
-    "--password-file", str(KEYSTORE_DIR / ".agent_daemon_password"),
+    "--address", "ait1f6a5b2afd6b3de3db048f5da204ec3c54c3b0201",
+    "--password-file", str(KEYSTORE_DIR / ".genesis_password"),
     "--keystore-dir", str(KEYSTORE_DIR),
-    "--rpc-url", "http://localhost:8006",
+    "--rpc-url", "http://localhost:8202",
     "--poll-interval", "10",
     "--reply-message", "pong",
     "--trigger-message", "ping"
@@ -82,7 +82,7 @@ if processes or len(chains) > 1:
             "--db-path", db_path,
             "--chain-id", chain_id
         ]
-        print(f"Starting blockchain agent daemon for chain: {chain_id}")
+        print(f"Starting blockchain agent daemon for chain: {chain_id} (db: {db_path})")
         proc = subprocess.Popen(cmd)
         processes.append(proc)
 
@@ -107,6 +107,7 @@ elif len(chains) == 1:
         "--db-path", db_path,
         "--chain-id", chain_id
     ]
+    print(f"Starting single-chain agent daemon for {chain_id} (db: {db_path})")
     os.execvp(exec_cmd[0], exec_cmd)
 else:
     # No chains configured, only Hermes daemons running
