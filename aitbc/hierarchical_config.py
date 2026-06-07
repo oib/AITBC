@@ -20,13 +20,13 @@ logger = get_logger(__name__)
 class HierarchicalConfig:
     """
     Hierarchical configuration loader with multiple sources.
-    
+
     Configuration loading priority (highest to lowest):
     1. CLI arguments (not implemented here, handled by application)
     2. Environment variables
     3. Configuration file (YAML/JSON)
     4. Default values
-    
+
     This class provides a clean interface for loading configuration
     from multiple sources with proper precedence.
     """
@@ -34,7 +34,7 @@ class HierarchicalConfig:
     def __init__(self, config_file: Path | None = None, env_file: Path | None = None):
         """
         Initialize hierarchical configuration loader
-        
+
         Args:
             config_file: Path to configuration file (YAML or JSON)
             env_file: Path to environment file (.env)
@@ -46,10 +46,10 @@ class HierarchicalConfig:
     def load_config(self) -> dict[str, Any]:
         """
         Load configuration from all sources with proper precedence.
-        
+
         Returns:
             Merged configuration dictionary
-            
+
         Raises:
             FileNotFoundError: If configuration file doesn't exist
             ValueError: If configuration file format is invalid
@@ -103,13 +103,13 @@ class HierarchicalConfig:
     def _load_file_config(self, config_file: Path) -> dict[str, Any]:
         """
         Load configuration from YAML or JSON file
-        
+
         Args:
             config_file: Path to configuration file
-            
+
         Returns:
             Configuration dictionary
-            
+
         Raises:
             ValueError: If file format is not supported
         """
@@ -127,10 +127,10 @@ class HierarchicalConfig:
     def _load_env_file(self, env_file: Path) -> dict[str, Any]:
         """
         Load environment variables from .env file
-        
+
         Args:
             env_file: Path to .env file
-            
+
         Returns:
             Dictionary of environment variables
         """
@@ -148,10 +148,10 @@ class HierarchicalConfig:
     def _convert_env_value(self, value: str) -> Any:
         """
         Convert environment variable string to appropriate type
-        
+
         Args:
             value: String value from environment variable
-            
+
         Returns:
             Converted value (bool, int, float, or str)
         """
@@ -178,11 +178,11 @@ class HierarchicalConfig:
     def _merge_configs(self, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
         """
         Merge two configuration dictionaries with override taking precedence
-        
+
         Args:
             base: Base configuration
             override: Override configuration
-            
+
         Returns:
             Merged configuration
         """
@@ -311,14 +311,14 @@ class ValidatedAITBCConfig(BaseSettings):
 def load_config(config_file: Path | None = None, env_file: Path | None = None) -> ValidatedAITBCConfig:
     """
     Load and validate AITBC configuration from multiple sources
-    
+
     Args:
         config_file: Path to configuration file (YAML or JSON)
         env_file: Path to environment file (.env)
-        
+
     Returns:
         Validated AITBC configuration object
-        
+
     Raises:
         ValidationError: If configuration validation fails
     """
@@ -331,10 +331,10 @@ def load_config(config_file: Path | None = None, env_file: Path | None = None) -
 def create_config_template(environment: str = "development") -> dict[str, Any]:
     """
     Create configuration template for specific environment
-    
+
     Args:
         environment: Environment name (development/staging/production)
-        
+
     Returns:
         Configuration template dictionary
     """

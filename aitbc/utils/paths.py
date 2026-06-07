@@ -11,10 +11,10 @@ from ..constants import CONFIG_DIR, DATA_DIR, LOG_DIR, REPO_DIR
 def get_data_path(subpath: str = "") -> Path:
     """
     Get a path within the AITBC data directory.
-    
+
     Args:
         subpath: Optional subpath relative to data directory
-        
+
     Returns:
         Full path to data directory or subpath
     """
@@ -26,10 +26,10 @@ def get_data_path(subpath: str = "") -> Path:
 def get_config_path(filename: str) -> Path:
     """
     Get a path within the AITBC configuration directory.
-    
+
     Args:
         filename: Configuration filename
-        
+
     Returns:
         Full path to configuration file
     """
@@ -39,10 +39,10 @@ def get_config_path(filename: str) -> Path:
 def get_log_path(filename: str) -> Path:
     """
     Get a path within the AITBC log directory.
-    
+
     Args:
         filename: Log filename
-        
+
     Returns:
         Full path to log file
     """
@@ -52,10 +52,10 @@ def get_log_path(filename: str) -> Path:
 def get_repo_path(subpath: str = "") -> Path:
     """
     Get a path within the AITBC repository.
-    
+
     Args:
         subpath: Optional subpath relative to repository
-        
+
     Returns:
         Full path to repository or subpath
     """
@@ -67,10 +67,10 @@ def get_repo_path(subpath: str = "") -> Path:
 def ensure_dir(path: Path) -> Path:
     """
     Ensure a directory exists, creating it if necessary.
-    
+
     Args:
         path: Directory path
-        
+
     Returns:
         The path (guaranteed to exist)
     """
@@ -81,10 +81,10 @@ def ensure_dir(path: Path) -> Path:
 def ensure_file_dir(filepath: Path) -> Path:
     """
     Ensure the parent directory of a file exists.
-    
+
     Args:
         filepath: File path
-        
+
     Returns:
         The parent directory path (guaranteed to exist)
     """
@@ -94,11 +94,11 @@ def ensure_file_dir(filepath: Path) -> Path:
 def resolve_path(path: str, base: Path = REPO_DIR) -> Path:
     """
     Resolve a path relative to a base directory.
-    
+
     Args:
         path: Path to resolve (can be absolute or relative)
         base: Base directory for relative paths
-        
+
     Returns:
         Resolved absolute path
     """
@@ -111,10 +111,10 @@ def resolve_path(path: str, base: Path = REPO_DIR) -> Path:
 def get_keystore_path(wallet_name: str = "") -> Path:
     """
     Get a path within the AITBC keystore directory.
-    
+
     Args:
         wallet_name: Optional wallet name for specific keystore file
-        
+
     Returns:
         Full path to keystore directory or specific wallet file
     """
@@ -127,10 +127,10 @@ def get_keystore_path(wallet_name: str = "") -> Path:
 def get_blockchain_data_path(chain_id: str = "ait-mainnet") -> Path:
     """
     Get a path within the blockchain data directory.
-    
+
     Args:
         chain_id: Chain identifier
-        
+
     Returns:
         Full path to blockchain data directory
     """
@@ -140,10 +140,10 @@ def get_blockchain_data_path(chain_id: str = "ait-mainnet") -> Path:
 def get_marketplace_data_path(subpath: str = "") -> Path:
     """
     Get a path within the marketplace data directory.
-    
+
     Args:
         subpath: Optional subpath relative to marketplace directory
-        
+
     Returns:
         Full path to marketplace data directory or subpath
     """

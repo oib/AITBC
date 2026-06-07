@@ -33,7 +33,7 @@ def api_version(
 ):
     """
     Decorator to mark API endpoint with version information
-    
+
     Args:
         version: API version
         deprecated: Whether the endpoint is deprecated
@@ -88,7 +88,7 @@ class APIVersionRouter:
     def register_handler(self, version: str, handler: Callable) -> None:
         """
         Register a handler for a specific API version
-        
+
         Args:
             version: API version string
             handler: Handler function
@@ -99,7 +99,7 @@ class APIVersionRouter:
     def set_default_version(self, version: str) -> None:
         """
         Set default API version
-        
+
         Args:
             version: Default version string
         """
@@ -109,13 +109,13 @@ class APIVersionRouter:
     def route(self, version: str | None = None) -> Callable:
         """
         Route request to appropriate version handler
-        
+
         Args:
             version: Requested version (uses default if None)
-            
+
         Returns:
             Handler function
-            
+
         Raises:
             ValueError: If version is not supported
         """
@@ -129,7 +129,7 @@ class APIVersionRouter:
     def get_supported_versions(self) -> list:
         """
         Get list of supported API versions
-        
+
         Returns:
             List of supported version strings
         """
