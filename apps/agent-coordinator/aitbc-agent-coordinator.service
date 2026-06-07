@@ -5,8 +5,8 @@ Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-internal
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/aitbc/blockchain.env
@@ -34,7 +34,8 @@ NoNewPrivileges=true
 # Production performance
 LimitNOFILE=65536
 LimitNPROC=4096
-MemoryMax=2G
+MemoryMax=256M
+MemoryLimit=256M
 CPUQuota=50%
 
 [Install]

@@ -2,18 +2,28 @@
 
 The Blockchain Node API provides access to blockchain operations including block queries, transaction submission, and network status.
 
+**Note:** This API uses an RPC-style interface with the `/rpc/` prefix for all endpoints, not the REST-style `/v1/` prefix.
+
 ## Base URL
 
-- Production: `https://aitbc.bubuit.net/api`
-- Staging: `https://staging-api.aitbc.io`
-- Development: `http://localhost:8080`
+- Production: `https://aitbc.bubuit.net/rpc`
+- Staging: `https://staging-api.aitbc.io/rpc`
+- Development: `http://localhost:8202/rpc`
+
+## API Documentation
+
+Interactive API documentation is available via Swagger UI:
+- Development: `http://localhost:8202/docs`
+- OpenAPI Spec: `http://localhost:8202/openapi.json`
 
 ## Endpoints
+
+**Note:** All blockchain RPC endpoints use the `/rpc/` prefix.
 
 ### Block Operations
 
 #### Get Block by Height
-`GET /v1/blocks/{height}`
+`GET /rpc/blocks/{height}`
 
 Retrieve a block by its height.
 
@@ -34,25 +44,22 @@ Retrieve a block by its height.
 ```
 
 #### Get Head Block
-`GET /v1/blocks/head`
+`GET /rpc/head`
 
 Retrieve the latest (head) block in the blockchain.
 
 **Response:** `200 OK`
 ```json
 {
-  "height": 12345,
-  "hash": "0x...",
-  "parent_hash": "0x...",
-  "timestamp": "2026-05-11T10:00:00Z",
-  "transactions": [],
-  "state_root": "0x...",
-  "difficulty": 1000
+  "height": 11629,
+  "hash": "0x9b7cb511a6e633561b803f381d864d935c439ca16242dc3d3be5fe9e748a14bc",
+  "timestamp": "2026-06-07T19:55:20.950893",
+  "tx_count": 0
 }
 ```
 
 #### Get Block Range
-`GET /v1/blocks?from={start}&to={end}`
+`GET /rpc/blocks-range?from={start}&to={end}`
 
 Retrieve a range of blocks.
 
@@ -74,7 +81,7 @@ Retrieve a range of blocks.
 ### Transaction Operations
 
 #### Get Transaction
-`GET /v1/transactions/{tx_hash}`
+`GET /rpc/transaction?hash={tx_hash}`
 
 Retrieve a transaction by its hash.
 
@@ -95,7 +102,7 @@ Retrieve a transaction by its hash.
 ```
 
 #### Submit Transaction
-`POST /v1/transactions`
+`POST /rpc/transaction`
 
 Submit a new transaction to the blockchain.
 
@@ -122,34 +129,38 @@ Submit a new transaction to the blockchain.
 ### Network Status
 
 #### Get Network Info
-`GET /v1/network`
+`GET /rpc/network-info`
 
 Retrieve network status and information.
 
 **Response:** `200 OK`
 ```json
 {
-  "chain_id": 1,
-  "block_height": 12345,
-  "peer_count": 42,
-  "sync_status": "synced",
-  "version": "1.0.0"
+  "p2p_endpoint": "aitbc3:8200",
+  "p2p_node_id": "node-19b909970eeb4a6a87865dbb92c4b5dc",
+  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "network_type": "open_island",
+  "supported_chains": ["ait-hub.aitbc.bubuit.net"],
+  "connection_instructions": "Connect via P2P protocol to aitbc3:8200",
+  "rpc_endpoint": "http://aitbc3/rpc",
+  "api_gateway": "http://aitbc3/api",
+  "contact_email": "andreas.fleckl@bubuit.net",
+  "version": "0.4.3"
 }
 ```
 
 #### Get Peers
-`GET /v1/network/peers`
+`GET /rpc/subscribers`
 
-Retrieve list of connected peers.
+Retrieve list of connected peers (subscribers).
 
 **Response:** `200 OK`
 ```json
 [
   {
-    "peer_id": "Qm...",
-    "address": "192.168.1.100:8080",
-    "latency_ms": 50,
-    "is_outbound": true
+    "peer_id": "node-...",
+    "address": "192.168.1.100:8200",
+    "last_seen": "2026-06-07T19:55:20Z"
   }
 ]
 ```
@@ -206,16 +217,16 @@ Send a transaction to a smart contract (state-changing).
 
 ```bash
 # Get head block
-curl http://localhost:8080/v1/blocks/head
+curl http://localhost:8202/rpc/head
 
 # Get block by height
-curl http://localhost:8080/v1/blocks/12345
+curl http://localhost:8202/rpc/blocks/12345
 
 # Get network info
-curl http://localhost:8080/v1/network
+curl http://localhost:8202/rpc/network-info
 
 # Submit transaction
-curl -X POST http://localhost:8080/v1/transactions \
+curl -X POST http://localhost:8202/rpc/transaction \
   -H "Content-Type: application/json" \
   -d '{
     "from": "0x...",
@@ -231,7 +242,7 @@ curl -X POST http://localhost:8080/v1/transactions \
 ```python
 import aitbc_sdk
 
-client = aitbc_sdk.BlockchainClient(base_url="http://localhost:8080")
+client = aitbc_sdk.BlockchainClient(base_url="http://localhost:8202/rpc")
 
 # Get head block
 head_block = client.get_head_block()
@@ -242,7 +253,8 @@ block = client.get_block(height=12345)
 
 # Get network info
 network = client.get_network_info()
-print(f"Peer count: {network['peer_count']}")
+print(f"Chain ID: {network['chain_id']}")
+print(f"Network type: {network['network_type']}")
 ```
 
 ## WebSocket
@@ -250,7 +262,7 @@ print(f"Peer count: {network['peer_count']}")
 Real-time blockchain events are available via WebSocket connection:
 
 ```
-ws://localhost:8080/v1/events
+ws://localhost:8202/rpc/subscribe
 ```
 
 The WebSocket sends events as JSON messages:
@@ -267,7 +279,7 @@ The WebSocket sends events as JSON messages:
 
 ### Escrow Operations
 
-The blockchain node also hosts the marketplace escrow service. See the full reference at [Escrow API](../escrow-api.md).
+The blockchain node also hosts the marketplace escrow service.
 
 #### Create Escrow
 `POST /rpc/escrow/create`
