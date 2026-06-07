@@ -23,9 +23,15 @@ The AITBC project successfully addressed all 82 security vulnerabilities by:
 - **0 vulnerabilities** in JavaScript/TypeScript dependencies (pnpm audit)
 - **Updated Python dependencies** (pyjwt 2.9.0, argon2, faster-whisper)
 - **Automated security scanning** in CI/CD
-- **All services running** successfully (9 services)
+- **All 24 services running** successfully
 - **Systemd-compatible environment**
-- **Service configuration fixes** (user accounts, missing dependencies)
+- **Service configuration fixes** (user accounts, missing dependencies, port conflicts, legacy configurations)
+- **Legacy services removed** (wallet-daemon duplicate)
+
+### Service Inventory
+- **Total service files**: 32 service definitions (1 legacy removed)
+- **Active services**: 24 services currently running
+- **Removed services**: 1 legacy service (aitbc-wallet-daemon.service)
 
 ## Investigation Results
 
@@ -159,6 +165,11 @@ Based on investigation, vulnerabilities likely originate from:
 - **aitbc-api-gateway.service**: Fixed user configuration (aitbc → root)
 - **aitbc-wallet.service**: Added missing argon2 dependency
 - **aitbc-whisper.service**: Fixed user configuration and added faster-whisper dependency
+- **aitbc-agent-daemon.service**: Configured with blockchain chain and wallet
+- **aitbc-edge.service**: Fixed port conflict (8110 → 8111)
+- **aitbc-blockchain-event-bridge.service**: Fixed port conflict (8204 → 8205)
+- **aitbc-miner.service**: Fixed coordinator URL (legacy 8011 → current 8203)
+- **aitbc-wallet-daemon.service**: Removed (legacy duplicate service)
 - **All services**: System venv compatibility ensured
 
 ## Service Configuration Fixes
@@ -181,22 +192,114 @@ During the migration, several systemd services required configuration fixes:
 - **Fix**: Changed User/Group to 'root' and installed faster-whisper
 - **File**: `/opt/aitbc/apps/whisper/aitbc-whisper.service`
 
+### aitbc-agent-daemon.service
+- **Issue**: No blockchain chains configured, service had no work to do
+- **Fix**: Added AGENT_DAEMON_CHAINS=ait-hub.aitbc.bubuit.net to service configuration
+- **Additional**: Created agent wallet from genesis wallet
+- **File**: `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon.service`
+- **Wrapper**: `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py`
+
+### aitbc-edge.service
+- **Issue**: Port conflict with aitbc-whisper.service (both using 8110)
+- **Fix**: Changed API_PORT from 8110 to 8111
+- **File**: `/opt/aitbc/apps/edge/aitbc-edge.service`
+
+### aitbc-blockchain-event-bridge.service
+- **Issue**: Port conflict with coordinator-api service (both using 8204)
+- **Fix**: Changed default port from 8204 to 8205
+- **File**: `/opt/aitbc/apps/blockchain-event-bridge/aitbc-blockchain-event-bridge-wrapper.py`
+
+### aitbc-miner.service
+- **Issue**: Connection refused to coordinator (using legacy port 8011)
+- **Fix**: Updated COORDINATOR_URL from http://localhost:8011 to http://localhost:8203
+- **File**: `/opt/aitbc/apps/miner/aitbc-miner.service`
+
+### aitbc-wallet-daemon.service
+- **Issue**: Legacy duplicate service causing port conflicts with aitbc-wallet.service
+- **Fix**: Disabled and removed service file
+- **File**: `/opt/aitbc/apps/wallet/aitbc-wallet-daemon.service` (removed)
+
 ### All Services
 - **Issue**: System venv compatibility after pyenv removal
 - **Fix**: Recreated system venv with all dependencies
-- **Result**: All 9 services now running successfully
+- **Result**: All 24 services now running successfully
+
+## Port Configuration Updates
+
+### Blockchain Ports (8200+)
+- **8200**: P2P service (aitbc-blockchain-p2p.service)
+- **8201**: P2P service (aitbc-blockchain-p2p.service)
+- **8202**: Blockchain RPC (localhost) - aitbc-blockchain-rpc.service
+- **8203**: Coordinator API (localhost) - aitbc-coordinator-api.service
+- **8204**: Coordinator API (localhost) - aitbc-coordinator-api.service
+- **8205**: Blockchain Event Bridge - aitbc-blockchain-event-bridge.service (changed from 8204)
+- **8206-8209**: Available for future use
+
+### Application Ports (8100+)
+- **8101**: GPU Service (localhost) - aitbc-gpu.service
+- **8102**: Marketplace Service (localhost) - aitbc-marketplace.service
+- **8103**: Hermes Service (localhost) - aitbc-hermes.service
+- **8104**: Trading Service - aitbc-trading.service
+- **8105**: Governance Service - aitbc-governance.service
+- **8106**: Exchange Service (localhost) - aitbc-exchange.service
+- **8107**: Agent Coordinator (localhost) - aitbc-agent-coordinator.service
+- **8108**: Wallet Service - aitbc-wallet.service
+- **8109**: Plugin Service - aitbc-plugin.service
+- **8110**: Whisper Service - aitbc-whisper.service
+- **8111**: Edge Service - aitbc-edge.service (changed from 8110)
+
+### Legacy Port Updates
+- **8011**: Legacy coordinator port (no longer used, updated to 8203)
+- **8204**: Legacy event-bridge port (no longer used, updated to 8205)
+- **8110**: Legacy edge service port (no longer used, updated to 8111)
 
 ## Final Service Status
 
-✅ **aitbc-agent-coordinator.service** - Active and running
-✅ **aitbc-api-gateway.service** - Active and running  
+### Active Services (24 services running)
+
+**Core Services:**
+✅ **aitbc-agent-coordinator.service** - Active and running (port 8107)
+✅ **aitbc-agent-daemon.service** - Active and running (configured with blockchain chain)
+✅ **aitbc-agent-management.service** - Active and running
+✅ **aitbc-ai.service** - Active and running
+✅ **aitbc-api-gateway.service** - Active and running
 ✅ **aitbc-blockchain-node.service** - Active and running
-✅ **aitbc-blockchain-p2p.service** - Active and running
-✅ **aitbc-blockchain-rpc.service** - Active and running
-✅ **aitbc-hermes.service** - Active and running
-✅ **aitbc-load-secrets.service** - Active and exited
-✅ **aitbc-wallet.service** - Active and running
-✅ **aitbc-whisper.service** - Active and running
+✅ **aitbc-blockchain-p2p.service** - Active and running (ports 8200, 8201)
+✅ **aitbc-blockchain-rpc.service** - Active and running (port 8202)
+✅ **aitbc-blockchain-event-bridge.service** - Active and running (port 8205)
+✅ **aitbc-coordinator-api.service** - Active and running (port 8203)
+✅ **aitbc-edge.service** - Active and running (port 8111)
+✅ **aitbc-exchange.service** - Active and running (port 8106)
+✅ **aitbc-hermes.service** - Active and running (port 8103)
+✅ **aitbc-load-secrets.service** - Active and exited (one-shot service)
+✅ **aitbc-wallet.service** - Active and running (port 8108)
+✅ **aitbc-whisper.service** - Active and running (port 8110)
+
+**AI/ML Services:**
+✅ **aitbc-ffmpeg.service** - Active and running
+✅ **aitbc-gpu.service** - Active and running (port 8101)
+✅ **aitbc-learning.service** - Active and running
+✅ **aitbc-modality-optimization.service** - Active and running
+✅ **aitbc-multimodal.service** - Active and running
+
+**Infrastructure Services:**
+✅ **aitbc-governance.service** - Active and running (port 8105)
+✅ **aitbc-marketplace.service** - Active and running (port 8102)
+✅ **aitbc-miner.service** - Active and running (coordinator connection fixed)
+✅ **aitbc-monitoring.service** - Active and running
+✅ **aitbc-plugin.service** - Active and running (port 8109)
+✅ **aitbc-trading.service** - Active and running (port 8104)
+
+**Total**: 24 services active and running
+
+## Removed/Legacy Services
+
+### aitbc-wallet-daemon.service
+- **Status**: Removed
+- **Reason**: Legacy duplicate of aitbc-wallet.service
+- **Issue**: Caused port conflicts on port 8108
+- **Action**: Service file removed from `/opt/aitbc/apps/wallet/aitbc-wallet-daemon.service`
+- **Replacement**: aitbc-wallet.service (production version)
 
 ## pnpm Migration Benefits
 

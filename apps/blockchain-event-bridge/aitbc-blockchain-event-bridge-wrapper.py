@@ -28,6 +28,6 @@ exec_cmd = [
     "uvicorn",
     "blockchain_event_bridge.main:app",
     "--host", os.getenv("bind_host", "0.0.0.0"),
-    "--port", os.getenv("bind_port", "8204"),
+    "--port", os.getenv("bind_port", "8205"),
 ]
 os.execvp(exec_cmd[0], exec_cmd)
