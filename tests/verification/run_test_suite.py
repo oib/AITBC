@@ -90,7 +90,7 @@ def main():
     if args.coverage:
         pytest_cmd.extend([
             "--cov=apps",
-            "--cov-report=html:htmlcov",
+            "--cov-report=html:tests/htmlcov",
             "--cov-report=term-missing"
         ])
 
@@ -135,7 +135,7 @@ def main():
         print(f"\n✅ {args.suite.title()} tests passed!")
 
         if args.coverage:
-            print("\n📊 Coverage report generated in htmlcov/index.html")
+            print("\n📊 Coverage report generated in tests/htmlcov/index.html")
     else:
         print(f"\n❌ {args.suite.title()} tests failed!")
         sys.exit(1)
