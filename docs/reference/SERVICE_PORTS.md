@@ -2,8 +2,8 @@
 
 **Authoritative single source of truth for all AITBC service ports**
 
-**Last Updated**: 2026-06-02
-**Version**: 2.0
+**Last Updated**: 2026-06-07
+**Version**: 2.1
 
 ---
 
@@ -44,6 +44,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
 | Service | Port | Health Endpoint | Binding | Notes |
 |---------|------|----------------|---------|-------|
 | **Blockchain P2P** | 8200 | N/A | 0.0.0.0 | P2P network communication (direct access required) |
+| **Blockchain Event Bridge** | 8205 | `http://localhost:8205/health` | 0.0.0.0 | Blockchain event streaming service |
 
 ### Internal Services (Ports 8101-8105)
 These services bind to localhost only (127.0.0.1) and should not be exposed externally.
@@ -63,9 +64,9 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 | **Exchange API** | 8106 | `http://localhost:8106/health` | Migrated | Trading (migrated from 8001 to 8106) |
 | **Agent Coordinator** | 8107 | `http://localhost:8107/health` | Migrated | Advanced multi-agent coordination (migrated from 9001 to 8107) |
 | **Wallet Daemon** | 8108 | `http://localhost:8108/health` | Migrated | Wallet management (migrated from 8015 to 8108) |
-| **AI Service** | 8109 | N/A | Not implemented | AI operations (planned but not created) |
-| **Services Service** | 8110 | N/A | Not implemented | Workload management (planned but not created) |
-| **Training Service** | 8111 | N/A | Not implemented | Training operations (planned but not created) |
+| **AI Service** | 8109 | `http://localhost:8109/health` | 127.0.0.1 | AI operations (plugin service) |
+| **Whisper Service** | 8110 | `http://localhost:8110/health` | 127.0.0.1 | Transcription service |
+| **Edge Service** | 8111 | `http://localhost:8111/health` | 0.0.0.0 | Edge API service |
 | **Inference Service** | 8112 | N/A | Not implemented | Model inference (planned but not created) |
 | **Swarm Service** | 8113 | N/A | Not implemented | Compute clustering (planned but not created) |
 | **Admin Service** | 8114 | N/A | Not implemented | Admin/debug endpoints (planned but not created) |
@@ -77,12 +78,16 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8203`)
 - **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (uses env var `p2p_bind_port` from blockchain.env)
 - **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-node-wrapper.py` (uses combined_main with settings.rpc_bind_port)
+- **Blockchain Event Bridge**: `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge-wrapper.py` (line 31: `--port 8205`)
 - **Hermes Service**: `apps/hermes/aitbc-hermes-wrapper.py` (line 33: `--port 8103`)
 - **Trading Service**: `apps/trading/aitbc-trading-wrapper.py` (line 32: `--port 8104`)
 - **Governance Service**: `apps/governance/src/governance_service/main.py` (line 286: `port=8105`)
 - **Exchange API**: `apps/exchange/aitbc-exchange-api.service` (line 14: `--port 8106`)
 - **Agent Coordinator**: `apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py` (line 38: `--port 8107`)
 - **Wallet Daemon**: `apps/wallet/aitbc-wallet-wrapper.py` (line 33: `--port 8108`)
+- **Plugin Service**: `apps/plugin-service/src/plugin_service/main.py` (line 286: `port=8109`)
+- **Whisper Service**: `apps/whisper/aitbc-whisper.service` (line 15: `--port 8110`)
+- **Edge Service**: `apps/edge/aitbc-edge.service` (line 16: `API_PORT=8111`)
 
 ### Application Main Files
 - **GPU Service**: `apps/gpu-service/src/gpu_service/main.py` (line 458: `port=8101`)
@@ -93,6 +98,9 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8108`)
 - **Exchange**: `apps/exchange/aitbc-exchange-api.service` (line 14: `--port 8106`)
 - **Agent Coordinator**: `apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py` (line 38: `--port 8107`)
+- **Plugin Service**: `apps/plugin-service/src/plugin_service/main.py` (line 286: `port=8109`)
+- **Whisper Service**: `apps/whisper/main.py` (line 42: `port=8110`)
+- **Edge Service**: `apps/edge/src/aitbc_edge/main.py` (line 42: `port=8111`)
 
 ### Environment Configuration Files
 - **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (RPC_BIND_PORT=8202, p2p_bind_port=8200)
@@ -109,6 +117,9 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Blockchain RPC**: Previously on 8006, moved to 8202 as part of public port reorganization
 - **Blockchain P2P**: Previously on 8001, moved to 8200 as part of public port reorganization
 - **API Gateway**: Previously on 8080, moved to 8200 as part of public port reorganization
+- **Miner Coordinator**: Previously using legacy port 8011, updated to 8203 (current coordinator port)
+- **Edge Service**: Previously on 8110 (conflict with whisper), moved to 8111
+- **Blockchain Event Bridge**: Previously on 8204 (conflict with coordinator), moved to 8205
 
 ### Configuration Notes
 - Ports are typically configured in service wrapper scripts or systemd unit files
@@ -128,7 +139,7 @@ Most services follow one of these health endpoint patterns:
 ### Health Check Commands
 ```bash
 # Check service health (public services)
-curl -s http://localhost:8200/health  # API Gateway
+curl -s http://localhost:8201/health  # API Gateway
 curl -s http://localhost:8202/health  # Blockchain RPC
 curl -s http://localhost:8203/health  # Coordinator API (failover)
 
@@ -141,10 +152,15 @@ curl -s http://localhost:8105/health  # Governance Service
 curl -s http://localhost:8106/health  # Exchange API
 curl -s http://localhost:8107/health  # Agent Coordinator
 curl -s http://localhost:8108/health  # Wallet Daemon
+curl -s http://localhost:8109/health  # Plugin Service
+curl -s http://localhost:8110/health  # Whisper Service
+curl -s http://localhost:8111/health  # Edge Service
+curl -s http://localhost:8205/health  # Blockchain Event Bridge
 
 # Check if port is listening
-netstat -tlnp | grep ':8200'
-ss -tlnp | grep ':8101'
+netstat -tlnp | grep ':8200'  # Blockchain P2P
+netstat -tlnp | grep ':8201'  # API Gateway
+ss -tlnp | grep ':8101'     # GPU Service
 ```
 
 ## CLI Entry Point Reference

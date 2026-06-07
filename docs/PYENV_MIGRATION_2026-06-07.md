@@ -311,5 +311,7 @@ journalctl -u aitbc-*.service -f
 **Current Python**: 3.13.5 (system-linked)
 **Current venv**: `/opt/aitbc/venv` (system venv)
 **Security Status**: 0 vulnerabilities (pnpm migration retained)
-**Service Status**: All services running successfully
+**Service Status**: 24/24 services running successfully
 **pyenv Status**: Purged due to systemd incompatibility
+**Port Conflicts**: All resolved (edge: 8111, event-bridge: 8205, miner: 8203)
+**Legacy Services**: Removed (wallet-daemon duplicate)
