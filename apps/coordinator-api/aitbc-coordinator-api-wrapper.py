@@ -29,6 +29,14 @@ exec_cmd = [
     "--host",
     "127.0.0.1",
     "--port",
-    "8203"
+    "8203",
+    "--workers",
+    "4",
+    "--timeout-keep-alive",
+    "30",
+    "--limit-concurrency",
+    "500",
+    "--backlog",
+    "1024"
 ]
 os.execvp(exec_cmd[0], exec_cmd)

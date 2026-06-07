@@ -198,6 +198,64 @@ setup_runtime_directories() {
     success "Runtime directories setup completed"
 }
 
+# Setup service users for security isolation
+setup_service_users() {
+    log "Setting up service users for security isolation..."
+
+    # Create service group
+    if ! getent group aitbc-services >/dev/null 2>&1; then
+        log "Creating aitbc-services group..."
+        groupadd aitbc-services || warning "Failed to create aitbc-services group (may already exist)"
+    else
+        log "aitbc-services group already exists"
+    fi
+
+    # Create service users based on exposure level
+    service_users=(
+        "aitbc-public:Public exposure services (API Gateway, Edge, Whisper)"
+        "aitbc-internal:Internal services (Marketplace, Hermes, Agent Coordinator)"
+        "aitbc-blockchain:Blockchain services (Node, P2P, RPC)"
+        "aitbc-gpu:GPU service (needs video group)"
+        "aitbc-wallet:Wallet service (keystore access)"
+    )
+
+    for user_info in "${service_users[@]}"; do
+        IFS=':' read -r username description <<< "$user_info"
+        
+        if ! id "$username" >/dev/null 2>&1; then
+            log "Creating user: $username ($description)"
+            useradd -r -s /bin/false -g aitbc-services "$username" || warning "Failed to create user $username (may already exist)"
+        else
+            log "User $username already exists"
+        fi
+    done
+
+    # Add supplementary groups for specialized users
+    if id aitbc-gpu >/dev/null 2>&1; then
+        log "Adding aitbc-gpu to video group..."
+        usermod -a -G video aitbc-gpu 2>/dev/null || warning "Failed to add aitbc-gpu to video group"
+    fi
+
+    if id aitbc-public >/dev/null 2>&1; then
+        log "Adding aitbc-public to video and audio groups (for whisper)..."
+        usermod -a -G video aitbc-public 2>/dev/null || warning "Failed to add aitbc-public to video group"
+        usermod -a -G audio aitbc-public 2>/dev/null || warning "Failed to add aitbc-public to audio group"
+    fi
+
+    # Create additional directories for service users
+    log "Creating service-specific directories..."
+    mkdir -p /var/lib/aitbc/wallets
+    mkdir -p /var/lib/aitbc/whisper-cache
+    
+    # Set ownership for service-specific directories
+    chown -R aitbc-wallet:aitbc-services /var/lib/aitbc/wallets
+    chown -R aitbc-public:aitbc-services /var/lib/aitbc/whisper-cache
+    chmod 750 /var/lib/aitbc/wallets
+    chmod 750 /var/lib/aitbc/whisper-cache
+
+    success "Service users setup completed"
+}
+
 # Setup PostgreSQL databases
 setup_postgresql_databases() {
     log "Setting up PostgreSQL databases..."
@@ -799,33 +857,37 @@ main() {
     setup_runtime_directories
     echo "[STEP 4/10] ✓ Runtime directories created"
 
-    echo "[STEP 5/10] Setting up PostgreSQL databases..."
+    echo "[STEP 5/11] Setting up service users..."
+    setup_service_users
+    echo "[STEP 5/11] ✓ Service users created"
+
+    echo "[STEP 6/11] Setting up PostgreSQL databases..."
     setup_postgresql_databases
-    echo "[STEP 5/10] ✓ PostgreSQL databases configured"
+    echo "[STEP 6/11] ✓ PostgreSQL databases configured"
 
-    echo "[STEP 6/10] Setting up node profiles..."
+    echo "[STEP 7/11] Setting up node profiles..."
     setup_node_profiles
-    echo "[STEP 6/10] ✓ Node profiles configured"
+    echo "[STEP 7/11] ✓ Node profiles configured"
 
-    echo "[STEP 7/10] Setting up node identities..."
+    echo "[STEP 8/11] Setting up node identities..."
     setup_node_identities
-    echo "[STEP 7/10] ✓ Node identities configured"
+    echo "[STEP 8/11] ✓ Node identities configured"
 
-    echo "[STEP 8/10] Setting up credentials..."
+    echo "[STEP 9/11] Setting up credentials..."
     setup_credentials
-    echo "[STEP 8/10] ✓ Credentials configured"
+    echo "[STEP 9/11] ✓ Credentials configured"
 
-    echo "[STEP 9/10] Setting up virtual environments..."
+    echo "[STEP 10/11] Setting up virtual environments..."
     setup_venvs
-    echo "[STEP 9/10] ✓ Virtual environments created"
+    echo "[STEP 10/11] ✓ Virtual environments created"
 
-    echo "[STEP 10/10] Installing systemd services..."
+    echo "[STEP 11/11] Installing systemd services..."
     install_services
-    echo "[STEP 10/10] ✓ Systemd services installed"
+    echo "[STEP 11/11] ✓ Systemd services installed"
 
-    echo "[STEP 11/11] Preparing health check..."
+    echo "[PREPARING] Preparing health check..."
     prepare_health_check
-    echo "[STEP 11/11] ✓ Health check prepared"
+    echo "[PREPARING] ✓ Health check prepared"
 
     echo "[STARTING] Starting AITBC services..."
     start_services

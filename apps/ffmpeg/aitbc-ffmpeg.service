@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-public
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/aitbc/blockchain.env
@@ -19,6 +19,8 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-ffmpeg
+MemoryMax=512M
+MemoryLimit=512M
 
 [Install]
 WantedBy=multi-user.target

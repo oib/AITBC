@@ -5,8 +5,8 @@ Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-internal
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc/apps/exchange
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
@@ -19,8 +19,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-exchange-api
 
-# Allow database writes for SQLite WAL mode
-ProtectSystem=no
+# Note: ProtectSystem=no removed for service user compatibility
 
 [Install]
 WantedBy=multi-user.target

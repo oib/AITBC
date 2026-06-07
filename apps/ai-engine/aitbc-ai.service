@@ -4,8 +4,8 @@ After=network.target redis.service postgresql.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-public
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc/apps/ai-engine
 Environment="PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin"
 EnvironmentFile=/etc/aitbc/blockchain.env
