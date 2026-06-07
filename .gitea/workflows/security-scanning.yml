@@ -74,6 +74,30 @@ jobs:
           venv/bin/safety check --file requirements.txt
           echo "✅ Safety scan completed"
 
+      - name: pnpm dependency audit (contracts)
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          echo "=== PNPM Dependency Audit (Contracts) ==="
+          if command -v pnpm &> /dev/null; then
+            cd contracts
+            pnpm audit --prod
+            echo "✅ PNPM audit completed"
+          else
+            echo "⚠️  pnpm not available, skipping contract dependency audit"
+          fi
+
+      - name: pnpm dependency audit (JS SDK)
+        run: |
+          cd "${{ env.WORKSPACE }}/repo"
+          echo "=== PNPM Dependency Audit (JS SDK) ==="
+          if command -v pnpm &> /dev/null; then
+            cd packages/js/aitbc-sdk
+            pnpm audit
+            echo "✅ PNPM audit completed"
+          else
+            echo "⚠️  pnpm not available, skipping SDK dependency audit"
+          fi
+
       - name: Bandit security scan
         run: |
           cd "${{ env.WORKSPACE }}/repo"
