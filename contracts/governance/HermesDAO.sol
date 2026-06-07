@@ -92,7 +92,6 @@ contract HermesDAO is
         address challenger;
         uint256 challengeEnd;
     }
-    }
 
     // State variables
     IERC20 public governanceToken;
