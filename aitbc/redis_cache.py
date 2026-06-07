@@ -33,7 +33,7 @@ class RedisCache:
     ):
         """
         Initialize Redis cache
-        
+
         Args:
             redis_url: Redis connection URL (e.g., redis://localhost:6379/0)
             max_connections: Maximum number of connections
@@ -71,10 +71,10 @@ class RedisCache:
     def get(self, key: str) -> Any | None:
         """
         Get value from cache
-        
+
         Args:
             key: Cache key
-            
+
         Returns:
             Cached value or None if not found
         """
@@ -98,12 +98,12 @@ class RedisCache:
     ) -> bool:
         """
         Set value in cache
-        
+
         Args:
             key: Cache key
             value: Value to cache (must be JSON serializable)
             ttl: Time-to-live in seconds (uses default_ttl if not provided)
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -122,10 +122,10 @@ class RedisCache:
     def delete(self, key: str) -> bool:
         """
         Delete value from cache
-        
+
         Args:
             key: Cache key
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -142,10 +142,10 @@ class RedisCache:
     def exists(self, key: str) -> bool:
         """
         Check if key exists in cache
-        
+
         Args:
             key: Cache key
-            
+
         Returns:
             True if key exists, False otherwise
         """
@@ -161,7 +161,7 @@ class RedisCache:
     def clear(self) -> bool:
         """
         Clear all cached values
-        
+
         Returns:
             True if successful, False otherwise
         """
@@ -178,10 +178,10 @@ class RedisCache:
     def get_many(self, keys: list[str]) -> dict[str, Any]:
         """
         Get multiple values from cache
-        
+
         Args:
             keys: List of cache keys
-            
+
         Returns:
             Dictionary mapping keys to cached values
         """
@@ -191,7 +191,7 @@ class RedisCache:
         try:
             values = self._client.mget(keys)
             result = {}
-            for key, value in zip(keys, values):
+            for key, value in zip(keys, values, strict=False):
                 if value:
                     result[key] = json.loads(value)
             return result
@@ -202,11 +202,11 @@ class RedisCache:
     def set_many(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
         """
         Set multiple values in cache
-        
+
         Args:
             mapping: Dictionary of key-value pairs
             ttl: Time-to-live in seconds
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -228,10 +228,10 @@ class RedisCache:
     def delete_many(self, keys: list[str]) -> bool:
         """
         Delete multiple values from cache
-        
+
         Args:
             keys: List of cache keys
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -249,11 +249,11 @@ class RedisCache:
     def increment(self, key: str, amount: int = 1) -> int | None:
         """
         Increment a counter in cache
-        
+
         Args:
             key: Cache key
             amount: Amount to increment by
-            
+
         Returns:
             New value or None if failed
         """
@@ -285,13 +285,13 @@ def get_cache(
 ) -> RedisCache:
     """
     Get or create global Redis cache instance
-    
+
     Args:
         redis_url: Redis connection URL
         max_connections: Maximum number of connections
         timeout: Connection timeout in seconds
         default_ttl: Default time-to-live for cached items
-        
+
     Returns:
         RedisCache instance
     """
@@ -311,11 +311,11 @@ def get_cache(
 def cache_key(*parts: str, prefix: str = "aitbc") -> str:
     """
     Generate a cache key from parts
-    
+
     Args:
         *parts: Parts to include in the key
         prefix: Key prefix
-        
+
     Returns:
         Cache key string
     """

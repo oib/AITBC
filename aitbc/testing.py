@@ -3,13 +3,18 @@ Testing utilities for AITBC
 Provides mock factories, test data generators, and test helpers
 """
 
+import asyncio
 import json
 import secrets
+import time
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
+from .aitbc_logging import get_logger
+
+logger = get_logger(__name__)
 T = TypeVar('T')
 
 
@@ -379,9 +384,6 @@ def create_mock_config(**overrides) -> dict[str, Any]:
     }
     config.update(overrides)
     return config
-
-
-import time
 
 
 def create_test_scenario(name: str, steps: list[Callable]) -> Callable:

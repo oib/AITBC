@@ -12,13 +12,13 @@ from ..exceptions import ValidationError
 def validate_address(address: str) -> bool:
     """
     Validate an AITBC blockchain address.
-    
+
     Args:
         address: Address string to validate
-        
+
     Returns:
         True if address is valid format
-        
+
     Raises:
         ValidationError: If address format is invalid
     """
@@ -36,13 +36,13 @@ def validate_address(address: str) -> bool:
 def validate_hash(hash_str: str) -> bool:
     """
     Validate a hash string (hex string of expected length).
-    
+
     Args:
         hash_str: Hash string to validate
-        
+
     Returns:
         True if hash is valid format
-        
+
     Raises:
         ValidationError: If hash format is invalid
     """
@@ -60,13 +60,13 @@ def validate_hash(hash_str: str) -> bool:
 def validate_url(url: str) -> bool:
     """
     Validate a URL string.
-    
+
     Args:
         url: URL string to validate
-        
+
     Returns:
         True if URL is valid format
-        
+
     Raises:
         ValidationError: If URL format is invalid
     """
@@ -83,13 +83,13 @@ def validate_url(url: str) -> bool:
 def validate_port(port: int) -> bool:
     """
     Validate a port number.
-    
+
     Args:
         port: Port number to validate
-        
+
     Returns:
         True if port is valid
-        
+
     Raises:
         ValidationError: If port is invalid
     """
@@ -105,13 +105,13 @@ def validate_port(port: int) -> bool:
 def validate_email(email: str) -> bool:
     """
     Validate an email address.
-    
+
     Args:
         email: Email address to validate
-        
+
     Returns:
         True if email is valid format
-        
+
     Raises:
         ValidationError: If email format is invalid
     """
@@ -128,14 +128,14 @@ def validate_email(email: str) -> bool:
 def validate_non_empty(value: Any, field_name: str = "value") -> bool:
     """
     Validate that a value is not empty.
-    
+
     Args:
         value: Value to validate
         field_name: Name of the field for error message
-        
+
     Returns:
         True if value is not empty
-        
+
     Raises:
         ValidationError: If value is empty
     """
@@ -154,14 +154,14 @@ def validate_non_empty(value: Any, field_name: str = "value") -> bool:
 def validate_positive_number(value: Any, field_name: str = "value") -> bool:
     """
     Validate that a value is a positive number.
-    
+
     Args:
         value: Value to validate
         field_name: Name of the field for error message
-        
+
     Returns:
         True if value is positive
-        
+
     Raises:
         ValidationError: If value is not positive
     """
@@ -177,16 +177,16 @@ def validate_positive_number(value: Any, field_name: str = "value") -> bool:
 def validate_range(value: Any, min_val: float, max_val: float, field_name: str = "value") -> bool:
     """
     Validate that a value is within a specified range.
-    
+
     Args:
         value: Value to validate
         min_val: Minimum allowed value
         max_val: Maximum allowed value
         field_name: Name of the field for error message
-        
+
     Returns:
         True if value is within range
-        
+
     Raises:
         ValidationError: If value is outside range
     """
@@ -202,13 +202,13 @@ def validate_range(value: Any, min_val: float, max_val: float, field_name: str =
 def validate_chain_id(chain_id: str) -> bool:
     """
     Validate a chain ID.
-    
+
     Args:
         chain_id: Chain ID to validate
-        
+
     Returns:
         True if chain ID is valid
-        
+
     Raises:
         ValidationError: If chain ID is invalid
     """
@@ -226,13 +226,13 @@ def validate_chain_id(chain_id: str) -> bool:
 def validate_uuid(uuid_str: str) -> bool:
     """
     Validate a UUID string.
-    
+
     Args:
         uuid_str: UUID string to validate
-        
+
     Returns:
         True if UUID is valid format
-        
+
     Raises:
         ValidationError: If UUID format is invalid
     """

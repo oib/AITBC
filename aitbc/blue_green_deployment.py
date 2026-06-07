@@ -59,7 +59,7 @@ class BlueGreenDeployer:
     def __init__(self, config: DeploymentConfig):
         """
         Initialize blue-green deployer
-        
+
         Args:
             config: Deployment configuration
         """
@@ -71,7 +71,7 @@ class BlueGreenDeployer:
     def deploy(self) -> DeploymentResult:
         """
         Execute blue-green deployment
-        
+
         Returns:
             DeploymentResult with deployment status
         """
@@ -138,7 +138,7 @@ class BlueGreenDeployer:
     def _deploy_to_green(self) -> DeploymentResult:
         """
         Deploy new version to green environment
-        
+
         Returns:
             DeploymentResult with deployment status
         """
@@ -174,7 +174,7 @@ class BlueGreenDeployer:
     def _health_check_green(self) -> DeploymentResult:
         """
         Perform health check on green environment
-        
+
         Returns:
             DeploymentResult with health check status
         """
@@ -218,7 +218,7 @@ class BlueGreenDeployer:
     def _switch_traffic(self) -> DeploymentResult:
         """
         Switch traffic from blue to green
-        
+
         Returns:
             DeploymentResult with traffic switch status
         """
@@ -254,7 +254,7 @@ class BlueGreenDeployer:
     def _rollback(self) -> DeploymentResult:
         """
         Rollback to previous version
-        
+
         Returns:
             DeploymentResult with rollback status
         """
@@ -299,7 +299,7 @@ class BlueGreenDeployer:
     def get_deployment_history(self) -> list[DeploymentResult]:
         """
         Get deployment history
-        
+
         Returns:
             List of deployment results
         """
@@ -308,7 +308,7 @@ class BlueGreenDeployer:
     def get_current_version(self) -> str:
         """
         Get current deployed version
-        
+
         Returns:
             Current version string
         """
@@ -324,7 +324,7 @@ class CanaryDeployer:
     def __init__(self, config: DeploymentConfig, canary_percentage: float = 10.0):
         """
         Initialize canary deployer
-        
+
         Args:
             config: Deployment configuration
             canary_percentage: Initial canary traffic percentage
@@ -336,7 +336,7 @@ class CanaryDeployer:
     def deploy_canary(self) -> DeploymentResult:
         """
         Deploy canary with gradual traffic increase
-        
+
         Returns:
             DeploymentResult with deployment status
         """

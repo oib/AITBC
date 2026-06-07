@@ -40,7 +40,7 @@ class LRUCache:
     def __init__(self, capacity: int = 128):
         """
         Initialize LRU cache
-        
+
         Args:
             capacity: Maximum number of items in cache
         """
@@ -52,10 +52,10 @@ class LRUCache:
     def get(self, key: str) -> Any | None:
         """
         Get value from cache
-        
+
         Args:
             key: Cache key
-            
+
         Returns:
             Cached value or None if not found/expired
         """
@@ -81,7 +81,7 @@ class LRUCache:
     def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """
         Set value in cache
-        
+
         Args:
             key: Cache key
             value: Value to cache
@@ -111,7 +111,7 @@ class LRUCache:
     def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics
-        
+
         Returns:
             Dictionary with cache statistics
         """
@@ -147,7 +147,7 @@ class TTLCache:
     def __init__(self, default_ttl: int = 300):
         """
         Initialize TTL cache
-        
+
         Args:
             default_ttl: Default time to live in seconds
         """
@@ -159,10 +159,10 @@ class TTLCache:
     def get(self, key: str) -> Any | None:
         """
         Get value from cache
-        
+
         Args:
             key: Cache key
-            
+
         Returns:
             Cached value or None if not found/expired
         """
@@ -186,7 +186,7 @@ class TTLCache:
     def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """
         Set value in cache
-        
+
         Args:
             key: Cache key
             value: Value to cache
@@ -206,7 +206,7 @@ class TTLCache:
     def cleanup_expired(self) -> int:
         """
         Remove expired entries from cache
-        
+
         Returns:
             Number of entries removed
         """
@@ -226,7 +226,7 @@ class TTLCache:
     def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics
-        
+
         Returns:
             Dictionary with cache statistics
         """
@@ -246,11 +246,11 @@ class TTLCache:
 def cached(ttl: int = 300, cache_instance: LRUCache | TTLCache | None = None):
     """
     Decorator to cache function results
-    
+
     Args:
         ttl: Time to live in seconds
         cache_instance: Custom cache instance, or None to use default TTL cache
-        
+
     Returns:
         Decorated function with caching
     """
@@ -283,11 +283,11 @@ def cached(ttl: int = 300, cache_instance: LRUCache | TTLCache | None = None):
 def cached_lru(capacity: int = 128, ttl: int | None = None):
     """
     Decorator to cache function results with LRU eviction
-    
+
     Args:
         capacity: Maximum cache size
         ttl: Time to live in seconds (None for no expiration)
-        
+
     Returns:
         Decorated function with LRU caching
     """
@@ -316,12 +316,12 @@ def cached_lru(capacity: int = 128, ttl: int | None = None):
 def _generate_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
     """
     Generate a cache key from function name and arguments
-    
+
     Args:
         func_name: Function name
         args: Function positional arguments
         kwargs: Function keyword arguments
-        
+
     Returns:
         Cache key string
     """

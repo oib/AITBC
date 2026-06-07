@@ -36,7 +36,7 @@ class DependencyScanner:
     def __init__(self, requirements_file: Path | None = None):
         """
         Initialize dependency scanner
-        
+
         Args:
             requirements_file: Path to pyproject.toml (Poetry source of truth)
         """
@@ -46,7 +46,7 @@ class DependencyScanner:
     def scan_with_pip_audit(self) -> list[VulnerabilityReport]:
         """
         Scan dependencies using pip-audit
-        
+
         Returns:
             List of vulnerability reports
         """
@@ -85,10 +85,10 @@ class DependencyScanner:
     def scan_with_bandit(self, target_dir: Path | None = None) -> list[dict[str, Any]]:
         """
         Scan code for security issues using Bandit
-        
+
         Args:
             target_dir: Directory to scan (default: current directory)
-            
+
         Returns:
             List of security issues
         """
@@ -123,10 +123,10 @@ class DependencyScanner:
     def _parse_pip_audit_output(self, audit_data: dict[str, Any]) -> list[VulnerabilityReport]:
         """
         Parse pip-audit JSON output
-        
+
         Args:
             audit_data: Raw audit data from pip-audit
-            
+
         Returns:
             List of vulnerability reports
         """
@@ -150,7 +150,7 @@ class DependencyScanner:
     def generate_report(self) -> dict[str, Any]:
         """
         Generate comprehensive vulnerability report
-        
+
         Returns:
             Dictionary with scan results
         """
@@ -186,7 +186,7 @@ class DependencyScanner:
     def save_report(self, output_file: Path) -> None:
         """
         Save vulnerability report to file
-        
+
         Args:
             output_file: Path to output file
         """
@@ -205,11 +205,11 @@ def run_dependency_scan(
 ) -> dict[str, Any]:
     """
     Run comprehensive dependency vulnerability scan
-    
+
     Args:
         requirements_file: Path to requirements file
         output_file: Path to save report
-        
+
     Returns:
         Vulnerability scan report
     """
@@ -231,14 +231,14 @@ def check_vulnerability_thresholds(
 ) -> bool:
     """
     Check if vulnerability counts are within acceptable thresholds
-    
+
     Args:
         report: Vulnerability scan report
         max_critical: Maximum allowed critical vulnerabilities
         max_high: Maximum allowed high vulnerabilities
         max_medium: Maximum allowed medium vulnerabilities
         max_low: Maximum allowed low vulnerabilities
-        
+
     Returns:
         True if within thresholds, False otherwise
     """

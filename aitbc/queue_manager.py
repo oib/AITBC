@@ -198,7 +198,7 @@ class JobScheduler:
             now = time.time()
             to_run = []
 
-            for job_id, job in list(self.scheduled_jobs.items()):
+            for _job_id, job in list(self.scheduled_jobs.items()):
                 if job["run_at"] <= now:
                     to_run.append(job)
 
@@ -313,7 +313,7 @@ class BackgroundTaskManager:
             await asyncio.wait_for(self.tasks[task_id], timeout)
         except TimeoutError:
             await self.cancel_task(task_id)
-            raise TimeoutError(f"Task {task_id} timed out")
+            raise TimeoutError(f"Task {task_id} timed out") from None
 
         info = self.task_info.get(task_id)
         if info["status"] == "failed":

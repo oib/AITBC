@@ -11,11 +11,11 @@ from ..exceptions import ConfigurationError
 def get_env_var(key: str, default: str = "") -> str:
     """
     Get an environment variable with a default value.
-    
+
     Args:
         key: Environment variable name
         default: Default value if not set
-        
+
     Returns:
         Environment variable value or default
     """
@@ -25,13 +25,13 @@ def get_env_var(key: str, default: str = "") -> str:
 def get_required_env_var(key: str) -> str:
     """
     Get a required environment variable, raise error if not set.
-    
+
     Args:
         key: Environment variable name
-        
+
     Returns:
         Environment variable value
-        
+
     Raises:
         ConfigurationError: If environment variable is not set
     """
@@ -44,11 +44,11 @@ def get_required_env_var(key: str) -> str:
 def get_bool_env_var(key: str, default: bool = False) -> bool:
     """
     Get a boolean environment variable.
-    
+
     Args:
         key: Environment variable name
         default: Default value if not set
-        
+
     Returns:
         True if variable is set to 'true', '1', 'yes', or 'on' (case-insensitive)
         False if variable is set to 'false', '0', 'no', or 'off' (case-insensitive)
@@ -63,11 +63,11 @@ def get_bool_env_var(key: str, default: bool = False) -> bool:
 def get_int_env_var(key: str, default: int = 0) -> int:
     """
     Get an integer environment variable.
-    
+
     Args:
         key: Environment variable name
         default: Default value if not set or invalid
-        
+
     Returns:
         Integer value or default
     """
@@ -80,11 +80,11 @@ def get_int_env_var(key: str, default: int = 0) -> int:
 def get_float_env_var(key: str, default: float = 0.0) -> float:
     """
     Get a float environment variable.
-    
+
     Args:
         key: Environment variable name
         default: Default value if not set or invalid
-        
+
     Returns:
         Float value or default
     """
@@ -97,12 +97,12 @@ def get_float_env_var(key: str, default: float = 0.0) -> float:
 def get_list_env_var(key: str, separator: str = ",", default: list | None = None) -> list:
     """
     Get a list environment variable.
-    
+
     Args:
         key: Environment variable name
         separator: Separator for list items
         default: Default value if not set
-        
+
     Returns:
         List of values or default
     """

@@ -194,9 +194,9 @@ def to_timezone(dt: datetime, tz_name: str) -> datetime:
             dt = dt.replace(tzinfo=UTC)
         return dt.astimezone(tz)
     except ImportError:
-        raise ImportError("pytz is required for timezone conversion. Install with: pip install pytz")
+        raise ImportError("pytz is required for timezone conversion. Install with: pip install pytz") from None
     except Exception as e:
-        raise ValueError(f"Failed to convert timezone: {e}")
+        raise ValueError(f"Failed to convert timezone: {e}") from e
 
 
 def get_timezone_offset(tz_name: str) -> timedelta:
@@ -208,7 +208,7 @@ def get_timezone_offset(tz_name: str) -> timedelta:
         offset = tz.utcoffset(now)
         return offset if offset else timedelta(0)
     except ImportError:
-        raise ImportError("pytz is required for timezone operations. Install with: pip install pytz")
+        raise ImportError("pytz is required for timezone operations. Install with: pip install pytz") from None
 
 
 def is_business_hours(dt: datetime | None = None, start_hour: int = 9, end_hour: int = 17, timezone: str = "UTC") -> bool:
@@ -222,7 +222,7 @@ def is_business_hours(dt: datetime | None = None, start_hour: int = 9, end_hour:
         dt_local = dt.astimezone(tz)
         return start_hour <= dt_local.hour < end_hour
     except ImportError:
-        raise ImportError("pytz is required for business hours check. Install with: pip install pytz")
+        raise ImportError("pytz is required for business hours check. Install with: pip install pytz") from None
 
 
 def get_start_of_day(dt: datetime | None = None) -> datetime:

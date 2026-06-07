@@ -39,7 +39,7 @@ class SQLiteDatabaseService(DatabaseService):
     def __init__(self, db_path: Path, pool_size: int = 5):
         """
         Initialize SQLite database service
-        
+
         Args:
             db_path: Path to SQLite database file
             pool_size: Connection pool size
@@ -88,11 +88,11 @@ class SQLiteDatabaseService(DatabaseService):
     def execute_query(self, query: str, params: tuple = ()) -> list[dict[str, Any]]:
         """
         Execute a SELECT query
-        
+
         Args:
             query: SQL query string
             params: Query parameters
-            
+
         Returns:
             List of dictionaries with query results
         """
@@ -104,11 +104,11 @@ class SQLiteDatabaseService(DatabaseService):
     def execute_update(self, query: str, params: tuple = ()) -> int:
         """
         Execute an INSERT/UPDATE/DELETE query
-        
+
         Args:
             query: SQL query string
             params: Query parameters
-            
+
         Returns:
             Number of rows affected
         """
@@ -120,13 +120,13 @@ class SQLiteDatabaseService(DatabaseService):
     def execute_transaction(self, queries: list[tuple]) -> bool:
         """
         Execute multiple queries in a transaction
-        
+
         Args:
             queries: List of (query, params) tuples
-            
+
         Returns:
             True if transaction succeeded
-            
+
         Raises:
             Exception: If transaction fails
         """
@@ -155,11 +155,11 @@ class DatabaseServiceFactory:
     def create_sqlite_service(db_path: Path, pool_size: int = 5) -> SQLiteDatabaseService:
         """
         Create SQLite database service
-        
+
         Args:
             db_path: Path to SQLite database file
             pool_size: Connection pool size
-            
+
         Returns:
             SQLiteDatabaseService instance
         """
@@ -169,14 +169,14 @@ class DatabaseServiceFactory:
     def create_service(db_type: str = "sqlite", **kwargs) -> DatabaseService:
         """
         Create database service by type
-        
+
         Args:
             db_type: Type of database ("sqlite")
             **kwargs: Database-specific configuration
-            
+
         Returns:
             DatabaseService instance
-            
+
         Raises:
             ValueError: If database type is unknown
         """

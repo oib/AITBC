@@ -83,7 +83,6 @@ def configure_logging(level: str = "INFO", structured: bool = False) -> None:
 def log_context(**kwargs):
     """Context manager for adding contextual information to logs"""
     logger = logging.getLogger()
-    extra = {'extra': kwargs}
 
     class ContextFilter(logging.Filter):
         def filter(self, record):
