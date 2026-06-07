@@ -78,7 +78,7 @@ This guide explains how to use Windsurf's integrated testing features with the A
 
 ### Test Coverage
 1. Run the "Run Tests with Coverage" task
-2. Open `htmlcov/index.html` in your browser
+2. Open `tests/htmlcov/index.html` in your browser
 3. See detailed coverage reports
 
 ## 📁 Test Structure
