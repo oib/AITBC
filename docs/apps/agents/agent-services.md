@@ -1,20 +1,23 @@
 # Agent Services
 
 ## Status
-✅ Operational
+✅ Restructured - Moved to /opt/aitbc/aitbc as shared libraries
 
 ## Overview
-Collection of agent-related services including agent bridge, compliance, protocols, registry, and trading capabilities.
+Agent-related shared libraries including agent bridge, compliance, protocols, registry, and trading capabilities. These have been moved from `apps/agent-services` to `/opt/aitbc/aitbc` as shared libraries.
 
 ## Architecture
 
-### Components
-- **Agent Bridge**: Bridge service for agent communication across networks
-- **Agent Compliance**: Compliance checking and validation for agents
-- **Agent Coordinator**: Coordination service for agent management
-- **Agent Protocols**: Communication protocols for agent interaction
-- **Agent Registry**: Central registry for agent registration and discovery
-- **Agent Trading**: Trading capabilities for agent-based transactions
+### Components (now in /opt/aitbc/aitbc/)
+- **agent_bridge**: Bridge service for agent communication across networks
+- **agent_compliance**: Compliance checking and validation for agents
+- **agent_protocols**: Communication protocols for agent interaction
+- **agent_registry**: Central registry for agent registration and discovery
+- **agent_trading**: Trading capabilities for agent-based transactions
+
+### Services (now in /opt/aitbc/apps/)
+- **hermes**: Hermes service for agent orchestration (moved from examples/hermes-service)
+- **agent-daemon**: Agent daemon service (moved from agent-services parent)
 
 ## Quick Start (End Users)
 
@@ -25,9 +28,8 @@ Collection of agent-related services including agent bridge, compliance, protoco
 
 ### Installation
 ```bash
-cd /opt/aitbc/apps/agent-services
-# Install individual service dependencies
-cd agent-bridge && pip install -r requirements.txt
+# Shared libraries are now in /opt/aitbc/aitbc
+# No installation needed - they are part of the core aitbc package
 cd agent-compliance && pip install -r requirements.txt
 # ... repeat for other services
 ```

@@ -14,7 +14,7 @@ from pathlib import Path
 # Add aitbc to path
 sys.path.insert(0, str(Path("/opt/aitbc")))
 sys.path.insert(0, str(Path("/opt/aitbc/aitbc")))
-sys.path.insert(0, str(Path("/opt/aitbc/apps/marketplace-service/src")))
+sys.path.insert(0, str(Path("/opt/aitbc/apps/marketplace/src")))
 
 from aitbc import DATA_DIR, ENV_FILE, NODE_ENV_FILE, REPO_DIR
 from sqlalchemy import create_engine, select

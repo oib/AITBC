@@ -1,10 +1,10 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-06-05
+**Last Updated:** 2026-06-07
 
 Quick reference guide for AITBC setup and onboarding.
 
-> **🟢 Service Status**: All core services are operational as of June 5, 2026. See [Service Status](../infrastructure/SYSTEMD_SERVICES.md#current-service-status-june-5-2026) for details.
+> **🟢 Service Status**: All core services are operational as of June 7, 2026. See [Service Status](../infrastructure/SYSTEMD_SERVICES.md#current-service-status) for details.
 
 ## 5-Minute Quick Start
 
@@ -19,6 +19,53 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+
+## Install Profiles
+
+AITBC provides pre-configured dependency profiles for different deployment scenarios. The setup script automatically detects the appropriate profile based on your node configuration, or you can manually install a specific profile.
+
+### Available Profiles
+
+| Profile | Description | Use Case |
+|---------|-------------|----------|
+| **server-no-gpu** | Core blockchain services without GPU dependencies | Standard blockchain node, no GPU hardware |
+| **hub** | Full blockchain hub with all services | Central hub node with development tools |
+| **customer-no-gpu** | Lightweight client for customers | Customer nodes consuming GPU resources |
+| **provider-gpu** | GPU service provider with AI/ML capabilities | GPU shop nodes providing compute resources |
+
+### Manual Profile Installation
+
+```bash
+# Activate virtual environment first
+source /opt/aitbc/venv/bin/activate
+
+# Install specific profile
+./scripts/deployment/install-profiles.sh server-no-gpu
+./scripts/deployment/install-profiles.sh hub
+./scripts/deployment/install-profiles.sh customer-no-gpu
+./scripts/deployment/install-profiles.sh provider-gpu
+
+# List all available profiles
+./scripts/deployment/install-profiles.sh
+```
+
+### Automatic Profile Detection
+
+The setup.sh script automatically selects the appropriate profile based on your `/etc/aitbc/blockchain.env` configuration:
+
+- `HARDWARE_PROFILE=gpu` + `MARKET_ROLE=shop` → **provider-gpu**
+- `BLOCKCHAIN_MODE=hub` → **hub**
+- `MARKET_ROLE=customer` → **customer-no-gpu**
+- Default → **server-no-gpu**
+
+### Profile Dependencies
+
+Each profile installs different dependency sets:
+
+- **server-no-gpu**: requirements.txt + security.txt
+- **hub**: requirements.txt + security.txt + dev.txt
+- **customer-no-gpu**: requirements-minimal.txt + CLI requirements
+- **provider-gpu**: requirements.txt + ai-ml.txt + security.txt
 
 ## Node Profiles
 

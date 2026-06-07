@@ -24,11 +24,11 @@ This document summarizes the comprehensive system maintenance and fixes performe
 **Issue**: Hermes service logs showed duplicate timestamps due to `%(asctime)s` in logging format and systemd adding its own timestamp.
 
 **Fix**:
-- Removed `%(asctime)s` from logging format in `apps/agent-services/examples/hermes-service/src/hermes_service/main.py`
+- Removed `%(asctime)s` from logging format in `apps/hermes/src/hermes_service/main.py`
 - Systemd now provides single, clean timestamps
 
 **Files Modified**:
-- `apps/agent-services/examples/hermes-service/src/hermes_service/main.py`
+- `apps/hermes/src/hermes_service/main.py`
 
 **Result**: Clean, readable logs without duplicate timestamps.
 
@@ -48,11 +48,11 @@ This document summarizes the comprehensive system maintenance and fixes performe
 **Issue**: Agent daemon service was failing due to unsupported arguments in wrapper script.
 
 **Fix**:
-- Removed unsupported arguments from `apps/agent-services/aitbc-agent-daemon-wrapper.py`
+- Removed unsupported arguments from `apps/agent-daemon/aitbc-agent-daemon-wrapper.py`
 - Service can now start properly (intentionally disabled as no work to do)
 
 **Files Modified**:
-- `apps/agent-services/aitbc-agent-daemon-wrapper.py`
+- `apps/agent-daemon/aitbc-agent-daemon-wrapper.py`
 
 **Result**: Agent daemon wrapper script now works correctly.
 

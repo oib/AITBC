@@ -19,8 +19,8 @@ After repo restructure, systemd service files and wrapper scripts moved from `sy
 | Blockchain RPC | `apps/blockchain-node/aitbc-blockchain-rpc.service` |
 | Blockchain P2P | `apps/blockchain-node/aitbc-blockchain-p2p.service` |
 | Blockchain Sync | `apps/blockchain-node/aitbc-blockchain-sync.service` |
-| Agent Daemon | `apps/agent-services/aitbc-agent-daemon.service` |
-| Hermes | `apps/agent-services/aitbc-hermes.service` |
+| Agent Daemon | `apps/agent-daemon/aitbc-agent-daemon.service` |
+| Hermes | `apps/hermes/aitbc-hermes.service` |
 | Explorer | `apps/blockchain-explorer/aitbc-explorer.service` |
 | Exchange | `apps/exchange/aitbc-exchange-api.service` |
 | Wallet | `apps/wallet/aitbc-wallet.service` |
@@ -75,8 +75,8 @@ Without `/usr/bin`, nvidia-smi is not found and miner falls back to CPU-only on 
 
 ### Edge API (port 8103)
 ```bash
-ln -sf /opt/aitbc/apps/aitbc-edge/edge-api.service /etc/systemd/system/edge-api.service
-systemctl daemon-reload && systemctl start edge-api
+ln -sf /opt/aitbc/apps/edge/aitbc-edge.service /etc/systemd/system/aitbc-edge.service
+systemctl daemon-reload && systemctl start aitbc-edge
 ```
 Uses SQLite (aiosqlite) for storage. Database auto-created on first run.
 
