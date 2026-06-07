@@ -156,7 +156,7 @@ class StatePersistence:
             with open(self.storage_path, 'w') as f:
                 json.dump(state_data, f, indent=2)
         except Exception as e:
-            raise StatePersistenceError(f"Failed to save state: {e}")
+            raise StatePersistenceError(f"Failed to save state: {e}") from e
 
     def load_state(self) -> dict[str, Any] | None:
         """Load state from file"""
@@ -167,7 +167,7 @@ class StatePersistence:
             with open(self.storage_path) as f:
                 return json.load(f)
         except Exception as e:
-            raise StatePersistenceError(f"Failed to load state: {e}")
+            raise StatePersistenceError(f"Failed to load state: {e}") from e
 
     def delete_state(self) -> None:
         """Delete persisted state"""
@@ -175,7 +175,7 @@ class StatePersistence:
             if os.path.exists(self.storage_path):
                 os.remove(self.storage_path)
         except Exception as e:
-            raise StatePersistenceError(f"Failed to delete state: {e}")
+            raise StatePersistenceError(f"Failed to delete state: {e}") from e
 
 
 class AsyncStateMachine(StateMachine):
@@ -268,7 +268,7 @@ class StateValidator:
         """Validate that all target states exist as source states"""
         valid_states = set(transitions.keys())
 
-        for from_state, to_states in transitions.items():
+        for _from_state, to_states in transitions.items():
             for to_state in to_states:
                 if to_state not in valid_states:
                     return False

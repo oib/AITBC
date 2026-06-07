@@ -44,7 +44,7 @@ class SecurityHeadersMiddleware:
     def __init__(self, headers: SecurityHeaders | None = None):
         """
         Initialize security headers middleware
-        
+
         Args:
             headers: Security headers configuration
         """
@@ -53,7 +53,7 @@ class SecurityHeadersMiddleware:
     def get_headers(self) -> dict[str, str]:
         """
         Get security headers dictionary
-        
+
         Returns:
             Dictionary of security headers
         """
@@ -72,10 +72,10 @@ class SecurityHeadersMiddleware:
     def apply_to_response(self, response_headers: dict[str, str]) -> dict[str, str]:
         """
         Apply security headers to response
-        
+
         Args:
             response_headers: Existing response headers
-            
+
         Returns:
             Response headers with security headers added
         """
@@ -93,7 +93,7 @@ class CORSMiddleware:
     def __init__(self, config: CORSConfig):
         """
         Initialize CORS middleware
-        
+
         Args:
             config: CORS configuration
         """
@@ -102,10 +102,10 @@ class CORSMiddleware:
     def get_cors_headers(self, origin: str) -> dict[str, str]:
         """
         Get CORS headers for a request
-        
+
         Args:
             origin: Request origin
-            
+
         Returns:
             Dictionary of CORS headers
         """
@@ -131,10 +131,10 @@ class CORSMiddleware:
     def _is_origin_allowed(self, origin: str) -> bool:
         """
         Check if origin is allowed based on CORS policy
-        
+
         Args:
             origin: Request origin
-            
+
         Returns:
             True if origin is allowed, False otherwise
         """
@@ -146,10 +146,10 @@ class CORSMiddleware:
     def is_preflight_request(self, method: str) -> bool:
         """
         Check if request is a CORS preflight request
-        
+
         Args:
             method: HTTP method
-            
+
         Returns:
             True if preflight request, False otherwise
         """
@@ -159,7 +159,7 @@ class CORSMiddleware:
 def create_production_security_headers() -> SecurityHeaders:
     """
     Create security headers configuration for production
-    
+
     Returns:
         SecurityHeaders configured for production
     """
@@ -179,7 +179,7 @@ def create_production_security_headers() -> SecurityHeaders:
 def create_development_security_headers() -> SecurityHeaders:
     """
     Create security headers configuration for development
-    
+
     Returns:
         SecurityHeaders configured for development
     """
@@ -199,10 +199,10 @@ def create_development_security_headers() -> SecurityHeaders:
 def create_strict_cors_config(allowed_origins: list[str]) -> CORSConfig:
     """
     Create strict CORS configuration
-    
+
     Args:
         allowed_origins: List of allowed origins
-        
+
     Returns:
         CORSConfig with strict settings
     """
@@ -219,7 +219,7 @@ def create_strict_cors_config(allowed_origins: list[str]) -> CORSConfig:
 def create_permissive_cors_config() -> CORSConfig:
     """
     Create permissive CORS configuration (for development)
-    
+
     Returns:
         CORSConfig with permissive settings
     """

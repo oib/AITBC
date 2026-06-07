@@ -34,7 +34,7 @@ class FeatureFlagManager:
     def __init__(self, config_file: Path | None = None):
         """
         Initialize feature flag manager
-        
+
         Args:
             config_file: Path to feature flags configuration file
         """
@@ -95,12 +95,12 @@ class FeatureFlagManager:
     ) -> bool:
         """
         Check if a feature is enabled for a user
-        
+
         Args:
             feature_name: Name of the feature flag
             user_id: User identifier
             user_hash: Hash of user identifier for percentage-based rollout
-            
+
         Returns:
             True if feature is enabled, False otherwise
         """
@@ -135,7 +135,7 @@ class FeatureFlagManager:
     def enable_feature(self, feature_name: str, rollout_percentage: float = 100.0) -> None:
         """
         Enable a feature flag
-        
+
         Args:
             feature_name: Name of the feature flag
             rollout_percentage: Rollout percentage (0-100)
@@ -160,7 +160,7 @@ class FeatureFlagManager:
     def disable_feature(self, feature_name: str) -> None:
         """
         Disable a feature flag
-        
+
         Args:
             feature_name: Name of the feature flag
         """
@@ -172,7 +172,7 @@ class FeatureFlagManager:
     def add_whitelisted_user(self, feature_name: str, user_id: str) -> None:
         """
         Add user to feature whitelist
-        
+
         Args:
             feature_name: Name of the feature flag
             user_id: User identifier
@@ -195,7 +195,7 @@ class FeatureFlagManager:
     def add_blacklisted_user(self, feature_name: str, user_id: str) -> None:
         """
         Add user to feature blacklist
-        
+
         Args:
             feature_name: Name of the feature flag
             user_id: User identifier
@@ -218,7 +218,7 @@ class FeatureFlagManager:
     def get_all_flags(self) -> dict[str, FeatureFlag]:
         """
         Get all feature flags
-        
+
         Returns:
             Dictionary of all feature flags
         """
@@ -227,10 +227,10 @@ class FeatureFlagManager:
     def get_flag_status(self, feature_name: str) -> FeatureFlag | None:
         """
         Get status of a specific feature flag
-        
+
         Args:
             feature_name: Name of the feature flag
-            
+
         Returns:
             Feature flag or None if not found
         """
@@ -244,10 +244,10 @@ _global_feature_flag_manager: FeatureFlagManager | None = None
 def get_feature_flag_manager(config_file: Path | None = None) -> FeatureFlagManager:
     """
     Get the global feature flag manager instance
-    
+
     Args:
         config_file: Path to feature flags configuration file
-        
+
     Returns:
         FeatureFlagManager instance
     """
@@ -264,12 +264,12 @@ def is_feature_enabled(
 ) -> bool:
     """
     Check if a feature is enabled using global manager
-    
+
     Args:
         feature_name: Name of the feature flag
         user_id: User identifier
         user_hash: Hash of user identifier
-        
+
     Returns:
         True if feature is enabled, False otherwise
     """

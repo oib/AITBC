@@ -15,7 +15,7 @@ class DataLayer:
 
     def __init__(self, use_mock_data: bool | None = None):
         """Initialize data layer
-        
+
         Args:
             use_mock_data: Force mock mode. If None, uses USE_MOCK_DATA env var
         """
