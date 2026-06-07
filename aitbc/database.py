@@ -26,7 +26,7 @@ class DatabaseConnection:
     def __init__(self, db_path: Path, timeout: int = 30):
         """
         Initialize database connection.
-        
+
         Args:
             db_path: Path to database file
             timeout: Connection timeout in seconds
@@ -38,10 +38,10 @@ class DatabaseConnection:
     def connect(self) -> sqlite3.Connection:
         """
         Establish database connection.
-        
+
         Returns:
             SQLite connection object
-            
+
         Raises:
             DatabaseError: If connection fails
         """
@@ -53,7 +53,7 @@ class DatabaseConnection:
             self._connection.row_factory = sqlite3.Row
             return self._connection
         except sqlite3.Error as e:
-            raise DatabaseError(f"Failed to connect to database: {e}")
+            raise DatabaseError(f"Failed to connect to database: {e}") from e
 
     def close(self) -> None:
         """Close database connection."""
@@ -65,7 +65,7 @@ class DatabaseConnection:
     def cursor(self):
         """
         Context manager for database cursor.
-        
+
         Yields:
             Database cursor
         """
@@ -77,7 +77,7 @@ class DatabaseConnection:
             self._connection.commit()
         except Exception as e:
             self._connection.rollback()
-            raise DatabaseError(f"Database operation failed: {e}")
+            raise DatabaseError(f"Database operation failed: {e}") from e
         finally:
             cursor.close()
 
@@ -88,14 +88,14 @@ class DatabaseConnection:
     ) -> sqlite3.Cursor:
         """
         Execute a SQL query.
-        
+
         Args:
             query: SQL query string
             params: Query parameters
-            
+
         Returns:
             Cursor object
-            
+
         Raises:
             DatabaseError: If query fails
         """
@@ -107,7 +107,7 @@ class DatabaseConnection:
                     cursor.execute(query)
                 return cursor
         except sqlite3.Error as e:
-            raise DatabaseError(f"Query execution failed: {e}")
+            raise DatabaseError(f"Query execution failed: {e}") from e
 
     async def fetch_one(
         self,
@@ -116,11 +116,11 @@ class DatabaseConnection:
     ) -> dict[str, Any] | None:
         """
         Fetch a single row from query.
-        
+
         Args:
             query: SQL query string
             params: Query parameters
-            
+
         Returns:
             Row as dictionary or None
         """
@@ -139,11 +139,11 @@ class DatabaseConnection:
     ) -> list[dict[str, Any]]:
         """
         Fetch all rows from query.
-        
+
         Args:
             query: SQL query string
             params: Query parameters
-            
+
         Returns:
             List of rows as dictionaries
         """
@@ -162,11 +162,11 @@ class DatabaseConnection:
     ) -> None:
         """
         Execute query with multiple parameter sets.
-        
+
         Args:
             query: SQL query string
             params_list: List of parameter tuples
-            
+
         Raises:
             DatabaseError: If query fails
         """
@@ -174,7 +174,7 @@ class DatabaseConnection:
             with self.cursor() as cursor:
                 cursor.executemany(query, params_list)
         except sqlite3.Error as e:
-            raise DatabaseError(f"Bulk execution failed: {e}")
+            raise DatabaseError(f"Bulk execution failed: {e}") from e
 
     def __enter__(self):
         """Context manager entry."""
@@ -192,11 +192,11 @@ def get_database_connection(
 ) -> DatabaseConnection:
     """
     Get a database connection for a given path.
-    
+
     Args:
         db_path: Path to database file
         timeout: Connection timeout in seconds
-        
+
     Returns:
         DatabaseConnection instance
     """
@@ -206,10 +206,10 @@ def get_database_connection(
 def ensure_database(db_path: Path) -> Path:
     """
     Ensure database file and parent directory exist.
-    
+
     Args:
         db_path: Path to database file
-        
+
     Returns:
         Database path
     """
@@ -220,10 +220,10 @@ def ensure_database(db_path: Path) -> Path:
 def vacuum_database(db_path: Path) -> None:
     """
     Vacuum database to optimize storage.
-    
+
     Args:
         db_path: Path to database file
-        
+
     Raises:
         DatabaseError: If vacuum fails
     """
@@ -231,17 +231,17 @@ def vacuum_database(db_path: Path) -> None:
         with DatabaseConnection(db_path) as db:
             db.execute("VACUUM")
     except sqlite3.Error as e:
-        raise DatabaseError(f"Database vacuum failed: {e}")
+        raise DatabaseError(f"Database vacuum failed: {e}") from e
 
 
 def get_table_info(db_path: Path, table_name: str) -> list[dict[str, Any]]:
     """
     Get information about a table's columns.
-    
+
     Args:
         db_path: Path to database file
         table_name: Name of table
-        
+
     Returns:
         List of column information dictionaries
     """
@@ -252,11 +252,11 @@ def get_table_info(db_path: Path, table_name: str) -> list[dict[str, Any]]:
 def table_exists(db_path: Path, table_name: str) -> bool:
     """
     Check if a table exists in the database.
-    
+
     Args:
         db_path: Path to database file
         table_name: Name of table
-        
+
     Returns:
         True if table exists
     """
@@ -281,7 +281,7 @@ def create_pooled_engine(
 ):
     """
     Create SQLAlchemy engine with connection pooling.
-    
+
     Args:
         database_url: Database connection URL
         pool_size: Size of connection pool
@@ -290,7 +290,7 @@ def create_pooled_engine(
         pool_pre_ping: Test connections before using
         echo: Enable SQL query logging
         use_static_pool: Use StaticPool for SQLite (single connection)
-        
+
     Returns:
         SQLAlchemy engine with connection pooling
     """
@@ -335,12 +335,12 @@ def create_pooled_sessionmaker(
 ):
     """
     Create session factory with connection pooling.
-    
+
     Args:
         engine: SQLAlchemy engine
         autoflush: Enable autoflush
         autocommit: Enable autocommit
-        
+
     Returns:
         Session factory
     """
@@ -357,7 +357,7 @@ def create_async_pooled_engine(
 ):
     """
     Create async SQLAlchemy engine with connection pooling.
-    
+
     Args:
         database_url: Database connection URL
         pool_size: Size of connection pool
@@ -365,7 +365,7 @@ def create_async_pooled_engine(
         pool_recycle: Connection recycle time in seconds
         pool_pre_ping: Test connections before using
         echo: Enable SQL query logging
-        
+
     Returns:
         Async SQLAlchemy engine with connection pooling
     """
@@ -395,11 +395,11 @@ def create_async_pooled_sessionmaker(
 ):
     """
     Create async session factory with connection pooling.
-    
+
     Args:
         engine: Async SQLAlchemy engine
         expire_on_commit: Expire objects on commit
-        
+
     Returns:
         Async session factory
     """

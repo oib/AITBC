@@ -23,14 +23,14 @@ def retry(
 ):
     """
     Retry a function with exponential backoff.
-    
+
     Args:
         max_attempts: Maximum number of retry attempts
         delay: Initial delay between retries in seconds
         backoff: Multiplier for delay after each retry
         exceptions: Tuple of exception types to catch
         on_failure: Optional callback function called on final failure
-        
+
     Returns:
         Decorated function that retries on failure
     """
@@ -62,10 +62,10 @@ def retry(
 def timing(func: Callable) -> Callable:
     """
     Decorator to measure and log function execution time.
-    
+
     Args:
         func: Function to time
-        
+
     Returns:
         Decorated function that prints execution time
     """
@@ -84,10 +84,10 @@ def timing(func: Callable) -> Callable:
 def cache_result(ttl: int = 300):
     """
     Simple in-memory cache decorator with TTL.
-    
+
     Args:
         ttl: Time to live for cached results in seconds
-        
+
     Returns:
         Decorated function with caching
     """
@@ -118,10 +118,10 @@ def cache_result(ttl: int = 300):
 def validate_args(*validators: Callable):
     """
     Decorator to validate function arguments.
-    
+
     Args:
         *validators: Validation functions that raise ValueError on invalid input
-        
+
     Returns:
         Decorated function with argument validation
     """
@@ -143,12 +143,12 @@ def handle_exceptions(
 ):
     """
     Decorator to handle exceptions gracefully.
-    
+
     Args:
         default_return: Value to return on exception
         log_errors: Whether to log errors
         raise_on: Tuple of exception types to still raise
-        
+
     Returns:
         Decorated function with exception handling
     """
@@ -171,10 +171,10 @@ def handle_exceptions(
 def async_timing(func: Callable) -> Callable:
     """
     Decorator to measure async function execution time.
-    
+
     Args:
         func: Async function to time
-        
+
     Returns:
         Decorated async function that prints execution time
     """

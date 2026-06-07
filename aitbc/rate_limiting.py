@@ -25,12 +25,12 @@ _rate_limiters: dict[str, RateLimiter] = {}
 def get_rate_limiter(name: str, rate: int = 100, per: int = 60) -> RateLimiter:
     """
     Get or create a rate limiter for a specific endpoint
-    
+
     Args:
         name: Unique name for the rate limiter
         rate: Number of requests allowed per time period
         per: Time period in seconds
-        
+
     Returns:
         RateLimiter instance
     """
@@ -47,13 +47,13 @@ def rate_limit(
 ) -> Callable:
     """
     Decorator for rate limiting FastAPI endpoints
-    
+
     Args:
         rate: Number of requests allowed per time period
         per: Time period in seconds
         key_func: Function to extract rate limit key from request (defaults to client IP)
         error_message: Custom error message
-        
+
     Returns:
         Decorated function with rate limiting
     """
@@ -105,7 +105,7 @@ def rate_limit(
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     Middleware for rate limiting all requests
-    
+
     Applies rate limiting based on client IP address
     """
 
@@ -119,7 +119,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     ) -> None:
         """
         Initialize rate limit middleware
-        
+
         Args:
             app: ASGI application
             rate: Number of requests allowed per time period
@@ -137,11 +137,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Process request with rate limiting
-        
+
         Args:
             request: Incoming request
             call_next: Next middleware or endpoint
-            
+
         Returns:
             Response
         """
@@ -167,11 +167,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 def get_rate_limit_headers(request: Request, limiter_name: str) -> dict[str, str]:
     """
     Get rate limit headers for response
-    
+
     Args:
         request: Request object
         limiter_name: Name of the rate limiter
-        
+
     Returns:
         Dictionary of rate limit headers
     """
@@ -192,7 +192,7 @@ def get_rate_limit_headers(request: Request, limiter_name: str) -> dict[str, str
 def reset_rate_limit(identifier: str, limiter_name: str | None = None) -> None:
     """
     Reset rate limit for an identifier
-    
+
     Args:
         identifier: Identifier to reset (e.g., IP address, user ID)
         limiter_name: Name of specific rate limiter, or None for all
