@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "governance-service"
+name = "governance"
 version = "0.1.0"
 description = "AITBC Governance Service for governance operations"
 authors = ["AITBC Team <team@aitbc.dev>"]
@@ -10,6 +10,7 @@ fastapi = ">=0.115.6"
 uvicorn = {extras = ["standard"], version = ">=0.34.0"}
 sqlmodel = ">=0.0.38"
 asyncpg = ">=0.30.0"
+alembic = "^1.13.0"
 
 
 [tool.poetry.group.test.dependencies]

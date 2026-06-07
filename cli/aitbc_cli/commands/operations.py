@@ -539,12 +539,126 @@ def get_proposal(ctx, proposal_id: str, format: str):
 
         # Query proposal from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/governance/proposal/{proposal_id}?chain_id={chain_id}")
+        result = http_client.get(f"/rpc/governance/proposal/{proposal_id}")
 
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
     except Exception as e:
         error(f"Error getting proposal: {e}")
+
+
+# v0.4.12 New CLI Commands
+@governance.command()
+@click.option('--address', required=True, help='Staker address')
+@click.option('--amount', type=int, required=True, help='Amount of tokens to stake')
+@click.option('--lock-days', type=int, default=30, help='Lock period in days (min 30)')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.pass_context
+def stake(ctx, address: str, amount: int, lock_days: int, format: str):
+    """Stake tokens for enhanced voting power"""
+    config = get_config()
+
+    try:
+        if lock_days < 30:
+            error("Lock period must be at least 30 days")
+            return
+
+        # Get governance service URL
+        governance_url = getattr(config, 'governance_service_url', 'http://localhost:8105')
+
+        # Submit staking request
+        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
+        stake_data = {
+            "staker_address": address,
+            "amount": amount,
+            "lock_period_days": lock_days
+        }
+        result = http_client.post("/v1/governance/stake", json=stake_data)
+
+        success(f"Staked {amount} tokens for {lock_days} days")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error staking tokens: {e}")
+
+
+@governance.command()
+@click.option('--delegator', required=True, help='Delegator address')
+@click.option('--delegate', required=True, help='Delegate address')
+@click.option('--amount', type=int, required=True, help='Amount of voting power to delegate')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.pass_context
+def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
+    """Delegate voting power to another address"""
+    config = get_config()
+
+    try:
+        # Get governance service URL
+        governance_url = getattr(config, 'governance_service_url', 'http://localhost:8105')
+
+        # Submit delegation request
+        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
+        delegation_data = {
+            "delegator_address": delegator,
+            "delegate_address": delegate,
+            "amount": amount
+        }
+        result = http_client.post("/v1/governance/delegate", json=delegation_data)
+
+        success(f"Delegated {amount} voting power from {delegator} to {delegate}")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error delegating voting power: {e}")
+
+
+@governance.command()
+@click.argument('proposal_id')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.pass_context
+def execute(ctx, proposal_id: str, format: str):
+    """Execute a passed proposal"""
+    config = get_config()
+
+    try:
+        # Get governance service URL
+        governance_url = getattr(config, 'governance_service_url', 'http://localhost:8105')
+
+        # Submit execution request
+        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
+        result = http_client.post(f"/v1/governance/proposals/{proposal_id}/execute")
+
+        success(f"Executed proposal {proposal_id}")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error executing proposal: {e}")
+
+
+@governance.command()
+@click.argument('address')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.pass_context
+def voting_power(ctx, address: str, format: str):
+    """Get voting power for an address"""
+    config = get_config()
+
+    try:
+        # Get governance service URL
+        governance_url = getattr(config, 'governance_service_url', 'http://localhost:8105')
+
+        # Query voting power
+        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
+        result = http_client.get(f"/v1/governance/voting-power/{address}")
+
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error getting voting power: {e}")
 
 
