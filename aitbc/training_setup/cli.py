@@ -135,7 +135,7 @@ def fund_wallet(wallet_name, password, aitbc_dir):
 
     try:
         env = TrainingEnvironment(aitbc_dir=aitbc_dir)
-        result = env.fund_training_wallet(wallet_name, password)
+        env.fund_training_wallet(wallet_name, password)
         click.echo(f"✓ Wallet {wallet_name} funded")
         sys.exit(0)
     except TrainingSetupError as e:

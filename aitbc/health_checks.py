@@ -39,7 +39,7 @@ class HealthChecker:
     def __init__(self, service_name: str):
         """
         Initialize health checker
-        
+
         Args:
             service_name: Name of the service
         """
@@ -50,7 +50,7 @@ class HealthChecker:
     def register_check(self, name: str, check_func: callable) -> None:
         """
         Register a health check function
-        
+
         Args:
             name: Name of the health check
             check_func: Function that returns (status, message, details)
@@ -61,7 +61,7 @@ class HealthChecker:
     def run_checks(self) -> HealthCheck:
         """
         Run all registered health checks
-        
+
         Returns:
             Overall health check result
         """
@@ -119,7 +119,7 @@ class HealthChecker:
     def get_last_check(self) -> HealthCheck | None:
         """
         Get the last health check result
-        
+
         Returns:
             Last health check result or None
         """
@@ -128,7 +128,7 @@ class HealthChecker:
     def get_health_dict(self) -> dict[str, Any]:
         """
         Get health check result as dictionary
-        
+
         Returns:
             Dictionary representation of health check
         """
@@ -139,10 +139,10 @@ class HealthChecker:
 def create_basic_health_check(service_name: str) -> HealthChecker:
     """
     Create a basic health checker with common checks
-    
+
     Args:
         service_name: Name of the service
-        
+
     Returns:
         HealthChecker instance with basic checks
     """

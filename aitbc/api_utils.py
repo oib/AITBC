@@ -186,12 +186,18 @@ class RateLimitHeaders:
 
 
 def build_cors_headers(
-    allowed_origins: list[str] = ["*"],
-    allowed_methods: list[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowed_headers: list[str] = ["*"],
+    allowed_origins: list[str] = None,
+    allowed_methods: list[str] = None,
+    allowed_headers: list[str] = None,
     max_age: int = 3600
 ) -> dict[str, str]:
     """Build CORS headers"""
+    if allowed_headers is None:
+        allowed_headers = ["*"]
+    if allowed_methods is None:
+        allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    if allowed_origins is None:
+        allowed_origins = ["*"]
     return {
         "Access-Control-Allow-Origin": ", ".join(allowed_origins),
         "Access-Control-Allow-Methods": ", ".join(allowed_methods),

@@ -13,13 +13,13 @@ from ..exceptions import ConfigurationError
 def load_json(path: Path) -> dict[str, Any]:
     """
     Load JSON data from a file.
-    
+
     Args:
         path: Path to JSON file
-        
+
     Returns:
         Parsed JSON data as dictionary
-        
+
     Raises:
         ConfigurationError: If file cannot be read or parsed
     """
@@ -27,15 +27,15 @@ def load_json(path: Path) -> dict[str, Any]:
         with open(path) as f:
             return json.load(f)
     except FileNotFoundError:
-        raise ConfigurationError(f"JSON file not found: {path}")
+        raise ConfigurationError(f"JSON file not found: {path}") from None
     except json.JSONDecodeError as e:
-        raise ConfigurationError(f"Invalid JSON in {path}: {e}")
+        raise ConfigurationError(f"Invalid JSON in {path}: {e}") from e
 
 
 def save_json(data: dict[str, Any], path: Path, indent: int = 2) -> None:
     """
     Save JSON data to a file.
-    
+
     Args:
         data: Dictionary to save as JSON
         path: Path to output file
@@ -49,10 +49,10 @@ def save_json(data: dict[str, Any], path: Path, indent: int = 2) -> None:
 def merge_json(*paths: Path) -> dict[str, Any]:
     """
     Merge multiple JSON files, later files override earlier ones.
-    
+
     Args:
         *paths: Variable number of JSON file paths
-        
+
     Returns:
         Merged dictionary
     """
@@ -66,11 +66,11 @@ def merge_json(*paths: Path) -> dict[str, Any]:
 def json_to_string(data: dict[str, Any], indent: int = 2) -> str:
     """
     Convert dictionary to JSON string.
-    
+
     Args:
         data: Dictionary to convert
         indent: JSON indentation level
-        
+
     Returns:
         JSON string
     """
@@ -80,31 +80,31 @@ def json_to_string(data: dict[str, Any], indent: int = 2) -> str:
 def string_to_json(json_str: str) -> dict[str, Any]:
     """
     Parse JSON string to dictionary.
-    
+
     Args:
         json_str: JSON string
-        
+
     Returns:
         Parsed dictionary
-        
+
     Raises:
         ConfigurationError: If string cannot be parsed
     """
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as e:
-        raise ConfigurationError(f"Invalid JSON string: {e}")
+        raise ConfigurationError(f"Invalid JSON string: {e}") from e
 
 
 def get_nested_value(data: dict[str, Any], *keys: str, default: Any = None) -> Any:
     """
     Get a nested value from a dictionary using dot notation or key chain.
-    
+
     Args:
         data: Dictionary to search
         *keys: Keys to traverse (e.g., "a", "b", "c" for data["a"]["b"]["c"])
         default: Default value if key not found
-        
+
     Returns:
         Nested value or default
     """
@@ -120,7 +120,7 @@ def get_nested_value(data: dict[str, Any], *keys: str, default: Any = None) -> A
 def set_nested_value(data: dict[str, Any], *keys: str, value: Any) -> None:
     """
     Set a nested value in a dictionary using key chain.
-    
+
     Args:
         data: Dictionary to modify
         *keys: Keys to traverse (e.g., "a", "b", "c" for data["a"]["b"]["c"])
@@ -137,11 +137,11 @@ def set_nested_value(data: dict[str, Any], *keys: str, value: Any) -> None:
 def flatten_json(data: dict[str, Any], separator: str = ".") -> dict[str, Any]:
     """
     Flatten a nested dictionary using dot notation.
-    
+
     Args:
         data: Nested dictionary
         separator: Separator for flattened keys
-        
+
     Returns:
         Flattened dictionary
     """

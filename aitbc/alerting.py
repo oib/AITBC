@@ -68,10 +68,10 @@ class AlertChannel:
     async def send(self, alert: Alert) -> bool:
         """
         Send alert through this channel
-        
+
         Args:
             alert: Alert to send
-            
+
         Returns:
             True if sent successfully, False otherwise
         """
@@ -112,7 +112,7 @@ class WebhookAlertChannel(AlertChannel):
     def __init__(self, url: str, headers: dict[str, str] | None = None):
         """
         Initialize webhook channel
-        
+
         Args:
             url: Webhook URL
             headers: HTTP headers
@@ -156,7 +156,7 @@ class AlertRule:
     ):
         """
         Initialize alert rule
-        
+
         Args:
             name: Rule name
             condition: Function that returns True if alert should fire
@@ -220,7 +220,7 @@ class AlertManager:
     def add_rule(self, rule: AlertRule) -> None:
         """
         Add alert rule
-        
+
         Args:
             rule: Alert rule to add
         """
@@ -230,7 +230,7 @@ class AlertManager:
     def remove_rule(self, name: str) -> None:
         """
         Remove alert rule
-        
+
         Args:
             name: Rule name
         """
@@ -241,7 +241,7 @@ class AlertManager:
     def add_channel(self, channel: AlertChannel) -> None:
         """
         Add alert channel
-        
+
         Args:
             channel: Alert channel to add
         """
@@ -261,7 +261,7 @@ class AlertManager:
     async def send_alert(self, alert: Alert) -> None:
         """
         Send alert through all channels
-        
+
         Args:
             alert: Alert to send
         """
@@ -282,11 +282,11 @@ class AlertManager:
     async def acknowledge_alert(self, alert_id: str, acknowledged_by: str) -> bool:
         """
         Acknowledge an alert
-        
+
         Args:
             alert_id: Alert ID
             acknowledged_by: User acknowledging the alert
-            
+
         Returns:
             True if acknowledged successfully
         """
@@ -302,10 +302,10 @@ class AlertManager:
     async def resolve_alert(self, alert_id: str) -> bool:
         """
         Resolve an alert
-        
+
         Args:
             alert_id: Alert ID
-            
+
         Returns:
             True if resolved successfully
         """
@@ -325,10 +325,10 @@ class AlertManager:
     def get_alert_history(self, limit: int = 100) -> list[Alert]:
         """
         Get alert history
-        
+
         Args:
             limit: Maximum number of alerts to return
-            
+
         Returns:
             List of alerts
         """
@@ -380,7 +380,7 @@ _alert_manager: AlertManager | None = None
 def get_alert_manager() -> AlertManager:
     """
     Get global alert manager instance
-    
+
     Returns:
         Alert manager instance
     """
@@ -398,11 +398,11 @@ def setup_alerting(
 ) -> AlertManager:
     """
     Setup alerting system
-    
+
     Args:
         webhook_url: Optional webhook URL for alerts
         webhook_headers: Optional webhook headers
-        
+
     Returns:
         Alert manager instance
     """

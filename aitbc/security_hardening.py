@@ -34,15 +34,23 @@ class SecurityValidator:
     )
     ETHEREUM_ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
     TX_HASH_PATTERN = re.compile(r'^0x[a-fA-F0-9]{64}$')
+    
+    # Blockchain-specific patterns
+    PRIVATE_KEY_PATTERN = re.compile(r'^(0x)?[a-fA-F0-9]{64}$')
+    CHAIN_ID_PATTERN = re.compile(r'^[1-9]\d*$')  # Positive integers only
+    CONTRACT_ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+    BLOCK_NUMBER_PATTERN = re.compile(r'^[1-9]\d*$')
+    GAS_PRICE_PATTERN = re.compile(r'^[1-9]\d*$')
+    GAS_LIMIT_PATTERN = re.compile(r'^[1-9]\d{1,7}$')  # Reasonable gas limits
 
     @staticmethod
     def validate_email(email: str) -> bool:
         """
         Validate email address format
-        
+
         Args:
             email: Email address to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -52,10 +60,10 @@ class SecurityValidator:
     def validate_url(url: str) -> bool:
         """
         Validate URL format
-        
+
         Args:
             url: URL to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -65,10 +73,10 @@ class SecurityValidator:
     def validate_ethereum_address(address: str) -> bool:
         """
         Validate Ethereum address format
-        
+
         Args:
             address: Ethereum address to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -78,10 +86,10 @@ class SecurityValidator:
     def validate_tx_hash(tx_hash: str) -> bool:
         """
         Validate transaction hash format
-        
+
         Args:
             tx_hash: Transaction hash to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -91,10 +99,10 @@ class SecurityValidator:
     def sanitize_html(html_content: str) -> str:
         """
         Sanitize HTML content to prevent XSS attacks
-        
+
         Args:
             html_content: HTML content to sanitize
-            
+
         Returns:
             Sanitized HTML content
         """
@@ -104,10 +112,10 @@ class SecurityValidator:
     def sanitize_json_string(json_string: str) -> str:
         """
         Sanitize JSON string to prevent injection attacks
-        
+
         Args:
             json_string: JSON string to sanitize
-            
+
         Returns:
             Sanitized JSON string
         """
@@ -119,11 +127,11 @@ class SecurityValidator:
     def validate_json_structure(data: Any, required_fields: list[str]) -> bool:
         """
         Validate JSON structure has required fields
-        
+
         Args:
             data: Data to validate
             required_fields: List of required field names
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -136,10 +144,10 @@ class SecurityValidator:
     def sanitize_filename(filename: str) -> str:
         """
         Sanitize filename to prevent path traversal attacks
-        
+
         Args:
             filename: Filename to sanitize
-            
+
         Returns:
             Sanitized filename
         """
@@ -148,6 +156,133 @@ class SecurityValidator:
         # Remove control characters
         sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', sanitized)
         return sanitized
+
+    @staticmethod
+    def validate_ethereum_private_key(private_key: str) -> bool:
+        """
+        Validate Ethereum private key format
+        
+        Args:
+            private_key: Private key to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        return bool(SecurityValidator.PRIVATE_KEY_PATTERN.match(private_key))
+
+    @staticmethod
+    def validate_chain_id(chain_id: str | int) -> bool:
+        """
+        Validate blockchain chain ID
+        
+        Args:
+            chain_id: Chain ID to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        chain_id_str = str(chain_id)
+        return bool(SecurityValidator.CHAIN_ID_PATTERN.match(chain_id_str))
+
+    @staticmethod
+    def validate_contract_address(address: str) -> bool:
+        """
+        Validate smart contract address format
+        
+        Args:
+            address: Contract address to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        return bool(SecurityValidator.CONTRACT_ADDRESS_PATTERN.match(address))
+
+    @staticmethod
+    def validate_block_number(block_number: str | int) -> bool:
+        """
+        Validate block number
+        
+        Args:
+            block_number: Block number to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        block_number_str = str(block_number)
+        return bool(SecurityValidator.BLOCK_NUMBER_PATTERN.match(block_number_str))
+
+    @staticmethod
+    def validate_gas_price(gas_price: str | int) -> bool:
+        """
+        Validate gas price (in wei)
+        
+        Args:
+            gas_price: Gas price to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        gas_price_str = str(gas_price)
+        return bool(SecurityValidator.GAS_PRICE_PATTERN.match(gas_price_str))
+
+    @staticmethod
+    def validate_gas_limit(gas_limit: str | int) -> bool:
+        """
+        Validate gas limit (reasonable bounds)
+        
+        Args:
+            gas_limit: Gas limit to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        gas_limit_str = str(gas_limit)
+        return bool(SecurityValidator.GAS_LIMIT_PATTERN.match(gas_limit_str))
+
+    @staticmethod
+    def validate_transaction_data(tx_data: str) -> bool:
+        """
+        Validate transaction data hex string
+        
+        Args:
+            tx_data: Transaction data hex string to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        if not tx_data:
+            return True  # Empty data is valid
+        
+        # Remove 0x prefix if present
+        if tx_data.startswith('0x'):
+            tx_data = tx_data[2:]
+            # If nothing left after removing prefix, that's valid (empty data)
+            if not tx_data:
+                return True
+        
+        # Check if it's valid hex
+        try:
+            int(tx_data, 16)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def validate_amount(amount: str | int | float) -> bool:
+        """
+        Validate transaction amount (positive numbers only)
+        
+        Args:
+            amount: Amount to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            amount_float = float(amount)
+            return amount_float >= 0
+        except (ValueError, TypeError):
+            return False
 
 
 @dataclass
@@ -170,7 +305,7 @@ class SecurityAuditor:
     def __init__(self, log_file: Path | None = None):
         """
         Initialize security auditor
-        
+
         Args:
             log_file: Path to audit log file
         """
@@ -187,7 +322,7 @@ class SecurityAuditor:
     ) -> None:
         """
         Log a security event
-        
+
         Args:
             action: Action performed
             user: User who performed the action
@@ -218,7 +353,7 @@ class SecurityAuditor:
     def _write_to_file(self, log_entry: SecurityAuditLog) -> None:
         """
         Write log entry to file
-        
+
         Args:
             log_entry: Log entry to write
         """
@@ -239,13 +374,13 @@ class SecurityAuditor:
     ) -> list[SecurityAuditLog]:
         """
         Get filtered audit logs
-        
+
         Args:
             action: Filter by action
             user: Filter by user
             severity: Filter by severity
             limit: Maximum number of logs to return
-            
+
         Returns:
             List of matching audit logs
         """
@@ -265,10 +400,10 @@ class SecurityAuditor:
     def get_critical_logs(self, limit: int = 50) -> list[SecurityAuditLog]:
         """
         Get only critical security logs
-        
+
         Args:
             limit: Maximum number of logs to return
-            
+
         Returns:
             List of critical audit logs
         """
@@ -285,7 +420,7 @@ class RateLimiter:
     def __init__(self, rate: int, per: int = 60):
         """
         Initialize rate limiter
-        
+
         Args:
             rate: Number of requests allowed
             per: Time period in seconds
@@ -297,10 +432,10 @@ class RateLimiter:
     def is_allowed(self, identifier: str) -> bool:
         """
         Check if request is allowed for identifier
-        
+
         Args:
             identifier: Unique identifier (IP address, user ID, etc.)
-            
+
         Returns:
             True if request is allowed, False otherwise
         """
@@ -329,7 +464,7 @@ class RateLimiter:
     def reset(self, identifier: str) -> None:
         """
         Reset rate limit for identifier
-        
+
         Args:
             identifier: Unique identifier to reset
         """
@@ -340,10 +475,10 @@ class RateLimiter:
     def get_remaining_requests(self, identifier: str) -> int:
         """
         Get remaining requests for identifier
-        
+
         Args:
             identifier: Unique identifier
-            
+
         Returns:
             Number of remaining requests
         """
@@ -373,7 +508,7 @@ def log_security_event(
 ) -> None:
     """
     Log a security event using global auditor
-    
+
     Args:
         action: Action performed
         user: User who performed the action
@@ -389,7 +524,7 @@ def log_security_event(
 def get_security_auditor() -> SecurityAuditor:
     """
     Get the global security auditor instance
-    
+
     Returns:
         Global SecurityAuditor instance
     """
