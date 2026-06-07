@@ -46,6 +46,9 @@ tests/htmlcov/
 *.db-wal
 *.db-shm
 data/
+/opt/aitbc/data/
+/opt/aitbc/config/
+/opt/aitbc/logs/
 apps/blockchain-node/data/
 cli/config/
 dev/cache/logs/
