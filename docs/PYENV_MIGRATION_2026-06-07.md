@@ -3,11 +3,11 @@
 **Date**: June 7, 2026
 **Migration**: System-linked venv → pyenv-independent venv → System venv (systemd compatibility)
 **Python Version**: 3.13.5 → 3.13.13 → 3.13.5 (system)
-**Status**: ✅ Complete - All services running
+**Status**: ✅ Complete - All services running, pyenv purged
 
 ## Overview
 
-The AITBC project attempted migration from a system-linked virtual environment to an independent virtual environment managed by pyenv. However, due to systemd compatibility issues with pyenv symlinks, the project was reverted to a system-linked venv with updated dependencies. The security improvements from pnpm migration remain in place.
+The AITBC project attempted migration from a system-linked virtual environment to an independent virtual environment managed by pyenv. However, due to systemd compatibility issues with pyenv symlinks, the project was reverted to a system-linked venv with updated dependencies. The security improvements from pnpm migration remain in place. **pyenv was subsequently purged from the system** as it cannot be used in production.
 
 ## Migration Summary
 
@@ -28,7 +28,7 @@ The AITBC project attempted migration from a system-linked virtual environment t
 - **Systemd Compatibility**: pyenv symlink structure caused systemd to fail with "Unable to locate executable"
 - **Service Failures**: Multiple services (aitbc-blockchain-node, aitbc-api-gateway) failed to start
 - **User Configuration**: aitbc-api-gateway.service referenced non-existent user 'aitbc'
-- **Resolution**: Reverted to system venv, fixed user configuration, retained pnpm security improvements
+- **Resolution**: Reverted to system venv, fixed user configuration, retained pnpm security improvements, purged pyenv
 
 ## Migration Steps Completed
 
@@ -108,6 +108,26 @@ systemctl start aitbc-*.service
 - All dependencies installed
 - pnpm security improvements retained
 
+### 9. pyenv Cleanup ✅
+```bash
+# Stopped all services
+systemctl stop aitbc-*.service
+
+# Removed pyenv installation
+rm -rf /root/.pyenv
+
+# Removed pyenv configuration from .bashrc
+sed -i '/PYENV_ROOT/d' ~/.bashrc
+sed -i '/pyenv init/d' ~/.bashrc
+sed -i '/pyenv virtualenv-init/d' ~/.bashrc
+
+# Removed backup venv
+rm -rf /opt/aitbc/venv.backup
+
+# Restarted services
+systemctl start aitbc-*.service
+```
+
 ## Benefits Achieved
 
 ### Security Improvements (Retained)
@@ -154,19 +174,11 @@ systemctl restart aitbc-*.service
 
 ### Note on pyenv
 
-**pyenv remains installed** but is not currently used for the production venv due to systemd compatibility issues. It can be used for:
+**pyenv was installed but later purged** due to systemd compatibility issues. The system venv is used for production to ensure systemd compatibility. Future Python version upgrades should:
 
-- Development and testing with different Python versions
-- Future migration attempts with improved systemd configuration
-- Isolated development environments
-
-To use pyenv for development:
-```bash
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init - bash)"
-pyenv versions
-```
+1. Test systemd compatibility before deployment
+2. Consider using system Python packages or containerization
+3. Avoid symlink-based Python management for systemd services
 
 ## Configuration Changes
 
@@ -192,13 +204,7 @@ Group=root
 ```
 
 ### Environment Setup
-pyenv remains available for development (added to `~/.bashrc`):
-```bash
-export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init - bash)"
-eval "$(pyenv virtualenv-init -)"
-```
+**Note**: pyenv configuration has been removed from `~/.bashrc` since pyenv was purged due to systemd incompatibility.
 
 ## Troubleshooting
 
@@ -280,15 +286,6 @@ When new Python versions become available:
 /opt/aitbc/venv/bin/python --version
 ```
 
-### Check pyenv Versions (for development)
-```bash
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init - bash)"
-pyenv versions
-pyenv version
-```
-
 ### Check Dependencies
 ```bash
 cd /opt/aitbc
@@ -303,7 +300,6 @@ journalctl -u aitbc-*.service -f
 
 ## References
 
-- [pyenv Documentation](https://github.com/pyenv/pyenv)
 - [Poetry Documentation](https://python-poetry.org/docs/)
 - [Python Version Management](https://docs.python.org/3/using/windows.html)
 - [Systemd Service Management](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
@@ -311,9 +307,9 @@ journalctl -u aitbc-*.service -f
 ---
 
 **Migration Status**: ✅ Complete (with adjustments)
-**Backup Location**: `/opt/aitbc/venv.backup` (pyenv venv - not in use)
+**Backup Location**: Removed (purged)
 **Current Python**: 3.13.5 (system-linked)
 **Current venv**: `/opt/aitbc/venv` (system venv)
 **Security Status**: 0 vulnerabilities (pnpm migration retained)
 **Service Status**: All services running successfully
-**pyenv Status**: Installed but not used for production (systemd compatibility)
+**pyenv Status**: Purged due to systemd incompatibility
