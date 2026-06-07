@@ -25,7 +25,6 @@ CONSENSUS_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/consensus"
 NETWORK_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/network"
 ECONOMICS_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/economics"
 CONTRACTS_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/contracts"
-AGENT_SERVICES_DIR="${APPS_DIR}/agent-services"
 
 # Default configuration values
 DEFAULT_VALIDATOR_COUNT="${DEFAULT_VALIDATOR_COUNT:-5}"

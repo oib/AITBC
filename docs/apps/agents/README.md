@@ -4,7 +4,7 @@ Agent services and AI engine for autonomous operations.
 
 ## Applications
 
-- [Agent Services](agent-services.md) - Agent bridge, compliance, protocols, registry, and trading
+- [Agent Services](agent-services.md) - Shared libraries for agent bridge, compliance, protocols, registry, and trading (moved to /opt/aitbc/aitbc)
 - [AI Engine](ai-engine.md) - AI engine for autonomous agent operations
 
 ## Features
