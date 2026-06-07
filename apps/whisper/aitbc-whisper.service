@@ -4,17 +4,21 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-public
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc/apps/whisper
 Environment="PATH=/opt/aitbc/venv/bin"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/whisper:$PYTHONPATH"
 Environment="WHISPER_MODEL=base"
 Environment="WHISPER_DEVICE=cuda"
 Environment="WHISPER_COMPUTE_TYPE=float16"
+Environment="HF_HOME=/var/lib/aitbc/whisper-cache"
+Environment="TRANSFORMERS_CACHE=/var/lib/aitbc/whisper-cache"
 ExecStart=/opt/aitbc/venv/bin/python main.py
 Restart=always
 RestartSec=10
+MemoryMax=1G
+MemoryLimit=1G
 
 [Install]
 WantedBy=multi-user.target

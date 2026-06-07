@@ -5,8 +5,8 @@ Wants=postgresql.service redis.service aitbc-load-secrets.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc-blockchain
+Group=aitbc-services
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/run/aitbc/secrets/.env
@@ -28,7 +28,7 @@ SyslogIdentifier=aitbc-blockchain
 
 # Production security
 NoNewPrivileges=true
-ProtectHome=true
+# ProtectHome=true - Removed for service user compatibility
 
 # Production performance
 LimitNOFILE=65536

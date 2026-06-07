@@ -9,7 +9,7 @@ Quick reference guide for AITBC setup and onboarding.
 ## 5-Minute Quick Start
 
 ```bash
-# One-command installation
+# One-command installation (includes service user setup)
 bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deployment/setup.sh)
 
 # Or manual installation
@@ -19,6 +19,8 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+
+The setup script automatically creates service users for security isolation based on network exposure.
 
 ## Install Profiles
 
@@ -199,6 +201,7 @@ journalctl -u aitbc-blockchain-node -f | grep "Sync mode"
 - [Troubleshooting](reference/troubleshooting.md) - Common issues
 - [Security Notes](reference/security-notes.md) - Security best practices
 - [Production Deployment](reference/production-deployment.md) - Production checklist
+- [Service Isolation](../operations/SERVICE_ISOLATION_2026-06-07.md) - Service user security configuration
 
 ### Open Island
 - [Open Island Testing](open-island.md) - Join hub.aitbc.bubuit.net
@@ -234,10 +237,56 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8203
 /var/lib/aitbc/
 ├── keystore/     # Blockchain private keys
 ├── data/         # Database files
+├── wallets/      # Wallet files (aitbc-wallet user)
+├── whisper-cache/ # Whisper model cache (aitbc-public user)
 └── logs/         # Application logs
 
 /etc/aitbc/       # Configuration files
 ```
+
+## Service User Security
+
+AITBC uses a streamlined service user strategy based on network exposure for security isolation:
+
+### Service Users
+
+| User | Purpose | Services |
+|------|---------|----------|
+| **aitbc-public** | Public exposure services (0.0.0.0 binding) | API Gateway, Edge, Whisper |
+| **aitbc-internal** | Internal services (127.0.0.1 binding) | Marketplace, Hermes, Agent Coordinator |
+| **aitbc-blockchain** | Blockchain services | Node, P2P, RPC |
+| **aitbc-gpu** | GPU service (needs video group) | GPU service |
+| **aitbc-wallet** | Wallet service (keystore access) | Wallet service |
+
+### Security Benefits
+
+- **Principle of least privilege**: Services run with minimal required permissions
+- **Exposure-based grouping**: Clear security boundaries (public vs internal vs specialized)
+- **Compromise containment**: Limited to exposure category
+- **Reduced user count**: 5 users for 26 services (vs individual users for each service)
+
+### User Configuration
+
+All service users:
+- Shell: `/bin/false` (no shell access)
+- Group: `aitbc-services` (common group)
+- Home directory: Created but not used
+
+**Special Groups:**
+- `aitbc-gpu`: Added to `video` group for GPU access
+- `aitbc-public`: Added to `video` and `audio` groups for whisper
+
+### Service Isolation Status
+
+**Currently Isolated:** 11/26 services (42%)
+- Public services: 3/26
+- Internal services: 3/26
+- Blockchain services: 3/26
+- Specialized services: 2/26
+
+**Remaining Services:** 15/26 still run as root
+
+For detailed service isolation configuration, see [Service Isolation Documentation](../operations/SERVICE_ISOLATION_2026-06-07.md).
 
 ## Scenarios
 
