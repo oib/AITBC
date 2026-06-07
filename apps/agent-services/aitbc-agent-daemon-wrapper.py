@@ -42,9 +42,7 @@ if enable_hermes and hermes_agent_ids:
             hermes_daemon_script,
             "--coordinator-url", hermes_coordinator_url,
             "--agent-id", agent_id,
-            "--poll-interval", "10",
-            "--log-level", "INFO",
-            "--hermes-service-url", hermes_service_url
+            "--log-level", "INFO"
         ]
         print(f"Starting Hermes polling daemon for agent: {agent_id}")
         proc = subprocess.Popen(cmd)
