@@ -68,7 +68,7 @@ sudo -u postgres psql -f apps/trading-service/scripts/setup-database.sql
 ### Governance Service Database
 
 ```bash
-sudo -u postgres psql -f apps/governance-service/scripts/setup-database.sql
+sudo -u postgres psql -f apps/governance/scripts/setup-database.sql
 ```
 
 ### Verify Database Creation
@@ -141,7 +141,7 @@ For production deployment, use systemd services:
 sudo cp apps/gpu-service/gpu-service.service /etc/systemd/system/
 sudo cp apps/marketplace-service/marketplace-service.service /etc/systemd/system/
 sudo cp apps/trading-service/trading-service.service /etc/systemd/system/
-sudo cp apps/governance-service/governance-service.service /etc/systemd/system/
+sudo cp apps/governance/governance-service.service /etc/systemd/system/
 sudo cp apps/api-gateway/api-gateway.service /etc/systemd/system/
 
 # Reload systemd
