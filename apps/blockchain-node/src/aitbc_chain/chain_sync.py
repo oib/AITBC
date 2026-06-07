@@ -11,7 +11,7 @@ from typing import Any
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger("chain_sync")
 
 # Import settings for configuration
 try:
