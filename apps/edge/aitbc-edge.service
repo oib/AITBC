@@ -1,0 +1,23 @@
+[Unit]
+Description=AITBC Edge API Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/aitbc/apps/edge
+Environment="PATH=/opt/aitbc/venv/bin"
+Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/edge/src:/opt/aitbc"
+Environment="DATABASE_URL=sqlite+aiosqlite:///var/lib/aitbc/data/edge.db"
+Environment="DATA_DIR=/var/lib/aitbc/data"
+Environment="BLOCKCHAIN_RPC_HOST=localhost"
+Environment="BLOCKCHAIN_RPC_PORT=8006"
+Environment="GPU_SERVICE_HOST=localhost"
+Environment="GPU_SERVICE_PORT=8101"
+Environment="API_PORT=8110"
+EnvironmentFile=/etc/aitbc/secrets/jwt_secret
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_edge.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

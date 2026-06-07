@@ -1,0 +1,20 @@
+[Unit]
+Description=AITBC Whisper Transcription Service
+After=network.target
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/whisper
+Environment="PATH=/opt/aitbc/venv/bin"
+Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/whisper:$PYTHONPATH"
+Environment="WHISPER_MODEL=base"
+Environment="WHISPER_DEVICE=cuda"
+Environment="WHISPER_COMPUTE_TYPE=float16"
+ExecStart=/opt/aitbc/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
