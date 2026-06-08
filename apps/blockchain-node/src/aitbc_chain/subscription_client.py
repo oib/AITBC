@@ -5,6 +5,7 @@ import time
 from typing import Any
 
 import httpx
+import websockets
 
 from .config import settings
 from .gossip import gossip_broker
@@ -150,10 +151,58 @@ class SubscriptionClient:
                 logger.error(f"Heartbeat loop error: {e}")
 
     async def _receive_via_websocket(self) -> None:
-        """Receive blocks via WebSocket (placeholder for future implementation)."""
-        logger.info("WebSocket transport not yet implemented, falling back to pull")
-        self._set_sync_mode("pull")
-        await asyncio.sleep(30)
+        """Receive blocks via WebSocket."""
+        ws_url = self._hub_url.replace("http://", "ws://").replace("https://", "wss://")
+        ws_url = f"{ws_url}/rpc/subscribe/ws"
+
+        logger.info(f"Connecting to WebSocket: {ws_url}")
+
+        while self._running:
+            try:
+                async with websockets.connect(
+                    ws_url,
+                    ping_interval=20,
+                    ping_timeout=30,
+                    close_timeout=10
+                ) as websocket:
+                    logger.info("WebSocket connected successfully")
+                    self._set_sync_mode("push")
+
+                    # Send subscription message
+                    await websocket.send_json({
+                        "node_id": self._node_id,
+                        "chain_id": self._chain_id,
+                        "transport": "websocket"
+                    })
+
+                    # Receive blocks
+                    async for message in websocket:
+                        if not self._running:
+                            break
+
+                        try:
+                            if isinstance(message, str):
+                                import json
+                                block_data = json.loads(message)
+                            else:
+                                block_data = message
+
+                            # Import the block
+                            await self._import_block(block_data)
+
+                        except Exception as e:
+                            logger.error(f"Error processing WebSocket message: {e}")
+
+            except websockets.exceptions.ConnectionClosed as e:
+                logger.warning(f"WebSocket connection closed: {e}, reconnecting...")
+                self._set_sync_mode("pull")
+                await asyncio.sleep(5)
+
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}, falling back to pull")
+                self._set_sync_mode("pull")
+                await asyncio.sleep(30)
+                break
 
     async def _receive_via_http_poll(self) -> None:
         """Receive blocks via HTTP long-polling (placeholder for future implementation)."""
