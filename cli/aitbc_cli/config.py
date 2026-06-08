@@ -3,10 +3,15 @@
 from pathlib import Path
 
 from pydantic import Field
-from pydantic_settings import SettingsConfigDict
+from pydantic_settings import SettingsConfigDict, BaseSettings
 
-from aitbc.config import BaseAITBCConfig
-from aitbc.constants import BLOCKCHAIN_RPC_PORT
+
+class BaseAITBCConfig(BaseSettings):
+    """Base configuration class"""
+    pass
+
+
+BLOCKCHAIN_RPC_PORT = 8202
 
 
 class CLIConfig(BaseAITBCConfig):

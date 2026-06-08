@@ -3,7 +3,6 @@ rich>=13.0
 PyYAML
 requests
 cryptography
-aitbc>=0.6.0
 
 [dev]
 pytest>=7.0.0

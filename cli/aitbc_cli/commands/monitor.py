@@ -9,7 +9,7 @@ import click
 from rich.console import Console
 
 # Import shared modules
-from aitbc import AITBCHTTPClient, get_logger
+from ..utils.http_client import AITBCHTTPClient, get_logger
 
 from ..utils import error, output, success
 

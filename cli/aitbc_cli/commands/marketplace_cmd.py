@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import click
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 from ..config import get_config
 from ..core.config import load_multichain_config
@@ -44,7 +44,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
     """List a chain for sale in the marketplace"""
     try:
         config = get_config()
-        from aitbc import AITBCHTTPClient
+        from ..utils.http_client import AITBCHTTPClient
 
         # Parse chain type
         try:
