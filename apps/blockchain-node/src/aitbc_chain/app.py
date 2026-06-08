@@ -226,19 +226,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware, max_requests=5000, window_seconds=60)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:8011",  # Coordinator API
-            "http://localhost:8001",  # Exchange API
-            "http://localhost:8002",  # Blockchain Node
-            "http://localhost:8003",  # Blockchain RPC
-            "http://localhost:8010",  # Multimodal GPU
-            "http://localhost:8011",  # GPU Multimodal
-            "http://localhost:8012",  # Modality Optimization
-            "http://localhost:8013",  # Adaptive Learning
-            "http://localhost:8014",  # Marketplace Enhanced
-            "http://localhost:8015",  # hermes Enhanced
-            "http://localhost:8016",  # Web UI
-        ],
+        allow_origins=["*"],
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
     )
