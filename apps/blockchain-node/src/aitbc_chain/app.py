@@ -28,6 +28,11 @@ from .rpc.websocket import router as websocket_router
 
 from .rpc.escrow_routes import router as escrow_router
 
+try:
+    from .rpc.marketplace import router as marketplace_router
+except ImportError:
+    marketplace_router = None
+
 _app_logger = get_logger("aitbc_chain.app")
 
 
@@ -242,6 +247,8 @@ def create_app() -> FastAPI:
     app.include_router(rpc_router, prefix="/rpc", tags=["rpc"])
     app.include_router(websocket_router, prefix="/rpc")
     app.include_router(escrow_router, prefix="/rpc")
+    if marketplace_router:
+        app.include_router(marketplace_router, prefix="/rpc", tags=["marketplace"])
 
     # Metrics and health endpoints
     metrics_router = APIRouter()
