@@ -187,6 +187,11 @@ class SubscriptionClient:
                             else:
                                 block_data = message
 
+                            # Skip control messages (confirmation, ping, etc.)
+                            if not isinstance(block_data, dict) or "height" not in block_data:
+                                logger.debug(f"Skipping non-block message: {list(block_data.keys()) if isinstance(block_data, dict) else type(block_data)}")
+                                continue
+
                             # Import the block
                             await self._import_block(block_data)
 
