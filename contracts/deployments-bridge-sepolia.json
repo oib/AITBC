@@ -1,0 +1,11 @@
+[
+  {
+    "contract": "CrossChainBridge",
+    "address": "0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA",
+    "deployer": "0x818018F30d8F5FB7AE7a64f25895F15110923748",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-06-08T11:06:25.177Z",
+    "txHash": "0x502508675dcbcc8d11c1aa840f51306e7f0c9e1aedea990a11fe902f3f16a1d8"
+  }
+]

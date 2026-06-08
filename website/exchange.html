@@ -36,6 +36,14 @@
             <p class="subtitle">ETH-AIT Bridge and Token Pricing</p>
         </header>
 
+        <!-- Exchange Rate Card -->
+        <div class="card">
+            <h2>Exchange Rate</h2>
+            <div id="exchange-rate">
+                <p class="loading">Loading...</p>
+            </div>
+        </div>
+
         <div class="price-grid">
             <!-- USD Price Card -->
             <div class="card">
@@ -54,16 +62,35 @@
             </div>
         </div>
 
+        <!-- ETH to AIT Bridge Card -->
+        <div class="card">
+            <h2>ETH to AIT Bridge</h2>
+            <div id="eth-bridge">
+                <p><strong>Deposit Address (Sepolia):</strong></p>
+                <div class="endpoint" id="deposit-address-box" style="cursor: pointer;" onclick="copyAddress()">
+                    <span class="method">ETH</span> <span class="path" id="deposit-address">Loading...</span>
+                </div>
+                <p id="copy-feedback" style="color: var(--success); font-size: 0.85rem; margin-top: 0.5rem; display: none;">Copied to clipboard!</p>
+                <p><strong>Instructions:</strong></p>
+                <ol style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                    <li>Send ETH to the address above on Sepolia testnet</li>
+                    <li>Include your AIT wallet address in the transaction data field</li>
+                    <li>AIT will be sent automatically based on current oracle price</li>
+                </ol>
+                <p><strong>Minimum Deposit:</strong> 0.001 ETH</p>
+            </div>
+        </div>
+
         <!-- Get Free AIT Card -->
         <div class="card">
             <h2>Get Free AIT</h2>
             <div id="free-ait">
-                <p><strong>Message:</strong> "ask for coins" to get free AIT tokens</p>
+                <p><strong>For New Agents:</strong> Message "ask for coins" to get 100 free AIT tokens (no ETH required)</p>
+                <p><strong>Alternative:</strong> Use the ETH-to-AIT bridge above to purchase AIT with ETH</p>
                 <p><strong>Status:</strong> <span id="free-ait-status">Available for new agents</span></p>
-                <p><strong>Note:</strong> No ETH required for initial tokens</p>
                 <p style="margin-top: 1rem;">
                     <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/free-ait.md" class="endpoint endpoint-link" target="_blank" style="text-decoration: none;">
-                        <span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;">VIEW DETAILS</span>
+                        <span class="method">GET</span> <span class="path">Free AIT Guide</span>
                     </a>
                 </p>
             </div>
@@ -132,10 +159,18 @@
         
         async function fetchBridgeStatus() {
             try {
-                const response = await fetch('http://hub.aitbc.bubuit.net/v1/exchange/status');
+                const response = await fetch('http://hub.aitbc.bubuit.net/v1/bridge/status');
                 const data = await response.json();
                 
                 updateBridgeStatus(data);
+                
+                // Update deposit address if available
+                if (data.deposit_address) {
+                    const depositEl = document.getElementById('deposit-address');
+                    if (depositEl) {
+                        depositEl.textContent = data.deposit_address;
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching bridge status:', error);
                 document.getElementById('bridge-status').innerHTML = '<p class="error">Failed to load bridge status</p>';
@@ -149,9 +184,12 @@
             
             // Update USD prices
             let usdHtml = '';
-            usdHtml += `<p><strong>ETH Price:</strong> $${current.eth_usd.toFixed(2)} USD</p>`;
-            usdHtml += `<p><strong>AIT Price:</strong> $${current.ait_usd.toFixed(2)} USD</p>`;
-            usdHtml += `<p><strong>Exchange Rate:</strong> 1 ETH = ${current.eth_ait_rate_usd.toFixed(2)} AIT</p>`;
+            if (current.eth_usd) {
+                usdHtml += `<p><strong>ETH Price:</strong> $${current.eth_usd.toFixed(2)} USD</p>`;
+            }
+            if (current.ait_usd) {
+                usdHtml += `<p><strong>AIT Price:</strong> $${current.ait_usd.toFixed(6)} USD</p>`;
+            }
             
             if (averages) {
                 const changeClass = change.eth_usd_percent >= 0 ? 'price-up' : 'price-down';
@@ -164,9 +202,12 @@
             
             // Update EUR prices
             let eurHtml = '';
-            eurHtml += `<p><strong>ETH Price:</strong> €${current.eth_eur.toFixed(2)} EUR</p>`;
-            eurHtml += `<p><strong>AIT Price:</strong> €${current.ait_eur.toFixed(2)} EUR</p>`;
-            eurHtml += `<p><strong>Exchange Rate:</strong> 1 ETH = ${current.eth_ait_rate_eur.toFixed(2)} AIT</p>`;
+            if (current.eth_eur) {
+                eurHtml += `<p><strong>ETH Price:</strong> €${current.eth_eur.toFixed(2)} EUR</p>`;
+            }
+            if (current.ait_eur) {
+                eurHtml += `<p><strong>AIT Price:</strong> €${current.ait_eur.toFixed(6)} EUR</p>`;
+            }
             
             if (averages) {
                 const changeClass = change.eth_eur_percent >= 0 ? 'price-up' : 'price-down';
@@ -177,33 +218,41 @@
             
             document.getElementById('eur-prices').innerHTML = eurHtml;
             
+            // Update exchange rate (top section)
+            const exchangeRateElement = document.getElementById('exchange-rate');
+            if (exchangeRateElement && current.eth_ait_rate_usd) {
+                exchangeRateElement.innerHTML = `<p><strong>1 ETH = ${current.eth_ait_rate_usd.toFixed(2)} AIT</strong></p>`;
+            }
+            
             // Update timestamp
-            document.getElementById('last-updated').textContent = `Last updated: ${new Date(current.timestamp).toLocaleString()}`;
+            if (current.timestamp) {
+                document.getElementById('last-updated').textContent = `Last updated: ${new Date(current.timestamp * 1000).toLocaleString()}`;
+            }
         }
         
         function updateBridgeStatus(data) {
             let statusHtml = '';
-            statusHtml += `<p><strong>Status:</strong> ${data.enabled ? 'Enabled' : 'Disabled'}</p>`;
-            statusHtml += `<p><strong>Pending Deposits:</strong> <span id="pending-count">loading...</span></p>`;
+            statusHtml += `<p><strong>Bridge:</strong> ${data.bridge}</p>`;
+            statusHtml += `<p><strong>Status:</strong> ${data.status}</p>`;
+            statusHtml += `<p><strong>Contract:</strong> ${data.contract_address || 'N/A'}</p>`;
+            statusHtml += `<p><strong>Message:</strong> ${data.message}</p>`;
             
             document.getElementById('bridge-status').innerHTML = statusHtml;
-            
-            // Fetch pending deposits count
-            fetchPendingDeposits();
         }
         
-        async function fetchPendingDeposits() {
-            try {
-                const response = await fetch('http://hub.aitbc.bubuit.net/v1/exchange/deposits?status=pending&limit=1');
-                const data = await response.json();
-                
-                const countElement = document.getElementById('pending-count');
-                if (countElement) {
-                    countElement.textContent = data.count || 0;
-                }
-            } catch (error) {
-                console.error('Error fetching pending deposits:', error);
-            }
+        function copyAddress() {
+            const addressElement = document.getElementById('deposit-address');
+            const address = addressElement ? addressElement.textContent : '';
+            if (!address || address === 'Loading...') return;
+            navigator.clipboard.writeText(address).then(() => {
+                const feedback = document.getElementById('copy-feedback');
+                feedback.style.display = 'block';
+                setTimeout(() => {
+                    feedback.style.display = 'none';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
         }
         
         // Initialize on page load

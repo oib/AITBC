@@ -3,6 +3,7 @@ Account-related RPC endpoints.
 """
 
 import hashlib
+import os
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -11,11 +12,17 @@ from fastapi import HTTPException, Request, status
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
+from aitbc.redis_cache import RedisCache
 
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Transaction
 from .utils import get_chain_id
+
+_REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+_cache = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
+
+ACCOUNT_CACHE_TTL = 30
 
 _logger = get_logger(__name__)
 
@@ -26,18 +33,25 @@ async def get_account(
 ) -> dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
+    cache_key = f"account_balance:{chain_id}:{address.lower()}"
+
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     with session_scope() as session:
         account = session.exec(select(Account).where(Account.address == address).where(Account.chain_id == chain_id)).first()
         if not account:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
 
-        return {
+        result = {
             "address": account.address,
             "balance": account.balance,
             "nonce": account.nonce,
             "chain_id": account.chain_id
         }
+        _cache.set(cache_key, result, ttl=ACCOUNT_CACHE_TTL)
+        return result
 
 
 @rate_limit(rate=200, per=60)
@@ -66,13 +80,18 @@ async def get_account_details(
     """
     chain_id = get_chain_id(chain_id)
     address = address.lower().strip()
+    cache_key = f"account_details:{chain_id}:{address}"
+
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     with session_scope() as session:
         account = session.get(Account, (chain_id, address))
         if not account:
             raise HTTPException(status_code=404, detail=f"Account {address} not found on chain {chain_id}")
 
-        return {
+        result = {
             "success": True,
             "address": account.address,
             "chain_id": account.chain_id,
@@ -80,6 +99,8 @@ async def get_account_details(
             "nonce": account.nonce,
             "updated_at": account.updated_at.isoformat() if account.updated_at else None
         }
+        _cache.set(cache_key, result, ttl=ACCOUNT_CACHE_TTL)
+        return result
 
 
 @rate_limit(rate=100, per=60)

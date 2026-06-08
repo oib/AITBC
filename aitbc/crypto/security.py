@@ -410,6 +410,56 @@ class SecretManager:
         return export_data
 
 
+    def start_rotation_scheduler(self, check_interval_hours: int = 1) -> None:
+        """Start a background thread to periodically clean up expired secrets.
+
+        Args:
+            check_interval_hours: How often to check for expired secrets (in hours)
+        """
+        import threading
+
+        def _rotation_loop():
+            import time
+            interval_secs = check_interval_hours * 3600
+            while True:
+                time.sleep(interval_secs)
+                cleaned = self.cleanup_expired_secrets()
+                if cleaned:
+                    from aitbc.security_hardening import log_security_event
+                    log_security_event(
+                        action="secret_rotation_cleanup",
+                        details={"cleaned_count": cleaned},
+                        severity="INFO"
+                    )
+
+        thread = threading.Thread(target=_rotation_loop, daemon=True, name="secret-rotation-scheduler")
+        thread.start()
+
+
+# Global SecretManager singleton
+_global_secret_manager: SecretManager | None = None
+
+
+def get_secret_manager(encryption_key: str | None = None, default_ttl_hours: int = 24) -> SecretManager:
+    """Get or create the global SecretManager instance.
+
+    Args:
+        encryption_key: Optional encryption key for first-time initialization
+        default_ttl_hours: Default secret TTL in hours
+
+    Returns:
+        Global SecretManager instance
+    """
+    global _global_secret_manager
+    if _global_secret_manager is None:
+        _global_secret_manager = SecretManager(
+            encryption_key=encryption_key or os.getenv("AITBC_SECRET_MANAGER_KEY"),
+            default_ttl_hours=default_ttl_hours
+        )
+        _global_secret_manager.start_rotation_scheduler()
+    return _global_secret_manager
+
+
 def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     """Hash a password with salt"""
     if salt is None:
