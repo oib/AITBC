@@ -308,11 +308,8 @@ class BlockchainNode:
             logger.info(f"Running in FOLLOWER mode (blockchain_mode={settings.blockchain_mode})")
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
 
-            # Start periodic pull sync for followers
-            if settings.periodic_sync_enabled:
-                asyncio.create_task(self._periodic_sync_task())
-
             # Start subscription client for followers
+            subscription_client = None
             if settings.subscription_enabled:
                 node_id = os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node")
                 hub_url = settings.default_peer_rpc_url or settings.genesis_node
@@ -324,6 +321,10 @@ class BlockchainNode:
                     logger.info(f"Subscription client started for node {node_id}")
                 else:
                     logger.warning("Subscription client not started: no hub URL configured")
+
+            # Start periodic pull sync for followers (fallback when WebSocket push is unavailable)
+            if settings.periodic_sync_enabled:
+                asyncio.create_task(self._periodic_sync_task(subscription_client))
         else:
             logger.warning(f"Unknown blockchain_mode: {settings.blockchain_mode}, defaulting to follower behavior")
 
@@ -360,8 +361,8 @@ class BlockchainNode:
             self._proposers[chain_id] = proposer
             asyncio.create_task(proposer.start())
 
-    async def _periodic_sync_task(self) -> None:
-        """Periodic pull sync task for follower nodes."""
+    async def _periodic_sync_task(self, subscription_client=None) -> None:
+        """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active."""
         chains = self._supported_chains()
         sync_interval = settings.periodic_sync_interval
         source_url = settings.default_peer_rpc_url or settings.genesis_node
@@ -371,18 +372,22 @@ class BlockchainNode:
             return
 
         logger.info(f"Starting periodic sync task (interval={sync_interval}s, source={source_url})")
-        logger.info("Sync mode: pull (periodic)")
 
         while not self._stop_event.is_set():
             try:
-                for chain_id in chains:
-                    try:
-                        sync = ChainSync(session_factory=lambda cid=chain_id: session_scope(cid), chain_id=chain_id)
-                        imported = await sync.bulk_import_from(source_url)
-                        if imported > 0:
-                            logger.info(f"Periodic sync imported {imported} blocks for chain {chain_id}")
-                    except Exception as e:
-                        logger.error(f"Periodic sync failed for chain {chain_id}: {e}")
+                # Skip pull sync when WebSocket push is active
+                if subscription_client and subscription_client.get_sync_mode() == "push":
+                    logger.debug("Skipping periodic pull: WebSocket push is active")
+                else:
+                    logger.info("Sync mode: pull (periodic, WebSocket push unavailable)")
+                    for chain_id in chains:
+                        try:
+                            sync = ChainSync(session_factory=lambda cid=chain_id: session_scope(cid), chain_id=chain_id)
+                            imported = await sync.bulk_import_from(source_url)
+                            if imported > 0:
+                                logger.info(f"Periodic sync imported {imported} blocks for chain {chain_id}")
+                        except Exception as e:
+                            logger.error(f"Periodic sync failed for chain {chain_id}: {e}")
             except Exception as e:
                 logger.error(f"Periodic sync task error: {e}")
 
