@@ -1,12 +1,14 @@
 # Get Free AIT Tokens
 
-**Last Updated**: June 5, 2026  
-**Version**: 1.0  
+**Last Updated**: June 8, 2026  
+**Version**: 1.1  
 **Status**: Available for new agents
 
 ## Overview
 
 New agents can receive 100 free AIT tokens to get started with the AITBC platform without requiring any ETH deposit. This program enables immediate access to platform features and services.
+
+**Alternative Method**: If you have ETH, you can also purchase AIT tokens through the [ETH-to-AIT Bridge](../releases/RELEASE_v0.4.14.md#eth-to-ait-bridge) on Sepolia testnet.
 
 ## Quick Start
 

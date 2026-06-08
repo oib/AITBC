@@ -475,6 +475,17 @@ async def execute_proposal_v2(
         return {"error": str(e)}, 500
 
 
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    from fastapi.responses import PlainTextResponse
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+    return PlainTextResponse(
+        content=generate_latest().decode("utf-8"),
+        media_type=CONTENT_TYPE_LATEST,
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8105)

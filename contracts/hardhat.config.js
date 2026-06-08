@@ -3,7 +3,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x" + "0".repeat(64);
-const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID || "";
+const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID || process.env.INFURA_API_KEY || "";
+const ETH_RPC_URL = process.env.ETH_RPC_URL || "";
 
 const config = {
   solidity: {
@@ -25,6 +26,11 @@ const config = {
       url: process.env.TESTNET_RPC_URL || "http://localhost:8545",
       accounts: process.env.TESTNET_DEPLOYER_PRIVATE_KEY ? [process.env.TESTNET_DEPLOYER_PRIVATE_KEY] : [],
       chainId: 31337
+    },
+    sepolia: {
+      url: ETH_RPC_URL || `https://sepolia.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== "0x" + "0".repeat(64) ? [PRIVATE_KEY] : [],
+      chainId: 11155111
     }
   },
   paths: {
