@@ -30,7 +30,6 @@ SyslogIdentifier=Coordinator
 
 # Memory limits
 MemoryMax=1G
-MemoryLimit=1G
 
 [Install]
 WantedBy=multi-user.target
