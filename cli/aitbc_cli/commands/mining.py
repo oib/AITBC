@@ -6,7 +6,7 @@ import json
 
 import click
 
-from aitbc import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
+from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
 
 from ..utils import error, success
 
