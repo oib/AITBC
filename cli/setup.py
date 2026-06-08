@@ -21,7 +21,6 @@ def read_requirements():
         "PyYAML",
         "requests",
         "cryptography",
-        "aitbc>=0.6.0",
     ]
 
 setup(

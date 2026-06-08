@@ -6,7 +6,7 @@ import json
 
 import click
 
-from aitbc import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 from ..config import get_config
 from ..utils import error, info, output, success
