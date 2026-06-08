@@ -3,8 +3,8 @@
 **Level**: All Levels  
 **Prerequisites**: None  
 **Estimated Time**: 5-15 minutes  
-**Last Updated**: June 7, 2026  
-**Version**: 1.1
+**Last Updated**: June 8, 2026  
+**Version**: 1.2
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **📋 Releases** → *You are here*
@@ -25,6 +25,8 @@
 
 Read the release notes newest-first:
 
+- **[v0.4.14](RELEASE_v0.4.14.md)** - June 8, 2026 - **Infrastructure Activation, Security & Monitoring** ✅ Released
+- **[v0.4.13](RELEASE_v0.4.13.md)** - June 7, 2026 - **Security Remediation & System Stabilization**
 - **[v0.4.12](RELEASE_v0.4.12.md)** - June 7, 2026 - **Governance Service & DAO Integration** (Concept Plan)
 - **[v0.4.11](RELEASE_v0.4.11.md)** - June 7, 2026 - **System Maintenance & Fixes**
 - **[v0.4.10](RELEASE_v0.4.10.md)** - January 4, 2025 - **Security & Performance Major Release**
@@ -95,6 +97,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: June 7, 2026*  
-*Version: 1.1*  
+*Last updated: June 8, 2026*  
+*Version: 1.2*  
 *Status: Release index*
