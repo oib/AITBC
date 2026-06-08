@@ -169,11 +169,12 @@ class SubscriptionClient:
                     self._set_sync_mode("push")
 
                     # Send subscription message
-                    await websocket.send_json({
+                    import json
+                    await websocket.send(json.dumps({
                         "node_id": self._node_id,
                         "chain_id": self._chain_id,
                         "transport": "websocket"
-                    })
+                    }))
 
                     # Receive blocks
                     async for message in websocket:
@@ -182,7 +183,6 @@ class SubscriptionClient:
 
                         try:
                             if isinstance(message, str):
-                                import json
                                 block_data = json.loads(message)
                             else:
                                 block_data = message
