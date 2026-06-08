@@ -991,3 +991,244 @@ def list_exchanges(ctx):
         error("❌ Real exchange integration not available. Install ccxt library.")
     except Exception as e:
         error(f"❌ Error: {e}")
+
+
+# ── Bridge / Oracle commands ──────────────────────────────────────────────────
+
+@exchange.command()
+@click.argument("base", default="ETH")
+@click.argument("quote", default="USD")
+@click.pass_context
+def price(ctx, base: str, quote: str):
+    """Get oracle price for a token pair (e.g. aitbc exchange price ETH USD)"""
+    try:
+        import sys
+        sys.path.insert(0, "/opt/aitbc")
+        from aitbc.oracles.price_oracle import get_price_oracle
+        oracle = get_price_oracle()
+        result = oracle.get_price(base.upper(), quote.upper())
+        if result:
+            success(f"{result.base}/{result.quote} = {result.price:.4f} (source: {result.source})")
+        else:
+            error(f"No price available for {base}/{quote}")
+    except Exception as e:
+        error(f"Oracle error: {e}")
+
+
+@exchange.command()
+@click.option("--amount", required=True, type=float, help="Amount of ETH to deposit")
+@click.option("--ait-address", required=True, help="AITBC wallet address to receive AIT tokens")
+@click.option("--dry-run", is_flag=True, help="Estimate only, do not submit transaction")
+@click.pass_context
+def deposit(ctx, amount: float, ait_address: str, dry_run: bool):
+    """Deposit ETH → receive AIT via bridge (requires ETH_RPC_URL + PRIVATE_KEY env vars)"""
+    try:
+        import sys
+        sys.path.insert(0, "/opt/aitbc")
+        from aitbc.oracles.price_oracle import get_price_oracle
+        oracle = get_price_oracle()
+        eth_price = oracle.get_price("ETH", "USD")
+        price_str = f"(~${eth_price.price * amount:.2f} USD)" if eth_price else ""
+
+        if dry_run:
+            success(f"[DRY RUN] Would deposit {amount} ETH {price_str} → AIT to {ait_address}")
+            success(f"Bridge fee: {amount * 0.005:.6f} ETH (0.5%)")
+            success(f"Net deposit: {amount * 0.995:.6f} ETH")
+            return
+
+        bridge_url = f"http://localhost:8106/v1/bridge/deposit"
+        import urllib.request, json, os
+        payload = json.dumps({
+            "eth_amount": amount,
+            "ait_address": ait_address,
+        }).encode()
+        req = urllib.request.Request(bridge_url, data=payload,
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+        success(f"Deposit submitted: {data}")
+    except Exception as e:
+        error(f"Deposit error: {e}")
+
+
+@exchange.command()
+@click.option("--amount", required=True, type=float, help="Amount of AIT to withdraw")
+@click.option("--eth-address", required=True, help="Ethereum wallet address to receive ETH")
+@click.option("--dry-run", is_flag=True, help="Estimate only, do not submit transaction")
+@click.pass_context
+def withdraw(ctx, amount: float, eth_address: str, dry_run: bool):
+    """Withdraw AIT → receive ETH via bridge"""
+    try:
+        import sys
+        sys.path.insert(0, "/opt/aitbc")
+        from aitbc.oracles.price_oracle import get_price_oracle
+        oracle = get_price_oracle()
+        eth_price = oracle.get_price("ETH", "USD")
+
+        if dry_run:
+            success(f"[DRY RUN] Would withdraw {amount} AIT → ETH to {eth_address}")
+            success(f"Bridge fee: {amount * 0.005:.4f} AIT (0.5%)")
+            if eth_price:
+                success(f"ETH/USD rate: ${eth_price.price:.2f} (source: {eth_price.source})")
+            return
+
+        bridge_url = "http://localhost:8106/v1/bridge/withdraw"
+        import urllib.request, json
+        payload = json.dumps({
+            "ait_amount": amount,
+            "eth_address": eth_address,
+        }).encode()
+        req = urllib.request.Request(bridge_url, data=payload,
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+        success(f"Withdrawal submitted: {data}")
+    except Exception as e:
+        error(f"Withdrawal error: {e}")
+
+
+@exchange.command()
+@click.option("--from-token", required=True, help="Token to swap from (e.g. ETH)")
+@click.option("--to-token", required=True, help="Token to swap to (e.g. AIT)")
+@click.option("--amount", required=True, type=float, help="Amount to swap")
+@click.option("--slippage", default=0.5, type=float, help="Max slippage % (default: 0.5)")
+@click.pass_context
+def swap(ctx, from_token: str, to_token: str, amount: float, slippage: float):
+    """Swap tokens via bridge oracle pricing (dry-run estimate)"""
+    try:
+        import sys
+        sys.path.insert(0, "/opt/aitbc")
+        from aitbc.oracles.price_oracle import get_price_oracle
+        oracle = get_price_oracle()
+
+        from_price = oracle.get_price(from_token.upper(), "USD")
+        to_price = oracle.get_price(to_token.upper(), "USD")
+
+        if not from_price:
+            error(f"No price available for {from_token}")
+            return
+        if not to_price:
+            error(f"No price available for {to_token}")
+            return
+
+        from_usd = amount * from_price.price
+        to_amount = from_usd / to_price.price
+        fee = to_amount * 0.005
+        net_to = to_amount - fee
+
+        success(f"Swap estimate: {amount} {from_token.upper()} → {net_to:.6f} {to_token.upper()}")
+        success(f"  Rate:     1 {from_token.upper()} = {from_price.price / to_price.price:.6f} {to_token.upper()}")
+        success(f"  Fee:      {fee:.6f} {to_token.upper()} (0.5%)")
+        success(f"  Slippage: ±{slippage}%")
+        success(f"  Min out:  {net_to * (1 - slippage/100):.6f} {to_token.upper()}")
+        success(f"  Sources:  {from_token}: {from_price.source}, {to_token}: {to_price.source}")
+    except Exception as e:
+        error(f"Swap error: {e}")
+
+
+@exchange.command("bridge-status")
+@click.option("--tx-id", help="Bridge transaction ID to check")
+@click.pass_context
+def bridge_status(ctx, tx_id: str | None):
+    """Check bridge status or list recent bridge transactions"""
+    try:
+        import urllib.request, json
+        if tx_id:
+            url = f"http://localhost:8106/v1/bridge/status/{tx_id}"
+        else:
+            url = "http://localhost:8106/v1/bridge/status"
+        req = urllib.request.Request(url, headers={"User-Agent": "aitbc-cli/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        output(data, ctx.obj.get('output_format', 'json'))
+    except Exception as e:
+        # Bridge may not be configured — show oracle health instead
+        import sys
+        sys.path.insert(0, "/opt/aitbc")
+        from aitbc.oracles.price_oracle import get_price_oracle
+        h = get_price_oracle().health_check()
+        success("Bridge endpoint not available. Oracle status:")
+        for src, info in h.items():
+            success(f"  {src}: {info['status']}" + (f" (ETH/USD: ${info['eth_usd']:.2f})" if info['eth_usd'] else ""))
+
+
+@exchange.command()
+@click.option('--status', help='Filter by status (pending, processing, completed, failed)')
+@click.option('--limit', default=10, help='Number of deposits to show')
+def bridge_deposits(status, limit):
+    """List ETH-to-AIT bridge deposits."""
+    import sys
+    sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
+    from bridge_monitor.storage import get_deposits, count_deposits, BridgeDepositStatus
+    
+    status_filter = None
+    if status:
+        try:
+            status_filter = BridgeDepositStatus(status)
+        except ValueError:
+            error(f"Invalid status: {status}")
+            return
+    
+    deposits = get_deposits(status=status_filter, limit=limit)
+    total = count_deposits(status=status_filter)
+    
+    if not deposits:
+        info("No deposits found")
+        return
+    
+    success(f"Showing {len(deposits)} of {total} deposits")
+    for d in deposits:
+        status_emoji = {
+            'pending': '⏳',
+            'processing': '🔄',
+            'completed': '✅',
+            'failed': '❌'
+        }.get(d['status'], '❓')
+        success(f"{status_emoji} {d['eth_tx_hash'][:10]}... | {d['eth_amount']} ETH → {d['ait_amount'] or '?'} AIT | {d['ait_recipient'] or 'N/A'} | {d['status']}")
+
+
+@exchange.command()
+@click.option('--eth-amount', type=float, required=True, help='ETH amount to estimate')
+def bridge_estimate(eth_amount):
+    """Estimate AIT amount for ETH deposit."""
+    from aitbc.oracles.price_oracle import get_price_oracle
+    
+    oracle = get_price_oracle()
+    eth_usd = oracle.get_price('ETH', 'USD')
+    ait_usd = oracle.get_price('AIT', 'USD')
+    
+    if not eth_usd or not ait_usd or ait_usd == 0:
+        error("Cannot get oracle prices")
+        return
+    
+    ait_amount = (eth_amount * eth_usd) / ait_usd
+    
+    success(f"ETH Amount: {eth_amount} ETH")
+    success(f"ETH/USD: ${eth_usd:.2f}")
+    success(f"AIT/USD: ${ait_usd:.2f}")
+    success(f"Estimated AIT: {ait_amount:.6f} AIT")
+    success(f"Exchange Rate: 1 ETH = {ait_amount/eth_amount:.2f} AIT")
+
+
+@exchange.command()
+def bridge_status():
+    """Show bridge monitor status."""
+    import sys
+    sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
+    from bridge_monitor.storage import count_deposits, BridgeDepositStatus
+    
+    pending = count_deposits(BridgeDepositStatus.PENDING)
+    processing = count_deposits(BridgeDepositStatus.PROCESSING)
+    completed = count_deposits(BridgeDepositStatus.COMPLETED)
+    failed = count_deposits(BridgeDepositStatus.FAILED)
+    
+    success("Bridge Monitor Status:")
+    success(f"  ⏳ Pending: {pending}")
+    success(f"  🔄 Processing: {processing}")
+    success(f"  ✅ Completed: {completed}")
+    success(f"  ❌ Failed: {failed}")
+    success(f"  📊 Total: {pending + processing + completed + failed}")
+    
+    import os
+    bridge_addr = os.getenv('BRIDGE_ETH_ADDRESS', '0x818018F30d8F5FB7AE7a64f25895F15110923748')
+    success(f"  📍 Bridge Address: {bridge_addr}")

@@ -31,12 +31,12 @@ exec_cmd = [
     "--port",
     "8203",
     "--workers",
-    "4",
+    "1",
     "--timeout-keep-alive",
     "30",
     "--limit-concurrency",
-    "500",
+    "100",
     "--backlog",
-    "1024"
+    "256"
 ]
 os.execvp(exec_cmd[0], exec_cmd)

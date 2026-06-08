@@ -3,11 +3,14 @@
 from datetime import datetime
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from aitbc.security_hardening import SecurityValidator, log_security_event
+
 from ..metrics import metrics_registry
-from .router import router
+
+router = APIRouter()
 
 
 class MarketplaceListing(BaseModel):
@@ -73,6 +76,24 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
     try:
         metrics_registry.increment("rpc_marketplace_create_total")
 
+        # Security validation: validate amount
+        if not SecurityValidator.validate_amount(request.price):
+            log_security_event(
+                action="marketplace_create_invalid_amount",
+                details={"price": request.price},
+                severity="WARNING"
+            )
+            raise HTTPException(status_code=400, detail="Invalid price: must be a non-negative number")
+
+        # Sanitize description
+        description = SecurityValidator.sanitize_html(request.description)
+
+        log_security_event(
+            action="marketplace_listing_created",
+            details={"seller_address": request.seller_address, "item_type": request.item_type, "price": request.price},
+            severity="INFO"
+        )
+
         # Generate unique listing ID
         listing_id = f"listing_{len(_marketplace_listings) + 1:03d}"
 
@@ -82,7 +103,7 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
             "seller_address": request.seller_address,
             "item_type": request.item_type,
             "price": request.price,
-            "description": request.description,
+            "description": description,
             "status": "active",
             "created_at": datetime.now().isoformat()
         }
