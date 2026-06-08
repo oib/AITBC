@@ -31,7 +31,7 @@ class ChainSettings(BaseSettings):
     hardware_profile: str = "nogpu"  # gpu or nogpu
 
     chain_id: str = ""
-    supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
+    supported_chains: str = ""  # Comma-separated list of supported chain IDs (defaults to chain_id if empty)
     db_path: Path = DATA_DIR / "data" / "chain.db"
     enforce_state_root_validation: bool = False  # Phase 1.3 enforcement flag
     db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (ait-mainnet only)
