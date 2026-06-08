@@ -15,7 +15,7 @@ spacy>=3.7.0
 
 # AI/ML Libraries
 torch>=2.0.0
-transformers>=4.0.0
+transformers>=5.10.2
 numpy>=1.24.0
 pandas>=2.2.0
 torchvision>=0.15.0
