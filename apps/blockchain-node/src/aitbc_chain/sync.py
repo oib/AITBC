@@ -61,8 +61,11 @@ class ProposerSignatureValidator:
         if not proposer:
             return False, "Missing proposer field"
 
-        if not block_hash or not block_hash.startswith("0x"):
+        if not block_hash:
             return False, f"Invalid block hash format: {block_hash}"
+        # Normalize hash to ensure 0x prefix
+        if not block_hash.startswith("0x"):
+            block_hash = f"0x{block_hash}"
 
         # If trusted list is configured, enforce it
         if self._trusted and proposer not in self._trusted:

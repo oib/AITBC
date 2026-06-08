@@ -298,7 +298,8 @@ def cancel(ctx, order_id: str):
             success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            rpc_url = _get_blockchain_rpc_url(config)
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
