@@ -8,7 +8,7 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from aitbc import AITBCHTTPClient, NetworkError
+from .http_client import AITBCHTTPClient, NetworkError
 
 sys.path.insert(0, "/opt/aitbc/cli")
 from utils import error

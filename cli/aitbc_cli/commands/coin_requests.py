@@ -251,7 +251,7 @@ def execute(ctx, request_id):
 
         # Submit transaction to blockchain
         try:
-            from aitbc import AITBCHTTPClient
+            from ..utils.http_client import AITBCHTTPClient
             http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
             result = http_client.post("/rpc/transaction", json=signed_tx)
             tx_hash = result.get("transaction_hash")

@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 
 # Import shared modules
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 from ..config import get_config
 from ..utils import error, output, success, warning

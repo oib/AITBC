@@ -709,6 +709,16 @@ setup_venvs() {
         log "Installing psycopg2 for PostgreSQL support..."
         pip install psycopg2-binary || warning "Failed to install psycopg2-binary"
     fi
+
+    # Install AITBC CLI
+    log "Installing AITBC CLI..."
+    if [ -d "/opt/aitbc/cli" ]; then
+        cd /opt/aitbc/cli
+        pip install -e . || warning "Failed to install AITBC CLI"
+        log "AITBC CLI installed"
+    else
+        warning "CLI directory not found at /opt/aitbc/cli"
+    fi
     
     success "Virtual environments setup completed"
 }
@@ -757,16 +767,13 @@ install_services() {
 
     # Add aitbc CLI to PATH
     log "Adding aitbc CLI to system PATH..."
-    if [ -f "/opt/aitbc/aitbc-cli" ]; then
-        ln -sf /opt/aitbc/aitbc-cli /usr/local/bin/aitbc-cli 2>/dev/null || {
-            warning "Failed to create symlink for aitbc-cli"
-            warning "You may need to add /opt/aitbc to PATH manually"
-        }
-        chmod +x /usr/local/bin/aitbc-cli 2>/dev/null || true
-        log "aitbc CLI added to /usr/local/bin/aitbc-cli"
-    else
-        warning "aitbc-cli not found at /opt/aitbc/aitbc-cli"
-    fi
+    # Create wrapper script in /usr/local/bin/aitbc
+    cat > /usr/local/bin/aitbc << 'EOF'
+#!/bin/bash
+/opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"
+EOF
+    chmod +x /usr/local/bin/aitbc
+    log "aitbc CLI installed to /usr/local/bin/aitbc"
 
     success "Systemd services installed"
 }

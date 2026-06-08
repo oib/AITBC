@@ -17,7 +17,7 @@ def performance():
 def benchmark(ctx, rpc_url):
     """Run performance benchmark"""
     try:
-        from aitbc import AITBCHTTPClient, NetworkError
+        from ..utils.http_client import AITBCHTTPClient, NetworkError
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/performance/benchmark")
         output(result, ctx.obj.get('output_format', 'table'), title="Performance Benchmark")
@@ -41,7 +41,7 @@ def benchmark(ctx, rpc_url):
 def optimize(ctx, rpc_url):
     """Optimize system performance"""
     try:
-        from aitbc import AITBCHTTPClient, NetworkError
+        from ..utils.http_client import AITBCHTTPClient, NetworkError
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/performance/optimize")
         output(result, ctx.obj.get('output_format', 'table'), title="Performance Optimization")
@@ -64,7 +64,7 @@ def optimize(ctx, rpc_url):
 def tune(ctx, rpc_url):
     """Tune system parameters"""
     try:
-        from aitbc import AITBCHTTPClient, NetworkError
+        from ..utils.http_client import AITBCHTTPClient, NetworkError
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/performance/tune")
         output(result, ctx.obj.get('output_format', 'table'), title="System Tuning")

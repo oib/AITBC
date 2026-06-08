@@ -10,9 +10,8 @@ from pathlib import Path
 import click
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
-from aitbc.exceptions import ValidationError
-from aitbc.utils.validation import validate_address
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from aitbc import ValidationError
 
 from ..utils import error, success
 from ..utils.wallet import decrypt_private_key

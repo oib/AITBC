@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Any
+import json
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -30,40 +31,49 @@ class MarketplaceCreateRequest(BaseModel):
     price: float
     description: str
 
-# In-memory storage for demo (in production, use database)
-_marketplace_listings: list[dict[str, Any]] = [
-    {
-        "listing_id": "demo_001",
-        "seller_address": "ait1demo_seller_123...",
-        "item_type": "GPU",
-        "price": 1000.0,
-        "description": "High-performance NVIDIA RTX 4090 for AI training",
-        "status": "active",
-        "created_at": datetime.now().isoformat()
-    },
-    {
-        "listing_id": "demo_002",
-        "seller_address": "ait1demo_provider_456...",
-        "item_type": "Compute",
-        "price": 500.0,
-        "description": "10 hours of GPU compute time for deep learning",
-        "status": "active",
-        "created_at": datetime.now().isoformat()
-    }
-]
-
 @router.get("/marketplace/listings", summary="List marketplace items", tags=["marketplace"])
 async def marketplace_listings() -> dict[str, Any]:
-    """Get all marketplace listings"""
+    """Get all marketplace listings from blockchain"""
     try:
         metrics_registry.increment("rpc_marketplace_listings_total")
 
-        # Filter active listings
-        active_listings = [listing for listing in _marketplace_listings if listing.get("status") == "active"]
+        # Read GPU_MARKETPLACE transactions from blockchain
+        import sqlite3
+        from pathlib import Path
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        listings = []
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, sender, payload, timestamp FROM \"transaction\" WHERE type = 'GPU_MARKETPLACE' AND status = 'confirmed' ORDER BY timestamp DESC"
+            )
+            rows = cursor.fetchall()
+            conn.close()
+
+            for tx_id, sender, payload_json, timestamp in rows:
+                try:
+                    payload = json.loads(payload_json) if payload_json else {}
+                    listing = {
+                        "listing_id": f"tx_{tx_id}",
+                        "seller_address": sender,
+                        "item_type": payload.get("item_type", "GPU"),
+                        "price": payload.get("price", 0.0),
+                        "description": payload.get("description", ""),
+                        "status": "active",
+                        "created_at": timestamp or datetime.now().isoformat()
+                    }
+                    listings.append(listing)
+                except json.JSONDecodeError:
+                    continue
 
         return {
-            "listings": active_listings,
-            "total": len(active_listings),
+            "listings": listings,
+            "total": len(listings),
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
