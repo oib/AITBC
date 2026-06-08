@@ -5,7 +5,7 @@ from blockchain nodes, supporting multichain operations.
 """
 
 
-from aitbc import AITBCHTTPClient, NetworkError
+from .http_client import AITBCHTTPClient, NetworkError
 
 # Known chain IDs
 KNOWN_CHAINS = ["ait-mainnet", "ait-devnet", "ait-testnet", "ait-healthchain"]
