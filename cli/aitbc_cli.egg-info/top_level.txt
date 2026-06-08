@@ -3,7 +3,6 @@ auth
 config_data
 handlers
 models
-parsers
 security
 tests
 utils
