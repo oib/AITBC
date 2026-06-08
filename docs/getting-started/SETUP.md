@@ -221,6 +221,12 @@ tail -f /var/lib/aitbc/logs/aitbc-*.log
 # Systemd control
 systemctl status aitbc-blockchain-node
 systemctl restart aitbc-coordinator-api
+
+# AITBC CLI (marketplace, wallet, blockchain operations)
+aitbc market list          # List marketplace offers
+aitbc wallet balance       # Check wallet balance
+aitbc blockchain status    # Check blockchain status
+aitbc --help               # Show all CLI commands
 ```
 
 ## Development Mode

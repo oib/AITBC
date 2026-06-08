@@ -7,7 +7,7 @@ Commands for interacting with the Edge API service
 import click
 import httpx
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 from ..config import get_config
 from ..utils import error, info, output, success

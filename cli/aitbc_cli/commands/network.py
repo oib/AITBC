@@ -3,7 +3,7 @@
 import os
 import click
 
-from aitbc import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 from ..utils import error, output
 

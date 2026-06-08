@@ -4,7 +4,7 @@ Blockchain utility functions for AITBC CLI
 
 import logging
 
-from aitbc import AITBCHTTPClient, NetworkError
+from .http_client import AITBCHTTPClient, NetworkError
 
 logger = logging.getLogger(__name__)
 
