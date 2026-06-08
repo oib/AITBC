@@ -8,7 +8,7 @@
 
 ## 🎯 Overview
 
-AITBC v0.4.14 activates and fully integrates the infrastructure features planned in v0.4.9–v0.4.13 into the live production hub. This release includes: PostgreSQL-backed governance service deployment, Redis caching on blockchain account endpoints with proper cache invalidation, input security validation on marketplace operations, Prometheus/Grafana monitoring stack with 8/8 targets, exchange service activation, and a critical VPS resource stability fix that eliminates process spawn storms.
+AITBC v0.4.14 activates and fully integrates the infrastructure features planned in v0.4.9–v0.4.13 into the live production hub. This release includes: PostgreSQL-backed governance service deployment, Redis caching on blockchain account endpoints with proper cache invalidation, input security validation on marketplace operations, Prometheus/Grafana monitoring stack with 8/8 targets, exchange service activation, a critical VPS resource stability fix that eliminates process spawn storms, and full WebSocket push sync for follower nodes with automatic pull fallback.
 
 ## 📊 Implementation Status
 
@@ -215,6 +215,14 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 | `/etc/prometheus/prometheus.yml` | Full AITBC hub production scrape config |
 | `/etc/prometheus/rules/aitbc_alerts.yml` | New — 9 alert rules for hub services |
 | `/etc/default/prometheus-postgres-exporter` | Configured with `aitbc_governance` credentials |
+| `apps/blockchain-node/src/aitbc_chain/rpc/websocket.py` | New — WebSocket server endpoint `/rpc/subscribe/ws` |
+| `apps/blockchain-node/src/aitbc_chain/subscription_client.py` | WebSocket client, adaptive pull/push, message filtering |
+| `apps/blockchain-node/src/aitbc_chain/main.py` | Adaptive sync — pass `subscription_client` to periodic task |
+| `apps/blockchain-node/src/aitbc_chain/config.py` | `supported_chains` default `""`, remove hardcoded mempool credentials |
+| `apps/blockchain-node/src/aitbc_chain/sync.py` | Normalize block hashes missing `0x` prefix |
+| `cli/aitbc_cli/commands/market.py` | Fix double `/rpc` bug in cancel fallback |
+| `/etc/aitbc/blockchain.env` | Add `MEMPOOL_DB_URL`, fix hub URLs to HTTPS, fix `default_peer_rpc_url` |
+| `/etc/nginx/sites-enabled/aitbc` (hub) | WebSocket proxy `/rpc/subscribe/ws` → `http://127.0.0.1:8202` |
 
 ## 🗄️ System Status
 
@@ -347,6 +355,52 @@ import json,sys; d=json.load(sys.stdin)
 curl http://127.0.0.1:8105/health
 curl http://127.0.0.1:8105/v1/governance/status
 ```
+
+### ✅ Phase 7: WebSocket Push Sync & Follower Node Fixes
+
+**7.1 WebSocket Server (hub-side)**
+- ✅ Created `apps/blockchain-node/src/aitbc_chain/rpc/websocket.py` — WebSocket endpoint for real-time block push
+  - `GET /rpc/subscribe/ws` — accepts WebSocket connections from follower nodes
+  - Validates subscriber has a valid lease (registered via `POST /rpc/subscribe`)
+  - Subscribes to gossip topic `blocks.{chain_id}` and streams new blocks to clients
+  - Sends periodic pings every 20s for keepalive
+  - Handles disconnections and cleans up subscriber registry
+- ✅ `app.py` includes `websocket_router` at `/rpc` prefix
+- ✅ nginx WebSocket proxy added at `/rpc/subscribe/ws` → `http://127.0.0.1:8202` with `Upgrade` headers and 3600s timeout
+- ✅ `aitbc-blockchain-rpc.service` enabled and started (was inactive)
+
+**7.2 WebSocket Client (follower-side)**
+- ✅ Implemented `_receive_via_websocket()` in `apps/blockchain-node/src/aitbc_chain/subscription_client.py`
+  - Converts hub URL to `wss://` for secure WebSocket connection
+  - Sends subscription message via `websocket.send(json.dumps({...}))` (correct `websockets` library API)
+  - Filters control messages (confirmation, pings) — only processes messages with `height` field
+  - Auto-reconnects on `ConnectionClosed` with 5s backoff
+  - Falls back to pull mode on unrecoverable errors
+- ✅ Added `websockets==15.0.1` import (already installed)
+
+**7.3 Chain ID Fix**
+- ✅ `config.py`: Changed `supported_chains` default from hardcoded `"ait-mainnet"` to `""` — now correctly falls back to `CHAIN_ID` env var (`ait-hub.aitbc.bubuit.net`)
+- ✅ Removed stale `/var/lib/aitbc/data/ait-mainnet/` database (12 MB, orphaned from misconfigured chain ID)
+
+**7.4 Adaptive Pull/Push Sync**
+- ✅ `_periodic_sync_task()` in `main.py` now accepts `subscription_client` reference
+  - Skips periodic pull when WebSocket push is active (`sync_mode == "push"`)
+  - Automatically resumes pull sync when WebSocket is unavailable (fallback)
+  - Startup behavior: pull runs once on boot before WebSocket connects, then push takes over
+
+**7.5 PostgreSQL Credentials Security**
+- ✅ Removed hardcoded PostgreSQL credentials from `apps/blockchain-node/src/aitbc_chain/config.py`
+  - `mempool_db_url` now defaults to `""` — requires `MEMPOOL_DB_URL` env var
+- ✅ Added `MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:aitbc_mempool@localhost:5432/aitbc_mempool` to `/etc/aitbc/blockchain.env`
+
+**7.6 Blockchain Node Sync Fixes**
+- ✅ Fixed `default_peer_rpc_url` in `blockchain.env` to point to hub (`https://hub.aitbc.bubuit.net`)
+- ✅ Changed all hub URLs from HTTP to HTTPS in `blockchain.env` (fixes 308 redirect errors)
+- ✅ Removed `/rpc` suffix from hub URLs to prevent double `/rpc` in sync requests
+- ✅ Fixed genesis block hash validation in `sync.py` — normalizes hashes missing `0x` prefix
+- ✅ Fixed double `/rpc` bug in `cli/aitbc_cli/commands/market.py` cancel fallback path
+
+**Result**: Follower node (aitbc3) now syncs via WebSocket push mode with automatic pull fallback. Sync latency reduced from ~30s (periodic poll) to <1s (real-time push).
 
 ## 🐛 Known Issues
 
