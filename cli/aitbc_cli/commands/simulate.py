@@ -28,7 +28,7 @@ except ImportError:
     def get_config(config_file=None, role=None):
         return {}
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 

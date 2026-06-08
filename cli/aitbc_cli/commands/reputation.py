@@ -6,7 +6,7 @@ Provides CLI commands for managing agent reputation, trust scores, and community
 import click
 from typing import Any
 
-from aitbc import get_logger
+from ..utils.http_client import get_logger
 
 logger = get_logger(__name__)
 
