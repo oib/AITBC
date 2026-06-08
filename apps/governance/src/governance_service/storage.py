@@ -13,36 +13,45 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-# Database configuration
-DB_TYPE = os.getenv("DB_TYPE", "sqlite")  # or "postgresql"
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "aitbc_governance")
-DB_USER = os.getenv("DB_USER", "aitbc")
-DB_PASS = os.getenv("DB_PASS", "")
+def _build_database_url() -> str:
+    """Build database URL from environment variables at call time."""
+    db_type = os.getenv("DB_TYPE", "sqlite")
+    if db_type == "postgresql":
+        host = os.getenv("DB_HOST", "localhost")
+        port = os.getenv("DB_PORT", "5432")
+        name = os.getenv("DB_NAME", "aitbc_governance")
+        user = os.getenv("DB_USER", "aitbc")
+        password = os.getenv("DB_PASS", "")
+        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+    return os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/governance_service.db")
 
-# Build database URL based on type
-if DB_TYPE == "postgresql":
-    DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-else:
-    # FHS-compliant path for SQLite
-    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/governance_service.db")
 
-# Create async engine with connection pooling
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-)
+def _create_engine():
+    """Create async engine based on current environment."""
+    db_type = os.getenv("DB_TYPE", "sqlite")
+    url = _build_database_url()
+    kwargs = {
+        "echo": False,
+        "pool_pre_ping": True,
+    }
+    if db_type == "postgresql":
+        kwargs["pool_size"] = 10
+        kwargs["max_overflow"] = 20
+    return create_async_engine(url, **kwargs)
+
+
+engine = _create_engine()
 
 
 async def init_db() -> None:
-    """Initialize database tables"""
+    """Initialize database tables.
 
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    For PostgreSQL, Alembic manages schema migrations so we skip create_all.
+    For SQLite (dev/test), create tables automatically.
+    """
+    if os.getenv("DB_TYPE", "sqlite") != "postgresql":
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
 
     logger.info("Governance service database initialized")
 

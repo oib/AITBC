@@ -158,6 +158,20 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.handle_marketplace_offer(path)
         elif path == '/v1/marketplace/orders':
             self.handle_marketplace_orders(parsed)
+        elif path == '/metrics':
+            self.handle_metrics()
+        elif path == '/v1/bridge/price':
+            self.handle_bridge_price(parsed)
+        elif path == '/v1/bridge/status':
+            self.handle_bridge_status(None)
+        elif path.startswith('/v1/bridge/status/'):
+            self.handle_bridge_status(path.split('/')[-1])
+        elif path == '/v1/bridge/deposits':
+            self.handle_bridge_deposits(parsed)
+        elif path.startswith('/v1/bridge/deposit/'):
+            self.handle_bridge_deposit_detail(path.split('/')[-1])
+        elif path == '/v1/exchange/history':
+            self.handle_exchange_history(parsed)
         else:
             self.send_error(404, "Not Found")
 
@@ -174,6 +188,12 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.handle_marketplace_create_offer()
         elif path.startswith('/v1/marketplace/offers/') and path.endswith('/book'):
             self.handle_marketplace_book_offer(path)
+        elif path == '/v1/bridge/deposit':
+            self.handle_bridge_deposit()
+        elif path == '/v1/bridge/withdraw':
+            self.handle_bridge_withdraw()
+        elif path == '/v1/bridge/estimate':
+            self.handle_bridge_estimate()
         else:
             self.send_error(404, "Not Found")
 
@@ -643,6 +663,253 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             'status': 'ok',
             'timestamp': datetime.now(UTC).isoformat()
         })
+
+    def handle_metrics(self):
+        """Prometheus metrics endpoint"""
+        try:
+            from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+            output = generate_latest()
+            self.send_response(200)
+            self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+            self.end_headers()
+            self.wfile.write(output)
+        except Exception as e:
+            self.send_error(500, str(e))
+
+    def handle_exchange_history(self, parsed):
+        """GET /v1/exchange/history — return current ETH prices for USD and EUR"""
+        try:
+            import sys
+            sys.path.insert(0, '/opt/aitbc')
+            from aitbc.oracles.price_oracle import get_price_oracle
+            
+            oracle = get_price_oracle()
+            eth_usd = oracle.get_price('ETH', 'USD')
+            eth_eur = oracle.get_price('ETH', 'EUR')
+            ait_usd = oracle.get_price('AIT', 'USD')
+            
+            # Calculate AIT/EUR from ETH prices
+            ait_eur_price = None
+            if eth_usd and eth_eur and ait_usd:
+                ait_eur_price = (ait_usd.price * eth_eur.price) / eth_usd.price
+            
+            # Calculate ETH/AIT rate
+            eth_ait_rate = (eth_usd.price / ait_usd.price) if eth_usd and ait_usd else 0
+            
+            self.send_json_response({
+                'success': True,
+                'current': {
+                    'eth_usd': eth_usd.price if eth_usd else None,
+                    'ait_usd': ait_usd.price if ait_usd else None,
+                    'eth_eur': eth_eur.price if eth_eur else None,
+                    'ait_eur': ait_eur_price,
+                    'eth_ait_rate_usd': eth_ait_rate,
+                    'timestamp': eth_usd.timestamp if eth_usd else None
+                },
+                'history': []
+            })
+        except Exception as e:
+            self.send_json_response({'success': False, 'error': str(e)}, status=500)
+
+    def handle_bridge_price(self, parsed):
+        """GET /v1/bridge/price?base=ETH&quote=USD — oracle price feed"""
+        import sys
+        sys.path.insert(0, '/opt/aitbc')
+        params = urllib.parse.parse_qs(parsed.query)
+        base = params.get('base', ['ETH'])[0].upper()
+        quote = params.get('quote', ['USD'])[0].upper()
+        try:
+            from aitbc.oracles.price_oracle import get_price_oracle
+            result = get_price_oracle().get_price(base, quote)
+            if result:
+                self.send_json_response({
+                    'pair': f'{result.base}/{result.quote}',
+                    'price': result.price,
+                    'source': result.source,
+                    'timestamp': result.timestamp,
+                })
+            else:
+                self.send_json_response({'error': f'No price available for {base}/{quote}'}, status=404)
+        except Exception as e:
+            self.send_json_response({'error': str(e)}, status=500)
+
+    def handle_bridge_status(self, tx_id):
+        """GET /v1/bridge/status[/{tx_id}]"""
+        import os
+        bridge_addr = os.getenv('BRIDGE_CONTRACT_ADDRESS')
+        if tx_id:
+            self.send_json_response({'tx_id': tx_id, 'status': 'pending', 'message': 'Bridge contract not yet deployed on-chain'})
+        else:
+            if bridge_addr:
+                status = 'deployed'
+                msg = 'Bridge contract deployed on-chain'
+            else:
+                status = 'configured'
+                msg = 'Deploy bridge contract with: npx hardhat run contracts/scripts/deploy-bridge.js --network sepolia'
+            deposit_addr = os.getenv('BRIDGE_ETH_ADDRESS')
+            self.send_json_response({
+                'bridge': 'CrossChainBridge',
+                'status': status,
+                'supported_chains': ['aitbc', 'ethereum'],
+                'fee_rate': 0.005,
+                'contract_address': bridge_addr,
+                'deposit_address': deposit_addr,
+                'message': msg,
+            })
+
+    def _read_json_body(self):
+        import json
+        length = int(self.headers.get('Content-Length', 0))
+        return json.loads(self.rfile.read(length)) if length else {}
+
+    def handle_bridge_deposit(self):
+        """POST /v1/bridge/deposit — initiate ETH→AIT bridge deposit"""
+        try:
+            body = self._read_json_body()
+            eth_amount = float(body.get('eth_amount', 0))
+            ait_address = body.get('ait_address', '')
+            if not eth_amount or not ait_address:
+                self.send_json_response({'error': 'eth_amount and ait_address required'}, status=400)
+                return
+            import sys, sys as _sys
+            sys.path.insert(0, '/opt/aitbc')
+            from aitbc.oracles.price_oracle import get_price_oracle
+            rate = get_price_oracle().get_price('ETH', 'USD')
+            self.send_json_response({
+                'status': 'pending_deployment',
+                'message': 'Bridge contract not yet deployed. Deploy with: npx hardhat run contracts/scripts/deploy-bridge.js --network sepolia',
+                'estimate': {
+                    'eth_amount': eth_amount,
+                    'fee_eth': round(eth_amount * 0.005, 8),
+                    'net_eth': round(eth_amount * 0.995, 8),
+                    'eth_usd': round(rate.price, 2) if rate else None,
+                    'ait_address': ait_address,
+                }
+            }, status=202)
+        except Exception as e:
+            self.send_json_response({'error': str(e)}, status=500)
+
+    def handle_bridge_withdraw(self):
+        """POST /v1/bridge/withdraw — initiate AIT→ETH bridge withdrawal"""
+        try:
+            body = self._read_json_body()
+            ait_amount = float(body.get('ait_amount', 0))
+            eth_address = body.get('eth_address', '')
+            if not ait_amount or not eth_address:
+                self.send_json_response({'error': 'ait_amount and eth_address required'}, status=400)
+                return
+            self.send_json_response({
+                'status': 'pending_deployment',
+                'message': 'Bridge contract not yet deployed.',
+                'estimate': {
+                    'ait_amount': ait_amount,
+                    'fee_ait': round(ait_amount * 0.005, 6),
+                    'net_ait': round(ait_amount * 0.995, 6),
+                    'eth_address': eth_address,
+                }
+            }, status=202)
+        except Exception as e:
+            self.send_json_response({'error': str(e)}, status=500)
+
+    def handle_bridge_deposits(self, parsed):
+        """GET /v1/bridge/deposits — list bridge deposits"""
+        try:
+            from urllib.parse import parse_qs
+            import sys
+            sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
+            from bridge_monitor.storage import get_deposits, count_deposits, BridgeDepositStatus
+            
+            params = parse_qs(parsed.query)
+            status_filter = params.get('status', [None])[0]
+            limit = int(params.get('limit', [50])[0])
+            offset = int(params.get('offset', [0])[0])
+            
+            status = None
+            if status_filter:
+                try:
+                    status = BridgeDepositStatus(status_filter)
+                except ValueError:
+                    self.send_json_response({'error': f'Invalid status: {status_filter}'}, status=400)
+                    return
+            
+            deposits = get_deposits(status=status, limit=limit, offset=offset)
+            total = count_deposits(status=status)
+            
+            # Convert sqlite3.Row objects to dicts if needed
+            deposits_list = []
+            for d in deposits:
+                if isinstance(d, dict):
+                    deposits_list.append(d)
+                else:
+                    # sqlite3.Row object
+                    deposits_list.append(dict(d))
+            
+            self.send_json_response({
+                'deposits': deposits_list,
+                'count': len(deposits_list),
+                'total': total,
+                'limit': limit,
+                'offset': offset,
+            })
+        except Exception as e:
+            self.send_json_response({'error': str(e)}, status=500)
+
+    def handle_bridge_deposit_detail(self, tx_hash):
+        """GET /v1/bridge/deposit/{tx_hash} — get deposit details"""
+        try:
+            import sys
+            sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
+            from bridge_monitor.storage import get_deposit
+            
+            deposit = get_deposit(tx_hash)
+            if not deposit:
+                self.send_json_response({'error': 'Deposit not found'}, status=404)
+                return
+            
+            self.send_json_response(deposit)
+        except Exception as e:
+            self.send_json_response({'error': str(e)}, status=500)
+
+    def handle_bridge_estimate(self):
+        """POST /v1/bridge/estimate — estimate AIT amount for ETH"""
+        try:
+            body = self._read_json_body()
+            eth_amount = float(body.get('eth_amount', 0))
+            
+            if eth_amount <= 0:
+                self.send_json_response({'error': 'eth_amount must be positive'}, status=400)
+                return
+            
+            import sys
+            sys.path.insert(0, '/opt/aitbc')
+            from aitbc.oracles.price_oracle import get_price_oracle
+            
+            oracle = get_price_oracle()
+            eth_usd_result = oracle.get_price('ETH', 'USD')
+            ait_usd_result = oracle.get_price('AIT', 'USD')
+            
+            if not eth_usd_result or not ait_usd_result:
+                self.send_json_response({'error': 'Cannot get oracle prices'}, status=503)
+                return
+            
+            eth_usd = eth_usd_result.price
+            ait_usd = ait_usd_result.price
+            
+            if ait_usd == 0:
+                self.send_json_response({'error': 'AIT/USD price is zero'}, status=503)
+                return
+            
+            ait_amount = (eth_amount * eth_usd) / ait_usd
+            
+            self.send_json_response({
+                'eth_amount': eth_amount,
+                'eth_usd_price': eth_usd,
+                'ait_usd_price': ait_usd,
+                'ait_amount': round(ait_amount, 6),
+                'exchange_rate': round(ait_amount / eth_amount, 2),
+            })
+        except Exception as e:
+            self.send_json_response({'error': str(e)}, status=500)
 
     def handle_wallet_balance(self):
         """Handle wallet balance request"""

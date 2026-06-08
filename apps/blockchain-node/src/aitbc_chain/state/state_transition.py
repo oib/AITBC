@@ -7,6 +7,7 @@ to ensure they only occur through validated transactions.
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 
 from sqlalchemy import select, text
@@ -15,6 +16,13 @@ from sqlmodel import Session, select
 from ..logger import get_logger
 from ..models import Account, Receipt, Transaction
 from .gpu_resources import GPUAllocation, GPURegistration
+
+try:
+    from aitbc.redis_cache import RedisCache
+    _REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    _cache = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
+except Exception:
+    _cache = None
 
 logger = get_logger(__name__)
 
@@ -265,6 +273,13 @@ class StateTransition:
         # Mark transaction as processed
         self._processed_tx_hashes.add(tx_hash)
         self._processed_nonces[sender_addr] = sender_account.nonce
+
+        # Invalidate Redis cache for affected accounts
+        if _cache and _cache.is_available():
+            for addr in [sender_addr, recipient_addr]:
+                if addr:
+                    _cache.delete(f"account_balance:{chain_id}:{addr.lower()}")
+                    _cache.delete(f"account_details:{chain_id}:{addr.lower()}")
 
         logger.info(
             f"Applied transaction {tx_hash}: "

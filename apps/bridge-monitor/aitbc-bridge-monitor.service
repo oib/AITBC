@@ -1,0 +1,23 @@
+[Unit]
+Description=AITBC Bridge Monitor - ETH to AIT Bridge
+After=network.target aitbc-blockchain-rpc.service
+Requires=aitbc-blockchain-rpc.service
+
+[Service]
+Type=simple
+User=aitbc-internal
+Group=aitbc-services
+WorkingDirectory=/opt/aitbc/apps/bridge-monitor
+Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/aitbc"
+Environment="DATA_DIR=/var/lib/aitbc"
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/node.env
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/bridge-monitor/aitbc-bridge-monitor-wrapper.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
