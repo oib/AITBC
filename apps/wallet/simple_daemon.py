@@ -6,6 +6,7 @@ Real implementation connecting to AITBC wallet keystore and blockchain RPC.
 """
 
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from aitbc.constants import KEYSTORE_DIR
+from aitbc.crypto import encrypt_private_key, decrypt_private_key
 
 # Add CLI utils to path
 sys.path.insert(0, '/opt/aitbc/cli')
@@ -28,6 +30,17 @@ wallet_app = FastAPI(title="AITBC Wallet Daemon", debug=False)
 KEYSTORE_PATH = KEYSTORE_DIR
 BLOCKCHAIN_RPC_URL = "http://localhost:8006"
 CHAIN_ID = "ait-mainnet"
+WALLET_PASSWORD = os.getenv("WALLET_IMPORT_PASSWORD", "")
+
+
+def _encrypt_if_password(private_key: str) -> tuple[str, bool]:
+    """Encrypt private key if WALLET_IMPORT_PASSWORD is set."""
+    if WALLET_PASSWORD:
+        try:
+            return encrypt_private_key(private_key, WALLET_PASSWORD), True
+        except Exception as e:
+            print(f"Warning: failed to encrypt private key: {e}")
+    return private_key, False
 
 # Real chains data from configuration
 chains_data = {
@@ -219,11 +232,13 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
         sys.stdout = old_stdout
 
         # Save wallet data to keystore for persistence
+        raw_private_key = result.get("private_key", "")
+        encrypted_key, is_encrypted = _encrypt_if_password(raw_private_key)
         wallet_data = {
             "address": result.get("address", ""),
             "public_key": result.get("public_key", ""),
-            "private_key": result.get("private_key", ""),
-            "encrypted": result.get("encrypted", False),
+            "private_key": encrypted_key,
+            "encrypted": is_encrypted,
             "chain_id": chain_id,
             "wallet_name": wallet_name
         }
@@ -252,12 +267,13 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
         public_key = derive_ethereum_address(private_key)
         address = f"ait1{public_key[2:]}"
 
-        # Save to keystore
+        # Save to keystore (encrypt if password available)
+        encrypted_key, is_encrypted = _encrypt_if_password(private_key)
         wallet_data = {
             "address": address,
             "public_key": public_key,
-            "private_key": private_key,
-            "encrypted": False,
+            "private_key": encrypted_key,
+            "encrypted": is_encrypted,
             "chain_id": chain_id
         }
 
@@ -401,13 +417,19 @@ async def create_wallet(request: dict[str, Any] = None):
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)
         address = f"ait1{public_key[2:]}"
-        wallet_data = {"address": address, "public_key": public_key, "private_key": private_key, "encrypted": False}
+        encrypted_key, is_encrypted = _encrypt_if_password(private_key)
+        wallet_data = {
+            "address": address,
+            "public_key": public_key,
+            "private_key": encrypted_key,
+            "encrypted": is_encrypted
+        }
         KEYSTORE_PATH = Path("/etc/aitbc/keystore")
         KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
         (KEYSTORE_PATH / f"{wallet_name}.json").write_text(json.dumps(wallet_data))
         return JSONResponse({
             "wallet_name": wallet_name, "address": address, "public_key": public_key,
-            "chain_id": chain_id, "encrypted": False,
+            "chain_id": chain_id, "encrypted": is_encrypted,
             "created_at": datetime.now().isoformat(), "mode": "daemon"
         })
 

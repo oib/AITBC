@@ -68,8 +68,14 @@ def handle_resource_allocate(args, render_mapping):
         "region": "localhost"
     }
 
+    miner_api_key = os.getenv("MINER_API_KEY", "")
+    if not miner_api_key:
+        logger.error("MINER_API_KEY environment variable is not set")
+        render_mapping("Error:", {"message": "MINER_API_KEY environment variable is not set"})
+        return
+
     headers = {
-        "X-Api-Key": "aitbc-miner-token-secure",
+        "X-Api-Key": miner_api_key,
         "X-Miner-ID": agent_id,
         "Content-Type": "application/json"
     }

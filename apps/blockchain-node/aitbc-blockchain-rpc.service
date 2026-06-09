@@ -19,7 +19,6 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=BlockchainRPC
 MemoryMax=512M
-MemoryLimit=512M
 
 [Install]
 WantedBy=multi-user.target

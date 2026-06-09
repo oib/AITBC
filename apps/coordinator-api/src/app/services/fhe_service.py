@@ -79,11 +79,15 @@ class MockFHEProvider(FHEProvider):
         )
 
     def encrypt(self, data: np.ndarray, context: FHEContext) -> EncryptedData:
-        """Mock encryption - just serialize data"""
-
-        # Simple mock encryption: serialize the data
-        import pickle
-        ciphertext = pickle.dumps(data)
+        """Mock encryption - serialize data as JSON (numpy-safe)."""
+        import json
+        # Convert numpy array to JSON-serializable list
+        payload = {
+            "data": data.tolist(),
+            "shape": list(data.shape),
+            "dtype": str(data.dtype)
+        }
+        ciphertext = json.dumps(payload).encode("utf-8")
 
         return EncryptedData(
             ciphertext=ciphertext,
@@ -93,10 +97,10 @@ class MockFHEProvider(FHEProvider):
         )
 
     def decrypt(self, encrypted_data: EncryptedData) -> np.ndarray:
-        """Mock decryption - deserialize data"""
-        import pickle
-        data = pickle.loads(encrypted_data.ciphertext)
-        return np.array(data).reshape(encrypted_data.shape)
+        """Mock decryption - deserialize JSON back to numpy array."""
+        import json
+        payload = json.loads(encrypted_data.ciphertext.decode("utf-8"))
+        return np.array(payload["data"], dtype=payload.get("dtype", "float64")).reshape(encrypted_data.shape)
 
     def encrypted_inference(self, model: dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
         """Mock encrypted inference - perform computation on plaintext"""

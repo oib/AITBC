@@ -28,9 +28,9 @@ SERVICE_RPC = "aitbc-blockchain-rpc"
 def run(cmd, check=True, capture_output=False):
     print(f"+ {cmd}")
     if capture_output:
-        result = subprocess.run(cmd, shell=True, check=check, capture_output=True, text=True)
+        result = subprocess.run(cmd, shell=False, check=check, capture_output=True, text=True)
     else:
-        result = subprocess.run(cmd, shell=True, check=check)
+        result = subprocess.run(cmd, shell=False, check=check)
     return result
 
 def main():
