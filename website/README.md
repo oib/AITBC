@@ -1,38 +1,6 @@
 # AITBC Website
 
-Production website for the AITBC platform.
-
-## File Structure
-
-```
-website/
-├── index.html              # Homepage — platform overview & achievements
-├── 404.html                # Custom error page
-├── aitbc-proxy.conf        # Nginx reverse proxy configuration
-├── favicon.svg
-├── font-awesome-local.css
-├── docs/                   # All documentation (16 pages)
-│   ├── index.html          # Docs landing — search, reader-level cards
-│   ├── clients.html        # Client guide — jobs, wallet, pricing, API
-│   ├── miners.html         # Miner guide — GPU setup, earnings, Ollama
-│   ├── developers.html     # Developer guide — SDKs, contributing, bounties
-│   ├── full-documentation.html  # Complete technical reference
-│   ├── components.html     # Architecture & components overview
-│   ├── flowchart.html      # End-to-end system flow diagram
-│   ├── api.html            # REST API reference
-│   ├── blockchain-node.html
-│   ├── coordinator-api.html
-│   ├── explorer-web.html
-│   ├── marketplace-web.html
-│   ├── wallet-daemon.html
-│   ├── trade-exchange.html
-│   ├── pool-hub.html
-│   ├── browser-wallet.html # Redirect → /wallet/
-│   ├── css/docs.css        # Shared stylesheet (1,870 lines)
-│   └── js/theme.js         # Dark/light theme toggle
-└── wallet/
-    └── index.html          # Browser wallet landing page
-```
+Production website for the AITBC platform, providing both human-readable pages and machine-readable agent discovery endpoints.
 
 ## Deployment
 
@@ -40,27 +8,145 @@ Deployed in the AITBC Incus container:
 
 | | |
 |---|---|
+| **Domain** | hub.aitbc.bubuit.net |
 | **Container IP** | 10.1.223.93 |
-| **Domain** | aitbc.bubuit.net |
-| **Docs** | aitbc.bubuit.net/docs/ |
+| **Nginx Config** | `/etc/nginx/sites-enabled/aitbc` |
 
-### Push to live
+## File Structure
 
-```bash
-# Push all files via SSH
-scp /home/oib/windsurf/aitbc/website/index.html /home/oib/windsurf/aitbc/website/404.html /home/oib/windsurf/aitbc/website/favicon.svg /home/oib/windsurf/aitbc/website/font-awesome-local.css aitbc-cascade:/var/www/html/
-scp /home/oib/windsurf/aitbc/website/docs/*.html aitbc-cascade:/var/www/html/docs/
-scp /home/oib/windsurf/aitbc/website/docs/css/docs.css aitbc-cascade:/var/www/html/docs/css/
-scp /home/oib/windsurf/aitbc/website/docs/js/theme.js aitbc-cascade:/var/www/html/docs/js/
-scp /home/oib/windsurf/aitbc/website/wallet/index.html aitbc-cascade:/var/www/html/wallet/
+```
+website/
+├── index.html              # Homepage — platform overview
+├── exchange.html           # ETH-AIT Bridge and token pricing
+├── favicon.svg             # Site favicon
+├── exchange-price.json     # Price data for exchange page
+├── DEPLOYMENT.md           # Deployment documentation (legacy)
+├── assets/
+│   ├── css/
+│   │   └── style.css       # Main stylesheet
+│   ├── AITBC.svg           # Logo
+│   └── js/                 # (currently empty)
+└── agent/
+    ├── index.html          # Agent API documentation
+    ├── live_api.py         # Agent API server
+    ├── health              # Health check endpoint (static)
+    └── README.md           # Agent API documentation
 ```
 
-## Key Features
+## Agent-First Endpoints
 
-- **Unified header/nav** across all 15 doc pages with theme toggle
-- **Live search** on docs index (client-side, 15-page index)
-- **Shared CSS** — zero inline `<style>` blocks, one `docs.css`
-- **Shared JS** — theme persistence via `theme.js`
-- **Zero dead links** — all `href="#"` replaced with real targets
-- **Font Awesome 6** consistently across all pages
-- **Dark/light mode** with localStorage persistence
+The website provides machine-readable discovery endpoints for autonomous agents.
+
+### Static Endpoints (Fast, Cached)
+
+| Endpoint | Description | Source |
+|----------|-------------|--------|
+| `/agent/health` | Health check | `aitbc-agent-registry.service` |
+| `/agent/discovery.json` | Network topology | `aitbc-agent-registry.service` |
+| `/agent/islands.json` | Island configuration | `aitbc-agent-registry.service` |
+| `/agent/chains.json` | Chain configuration | `aitbc-agent-registry.service` |
+| `/agent/openapi.json` | API specification | `aitbc-agent-registry.service` |
+| `/agent/join/` | Join instructions | `aitbc-agent-registry.service` |
+| `/agent/blockchain.env` | Public blockchain config | `/etc/aitbc/blockchain.env` |
+| `/agent/blockchain-secrets.env` | Shared cluster secrets | `/etc/aitbc/blockchain-secrets.env` |
+
+### RPC Endpoints (Blockchain Access)
+
+| Endpoint | Description |
+|----------|-------------|
+| `/rpc/head` | Current block height |
+| `/rpc/info` | Chain information |
+| `/rpc/islands` | Island memberships |
+| `/rpc/subscribe/ws` | WebSocket for real-time updates |
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Autonomous    │────▶│  Nginx (80/443) │────▶│  Static HTML    │
+│   Agent         │     │                 │     │  (index.html)   │
+└─────────────────┘     │  ┌───────────┐  │     └─────────────────┘
+                        │  │ /agent/*  │  │
+                        │  │ /rpc/*    │  │     ┌─────────────────┐
+                        │  └─────┬─────┘  │────▶│  Agent Registry │
+                        │        │        │     │  (port 8204)    │
+                        │        └────┬───┘     └─────┬───────────┘
+                        │             │               │
+                        └─────────────┘               │
+                                                      ▼
+                                              ┌─────────────────┐
+                                              │  Blockchain RPC │
+                                              │  (port 8202)    │
+                                              └─────────────────┘
+```
+
+## Testing
+
+```bash
+# Test static endpoint
+curl -s http://localhost/agent/discovery.json | jq .
+
+# Test health check
+curl -s http://localhost/agent/health | jq .
+
+# Test env files
+curl -s http://localhost/agent/blockchain.env
+curl -s http://localhost/agent/blockchain-secrets.env
+
+# Check CORS headers
+curl -I http://localhost/agent/discovery.json
+```
+
+## Security Notes
+
+1. **CORS**: All `/agent/` and `/rpc/` endpoints have `Access-Control-Allow-Origin: *` for agent access
+2. **Static files**: No sensitive data in JSON files (only public network info)
+3. **Env files**: Served from `/etc/aitbc/` with proper permissions
+4. **No auth**: Discovery endpoints are public by design
+
+## Troubleshooting
+
+**Agent API not responding:**
+```bash
+# Check service status
+sudo systemctl status aitbc-agent-registry.service
+
+# Check logs
+sudo journalctl -u aitbc-agent-registry.service -f
+
+# Test directly
+curl http://127.0.0.1:8204/agent/health
+```
+
+**Nginx config errors:**
+```bash
+# Test configuration
+sudo nginx -t
+
+# Check error logs
+sudo tail -f /var/log/nginx/error.log
+
+# Reload after changes
+sudo systemctl reload nginx
+```
+
+## Git Workflow
+
+Since the website is served directly from the repo:
+
+```bash
+# Edit files
+cd /opt/aitbc/website
+
+# Commit changes
+git add .
+git commit -m "Update website"
+git push
+
+# Changes are live immediately (no deploy needed)
+```
+
+## Support
+
+- Repository: https://github.com/oib/AITBC
+- Documentation: `/agent/index.html` (served at `http://hub.aitbc.bubuit.net/agent/`)
