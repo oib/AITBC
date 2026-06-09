@@ -21,6 +21,12 @@ from ..utils import error, output, success
 logger = get_logger(__name__)
 
 
+def get_wallet_client() -> AITBCHTTPClient:
+    """Get HTTP client for wallet service"""
+    config = get_config()
+    return AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=30)
+
+
 def encrypt_value(value: str, password: str) -> str:
     """Simple encryption for wallet data (placeholder)"""
     # For now, return the value as-is since daemon mode doesn't need this
@@ -499,154 +505,84 @@ def info(ctx):
 @click.argument("name", required=False)
 @click.pass_context
 def balance(ctx, name: str | None):
-    """Check wallet balance"""
+    """Check wallet balance from wallet service"""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
 
-    wallet_dir = ctx.obj["wallet_dir"]
-    wallet_path = wallet_dir / f"{wallet_name}.json"
-    config = ctx.obj.get("config")
-
-    # Auto-create wallet if it doesn't exist
-    if not wallet_path.exists():
-        import secrets
-
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import ec
-        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
-        # Generate proper key pair
-        private_key_bytes = secrets.token_bytes(32)
-        private_key = f"0x{private_key_bytes.hex()}"
-
-        # Derive public key from private key
-        priv_key = ec.derive_private_key(
-            int.from_bytes(private_key_bytes, "big"), ec.SECP256K1()
-        )
-        pub_key = priv_key.public_key()
-        pub_key_bytes = pub_key.public_bytes(
-            encoding=Encoding.X962, format=PublicFormat.UncompressedPoint
-        )
-        public_key = f"0x{pub_key_bytes.hex()}"
-
-        # Generate address from public key
-        digest = hashes.Hash(hashes.SHA256())
-        digest.update(pub_key_bytes)
-        address_hash = digest.finalize()
-        address = f"aitbc1{address_hash[:20].hex()}"
-
-        wallet_data = {
-            "wallet_id": wallet_name,
-            "type": "simple",
-            "address": address,
-            "public_key": public_key,
-            "private_key": private_key,
-            "created_at": datetime.now(UTC).isoformat() + "Z",
-            "balance": 0.0,
-            "transactions": [],
-        }
-        wallet_path.parent.mkdir(parents=True, exist_ok=True)
-        # Auto-create without prompt in balance command
-        if ctx.obj.get("output_format", "table") == "table":
-            success("Creating new wallet")
-        _save_wallet(wallet_path, wallet_data, None)
-    else:
-        wallet_data = _load_wallet(wallet_path, wallet_name)
-
-    # Try to get balance from wallet daemon (which queries blockchain)
-    use_daemon = ctx.obj.get("use_daemon", True)
-    if use_daemon:
-        try:
-            from aitbc_cli.config import get_config
-            from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
-            _cfg = config or get_config()
-            daemon_client = WalletDaemonClient(_cfg)
-            if daemon_client.is_available():
-                balance_info = daemon_client.get_wallet_balance(wallet_name)
-                if balance_info:
-                    output(
-                        {
-                            "wallet": wallet_name,
-                            "address": balance_info.address or wallet_data.get("address", ""),
-                            "balance": balance_info.balance,
-                            "chain_id": balance_info.chain_id,
-                        },
-                        ctx.obj.get("output_format", "table"),
-                    )
-                    return
-        except Exception:
-            pass
-
-    # Try to get balance directly from blockchain RPC
     try:
-        from aitbc_cli.config import get_config
-        _cfg = config or get_config()
-        rpc_url = getattr(_cfg, "blockchain_rpc_url", None) or "https://hub.aitbc.bubuit.net"
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
-        data = http_client.get(f"/rpc/account/{wallet_data['address']}")
-        output(
-            {
-                "wallet": wallet_name,
-                "address": wallet_data["address"],
-                "balance": data.get("balance", 0),
-                "chain_id": data.get("chain_id", ""),
-            },
-            ctx.obj.get("output_format", "table"),
-        )
-        return
-    except Exception:
-        pass
-
-    # Fallback to local balance only
-    output(
-        {
-            "wallet": wallet_name,
-            "address": wallet_data["address"],
-            "balance": wallet_data.get("balance", 0),
-            "note": "Local balance only (blockchain not accessible)",
-        },
-        ctx.obj.get("output_format", "table"),
-    )
+        client = get_wallet_client()
+        balance_data = client.get(f"/v1/wallets/{wallet_name}/balance")
+        output(balance_data, ctx.obj.get('output_format', 'table'), title=f"Wallet: {wallet_name}")
+    except Exception as e:
+        error(f"Error getting wallet balance: {e}")
+        raise click.Abort()
 
 
 @wallet.command()
+@click.argument("name", required=False)
 @click.option("--limit", type=int, default=10, help="Number of transactions to show")
 @click.pass_context
-def history(ctx, limit: int):
-    """Show transaction history"""
-    wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
-
-    if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+def transactions(ctx, name: str | None, limit: int):
+    """Show blockchain transactions for wallet"""
+    wallet_name = name or ctx.obj["wallet_name"]
+    if not wallet_name:
+        error("No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    try:
+        # Get wallet address from wallet service
+        client = get_wallet_client()
+        wallets_data = client.get("/v1/wallets")
+        
+        # Find wallet by wallet_id
+        wallet_info = None
+        for item in wallets_data.get("items", []):
+            if item.get("wallet_id") == wallet_name:
+                wallet_info = item
+                break
+        
+        if not wallet_info:
+            error(f"Wallet '{wallet_name}' not found")
+            return
+        
+        address = wallet_info.get("metadata", {}).get("address")
+        if not address:
+            error(f"Could not get address for wallet '{wallet_name}'")
+            return
 
-    transactions = wallet_data.get("transactions", [])[-limit:]
+        # Get transactions from blockchain RPC
+        config = get_config()
+        rpc_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=30)
+        transactions = rpc_client.get(f"/transactions?address={address}&limit={limit}")
+        
+        if isinstance(transactions, dict):
+            transactions = transactions.get("transactions", [])
+        
+        # Format transactions
+        formatted_txs = []
+        for tx in transactions:
+            formatted_txs.append({
+                "tx_id": tx.get("transaction_id"),
+                "tx_hash": tx.get("tx_hash", "")[:16] + "...",
+                "sender": tx.get("sender", "")[:20] + "...",
+                "recipient": tx.get("recipient", "")[:20] + "...",
+                "value": tx.get("value"),
+                "fee": tx.get("fee"),
+                "status": tx.get("status"),
+                "timestamp": tx.get("created_at", "")[:19]
+            })
 
-    # Format transactions
-    formatted_txs = []
-    for tx in transactions:
-        formatted_txs.append(
-            {
-                "type": tx["type"],
-                "amount": tx["amount"],
-                "description": tx.get("description", ""),
-                "timestamp": tx["timestamp"],
-            }
-        )
-
-    output(
-        {
+        output({
             "wallet": wallet_name,
-            "address": wallet_data["address"],
-            "transactions": formatted_txs,
-        },
-        ctx.obj.get("output_format", "table"),
-    )
+            "address": address,
+            "count": len(formatted_txs),
+            "transactions": formatted_txs
+        }, ctx.obj.get('output_format', 'table'), title=f"Transactions: {wallet_name}")
+    except Exception as e:
+        error(f"Error getting transactions: {e}")
+        raise click.Abort()
 
 
 @wallet.command()
