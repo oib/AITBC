@@ -20,16 +20,21 @@ from .base import (
 
 
 class LayerZeroAdapter(BridgeAdapter):
-    """LayerZero bridge adapter for cross-chain settlements"""
+    """
+    LayerZero bridge adapter for cross-chain settlements (ETH ↔ AIT only).
 
-    # LayerZero chain IDs
+    IMPORTANT: AIT uses string chain IDs (ait-mainnet, ait-devnet) while LayerZero requires
+    numeric chain IDs. AIT must be deployed to LayerZero network to obtain a numeric chain ID
+    mapping. Once deployed, add the mapping to CHAIN_IDS below.
+    Example: {1: 101, <ait_numeric_id>: <layerzero_id>}
+    """
+
+    # LayerZero chain IDs - ETH and AIT only
+    # Note: AIT uses string chain IDs (ait-mainnet, ait-devnet). 
+    # When AIT is deployed to LayerZero, add numeric mapping here.
+    # Example: {1: 101, <ait_numeric_id>: <layerzero_id>}
     CHAIN_IDS = {
-        1: 101,  # Ethereum
-        137: 109,  # Polygon
-        56: 102,  # BSC
-        42161: 110,  # Arbitrum
-        10: 111,  # Optimism
-        43114: 106,  # Avalanche
+        1: 101,  # Ethereum (ETH)
     }
 
     def __init__(self, config: BridgeConfig, web3: Web3):

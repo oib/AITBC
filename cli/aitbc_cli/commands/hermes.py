@@ -149,16 +149,86 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
 @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 def status(agent_id: str | None, format: str):
     """Get Hermes training status"""
-    success(f"Get Hermes training status for agent {agent_id}")
-    # TODO: Implement actual status check from coordinator API
+    try:
+        import httpx
+        
+        config = get_config()
+        coordinator_url = config.get("coordinator_url", "http://localhost:8203")
+        api_key = config.get("coordinator_api_key")
+        
+        headers = {}
+        if api_key:
+            headers["X-API-Key"] = api_key
+        
+        if agent_id:
+            response = httpx.get(
+                f"{coordinator_url}/v1/hermes/agents/{agent_id}/status",
+                headers=headers
+            )
+        else:
+            response = httpx.get(
+                f"{coordinator_url}/v1/hermes/status",
+                headers=headers
+            )
+        
+        if response.status_code != 200:
+            error(f"Failed to get Hermes status: {response.text}")
+            return
+        
+        result = response.json()
+        
+        success(f"Get Hermes training status for agent {agent_id}")
+        
+        if format == 'json':
+            click.echo(json.dumps(result, indent=2))
+        else:
+            if agent_id:
+                click.echo(f"Agent ID: {agent_id}")
+                click.echo(f"Status: {result.get('status', 'Unknown')}")
+                click.echo(f"Training Progress: {result.get('progress', 0)}%")
+                click.echo(f"Epoch: {result.get('epoch', 0)}")
+                click.echo(f"Loss: {result.get('loss', 'N/A')}")
+            else:
+                click.echo(f"Active Agents: {result.get('active_agents', 0)}")
+                click.echo(f"Total Jobs: {result.get('total_jobs', 0)}")
+        
+    except Exception as e:
+        error(f"Error getting Hermes status: {e}")
 
 
 @hermes.command()
 @click.option('--agent-id', help='Agent ID')
 def stop(agent_id: str | None):
     """Stop Hermes training"""
-    success(f"Stop Hermes training for agent {agent_id}")
-    # TODO: Implement actual stop command via coordinator API
+    try:
+        import httpx
+        
+        if not agent_id:
+            error("Agent ID required")
+            return
+        
+        config = get_config()
+        coordinator_url = config.get("coordinator_url", "http://localhost:8203")
+        api_key = config.get("coordinator_api_key")
+        
+        headers = {}
+        if api_key:
+            headers["X-API-Key"] = api_key
+        
+        response = httpx.post(
+            f"{coordinator_url}/v1/hermes/agents/{agent_id}/stop",
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            error(f"Failed to stop Hermes training: {response.text}")
+            return
+        
+        success(f"Stop Hermes training for agent {agent_id}")
+        click.echo("Status: Stopped")
+        
+    except Exception as e:
+        error(f"Error stopping Hermes training: {e}")
 
 
 @hermes.command()

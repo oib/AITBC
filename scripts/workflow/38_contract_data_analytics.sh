@@ -33,7 +33,7 @@ GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
 GENESIS_PORT="8202"
 FOLLOWER_PORT="8202"
-COORDINATOR_PORT="8011"
+COORDINATOR_PORT="8203"
 
 # Analytics configuration
 ANALYTICS_DIR="/var/log/aitbc/analytics"

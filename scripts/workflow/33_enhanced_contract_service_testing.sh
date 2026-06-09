@@ -33,7 +33,7 @@ GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
 GENESIS_PORT="8202"
 FOLLOWER_PORT="8202"
-COORDINATOR_PORT="8011"
+COORDINATOR_PORT="8203"
 
 # API Key configuration
 API_KEY_FILE="/opt/aitbc/api_keys.txt"

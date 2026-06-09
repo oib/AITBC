@@ -126,7 +126,6 @@ pip-audit
 
 # npm (pnpm)
 cd /opt/aitbc/contracts && pnpm audit
-cd /opt/aitbc/packages/solidity/aitbc-token && pnpm audit
 cd /opt/aitbc/apps/zk-circuits && pnpm audit
 
 # Rust

@@ -49,7 +49,7 @@ class TestHandleMarketListings:
         def render_mapping(title, data):
             pass
         
-        handle_market_listings(args, "http://localhost:8011", output_format, render_mapping)
+        handle_market_listings(args, "http://localhost:8203", output_format, render_mapping)
         
         mock_get.assert_called_once()
 
@@ -72,7 +72,7 @@ class TestHandleMarketListings:
         def render_mapping(title, data):
             pass
         
-        handle_market_listings(args, "http://localhost:8011", output_format, render_mapping)
+        handle_market_listings(args, "http://localhost:8203", output_format, render_mapping)
         
         mock_get.assert_called_once()
 
@@ -105,7 +105,7 @@ class TestHandleMarketCreate:
         def render_mapping(title, data):
             pass
         
-        handle_market_create(args, "http://localhost:8011", read_password, render_mapping)
+        handle_market_create(args, "http://localhost:8203", read_password, render_mapping)
         
         mock_post.assert_called_once()
 
@@ -126,7 +126,7 @@ class TestHandleMarketCreate:
         def render_mapping(title, data):
             pass
         
-        handle_market_create(args, "http://localhost:8011", read_password, render_mapping)
+        handle_market_create(args, "http://localhost:8203", read_password, render_mapping)
         
         mock_logger.error.assert_called()
 
@@ -190,7 +190,7 @@ class TestHandleMarketDelete:
         def render_mapping(title, data):
             pass
         
-        handle_market_delete(args, "http://localhost:8011", read_password, render_mapping)
+        handle_market_delete(args, "http://localhost:8203", read_password, render_mapping)
         
         mock_delete.assert_called_once()
 
@@ -208,7 +208,7 @@ class TestHandleMarketDelete:
         def render_mapping(title, data):
             pass
         
-        handle_market_delete(args, "http://localhost:8011", read_password, render_mapping)
+        handle_market_delete(args, "http://localhost:8203", read_password, render_mapping)
         
         mock_logger.error.assert_called()
 
@@ -242,7 +242,7 @@ class TestHandleMarketGpuRegister:
         args.signature = None
         args.region = None
         
-        handle_market_gpu_register(args, "http://localhost:8011")
+        handle_market_gpu_register(args, "http://localhost:8203")
         
         mock_post.assert_called_once()
 
@@ -258,7 +258,7 @@ class TestHandleMarketGpuRegister:
         args.gpu_url = "http://localhost:8101"
         args.price_per_hour = 100
         
-        handle_market_gpu_register(args, "http://localhost:8011")
+        handle_market_gpu_register(args, "http://localhost:8203")
         
         mock_logger.error.assert_called()
 
@@ -269,7 +269,7 @@ class TestHandleMarketGpuRegister:
         args.gpu_url = "http://localhost:8101"
         args.price_per_hour = None
         
-        handle_market_gpu_register(args, "http://localhost:8011")
+        handle_market_gpu_register(args, "http://localhost:8203")
         
         mock_logger.error.assert_called()
 
@@ -297,7 +297,7 @@ class TestHandleMarketGpuList:
         def output_format(args):
             return "json"
         
-        handle_market_gpu_list(args, "http://localhost:8011", output_format)
+        handle_market_gpu_list(args, "http://localhost:8203", output_format)
         
         mock_get.assert_called_once()
 
@@ -321,7 +321,7 @@ class TestHandleMarketGpuList:
         def output_format(args):
             return "text"
         
-        handle_market_gpu_list(args, "http://localhost:8011", output_format)
+        handle_market_gpu_list(args, "http://localhost:8203", output_format)
         
         mock_get.assert_called_once()
 
@@ -351,7 +351,7 @@ class TestHandleMarketBuy:
         def render_mapping(title, data):
             pass
         
-        handle_market_buy(args, "http://localhost:8011", read_password, render_mapping)
+        handle_market_buy(args, "http://localhost:8203", read_password, render_mapping)
         
         mock_post.assert_called_once()
 
@@ -369,7 +369,7 @@ class TestHandleMarketBuy:
         def render_mapping(title, data):
             pass
         
-        handle_market_buy(args, "http://localhost:8011", read_password, render_mapping)
+        handle_market_buy(args, "http://localhost:8203", read_password, render_mapping)
         
         mock_logger.error.assert_called()
 
@@ -388,7 +388,7 @@ class TestHandleMarketSell:
         def render_mapping(title, data):
             pass
         
-        handle_market_sell(args, "http://localhost:8011", read_password, render_mapping)
+        handle_market_sell(args, "http://localhost:8203", read_password, render_mapping)
         
         mock_create.assert_called_once()
 
@@ -415,7 +415,7 @@ class TestHandleMarketOrders:
         def render_mapping(title, data):
             pass
         
-        handle_market_orders(args, "http://localhost:8011", output_format, render_mapping)
+        handle_market_orders(args, "http://localhost:8203", output_format, render_mapping)
         
         mock_get.assert_called_once()
 
@@ -438,7 +438,7 @@ class TestHandleMarketOrders:
         def render_mapping(title, data):
             pass
         
-        handle_market_orders(args, "http://localhost:8011", output_format, render_mapping)
+        handle_market_orders(args, "http://localhost:8203", output_format, render_mapping)
         
         mock_get.assert_called_once()
 
@@ -464,7 +464,7 @@ class TestHandleMarketListPlugins:
         def render_mapping(title, data):
             pass
         
-        handle_market_list_plugins(args, "http://localhost:8011", output_format, render_mapping)
+        handle_market_list_plugins(args, "http://localhost:8203", output_format, render_mapping)
         
         mock_get.assert_called_once()
 
@@ -486,7 +486,7 @@ class TestHandleMarketListPlugins:
         def render_mapping(title, data):
             pass
         
-        handle_market_list_plugins(args, "http://localhost:8011", output_format, render_mapping)
+        handle_market_list_plugins(args, "http://localhost:8203", output_format, render_mapping)
         
         mock_get.assert_called_once()
 

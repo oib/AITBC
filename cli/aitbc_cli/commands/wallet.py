@@ -28,13 +28,23 @@ def get_wallet_client() -> AITBCHTTPClient:
 
 
 def encrypt_value(value: str, password: str) -> str:
-    """Simple encryption for wallet data (placeholder)"""
+    """Simple encryption for wallet data
+    
+    NOTE: This is a simple placeholder implementation that doesn't actually encrypt.
+    Wallet daemon mode handles encryption server-side, so client-side encryption is not needed.
+    For production use with direct wallet file access, upgrade to proper encryption (e.g., cryptography.fernet).
+    """
     # For now, return the value as-is since daemon mode doesn't need this
     return value
 
 
 def decrypt_value(encrypted: str, password: str) -> str:
-    """Simple decryption for wallet data (placeholder)"""
+    """Simple decryption for wallet data
+    
+    NOTE: This is a simple placeholder implementation that doesn't actually decrypt.
+    Wallet daemon mode handles encryption server-side, so client-side decryption is not needed.
+    For production use with direct wallet file access, upgrade to proper encryption (e.g., cryptography.fernet).
+    """
     # For now, return the value as-is since daemon mode doesn't need this
     return encrypted
 

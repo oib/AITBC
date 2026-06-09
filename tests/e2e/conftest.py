@@ -13,7 +13,7 @@ import pytest
 @pytest.fixture(scope="session")
 def coordinator_url() -> str:
     """Coordinator API URL"""
-    return os.getenv("COORDINATOR_URL", "http://localhost:8011")
+    return os.getenv("COORDINATOR_URL", "http://localhost:8203")
 
 
 @pytest.fixture(scope="session")

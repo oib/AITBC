@@ -358,9 +358,25 @@ class GovernanceService:
 
     def get_voting_power(self, address: str) -> int:
         """Get stake-weighted voting power for an address"""
-        # In production, query staking contract
-        # For now, return placeholder
-        return 1000
+        try:
+            import httpx
+            
+            # Query blockchain for stake balance
+            blockchain_rpc_url = "http://localhost:8202"  # Default blockchain RPC
+            response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{address}")
+            
+            if response.status_code == 200:
+                account_data = response.json()
+                balance = account_data.get("balance", 0)
+                # Voting power is proportional to stake (1 AIT = 1 voting power)
+                return balance
+            else:
+                logger.warning(f"Failed to get account balance for {address}")
+                return 0
+                
+        except Exception as e:
+            logger.warning(f"Error querying voting power for {address}: {e}")
+            return 0
 
     def get_governance_params(self) -> dict[str, Any]:
         """Get current governance parameters"""

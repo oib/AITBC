@@ -25,10 +25,7 @@
 
 This directory contains documentation for AITBC packages organized by language and platform:
 
-- **[github/](github/)** - GitHub packages publishing guides and workflows
-- **[js/](js/)** - JavaScript SDK and web client packages
-- **[py/](py/)** - Python packages (aitbc-core, aitbc-crypto, aitbc-agent-sdk)
-- **[solidity/](solidity/)** - Solidity smart contract packages (aitbc-token)
+- **[py/](py/)** - Python packages (aitbc-agent-core, aitbc-agent-sdk, aitbc-crypto, aitbc-sdk)
 
 ---
 
@@ -36,7 +33,6 @@ This directory contains documentation for AITBC packages organized by language a
 
 Use this directory for package-specific documentation such as:
 
-- Publishing guides for GitHub Packages
 - SDK installation and usage instructions
 - Package versioning and release notes
 - Cross-language integration examples

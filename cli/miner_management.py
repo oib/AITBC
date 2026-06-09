@@ -423,18 +423,63 @@ def check_earnings(
     coordinator_url: str = DEFAULT_COORDINATOR_URL,
     period: str = "all"
 ) -> dict | None:
-    """Check miner earnings (placeholder for payment integration)"""
+    """Check miner earnings"""
     try:
-        # This would integrate with payment system when implemented
+        import httpx
+        from datetime import datetime, timedelta
+        
+        # Query coordinator API for completed jobs and payments
+        headers = {"X-API-Key": api_key}
+        
+        # Calculate time period filter
+        time_filter = None
+        if period == "24h":
+            time_filter = (datetime.now() - timedelta(hours=24)).isoformat()
+        elif period == "7d":
+            time_filter = (datetime.now() - timedelta(days=7)).isoformat()
+        elif period == "30d":
+            time_filter = (datetime.now() - timedelta(days=30)).isoformat()
+        
+        # Query completed jobs for the miner
+        response = httpx.get(
+            f"{coordinator_url}/v1/miners/{miner_id}/jobs",
+            headers=headers,
+            params={"status": "completed", "since": time_filter} if time_filter else {}
+        )
+        
+        if response.status_code != 200:
+            return {
+                "action": "earnings",
+                "miner_id": miner_id,
+                "period": period,
+                "status": f"❌ Failed to query earnings: {response.text}",
+                "total_earnings": 0.0,
+                "jobs_completed": 0,
+                "average_payment": 0.0
+            }
+        
+        jobs_data = response.json()
+        jobs = jobs_data.get("jobs", [])
+        
+        # Calculate earnings from completed jobs
+        total_earnings = 0.0
+        jobs_completed = len(jobs)
+        
+        for job in jobs:
+            payment_amount = job.get("payment_amount", 0)
+            total_earnings += payment_amount
+        
+        average_payment = (total_earnings / jobs_completed) if jobs_completed > 0 else 0.0
+        
         return {
             "action": "earnings",
             "miner_id": miner_id,
             "period": period,
-            "status": "📊 Earnings calculation",
-            "total_earnings": 0.0,
-            "jobs_completed": 0,
-            "average_payment": 0.0,
-            "note": "Payment integration coming soon"
+            "status": "📊 Earnings calculated",
+            "total_earnings": total_earnings,
+            "jobs_completed": jobs_completed,
+            "average_payment": average_payment,
+            "currency": "AIT"
         }
 
     except Exception as e:

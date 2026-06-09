@@ -165,7 +165,7 @@ def main():
 
     print("\n🔗 Next Steps:")
     print("1. Test the new AI Trading Engine: curl http://localhost:8010/health")
-    print("2. Check AI Surveillance: curl http://localhost:8011/status")
+    print("2. Check AI Surveillance: curl http://localhost:8203/status")
     print("3. View Advanced Analytics: curl http://localhost:8012/metrics")
     print("4. Access Blockchain Explorer: http://localhost:8016")
     print("5. Test CLI commands: aitbc --test-mode wallet list")

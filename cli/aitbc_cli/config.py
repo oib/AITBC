@@ -75,7 +75,7 @@ def get_config(config_file: str | None = None) -> CLIConfig:
 
             # Override with config file values
             return CLIConfig(
-                coordinator_url=config_data.get("coordinator_url", "http://localhost:8011"),
+                coordinator_url=config_data.get("coordinator_url", "http://localhost:8203"),
                 wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8003"),
                 api_key=config_data.get("api_key"),
                 timeout=config_data.get("timeout", 30)

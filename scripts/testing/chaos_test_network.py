@@ -148,7 +148,7 @@ class ChaosTestNetwork:
                 # Test if pod can reach coordinator
                 cmd = [
                     "kubectl", "exec", "-n", self.namespace, pod, "--",
-                    "curl", "-s", "--max-time", "5", "http://coordinator:8011/v1/health"
+                    "curl", "-s", "--max-time", "5", "http://coordinator:8203/v1/health"
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 results[pod] = result.returncode == 0 and "ok" in result.stdout

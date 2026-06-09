@@ -249,7 +249,7 @@ check_keystore() {
 check_network_ports() {
     log_info "Checking network ports..."
     
-    ports=("8006" "8011" "8102" "8015")
+    ports=("8006" "8203" "8102" "8015")
     
     for port in "${ports[@]}"; do
         if ss -tlnp 2>/dev/null | grep -q ":$port "; then
@@ -269,7 +269,7 @@ check_health_endpoints() {
     
     endpoints=(
         "http://localhost:8006/health"
-        "http://localhost:8011/health"
+        "http://localhost:8203/health"
         "http://localhost:8102/health"
         "http://localhost:8015/health"
     )

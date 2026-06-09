@@ -155,7 +155,7 @@ class GPUWorker:
         worker_id: str,
         ollama_url: str = "http://localhost:11434",
         max_concurrent: int = 2,
-        coordinator_url: str = "http://localhost:8011"
+        coordinator_url: str = "http://localhost:8203"
     ):
         self.worker_id = worker_id
         self.ollama = OllamaClient(ollama_url)
@@ -179,12 +179,31 @@ class GPUWorker:
         # Detect available models
         models = await self.ollama.list_models() if ollama_healthy else ["gpt2", "llama2"]
 
+        # Detect actual GPU memory and capabilities
+        memory_gb = 8  # Default fallback
+        compute_units = 4
+        try:
+            # Try to detect GPU using nvidia-smi or pynvml
+            import subprocess
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                memory_mb = int(result.stdout.strip())
+                memory_gb = memory_mb // 1024
+                logger.info(f"Detected GPU memory: {memory_gb} GB")
+        except (FileNotFoundError, subprocess.TimeoutExpired, ValueError) as e:
+            logger.debug(f"GPU detection failed: {e}, using default 8 GB")
+        
         self._capabilities = GPUCapabilities(
             gpu_available=ollama_healthy,
             models=models,
             max_concurrency=self.max_concurrent,
-            memory_gb=16,  # Placeholder - would detect from system
-            compute_units=8,
+            memory_gb=memory_gb,
+            compute_units=compute_units,
             architecture="cuda" if ollama_healthy else "cpu",
             edge_optimized=False
         )
@@ -345,11 +364,27 @@ class GPUWorker:
 
             self._processed_count += 1
 
+            # Try to get actual GPU utilization
+            gpu_utilization = 0.0
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    gpu_utilization = float(result.stdout.strip()) / 100.0
+            except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+                # Fallback to estimated utilization based on execution time
+                gpu_utilization = min(0.9, max(0.1, execution_time / 5000.0))
+
             return JobExecutionResult(
                 success=True,
                 output=inference_result,
                 execution_time_ms=execution_time,
-                gpu_utilization=0.85,  # Placeholder
+                gpu_utilization=gpu_utilization,
                 receipt=receipt
             )
 
@@ -420,7 +455,7 @@ class GPUWorker:
 
 
 # Standalone worker runner
-async def run_worker(worker_id: str, api_key: str, coordinator_url: str = "http://localhost:8011") -> None:
+async def run_worker(worker_id: str, api_key: str, coordinator_url: str = "http://localhost:8203") -> None:
     """Run a GPU worker instance"""
     worker = GPUWorker(
         worker_id=worker_id,
@@ -454,6 +489,6 @@ if __name__ == "__main__":
 
     worker_id = sys.argv[1]
     api_key = sys.argv[2]
-    coordinator_url = sys.argv[3] if len(sys.argv) > 3 else "http://localhost:8011"
+    coordinator_url = sys.argv[3] if len(sys.argv) > 3 else "http://localhost:8203"
 
     asyncio.run(run_worker(worker_id, api_key, coordinator_url))

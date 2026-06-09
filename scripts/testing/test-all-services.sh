@@ -79,7 +79,7 @@ echo "=========================="
 
 # Test Enhanced Services
 test_service "Multimodal GPU (8010)" "http://localhost:8010/health" '"service":"gpu-multimodal"'
-test_service "GPU Multimodal (8011)" "http://localhost:8011/health" '"service":"gpu-multimodal"'
+test_service "GPU Multimodal (8203)" "http://localhost:8203/health" '"service":"gpu-multimodal"'
 test_service "Modality Optimization (8012)" "http://localhost:8012/health" '"service":"modality-optimization"'
 test_service "Adaptive Learning (8013)" "http://localhost:8013/health" '"service":"adaptive-learning"'
 
@@ -89,7 +89,7 @@ echo "========================="
 
 # Test Service Features
 test_service "GPU Status (8010)" "http://localhost:8010/gpu/status" '"gpu_available"'
-test_service "GPU Multimodal Features (8011)" "http://localhost:8011/gpu/multimodal" '"multimodal_capabilities"'
+test_service "GPU Multimodal Features (8203)" "http://localhost:8203/gpu/multimodal" '"multimodal_capabilities"'
 test_service "Modality Optimization (8012)" "http://localhost:8012/optimization/modality" '"optimization_active"'
 test_service "Learning Status (8013)" "http://localhost:8013/learning/status" '"learning_active"'
 
@@ -102,7 +102,7 @@ test_port "8000" "Coordinator API"
 test_port "8001" "Exchange API"
 test_port "8003" "Blockchain RPC"
 test_port "8010" "Multimodal GPU"
-test_port "8011" "GPU Multimodal"
+test_port "8203" "GPU Multimodal"
 test_port "8012" "Modality Optimization"
 test_port "8013" "Adaptive Learning"
 

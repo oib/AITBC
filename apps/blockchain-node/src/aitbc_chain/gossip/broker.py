@@ -60,14 +60,21 @@ class TopicSubscription:
 
 
 class GossipBackend:
+    """Abstract base class for gossip protocol backends.
+    
+    Concrete implementations must override publish() and subscribe().
+    Examples: InMemoryGossipBackend, BroadcastGossipBackend.
+    """
     async def start(self) -> None:  # pragma: no cover - overridden as needed
         return None
 
     async def publish(self, topic: str, message: Any) -> None:
-        raise NotImplementedError
+        """Publish message to topic - must be overridden by concrete implementation"""
+        raise NotImplementedError("GossipBackend.publish() must be overridden by concrete backend")
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
-        raise NotImplementedError
+        """Subscribe to topic - must be overridden by concrete implementation"""
+        raise NotImplementedError("GossipBackend.subscribe() must be overridden by concrete backend")
 
     async def shutdown(self) -> None:
         return None

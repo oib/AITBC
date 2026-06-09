@@ -8,7 +8,7 @@ import time
 import httpx
 
 # Configuration
-COORDINATOR_URL = "http://localhost:8011"
+COORDINATOR_URL = "http://localhost:8203"
 MINER_API_KEY = "${MINER_API_KEY}"
 MINER_ID = "localhost-gpu-miner"
 
