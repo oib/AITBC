@@ -25,7 +25,7 @@ async def get_price():
         "pair": "ETH-AIT",
         "eth_usd": rate_info["eth_usd"],
         "ait_usd": rate_info["ait_usd"],
-        "exchange_rate": rate_info["eth_ait_rate"],
+        "exchange_rate": rate_info["eth_ait_rate_usd"],
         "timestamp": rate_info["timestamp"]
     }
 
