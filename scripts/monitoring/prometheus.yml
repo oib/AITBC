@@ -27,7 +27,7 @@ scrape_configs:
   # Coordinator API metrics
   - job_name: 'coordinator-api'
     static_configs:
-      - targets: ['localhost:8011']
+      - targets: ['localhost:8203']
     metrics_path: '/metrics/'
     scrape_interval: 15s
 

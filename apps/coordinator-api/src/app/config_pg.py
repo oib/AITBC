@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     # API Configuration
     api_host: str = "0.0.0.0"  # nosec B104
-    api_port: int = 8011
+    api_port: int = 8203
     api_prefix: str = "/v1"
     debug: bool = False
 
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     cors_origins: list[str] = [
-        "http://localhost:8011",  # Coordinator API
+        "http://localhost:8203",  # Coordinator API
         "http://localhost:8001",  # Exchange API
         "http://localhost:8002",  # Blockchain Node
         "http://localhost:8003",  # Blockchain RPC
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
         "http://localhost:8015",  # hermes Enhanced
         "http://localhost:8016",  # Web UI
         "https://aitbc.bubuit.net",
-        "https://aitbc.bubuit.net:8011",
+        "https://aitbc.bubuit.net:8203",
         "https://aitbc.bubuit.net:8001",
         "https://aitbc.bubuit.net:8003",
         "https://aitbc.bubuit.net:8016",

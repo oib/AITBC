@@ -11,7 +11,7 @@ import requests
 
 
 class MarketplaceWorkflow:
-    def __init__(self, coordinator_url: str = "http://localhost:8011"):
+    def __init__(self, coordinator_url: str = "http://localhost:8203"):
         self.coordinator_url = coordinator_url
         self.workflow_steps = []
 

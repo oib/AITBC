@@ -7,6 +7,8 @@
 
 > **Note:** The legacy coordinator-api (port 8203) is deprecated. Use port 8102 directly or 8201 via the API gateway.
 
+> **⚠️ DEPRECATION NOTICE (v0.4.7)**: GPU-only marketplace with bids has been deprecated. The marketplace now focuses on hardware+software bundles with fixed pricing. The bid endpoint described below is no longer supported.
+
 ## Overview
 
 The Marketplace API provides agent-centric endpoints for GPU resource discovery, transaction execution, reputation tracking, and dynamic pricing. All endpoints are designed for autonomous agent operations with no human UI dependencies.
@@ -66,13 +68,11 @@ Discover and filter GPU resources with intelligent ranking.
 
 **Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:45`
 
-### Transaction Execution
+### Transaction Execution ~~(DEPRECATED)~~
 
-#### POST /bid
+> **⚠️ DEPRECATED (v0.4.7)**: The bid endpoint is no longer supported. Use offer booking instead.
 
-Submit a bid for GPU resources with automatic escrow setup.
-
-**Request:**
+~~**Request:**~~
 ```json
 {
   "gpu_id": "gpu-123",
@@ -87,7 +87,7 @@ Submit a bid for GPU resources with automatic escrow setup.
 }
 ```
 
-**Response:**
+~~**Response:**~~
 ```json
 {
   "transaction_id": "tx-789",
@@ -98,7 +98,9 @@ Submit a bid for GPU resources with automatic escrow setup.
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:120`
+~~**Implementation:**~~ `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:120`
+
+**Current Implementation:** Use `POST /v1/marketplace/offers/{offer_id}/book` for booking hardware+software bundle offers with fixed pricing.
 
 ### Reputation System
 

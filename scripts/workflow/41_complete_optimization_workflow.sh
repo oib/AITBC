@@ -32,7 +32,7 @@ NC='\033[0m' # No Color
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
 GENESIS_PORT="8202"
-COORDINATOR_PORT="8011"
+COORDINATOR_PORT="8203"
 
 echo "🚀 COMPLETE SYSTEM OPTIMIZATION"
 echo "Comprehensive optimization and testing of all AITBC features"
@@ -225,7 +225,7 @@ run_test_verbose "Comprehensive system test" "
     
     echo 'Testing all major services:'
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'Working' || echo 'Failed')\"
-    echo \"✅ Coordinator API: \$(curl -s http://localhost:8011/health/live >/dev/null && echo 'Working' || echo 'Failed')\"
+    echo \"✅ Coordinator API: \$(curl -s http://localhost:8203/health/live >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Marketplace: \$(curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ AI Service: \$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'Working' || echo 'Failed')\"

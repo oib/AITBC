@@ -231,11 +231,11 @@ service_health_monitoring() {
     cli_cmd "service health --debug --output json" || print_warning "Service health command not available"
     
     print_status "Checking specific service health endpoints..."
-    print_status "Coordinator API (8011) /health/live..."
-    curl -s http://localhost:8011/health/live | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API health check failed"
+    print_status "Coordinator API (8203) /health/live..."
+    curl -s http://localhost:8203/health/live | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API health check failed"
     
-    print_status "Coordinator API (8011) /v1/health..."
-    curl -s http://localhost:8011/v1/health | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API v1 health check failed"
+    print_status "Coordinator API (8203) /v1/health..."
+    curl -s http://localhost:8203/v1/health | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API v1 health check failed"
     
     print_status "Agent Coordinator (9001) /health..."
     curl -s http://localhost:9001/health | python3 -m json.tool 2>/dev/null || print_warning "Agent Coordinator health check failed"

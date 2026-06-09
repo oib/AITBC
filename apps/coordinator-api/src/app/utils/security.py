@@ -184,8 +184,23 @@ async def verify_api_key(
             detail="Invalid API key format"
         )
 
-    # TODO: Verify against database or configuration
-    # For now, accept any valid format (to be replaced with actual verification)
+    # Verify against configuration
+    from ..config import settings
+    
+    # Check against all allowed API key lists
+    all_allowed_keys = (
+        settings.client_api_keys + 
+        settings.miner_api_keys + 
+        settings.admin_api_keys
+    )
+    
+    if api_key not in all_allowed_keys:
+        logger.warning(f"Invalid API key from {request.client.host}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key"
+        )
+    
     return api_key
 
 

@@ -6,9 +6,9 @@
 - `price_history`: Historical price data for ML training
 - `price_forecast`: Predicted prices with confidence intervals
 
-### Auction Tables
-- `auction_config`: Auction metadata and configuration
-- `marketplacebid`: Extended with auction-specific fields
+### Auction Tables ~~(DEPRECATED v0.4.7)~~
+~~- `auction_config`: Auction metadata and configuration~~ (REMOVED)
+~~- `marketplacebid`: Extended with auction-specific fields~~ (REMOVED)
 
 ### Search & Recommendation Tables
 - `search_history`: User search patterns

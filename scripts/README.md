@@ -79,7 +79,7 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 
 | Port | Service | Description |
 |------|---------|-------------|
-| 8011 | Coordinator API | Main API service |
+| 8203 | Coordinator API | Main API service |
 | 8001 | Exchange API | Trading functionality |
 | 8102 | Marketplace API | GPU compute marketplace |
 | 8015 | Wallet API | Digital wallet management |
@@ -89,7 +89,7 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 ## 🔍 Health Endpoints
 
 The scripts test these health endpoints:
-- `http://localhost:8011/health` - Coordinator API
+- `http://localhost:8203/health` - Coordinator API
 - `http://localhost:8001/api/health` - Exchange API
 - `http://localhost:8102/health` - Marketplace API
 - `http://localhost:8015/health` - Wallet API

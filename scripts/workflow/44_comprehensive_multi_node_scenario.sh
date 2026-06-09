@@ -146,12 +146,12 @@ phase1_preflight_checks() {
     # Check AITBC services on aitbc1
     log_info "Checking AITBC services on aitbc1"
     health_check "$AITBC1_HOST" "blockchain-node" "8202" || log_warning "Blockchain node on aitbc1 may not be healthy"
-    health_check "$AITBC1_HOST" "coordinator-api" "8011" || log_warning "Coordinator API on aitbc1 may not be healthy"
+    health_check "$AITBC1_HOST" "coordinator-api" "8203" || log_warning "Coordinator API on aitbc1 may not be healthy"
     
     # Check AITBC services on localhost
     log_info "Checking AITBC services on localhost"
     health_check "localhost" "blockchain-node" "8202" || log_warning "Blockchain node on localhost may not be healthy"
-    health_check "localhost" "coordinator-api" "8011" || log_warning "Coordinator API on localhost may not be healthy"
+    health_check "localhost" "coordinator-api" "8203" || log_warning "Coordinator API on localhost may not be healthy"
     # blockchain-event-bridge service not configured - skipping health check
     
     # Check AITBC services on gitea-runner
@@ -425,7 +425,7 @@ phase9_final_verification() {
     # Check service health
     log_info "Final service health check"
     health_check "localhost" "blockchain-node" "8202" || log_error "Blockchain node unhealthy"
-    health_check "localhost" "coordinator-api" "8011" || log_warning "Coordinator API unhealthy"
+    health_check "localhost" "coordinator-api" "8203" || log_warning "Coordinator API unhealthy"
     health_check "localhost" "blockchain-event-bridge" "8204" || log_warning "Event bridge unhealthy"
     
     # Generate comprehensive report

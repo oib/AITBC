@@ -176,11 +176,11 @@ apps/zk-circuits/
 
 ```
 packages/
-├── py/
-│   ├── aitbc-crypto/        # Cryptographic primitives (signing, hashing, key derivation)
-│   └── aitbc-sdk/           # Python SDK for coordinator API (receipt fetching/verification)
-└── solidity/
-    └── aitbc-token/         # ERC-20 AITBC token contract with Hardhat tooling
+└── py/
+    ├── aitbc-agent-core/    # Agent integration service with protocol-based dependency injection
+    ├── aitbc-agent-sdk/     # Agent SDK for external integrations
+    ├── aitbc-crypto/        # Cryptographic primitives (signing, hashing, key derivation)
+    └── aitbc-sdk/           # Python SDK for coordinator API (receipt fetching/verification)
 ```
 
 ---

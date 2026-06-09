@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 import httpx
 
 # Configuration
-COORDINATOR_URL = "http://127.0.0.1:8011"
+COORDINATOR_URL = "http://127.0.0.1:8203"
 MINER_ID = "${MINER_API_KEY}"
 AUTH_TOKEN = "${MINER_API_KEY}"
 HEARTBEAT_INTERVAL = 15

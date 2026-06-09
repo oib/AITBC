@@ -20,7 +20,7 @@ class PortfolioAggregationService:
     def __init__(self) -> None:
         # Service base URLs (these should be configurable)
         self.wallet_service_url = "http://localhost:8003"
-        self.exchange_service_url = "http://localhost:8011"
+        self.exchange_service_url = "http://localhost:8203"
         self.marketplace_service_url = "http://localhost:8102"
         self.trading_service_url = "http://localhost:8104"
         self.ai_service_url = "http://localhost:8005"
