@@ -258,15 +258,15 @@ except Exception as e:
 " 2>/dev/null || print_warning "Signature generation and verification test failed"
     log "Signature generation and verification test attempted"
     
-    print_status "Testing public key fetch from Coordinator API (port 8011)..."
-    curl -s http://localhost:8011/v1/agents/test-agent/public-key 2>/dev/null | python3 -m json.tool 2>/dev/null || print_warning "Public key fetch from Coordinator API failed"
+    print_status "Testing public key fetch from Coordinator API (port 8203)..."
+    curl -s http://localhost:8203/v1/agents/test-agent/public-key 2>/dev/null | python3 -m json.tool 2>/dev/null || print_warning "Public key fetch from Coordinator API failed"
     log "Public key fetch from Coordinator API attempted"
     
     print_status "Testing receive_message with signature verification..."
     python3 -c "
 try:
     from aitbc_agent.agent import Agent
-    agent = Agent(agent_id='test-agent', coordinator_url='http://localhost:8011')
+    agent = Agent(agent_id='test-agent', coordinator_url='http://localhost:8203')
     print('Agent signature verification initialized')
 except Exception as e:
     print(f'Agent initialization failed: {e}')

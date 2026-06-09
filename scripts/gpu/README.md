@@ -86,7 +86,7 @@ Create a configuration file or set environment variables:
 ```bash
 # Required
 export MINER_API_KEY="your-miner-api-key"
-export COORDINATOR_URL="http://your-coordinator-url:8011"
+export COORDINATOR_URL="http://your-coordinator-url:8203"
 
 # Optional
 export LOG_PATH="/var/log/aitbc/miner.log"
@@ -100,7 +100,7 @@ Alternatively, create a `.env` file:
 ```bash
 # /etc/aitbc/miner.env
 MINER_API_KEY=your-miner-api-key
-COORDINATOR_URL=http://your-coordinator-url:8011
+COORDINATOR_URL=http://your-coordinator-url:8203
 LOG_PATH=/var/log/aitbc/miner.log
 HEARTBEAT_INTERVAL=15
 ```
@@ -132,7 +132,7 @@ Type=simple
 User=aitbc
 WorkingDirectory=/opt/aitbc/miner
 Environment="MINER_API_KEY=your-miner-api-key"
-Environment="COORDINATOR_URL=http://coordinator:8011"
+Environment="COORDINATOR_URL=http://coordinator:8203"
 ExecStart=/opt/aitbc/miner/aitbc-miner-debian
 Restart=always
 RestartSec=10
@@ -215,7 +215,7 @@ ollama list
 
 ```bash
 # Check coordinator URL
-curl http://your-coordinator-url:8011/v1/health
+curl http://your-coordinator-url:8203/v1/health
 
 # Check firewall
 sudo ufw status
@@ -232,7 +232,7 @@ echo $MINER_API_KEY
 
 # Verify API key is valid
 curl -H "X-Api-Key: $MINER_API_KEY" \
-  http://your-coordinator-url:8011/v1/miners/heartbeat
+  http://your-coordinator-url:8203/v1/miners/heartbeat
 ```
 
 ## Logging

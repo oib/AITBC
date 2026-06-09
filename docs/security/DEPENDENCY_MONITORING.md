@@ -15,12 +15,10 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 - **Total**: 35 vulnerabilities (7 low, 15 moderate, 13 high)
 - **Status**: Accepted as acceptable risk
 - **Rationale**: Most vulnerabilities are in Hardhat/Ethers build tools (transitive dependencies), not production runtime code
-- **Note**: npm audit fix attempted; pnpm workspaces (contracts, aitbc-token, zk-circuits) lack npm lockfiles and use pnpm-specific overrides
+- **Note**: npm audit fix attempted; pnpm workspaces (contracts, zk-circuits) lack npm lockfiles and use pnpm-specific overrides
 
 #### Breakdown by Package:
-- `/opt/aitbc/packages/js/aitbc-sdk`: 0 vulnerabilities ✓ (npm audit fix applied successfully)
 - `/opt/aitbc/contracts`: 14 vulnerabilities (3 low, 7 moderate, 4 high)
-- `/opt/aitbc/packages/solidity/aitbc-token`: 8 vulnerabilities (2 low, 4 moderate, 2 high)
 - `/opt/aitbc/apps/zk-circuits`: 13 vulnerabilities (2 low, 4 moderate, 7 high)
 
 #### Key Vulnerable Packages:
@@ -66,9 +64,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 
    # npm (pnpm)
    cd /opt/aitbc/contracts && pnpm audit
-   cd /opt/aitbc/packages/solidity/aitbc-token && pnpm audit
    cd /opt/aitbc/apps/zk-circuits && pnpm audit
-   cd /opt/aitbc/packages/js/aitbc-sdk && pnpm audit
 
    # Rust
    source ~/.cargo/env
@@ -95,7 +91,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 ### npm Audit Fix Guidance
 
 #### Limitations
-- **pnpm workspaces**: `npm audit fix` requires npm lockfiles; pnpm workspaces (contracts, aitbc-token, zk-circuits) use pnpm-lock.yaml
+- **pnpm workspaces**: `npm audit fix` requires npm lockfiles; pnpm workspaces (contracts, zk-circuits) use pnpm-lock.yaml
 - **Overrides**: pnpm-specific overrides in package.json only work with pnpm, not npm or yarn
 - **Transitive dependencies**: Manual overrides may not catch all transitive dependency paths
 
