@@ -73,7 +73,11 @@ class SettlementResult:
 
 
 class BridgeAdapter(ABC):
-    """Abstract interface for bridge adapters"""
+    """Abstract interface for bridge adapters.
+    
+    Concrete implementations must override all abstract methods.
+    Each bridge has different encoding requirements and gas estimation logic.
+    """
 
     def __init__(self, config: BridgeConfig):
         self.config = config

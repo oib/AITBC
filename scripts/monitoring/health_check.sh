@@ -24,7 +24,7 @@ NC='\033[0m' # No Color
 # Service health endpoints
 declare -A SERVICE_ENDPOINTS=(
     ["aitbc-blockchain-rpc"]="http://localhost:8006/health"
-    ["aitbc-coordinator-api"]="http://localhost:8011/health"
+    ["aitbc-coordinator-api"]="http://localhost:8203/health"
     ["aitbc-exchange-api"]="http://localhost:8001/health"
     ["aitbc-agent-coordinator"]="http://localhost:9001/health"
     ["aitbc-marketplace"]="http://localhost:8102/health"

@@ -22,9 +22,8 @@
 
 ## 📦 **Overview**
 
-AITBC uses **pnpm** as the package manager for both smart contract projects:
+AITBC uses **pnpm** as the package manager for smart contract development:
 - `/opt/aitbc/contracts/` - Main Hardhat project (JavaScript-based)
-- `/opt/aitbc/packages/solidity/aitbc-token/` - Token contracts (TypeScript-based)
 
 pnpm provides faster installations, better disk efficiency, and stricter dependency management compared to npm.
 
@@ -40,20 +39,11 @@ prefer-frozen-lockfile=true
 shamefully-hoist=true
 ```
 
-**packages/solidity/aitbc-token/ directory:**
-```ini
-auto-install-peers=false
-strict-peer-dependencies=true
-prefer-frozen-lockfile=true
-engine-strict=true
-```
-
 **Settings explained:**
 - **auto-install-peers=false**: Don't automatically install peer dependencies - requires explicit installation
 - **strict-peer-dependencies=true**: Fail if peer dependency requirements aren't met
 - **prefer-frozen-lockfile=true**: Use exact versions from lockfile (recommended for CI)
-- **shamefully-hoist=true** (contracts only): Hoist dependencies to node_modules root for compatibility with older Hardhat
-- **engine-strict=true** (aitbc-token only): Enforce Node.js version requirement (>=24.14.0)
+- **shamefully-hoist=true**: Hoist dependencies to node_modules root for compatibility with older Hardhat
 
 ### `pnpm-lock.yaml`
 The lockfile is automatically generated and should be committed to version control. It ensures reproducible installs across environments.
@@ -62,12 +52,7 @@ The lockfile is automatically generated and should be committed to version contr
 
 ### Installation
 ```bash
-# For main contracts
 cd /opt/aitbc/contracts
-pnpm install
-
-# For aitbc-token
-cd /opt/aitbc/packages/solidity/aitbc-token
 pnpm install
 ```
 
@@ -80,16 +65,6 @@ pnpm hardhat compile
 pnpm hardhat test
 pnpm hardhat run scripts/deploy.js --network localhost
 pnpm hardhat verify --network mainnet <ADDRESS> <CONSTRUCTOR_ARGS>
-```
-
-**aitbc-token/ (TypeScript-based):**
-```bash
-cd /opt/aitbc/packages/solidity/aitbc-token
-pnpm run build
-pnpm run test
-pnpm run lint
-pnpm run format
-pnpm run deploy
 ```
 
 ### CI/CD Commands
@@ -150,8 +125,7 @@ pnpm store prune
 ## 🔄 **CI/CD Integration**
 
 All CI workflows have been updated to use pnpm:
-- `smart-contract-tests.yml` - Tests both contracts/ and aitbc-token/
-- `package-tests.yml` - Tests aitbc-token/ package
+- `smart-contract-tests.yml` - Tests contracts/
 - `deploy-testnet.yml` - Testnet deployment
 - `deploy-mainnet.yml` - Mainnet deployment
 - `contract-benchmarks.yml` - Performance benchmarks

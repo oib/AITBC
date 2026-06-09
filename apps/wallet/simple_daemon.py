@@ -110,9 +110,40 @@ async def list_chains():
     return JSONResponse(chains_data)
 
 @wallet_app.post("/v1/chains")
-async def create_chain():
+async def create_chain(request: dict[str, Any]):
     """Create a new blockchain chain"""
-    raise HTTPException(status_code=501, detail="Chain creation not implemented")
+    chain_id = request.get("chain_id")
+    name = request.get("name")
+    coordinator_url = request.get("coordinator_url")
+    coordinator_api_key = request.get("coordinator_api_key")
+    metadata = request.get("metadata", {})
+    
+    if not chain_id or not name:
+        raise HTTPException(status_code=400, detail="chain_id and name are required")
+    
+    # Check if chain already exists
+    for chain in chains_data["chains"]:
+        if chain["chain_id"] == chain_id:
+            raise HTTPException(status_code=409, detail=f"Chain {chain_id} already exists")
+    
+    # Create new chain
+    new_chain = {
+        "chain_id": chain_id,
+        "name": name,
+        "coordinator_url": coordinator_url,
+        "status": "active",
+        "wallet_count": 0,
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "metadata": metadata
+    }
+    
+    chains_data["chains"].append(new_chain)
+    
+    return JSONResponse({
+        "success": True,
+        "chain": new_chain
+    }, status_code=201)
 
 @wallet_app.get("/v1/chains/{chain_id}/wallets/{wallet_id}/balance")
 async def get_wallet_balance(chain_id: str, wallet_id: str):

@@ -12,27 +12,31 @@ GET /v1/marketplace/gpu/{gpu_id}/pricing/forecast
 GET /v1/marketplace/gpu/{gpu_id}/pricing/history
 ```
 
-## Auction Endpoints
+## Auction Endpoints ~~(DEPRECATED v0.4.7)~~
 
-### Create Auction
-```
+> **⚠️ DEPRECATED (v0.4.7)**: All auction endpoints have been removed. GPU-only marketplace auctions are no longer supported.
+
+~~### Create Auction~~
+~~```
 POST /v1/marketplace/gpu/{gpu_id}/auction
-```
+```~~
 
-### Submit Auction Bid
-```
+~~### Submit Auction Bid~~
+~~```
 POST /v1/marketplace/auctions/{id}/bid
-```
+```~~
 
-### Reveal Sealed Bids
-```
+~~### Reveal Sealed Bids~~
+~~```
 POST /v1/marketplace/auctions/{id}/reveal
-```
+```~~
 
-### Get Auction Status
-```
+~~### Get Auction Status~~
+~~```
 GET /v1/marketplace/auctions/{id}
-```
+```~~
+
+**Current Implementation:** Use `POST /v1/marketplace/offers/{offer_id}/book` for booking hardware+software bundle offers with fixed pricing.
 
 ## Search & Recommendation Endpoints
 

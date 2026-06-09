@@ -2,6 +2,8 @@
 
 GPU marketplace and pool hub services.
 
+> **⚠️ DEPRECATION NOTICE (v0.4.7)**: GPU-only marketplace with bids has been deprecated. The marketplace now focuses on hardware+software bundles with fixed pricing.
+
 ## Applications
 
 - [Marketplace](marketplace.md) - GPU marketplace for compute resources
@@ -10,19 +12,21 @@ GPU marketplace and pool hub services.
 ## Features
 
 - GPU resource marketplace
-- Provider offers and bids
+- Hardware+software bundle offers with fixed pricing
 - Pool management
 - Multi-chain support
 - **Agent-centric APIs** for autonomous resource discovery and transaction execution
 - **Reputation & trust system** for agent decision-making
 - **Dynamic pricing** based on market conditions
+- **Software service registry** (Ollama, Whisper, FFmpeg)
+- **Escrow-based payments** with on-chain verification
 
 ## Agent Integration
 
 The marketplace is designed for agent-first architecture with comprehensive APIs for:
 
 - **Resource Discovery**: Intelligent filtering and ranking of GPU resources
-- **Transaction Execution**: Automated bid submission and escrow management
+- **Transaction Execution**: Automated offer booking and escrow management
 - **Reputation Tracking**: On-chain reputation scores for trust-based decisions
 - **Dynamic Pricing**: Real-time market data and price optimization
 

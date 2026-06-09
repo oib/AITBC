@@ -233,10 +233,54 @@ class AggregatedPriceFeed:
             if not coin_id:
                 return None
 
-            # For production, use CoinGecko API
-            # For now, return None (no external dependency)
-            logger.debug(f"CoinGecko fetch not implemented for {pair}")
-            return None
+            # Implement CoinGecko API fetch
+            try:
+                import httpx
+                
+                # CoinGecko API endpoint
+                url = f"https://api.coingecko.com/api/v3/simple/price"
+                params = {
+                    "ids": coin_id,
+                    "vs_currencies": "usd",
+                    "include_24hr_change": "true"
+                }
+                
+                response = httpx.get(url, params=params, timeout=10)
+                if response.status_code != 200:
+                    logger.warning(f"CoinGecko API returned {response.status_code}")
+                    return None
+                
+                data = response.json()
+                if coin_id not in data:
+                    logger.warning(f"CoinGecko response missing {coin_id}")
+                    return None
+                
+                price_data = data[coin_id]
+                price = price_data.get("usd")
+                change_24h = price_data.get("usd_24h_change", 0.0)
+                
+                if price is None:
+                    logger.warning(f"CoinGecko response missing price for {coin_id}")
+                    return None
+                
+                return PriceData(
+                    pair=pair,
+                    price=price,
+                    source=PriceSource.coingecko,
+                    timestamp=datetime.now(UTC),
+                    confidence=0.9,  # High confidence for CoinGecko
+                    metadata={
+                        "change_24h_percent": change_24h,
+                        "coin_id": coin_id
+                    }
+                )
+                
+            except httpx.TimeoutError:
+                logger.warning(f"CoinGecko API timeout for {pair}")
+                return None
+            except Exception as e:
+                logger.warning(f"CoinGecko API error for {pair}: {e}")
+                return None
 
         except Exception as e:
             logger.warning(f"API fetch failed for {pair}: {e}")

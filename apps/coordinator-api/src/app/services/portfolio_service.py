@@ -60,7 +60,7 @@ class PortfolioService:
         self,
         wallet_service_url: str = "http://localhost:8012",
         blockchain_rpc_url: str = "http://localhost:8006",
-        oracle_url: str = "http://localhost:8011",
+        oracle_url: str = "http://localhost:8203",
         session = None
     ) -> None:
         self.wallet_service_url = wallet_service_url
