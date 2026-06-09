@@ -57,6 +57,9 @@ class ChainSettings(BaseSettings):
         # Build chain-specific path: DATA_DIR/data/{chain_id}/chain.db
         return DATA_DIR / "data" / resolved_chain_id / "chain.db"
 
+    # CORS configuration
+    cors_origins: list[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if os.getenv("CORS_ORIGINS") else ["http://localhost:3000"]
+
     rpc_bind_host: str = "0.0.0.0"  # nosec B104: intentional for distributed blockchain
     rpc_bind_port: int = 8080
 
