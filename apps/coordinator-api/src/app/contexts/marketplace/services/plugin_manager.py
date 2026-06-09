@@ -35,8 +35,6 @@ class PluginManager:
             "after_booking": [],
             "before_pricing": [],
             "after_pricing": [],
-            "before_auction": [],
-            "after_auction": [],
         }
 
     def register_plugin(

@@ -36,7 +36,7 @@ export FOLLOWER_NODE="http://aitbc1:8202"
 
 # Service endpoints (per HERMES_AITBC_MASTERY_PLAN.md)
 export SERVICES=(
-    "8011:Coordinator-API"
+    "8203:Coordinator-API"
     "9001:Agent-Coordinator"
     "8001:Exchange-API"
     "8202:Genesis-Node-RPC"

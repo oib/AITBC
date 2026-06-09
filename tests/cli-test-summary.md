@@ -60,7 +60,7 @@ Note: Services are actually running and responding correctly, but systemd check 
 
 ### /v1 Prefix Implementation
 ✓ **SUCCESS** - All /v1 prefix endpoints are working correctly across all updated services:
-- Coordinator-api (port 8011)
+- Coordinator-api (port 8203)
 - Agent-coordinator (port 9001)
 - Marketplace-service (port 8102)
 - Governance-service (port 8105)

@@ -58,7 +58,8 @@
 - **Dependencies**: 🟢 All required packages installed and functional
 
 #### 🔧 **Recent Fixes Applied**
-- **Import Errors**: Fixed deprecated `MarketplaceBidRequest` imports
+- **Marketplace Deprecation (v0.4.7)**: Removed GPU auction functionality, migrated to hardware+software bundles with fixed pricing
+- **Import Errors**: Removed deprecated MarketplaceBidRequest and MarketplaceBidView schemas
 - **Database Schema**: Added missing `avg_rating` and `rating_count` columns
 - **Service Dependencies**: Resolved missing `ipfshttpclient` dependency
 - **Agent Connectivity**: Fixed polling URL configuration and endpoint paths

@@ -26,8 +26,10 @@ def get_encryption_key(key_path):
 
 def encrypt_database(db_path, key):
     """Encrypt database file"""
-    # Placeholder for encryption logic
-    pass
+    # Real implementation is in database_encryption.py
+    # Import and call the actual implementation
+    from .database_encryption import encrypt_database as real_encrypt
+    return real_encrypt(db_path, key)
 _engines: dict[str, object] = {}
 _default_chain_id: str = ""
 
