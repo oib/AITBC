@@ -15,23 +15,12 @@ class DisputeResolutionService:
         self.contract_address = None
         self.contract = None
         self._web3 = None
-        
-        try:
-            from web3 import Web3
-            from ..config import settings
-            
-            # Initialize web3 connection to blockchain RPC
-            blockchain_rpc = settings.blockchain_rpc_url if hasattr(settings, 'blockchain_rpc_url') else "http://localhost:8202"
-            self._web3 = Web3(Web3.HTTPProvider(blockchain_rpc))
-            
-            if self._web3.is_connected():
-                logger.info("Web3 connection established for dispute resolution")
-            else:
-                logger.warning("Failed to connect to blockchain RPC for dispute resolution")
-        except ImportError:
-            logger.warning("web3.py not installed, dispute resolution will use contract module directly")
-        except Exception as e:
-            logger.warning(f"Failed to initialize web3 for dispute resolution: {e}")
+
+        # Note: Web3 connection is not needed because dispute_resolution_contract
+        # is an in-memory implementation, not a smart contract on Ethereum
+        # The AITBC blockchain RPC (port 8202) is a custom implementation,
+        # not Ethereum-compatible, so Web3.py cannot connect to it
+        logger.info("DisputeResolutionService initialized (using in-memory contract implementation)")
 
     def set_contract_address(self, address: str):
         """Set the deployed contract address"""

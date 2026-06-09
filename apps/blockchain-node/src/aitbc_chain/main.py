@@ -41,6 +41,7 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
     """Load an ed25519 private key from the keystore.
     If target_address is given, find the keystore file with matching address.
     Otherwise, return the first key found.
+    Supports both Ethereum encrypted keystore and simple wallet JSON formats.
     """
     if not keystore_dir.exists():
         logger.warning(f"Keystore directory not found: {keystore_dir}")
@@ -50,39 +51,25 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
             with open(kf) as f:
                 data = json.load(f)
             addr = data.get("address")
-            logger.info(f"Checking keystore file: {kf.name}, address: {addr}")
             if target_address and addr != target_address:
-                logger.info(f"Address mismatch: {addr} != {target_address}")
                 continue
-            # Decrypt
-            from cryptography.hazmat.backends import default_backend
-            from cryptography.hazmat.primitives import hashes
-            from cryptography.hazmat.primitives.asymmetric import ed25519
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
-            logger.info(f"Attempting to decrypt keystore file: {kf.name}")
-            crypto = data["crypto"]
-            kdfparams = crypto["kdfparams"]
-            salt = bytes.fromhex(kdfparams["salt"])
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=salt,
-                iterations=kdfparams["c"],
-                backend=default_backend()
-            )
-            key = kdf.derive(password.encode('utf-8'))
-            nonce = bytes.fromhex(crypto["cipherparams"]["nonce"])
-            ciphertext = bytes.fromhex(crypto["ciphertext"])
-            aesgcm = AESGCM(key)
-            private_bytes = aesgcm.decrypt(nonce, ciphertext, None)
-            # Verify it's ed25519
-            priv_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
-            logger.info(f"Successfully decrypted keystore file: {kf.name}")
-            return private_bytes
+            private_key_hex = data.get("private_key", "")
+            if not private_key_hex:
+                continue
+            # Handle encrypted private keys (from wallet daemon)
+            if data.get("encrypted", False):
+                try:
+                    from aitbc.crypto import decrypt_private_key
+                    private_key_hex = decrypt_private_key(private_key_hex, password)
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt wallet key in {kf.name}: {e}")
+                    continue
+            # Convert hex string to bytes
+            if private_key_hex.startswith("0x"):
+                private_key_hex = private_key_hex[2:]
+            return bytes.fromhex(private_key_hex)
         except Exception as e:
-            logger.warning(f"Failed to decrypt keystore file {kf.name}: {type(e).__name__}: {str(e)}")
+            logger.warning(f"Failed to load keystore file {kf.name}: {type(e).__name__}: {str(e)}")
             continue
     return None
 
