@@ -180,3 +180,75 @@ pre {
     overflow-x: auto;
     color: var(--text-muted);
 }
+
+/* Exchange page styles */
+.price-up { color: #10b981; }
+.price-down { color: #ef4444; }
+.price-neutral { color: #6b7280; }
+.loading { color: #9ca3af; font-style: italic; }
+.error { color: #ef4444; }
+.price-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+@media (max-width: 768px) {
+    .price-grid {
+        grid-template-columns: 1fr;
+    }
+}
+input.endpoint {
+    font-family: 'Courier New', monospace;
+    color: var(--text);
+    background: var(--code);
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+/* Hide browser default number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.cursor-pointer { cursor: pointer; }
+.deposit-estimate {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 4px;
+}
+.deposit-estimate.visible { display: block; }
+.deposit-error {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #fee;
+    border-radius: 4px;
+    color: #c00;
+}
+.deposit-error.visible { display: block; }
+.deposit-instructions {
+    display: none;
+    margin-top: 1rem;
+}
+.deposit-instructions.visible { display: block; }
+.copy-feedback {
+    color: var(--success);
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    display: none;
+}
+.copy-feedback.visible { display: block; }
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+.form-help {
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 1rem;
+}
