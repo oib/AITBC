@@ -21,7 +21,7 @@
 
 ### Planned Features
 - Real ML model training for pricing
-- Advanced auction types (combinatorial, Vickrey)
+- ~~Advanced auction types (combinatorial, Vickrey)~~ ~~(DEPRECATED v0.4.7)~~
 - More sophisticated recommendation algorithms
 - Real-time analytics dashboard
 - Additional external provider integrations

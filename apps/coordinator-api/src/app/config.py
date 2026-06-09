@@ -51,7 +51,7 @@ class Settings(BaseAITBCConfig):
     # Override defaults for coordinator-api
     app_name: str = Field(default="AITBC Coordinator API", description="Application name")
     app_host: str = Field(default="0.0.0.0", description="Application host")
-    port: int = Field(default=8011, description="Server port")
+    port: int = Field(default=8203, description="Server port")
     environment: str = Field(default="dev", description="Environment")
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
 
@@ -106,7 +106,7 @@ class Settings(BaseAITBCConfig):
     # CORS - override inherited allow_origins with coordinator-api specific defaults
     allow_origins: list[str] = Field(
         default=[
-            "http://localhost:8011",  # Coordinator API
+            "http://localhost:8203",  # Coordinator API
             "http://localhost:8001",  # Exchange API
             "http://localhost:8002",  # Blockchain Node
             "http://localhost:8003",  # Blockchain RPC

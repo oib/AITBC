@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple FastAPI service for AITBC GPU Multimodal (Port 8011)
+Simple FastAPI service for AITBC GPU Multimodal (Port 8203)
 """
 
 import os
@@ -18,7 +18,7 @@ def health():
     return {
         'status': 'ok',
         'service': 'gpu-multimodal',
-        'port': 8011,
+        'port': 8203,
         'python_version': sys.version.split()[0]
     }
 
@@ -35,11 +35,11 @@ def gpu_multimodal():
 def root():
     return {
         'service': 'AITBC GPU Multimodal Service',
-        'port': 8011,
+        'port': 8203,
         'status': 'running',
         'endpoints': ['/health', '/gpu/multimodal']
     }
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8011))
+    port = int(os.environ.get('PORT', 8203))
     uvicorn.run(app, host='0.0.0.0', port=port)

@@ -8,7 +8,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-COORDINATOR_URL = "http://localhost:8011"
+COORDINATOR_URL = "http://localhost:8203"
 CLIENT_API_KEY = "aitbc-client-key-secure-token-production"
 
 

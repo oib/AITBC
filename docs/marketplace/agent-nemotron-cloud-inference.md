@@ -725,22 +725,23 @@ class NemotronAgent:
    ```bash
    # If Coordinator API fails to start:
    systemctl status aitbc-coordinator-api.service
-   # Fixed: Removed deprecated MarketplaceBidRequest imports
+   # Fixed: Removed deprecated MarketplaceBidRequest imports (v0.4.7 deprecation)
+   # Fixed: Removed GPU auction functionality, migrated to hardware+software bundles
    # Fixed: Added missing ipfshttpclient dependency
-   
+
    # If AgentDaemon has connection errors:
    systemctl status aitbc-agent-daemon.service
    # Fixed: Updated polling URL from port 8107 to 8203
    # Fixed: Corrected endpoint path to /v1/hermes/messages/
    # Solution: systemctl restart aitbc-agent-daemon.service
-   
+
    # If Marketplace Service has database errors:
    systemctl status aitbc-marketplace.service
    # Fixed: Added missing avg_rating and rating_count columns
    # Fixed: Recreated systemd service unit file
-   
+
    # Recent Service Errors and Solutions:
-   # "Cannot import name 'MarketplaceBidRequest'" → Fixed in code
+   # "Cannot import name 'MarketplaceBidRequest'" → Removed in v0.4.7 deprecation
    # "No such column: softwareservice.avg_rating" → Database migration applied
    # "Connection refused on port 8203" → Service timing issue resolved
    # "Unit aitbc-marketplace.service not found" → Symlink recreated

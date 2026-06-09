@@ -201,8 +201,8 @@ agent_integration_service_management() {
     print_status "Lifecycle Management: Deployment, rollback, and instance removal operations"
     log "Agent Integration Service features explained"
     
-    print_status "Testing agent instance deployment via Coordinator API (port 8011)..."
-    DEPLOY_RESPONSE=$(curl -s -X POST http://localhost:8011/v1/agent-integration/deploy \
+    print_status "Testing agent instance deployment via Coordinator API (port 8203)..."
+    DEPLOY_RESPONSE=$(curl -s -X POST http://localhost:8203/v1/agent-integration/deploy \
         -H "Content-Type: application/json" \
         -d '{
           "agent_id": "test-agent-1",
@@ -220,7 +220,7 @@ agent_integration_service_management() {
     fi
     
     print_status "Checking agent instance health endpoint..."
-    HEALTH_RESPONSE=$(curl -s http://localhost:8011/v1/agent-integration/instances/test-agent-1/health 2>/dev/null)
+    HEALTH_RESPONSE=$(curl -s http://localhost:8203/v1/agent-integration/instances/test-agent-1/health 2>/dev/null)
     if [ -n "$HEALTH_RESPONSE" ]; then
         print_success "Agent health check response received"
         echo "$HEALTH_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$HEALTH_RESPONSE"
@@ -231,7 +231,7 @@ agent_integration_service_management() {
     fi
     
     print_status "Collecting metrics from agent instance..."
-    METRICS_RESPONSE=$(curl -s http://localhost:8011/v1/agent-integration/instances/test-agent-1/metrics 2>/dev/null)
+    METRICS_RESPONSE=$(curl -s http://localhost:8203/v1/agent-integration/instances/test-agent-1/metrics 2>/dev/null)
     if [ -n "$METRICS_RESPONSE" ]; then
         print_success "Agent metrics response received"
         echo "$METRICS_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$METRICS_RESPONSE"
@@ -242,7 +242,7 @@ agent_integration_service_management() {
     fi
     
     print_status "Configuring alerting rules..."
-    ALERT_RESPONSE=$(curl -s -X POST http://localhost:8011/v1/agent-integration/alerting/rules \
+    ALERT_RESPONSE=$(curl -s -X POST http://localhost:8203/v1/agent-integration/alerting/rules \
         -H "Content-Type: application/json" \
         -d '{
           "cpu_threshold": 80,
@@ -261,7 +261,7 @@ agent_integration_service_management() {
     fi
     
     print_status "Testing rollback deployment endpoint..."
-    ROLLBACK_RESPONSE=$(curl -s -X POST http://localhost:8011/v1/agent-integration/instances/test-agent-1/rollback 2>/dev/null)
+    ROLLBACK_RESPONSE=$(curl -s -X POST http://localhost:8203/v1/agent-integration/instances/test-agent-1/rollback 2>/dev/null)
     if [ -n "$ROLLBACK_RESPONSE" ]; then
         print_success "Rollback response received"
         echo "$ROLLBACK_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$ROLLBACK_RESPONSE"
@@ -272,7 +272,7 @@ agent_integration_service_management() {
     fi
     
     print_status "Testing agent instance removal endpoint..."
-    REMOVE_RESPONSE=$(curl -s -X DELETE http://localhost:8011/v1/agent-integration/instances/test-agent-1 2>/dev/null)
+    REMOVE_RESPONSE=$(curl -s -X DELETE http://localhost:8203/v1/agent-integration/instances/test-agent-1 2>/dev/null)
     if [ -n "$REMOVE_RESPONSE" ]; then
         print_success "Agent removal response received"
         echo "$REMOVE_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$REMOVE_RESPONSE"

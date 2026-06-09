@@ -11,9 +11,27 @@ class DisputeResolutionService:
     """Service for interacting with the DisputeResolution smart contract"""
 
     def __init__(self):
-        # TODO: Initialize web3 connection and contract instance
+        # Initialize web3 connection and contract instance
         self.contract_address = None
         self.contract = None
+        self._web3 = None
+        
+        try:
+            from web3 import Web3
+            from ..config import settings
+            
+            # Initialize web3 connection to blockchain RPC
+            blockchain_rpc = settings.blockchain_rpc_url if hasattr(settings, 'blockchain_rpc_url') else "http://localhost:8202"
+            self._web3 = Web3(Web3.HTTPProvider(blockchain_rpc))
+            
+            if self._web3.is_connected():
+                logger.info("Web3 connection established for dispute resolution")
+            else:
+                logger.warning("Failed to connect to blockchain RPC for dispute resolution")
+        except ImportError:
+            logger.warning("web3.py not installed, dispute resolution will use contract module directly")
+        except Exception as e:
+            logger.warning(f"Failed to initialize web3 for dispute resolution: {e}")
 
     def set_contract_address(self, address: str):
         """Set the deployed contract address"""

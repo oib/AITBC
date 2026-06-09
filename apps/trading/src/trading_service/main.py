@@ -310,7 +310,12 @@ async def get_blocks(
     limit: int = 10,
     session: AsyncSession = Depends(get_session_dep),
 ):
-    """List recent blocks"""
+    """List recent blocks
+    
+    NOTE: Trading service is not production-critical. 
+    This endpoint returns placeholder data until trading service becomes production.
+    In production, this would query blockchain RPC for actual block data.
+    """
     # Placeholder implementation - would query blockchain for blocks
     return {
         "blocks": [],
@@ -325,7 +330,12 @@ async def get_blocks_v1(
     chain_id: str | None = None,
     session: AsyncSession = Depends(get_session_dep),
 ):
-    """List recent blocks (v1/explorer path for CLI compatibility)"""
+    """List recent blocks (v1/explorer path for CLI compatibility)
+    
+    NOTE: Trading service is not production-critical.
+    This endpoint returns placeholder data until trading service becomes production.
+    In production, this would query blockchain RPC for actual block data.
+    """
     # Placeholder implementation - would query blockchain for blocks
     return {
         "blocks": [],

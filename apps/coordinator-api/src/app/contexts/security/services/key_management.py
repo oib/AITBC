@@ -262,7 +262,11 @@ class KeyManager:
 
 
 class KeyStorageBackend:
-    """Abstract base for key storage backends"""
+    """Abstract base for key storage backends.
+    
+    Concrete implementations must override all methods.
+    Examples: DatabaseKeyStorage, HSMKeyStorage, FileKeyStorage.
+    """
 
     async def store_key_pair(self, key_pair: KeyPair) -> bool:
         """Store key pair securely"""

@@ -61,10 +61,10 @@ class Model(SQLModel, table=True):
 - Implement sandboxing for untrusted plugins
 - Permission system for plugin access
 
-### Auction Security
-- Sealed bids encrypted until reveal
-- Bid validation before acceptance
-- Reserve price enforcement
+### Auction Security ~~(DEPRECATED v0.4.7)~~
+~~- Sealed bids encrypted until reveal~~
+~~- Bid validation before acceptance~~
+~~- Reserve price enforcement~~
 
 ## Performance
 
