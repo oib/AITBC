@@ -226,9 +226,9 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware, max_requests=5000, window_seconds=60)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["*"],
+        allow_headers=["Content-Type", "Authorization", "X-API-Key"],
     )
 
     # Include routers

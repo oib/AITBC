@@ -19,15 +19,23 @@ log "Starting AITBC backup to ${BACKUP_DIR}"
 mkdir -p "${BACKUP_DIR}"
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
+# Source secrets if available
+if [ -f /etc/aitbc/blockchain-secrets.env ]; then
+    # shellcheck source=/dev/null
+    set -a; source /etc/aitbc/blockchain-secrets.env; set +a
+fi
+
 log "Backing up PostgreSQL aitbc_governance..."
-if pg_dump -U aitbc_governance -h localhost aitbc_governance \
-    | gzip > "${BACKUP_DIR}/governance_postgres.sql.gz" 2>/dev/null; then
-    log "  PostgreSQL backup: OK ($(du -sh "${BACKUP_DIR}/governance_postgres.sql.gz" | cut -f1))"
+if [ -z "${PGPASSWORD:-}" ]; then
+    error "  PostgreSQL backup FAILED: PGPASSWORD not set and no password file found"
+    error "  Set PGPASSWORD or add POSTGRES_PASSWORD to /etc/aitbc/blockchain-secrets.env"
 else
-    PGPASSWORD="aitbc_governance_pass" pg_dump -U aitbc_governance -h localhost aitbc_governance \
-        | gzip > "${BACKUP_DIR}/governance_postgres.sql.gz" \
-        && log "  PostgreSQL backup: OK" \
-        || error "  PostgreSQL backup FAILED"
+    if pg_dump -U aitbc_governance -h localhost aitbc_governance \
+        | gzip > "${BACKUP_DIR}/governance_postgres.sql.gz"; then
+        log "  PostgreSQL backup: OK ($(du -sh "${BACKUP_DIR}/governance_postgres.sql.gz" | cut -f1))"
+    else
+        error "  PostgreSQL backup FAILED"
+    fi
 fi
 
 # ── Blockchain SQLite DB ──────────────────────────────────────────────────────
