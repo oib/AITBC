@@ -43,7 +43,6 @@ class ZKMembershipRequest(BaseModel):
 class PrivateBidRequest(BaseModel):
     """Submit a bid without revealing amount"""
 
-    auction_id: str = Field(..., description="Auction identifier")
     bid_commitment: str = Field(..., description="Hash of bid amount + salt")
     proof: str = Field(..., description="Proof that bid is within valid range")
 
@@ -144,35 +143,10 @@ async def submit_private_bid(request: PrivateBidRequest, session: Annotated[Sess
 
     return {
         "bid_id": bid_id,
-        "auction_id": request.auction_id,
         "commitment": request.bid_commitment,
         "status": "submitted",
         "timestamp": datetime.now(UTC).isoformat(),
     }
-
-
-@router.get("/zk/marketplace/auctions/{auction_id}/bids")
-async def get_auction_bids(
-    auction_id: str, session: Annotated[Session, Depends(get_session)], reveal: bool = False
-) -> dict[str, Any]:
-    """
-    Get bids for an auction
-    If reveal=False, returns only commitments (privacy-preserving)
-    If reveal=True, reveals actual bid amounts (after auction ends)
-    """
-
-    # Mock data - in production would query database
-    mock_bids = [
-        {"bid_id": "bid_12345678", "commitment": "0x1a2b3c4d5e6f...", "timestamp": "2025-12-28T10:00:00Z"},
-        {"bid_id": "bid_87654321", "commitment": "0x9f8e7d6c5b4a...", "timestamp": "2025-12-28T10:05:00Z"},
-    ]
-
-    if reveal:
-        # In production, would use pre-images to reveal amounts
-        for bid in mock_bids:
-            bid["amount"] = 100.0 if bid["bid_id"] == "bid_12345678" else 150.0  # type: ignore[assignment]
-
-    return {"auction_id": auction_id, "bids": mock_bids, "revealed": reveal, "total_bids": len(mock_bids)}
 
 
 @router.post("/zk/computation/verify")

@@ -4,7 +4,6 @@ Models package for the AITBC Coordinator API
 
 # Import basic types from types.py to avoid circular imports
 from ..contexts.marketplace.domain.marketplace import (
-    MarketplaceBid,
     MarketplaceOffer,
 )
 from ..contexts.payments.domain.payment import (
@@ -100,7 +99,6 @@ __all__ = [
     "Miner",
     "JobReceipt",
     "MarketplaceOffer",
-    "MarketplaceBid",
     "ServiceType",
     "ServiceRequest",
     "ServiceResponse",

@@ -76,11 +76,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8001",
-        "http://localhost:8011",
+        "http://localhost:8203",
         "http://localhost:8016",
         "http://localhost:9001",
         "http://127.0.0.1:8001",
-        "http://127.0.0.1:8011",
+        "http://127.0.0.1:8203",
         "http://127.0.0.1:8016",
         "http://127.0.0.1:9001",
     ],

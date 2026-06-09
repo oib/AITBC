@@ -8,9 +8,9 @@ echo ""
 
 failed_endpoints=()
 
-# Test coordinator-api (port 8011)
+# Test coordinator-api (port 8203)
 echo -n "coordinator-api /v1/jobs... "
-if curl -s http://localhost:8011/v1/jobs > /dev/null; then
+if curl -s http://localhost:8203/v1/jobs > /dev/null; then
     echo "✓"
 else
     echo "✗"
@@ -18,7 +18,7 @@ else
 fi
 
 echo -n "coordinator-api /v1/miners... "
-if curl -s http://localhost:8011/v1/miners > /dev/null; then
+if curl -s http://localhost:8203/v1/miners > /dev/null; then
     echo "✓"
 else
     echo "✗"

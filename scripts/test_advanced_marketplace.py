@@ -81,21 +81,6 @@ def test_advanced_pricing():
     print("  ✓ Advanced pricing strategies test passed")
 
 
-def test_auction_types():
-    """Test auction type support in database models."""
-    print("\n=== Testing Auction Types ===")
-    
-    # Check MarketplaceBid has auction fields
-    from app.contexts.marketplace.domain.marketplace import MarketplaceBid, AuctionConfig
-    
-    bid_fields = ["auction_type", "sealed_bid_encrypted", "reveal_timestamp", "dutch_price", "auction_id"]
-    auction_config_fields = ["auction_id", "auction_type", "start_price", "decrement_rate", "reserve_price"]
-    
-    print("  ✓ MarketplaceBid has auction fields:", ", ".join(bid_fields))
-    print("  ✓ AuctionConfig model available with fields:", ", ".join(auction_config_fields))
-    print("  ✓ Auction types test passed")
-
-
 def test_ml_search_models():
     """Test ML-based search models."""
     print("\n=== Testing ML-Based Search Models ===")
@@ -258,7 +243,6 @@ def test_database_tables():
     expected_tables = [
         "price_history",
         "price_forecast",
-        "auction_config",
         "search_history",
         "resource_embeddings",
         "user_profiles",
@@ -289,7 +273,6 @@ def main():
     
     try:
         test_advanced_pricing()
-        test_auction_types()
         test_ml_search_models()
         test_analytics_models()
         test_external_provider_models()

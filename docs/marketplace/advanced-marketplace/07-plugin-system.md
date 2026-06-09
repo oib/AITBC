@@ -16,8 +16,8 @@ The PluginManager provides a production-ready plugin system for marketplace exte
 - `after_booking`: Post-booking hook
 - `before_pricing`: Pre-pricing hook
 - `after_pricing`: Post-pricing hook
-- `before_auction`: Pre-auction hook
-- `after_auction`: Post-auction hook
+~~- `before_auction`: Pre-auction hook~~ (DEPRECATED v0.4.7)
+~~- `after_auction`: Post-auction hook~~ (DEPRECATED v0.4.7)
 
 ### Hook Execution
 - Sequential hook execution

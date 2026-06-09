@@ -910,7 +910,7 @@ main() {
     echo "Service Information:"
     echo "  Wallet API: http://localhost:8015/health"
     echo "  Exchange API: http://localhost:8010/api/health"
-    echo "  Coordinator API: http://localhost:8011/health"
+    echo "  Coordinator API: http://localhost:8203/health"
     echo ""
     echo "Runtime Directories:"
     echo "  Keystore: /var/lib/aitbc/keystore/"

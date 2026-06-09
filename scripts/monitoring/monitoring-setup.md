@@ -173,7 +173,7 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-        - http://coordinator-api:8011/v1/health
+        - http://coordinator-api:8203/v1/health
         - http://blockchain-node:8080/v1/health
         - http://marketplace:8102/v1/health
     relabel_configs:
@@ -365,7 +365,7 @@ Location: `infra/monitoring/grafana/dashboards/`
 
 ```bash
 # Test coordinator API metrics
-curl http://localhost:8011/metrics
+curl http://localhost:8203/metrics
 
 # Test blockchain node metrics
 curl http://localhost:8080/metrics

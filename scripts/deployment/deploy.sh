@@ -322,7 +322,7 @@ run_health_checks() {
         fi
         
         # Check coordinator API
-        if curl -sf http://localhost:8011/health > /dev/null 2>&1; then
+        if curl -sf http://localhost:8203/health > /dev/null 2>&1; then
             success "Coordinator API health check passed"
         else
             warning "Coordinator API health check failed"

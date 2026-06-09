@@ -231,7 +231,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
      - `/v1/transactions` - Marketplace transactions (POST/GET)
      - `/v1/marketplace/analytics` - Marketplace analytics
    - Database: PostgreSQL (aitbc_marketplace)
-   - Models: MarketplaceOffer, MarketplaceBid
+   - Models: MarketplaceOffer (MarketplaceBid deprecated in v0.4.7 - GPU auction functionality removed)
 
 3. **Trading Service** (port 8104)
    - Endpoints:

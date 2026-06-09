@@ -2,10 +2,12 @@
 
 This tutorial shows how to extend the AITBC marketplace with custom features, plugins, and integrations.
 
+> **⚠️ DEPRECATION NOTICE (v0.4.7)**: Auction functionality has been deprecated. GPU-only marketplace auctions are no longer supported. The marketplace now focuses on hardware+software bundles with fixed pricing. See the "Auction Extensions" section below for details.
+
 ## Overview
 
 The AITBC marketplace is designed to be extensible. You can add:
-- Custom auction types
+- ~~Custom auction types~~ (deprecated in v0.4.7)
 - Specialized service categories
 - Advanced filtering and search
 - Integration with external systems
@@ -18,7 +20,11 @@ The AITBC marketplace is designed to be extensible. You can add:
 - Understanding of React/TypeScript
 - API development experience
 
-## Step 1: Create a Custom Auction Type
+## Step 1: Create a Custom Auction Type ~~(DEPRECATED)~~
+
+> **⚠️ DEPRECATED (v0.4.7)**: This section describes auction functionality that has been removed. The AITBC marketplace no longer supports GPU auctions. The system now uses hardware+software bundles with fixed pricing. If auction functionality is needed in the future, it should be designed fresh for the software service marketplace model.
+
+The following code is provided for reference only and will not work with the current marketplace architecture.
 
 Let's create a Dutch auction extension:
 
@@ -75,7 +81,9 @@ export class DutchAuction implements MarketplacePlugin {
 }
 ```
 
-## Step 2: Register the Extension
+## Step 2: Register the Extension ~~(DEPRECATED)~~
+
+> **⚠️ DEPRECATED (v0.4.7)**: Auction registration functionality has been removed.
 
 ```typescript
 // src/extensions/index.ts
@@ -103,7 +111,9 @@ registry.registerAuctionType('dutch', DutchAuction, {
 export default registry;
 ```
 
-## Step 3: Create UI Components
+## Step 3: Create UI Components ~~(DEPRECATED)~~
+
+> **⚠️ DEPRECATED (v0.4.7)**: Auction UI components are no longer supported.
 
 ```tsx
 // src/components/DutchAuctionCard.tsx
@@ -177,7 +187,9 @@ export const DutchAuctionCard: React.FC<DutchAuctionCardProps> = ({ auction }) =
 };
 ```
 
-## Step 4: Add Backend API Support
+## Step 4: Add Backend API Support ~~(DEPRECATED)~~
+
+> **⚠️ DEPRECATED (v0.4.7)**: Auction API endpoints have been removed from coordinator-api.
 
 ```python
 # apps/coordinator-api/src/app/routers/marketplace_extensions.py
@@ -426,19 +438,19 @@ from typing import Dict, Any
 class SlackIntegration:
     def __init__(self, webhook_url: str):
         self.webhook_url = webhook_url
-    
-    async def notify_new_auction(self, auction: Dict[str, Any]) -> None:
-        """Send notification about new auction to Slack."""
+
+    async def notify_new_offer(self, offer: Dict[str, Any]) -> None:
+        """Send notification about new marketplace offer to Slack."""
         message = {
-            "text": f"New auction created: {auction['title']}",
+            "text": f"New offer created: {offer['title']}",
             "blocks": [
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*New Auction Alert*\n\n*Title:* {auction['title']}\n"
-                               f"*Starting Price:* {auction['start_price']} AITBC\n"
-                               f"*Category:* {auction.get('category', 'General')}"
+                        "text": f"*New Offer Alert*\n\n*Title:* {offer['title']}\n"
+                               f"*Price:* {offer['price']} AITBC\n"
+                               f"*Category:* {offer.get('category', 'General')}"
                     }
                 },
                 {
@@ -446,23 +458,23 @@ class SlackIntegration:
                     "elements": [
                         {
                             "type": "button",
-                            "text": {"type": "plain_text", "text": "View Auction"},
-                            "url": f"https://aitbc.bubuit.net/marketplace/auction/{auction['id']}"
+                            "text": {"type": "plain_text", "text": "View Offer"},
+                            "url": f"https://aitbc.bubuit.net/marketplace/offer/{offer['id']}"
                         }
                     ]
                 }
             ]
         }
-        
+
         async with httpx.AsyncClient() as client:
             await client.post(self.webhook_url, json=message)
-    
-    async def notify_bid_placed(self, auction_id: str, bid_amount: float) -> None:
-        """Notify when a bid is placed."""
+
+    async def notify_booking_completed(self, offer_id: str, amount: float) -> None:
+        """Notify when a booking is completed."""
         message = {
-            "text": f"New bid of {bid_amount} AITBC placed on auction {auction_id}"
+            "text": f"Booking of {amount} AITBC completed for offer {offer_id}"
         }
-        
+
         async with httpx.AsyncClient() as client:
             await client.post(self.webhook_url, json=message)
 
@@ -556,15 +568,17 @@ const finalPrice = pricingEngine.calculatePrice(100, {
 });
 ```
 
-## Testing Your Extensions
+## Testing Your Extensions ~~(Auction Tests Deprecated)~~
+
+> **⚠️ DEPRECATED (v0.4.7)**: Auction extension tests are no longer relevant.
 
 ```typescript
-// src/extensions/__tests__/DutchAuction.test.ts
+// src/extensions/__tests__/DutchAuction.test.ts ~~(DEPRECATED)~~
 import { DutchAuction } from '../DutchAuction';
 
 describe('DutchAuction', () => {
   let auction: DutchAuction;
-  
+
   beforeEach(() => {
     auction = new DutchAuction({
       startPrice: 1000,
@@ -573,28 +587,35 @@ describe('DutchAuction', () => {
       decrementInterval: 60
     });
   });
-  
+
   test('should start with initial price', () => {
     expect(auction.currentPrice).toBe(1000);
   });
-  
+
   test('should decrement price after interval', async () => {
     // Mock time passing
     jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 60000);
-    
+
     await auction.updatePrice();
     expect(auction.currentPrice).toBe(990);
   });
-  
+
   test('should not go below reserve price', async () => {
     // Mock significant time passing
     jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 600000);
-    
+
     await auction.updatePrice();
     expect(auction.currentPrice).toBe(100);
   });
 });
 ```
+
+**For current marketplace extensions**, focus on testing:
+- Service category registration
+- Advanced search filters
+- External system integrations
+- Dynamic pricing models
+- Plugin system hooks
 
 ## Deployment
 
@@ -626,6 +647,15 @@ ssh aitbc "systemctl restart coordinator-api"
 
 ## Conclusion
 
-This tutorial covered creating marketplace extensions including custom auction types, service categories, advanced search, and external integrations. You can now build powerful extensions to enhance the AITBC marketplace functionality.
+This tutorial covered creating marketplace extensions including service categories, advanced search filters, external system integrations, and custom pricing models. Auction functionality has been deprecated in v0.4.7 as the marketplace now focuses on hardware+software bundles with fixed pricing.
+
+**Current supported extension areas:**
+- Service categories for specialized workloads
+- Advanced search and filtering capabilities
+- External system integrations (Slack, Discord, etc.)
+- Dynamic pricing models based on demand/supply
+- Plugin system for marketplace hooks
+
+If auction functionality is needed in the future for software service bundles, it should be designed fresh for the new marketplace microservice architecture.
 
 For more examples and community contributions, visit the marketplace extensions repository.

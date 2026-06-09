@@ -117,7 +117,7 @@ async def test_fetch_public_key_from_coordinator():
         return mock_response.get("public_key")
 
     # Test successful fetch
-    public_key = await mock_fetch_public_key("test_agent", "http://localhost:8011")
+    public_key = await mock_fetch_public_key("test_agent", "http://localhost:8203")
     if public_key:
         print(f"✅ Public key fetched: {public_key}")
     else:
@@ -128,7 +128,7 @@ async def test_fetch_public_key_from_coordinator():
     async def mock_fetch_public_key_not_found(sender_id: str, coordinator_url: str):
         return None
 
-    public_key = await mock_fetch_public_key_not_found("nonexistent", "http://localhost:8011")
+    public_key = await mock_fetch_public_key_not_found("nonexistent", "http://localhost:8203")
     if public_key is None:
         print("✅ Correctly returned None for non-existent agent")
     else:
@@ -184,7 +184,7 @@ async def test_receive_message_with_signature():
         return False
 
     # Fetch public key
-    public_key_hex = await mock_fetch_public_key(sender_id, "http://localhost:8011")
+    public_key_hex = await mock_fetch_public_key(sender_id, "http://localhost:8203")
     if not public_key_hex:
         print("❌ Failed to fetch public key")
         return False
