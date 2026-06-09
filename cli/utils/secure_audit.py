@@ -212,7 +212,7 @@ class SecureAuditLogger:
         is_valid, issues = self.verify_integrity()
 
         # Get statistics
-        all_entries = self.get_logs(limit=10000, verify=False)  # Don't double-verify
+        all_entries = self.get_logs(limit=10000, verify=True)  # Always verify integrity
 
         # Action statistics
         action_counts = {}
@@ -277,7 +277,7 @@ class SecureAuditLogger:
         Returns:
             Matching entries
         """
-        entries = self.get_logs(limit=1000, verify=False)  # Get more for search
+        entries = self.get_logs(limit=1000, verify=True)  # Always verify integrity
 
         matches = []
         query_lower = query.lower()

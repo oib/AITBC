@@ -56,7 +56,7 @@ def run_cmd(cmd, cwd=REPO_DIR, timeout=300, env=None):
     try:
         result = subprocess.run(
             cmd,
-            shell=True,
+            shell=False,
             cwd=cwd,
             capture_output=True,
             text=True,

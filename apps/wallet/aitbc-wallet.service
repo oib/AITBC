@@ -12,7 +12,6 @@ EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=/etc/aitbc/exchange.env
-Environment=WALLET_IMPORT_PASSWORD=Aitbc-Password-123
 Environment=WALLET_DIR=/var/lib/aitbc/wallets
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/wallet/aitbc-wallet-wrapper.py
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"

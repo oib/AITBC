@@ -7,6 +7,7 @@ Handles decentralized peer-to-peer mesh communication between blockchain nodes
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from aitbc import get_logger
@@ -17,7 +18,15 @@ from .network.hub_manager import HubManager
 from .network.island_manager import IslandManager
 from .network.nat_traversal import NATTraversalService
 
-logger = get_logger(__name__)
+# Use explicit module name instead of __name__ so the logger name is
+# readable when the module is run via `python -m`.
+logger = get_logger("aitbc_chain.p2p_network")
+
+# When running under systemd, journald already prepends timestamps.
+# Detect this via INVOCATION_ID and strip the timestamp to avoid doubles.
+if os.getenv("INVOCATION_ID"):
+    for handler in logging.getLogger().handlers:
+        handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
 
 # Global P2P service instance
 _p2p_service_instance = None

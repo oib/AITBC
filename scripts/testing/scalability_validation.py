@@ -5,6 +5,7 @@ Tests system performance under load and validates scalability
 """
 
 import asyncio
+import os
 import statistics
 import subprocess
 import sys
@@ -104,20 +105,44 @@ class ScalabilityValidator:
     def get_system_metrics(self):
         """Get current system metrics"""
         try:
-            # CPU usage
-            cpu_result = subprocess.run(['top', '-bn1', '|', 'grep', 'Cpu(s)', '|', "awk", "'{print $2}'"],
-                                      capture_output=True, text=True, shell=True)
-            cpu_usage = cpu_result.stdout.strip().replace('%us,', '')
+            # CPU usage (parse /proc/stat)
+            cpu_usage = 0.0
+            try:
+                with open('/proc/stat') as f:
+                    line = f.readline()
+                    fields = line.split()
+                    if fields[0] == 'cpu' and len(fields) >= 5:
+                        user, nice, system, idle = int(fields[1]), int(fields[2]), int(fields[3]), int(fields[4])
+                        total = user + nice + system + idle
+                        if total > 0:
+                            cpu_usage = round((user + nice + system) / total * 100, 1)
+            except Exception:
+                pass
 
-            # Memory usage
-            mem_result = subprocess.run(['free', '|', 'grep', 'Mem', '|', "awk", "'{printf \"%.1f\", $3/$2 * 100.0}'"],
-                                       capture_output=True, text=True, shell=True)
-            memory_usage = mem_result.stdout.strip()
+            # Memory usage (parse /proc/meminfo)
+            memory_usage = 0.0
+            try:
+                meminfo = {}
+                with open('/proc/meminfo') as f:
+                    for line in f:
+                        key, value = line.split(':')
+                        meminfo[key.strip()] = int(value.split()[0])
+                total = meminfo.get('MemTotal', 0)
+                available = meminfo.get('MemAvailable', meminfo.get('MemFree', 0))
+                if total > 0:
+                    memory_usage = round((total - available) / total * 100, 1)
+            except Exception:
+                pass
 
-            # Disk usage
-            disk_result = subprocess.run(['df', '/', '|', 'awk', 'NR==2{print $5}'],
-                                       capture_output=True, text=True, shell=True)
-            disk_usage = disk_result.stdout.strip().replace('%', '')
+            # Disk usage (shutil.disk_usage)
+            disk_usage = 0.0
+            try:
+                import shutil
+                usage = shutil.disk_usage('/')
+                if usage.total > 0:
+                    disk_usage = round((usage.total - usage.free) / usage.total * 100, 1)
+            except Exception:
+                pass
 
             return {
                 'cpu_usage': float(cpu_usage) if cpu_usage else 0,

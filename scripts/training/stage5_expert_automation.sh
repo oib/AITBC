@@ -318,7 +318,7 @@ CLI_PATH = "${CLI_PATH}"
 def run_command(cmd):
     """Execute AITBC CLI command and return result"""
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=30)
         return result.returncode == 0, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return False, "", "Command timeout"
