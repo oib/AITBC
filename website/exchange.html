@@ -10,23 +10,6 @@
     <!-- Stylesheet -->
     <link rel="stylesheet" href="/assets/css/style.css">
     
-    <style>
-        .price-up { color: #10b981; }
-        .price-down { color: #ef4444; }
-        .price-neutral { color: #6b7280; }
-        .loading { color: #9ca3af; font-style: italic; }
-        .error { color: #ef4444; }
-                .price-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-        @media (max-width: 768px) {
-            .price-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -66,18 +49,49 @@
         <div class="card">
             <h2>ETH to AIT Bridge</h2>
             <div id="eth-bridge">
-                <p><strong>Deposit Address (Sepolia):</strong></p>
-                <div class="endpoint" id="deposit-address-box" style="cursor: pointer;" onclick="copyAddress()">
-                    <span class="method">ETH</span> <span class="path" id="deposit-address">Loading...</span>
+                <p><strong>Calculate Deposit:</strong></p>
+                <div style="margin: 1rem 0;">
+                    <label for="eth-amount" style="display: block; margin-bottom: 0.5rem;">ETH Amount:</label>
+                    <input type="number" id="eth-amount" step="0.0001" min="0.001" placeholder="0.01" class="endpoint" style="width: 100%; margin-bottom: 0.5rem;">
+                    <small style="color: var(--text-muted); display: block; margin-bottom: 1rem;">Amount of ETH you want to bridge to AIT</small>
+                    
+                    <label for="eth-address" style="display: block; margin-bottom: 0.5rem;">Your Ethereum Address (Optional):</label>
+                    <input type="text" id="eth-address" placeholder="0x..." class="endpoint" style="width: 100%; margin-bottom: 0.5rem;">
+                    <small style="color: var(--text-muted); display: block; margin-bottom: 1rem;">Your Ethereum wallet address (for tracking purposes only)</small>
+                    
+                    <label for="ait-address" style="display: block; margin-bottom: 0.5rem;">AIT Wallet Address (Required):</label>
+                    <input type="text" id="ait-address" placeholder="ait1..." class="endpoint" style="width: 100%; margin-bottom: 0.5rem;">
+                    <small style="color: var(--text-muted); display: block; margin-bottom: 1rem;">Your AIT wallet address where you want to receive the bridged tokens</small>
+                    
+                    <div class="endpoint endpoint-link" onclick="calculateDeposit()" style="cursor: pointer;">
+                        <span class="method">POST</span> <span class="path">Calculate Deposit</span>
+                    </div>
                 </div>
-                <p id="copy-feedback" style="color: var(--success); font-size: 0.85rem; margin-top: 0.5rem; display: none;">Copied to clipboard!</p>
-                <p><strong>Instructions:</strong></p>
-                <ol style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                    <li>Send ETH to the address above on Sepolia testnet</li>
-                    <li>Include your AIT wallet address in the transaction data field</li>
-                    <li>AIT will be sent automatically based on current oracle price</li>
-                </ol>
-                <p><strong>Minimum Deposit:</strong> 0.001 ETH</p>
+                
+                <div id="deposit-estimate" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 4px;">
+                    <p><strong>Estimated AIT Amount:</strong> <span id="estimated-ait">-</span></p>
+                    <p><strong>Fee (0.5%):</strong> <span id="fee-eth">-</span> ETH</p>
+                    <p><strong>Net ETH:</strong> <span id="net-eth">-</span> ETH</p>
+                    <p><strong>ETH/USD:</strong> $<span id="eth-usd">-</span></p>
+                    <p><strong>AIT/USD:</strong> $<span id="ait-usd">-</span></p>
+                </div>
+                
+                <div id="deposit-error" style="display: none; margin-top: 1rem; padding: 1rem; background: #fee; border-radius: 4px; color: #c00;"></div>
+                
+                <div id="deposit-instructions" style="display: none; margin-top: 1rem;">
+                    <p><strong>Deposit Address (Sepolia):</strong></p>
+                    <div class="endpoint" id="deposit-address-box" style="cursor: pointer;" onclick="copyAddress()">
+                        <span class="method">ETH</span> <span class="path" id="deposit-address">Loading...</span>
+                    </div>
+                    <p id="copy-feedback" style="color: var(--success); font-size: 0.85rem; margin-top: 0.5rem; display: none;">Copied to clipboard!</p>
+                    <p><strong>Instructions:</strong></p>
+                    <ol style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                        <li>Send <span id="instruction-eth-amount">-</span> ETH to the address above on Sepolia testnet</li>
+                        <li>Include your AIT address "<span id="instruction-ait-address">-</span>" in the transaction data field</li>
+                        <li>AIT will be sent automatically based on current oracle price</li>
+                    </ol>
+                    <p><strong>Minimum Deposit:</strong> <span id="min-deposit">-</span> ETH</p>
+                </div>
             </div>
         </div>
 
@@ -238,6 +252,62 @@
             statusHtml += `<p><strong>Message:</strong> ${data.message}</p>`;
             
             document.getElementById('bridge-status').innerHTML = statusHtml;
+        }
+        
+        async function calculateDeposit() {
+            const ethAmount = document.getElementById('eth-amount').value;
+            const aitAddress = document.getElementById('ait-address').value;
+            
+            // Hide previous results
+            document.getElementById('deposit-estimate').style.display = 'none';
+            document.getElementById('deposit-error').style.display = 'none';
+            document.getElementById('deposit-instructions').style.display = 'none';
+            
+            if (!ethAmount || !aitAddress) {
+                document.getElementById('deposit-error').style.display = 'block';
+                document.getElementById('deposit-error').textContent = 'Please enter both ETH amount and AIT address';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/v1/bridge/deposit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        eth_amount: parseFloat(ethAmount),
+                        ait_address: aitAddress
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'ready') {
+                    // Show estimates
+                    document.getElementById('deposit-estimate').style.display = 'block';
+                    document.getElementById('estimated-ait').textContent = data.estimate.estimated_ait_amount || '-';
+                    document.getElementById('fee-eth').textContent = data.estimate.fee_eth || '-';
+                    document.getElementById('net-eth').textContent = data.estimate.net_eth || '-';
+                    document.getElementById('eth-usd').textContent = data.estimate.eth_usd_price || '-';
+                    document.getElementById('ait-usd').textContent = data.estimate.ait_usd_price || '-';
+                    
+                    // Show instructions
+                    document.getElementById('deposit-instructions').style.display = 'block';
+                    document.getElementById('deposit-address').textContent = data.instructions.send_eth_to;
+                    document.getElementById('instruction-eth-amount').textContent = data.instructions.amount_eth;
+                    document.getElementById('instruction-ait-address').textContent = data.instructions.transaction_data;
+                    document.getElementById('min-deposit').textContent = data.instructions.min_deposit;
+                } else {
+                    // Show error
+                    document.getElementById('deposit-error').style.display = 'block';
+                    document.getElementById('deposit-error').textContent = data.error || data.message || 'Failed to calculate deposit';
+                }
+            } catch (error) {
+                console.error('Error calculating deposit:', error);
+                document.getElementById('deposit-error').style.display = 'block';
+                document.getElementById('deposit-error').textContent = 'Failed to connect to server';
+            }
         }
         
         function copyAddress() {
