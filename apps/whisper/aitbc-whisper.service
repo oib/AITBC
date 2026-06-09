@@ -18,7 +18,6 @@ ExecStart=/opt/aitbc/venv/bin/python main.py
 Restart=always
 RestartSec=10
 MemoryMax=1G
-MemoryLimit=1G
 
 [Install]
 WantedBy=multi-user.target
