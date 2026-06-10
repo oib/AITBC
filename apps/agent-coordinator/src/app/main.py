@@ -45,9 +45,6 @@ def create_app() -> FastAPI:
     # Add health router without prefix for direct access to /health
     app.include_router(health_router)
 
-    # Add health router without prefix for direct access
-    app.include_router(health_router)
-
     register_middleware(app)
     register_exception_handlers(app)
     return app
