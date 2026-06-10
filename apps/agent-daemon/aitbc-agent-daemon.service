@@ -1,8 +1,9 @@
 [Unit]
 Description=AITBC Autonomous Agent Listener Daemon
 Documentation=https://github.com/aitbc/blockchain
-After=network.target aitbc-blockchain-node.service
+After=network.target aitbc-blockchain-node.service aitbc-agent-coordinator.service aitbc-hermes.service
 Requires=aitbc-blockchain-node.service
+Wants=aitbc-agent-coordinator.service aitbc-hermes.service
 
 [Service]
 Type=simple
