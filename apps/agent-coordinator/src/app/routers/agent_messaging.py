@@ -1,8 +1,11 @@
 """
 Agent Messaging Router - Provides /api/v1/agent/messages/ endpoints
 
-Migrated from Coordinator API hermes messaging to Agent Coordinator microservice.
-Provides agent-to-agent messaging with PING/PONG support.
+DEPRECATED / DEAD CODE: This router is NOT imported in app/routers/__init__.py
+and is therefore NOT mounted in the FastAPI application. The active messaging
+implementation is in messages.py, which uses Redis-backed persistent storage.
+
+This file is kept for reference only. Do not modify or rely on it.
 """
 
 from __future__ import annotations
