@@ -33,8 +33,9 @@ class BaseHandler(ABC):
                 json={
                     "sender": self.agent_id,
                     "recipient": recipient,
-                    "content": content,
-                    "message_type": message_type
+                    "content": {"text": content},
+                    "message_type": message_type,
+                    "encrypt": False
                 },
                 timeout=10
             )

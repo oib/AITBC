@@ -74,10 +74,53 @@ async def startup_event():
     asyncio.create_task(expire_old_requests())
 
 
+def _check_db() -> bool:
+    """Check SQLite database connectivity."""
+    try:
+        from sqlalchemy import text
+        with get_db_session() as session:
+            session.execute(text("SELECT 1"))
+            return True
+    except Exception:
+        return False
+
+
+def _check_coordinator() -> bool:
+    """Check Agent Coordinator reachability."""
+    try:
+        import requests
+        response = requests.get(f"{COORDINATOR_URL}/health", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def _check_blockchain_rpc() -> bool:
+    """Check blockchain RPC reachability."""
+    try:
+        import requests
+        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+        response = requests.get(f"{rpc_url}/health", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "hermes-service"}
+    """Health check endpoint with dependency verification."""
+    checks = {
+        "database": _check_db(),
+        "coordinator": _check_coordinator(),
+        "blockchain_rpc": _check_blockchain_rpc(),
+    }
+    all_healthy = all(checks.values())
+    status = "healthy" if all_healthy else "degraded"
+    return {
+        "status": status,
+        "service": "hermes-service",
+        "checks": checks,
+    }
 
 
 @app.post("/message")
@@ -253,4 +296,8 @@ async def remote_execute_coin_request(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8108)
+    uvicorn.run(
+        app,
+        host=os.getenv("BIND_HOST", "127.0.0.1"),
+        port=int(os.getenv("HERMES_PORT", "8103"))
+    )
