@@ -18,7 +18,7 @@ import httpx
 # Default configuration
 DEFAULT_COORDINATOR_URL = "http://localhost:8107"
 DEFAULT_HERMES_URL = "http://localhost:8103"
-DEFAULT_POLL_INTERVAL = 20.0
+DEFAULT_POLL_INTERVAL = 60.0
 DEFAULT_LOG_LEVEL = "INFO"
 
 
