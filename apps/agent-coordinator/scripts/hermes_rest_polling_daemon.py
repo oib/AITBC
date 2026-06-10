@@ -18,7 +18,7 @@ import httpx
 # Default configuration
 DEFAULT_COORDINATOR_URL = "http://localhost:8107"
 DEFAULT_HERMES_URL = "http://localhost:8103"
-DEFAULT_POLL_INTERVAL = 2.0
+DEFAULT_POLL_INTERVAL = 20.0
 DEFAULT_LOG_LEVEL = "INFO"
 
 
@@ -39,12 +39,12 @@ class HermesRestPollingDaemon:
         self.poll_interval = poll_interval
         self.running = True
 
-        # Setup logging
+        # Setup logging (journalctl already provides timestamp)
         logging.basicConfig(
             level=getattr(logging, log_level.upper()),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            format="[%(name)s] %(levelname)s: %(message)s",
         )
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger("hermes-polling")
 
         # Track seen message hashes to avoid duplicate processing
         self._seen_messages: set[str] = set()
