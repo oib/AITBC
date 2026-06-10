@@ -13,8 +13,8 @@ EnvironmentFile=/etc/aitbc/blockchain.env
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="HERMES_COORDINATOR_URL=http://localhost:8107"
 Environment="HERMES_SERVICE_URL=http://localhost:8103"
-Environment="ENABLE_HERMES_POLLING=false"
-Environment="HERMES_AGENT_IDS="
+Environment="ENABLE_HERMES_POLLING=true"
+Environment="HERMES_AGENT_IDS=my-agent"
 Environment="AGENT_DAEMON_CHAINS=ait-hub.aitbc.bubuit.net"
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py
 
