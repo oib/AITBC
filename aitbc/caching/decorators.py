@@ -122,10 +122,10 @@ def cached_blockchain(operation: str, ttl: int | None = None):
     Returns:
         Decorated function with blockchain caching
     """
-    from aitbc import get_cache
-    
+    from aitbc.cache import get_cache as _get_cache
+
     # Get blockchain cache instance
-    redis_cache = get_cache()
+    redis_cache = _get_cache()
     blockchain_cache = BlockchainCache(redis_cache=redis_cache)
     
     # Set default TTL based on operation type
