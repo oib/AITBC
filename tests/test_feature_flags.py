@@ -327,6 +327,7 @@ class TestFeatureFlagManager:
     def test_get_all_flags(self):
         """Test get_all_flags"""
         manager = FeatureFlagManager()
+        manager._flags.clear()
         manager._flags["feature1"] = FeatureFlag(
             name="feature1",
             enabled=True,
