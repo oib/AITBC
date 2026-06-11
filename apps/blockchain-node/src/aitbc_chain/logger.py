@@ -3,7 +3,7 @@ import sys
 
 
 class TextFormatter(logging.Formatter):
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         message = record.getMessage()
         
         # Add any extra arguments passed to the logger

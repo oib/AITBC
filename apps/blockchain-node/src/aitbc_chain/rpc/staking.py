@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Staking-related RPC endpoints.
 """

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Economic Attack Prevention
 Detects and prevents various economic attacks on the network

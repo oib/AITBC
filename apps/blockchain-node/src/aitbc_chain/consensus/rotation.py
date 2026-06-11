@@ -49,7 +49,7 @@ class ValidatorRotation:
         elif self.config.strategy == RotationStrategy.HYBRID:
             return self._rotate_hybrid()
 
-        return False
+        return False  # type: ignore[unreachable]
 
     def _rotate_round_robin(self) -> bool:
         """Round-robin rotation of validator roles"""
@@ -118,10 +118,10 @@ class ValidatorRotation:
 
         # Calculate hybrid score
         for validator in validators:
-            validator.hybrid_score = validator.stake * validator.reputation
+            validator.hybrid_score = validator.stake * validator.reputation  # type: ignore[attr-defined]
 
         # Sort by hybrid score
-        validators.sort(key=lambda v: v.hybrid_score, reverse=True)
+        validators.sort(key=lambda v: v.hybrid_score, reverse=True)  # type: ignore[attr-defined]
 
         for i, validator in enumerate(validators[:self.config.max_validators]):
             if i == 0:

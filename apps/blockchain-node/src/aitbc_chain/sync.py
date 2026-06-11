@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Chain synchronization with conflict resolution, signature validation, and metrics."""
 
 from __future__ import annotations

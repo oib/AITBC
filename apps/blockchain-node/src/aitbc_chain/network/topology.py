@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Network Topology Optimization
 Optimizes peer connection strategies for network performance

@@ -78,7 +78,7 @@ class ArbitrationVote:
 class DisputeResolutionContract:
     """In-memory implementation of Dispute Resolution contract"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.disputes: dict[int, Dispute] = {}
         self.evidence: dict[int, list[Evidence]] = {}
         self.votes: dict[int, list[ArbitrationVote]] = {}
@@ -87,7 +87,7 @@ class DisputeResolutionContract:
         self.evidence_counter = 0
         self._initialize_arbitrators()
 
-    def _initialize_arbitrators(self):
+    def _initialize_arbitrators(self) -> None:
         """Initialize default arbitrators"""
         self.arbitrators = {
             "0x1111111111111111111111111111111111111111": 90,

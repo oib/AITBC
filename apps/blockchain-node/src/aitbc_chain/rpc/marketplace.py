@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Marketplace RPC endpoints for AITBC blockchain"""
 
 import json

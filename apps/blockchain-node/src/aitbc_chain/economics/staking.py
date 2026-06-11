@@ -298,7 +298,7 @@ class StakingManager:
 
     def calculate_epoch_rewards(self, total_reward: float = 1000.0) -> dict[str, float]:
         """Calculate epoch rewards for all validators"""
-        rewards = {}
+        rewards: dict[str, float] = {}
 
         # Get total active stake
         total_stake = self.get_total_staked()
@@ -396,7 +396,7 @@ class StakingManager:
         total_rewards = sum(pos.rewards for pos in validator_positions)
         return float(total_rewards)
 
-    def _update_validator_stake_info(self, validator_address: str):
+    def _update_validator_stake_info(self, validator_address: str) -> None:
         """Update validator stake information"""
         validator_positions = [
             pos for pos in self.stake_positions.values()
@@ -460,10 +460,10 @@ class StakingManager:
 
     def get_total_staked(self) -> Decimal:
         """Get total amount staked across all validators"""
-        return sum(
+        return Decimal(sum(
             pos.amount for pos in self.stake_positions.values()
             if pos.status == StakingStatus.ACTIVE
-        )
+        ))
 
     def get_staking_statistics(self) -> dict:
         """Get staking system statistics"""

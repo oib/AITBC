@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import Request
 
 
-async def _stub(request: Request, *args, **kwargs) -> dict[str, Any]:
+async def _stub(request: Request, *args: Any, **kwargs: Any) -> dict[str, Any]:
     return {"error": "Contract service not available", "status": "unavailable"}
 
 

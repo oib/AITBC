@@ -175,21 +175,25 @@ configure_environment() {
     
     # Setup blockchain.env if it doesn't exist
     if [[ ! -f /etc/aitbc/blockchain.env ]]; then
-        if [[ -f "$REPO_ROOT/examples/env.example" ]]; then
-            # Extract relevant blockchain configuration from examples/env.example
-            grep -E "^(chain_id|CHAIN_ID|rpc_bind_host|rpc_bind_port|p2p_bind_host|p2p_bind_port|enable_block_production|block_time_seconds|proposer_id)" "$REPO_ROOT/examples/env.example" > /etc/aitbc/blockchain.env || true
+        if [[ -f "$REPO_ROOT/examples/blockchain.env.example" ]]; then
+            # Copy example and strip comments for production use
+            grep -v '^#' "$REPO_ROOT/examples/blockchain.env.example" | grep -v '^$' > /etc/aitbc/blockchain.env || true
         fi
         
         # Add defaults if file is empty
         if [[ ! -s /etc/aitbc/blockchain.env ]]; then
             cat > /etc/aitbc/blockchain.env << EOF
 # Blockchain Configuration
-chain_id=ait-testnet
-rpc_bind_host=0.0.0.0
-rpc_bind_port=8006
-p2p_bind_host=0.0.0.0
-p2p_bind_port=7070
-enable_block_production=true
+CHAIN_ID=ait-testnet
+RPC_BIND_HOST=0.0.0.0
+RPC_BIND_PORT=8202
+P2P_BIND_HOST=0.0.0.0
+P2P_BIND_PORT=8200
+ENABLE_BLOCK_PRODUCTION=true
+BLOCK_TIME_SECONDS=6
+PROPOSER_ID=ait1<unique-proposer-id>
+P2P_PEERS=auto
+SUBSCRIPTION_ENABLED=true
 EOF
         fi
     fi

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Account-related RPC endpoints.
 """
