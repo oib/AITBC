@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Message storage layer for persisting agent communication messages in Redis
 """

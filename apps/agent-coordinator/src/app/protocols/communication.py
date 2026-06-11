@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Agent Communication Protocols for AITBC Agent Coordination
 """

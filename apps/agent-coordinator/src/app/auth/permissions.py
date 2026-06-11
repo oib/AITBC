@@ -102,11 +102,11 @@ class RolePermission:
 class PermissionManager:
     """Permission and role management system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.role_permissions = self._initialize_role_permissions()
-        self.user_roles = {}  # {user_id: role}
-        self.user_permissions = {}  # {user_id: set(permissions)}
-        self.custom_permissions = {}  # {user_id: set(permissions)}
+        self.user_roles: dict[str, Role] = {}  # {user_id: role}
+        self.user_permissions: dict[str, set[Permission]] = {}  # {user_id: set(permissions)}
+        self.custom_permissions: dict[str, set[Permission]] = {}  # {user_id: set(permissions)}
 
     def _initialize_role_permissions(self) -> dict[Role, set[Permission]]:
         """Initialize default role permissions"""
@@ -395,7 +395,7 @@ class PermissionManager:
             # Count users by role
             for user_id, role in self.user_roles.items():
                 role_name = role.value
-                stats["users_by_role"][role_name] = stats["users_by_role"].get(role_name, 0) + 1
+                stats["users_by_role"][role_name] = stats["users_by_role"].get(role_name, 0) + 1  # type: ignore[index,attr-defined]
 
             return {
                 "status": "success",

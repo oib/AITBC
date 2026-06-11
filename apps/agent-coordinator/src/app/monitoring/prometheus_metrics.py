@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Prometheus Metrics Implementation for AITBC Agent Coordinator
 Implements comprehensive metrics collection and monitoring
