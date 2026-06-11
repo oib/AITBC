@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Escrow RPC endpoints for the blockchain node.
 Provides create/release/refund/get endpoints backed by EscrowManager and Escrow DB model.

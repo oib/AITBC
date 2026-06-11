@@ -54,6 +54,7 @@ class Bounty(SQLModel, table=True):
     """AI agent bounty with ZK-proof verification requirements"""
 
     __tablename__ = "bounties"
+    __table_args__ = {"extend_existing": True}
 
     bounty_id: str = Field(primary_key=True, default_factory=lambda: f"bounty_{uuid.uuid4().hex[:8]}")
     title: str = Field(index=True)
@@ -97,20 +98,12 @@ class Bounty(SQLModel, table=True):
     # Relationships
     # DISABLED:     submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
 
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
-
 
 class BountySubmission(SQLModel, table=True):
     """Submission for a bounty with ZK-proof and performance metrics"""
 
     __tablename__ = "bounty_submissions"
+    __table_args__ = {"extend_existing": True}
 
     submission_id: str = Field(primary_key=True, default_factory=lambda: f"sub_{uuid.uuid4().hex[:8]}")
     bounty_id: str = Field(foreign_key="bounties.bounty_id", index=True)
@@ -146,20 +139,12 @@ class BountySubmission(SQLModel, table=True):
     # Relationships
     # DISABLED:     bounty: Bounty = Relationship(back_populates="submissions")
 
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
-
 
 class AgentStake(SQLModel, table=True):
     """Staking position on an AI agent wallet"""
 
     __tablename__ = "agent_stakes"
+    __table_args__ = {"extend_existing": True}
 
     stake_id: str = Field(primary_key=True, default_factory=lambda: f"stake_{uuid.uuid4().hex[:8]}")
     staker_address: str = Field(index=True)
@@ -192,20 +177,12 @@ class AgentStake(SQLModel, table=True):
     # Metadata
     stake_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
-
 
 class AgentMetrics(SQLModel, table=True):
     """Performance metrics for AI agents"""
 
     __tablename__ = "agent_metrics"
+    __table_args__ = {"extend_existing": True}
 
     agent_wallet: str = Field(primary_key=True, index=True)
 
@@ -244,20 +221,12 @@ class AgentMetrics(SQLModel, table=True):
     # Relationships
     # DISABLED:     stakes: List[AgentStake] = Relationship(back_populates="agent_metrics")
 
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
-
 
 class StakingPool(SQLModel, table=True):
     """Staking pool for an agent"""
 
     __tablename__ = "staking_pools"
+    __table_args__ = {"extend_existing": True}
 
     agent_wallet: str = Field(primary_key=True, index=True)
 
@@ -286,19 +255,12 @@ class StakingPool(SQLModel, table=True):
     # Metadata
     pool_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
-
 
 class BountyIntegration(SQLModel, table=True):
     """Integration between performance verification and bounty completion"""
 
     __tablename__ = "bounty_integrations"
+    __table_args__ = {"extend_existing": True}
 
     integration_id: str = Field(primary_key=True, default_factory=lambda: f"int_{uuid.uuid4().hex[:8]}")
 
@@ -325,20 +287,12 @@ class BountyIntegration(SQLModel, table=True):
     # Metadata
     integration_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
-
 
 class BountyStats(SQLModel, table=True):
     """Aggregated bounty statistics"""
 
     __tablename__ = "bounty_stats"
+    __table_args__ = {"extend_existing": True}
 
     stats_id: str = Field(primary_key=True, default_factory=lambda: f"stats_{uuid.uuid4().hex[:8]}")
 
@@ -376,19 +330,12 @@ class BountyStats(SQLModel, table=True):
     # Metadata
     stats_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
-
 
 class EcosystemMetrics(SQLModel, table=True):
     """Ecosystem-wide metrics for dashboard"""
 
     __tablename__ = "ecosystem_metrics"
+    __table_args__ = {"extend_existing": True}
 
     metrics_id: str = Field(primary_key=True, default_factory=lambda: f"eco_{uuid.uuid4().hex[:8]}")
 
@@ -433,15 +380,6 @@ class EcosystemMetrics(SQLModel, table=True):
 
     # Metadata
     metrics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Indexes
-    __table_args__: dict[str, object] = {
-        # # # "indexes": [
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-#            # {"name": "...", "columns": [...]},
-###        ]
-    }
 
 
 # Update relationships

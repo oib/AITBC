@@ -195,8 +195,8 @@ async def ai_stats() -> dict[str, Any]:
         metrics_registry.increment("rpc_ai_stats_total")
 
         total_jobs = len(_ai_jobs)
-        status_counts = {}
-        type_counts = {}
+        status_counts: dict[str, int] = {}
+        type_counts: dict[str, int] = {}
         total_revenue = 0.0
 
         for job in _ai_jobs:

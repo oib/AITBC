@@ -179,7 +179,7 @@ class SubscriptionClient:
                     # Receive blocks
                     async for message in websocket:
                         if not self._running:
-                            break
+                            break  # type: ignore[unreachable]
 
                         try:
                             if isinstance(message, str):

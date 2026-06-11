@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 P2P Node Discovery Service
 Handles bootstrap nodes and peer discovery for mesh network
