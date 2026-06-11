@@ -62,7 +62,7 @@ class BalanceTracker:
     audited for consistency.
     """
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Any) -> None:
         self._session_factory = session_factory
         self._pending_changes: list[BalanceChange] = []
 
@@ -437,7 +437,7 @@ class BalanceTracker:
 _balance_tracker: BalanceTracker | None = None
 
 
-def init_balance_tracker(session_factory) -> BalanceTracker:
+def init_balance_tracker(session_factory: Any) -> BalanceTracker:
     """Initialize global balance tracker"""
     global _balance_tracker
     _balance_tracker = BalanceTracker(session_factory)

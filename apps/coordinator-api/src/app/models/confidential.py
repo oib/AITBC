@@ -8,7 +8,9 @@ import uuid
 from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlmodel import SQLModel as Base
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
 
 
 class ConfidentialTransactionDB(Base):

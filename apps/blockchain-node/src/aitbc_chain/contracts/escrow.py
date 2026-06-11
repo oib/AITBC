@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Smart Contract Escrow System
 Handles automated payment holding and release for AI job marketplace

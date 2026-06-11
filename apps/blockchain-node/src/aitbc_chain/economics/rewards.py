@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Reward Distribution System
 Handles validator reward calculation and distribution

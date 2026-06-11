@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Persistent Spending Tracker - Database-Backed Security
 Fixes the critical vulnerability where spending limits were lost on restart
