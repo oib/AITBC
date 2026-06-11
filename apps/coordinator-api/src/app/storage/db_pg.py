@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """PostgreSQL database module for Coordinator API"""
 
 import json

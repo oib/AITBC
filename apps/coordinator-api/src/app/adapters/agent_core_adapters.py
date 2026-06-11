@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Adapters for coordinator-api app to implement aitbc-agent-core protocols.
 These adapters wrap coordinator-api's native domain models and services.

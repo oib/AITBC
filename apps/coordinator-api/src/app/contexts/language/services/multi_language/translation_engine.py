@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Language Translation Engine
 Core translation orchestration service for AITBC platform

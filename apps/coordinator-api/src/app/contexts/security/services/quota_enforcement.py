@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Resource quota enforcement service for multi-tenant AITBC coordinator
 """

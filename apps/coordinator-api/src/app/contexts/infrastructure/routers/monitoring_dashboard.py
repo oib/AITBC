@@ -149,7 +149,7 @@ async def system_metrics(request: Request) -> dict[str, Any]:
     System-wide performance metrics
     """
     try:
-        import psutil
+        import psutil  # type: ignore[import-untyped]
 
         # System metrics
         cpu_percent = psutil.cpu_percent(interval=1)

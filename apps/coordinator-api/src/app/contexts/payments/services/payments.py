@@ -177,7 +177,7 @@ class PaymentService:
 
                 # Update escrow record
                 escrow = (
-                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))  # type: ignore[name-defined]
+                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
                     .scalars()
                     .first()
                 )
@@ -227,7 +227,7 @@ class PaymentService:
 
                 # Update escrow record
                 escrow = (
-                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))  # type: ignore[name-defined]
+                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
                     .scalars()
                     .first()
                 )
@@ -253,7 +253,7 @@ class PaymentService:
 
     def get_job_payment(self, job_id: str) -> JobPayment | None:
         """Get payment for a specific job"""
-        return self.session.execute(select(JobPayment).where(JobPayment.job_id == job_id)).scalars().first()  # type: ignore[name-defined]
+        return self.session.execute(select(JobPayment).where(JobPayment.job_id == job_id)).scalars().first()
 
     def to_view(self, payment: JobPayment) -> JobPaymentView:
         """Convert payment to view model"""
