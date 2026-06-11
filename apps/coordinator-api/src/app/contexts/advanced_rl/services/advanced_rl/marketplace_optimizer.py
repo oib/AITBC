@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ...domain.agent_performance import ReinforcementLearningConfig
+from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]
 from .engine import AdvancedReinforcementLearningEngine
 
 

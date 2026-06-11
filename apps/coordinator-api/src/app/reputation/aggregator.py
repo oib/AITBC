@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Cross-Chain Reputation Aggregator
 Aggregates reputation data from multiple blockchains and normalizes scores

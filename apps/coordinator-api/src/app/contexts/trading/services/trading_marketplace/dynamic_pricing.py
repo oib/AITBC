@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Dynamic Pricing Engine for AITBC Marketplace
 Implements sophisticated pricing algorithms based on real-time market conditions

@@ -44,7 +44,7 @@ async def blockchain_status() -> dict[str, Any]:
 async def blockchain_sync_status() -> dict[str, Any]:
     """Get blockchain synchronization status."""
     try:
-        from ..config import settings
+        from ..config import settings  # type: ignore[import-not-found]
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)

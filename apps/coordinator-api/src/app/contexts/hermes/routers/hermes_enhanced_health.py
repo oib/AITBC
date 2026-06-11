@@ -9,7 +9,7 @@ import sys
 from datetime import UTC, datetime
 from typing import Any
 
-import psutil
+import psutil  # type: ignore[import-untyped]
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 

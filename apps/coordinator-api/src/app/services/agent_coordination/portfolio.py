@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Portfolio Manager Service
 

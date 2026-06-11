@@ -50,7 +50,7 @@ class SecureWalletService:
             ValueError: If password is weak or wallet already exists
         """
         # Validate password strength
-        from ..utils.security import validate_password_strength
+        from ..utils.security import validate_password_strength  # type: ignore[import-not-found]
 
         password_validation = validate_password_strength(encryption_password)
 

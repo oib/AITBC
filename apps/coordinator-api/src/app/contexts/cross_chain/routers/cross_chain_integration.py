@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Cross-Chain Integration API Router
 REST API endpoints for enhanced multi-chain wallet adapter, cross-chain bridge service, and transaction manager

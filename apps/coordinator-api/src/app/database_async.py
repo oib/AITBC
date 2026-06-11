@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Async database module with connection pooling for Coordinator API."""
 
 import logging

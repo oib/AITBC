@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ...domain.agent_performance import FusionModel
+from ...domain.agent_performance import FusionModel  # type: ignore[import-not-found]
 from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
 
 

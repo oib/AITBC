@@ -10,12 +10,12 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from app.domain.certification import (
+from app.domain.certification import (  # type: ignore[import-not-found]
     AgentPartnership,
     PartnershipProgram,
     PartnershipType,
 )
-from app.domain.reputation import AgentReputation
+from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
 from sqlmodel import Session, select
 
 

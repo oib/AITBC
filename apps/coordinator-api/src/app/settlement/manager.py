@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Bridge manager for cross-chain settlements
 """

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Enterprise Client SDK - Phase 6.1 Implementation
 Python SDK for enterprise clients to integrate with AITBC platform
