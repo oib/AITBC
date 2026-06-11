@@ -57,6 +57,14 @@ class DatabaseConnection:
         except sqlite3.Error as e:
             raise DatabaseError(f"Failed to connect to database: {e}") from e
 
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     def close(self) -> None:
         """Close database connection."""
         if self._connection:
