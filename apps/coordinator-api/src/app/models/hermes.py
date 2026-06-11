@@ -1,7 +1,8 @@
 """Database models for Hermes autonomy features (SQLite compatible)."""
 
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, DateTime, Text
+
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()

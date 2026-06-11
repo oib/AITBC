@@ -4,17 +4,13 @@ Tests for AITBC crypto utilities
 """
 
 import pytest
+
 from aitbc.crypto.crypto import (
     decrypt_private_key,
     derive_ethereum_address,
     encrypt_private_key,
-    generate_ethereum_private_key,
     generate_secure_random_bytes,
-    keccak256_hash,
     sha256_hash,
-    sign_transaction_hash,
-    validate_ethereum_address,
-    verify_signature,
 )
 
 

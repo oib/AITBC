@@ -425,8 +425,9 @@ def check_earnings(
 ) -> dict | None:
     """Check miner earnings"""
     try:
-        import httpx
         from datetime import datetime, timedelta
+
+        import httpx
         
         # Query coordinator API for completed jobs and payments
         headers = {"X-API-Key": api_key}

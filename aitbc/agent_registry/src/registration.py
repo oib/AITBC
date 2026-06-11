@@ -4,8 +4,8 @@ Handles AI agent registration, capability management, and discovery
 """
 
 import hashlib
-import time
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 

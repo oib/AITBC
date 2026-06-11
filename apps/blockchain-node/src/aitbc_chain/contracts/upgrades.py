@@ -4,8 +4,8 @@ Handles safe contract versioning and upgrade mechanisms
 """
 
 import asyncio
-import time
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 

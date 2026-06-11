@@ -2,13 +2,13 @@
 
 
 import click
-from tabulate import tabulate
 import requests
+from tabulate import tabulate
+
+from ..utils import error, output, success
 
 # Import shared modules
 from ..utils.http_client import AITBCHTTPClient, get_logger
-
-from ..utils import error, output, success
 
 # Initialize logger
 logger = get_logger(__name__)

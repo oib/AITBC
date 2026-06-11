@@ -4,13 +4,13 @@ Polls Ethereum RPC for incoming ETH transactions to the bridge wallet address.
 """
 
 import os
-import time
 import threading
-import requests
-from typing import Optional
-from .bridge_db import init_db, insert_deposit, get_deposit_by_tx_hash
-from .price_api import calculate_ait_amount
+import time
 
+import requests
+
+from .bridge_db import get_deposit_by_tx_hash, init_db, insert_deposit
+from .price_api import calculate_ait_amount
 
 # Configuration
 ETH_RPC_URL = os.getenv("ETH_RPC_URL", "https://eth.llamarpc.com")

@@ -4,6 +4,7 @@ Tests for AITBC Web3 utilities
 """
 
 import pytest
+
 from aitbc.network.web3_utils import Web3Client
 
 

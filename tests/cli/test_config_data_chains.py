@@ -130,7 +130,7 @@ class TestChainRegistry:
 
     def test_register_chain(self):
         """Test registering a new chain"""
-        from config_data.chains import ChainRegistry, ChainConfig
+        from config_data.chains import ChainConfig, ChainRegistry
         
         registry = ChainRegistry()
         new_chain = ChainConfig(

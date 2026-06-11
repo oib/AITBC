@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import datetime as dt
-from datetime import timezone
 import json
 from collections.abc import Sequence
+from datetime import timezone
 from uuid import UUID
 
 from redis.asyncio import Redis

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 from statistics import mean
 from typing import Any
-from uuid import uuid4
 
 from sqlmodel import Session, select
 

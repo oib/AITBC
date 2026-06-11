@@ -5,7 +5,7 @@ Tests for analytics command handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,11 +14,11 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.analytics import (
-    handle_analytics_metrics,
-    handle_analytics_report,
     handle_analytics_export,
-    handle_analytics_predict,
+    handle_analytics_metrics,
     handle_analytics_optimize,
+    handle_analytics_predict,
+    handle_analytics_report,
 )
 
 

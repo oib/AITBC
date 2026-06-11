@@ -11,17 +11,17 @@ coordinator_path = Path("/opt/aitbc/apps/coordinator-api/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from app.domain.reputation import (
     AgentReputation,
     CommunityFeedback,
     ReputationEvent,
     ReputationLevel,
-    TrustScoreCategory,
     TrustScoreCalculation,
+    TrustScoreCategory,
 )
 
 

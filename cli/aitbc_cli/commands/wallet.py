@@ -11,11 +11,11 @@ from typing import Any
 import click
 import yaml
 
-# Import shared modules
-from ..utils.http_client import AITBCHTTPClient, get_logger
-
 from ..config import get_config
 from ..utils import error, output, success
+
+# Import shared modules
+from ..utils.http_client import AITBCHTTPClient, get_logger
 
 # Initialize logger
 logger = get_logger(__name__)

@@ -2,12 +2,11 @@
 Bridge-related exchange commands.
 """
 
-import click
 
 try:
     from aitbc_cli.utils import error, output, success
 except ImportError:
-    from ..utils import error, output, success
+    from ..utils import error, output
 
 
 def bridge_status_command(ctx, tx_id: str | None):
