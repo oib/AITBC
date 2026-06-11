@@ -3,6 +3,8 @@ WebSocket Router for AITBC Agent Coordinator
 Provides WebSocket endpoints for real-time agent messaging and presence tracking
 """
 
+from typing import Any
+
 from fastapi import APIRouter, Query, WebSocket
 
 from aitbc import get_logger
@@ -17,7 +19,7 @@ router = APIRouter(prefix="/api/v1/agent", tags=["websocket"])
 async def websocket_message_stream(
     websocket: WebSocket,
     agent_id: str = Query(..., description="Agent ID")
-):
+) -> None:
     """WebSocket endpoint for real-time agent messaging with automatic handler triggering"""
     connection_manager = get_connection_manager()
     stream_handler = AgentStreamHandler(connection_manager)
@@ -29,7 +31,7 @@ async def websocket_message_stream(
 async def websocket_presence_stream(
     websocket: WebSocket,
     agent_id: str = Query(..., description="Agent ID")
-):
+) -> None:
     """WebSocket endpoint for real-time agent presence tracking"""
     connection_manager = get_connection_manager()
     stream_handler = AgentStreamHandler(connection_manager)
@@ -38,7 +40,7 @@ async def websocket_presence_stream(
 
 
 @router.get("/ws/status")
-async def websocket_status():
+async def websocket_status() -> dict[str, Any]:
     """Get WebSocket listener status"""
     connection_manager = get_connection_manager()
     return {

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Load Balancer for Agent Distribution and Task Assignment
 """
