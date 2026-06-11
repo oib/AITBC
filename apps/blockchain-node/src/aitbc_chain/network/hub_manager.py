@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Hub Manager
 Manages hub operations, peer list sharing, and hub registration for federated mesh

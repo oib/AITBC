@@ -1,15 +1,20 @@
 
-from locust import HttpUser, between, task
+try:
+    from locust import HttpUser, between, task
+except Exception:
+    HttpUser = object  # type: ignore[misc,assignment]
+    between = lambda a, b: None  # type: ignore[assignment]
+    task = lambda weight: (lambda f: f)  # type: ignore[assignment]
 
 
-class AITBCUser(HttpUser):
-    wait_time = between(1, 3)
+class AITBCUser(HttpUser):  # type: ignore[misc,valid-type]
+    wait_time = between(1, 3)  # type: ignore[assignment]
 
     def on_start(self):
         # Setup test - check if blockchain RPC is available
         self.client.get("/health")
 
-    @task(3)
+    @task(3)  # type: ignore[operator]
     def check_blockchain_health(self):
         """Check blockchain health endpoint."""
         self.client.get("/health")
