@@ -1,16 +1,21 @@
 """
 Caching strategy for expensive queries
+
+.. note::
+    This module provides app-specific caching features (memory limits,
+    cache warming, FastAPI middleware). The canonical caching
+    implementation lives in ``aitbc.cache``.
 """
 
 import asyncio
 import gc
-import hashlib
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any
 
 from aitbc import get_logger
+from aitbc.cache.utils import generate_cache_key
 
 logger = get_logger(__name__)
 
@@ -134,68 +139,31 @@ class CacheManager:
 cache_manager = CacheManager(max_size=1000, max_memory_mb=100)
 
 
-def cache_key_generator(*args: Any, **kwargs: Any) -> str:
-    """Generate a cache key from function arguments"""
-    # Create a deterministic string representation
-    key_parts = []
-
-    # Add function args
-    for arg in args:
-        if hasattr(arg, "__dict__"):
-            # For objects, use their dict representation
-            key_parts.append(str(sorted(arg.__dict__.items())))
-        else:
-            key_parts.append(str(arg))
-
-    # Add function kwargs
-    if kwargs:
-        key_parts.append(str(sorted(kwargs.items())))
-
-    # Create hash for consistent key length
-    key_string = "|".join(key_parts)
-    return hashlib.sha256(key_string.encode()).hexdigest()
-
-
 def cached(ttl_seconds: int = 300, key_prefix: str = "") -> Callable[[Any], Any]:
     """Decorator for caching function results"""
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Generate cache key
-            cache_key = f"{key_prefix}{func.__name__}_{cache_key_generator(*args, **kwargs)}"
-
-            # Try to get from cache
+            cache_key = f"{key_prefix}{func.__name__}_{generate_cache_key(func.__name__, *args, **kwargs)}"
             cached_result = cache_manager.get(cache_key)
             if cached_result is not None:
                 return cached_result
-
-            # Execute function and cache result
             result = await func(*args, **kwargs)
             cache_manager.set(cache_key, result, ttl_seconds)
-
             return result
 
         @wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Generate cache key
-            cache_key = f"{key_prefix}{func.__name__}_{cache_key_generator(*args, **kwargs)}"
-
-            # Try to get from cache
+            cache_key = f"{key_prefix}{func.__name__}_{generate_cache_key(func.__name__, *args, **kwargs)}"
             cached_result = cache_manager.get(cache_key)
             if cached_result is not None:
                 return cached_result
-
-            # Execute function and cache result
             result = func(*args, **kwargs)
             cache_manager.set(cache_key, result, ttl_seconds)
-
             return result
 
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        else:
-            return sync_wrapper
+        return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
 
     return decorator
 
