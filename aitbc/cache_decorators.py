@@ -1,139 +1,56 @@
 """
-Cache decorators for AITBC services
-Provides easy-to-use caching decorators for common patterns
+Cache decorators for AITBC services (Legacy Shim)
+
+DEPRECATED: This module is preserved for backward compatibility.
+New code should import from ``aitbc.cache.decorators``.
 """
+
+from __future__ import annotations
 
 from functools import wraps
 from typing import Any, Callable
 
-from .cache import get_cache
+from aitbc.cache import get_cache as _get_cache
+from aitbc.cache.decorators import cache_with_ttl
+
+
+def _make_key(func_name: str, args: tuple, kwargs: dict) -> str:
+    parts = [func_name] + [str(a) for a in args] + [f"{k}={v}" for k, v in sorted(kwargs.items())]
+    return ":".join(parts)
 
 
 def cache_blockchain_data(ttl: int = 60):
-    """
-    Cache blockchain data with short TTL
-    
-    Args:
-        ttl: Time-to-live in seconds (default: 60s for blockchain data)
-        
-    Example:
-        @cache_blockchain_data(ttl=30)
-        def get_block(height):
-            return blockchain.get_block(height)
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            cache = get_cache()
-            if not cache.client:
-                return func(*args, **kwargs)
-            
-            # Generate cache key
-            key_parts = [func.__name__] + [str(arg) for arg in args] + [f"{k}={v}" for k, v in sorted(kwargs.items())]
-            cache_key = ":".join(key_parts)
-            
-            # Try cache
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return cached
-            
-            # Execute and cache
-            result = func(*args, **kwargs)
-            cache.set(cache_key, result, ttl)
-            
-            return result
-        return wrapper
-    return decorator
+    """Cache blockchain data with short TTL."""
+    return cache_with_ttl(ttl=ttl, key_prefix="blockchain")
 
 
 def cache_account_data(ttl: int = 300):
-    """
-    Cache account data with medium TTL
-    
-    Args:
-        ttl: Time-to-live in seconds (default: 300s for account data)
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            cache = get_cache()
-            if not cache.client:
-                return func(*args, **kwargs)
-            
-            # Generate cache key
-            key_parts = [func.__name__] + [str(arg) for arg in args] + [f"{k}={v}" for k, v in sorted(kwargs.items())]
-            cache_key = ":".join(key_parts)
-            
-            # Try cache
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return cached
-            
-            # Execute and cache
-            result = func(*args, **kwargs)
-            cache.set(cache_key, result, ttl)
-            
-            return result
-        return wrapper
-    return decorator
+    """Cache account data with medium TTL."""
+    return cache_with_ttl(ttl=ttl, key_prefix="account")
 
 
 def cache_service_discovery(ttl: int = 600):
-    """
-    Cache service discovery data with long TTL
-    
-    Args:
-        ttl: Time-to-live in seconds (default: 600s for service discovery)
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            cache = get_cache()
-            if not cache.client:
-                return func(*args, **kwargs)
-            
-            # Generate cache key
-            key_parts = [func.__name__] + [str(arg) for arg in args] + [f"{k}={v}" for k, v in sorted(kwargs.items())]
-            cache_key = ":".join(key_parts)
-            
-            # Try cache
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return cached
-            
-            # Execute and cache
-            result = func(*args, **kwargs)
-            cache.set(cache_key, result, ttl)
-            
-            return result
-        return wrapper
-    return decorator
+    """Cache service discovery data with long TTL."""
+    return cache_with_ttl(ttl=ttl, key_prefix="service_discovery")
 
 
 def invalidate_on_change(cache_key_pattern: str):
-    """
-    Invalidate cache when data changes
-    
-    Args:
-        cache_key_pattern: Pattern of keys to invalidate
-        
-    Example:
-        @invalidate_on_change("account:*")
-        def update_account(address, data):
-            return database.update_account(address, data)
-    """
+    """Invalidate cache when data changes."""
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
-            cache = get_cache()
-            
-            # Execute function
+            cache = _get_cache()
             result = func(*args, **kwargs)
-            
-            # Invalidate cache
             if cache.client:
                 cache.delete_pattern(cache_key_pattern)
-            
             return result
         return wrapper
     return decorator
+
+
+__all__ = [
+    "cache_blockchain_data",
+    "cache_account_data",
+    "cache_service_discovery",
+    "invalidate_on_change",
+]

@@ -210,7 +210,7 @@ def get_blockchain_cache(redis_url: str | None = None) -> BlockchainCache:
     Returns:
         BlockchainCache instance
     """
-    from aitbc import get_cache
-    
-    redis_cache = get_cache()
+    from aitbc.cache import get_cache as _get_cache
+
+    redis_cache = _get_cache()
     return BlockchainCache(redis_cache=redis_cache)
