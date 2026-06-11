@@ -42,12 +42,12 @@ class JobPriority(Enum):
 class Job:
     """Background job"""
     priority: int
-    job_id: str = field(compare=False)
-    func: Callable = field(compare=False)
+    func: Callable | None = field(default=None, compare=False)
+    job_id: str | None = field(default=None, compare=False)
     args: tuple = field(default_factory=tuple, compare=False)
     kwargs: dict = field(default_factory=dict, compare=False)
     status: JobStatus = field(default=JobStatus.PENDING, compare=False)
-    created_at: datetime = field(default_factory=datetime.now(UTC), compare=False)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC), compare=False)
     started_at: datetime | None = field(default=None, compare=False)
     completed_at: datetime | None = field(default=None, compare=False)
     result: Any = field(default=None, compare=False)
@@ -58,6 +58,8 @@ class Job:
     def __post_init__(self):
         if self.job_id is None:
             self.job_id = str(uuid.uuid4())
+        if self.func is None:
+            raise ValueError("func is required")
 
 
 class TaskQueue:

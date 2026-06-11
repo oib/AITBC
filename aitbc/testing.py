@@ -262,12 +262,13 @@ class MockDatabase:
             self.tables.append(table_name)
             self.data[table_name] = []
 
-    def insert(self, table_name: str, record: dict[str, Any]) -> None:
+    def insert(self, table_name: str, record: dict[str, Any]) -> str:
         """Insert a record"""
         if table_name not in self.tables:
             self.create_table(table_name)
         record['id'] = record.get('id', MockFactory.generate_uuid())
         self.data[table_name].append(record)
+        return record['id']
 
     def select(self, table_name: str, **filters) -> list[dict[str, Any]]:
         """Select records with optional filters"""

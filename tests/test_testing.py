@@ -11,7 +11,7 @@ from aitbc.testing import (
     MockFactory,
     MockResponse,
     TestDataGenerator,
-    TestHelpers,
+    TestHelpers as AITBCTestHelpers,
     create_mock_config,
     create_test_scenario,
     mock_async_call,
@@ -154,43 +154,43 @@ class TestHelpers:
         """Test assert_dict_contains with matching dict"""
         subset = {"key1": "value1", "key2": "value2"}
         superset = {"key1": "value1", "key2": "value2", "key3": "value3"}
-        assert TestHelpers.assert_dict_contains(subset, superset) is True
+        assert AITBCTestHelpers.assert_dict_contains(subset, superset) is True
 
     def test_assert_dict_contains_false(self):
         """Test assert_dict_contains with non-matching dict"""
         subset = {"key1": "value1", "key2": "wrong_value"}
         superset = {"key1": "value1", "key2": "value2"}
-        assert TestHelpers.assert_dict_contains(subset, superset) is False
+        assert AITBCTestHelpers.assert_dict_contains(subset, superset) is False
 
     def test_assert_dict_contains_missing_key(self):
         """Test assert_dict_contains with missing key"""
         subset = {"key1": "value1", "key_missing": "value2"}
         superset = {"key1": "value1", "key2": "value2"}
-        assert TestHelpers.assert_dict_contains(subset, superset) is False
+        assert AITBCTestHelpers.assert_dict_contains(subset, superset) is False
 
     def test_assert_lists_equal_unordered_true(self):
         """Test assert_lists_equal_unordered with equal lists"""
         list1 = [1, 2, 3, 4]
         list2 = [4, 3, 2, 1]
-        assert TestHelpers.assert_lists_equal_unordered(list1, list2) is True
+        assert AITBCTestHelpers.assert_lists_equal_unordered(list1, list2) is True
 
     def test_assert_lists_equal_unordered_false(self):
         """Test assert_lists_equal_unordered with different lists"""
         list1 = [1, 2, 3]
         list2 = [1, 2, 4]
-        assert TestHelpers.assert_lists_equal_unordered(list1, list2) is False
+        assert AITBCTestHelpers.assert_lists_equal_unordered(list1, list2) is False
 
     def test_compare_json_objects_true(self):
         """Test compare_json_objects with equal objects"""
         obj1 = {"a": 1, "b": 2}
         obj2 = {"b": 2, "a": 1}
-        assert TestHelpers.compare_json_objects(obj1, obj2) is True
+        assert AITBCTestHelpers.compare_json_objects(obj1, obj2) is True
 
     def test_compare_json_objects_false(self):
         """Test compare_json_objects with different objects"""
         obj1 = {"a": 1, "b": 2}
         obj2 = {"a": 1, "b": 3}
-        assert TestHelpers.compare_json_objects(obj1, obj2) is False
+        assert AITBCTestHelpers.compare_json_objects(obj1, obj2) is False
 
     def test_wait_for_condition_true(self):
         """Test wait_for_condition when condition becomes true"""
@@ -203,12 +203,12 @@ class TestHelpers:
         t = threading.Timer(0.1, set_condition)
         t.start()
         
-        result = TestHelpers.wait_for_condition(lambda: condition_met[0], timeout=1.0)
+        result = AITBCTestHelpers.wait_for_condition(lambda: condition_met[0], timeout=1.0)
         assert result is True
 
     def test_wait_for_condition_false(self):
         """Test wait_for_condition when condition never becomes true"""
-        result = TestHelpers.wait_for_condition(lambda: False, timeout=0.1)
+        result = AITBCTestHelpers.wait_for_condition(lambda: False, timeout=0.1)
         assert result is False
 
     def test_measure_execution_time(self):
@@ -216,14 +216,14 @@ class TestHelpers:
         def test_func():
             return 42
         
-        result, elapsed = TestHelpers.measure_execution_time(test_func)
+        result, elapsed = AITBCTestHelpers.measure_execution_time(test_func)
         assert result == 42
         assert elapsed >= 0
         assert isinstance(elapsed, float)
 
     def test_generate_test_file_path(self):
         """Test generate_test_file_path"""
-        path = TestHelpers.generate_test_file_path(".tmp")
+        path = AITBCTestHelpers.generate_test_file_path(".tmp")
         assert path.startswith("/tmp/test_")
         assert path.endswith(".tmp")
 
@@ -231,11 +231,11 @@ class TestHelpers:
         """Test cleanup_test_files"""
         # Create some test files
         for i in range(3):
-            path = TestHelpers.generate_test_file_path(".tmp")
+            path = AITBCTestHelpers.generate_test_file_path(".tmp")
             with open(path, 'w') as f:
                 f.write("test")
         
-        count = TestHelpers.cleanup_test_files("test_")
+        count = AITBCTestHelpers.cleanup_test_files("test_")
         assert count >= 3
 
 
