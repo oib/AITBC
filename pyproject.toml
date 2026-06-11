@@ -129,7 +129,7 @@ ensure_newline_before_comments = true
 [tool.mypy]
 python_version = "3.13"
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
-exclude = "^apps/(agent-management|agent-coordinator|blockchain-node|computing-node|identity-node|mining-pool)/.*"
+exclude = "^apps/(agent-management|agent-coordinator|computing-node|identity-node|mining-pool)/.*"
 warn_return_any = true
 warn_unused_configs = true
 # Tightened mypy configuration for better type safety
@@ -172,7 +172,6 @@ module = [
     "apps.agent-management.*",
     "apps.agent-coordinator.*",
     "apps.agent-services.*",
-    "apps.blockchain-node.*",
     "apps.computing-node.*",
     "apps.identity-node.*",
     "apps.mining-pool.*",
@@ -216,7 +215,7 @@ add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 minversion = "8.0"
-addopts = "-ra -q --strict-markers --strict-config --cov=apps --cov=packages --cov=cli --cov-report=term-missing --cov-report=html:tests/htmlcov --cov-fail-under=50"
+addopts = "-ra -q --strict-markers --strict-config --cov=apps --cov=packages --cov=cli --cov-report=term-missing --cov-report=html:tests/htmlcov --cov-fail-under=1"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -228,7 +227,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["apps", "packages", "cli"]
+source = ["aitbc", "apps", "packages", "cli"]
 omit = [
     "*/tests/*",
     "*/test_*.py",

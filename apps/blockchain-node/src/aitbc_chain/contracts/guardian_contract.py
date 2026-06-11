@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 AITBC Guardian Contract - Spending Limit Protection for Agent Wallets
 

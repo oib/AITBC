@@ -10,9 +10,9 @@ logger = get_logger(__name__)
 class DisputeResolutionService:
     """Service for interacting with the DisputeResolution smart contract"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Initialize web3 connection and contract instance
-        self.contract_address = None
+        self.contract_address: str | None = None
         self.contract = None
         self._web3 = None
 
@@ -22,7 +22,7 @@ class DisputeResolutionService:
         # not Ethereum-compatible, so Web3.py cannot connect to it
         logger.info("DisputeResolutionService initialized (using in-memory contract implementation)")
 
-    def set_contract_address(self, address: str):
+    def set_contract_address(self, address: str) -> None:
         """Set the deployed contract address"""
         self.contract_address = address
         logger.info(f"DisputeResolution contract address set: {address}")

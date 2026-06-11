@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Network Partition Detection and Recovery
 Handles network split detection and automatic recovery

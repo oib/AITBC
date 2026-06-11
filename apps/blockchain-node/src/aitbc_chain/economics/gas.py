@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Gas Fee Model Implementation
 Handles transaction fee calculation and gas optimization

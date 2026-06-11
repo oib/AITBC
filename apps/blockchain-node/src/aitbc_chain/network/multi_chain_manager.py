@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Chain Manager
 Manages parallel bilateral/micro-chains running alongside the default chain

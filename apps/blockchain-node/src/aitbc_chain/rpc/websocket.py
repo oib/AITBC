@@ -104,7 +104,7 @@ async def subscription_websocket(websocket: WebSocket) -> None:
         topic = f"blocks.{chain_id}"
         block_subscription = await gossip_broker.subscribe(topic)
 
-        async def _send_blocks():
+        async def _send_blocks() -> None:
             """Send blocks to subscriber."""
             try:
                 async for block_data in block_subscription:
@@ -117,7 +117,7 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             except Exception as e:
                 logger.error(f"Error sending block to {node_id}: {e}")
 
-        async def _heartbeat():
+        async def _heartbeat() -> None:
             """Send periodic pings to keep connection alive."""
             try:
                 while True:

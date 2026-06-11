@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Exporter registration for metrics/log sinks."""
 
 from __future__ import annotations

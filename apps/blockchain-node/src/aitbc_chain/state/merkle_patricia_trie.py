@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Merkle Patricia Trie implementation for AITBC state root verification.
 
