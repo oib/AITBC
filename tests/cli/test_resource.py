@@ -12,7 +12,8 @@ import pytest
 from aitbc_cli.commands.resource import resource
 from click.testing import CliRunner
 
-from aitbc import AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient
+from aitbc_cli.utils.http_client import NetworkError
 
 
 @pytest.fixture
@@ -183,7 +184,7 @@ class TestResourceCommands:
         mock_client.post.side_effect = NetworkError("Connection refused")
 
         result = runner.invoke(resource, [
-            'deallocate', 'res_123'
+            'deallocate', '--force', 'res_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code != 0

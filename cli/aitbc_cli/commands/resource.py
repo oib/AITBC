@@ -211,8 +211,10 @@ def status(ctx, resource_id: str | None):
         output(status_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
+        ctx.exit(1)
     except Exception as e:
         error(f"Error fetching resource status: {e}")
+        ctx.exit(1)
 
 
 @resource.command()
@@ -234,6 +236,8 @@ def deallocate(ctx, resource_id: str, force: bool):
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
+        ctx.exit(1)
     except Exception as e:
         error(f"Error deallocating resource: {e}")
+        ctx.exit(1)
 

@@ -3,9 +3,24 @@ Type Safety Tests for AITBC Agent Coordinator
 Tests type validation, Pydantic models, and type hints compliance
 """
 
+import socket
 
 import pytest
 import requests
+
+
+def _service_available(host: str = "localhost", port: int = 9001) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+pytestmark = pytest.mark.skipif(
+    not _service_available(),
+    reason="Agent coordinator service not running on localhost:9001"
+)
 
 
 class TestTypeValidation:
