@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any, Callable
-from uuid import uuid4
 
 from aitbc import get_logger
 
-from ..domain.gpu_marketplace import Plugin, PluginConfig
+from ..domain.gpu_marketplace import Plugin
 
 logger = get_logger(__name__)
 

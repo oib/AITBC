@@ -3,10 +3,11 @@ Swarm Coordinator - for agents participating in collective intelligence
 """
 
 import asyncio
-import httpx
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional  # noqa: F401
+
+import httpx
 
 from aitbc.aitbc_logging import get_logger
 

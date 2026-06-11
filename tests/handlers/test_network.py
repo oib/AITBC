@@ -5,7 +5,7 @@ Tests for network status and peer management handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,12 +14,12 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.network import (
-    handle_network_status,
+    handle_network_force_sync,
     handle_network_peers,
-    handle_network_sync,
     handle_network_ping,
     handle_network_propagate,
-    handle_network_force_sync,
+    handle_network_status,
+    handle_network_sync,
 )
 
 

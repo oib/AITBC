@@ -10,6 +10,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import DatabaseError
+
 from .monitoring import QueryMonitor
 
 logger = get_logger(__name__)

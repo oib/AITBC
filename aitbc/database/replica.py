@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from aitbc.aitbc_logging import get_logger
+
 from .monitoring import QueryMonitor
 
 logger = get_logger(__name__)

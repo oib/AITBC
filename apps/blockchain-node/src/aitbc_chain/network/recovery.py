@@ -4,15 +4,15 @@ Implements automatic network healing and recovery procedures
 """
 
 import asyncio
+import logging
 import time
-from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
-from .discovery import P2PDiscovery, PeerNode
+from .discovery import P2PDiscovery
 from .health import PeerHealthMonitor
 from .partition import NetworkPartitionManager, PartitionState
-import logging
 
 logger = logging.getLogger(__name__)
 

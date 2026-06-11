@@ -1,9 +1,10 @@
 """Schemas for Hermes distributed decision making."""
 
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class DecisionType(str, Enum):

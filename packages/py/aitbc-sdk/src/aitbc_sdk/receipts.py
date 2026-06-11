@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import base64
-import httpx
 import time
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, cast
 
+import httpx
 from aitbc_crypto.signing import ReceiptVerifier
 
 from aitbc.exceptions import NetworkError

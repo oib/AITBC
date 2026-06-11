@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from aitbc.constants import KEYSTORE_DIR
-from aitbc.crypto import encrypt_private_key, decrypt_private_key
+from aitbc.crypto import encrypt_private_key
 
 # Add CLI utils to path
 sys.path.insert(0, '/opt/aitbc/cli')

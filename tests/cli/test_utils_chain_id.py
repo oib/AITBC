@@ -5,7 +5,7 @@ Tests for chain ID utilities
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -79,7 +79,7 @@ class TestGetChainIdFromHealth:
     @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
     def test_get_chain_id_from_health_network_error(self, mock_client):
         """Test network error during health check"""
-        from aitbc_cli.utils.chain_id import get_chain_id_from_health, NetworkError
+        from aitbc_cli.utils.chain_id import NetworkError, get_chain_id_from_health
         
         mock_http_client = Mock()
         mock_http_client.get.side_effect = NetworkError("Connection failed")

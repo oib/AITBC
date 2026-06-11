@@ -12,9 +12,8 @@ if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
 import pytest
-from click.testing import CliRunner
-
 from aitbc_cli.commands.ai import ai
+from click.testing import CliRunner
 
 
 class TestAICLI:

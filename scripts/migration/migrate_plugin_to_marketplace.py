@@ -16,10 +16,7 @@ sys.path.insert(0, str(Path("/opt/aitbc")))
 sys.path.insert(0, str(Path("/opt/aitbc/aitbc")))
 sys.path.insert(0, str(Path("/opt/aitbc/apps/marketplace/src")))
 
-from aitbc import DATA_DIR, ENV_FILE, NODE_ENV_FILE, REPO_DIR
-from sqlalchemy import create_engine, select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+
 
 # Database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/marketplace_service.db")

@@ -5,19 +5,18 @@ Tests for JWT token generation, validation, and password management
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
 
 # Add coordinator path for imports
 coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
+from datetime import timedelta
+
 import pytest
-from datetime import UTC, datetime, timedelta
 from app.auth.jwt_handler import (
-    JWTHandler,
-    PasswordManager,
     APIKeyManager,
+    JWTHandler,
 )
 
 

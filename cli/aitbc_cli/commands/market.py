@@ -11,10 +11,9 @@ from datetime import datetime
 
 import click
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-
 from ..config import get_config
 from ..utils import error, info, output, success, warning
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.island_credentials import load_island_credentials
 
 # Initialize logger
@@ -1639,9 +1638,10 @@ def withdraw_eth(ctx, amount: float, address: str):
         
         # Implement ETH withdrawal via web3.py
         try:
+            import os
+
             import httpx
             from web3 import Web3
-            import os
             
             # Get bridge configuration
             bridge_address = config.get('bridge_contract_address', '0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA')

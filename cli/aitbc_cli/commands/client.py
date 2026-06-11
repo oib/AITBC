@@ -2,6 +2,7 @@
 
 import click
 
+
 @click.group()
 def client():
     """Client commands"""

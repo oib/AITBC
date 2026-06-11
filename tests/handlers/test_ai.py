@@ -5,7 +5,7 @@ Tests for AI job submission and management handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,16 +14,15 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.ai import (
-    handle_ai_submit,
-    handle_ai_jobs,
-    handle_ai_job,
-    handle_ai_cancel,
-    handle_ai_stats,
     handle_ai_distribution_stats,
+    handle_ai_job,
+    handle_ai_jobs,
     handle_ai_service_list,
     handle_ai_service_status,
     handle_ai_service_test,
+    handle_ai_stats,
     handle_ai_status,
+    handle_ai_submit,
 )
 
 

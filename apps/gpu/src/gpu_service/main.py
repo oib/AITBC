@@ -316,7 +316,6 @@ async def optimize_inference(
 @app.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
     """Submit GPU marketplace transaction to blockchain"""
-    from aitbc import AITBCHTTPClient
 
     # Validate transaction type
     transaction_type = transaction_data.get('type')

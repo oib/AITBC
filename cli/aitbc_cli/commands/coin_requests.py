@@ -8,6 +8,7 @@ from datetime import datetime
 import click
 import requests
 
+
 def _load_env_file(path: str):
     if os.path.exists(path):
         with open(path) as f:

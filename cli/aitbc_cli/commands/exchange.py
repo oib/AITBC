@@ -6,11 +6,11 @@ from pathlib import Path
 
 import click
 
-# Import shared modules
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-
 from ..config import get_config
 from ..utils import error, output, success, warning
+
+# Import shared modules
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -1037,7 +1037,8 @@ def deposit(ctx, amount: float, ait_address: str, dry_run: bool):
             return
 
         bridge_url = f"http://localhost:8106/v1/bridge/deposit"
-        import urllib.request, json, os
+        import json
+        import urllib.request
         payload = json.dumps({
             "eth_amount": amount,
             "ait_address": ait_address,
@@ -1073,7 +1074,8 @@ def withdraw(ctx, amount: float, eth_address: str, dry_run: bool):
             return
 
         bridge_url = "http://localhost:8106/v1/bridge/withdraw"
-        import urllib.request, json
+        import json
+        import urllib.request
         payload = json.dumps({
             "ait_amount": amount,
             "eth_address": eth_address,
@@ -1132,7 +1134,8 @@ def swap(ctx, from_token: str, to_token: str, amount: float, slippage: float):
 def bridge_status(ctx, tx_id: str | None):
     """Check bridge status or list recent bridge transactions"""
     try:
-        import urllib.request, json
+        import json
+        import urllib.request
         if tx_id:
             url = f"http://localhost:8106/v1/bridge/status/{tx_id}"
         else:
@@ -1141,7 +1144,7 @@ def bridge_status(ctx, tx_id: str | None):
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         output(data, ctx.obj.get('output_format', 'json'))
-    except Exception as e:
+    except Exception:
         # Bridge may not be configured — show oracle health instead
         import sys
         sys.path.insert(0, "/opt/aitbc")
@@ -1159,7 +1162,7 @@ def bridge_deposits(status, limit):
     """List ETH-to-AIT bridge deposits."""
     import sys
     sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
-    from bridge_monitor.storage import get_deposits, count_deposits, BridgeDepositStatus
+    from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
     
     status_filter = None
     if status:
@@ -1215,7 +1218,7 @@ def bridge_status():
     """Show bridge monitor status."""
     import sys
     sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
-    from bridge_monitor.storage import count_deposits, BridgeDepositStatus
+    from bridge_monitor.storage import BridgeDepositStatus, count_deposits
     
     pending = count_deposits(BridgeDepositStatus.PENDING)
     processing = count_deposits(BridgeDepositStatus.PROCESSING)

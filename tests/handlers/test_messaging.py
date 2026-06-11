@@ -5,7 +5,7 @@ Tests for messaging contract handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,16 +14,16 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.messaging import (
+    handle_messaging_create_topic,
     handle_messaging_deploy,
+    handle_messaging_messages,
+    handle_messaging_moderate,
+    handle_messaging_post,
+    handle_messaging_reputation,
+    handle_messaging_search,
     handle_messaging_state,
     handle_messaging_topics,
-    handle_messaging_create_topic,
-    handle_messaging_messages,
-    handle_messaging_post,
     handle_messaging_vote,
-    handle_messaging_search,
-    handle_messaging_reputation,
-    handle_messaging_moderate,
 )
 
 

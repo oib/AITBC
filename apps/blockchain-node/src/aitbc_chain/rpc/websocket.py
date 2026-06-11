@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from ..config import settings
 from ..gossip import gossip_broker
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
-from ..config import settings
 
 router = APIRouter(prefix="", tags=["ws"])
 logger = get_logger(__name__)

@@ -3,9 +3,8 @@
 Simple gossip relay service for blockchain nodes
 Uses Starlette Broadcast to share messages between nodes
 """
-import logging
-
 import argparse
+import logging
 
 import uvicorn
 from aitbc.logging import get_logger

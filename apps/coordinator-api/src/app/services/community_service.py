@@ -19,8 +19,8 @@ from ..domain.community import (
     DeveloperProfile,
     DeveloperTier,
     Hackathon,
-    InnovationLab,
     HackathonStatus,
+    InnovationLab,
     LabStatus,
     SolutionStatus,
 )

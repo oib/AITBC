@@ -4,11 +4,10 @@ Optimizes peer connection strategies for network performance
 """
 
 import asyncio
+import logging
 import random
 from dataclasses import dataclass
 from enum import Enum
-
-import logging
 
 logger = logging.getLogger(__name__)
 

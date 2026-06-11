@@ -3,10 +3,10 @@ ETH-AIT Bridge Database
 SQLite database for tracking ETH deposits and AIT minting operations.
 """
 
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
 

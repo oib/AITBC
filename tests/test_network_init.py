@@ -4,6 +4,7 @@ Tests for AITBC network package initialization
 """
 
 import pytest
+
 from aitbc.network import __all__
 
 

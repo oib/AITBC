@@ -3,7 +3,7 @@ WebSocket Router for AITBC Agent Coordinator
 Provides WebSocket endpoints for real-time agent messaging and presence tracking
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Query, WebSocket
 
 from aitbc import get_logger
 

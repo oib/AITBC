@@ -24,9 +24,9 @@ class TestSecurityInit:
             SecurityLevel,
             TranslationMode,
             cli_translation_security,
-            secure_translation,
             configure_translation_security,
-            get_translation_security_report
+            get_translation_security_report,
+            secure_translation,
         )
         
         assert CLITranslationSecurityManager is not None

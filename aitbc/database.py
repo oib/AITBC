@@ -6,12 +6,12 @@ Enhanced with read replica support and query monitoring
 
 import sqlite3
 import time
+from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from collections import defaultdict
 
 # SQLAlchemy support for connection pooling
 from sqlalchemy import create_engine, event

@@ -2,14 +2,13 @@
 Payment-related exchange commands.
 """
 
-import click
 
 try:
-    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
     from aitbc_cli.utils import error, output, success
+    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 except ImportError:
-    from ..utils.http_client import AITBCHTTPClient, NetworkError
     from ..utils import error, output, success
+    from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
 def create_payment_command(ctx, aitbc_amount: float | None, btc_amount: float | None,

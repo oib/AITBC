@@ -3,12 +3,11 @@ AITBC CLI Utils Wallet Tests
 Tests for wallet utility functions
 """
 
-import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
-import tempfile
-import json
 import base64
+import json
+import sys
+import tempfile
+from pathlib import Path
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

@@ -1,11 +1,11 @@
 """Network commands for AITBC CLI"""
 
 import os
+
 import click
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError
-
 from ..utils import error, output
+from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
 def get_default_node_id() -> str | None:

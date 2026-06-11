@@ -5,7 +5,6 @@ Tests for chain data models
 
 import sys
 from pathlib import Path
-from datetime import datetime
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -123,7 +122,7 @@ class TestConsensusConfig:
 
     def test_consensus_config_creation(self):
         """Test ConsensusConfig creation"""
-        from aitbc_cli.models.chain import ConsensusConfig, ConsensusAlgorithm
+        from aitbc_cli.models.chain import ConsensusAlgorithm, ConsensusConfig
         
         config = ConsensusConfig(
             algorithm=ConsensusAlgorithm.POS,
@@ -137,7 +136,7 @@ class TestConsensusConfig:
 
     def test_consensus_config_defaults(self):
         """Test ConsensusConfig with defaults"""
-        from aitbc_cli.models.chain import ConsensusConfig, ConsensusAlgorithm
+        from aitbc_cli.models.chain import ConsensusAlgorithm, ConsensusConfig
         
         config = ConsensusConfig(algorithm=ConsensusAlgorithm.POW)
         
@@ -178,7 +177,7 @@ class TestGenesisConfig:
 
     def test_genesis_config_creation(self):
         """Test GenesisConfig creation"""
-        from aitbc_cli.models.chain import GenesisConfig, ChainType, ConsensusConfig, ConsensusAlgorithm
+        from aitbc_cli.models.chain import ChainType, ConsensusAlgorithm, ConsensusConfig, GenesisConfig
         
         config = GenesisConfig(
             chain_type=ChainType.MAIN,
@@ -193,7 +192,7 @@ class TestGenesisConfig:
 
     def test_genesis_config_defaults(self):
         """Test GenesisConfig with defaults"""
-        from aitbc_cli.models.chain import GenesisConfig, ChainType, ConsensusConfig, ConsensusAlgorithm
+        from aitbc_cli.models.chain import ChainType, ConsensusAlgorithm, ConsensusConfig, GenesisConfig
         
         config = GenesisConfig(
             chain_type=ChainType.TOPIC,

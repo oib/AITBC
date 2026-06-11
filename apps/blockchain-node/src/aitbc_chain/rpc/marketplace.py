@@ -1,10 +1,10 @@
 """Marketplace RPC endpoints for AITBC blockchain"""
 
+import json
 from datetime import datetime
 from typing import Any
-import json
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from aitbc.security_hardening import SecurityValidator, log_security_event

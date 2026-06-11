@@ -1,25 +1,26 @@
 """Service for Hermes self-healing and health monitoring with database storage."""
 
-import uuid
 import json
+import uuid
 from datetime import datetime
 from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+from ....models.hermes import (
+    ErrorReportModel,
+    HealthCheckModel,
+    RecoveryResultModel,
+)
 from ....schemas.hermes_health import (
+    ErrorReport,
     HealthCheck,
     HealthStatus,
-    ErrorReport,
     RecoveryResult,
-)
-from ....models.hermes import (
-    HealthCheckModel,
-    ErrorReportModel,
-    RecoveryResultModel,
 )
 
 

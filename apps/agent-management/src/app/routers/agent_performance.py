@@ -17,8 +17,9 @@ from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
 from uuid import uuid4
+
+from sqlmodel import Session, select
 
 from app.domain.agent_performance import (
     AgentCapability,

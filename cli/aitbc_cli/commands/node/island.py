@@ -8,6 +8,7 @@ import json
 import os
 import socket
 import uuid
+
 import click
 
 try:

@@ -8,11 +8,11 @@ import httpx
 import websockets
 
 from .config import settings
+from .database import session_scope
 from .gossip import gossip_broker
 from .logger import get_logger
 from .metrics import metrics_registry
 from .sync import ChainSync
-from .database import session_scope
 
 logger = get_logger(__name__)
 

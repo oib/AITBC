@@ -2,12 +2,12 @@
 Database utility functions for AITBC applications.
 """
 
-import sqlite3
 from pathlib import Path
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import DatabaseError
+
 from .connection import DatabaseConnection
 
 logger = get_logger(__name__)

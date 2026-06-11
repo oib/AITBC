@@ -1,8 +1,8 @@
 """Edge case and error handling tests for miner service"""
 
+import subprocess
 from unittest.mock import Mock, patch
 
-import subprocess
 import production_miner
 import pytest
 

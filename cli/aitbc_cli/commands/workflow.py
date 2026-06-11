@@ -4,12 +4,11 @@ Workflow commands for AITBC CLI
 
 import json
 import os
-import time
 
 import click
 
 from ..config import get_config
-from ..utils import success, error
+from ..utils import error, success
 
 
 @click.group()
