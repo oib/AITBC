@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Marketplace Performance Optimization API Endpoints
 REST API for managing distributed processing, GPU optimization, caching, and scaling

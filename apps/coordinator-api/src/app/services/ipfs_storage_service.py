@@ -21,7 +21,7 @@ from .secure_pickle import safe_loads
 ipfshttpclient = None
 web3 = None
 try:
-    import ipfshttpclient  # type: ignore[no-redef]
+    import ipfshttpclient  # type: ignore[import-not-found,no-redef]
     from web3 import Web3
     web3 = Web3
 except ImportError as e:

@@ -205,7 +205,7 @@ class JobService:
 
         return True
 
-    def execute_job(self, job_id: str, result: Dict[str, Any]) -> Job:  # type: ignore[name-defined]
+    def execute_job(self, job_id: str, result: Dict[str, Any]) -> Job:
         """
         Execute a job and store results.
         

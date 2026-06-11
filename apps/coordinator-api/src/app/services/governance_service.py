@@ -367,7 +367,7 @@ class GovernanceService:
             
             if response.status_code == 200:
                 account_data = response.json()
-                balance = account_data.get("balance", 0)
+                balance = int(account_data.get("balance", 0))
                 # Voting power is proportional to stake (1 AIT = 1 voting power)
                 return balance
             else:

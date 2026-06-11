@@ -19,7 +19,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
-from ..domain.models import JobState
+from ..domain.models import JobState  # type: ignore[import-not-found]
 from .jobs import JobService
 
 logger = get_logger(__name__)

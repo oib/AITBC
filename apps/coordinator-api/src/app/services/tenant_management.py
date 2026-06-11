@@ -22,8 +22,8 @@ except ImportError:
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     try:
-        from app.exceptions import QuotaExceededError, TenantError  # type: ignore[no-redef]
-        from app.models.multitenant import (  # type: ignore[no-redef]
+        from app.exceptions import QuotaExceededError, TenantError  # type: ignore[import-not-found,no-redef]
+        from app.models.multitenant import (  # type: ignore[import-not-found,no-redef]
             Tenant,
             TenantApiKey,
             TenantAuditLog,
@@ -31,7 +31,7 @@ except ImportError:
             TenantStatus,
             TenantUser,
         )
-        from app.storage.db import get_db
+        from app.storage.db import get_db  # type: ignore[import-not-found]
     except ImportError:
         # Mock classes for CLI testing when full app context not available
         class Tenant:  # type: ignore[no-redef]

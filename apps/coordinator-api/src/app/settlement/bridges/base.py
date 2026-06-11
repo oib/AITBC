@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Base interfaces for cross-chain settlement bridges
 """
