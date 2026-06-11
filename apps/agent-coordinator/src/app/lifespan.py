@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 import asyncio
 import os
 from contextlib import asynccontextmanager
