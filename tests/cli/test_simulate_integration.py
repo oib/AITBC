@@ -13,6 +13,7 @@ from aitbc_cli.commands.simulate import simulate
 from click.testing import CliRunner
 
 from aitbc import AITBCHTTPClient
+from aitbc_cli.utils.http_client import NetworkError
 
 
 @pytest.fixture
@@ -282,17 +283,24 @@ class TestSimulateCommandsIntegration:
         # Verify we got multiple simulation IDs
         assert len(sim_ids) > 0
 
-    def test_simulate_api_error_handling(self, runner, mock_config):
+    @patch('aitbc_cli.commands.simulate.get_config')
+    @patch('aitbc_cli.commands.simulate.AITBCHTTPClient')
+    def test_simulate_api_error_handling(self, mock_http_client_class, mock_get_config, runner):
         """Test simulate command handles coordinator-api errors gracefully"""
-        # Use invalid coordinator URL to trigger error
+        mock_config = Mock()
         mock_config.coordinator_url = "http://invalid:9999"
+        mock_get_config.return_value = mock_config
+
+        mock_client = MagicMock()
+        mock_http_client_class.return_value = mock_client
+        mock_client.post.side_effect = NetworkError("Connection refused")
 
         result = runner.invoke(simulate, [
-            'blockchain'
+            'run', 'blockchain'
         ], obj={'config': mock_config, 'output': 'json'})
 
-        # Should either fail gracefully or skip with appropriate message
-        assert result.exit_code != 0 or 'error' in result.output.lower() or 'unavailable' in result.output.lower()
+        # Should fail gracefully with network error message
+        assert result.exit_code != 0 or 'error' in result.output.lower() or 'network' in result.output.lower()
 
     @patch('aitbc_cli.commands.simulate.get_config')
     @patch('aitbc_cli.commands.simulate.AITBCHTTPClient')

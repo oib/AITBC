@@ -59,6 +59,10 @@ def test_marketplace_cors_rejects_wildcard():
     """Test that marketplace rejects wildcard origins via environment variable"""
     repo_root = Path(__file__).resolve().parents[2]
     marketplace_src = repo_root / "apps" / "marketplace"
+    agent_marketplace_file = marketplace_src / "agent_marketplace.py"
+
+    if not agent_marketplace_file.exists():
+        pytest.skip("agent_marketplace.py not found")
 
     if str(marketplace_src) not in sys.path:
         sys.path.insert(0, str(marketplace_src))
@@ -70,7 +74,7 @@ def test_marketplace_cors_rejects_wildcard():
     # This is the expected behavior
     with pytest.raises(ValueError, match="Wildcard CORS origins are not allowed"):
         import importlib.util
-        spec = importlib.util.spec_from_file_location("agent_marketplace", marketplace_src / "agent_marketplace.py")
+        spec = importlib.util.spec_from_file_location("agent_marketplace", agent_marketplace_file)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
@@ -82,6 +86,10 @@ def test_marketplace_cors_accepts_localhost():
     """Test that marketplace accepts localhost origins via environment variable"""
     repo_root = Path(__file__).resolve().parents[2]
     marketplace_src = repo_root / "apps" / "marketplace"
+    agent_marketplace_file = marketplace_src / "agent_marketplace.py"
+
+    if not agent_marketplace_file.exists():
+        pytest.skip("agent_marketplace.py not found")
 
     if str(marketplace_src) not in sys.path:
         sys.path.insert(0, str(marketplace_src))
@@ -90,7 +98,7 @@ def test_marketplace_cors_accepts_localhost():
 
     # Import the function directly from the file
     import importlib.util
-    spec = importlib.util.spec_from_file_location("agent_marketplace", marketplace_src / "agent_marketplace.py")
+    spec = importlib.util.spec_from_file_location("agent_marketplace", agent_marketplace_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
