@@ -20,10 +20,10 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from .advanced_learning import AdvancedLearningService
-from .advanced_rl import AdvancedReinforcementLearningEngine
+from .advanced_learning import AdvancedLearningService  # type: ignore[import-not-found]
+from .advanced_rl import AdvancedReinforcementLearningEngine  # type: ignore[import-not-found]
 from .gpu_multimodal import GPUAcceleratedMultiModal
-from .multi_modal_fusion import MultiModalFusionEngine
+from .multi_modal_fusion import MultiModalFusionEngine  # type: ignore[import-not-found]
 
 
 # Pydantic models for API

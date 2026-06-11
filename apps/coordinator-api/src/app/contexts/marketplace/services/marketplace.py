@@ -15,7 +15,7 @@ from ..domain.marketplace import MarketplaceOffer
 try:
     from .plugin_manager import get_plugin_manager
 except ImportError:
-    def get_plugin_manager():
+    def get_plugin_manager() -> Any:  # type: ignore[misc]
         return None
 
 

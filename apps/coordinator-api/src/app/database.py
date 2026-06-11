@@ -29,11 +29,11 @@ else:
     )
 
 
-def create_db_and_tables():
+def create_db_and_tables() -> None:
     """Create database and tables"""
     SQLModel.metadata.create_all(engine)
 
 
-async def init_db():
+async def init_db() -> None:
     """Initialize database by creating tables"""
     create_db_and_tables()

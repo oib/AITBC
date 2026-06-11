@@ -60,7 +60,7 @@ async def get_health_status(
 ) -> List[HealthCheck]:
     """Get health status with optional filtering."""
     try:
-        return health_service.get_health_status(agent_id, service_name)
+        return health_service.get_health_status(agent_id, service_name)  # type: ignore[arg-type]
     except Exception as e:
         logger.error(f"Error getting health status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -75,7 +75,7 @@ async def get_recovery_history(
 ) -> List[RecoveryResult]:
     """Get recovery history with optional filtering."""
     try:
-        return health_service.get_recovery_history(agent_id, limit)
+        return health_service.get_recovery_history(agent_id, limit)  # type: ignore[arg-type]
     except Exception as e:
         logger.error(f"Error getting recovery history: {e}")
         raise HTTPException(status_code=500, detail=str(e))

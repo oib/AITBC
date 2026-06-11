@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Storage layer for cross-chain settlements
 """

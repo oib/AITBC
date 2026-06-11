@@ -211,7 +211,7 @@ class EnhancedMarketplaceService:
             offers = self.session.execute(offers_query).scalars().all()
 
             # Bids deprecated in v0.4.7 - no bid queries needed
-            bids = []
+            bids: list[Any] = []
 
             # Calculate analytics
             analytics = {

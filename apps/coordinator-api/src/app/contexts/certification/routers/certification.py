@@ -832,7 +832,7 @@ async def get_certification_leaderboard(
             )
 
         certifications = session.execute(
-            query.order_by(desc(AgentCertification.issued_at)).limit(limit * 2)  # Get more to account for duplicates  # type: ignore[arg-type]
+            query.order_by(desc(AgentCertification.issued_at)).limit(limit * 2)  # type: ignore
         ).all()
 
         # Group by agent and calculate scores

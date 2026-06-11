@@ -11,7 +11,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from app.domain.trading import (
+from app.domain.trading import (  # type: ignore[import-not-found]
     NegotiationStatus,
     SettlementType,
     TradeAgreement,

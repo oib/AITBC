@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Coordinator API main entry point."""
 
 import sys

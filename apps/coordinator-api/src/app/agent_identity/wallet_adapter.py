@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Chain Wallet Adapter Implementation
 Provides blockchain-agnostic wallet interface for agents

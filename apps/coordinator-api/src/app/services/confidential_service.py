@@ -15,7 +15,7 @@ class ConfidentialTransactionService:
 
     def __init__(self) -> None:
         self.key_manager = KeyManager(storage_backend=MockHSMStorage())
-        self.encryption_service = EncryptionService(key_manager=self.key_manager)
+        self.encryption_service = EncryptionService(key_manager=self.key_manager)  # type: ignore[arg-type]
 
     def create_confidential_transaction(
         self,

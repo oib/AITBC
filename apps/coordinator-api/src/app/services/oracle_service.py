@@ -263,10 +263,10 @@ class AggregatedPriceFeed:
                     logger.warning(f"CoinGecko response missing price for {coin_id}")
                     return None
                 
-                return PriceData(
+                return PriceData(  # type: ignore[call-arg]
                     pair=pair,
                     price=price,
-                    source=PriceSource.coingecko,
+                    source=PriceSource.coingecko,  # type: ignore[attr-defined]
                     timestamp=datetime.now(UTC),
                     confidence=0.9,  # High confidence for CoinGecko
                     metadata={
@@ -275,7 +275,7 @@ class AggregatedPriceFeed:
                     }
                 )
                 
-            except httpx.TimeoutError:
+            except httpx.TimeoutException:
                 logger.warning(f"CoinGecko API timeout for {pair}")
                 return None
             except Exception as e:

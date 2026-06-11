@@ -135,7 +135,7 @@ async def get_content(
 
         # Try to parse as JSON
         try:
-            data = json.loads(content.decode('utf-8'))  # type: ignore[name-defined]
+            data = json.loads(content.decode('utf-8'))
             return {
                 "success": True,
                 "cid": cid,
@@ -143,7 +143,7 @@ async def get_content(
                 "data": data,
                 "size": len(content)
             }
-        except (json.JSONDecodeError, UnicodeDecodeError):  # type: ignore[name-defined]
+        except (json.JSONDecodeError, UnicodeDecodeError):
             # Return as base64
             import base64
             return {

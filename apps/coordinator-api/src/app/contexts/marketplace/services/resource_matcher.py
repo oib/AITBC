@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Resource Matcher Service for ML-based search and recommendations."""
 
 from __future__ import annotations

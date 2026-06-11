@@ -17,7 +17,7 @@ from enum import StrEnum
 from typing import Any
 
 import numpy as np
-from app.storage import get_session
+from app.storage import get_session  # type: ignore[import-not-found]
 
 
 class LearningAlgorithm(StrEnum):
@@ -423,7 +423,7 @@ class AdaptiveLearningService:
         environment = self.environments[environment_id]
 
         # Initialize training session
-        session_id = f"session_{uuid4().hex[:8]}"  # type: ignore[name-defined]
+        session_id = f"session_{uuid4().hex[:8]}"
         self.training_sessions[session_id] = {
             "agent_id": agent_id,
             "environment_id": environment_id,

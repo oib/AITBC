@@ -229,7 +229,7 @@ async def get_system_status(
         import sys
         from datetime import datetime
 
-        import psutil
+        import psutil  # type: ignore[import-untyped]
 
         system_info = {
             "cpu_percent": psutil.cpu_percent(interval=1),

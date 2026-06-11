@@ -314,7 +314,7 @@ class ServiceFactory:
 # Usage Examples
 # ============================================================================
 
-def demo_optimized_services() -> None:
+async def demo_optimized_services() -> None:
     logger.info("Python 3.13.5 Optimized Services Demo")
     logger.info("Features:")
     logger.info("  - @override decorators for method safety")
@@ -323,4 +323,4 @@ def demo_optimized_services() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(demo_optimized_services())  # type: ignore[name-defined]
+    asyncio.run(demo_optimized_services())

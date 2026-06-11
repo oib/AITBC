@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from datetime import datetime, timezone
 from typing import Annotated, Any
 

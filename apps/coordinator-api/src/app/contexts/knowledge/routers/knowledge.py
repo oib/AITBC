@@ -19,7 +19,7 @@ class KnowledgeGraphCreateRequest(BaseModel):
     """Request model for creating a knowledge graph"""
     name: str = Field(..., min_length=1, max_length=100)
     description: str = Field(..., min_length=1, max_length=500)
-    graph_schema: str = Field(default=None)
+    graph_schema: str | None = Field(default=None)
 
 
 class KnowledgeGraphResponse(BaseModel):

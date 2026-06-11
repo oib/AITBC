@@ -158,8 +158,8 @@ class AgentIdentityManager:
                 verified_mappings = await self.registry.get_verified_mappings(agent_id)
                 verified_chains = {m.chain_id for m in verified_mappings}
 
-                total_weight = 0
-                weighted_sum = 0
+                total_weight = 0.0
+                weighted_sum = 0.0
 
                 for chain_id, score in reputation_scores.items():
                     weight = 2.0 if chain_id in verified_chains else 1.0

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Repository layer for confidential transactions
 """

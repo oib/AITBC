@@ -240,7 +240,7 @@ async def get_tier_progress(
             raise HTTPException(status_code=404, detail="Reward profile not found")
 
         # Get reputation for trust score
-        from ..domain.reputation import AgentReputation
+        from ..domain.reputation import AgentReputation  # type: ignore[import-not-found]
         reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
@@ -443,7 +443,7 @@ async def get_reward_tiers(
     """Get reward tier configurations"""
 
     try:
-        from ..domain.rewards import RewardTierConfig
+        from ..domain.rewards import RewardTierConfig  # type: ignore[import-not-found]
 
         tier_configs = session.execute(
             select(RewardTierConfig).where(RewardTierConfig.is_active == True)

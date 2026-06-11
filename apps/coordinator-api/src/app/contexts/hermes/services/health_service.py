@@ -24,7 +24,7 @@ from ....schemas.hermes_health import (
 class HealthService:
     """Service for monitoring agent health and executing self-healing actions."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # In-memory storage for health checks (replace with database in production)
         self.health_checks: Dict[str, HealthCheck] = {}
         self.error_reports: List[ErrorReport] = []
