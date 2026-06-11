@@ -78,7 +78,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_gpu_list_gpus(self, runner, mock_config, edge_available):
         """Test listing GPUs"""
         result = runner.invoke(edge, [
-            'gpu', 'list_gpus'
+            'gpu', 'list-gpus'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
@@ -88,7 +88,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_gpu_get_gpu(self, runner, mock_config, edge_available):
         """Test getting specific GPU info"""
         result = runner.invoke(edge, [
-            'gpu', 'get_gpu',
+            'gpu', 'get-gpu',
             '--gpu-id', 'gpu_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -99,7 +99,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_gpu_remove_gpu(self, runner, mock_config, edge_available):
         """Test removing a GPU"""
         result = runner.invoke(edge, [
-            'gpu', 'remove_gpu',
+            'gpu', 'remove-gpu',
             '--gpu-id', 'gpu_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -110,7 +110,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_gpu_scan_gpus(self, runner, mock_config, edge_available):
         """Test scanning for available GPUs"""
         result = runner.invoke(edge, [
-            'gpu', 'scan_gpus'
+            'gpu', 'scan-gpus'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
@@ -120,7 +120,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_gpu_gpu_metrics(self, runner, mock_config, edge_available):
         """Test getting GPU metrics"""
         result = runner.invoke(edge, [
-            'gpu', 'gpu_metrics',
+            'gpu', 'gpu-metrics',
             '--gpu-id', 'gpu_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -143,7 +143,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_database_list_dbs(self, runner, mock_config, edge_available):
         """Test listing databases"""
         result = runner.invoke(edge, [
-            'database', 'list_dbs'
+            'database', 'list-dbs'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
@@ -153,7 +153,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_database_get_db(self, runner, mock_config, edge_available):
         """Test getting database info"""
         result = runner.invoke(edge, [
-            'database', 'get_db',
+            'database', 'get-db',
             '--db-id', 'db_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -164,7 +164,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_database_delete_db(self, runner, mock_config, edge_available):
         """Test deleting a database"""
         result = runner.invoke(edge, [
-            'database', 'delete_db',
+            'database', 'delete-db',
             '--db-id', 'db_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -175,7 +175,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_database_sync_db(self, runner, mock_config, edge_available):
         """Test syncing a database"""
         result = runner.invoke(edge, [
-            'database', 'sync_db',
+            'database', 'sync-db',
             '--db-id', 'db_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -199,7 +199,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_serve_list_requests(self, runner, mock_config, edge_available):
         """Test listing serve requests"""
         result = runner.invoke(edge, [
-            'serve', 'list_requests'
+            'serve', 'list-requests'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
@@ -209,7 +209,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_serve_get_request(self, runner, mock_config, edge_available):
         """Test getting serve request info"""
         result = runner.invoke(edge, [
-            'serve', 'get_request',
+            'serve', 'get-request',
             '--request-id', 'req_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -220,7 +220,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_serve_cancel_request(self, runner, mock_config, edge_available):
         """Test cancelling a serve request"""
         result = runner.invoke(edge, [
-            'serve', 'cancel_request',
+            'serve', 'cancel-request',
             '--request-id', 'req_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -231,7 +231,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_serve_get_result(self, runner, mock_config, edge_available):
         """Test getting serve request result"""
         result = runner.invoke(edge, [
-            'serve', 'get_result',
+            'serve', 'get-result',
             '--request-id', 'req_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -255,7 +255,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_metrics_list_metrics(self, runner, mock_config, edge_available):
         """Test listing metrics"""
         result = runner.invoke(edge, [
-            'metrics', 'list_metrics'
+            'metrics', 'list-metrics'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
@@ -265,7 +265,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_metrics_get_metric(self, runner, mock_config, edge_available):
         """Test getting a specific metric"""
         result = runner.invoke(edge, [
-            'metrics', 'get_metric',
+            'metrics', 'get-metric',
             '--metric-id', 'metric_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -276,7 +276,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_metrics_delete_metric(self, runner, mock_config, edge_available):
         """Test deleting a metric"""
         result = runner.invoke(edge, [
-            'metrics', 'delete_metric',
+            'metrics', 'delete-metric',
             '--metric-id', 'metric_123'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -298,7 +298,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_gpu_get_nonexistent(self, runner, mock_config):
         """Test getting non-existent GPU"""
         result = runner.invoke(edge, [
-            'gpu', 'get_gpu',
+            'gpu', 'get-gpu',
             '--gpu-id', 'nonexistent_gpu'
         ], obj={'config': mock_config, 'output': 'json'})
 
@@ -311,7 +311,7 @@ class TestEdgeAdvancedCommands:
         mock_config.coordinator_url = "http://invalid:9999"
 
         result = runner.invoke(edge, [
-            'gpu', 'list_gpus'
+            'gpu', 'list-gpus'
         ], obj={'config': mock_config, 'output': 'json'})
 
         # Should either fail gracefully or skip with appropriate message
@@ -321,7 +321,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_gpu_list_table_format(self, runner, mock_config, edge_available):
         """Test GPU list in table format"""
         result = runner.invoke(edge, [
-            'gpu', 'list_gpus'
+            'gpu', 'list-gpus'
         ], obj={'config': mock_config, 'output': 'table'})
 
         assert result.exit_code == 0
@@ -330,7 +330,7 @@ class TestEdgeAdvancedCommands:
     def test_edge_database_list_table_format(self, runner, mock_config, edge_available):
         """Test database list in table format"""
         result = runner.invoke(edge, [
-            'database', 'list_dbs'
+            'database', 'list-dbs'
         ], obj={'config': mock_config, 'output': 'table'})
 
         assert result.exit_code == 0
@@ -355,7 +355,7 @@ class TestEdgeAdvancedCommands:
         }
 
         result = runner.invoke(edge, [
-            'gpu', 'list_gpus'
+            'gpu', 'list-gpus'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0

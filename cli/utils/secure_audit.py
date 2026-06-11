@@ -108,6 +108,7 @@ class SecureAuditLogger:
         # Create entry hash
         entry_hash = self._create_entry_hash(entry, previous_hash)
         entry["entry_hash"] = entry_hash
+        entry["previous_hash"] = previous_hash
 
         # Write to log file
         with open(self.log_file, "a") as f:

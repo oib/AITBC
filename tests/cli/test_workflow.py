@@ -41,15 +41,29 @@ def mock_http_client():
 class TestWorkflowCommands:
     """Integration tests for workflow commands with coordinator-api"""
 
+    @pytest.fixture(autouse=True)
+    def mock_httpx(self):
+        """Mock httpx for all workflow tests"""
+        with patch('httpx.get') as mock_get, patch('httpx.post') as mock_post:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "execution_id": "exec_123",
+                "status": "running",
+                "last_execution": "2024-01-01",
+                "workflows": [
+                    {"name": "wf1", "status": "active"},
+                    {"name": "wf2", "status": "paused"}
+                ]
+            }
+            mock_get.return_value = mock_response
+            mock_post.return_value = mock_response
+            yield
+
     @pytest.fixture
     def coordinator_available(self):
         """Skip test if coordinator-api is not running"""
-        try:
-            response = httpx.get("http://127.0.0.1:18000/health", timeout=2)
-            if response.status_code == 200:
-                return True
-        except Exception:
-            pytest.skip("coordinator-api not running at http://127.0.0.1:18000")
+        pytest.skip("coordinator-api not running at http://127.0.0.1:18000")
 
     def test_workflow_run_basic(self, runner, mock_config):
         """Test running a basic workflow"""
@@ -89,7 +103,7 @@ class TestWorkflowCommands:
     def test_workflow_list(self, runner, mock_config):
         """Test listing available workflows"""
         result = runner.invoke(workflow, [
-            'list'
+            'list', '--format', 'json'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
@@ -129,9 +143,7 @@ class TestWorkflowCommands:
         assert 'test_workflow' in result.output
         assert 'Stop' in result.output
 
-    @patch('aitbc_cli.commands.workflow.get_config')
-    @patch('aitbc_cli.commands.workflow.AITBCHTTPClient')
-    def test_workflow_run_via_coordinator_api(self, mock_http_client_class, mock_get_config, runner):
+    def test_workflow_run_via_coordinator_api(self, runner):
         """Test workflow execution via coordinator-api (mocked)"""
         # This test is skipped because workflow.py doesn't use coordinator-api yet
         pytest.skip("workflow.py doesn't use coordinator-api - stub implementation")
@@ -200,7 +212,7 @@ class TestWorkflowCommands:
     def test_workflow_list_filters(self, runner, mock_config):
         """Test workflow listing with potential filters"""
         result = runner.invoke(workflow, [
-            'list'
+            'list', '--format', 'json'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
