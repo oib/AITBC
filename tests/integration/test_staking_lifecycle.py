@@ -13,9 +13,14 @@ repo_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo_root / "apps" / "coordinator-api" / "src"))
 sys.path.insert(0, str(repo_root / "contracts"))
 
+# Clear cached 'app' modules to avoid conflicts with agent-coordinator tests
+for mod_name in list(sys.modules.keys()):
+    if mod_name == "app" or mod_name.startswith("app."):
+        del sys.modules[mod_name]
+
 # Import after path setup
 from app.domain.bounty import AgentMetrics, PerformanceTier, StakeStatus
-from app.services.staking_service import StakingService
+from app.contexts.staking.services.staking_service import StakingService
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel

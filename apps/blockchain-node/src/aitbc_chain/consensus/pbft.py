@@ -156,7 +156,7 @@ class PBFTConsensus:
 
         return True
 
-    async def _broadcast_message(self, message: PBFTMessage):
+    async def _broadcast_message(self, message: PBFTMessage) -> None:
         """Broadcast message to all validators"""
         validators = self.consensus.get_consensus_participants()
 
@@ -165,12 +165,12 @@ class PBFTConsensus:
                 # In real implementation, this would send over network
                 await self._send_to_validator(validator, message)
 
-    async def _send_to_validator(self, validator: str, message: PBFTMessage):
+    async def _send_to_validator(self, validator: str, message: PBFTMessage) -> None:
         """Send message to specific validator"""
         # Network communication would be implemented here
         pass
 
-    def _cleanup_messages(self, sequence: int):
+    def _cleanup_messages(self, sequence: int) -> None:
         """Clean up old messages to prevent memory leaks"""
         old_keys = [
             key for key in self.state.prepared_messages.keys()

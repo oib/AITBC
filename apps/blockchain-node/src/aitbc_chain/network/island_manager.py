@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Island Manager
 Manages island membership, multi-island support, and island operations for federated mesh

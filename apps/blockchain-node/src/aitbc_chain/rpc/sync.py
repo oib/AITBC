@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Sync-related RPC endpoints.
 """

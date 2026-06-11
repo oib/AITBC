@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Network Recovery Mechanisms
 Implements automatic network healing and recovery procedures

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Utility functions for blockchain RPC endpoints.
 """

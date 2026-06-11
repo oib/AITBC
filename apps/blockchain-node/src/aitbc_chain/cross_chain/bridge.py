@@ -66,7 +66,7 @@ class CrossChainBridge:
     # Bridge fee (0.1%)
     BRIDGE_FEE_BASIS_POINTS = 10
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Any) -> None:
         self._session_factory = session_factory
         self._pending_transfers: dict[str, BridgeTransfer] = {}
         self._processed_proofs: set[str] = set()
@@ -369,7 +369,7 @@ class CrossChainBridge:
 _bridge_instance: CrossChainBridge | None = None
 
 
-def init_cross_chain_bridge(session_factory) -> CrossChainBridge:
+def init_cross_chain_bridge(session_factory: Any) -> CrossChainBridge:
     """Initialize the global cross-chain bridge"""
     global _bridge_instance
     _bridge_instance = CrossChainBridge(session_factory)

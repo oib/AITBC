@@ -258,7 +258,7 @@ class BridgeManager:
         """Check if node has pending bridge request to an island"""
         return island_id in self.pending_requests
 
-    async def start(self):
+    async def start(self) -> None:
         """Start bridge manager"""
         self.running = True
         logger.info("Starting bridge manager")
@@ -275,12 +275,12 @@ class BridgeManager:
         finally:
             self.running = False
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop bridge manager"""
         self.running = False
         logger.info("Stopping bridge manager")
 
-    async def _request_timeout_monitor(self):
+    async def _request_timeout_monitor(self) -> None:
         """Monitor bridge requests and handle timeouts"""
         while self.running:
             try:

@@ -28,7 +28,7 @@ class SlashingEvent:
 class SlashingManager:
     """Manages validator slashing conditions and penalties"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.slashing_events: list[SlashingEvent] = []
         self.slash_rates = {
             SlashingCondition.DOUBLE_SIGN: 0.5,      # 50% slash

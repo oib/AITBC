@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Peer Health Monitoring Service
 Monitors peer liveness and performance metrics

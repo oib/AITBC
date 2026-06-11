@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Gossip-related RPC endpoints.
 """

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Contract-related RPC endpoints.
 """

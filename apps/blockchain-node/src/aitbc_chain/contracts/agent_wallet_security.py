@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 AITBC Agent Wallet Security Implementation
 

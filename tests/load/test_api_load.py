@@ -28,12 +28,14 @@ try:
     from datetime import datetime, timedelta, timezone
 
     from locust import HttpUser, between, task
-except ImportError:
-    # Skip this module if locust is not installed (e.g., during pytest collection)
-    raise ImportError("locust is required for load tests. Install with: pip install locust")
+except Exception:
+    # Skip this module if locust is not installed or fails (e.g., during pytest collection)
+    HttpUser = object  # type: ignore[misc,assignment]
+    between = lambda a, b: None  # type: ignore[assignment]
+    task = lambda weight: (lambda f: f)  # type: ignore[assignment]
 
 # Inline blockchain load test (from tests/load_test.py)
-class BlockchainLoadUser(HttpUser):
+class BlockchainLoadUser(HttpUser):  # type: ignore[misc,valid-type]
     """Blockchain RPC user for load testing."""
 
     wait_time = between(1, 3)

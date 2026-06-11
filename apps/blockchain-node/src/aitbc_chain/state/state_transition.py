@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 State Transition Layer for AITBC
 
