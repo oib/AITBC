@@ -6,8 +6,8 @@ Provides portfolio creation, rebalancing, risk assessment, and trading strategy 
 """
 
 from __future__ import annotations
-import logging
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException

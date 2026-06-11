@@ -3,8 +3,7 @@ Base cache interface and abstract classes for AITBC caching system.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
-from datetime import timedelta
+from typing import Any, Optional
 
 
 class CacheBackend(ABC):

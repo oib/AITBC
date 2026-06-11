@@ -4,10 +4,10 @@ Handles network split detection and automatic recovery
 """
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -4,15 +4,13 @@ Handles bootstrap nodes and peer discovery for mesh network
 """
 
 import asyncio
-import json
-import time
 import hashlib
-from typing import List, Dict, Optional, Set, Tuple
-from dataclasses import dataclass, asdict
-from enum import Enum
-import socket
-import struct
+import json
 import logging
+import time
+from dataclasses import asdict, dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

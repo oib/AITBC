@@ -1,9 +1,10 @@
 """Schemas for Hermes autonomous resource management."""
 
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class ResourceType(str, Enum):

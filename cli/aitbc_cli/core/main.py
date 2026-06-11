@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 AITBC CLI - Fixed version with modular command groups
+
+Canonical invocation: `aitbc` (installed via /opt/aitbc/venv/bin/aitbc)
 """
 
 import sys
@@ -13,8 +15,8 @@ if str(CLI_DIR) not in sys.path:
 
 import click
 from aitbc_cli.commands.account import account
-from aitbc_cli.commands.ai import ai
 from aitbc_cli.commands.agent_sdk import agent
+from aitbc_cli.commands.ai import ai
 from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
 from aitbc_cli.commands.bridge import bridge
 from aitbc_cli.commands.chain import chain
@@ -26,21 +28,20 @@ from aitbc_cli.commands.contract import contract
 from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
 from aitbc_cli.commands.economics import economics
 from aitbc_cli.commands.edge import edge
-from aitbc_cli.commands.market import market
-from aitbc_cli.commands.reputation import reputation
-from aitbc_cli.commands.governance import governance
 
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
 from aitbc_cli.commands.exchange import exchange
 from aitbc_cli.commands.exchange_island import exchange_island
 from aitbc_cli.commands.genesis import genesis
+from aitbc_cli.commands.governance import governance
 
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
 from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
 from aitbc_cli.commands.hermes import hermes
 from aitbc_cli.commands.hermes_training import hermes_training
+from aitbc_cli.commands.market import market
 from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.messaging import messaging
 from aitbc_cli.commands.mining import mining
@@ -51,6 +52,7 @@ from aitbc_cli.commands.network import network
 from aitbc_cli.commands.operations import operations
 from aitbc_cli.commands.performance import performance
 from aitbc_cli.commands.pool_hub import pool_hub
+from aitbc_cli.commands.reputation import reputation
 from aitbc_cli.commands.resource import resource
 from aitbc_cli.commands.script import script
 from aitbc_cli.commands.security import security

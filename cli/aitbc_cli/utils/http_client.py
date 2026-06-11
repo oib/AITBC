@@ -1,7 +1,8 @@
 """Simple HTTP client wrapper for AITBC CLI (replaces missing aitbc package)"""
 
-import httpx
 from typing import Any, Dict, Optional
+
+import httpx
 
 
 class NetworkError(Exception):

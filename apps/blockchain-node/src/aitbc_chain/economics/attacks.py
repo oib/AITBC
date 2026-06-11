@@ -4,8 +4,8 @@ Detects and prevents various economic attacks on the network
 """
 
 import asyncio
-import time
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 

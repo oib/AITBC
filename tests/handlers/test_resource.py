@@ -5,8 +5,7 @@ Tests for resource command handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
-import json
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

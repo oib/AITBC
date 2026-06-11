@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 import logging
+from collections.abc import Iterable
 from typing import Any
 
 REGISTERED_EXPORTERS: list[str] = []
@@ -42,8 +42,9 @@ def _initialize_exporter(exporter_name: str) -> None:
 def _initialize_prometheus() -> None:
     """Initialize Prometheus metrics exporter."""
     try:
-        from prometheus_client import start_http_server
         import os
+
+        from prometheus_client import start_http_server
         
         port = int(os.environ.get("PROMETHEUS_PORT", 9090))
         start_http_server(port)
@@ -72,11 +73,12 @@ def _initialize_log_shipper() -> None:
 def _initialize_tracing() -> None:
     """Initialize distributed tracing exporter."""
     try:
+        import os
+
         from opentelemetry import trace
         from opentelemetry.exporter.jaeger.thrift import JaegerExporter
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        import os
         
         jaeger_host = os.environ.get("JAEGER_HOST", "localhost")
         jaeger_port = int(os.environ.get("JAEGER_PORT", 6831))

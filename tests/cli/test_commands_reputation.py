@@ -5,7 +5,6 @@ Tests for reputation CLI commands
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

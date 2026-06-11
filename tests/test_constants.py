@@ -6,20 +6,21 @@ Tests for AITBC common constants
 from pathlib import Path
 
 import pytest
+
 from aitbc.constants import (
-    DATA_DIR,
-    CONFIG_DIR,
-    LOG_DIR,
-    REPO_DIR,
-    KEYSTORE_DIR,
-    BLOCKCHAIN_DATA_DIR,
-    MARKETPLACE_DATA_DIR,
-    ENV_FILE,
-    NODE_ENV_FILE,
-    BLOCKCHAIN_RPC_PORT,
-    BLOCKCHAIN_P2P_PORT,
     AGENT_COORDINATOR_PORT,
+    BLOCKCHAIN_DATA_DIR,
+    BLOCKCHAIN_P2P_PORT,
+    BLOCKCHAIN_RPC_PORT,
+    CONFIG_DIR,
+    DATA_DIR,
+    ENV_FILE,
+    KEYSTORE_DIR,
+    LOG_DIR,
+    MARKETPLACE_DATA_DIR,
     MARKETPLACE_PORT,
+    NODE_ENV_FILE,
+    REPO_DIR,
 )
 
 

@@ -5,13 +5,12 @@ Simulates deposits and tests the bridge flow.
 """
 
 import sys
-import os
 
 # Add to path
 sys.path.insert(0, "/opt/aitbc/apps/wallet/src")
 
-from app.bridge.bridge_db import init_db, insert_deposit, get_pending_deposits, update_deposit_status, get_deposit_by_tx_hash
-from app.bridge.price_api import get_exchange_rate, calculate_ait_amount
+from app.bridge.bridge_db import get_deposit_by_tx_hash, get_pending_deposits, init_db, insert_deposit, update_deposit_status
+from app.bridge.price_api import calculate_ait_amount, get_exchange_rate
 
 
 def test_database():

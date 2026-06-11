@@ -7,11 +7,9 @@ Port: 8220
 import hashlib
 import json
 import os
-import subprocess
-from datetime import UTC
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 
 

@@ -4,11 +4,11 @@ Tests message protocols, encryption, workflow orchestration, and discovery
 """
 
 import asyncio
-import json
-import pytest
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 # Add agent-coordinator to path for imports
 coordinator_path = Path(__file__).parent.parent.parent / "apps" / "agent-coordinator" / "src"
@@ -125,7 +125,7 @@ class TestWorkflowOrchestration:
     @pytest.mark.asyncio
     async def test_workflow_execution(self):
         """Test workflow execution"""
-        from app.workflow import get_orchestrator, WorkflowStatus
+        from app.workflow import WorkflowStatus, get_orchestrator
 
         orchestrator = get_orchestrator()
         await orchestrator.start()
@@ -169,7 +169,7 @@ class TestWorkflowOrchestration:
     @pytest.mark.asyncio
     async def test_workflow_cancellation(self):
         """Test workflow cancellation"""
-        from app.workflow import get_orchestrator, WorkflowStatus
+        from app.workflow import WorkflowStatus, get_orchestrator
 
         orchestrator = get_orchestrator()
         await orchestrator.start()
@@ -196,12 +196,7 @@ class TestAgentDiscovery:
     @pytest.mark.asyncio
     async def test_agent_registration_and_discovery(self):
         """Test agent registration and discovery by capability"""
-        from app.routing.agent_discovery import (
-            AgentInfo,
-            AgentRegistry,
-            AgentType,
-            AgentStatus
-        )
+        from app.routing.agent_discovery import AgentInfo, AgentRegistry, AgentStatus, AgentType
 
         registry = AgentRegistry()
         await registry.start()
@@ -253,13 +248,7 @@ class TestMessageProtocols:
     @pytest.mark.asyncio
     async def test_request_response_pattern(self):
         """Test request/response message pattern"""
-        from app.protocols.communication import (
-            AgentMessage,
-            CommunicationManager,
-            MessageType,
-            Priority,
-            create_protocol
-        )
+        from app.protocols.communication import AgentMessage, CommunicationManager, MessageType, Priority, create_protocol
 
         comm_manager = CommunicationManager("agent_001")
         protocol = create_protocol("peer_to_peer", "agent_001")
@@ -280,10 +269,7 @@ class TestMessageProtocols:
     @pytest.mark.asyncio
     async def test_broadcast_protocol(self):
         """Test broadcast message protocol"""
-        from app.protocols.communication import (
-            BroadcastProtocol,
-            MessageType
-        )
+        from app.protocols.communication import BroadcastProtocol
 
         broadcast = BroadcastProtocol("agent_001", "global")
 
@@ -301,11 +287,7 @@ class TestMessageProtocols:
     @pytest.mark.asyncio
     async def test_message_ttl(self):
         """Test message TTL and expiry"""
-        from app.protocols.communication import (
-            AgentMessage,
-            MessageType,
-            Priority
-        )
+        from app.protocols.communication import AgentMessage, MessageType, Priority
 
         # Create message with short TTL
         message = AgentMessage(
