@@ -35,9 +35,7 @@ class TestNodeCommands:
         except ImportError as e:
             pytest.skip(f"Cannot import node commands: {e}")
 
-    @patch('aitbc_cli.commands.node.output')
-    @patch('aitbc_cli.commands.node.error')
-    def test_node_status_command(self, mock_error, mock_output):
+    def test_node_status_command(self):
         """Test node status command - skip due to complex config dependencies"""
         pytest.skip("Node commands have complex config and async dependencies")
 

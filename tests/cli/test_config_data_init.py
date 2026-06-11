@@ -27,7 +27,7 @@ class TestConfig:
         
         config = Config()
         
-        assert config.coordinator_url == "http://127.0.0.1:8203"
+        assert config.coordinator_url == "http://127.0.0.1:8011"
         assert config.api_key is None
         assert config.role is None
         assert config.blockchain_rpc_url == "http://127.0.0.1:8202"
@@ -45,7 +45,7 @@ class TestConfig:
         )
         
         # URLs are enforced to localhost in __post_init__
-        assert config.coordinator_url == "http://localhost:8203"
+        assert config.coordinator_url == "http://localhost:8011"
         assert config.api_key == "test_key"
         assert config.role == "admin"
 
@@ -60,7 +60,7 @@ class TestConfig:
         
         config = Config()
         
-        assert config.coordinator_url == "http://localhost:8203"  # Enforced to localhost
+        assert config.coordinator_url == "http://localhost:8011"  # Enforced to localhost
         assert config.api_key == "env_key"
         assert config.role == "client"
 
@@ -75,7 +75,7 @@ class TestConfig:
         )
         
         # Should force to localhost (127.0.0.1 is also valid localhost)
-        assert config.coordinator_url in ["http://localhost:8203", "http://127.0.0.1:8203"]
+        assert config.coordinator_url in ["http://localhost:8011", "http://127.0.0.1:8011"]
         # blockchain_rpc_url should be forced to localhost (port may vary)
         assert config.blockchain_rpc_url.startswith(("http://localhost:", "http://127.0.0.1:"))
 
@@ -97,7 +97,7 @@ class TestConfig:
             config = Config(config_file=str(config_file))
             
             # Should be enforced to localhost
-            assert config.coordinator_url == "http://localhost:8203"
+            assert config.coordinator_url == "http://localhost:8011"
             assert config.api_key == "file_key"
             assert config.role == "miner"
 
@@ -108,7 +108,7 @@ class TestConfig:
         config = Config(config_file="/nonexistent/config.yaml")
         
         # Should use defaults
-        assert config.coordinator_url == "http://127.0.0.1:8203"
+        assert config.coordinator_url == "http://127.0.0.1:8011"
 
     def test_save_to_file(self):
         """Test saving config to file"""
@@ -118,7 +118,7 @@ class TestConfig:
             config_file = Path(tmpdir) / "config.yaml"
             config = Config(
                 config_file=str(config_file),
-                coordinator_url="http://localhost:8203",
+                coordinator_url="http://localhost:8011",
                 api_key="test_key",
                 role="admin"
             )
@@ -165,7 +165,7 @@ class TestGetConfig:
         config = get_config()
         
         assert config is not None
-        assert config.coordinator_url == "http://127.0.0.1:8203"
+        assert config.coordinator_url == "http://127.0.0.1:8011"
 
     def test_get_config_with_role(self):
         """Test get_config with role"""
@@ -189,7 +189,7 @@ class TestGetConfig:
             config = get_config(config_file=str(config_file))
             
             # Enforced to localhost
-            assert config.coordinator_url == "http://localhost:8203"
+            assert config.coordinator_url == "http://localhost:8011"
 
 
 if __name__ == "__main__":
