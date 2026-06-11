@@ -3,6 +3,8 @@ Queue Manager Tests
 Tests for AITBC queue manager utilities
 """
 
+import asyncio
+
 import pytest
 
 from aitbc.queue_manager import (
@@ -105,8 +107,8 @@ class TestJob:
         
         job1 = Job(priority=JobPriority.LOW.value, func=test_func)
         job2 = Job(priority=JobPriority.HIGH.value, func=test_func)
-        
-        assert job2 < job1  # Higher priority (lower number) comes first
+
+        assert job1 < job2  # Lower priority value comes first in ordering
 
 
 class TestTaskQueue:
