@@ -62,12 +62,12 @@ class SQLiteDatabaseService(DatabaseService):
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get a connection from the pool"""
-        if self._connections:
+        if self._connections and len(self._connections) >= self.pool_size:
             conn = self._connections[self._current_connection_index]
             self._current_connection_index = (self._current_connection_index + 1) % len(self._connections)
             return conn
 
-        # Create new connection if pool is empty
+        # Create new connection if pool hasn't reached pool_size
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         self._connections.append(conn)
