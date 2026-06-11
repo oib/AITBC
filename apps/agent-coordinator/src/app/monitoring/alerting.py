@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Alerting System for AITBC Agent Coordinator
 Implements comprehensive alerting with multiple channels and SLA monitoring

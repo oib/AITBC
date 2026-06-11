@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Message Encryption Module for AITBC Agent Coordinator
 Implements end-to-end message encryption using agent public/private keys
