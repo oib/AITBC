@@ -1,9 +1,13 @@
 """
-Caching utilities for AITBC
-Provides caching strategies for expensive operations including blockchain-specific caching
+Caching utilities for AITBC (Legacy Module)
 
-This module consolidates caching functionality split into logical submodules.
+.. deprecated::
+    Use ``aitbc.cache`` (the canonical caching package) for new code.
+    This module is kept for backward compatibility with existing tests
+    and blockchain-specific decorators.
 """
+
+from aitbc.aitbc_logging import get_logger
 
 from .blockchain import BlockchainCache, get_blockchain_cache
 from .decorators import (
@@ -18,7 +22,9 @@ from .invalidator import CacheInvalidator
 from .lru import LRUCache
 from .metrics import CacheMetrics, get_cache_metrics
 from .ttl import TTLCache
-from .utils import CacheEntry
+from .utils import CacheEntry, _generate_cache_key
+
+logger = get_logger(__name__)
 
 __all__ = [
     "CacheEntry",
@@ -35,4 +41,6 @@ __all__ = [
     "get_global_ttl_cache",
     "clear_global_caches",
     "CacheInvalidator",
+    "_generate_cache_key",
+    "logger",
 ]
