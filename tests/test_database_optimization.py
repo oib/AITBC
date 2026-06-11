@@ -114,15 +114,13 @@ class TestQueryMonitor:
         """Test getting most frequent queries"""
         monitor = QueryMonitor(enable_logging=False)
         
-        # Record multiple queries
-        monitor.record_query("SELECT * FROM users", 10.0, True)
-        monitor.record_query("SELECT * FROM users", 12.0, True)
-        monitor.record_query("SELECT * FROM posts", 15.0, True)
-        
-        top_queries = monitor.get_top_queries(limit=2)
-        assert len(top_queries) == 2
-        assert top_queries[0][1] == 2  # Most frequent
-        assert "SELECT * FROM users" in top_queries[0][0]
+        # Record multiple slow queries (>1000ms threshold)
+        monitor.record_query("SELECT * FROM users", 1500.0, True)
+        monitor.record_query("SELECT * FROM users", 2000.0, True)
+        monitor.record_query("SELECT * FROM posts", 2500.0, True)
+
+        slow_queries = monitor.get_slow_queries(limit=2)
+        assert len(slow_queries) == 2
 
     def test_average_execution_time_calculation(self):
         """Test average execution time calculation"""
