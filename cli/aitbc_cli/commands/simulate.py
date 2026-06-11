@@ -372,8 +372,10 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
+        ctx.exit(1)
     except Exception as e:
         error(f"Error running simulation: {e}")
+        ctx.exit(1)
 
 
 @simulate.command()
@@ -390,8 +392,10 @@ def status(ctx, simulation_id: str):
         output(status_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
+        ctx.exit(1)
     except Exception as e:
         error(f"Error fetching simulation status: {e}")
+        ctx.exit(1)
 
 
 @simulate.command()
@@ -408,8 +412,10 @@ def result(ctx, simulation_id: str):
         output(result_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
+        ctx.exit(1)
     except Exception as e:
         error(f"Error fetching simulation results: {e}")
+        ctx.exit(1)
 
 
 if __name__ == '__main__':
