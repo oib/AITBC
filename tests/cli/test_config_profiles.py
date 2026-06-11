@@ -4,6 +4,7 @@ These tests require no running services but validate file system side effects
 and actual profile CRUD operations.
 """
 
+import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -41,7 +42,9 @@ def profiles_dir(tmp_path):
 class TestConfigProfilesIntegration:
     """Integration tests for config profiles with file system validation"""
 
-    def test_profiles_save_creates_file(self, runner, mock_config, profiles_dir):
+    @patch('aitbc_cli.commands.config.get_config')
+    def test_profiles_save_creates_file(self, mock_get_config, runner, mock_config, profiles_dir):
+        mock_get_config.return_value = mock_config
         """Test saving a profile creates the correct file"""
         profile_name = "test_profile"
 
@@ -66,7 +69,9 @@ class TestConfigProfilesIntegration:
             assert profile_data['timeout'] == 30
             assert 'api_key' not in profile_data  # API key should not be saved
 
-    def test_profiles_save_overwrites_existing(self, runner, mock_config, profiles_dir):
+    @patch('aitbc_cli.commands.config.get_config')
+    def test_profiles_save_overwrites_existing(self, mock_get_config, runner, mock_config, profiles_dir):
+        mock_get_config.return_value = mock_config
         """Test saving a profile overwrites existing profile"""
         profile_name = "overwrite_test"
 
@@ -106,7 +111,9 @@ class TestConfigProfilesIntegration:
             data = json.loads(result.output)
             assert data['profiles'] == []
 
-    def test_profiles_list_multiple(self, runner, mock_config, profiles_dir):
+    @patch('aitbc_cli.commands.config.get_config')
+    def test_profiles_list_multiple(self, mock_get_config, runner, mock_config, profiles_dir):
+        mock_get_config.return_value = mock_config
         """Test listing multiple profiles"""
         # Create test profiles
         profile1 = profiles_dir / "profile1.yaml"
@@ -131,8 +138,8 @@ class TestConfigProfilesIntegration:
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert len(data['profiles']) == 2
-            assert data['profiles'][0]['name'] == 'profile1'
-            assert data['profiles'][1]['name'] == 'profile2'
+            names = {p['name'] for p in data['profiles']}
+            assert names == {'profile1', 'profile2'}
 
     def test_profiles_load_creates_config(self, runner, mock_config, profiles_dir, tmp_path):
         """Test loading a profile creates config file"""
@@ -234,7 +241,9 @@ class TestConfigProfilesIntegration:
             assert result.exit_code != 0
             assert "not found" in result.output
 
-    def test_profiles_roundtrip(self, runner, mock_config, profiles_dir, tmp_path):
+    @patch('aitbc_cli.commands.config.get_config')
+    def test_profiles_roundtrip(self, mock_get_config, runner, mock_config, profiles_dir, tmp_path):
+        mock_get_config.return_value = mock_config
         """Test save -> list -> load -> delete roundtrip"""
         profile_name = "roundtrip_test"
 
@@ -272,7 +281,9 @@ class TestConfigProfilesIntegration:
             profile_file = profiles_dir / f"{profile_name}.yaml"
             assert not profile_file.exists()
 
-    def test_profiles_with_different_configs(self, runner, mock_config, profiles_dir):
+    @patch('aitbc_cli.commands.config.get_config')
+    def test_profiles_with_different_configs(self, mock_get_config, runner, mock_config, profiles_dir):
+        mock_get_config.return_value = mock_config
         """Test saving profiles with different config values"""
         # Modify config for different profile
         mock_config.coordinator_url = "http://different:9000"

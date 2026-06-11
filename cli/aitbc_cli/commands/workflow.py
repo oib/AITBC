@@ -6,6 +6,7 @@ import json
 import os
 
 import click
+import yaml
 
 from ..config import get_config
 from ..utils import error, success
@@ -27,8 +28,8 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         import httpx
         
         config_obj = get_config()
-        coordinator_url = config_obj.get("coordinator_url", "http://localhost:8203")
-        api_key = config_obj.get("coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
+        coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
+        api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
         
         if dry_run:
             success(f"Dry run for workflow {workflow_name}")
@@ -39,7 +40,7 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         workflow_config = {}
         if config:
             with open(config) as f:
-                workflow_config = json.load(f)
+                workflow_config = yaml.safe_load(f) or {}
 
         # Submit workflow to coordinator API
         headers = {}
@@ -106,8 +107,8 @@ def status(workflow_name: str):
         import httpx
         
         config_obj = get_config()
-        coordinator_url = config_obj.get("coordinator_url", "http://localhost:8203")
-        api_key = config_obj.get("coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
+        coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
+        api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
         
         headers = {}
         if api_key:
@@ -142,8 +143,8 @@ def stop(workflow_name: str):
         import httpx
         
         config_obj = get_config()
-        coordinator_url = config_obj.get("coordinator_url", "http://localhost:8203")
-        api_key = config_obj.get("coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
+        coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
+        api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
         
         headers = {}
         if api_key:

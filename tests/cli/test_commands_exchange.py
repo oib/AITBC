@@ -35,9 +35,7 @@ class TestExchangeCommands:
         except ImportError as e:
             pytest.skip(f"Cannot import exchange commands: {e}")
 
-    @patch('aitbc_cli.commands.exchange.output')
-    @patch('aitbc_cli.commands.exchange.error')
-    def test_exchange_add_command(self, mock_error, mock_output):
+    def test_exchange_add_command(self):
         """Test exchange add command - skip due to complex config dependencies"""
         pytest.skip("Exchange commands have complex config and storage dependencies")
 
