@@ -214,7 +214,7 @@ add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 minversion = "8.0"
-addopts = "-ra -q --strict-markers --strict-config --cov=aitbc --cov=apps --cov=packages --cov-report=term-missing --cov-report=html:tests/htmlcov --cov-fail-under=50 --ignore=tests/cli/test_cli_integration.py --ignore=tests/cli/test_wallet.py --ignore=tests/cli/test_simulate.py --ignore=tests/cli/test_governance.py --ignore=tests/contract_tests/test_dispute_auth.py --ignore=tests/cli/test_resource.py --ignore=tests/coordinator/test_reputation_service.py"
+addopts = "-ra -q --strict-markers --strict-config --cov=aitbc --cov=apps --cov=packages --cov-report=term-missing --cov-report=html:tests/htmlcov --cov-fail-under=50 --ignore=tests/cli/test_cli_integration.py --ignore=tests/cli/test_simulate.py --ignore=tests/cli/test_governance.py --ignore=tests/contract_tests/test_dispute_auth.py --ignore=tests/cli/test_resource.py --ignore=tests/coordinator/test_reputation_service.py"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
