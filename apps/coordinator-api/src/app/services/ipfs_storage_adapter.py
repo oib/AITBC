@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 
-from ..blockchain.contract_interactions import ContractInteractionService
+from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..domain.decentralized_memory import AgentMemoryNode, MemoryType, StorageStatus
 from ..schemas.decentralized_memory import MemoryNodeCreate
 

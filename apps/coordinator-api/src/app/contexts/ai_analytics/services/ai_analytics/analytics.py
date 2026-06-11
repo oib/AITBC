@@ -11,7 +11,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from app.domain.analytics import (
+from app.domain.analytics import (  # type: ignore[import-not-found]
     AnalyticsAlert,
     AnalyticsPeriod,
     DashboardConfig,

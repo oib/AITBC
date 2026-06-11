@@ -27,7 +27,7 @@ from ....schemas.hermes_resource import (
 class ResourceService:
     """Service for autonomous resource management."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # In-memory storage for resources (replace with database in production)
         self.resources: Dict[str, Resource] = {}
         self.allocations: Dict[str, dict] = {}
@@ -278,7 +278,7 @@ class ResourceService:
     def get_allocations(
         self,
         agent_id: Optional[str] = None,
-        session: Session = None
+        session: Session | None = None
     ) -> List[dict]:
         """Get allocations with optional filtering."""
         results = list(self.allocations.values())

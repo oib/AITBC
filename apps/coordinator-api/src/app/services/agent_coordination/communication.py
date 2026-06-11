@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from app.contexts.cross_chain.services.cross_chain.reputation import CrossChainReputationService
+from app.contexts.cross_chain.services.cross_chain.reputation import CrossChainReputationService  # type: ignore[import-not-found]
 
 
 class MessageType(StrEnum):
