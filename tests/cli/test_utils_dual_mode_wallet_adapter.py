@@ -4,9 +4,9 @@ Tests for dual-mode wallet adapter
 """
 
 import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
 import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

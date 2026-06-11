@@ -1,9 +1,8 @@
 """GPU resource state models for blockchain tracking."""
 
 from datetime import UTC, datetime
-from typing import Optional
 
-from sqlalchemy import Column, JSON, UniqueConstraint
+from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 

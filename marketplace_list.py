@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Simple marketplace listing viewer - no full CLI dependencies"""
 
-import requests
-import json
 import sys
+
+import requests
 
 RPC_URL = "http://127.0.0.1:8202"
 

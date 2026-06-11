@@ -12,14 +12,12 @@ if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
 import pytest
-
 from aitbc_cli.models.chain import (
-    ChainType,
+    ChainConfig,
     ChainStatus,
+    ChainType,
     ConsensusAlgorithm,
     ConsensusConfig,
-    ChainConfig,
-    ChainInfo,
 )
 
 

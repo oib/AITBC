@@ -5,8 +5,7 @@ Provides caching functionality for frequently accessed data
 
 import json
 import logging
-from typing import Any, Optional, Union
-from datetime import timedelta
+from typing import Any, Optional
 
 try:
     import redis

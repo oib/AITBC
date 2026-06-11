@@ -18,10 +18,9 @@ except ImportError:
     ComputeConsumer = None
     AITBCAgent = None
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-
 from ..config import get_config
 from ..utils import error, output, success
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 

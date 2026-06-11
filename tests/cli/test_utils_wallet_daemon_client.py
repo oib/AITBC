@@ -5,7 +5,7 @@ Tests for wallet daemon client
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -81,7 +81,7 @@ class TestWalletMigrationResult:
 
     def test_wallet_migration_result_creation(self):
         """Test creating WalletMigrationResult"""
-        from aitbc_cli.utils.wallet_daemon_client import WalletMigrationResult, WalletInfo
+        from aitbc_cli.utils.wallet_daemon_client import WalletInfo, WalletMigrationResult
         
         source = WalletInfo(
             wallet_id="wallet1",
@@ -156,7 +156,7 @@ class TestWalletDaemonClient:
     @patch('aitbc_cli.utils.wallet_daemon_client.AITBCHTTPClient')
     def test_is_available_network_error(self, mock_client):
         """Test daemon availability check with network error"""
-        from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient, NetworkError
+        from aitbc_cli.utils.wallet_daemon_client import NetworkError, WalletDaemonClient
         
         config = Mock()
         config.wallet_url = "http://localhost:8000"
@@ -210,7 +210,7 @@ class TestWalletDaemonClient:
     @patch('aitbc_cli.utils.wallet_daemon_client.AITBCHTTPClient')
     def test_get_status_network_error(self, mock_client):
         """Test getting daemon status with network error"""
-        from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient, NetworkError
+        from aitbc_cli.utils.wallet_daemon_client import NetworkError, WalletDaemonClient
         
         config = Mock()
         config.wallet_url = "http://localhost:8000"

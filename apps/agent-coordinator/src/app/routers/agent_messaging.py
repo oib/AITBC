@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field
 
 from aitbc import get_logger
 
-from .. import state
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent/messages", tags=["agent-messaging"])

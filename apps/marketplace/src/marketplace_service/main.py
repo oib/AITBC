@@ -4,6 +4,7 @@ Manages hardware+software bundle marketplace operations
 """
 
 from collections.abc import AsyncIterator
+from typing import Any
 from contextlib import asynccontextmanager
 
 import httpx
@@ -84,7 +85,7 @@ async def health() -> HealthResponse:
 
 
 @app.get("/ready")
-async def ready() -> dict[str, str]:
+async def ready() -> Any:
     """Readiness check - verifies database connectivity"""
     try:
         from .storage import get_session_context
@@ -139,7 +140,7 @@ async def get_offers(
     region: str | None = None,
     gpu_model: str | None = None,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get marketplace offers"""
     try:
         logger.info(f"GET /v1/marketplace/offers called with filters: status={status}, region={region}, gpu_model={gpu_model}")
@@ -155,7 +156,7 @@ async def get_offers(
 async def get_offer(
     offer_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get a specific marketplace offer"""
     try:
         logger.info(f"GET /v1/marketplace/offers/{offer_id} called")
@@ -189,7 +190,7 @@ async def book_offer(
     booking_data: dict,
     background_tasks: BackgroundTasks,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Book/purchase a marketplace offer"""
     try:
         logger.info(f"POST /v1/marketplace/offers/{offer_id}/book called with data keys: {booking_data.keys()}")
@@ -215,7 +216,7 @@ async def book_offer(
 async def create_offer(
     offer_data: dict,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Create a new marketplace offer"""
     try:
         logger.info(f"POST /v1/marketplace/offers called with data keys: {offer_data.keys()}")
@@ -241,7 +242,7 @@ async def create_offer(
 async def get_analytics(
     period_type: str = "daily",
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get marketplace analytics"""
     return await svc.get_analytics(period_type=period_type)
 
@@ -251,7 +252,7 @@ async def get_analytics(
 @app.get("/v1/marketplace")
 async def get_marketplace_overview(
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get hardware+software bundle marketplace overview"""
     logger.info("GET /v1/marketplace called - marketplace overview")
     
@@ -283,7 +284,7 @@ async def get_marketplace_overview(
 async def get_offer_history(
     offer_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get offer history (migrated from Coordinator API)"""
     logger.info(f"GET /v1/marketplace/offers/{offer_id}/history called")
     
@@ -295,11 +296,11 @@ async def get_offer_history(
     # Placeholder for offer history - would query database for price changes, bookings, etc.
     history = {
         "offer_id": offer_id,
-        "created_at": offer.get("created_at"),
+        "created_at": offer.created_at,
         "price_history": [
             {
-                "price": offer.get("price_per_hour"),
-                "timestamp": offer.get("created_at"),
+                "price": offer.price_per_hour,
+                "timestamp": offer.created_at,
                 "reason": "initial_listing"
             }
         ],
@@ -316,7 +317,7 @@ async def cancel_offer(
     offer_id: str,
     reason: str | None = None,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Cancel offer (migrated from Coordinator API)"""
     logger.info(f"POST /v1/marketplace/offers/{offer_id}/cancel called")
     
@@ -346,7 +347,7 @@ async def cancel_offer(
 async def get_marketplace_performance(
     period: str = "daily",
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get marketplace performance metrics (migrated from Coordinator API)"""
     logger.info(f"GET /v1/marketplace/performance called with period={period}")
     
@@ -375,7 +376,7 @@ async def calculate_dynamic_pricing(
     current_demand: int,
     current_supply: int,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Calculate dynamic pricing based on supply/demand (migrated from Coordinator API)"""
     logger.info(f"POST /v1/marketplace/dynamic-pricing called for offer {offer_id}")
     
@@ -384,7 +385,7 @@ async def calculate_dynamic_pricing(
     if not offer:
         return {"error": "Offer not found"}, 404
     
-    base_price = offer.get("price_per_hour", 0)
+    base_price = offer.price_per_hour or 0
     
     # Calculate dynamic price based on supply/demand
     supply_demand_ratio = current_demand / max(current_supply, 1)
@@ -427,12 +428,12 @@ async def calculate_dynamic_pricing(
 
 @app.get("/v1/marketplace/plugins")
 async def get_plugins(
-    type: str | None = None,
+    plugin_type: str | None = None,
     status: str = "approved",
-):
+) -> Any:
     """Get marketplace plugins"""
     # Return fallback data directly without database dependency
-    logger.info(f"GET /v1/marketplace/plugins called with type={type}, status={status}")
+    logger.info(f"GET /v1/marketplace/plugins called with type={plugin_type}, status={status}")
     return {
         "plugins": [
             {
@@ -471,7 +472,7 @@ async def get_plugins(
 async def register_plugin(
     plugin_data: dict,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Register a new plugin"""
     try:
         logger.info(f"POST /v1/marketplace/plugins called with data keys: {plugin_data.keys()}")
@@ -486,11 +487,11 @@ async def register_plugin(
 # ===== Software Service Registry (migrated from plugin service) =====
 
 @app.get("/v1/marketplace/offer")
-async def get_offers(
+async def list_software_offers(
     service_type: str | None = None,
     status: str | None = None,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """List marketplace offers (hardware+software bundles)"""
     try:
         logger.info(f"GET /v1/marketplace/offer called with filters: service_type={service_type}, status={status}")
@@ -503,10 +504,10 @@ async def get_offers(
 
 
 @app.get("/v1/marketplace/offer/{plugin_id}")
-async def get_offer(
+async def get_software_offer(
     plugin_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get a specific marketplace offer"""
     try:
         logger.info(f"GET /v1/marketplace/offer/{plugin_id} called")
@@ -524,7 +525,7 @@ async def get_offer(
 async def register_offer(
     service_data: dict,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Register or update a marketplace offer"""
     try:
         logger.info(f"POST /v1/marketplace/offer called with data keys: {service_data.keys()}")
@@ -540,7 +541,7 @@ async def register_offer(
 async def unregister_offer(
     plugin_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Unregister a marketplace offer"""
     try:
         logger.info(f"DELETE /v1/marketplace/offer/{plugin_id} called")
@@ -556,7 +557,7 @@ async def unregister_offer(
 async def create_graph(
     graph_data: dict,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Create a new knowledge graph"""
     try:
         logger.info(f"POST /v1/knowledge-graph called with data keys: {graph_data.keys()}")
@@ -573,7 +574,7 @@ async def add_node(
     graph_id: str,
     node_data: dict,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Add a node to a knowledge graph"""
     try:
         node_data["graph_id"] = graph_id
@@ -591,7 +592,7 @@ async def add_edge(
     graph_id: str,
     edge_data: dict,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Add an edge to a knowledge graph"""
     try:
         edge_data["graph_id"] = graph_id
@@ -608,7 +609,7 @@ async def add_edge(
 async def query_graph(
     graph_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Query a knowledge graph"""
     try:
         logger.info(f"GET /v1/knowledge-graph/{graph_id} called")
@@ -631,7 +632,7 @@ async def rate_service(
     service_id: str,
     rating_data: RatingRequest,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Rate a marketplace service offer"""
     try:
         logger.info(f"POST /v1/marketplace/offer/{service_id}/rate called with rating={rating_data.rating}")
@@ -666,7 +667,7 @@ async def get_service_ratings(
     limit: int = 50,
     offset: int = 0,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get ratings for a marketplace service offer"""
     try:
         logger.info(f"GET /v1/marketplace/offer/{service_id}/ratings called")
@@ -700,7 +701,7 @@ async def get_service_ratings(
 async def get_offer_by_id(
     offer_id: str,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get a marketplace service offer by offer_id (blockchain offer ID)"""
     try:
         logger.info(f"GET /v1/marketplace/offer-by-id/{offer_id} called")
@@ -719,7 +720,7 @@ async def get_offer_by_id(
 async def get_unsynced_ratings(
     limit: int = 100,
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Get ratings that haven't been synced to remote nodes"""
     try:
         logger.info(f"GET /v1/marketplace/ratings/unsynced called")
@@ -737,7 +738,7 @@ async def get_unsynced_ratings(
 async def sync_ratings(
     ratings: list[dict],
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Sync ratings from remote node"""
     try:
         logger.info(f"POST /v1/marketplace/ratings/sync called with {len(ratings)} ratings")
@@ -755,7 +756,7 @@ async def sync_ratings(
 async def mark_ratings_synced(
     rating_ids: list[str],
     svc: MarketplaceService = Depends(get_marketplace_service),
-):
+) -> Any:
     """Mark ratings as synced to remote nodes"""
     try:
         logger.info(f"POST /v1/marketplace/ratings/mark-synced called with {len(rating_ids)} IDs")
@@ -770,7 +771,7 @@ async def mark_ratings_synced(
 
 
 @app.post("/v1/transactions")
-async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
+async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)) -> Any:
     """Submit marketplace transaction"""
     from .domain.marketplace import MarketplaceOffer
 
@@ -803,7 +804,7 @@ async def get_transactions(
     status: str | None = None,
     island_id: str | None = None,
     session: AsyncSession = Depends(get_session_dep),
-):
+) -> Any:
     """Query marketplace transactions"""
     from sqlalchemy import select
 

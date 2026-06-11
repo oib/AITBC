@@ -1,5 +1,19 @@
-from . import agents, ai, alerts, auth, consensus, health, messages, monitor, monitoring, swarm, tasks, users
-from . import workflow, websocket
+from . import (
+    agents,
+    ai,
+    alerts,
+    auth,
+    consensus,
+    health,
+    messages,
+    monitor,
+    monitoring,
+    swarm,
+    tasks,
+    users,
+    websocket,
+    workflow,
+)
 
 ROUTERS = [
     agents.router,

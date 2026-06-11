@@ -5,11 +5,10 @@ from pathlib import Path
 
 import click
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-
 from ..config import get_config
 from ..utils import error, output, success
 from ..utils.crypto_utils import bech32_to_hex
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 

@@ -6,9 +6,8 @@ import json
 
 import click
 
-from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
-
 from ..utils import error, success
+from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
 
 DEFAULT_RPC_URL = "http://localhost:8202"
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR

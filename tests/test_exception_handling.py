@@ -4,12 +4,13 @@ Tests for improved exception chaining and error handling
 """
 
 import pytest
-from aitbc.exceptions import DatabaseError, ValidationError
+
 from aitbc.crypto.crypto import (
     decrypt_private_key,
     encrypt_private_key,
     sha256_hash,
 )
+from aitbc.exceptions import DatabaseError
 
 
 class TestExceptionChaining:
@@ -40,9 +41,10 @@ class TestExceptionChaining:
 
     def test_database_error_chaining(self):
         """Test database error chaining"""
-        from aitbc.database import DatabaseConnection
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
+        from aitbc.database import DatabaseConnection
         
         # Test with invalid database path
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,8 +80,8 @@ class TestExceptionChaining:
 
     def test_network_error_chaining(self):
         """Test network error chaining in HTTP client"""
+        from aitbc.exceptions import NetworkError
         from aitbc.network.http_client import AITBCHTTPClient
-        from aitbc.exceptions import NetworkError, RetryError
         
         # Test with invalid URL that will cause connection errors
         # Use a non-routable IP address to avoid DNS delays
@@ -102,8 +104,8 @@ class TestExceptionChaining:
 
     def test_retry_error_chaining(self):
         """Test retry error chaining"""
-        from aitbc.network.http_client import AITBCHTTPClient
         from aitbc.exceptions import RetryError
+        from aitbc.network.http_client import AITBCHTTPClient
         
         # Test with invalid URL that will cause retry exhaustion
         client = AITBCHTTPClient(
@@ -139,9 +141,10 @@ class TestErrorMessageQuality:
 
     def test_database_error_messages_include_context(self):
         """Test that database error messages include relevant context"""
-        from aitbc.database import DatabaseConnection, vacuum_database
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
+        from aitbc.database import vacuum_database
         
         with tempfile.TemporaryDirectory() as tmpdir:
             invalid_path = Path(tmpdir) / "nonexistent" / "test.db"
@@ -195,8 +198,8 @@ class TestErrorRecovery:
 
     def test_config_validation_with_missing_secrets(self):
         """Test that configuration validation provides clear errors for missing secrets"""
+
         from aitbc.config import BaseAITBCConfig
-        from pydantic import ValidationError
         
         # Test with production environment but missing secrets
         with pytest.raises(ValueError) as exc_info:

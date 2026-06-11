@@ -6,6 +6,7 @@ Tests for AITBC database utilities
 from pathlib import Path
 
 import pytest
+
 from aitbc.database import (
     DatabaseConnection,
     create_async_pooled_engine,
@@ -16,7 +17,6 @@ from aitbc.database import (
     get_database_connection,
     get_table_info,
     table_exists,
-    vacuum_database,
 )
 
 

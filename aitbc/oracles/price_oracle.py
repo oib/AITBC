@@ -132,8 +132,8 @@ class CoinGeckoOracle:
 
         vs_currency = quote.lower()
         try:
-            import urllib.request
             import json
+            import urllib.request
             url = f"{_COINGECKO_BASE}/simple/price?ids={coin_id}&vs_currencies={vs_currency}&include_last_updated_at=true"
             req = urllib.request.Request(url, headers={"User-Agent": "aitbc-oracle/1.0"})
             with urllib.request.urlopen(req, timeout=10) as resp:

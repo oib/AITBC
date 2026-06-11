@@ -3,10 +3,10 @@ Configuration Tests
 Tests for configuration management, settings, and environment-specific configs
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 # Set required environment variable before importing
 os.environ.setdefault("SECRET_KEY", "test_secret_key_for_testing")
@@ -18,13 +18,13 @@ if str(coordinator_path) not in sys.path:
 
 import pytest
 from app.config import (
-    validated_cors_origins,
-    Environment,
-    LogLevel,
     ConfigConstants,
-    EnvironmentConfig,
     ConfigLoader,
     ConfigUtils,
+    Environment,
+    EnvironmentConfig,
+    LogLevel,
+    validated_cors_origins,
 )
 
 

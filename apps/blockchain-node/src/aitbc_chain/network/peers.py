@@ -4,12 +4,12 @@ Handles peer join/leave operations and connection management
 """
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
 
 from .discovery import NodeStatus, P2PDiscovery, PeerNode
-import logging
 
 logger = logging.getLogger(__name__)
 

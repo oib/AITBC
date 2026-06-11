@@ -1,31 +1,32 @@
 """Service for Hermes autonomous resource management with database storage."""
 
-import uuid
 import json
+import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+from ....models.hermes import (
+    PricingAdjustmentModel,
+    ResourceAllocationModel,
+    ResourceModel,
+)
 from ....schemas.hermes_resource import (
-    Resource,
-    ResourceType,
-    ResourceStatus,
     AllocationStrategy,
+    PricingAdjustment,
+    Resource,
     ResourceAllocationRequest,
     ResourceAllocationResponse,
+    ResourcePool,
     ResourceReleaseRequest,
     ResourceReleaseResponse,
-    PricingAdjustment,
-    ResourcePool,
-)
-from ....models.hermes import (
-    ResourceModel,
-    ResourceAllocationModel,
-    PricingAdjustmentModel,
+    ResourceStatus,
+    ResourceType,
 )
 
 

@@ -12,7 +12,6 @@ if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
 import pytest
-
 from app.protocols.communication import Priority
 
 

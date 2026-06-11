@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from aitbc.rate_limiting import rate_limit
 
 from ..deps import require_client_key
+from ..models.registry import service_registry
 from ..models.services import (
     BlenderRequest,
     FFmpegRequest,
@@ -24,8 +25,6 @@ from ..models.services import (
     WhisperRequest,
 )
 from ..schemas import JobCreate
-
-from ..models.registry import ServiceRegistry, service_registry
 from ..services import JobService
 from ..storage import get_session
 

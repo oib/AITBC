@@ -1,7 +1,8 @@
 """Router for Hermes autonomous resource management API."""
 
-from typing import Annotated, Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Annotated, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
@@ -10,16 +11,14 @@ logger = get_logger(__name__)
 
 from ....deps import require_admin_key
 from ....schemas.hermes_resource import (
+    PricingAdjustment,
     Resource,
-    ResourceType,
-    ResourceStatus,
-    AllocationStrategy,
     ResourceAllocationRequest,
     ResourceAllocationResponse,
+    ResourcePool,
     ResourceReleaseRequest,
     ResourceReleaseResponse,
-    PricingAdjustment,
-    ResourcePool,
+    ResourceType,
 )
 from ....storage import get_session
 from ..services.resource_service_db import resource_service

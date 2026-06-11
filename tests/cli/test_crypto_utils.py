@@ -12,14 +12,12 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from aitbc_cli.utils.crypto_utils import (
-    create_signature_challenge,
-    verify_signature,
-    sign_challenge,
-    generate_nonce,
-    validate_multisig_transaction,
     MultisigSecurityManager,
     bech32_to_hex,
+    create_signature_challenge,
+    generate_nonce,
     hex_to_bech32,
+    validate_multisig_transaction,
 )
 
 

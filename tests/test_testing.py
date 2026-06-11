@@ -4,6 +4,7 @@ Tests for AITBC testing utilities
 """
 
 import pytest
+
 from aitbc.testing import (
     MockCache,
     MockDatabase,
@@ -228,7 +229,6 @@ class TestHelpers:
 
     def test_cleanup_test_files(self):
         """Test cleanup_test_files"""
-        import os
         # Create some test files
         for i in range(3):
             path = TestHelpers.generate_test_file_path(".tmp")

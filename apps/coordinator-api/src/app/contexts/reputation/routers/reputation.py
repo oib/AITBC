@@ -1,7 +1,8 @@
 
 from sqlalchemy import and_
-from ....domain.reputation import ReputationEvent
 from sqlalchemy.orm import Session
+
+from ....domain.reputation import ReputationEvent
 
 """
 Reputation Management API Endpoints

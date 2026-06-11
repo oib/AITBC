@@ -12,7 +12,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account, Stake, AgentIdentity, GovernanceProposal, GovernanceVote
+from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
 from .utils import get_chain_id
 
 _logger = get_logger(__name__)

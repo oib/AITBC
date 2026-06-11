@@ -871,10 +871,8 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_bridge_withdraw(self):
         """POST /v1/bridge/withdraw — initiate AIT→ETH bridge withdrawal (DISABLED)"""
         try:
-            import os
             import sys
             sys.path.insert(0, '/opt/aitbc')
-            from aitbc.oracles.price_oracle import get_price_oracle
             
             body = self._read_json_body()
             ait_amount = float(body.get('ait_amount', 0))
@@ -898,10 +896,10 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_bridge_deposits(self, parsed):
         """GET /v1/bridge/deposits — list bridge deposits"""
         try:
-            from urllib.parse import parse_qs
             import sys
+            from urllib.parse import parse_qs
             sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
-            from bridge_monitor.storage import get_deposits, count_deposits, BridgeDepositStatus
+            from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
             
             params = parse_qs(parsed.query)
             status_filter = params.get('status', [None])[0]

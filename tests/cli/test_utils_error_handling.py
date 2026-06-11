@@ -5,7 +5,7 @@ Tests for error handling utility functions
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -120,7 +120,7 @@ class TestHandleCLIError:
     @patch('aitbc_cli.utils.error_handling.sys.exit')
     def test_handle_cli_error_cli_error(self, mock_exit, mock_error):
         """Test handling CLIError"""
-        from aitbc_cli.utils.error_handling import handle_cli_error, CLIError
+        from aitbc_cli.utils.error_handling import CLIError, handle_cli_error
         
         @handle_cli_error
         def test_func():
@@ -231,7 +231,7 @@ class TestValidateRequiredFields:
 
     def test_validate_required_fields_missing(self):
         """Test validation with missing required fields"""
-        from aitbc_cli.utils.error_handling import validate_required_fields, ValidationError
+        from aitbc_cli.utils.error_handling import ValidationError, validate_required_fields
         
         data = {"field1": "value1"}
         required = ["field1", "field2"]
@@ -241,7 +241,7 @@ class TestValidateRequiredFields:
 
     def test_validate_required_fields_none_value(self):
         """Test validation with None value for required field"""
-        from aitbc_cli.utils.error_handling import validate_required_fields, ValidationError
+        from aitbc_cli.utils.error_handling import ValidationError, validate_required_fields
         
         data = {"field1": "value1", "field2": None}
         required = ["field1", "field2"]

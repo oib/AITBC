@@ -11,30 +11,26 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-import asyncio
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from app.protocols.communication import AgentMessage, MessageType, Priority
 from app.protocols.message_types import (
-    TaskMessage,
-    CoordinationMessage,
-    StatusMessage,
-    DiscoveryMessage,
     ConsensusMessage,
-    RoutingRule,
-    MessageRouter,
+    CoordinationMessage,
+    DiscoveryMessage,
     LoadBalancer,
     MessageQueue,
-    MessageProcessor,
-    RoutingStrategy,
-    DeliveryMode,
-    create_task_message,
-    create_coordination_message,
-    create_status_message,
-    create_discovery_message,
+    MessageRouter,
+    RoutingRule,
+    StatusMessage,
+    TaskMessage,
     create_consensus_message,
+    create_coordination_message,
+    create_discovery_message,
+    create_status_message,
+    create_task_message,
 )
-from app.protocols.communication import AgentMessage, MessageType, Priority
 
 
 class TestMessageTypes:

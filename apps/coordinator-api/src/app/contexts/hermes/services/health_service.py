@@ -1,21 +1,21 @@
 """Service for Hermes self-healing and health monitoring."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional
+
 from sqlalchemy.orm import Session
-import asyncio
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
 
 from ....schemas.hermes_health import (
-    HealthCheck,
-    HealthStatus,
     ErrorReport,
     ErrorSeverity,
     ErrorType,
+    HealthCheck,
+    HealthStatus,
     RecoveryAction,
     RecoveryResult,
 )

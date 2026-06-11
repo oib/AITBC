@@ -5,7 +5,7 @@ Tests for marketplace command handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,16 +14,16 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.market import (
-    handle_market_listings,
-    handle_market_create,
-    handle_market_get,
-    handle_market_delete,
-    handle_market_gpu_register,
-    handle_market_gpu_list,
     handle_market_buy,
-    handle_market_sell,
-    handle_market_orders,
+    handle_market_create,
+    handle_market_delete,
+    handle_market_get,
+    handle_market_gpu_list,
+    handle_market_gpu_register,
     handle_market_list_plugins,
+    handle_market_listings,
+    handle_market_orders,
+    handle_market_sell,
 )
 
 

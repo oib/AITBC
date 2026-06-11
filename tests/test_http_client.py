@@ -4,6 +4,7 @@ Tests for AITBC HTTP client utilities
 """
 
 import pytest
+
 from aitbc.network.http_client import AITBCHTTPClient
 
 

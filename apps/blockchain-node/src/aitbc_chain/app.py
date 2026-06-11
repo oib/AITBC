@@ -22,11 +22,10 @@ from .metrics import (
     metrics_registry,
 )
 from .network.island_manager import create_island_manager
+from .rpc.escrow_routes import router as escrow_router
 from .rpc.router import router as rpc_router
 from .rpc.utils import set_poa_proposer
 from .rpc.websocket import router as websocket_router
-
-from .rpc.escrow_routes import router as escrow_router
 
 try:
     from .rpc.marketplace import router as marketplace_router
