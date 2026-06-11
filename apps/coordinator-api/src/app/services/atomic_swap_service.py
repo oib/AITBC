@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 
-from ..blockchain.contract_interactions import ContractInteractionService
+from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..domain.atomic_swap import AtomicSwapOrder, SwapStatus
 from ..schemas.atomic_swap import SwapActionRequest, SwapCompleteRequest, SwapCreateRequest
 

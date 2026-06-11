@@ -298,7 +298,7 @@ class CommunityPlatformService:
         if not hackathon:
             raise ValueError("Hackathon not found")
 
-        if hackathon.status not in [HackathonStatus.ANNOUNCED, HackathonStatus.REGISTRATION]:  # type: ignore[name-defined]
+        if hackathon.status not in [HackathonStatus.ANNOUNCED, HackathonStatus.REGISTRATION]:
             raise ValueError("Registration is not open for this hackathon")
 
         if developer_id not in hackathon.participants:

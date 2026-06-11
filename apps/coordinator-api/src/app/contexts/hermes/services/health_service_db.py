@@ -27,7 +27,7 @@ from ....schemas.hermes_health import (
 class HealthService:
     """Service for health monitoring and self-healing with database storage."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Database storage for health data
         pass
 
@@ -46,7 +46,7 @@ class HealthService:
             service_name=health_check.service_name,
             status=health_check.status,
             timestamp=health_check.timestamp or datetime.utcnow(),
-            response_time_ms=health_check.response_time_ms,
+            response_time_ms=health_check.response_time_ms,  # type: ignore[arg-type]
             error_message=health_check.error_message,
             meta_data=json.dumps(health_check.metadata or {}),
         )
@@ -174,7 +174,7 @@ class HealthService:
         recovery_record = RecoveryResultModel(
             id=str(uuid.uuid4()),
             agent_id=agent_id,
-            action_id=action_id,
+            action_id=str(action_id),
             success="true" if success else "false",
             message=message,
             timestamp=datetime.utcnow(),

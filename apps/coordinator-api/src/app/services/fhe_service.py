@@ -142,7 +142,7 @@ class TenSEALProvider(FHEProvider):
         self.ts: Any = None
 
         try:
-            import tenseal as ts
+            import tenseal as ts  # type: ignore[import-untyped]
             self.ts = ts
             self.available = True
             logger.info("TenSEAL provider initialized")

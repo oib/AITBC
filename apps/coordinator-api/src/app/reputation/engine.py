@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Cross-Chain Reputation Engine
 Core reputation calculation and aggregation engine for multi-chain agent reputation

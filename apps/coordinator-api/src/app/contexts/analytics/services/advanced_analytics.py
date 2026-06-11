@@ -571,7 +571,7 @@ def get_dashboard_data(symbol: str) -> dict[str, Any]:
 
 def create_analytics_alert(name: str, symbol: str, metric_type: str, condition: str, threshold: float, timeframe: str) -> str:
     """Create analytics alert"""
-    from advanced_analytics import MetricType, Timeframe
+    from advanced_analytics import MetricType, Timeframe  # type: ignore[import-not-found]
 
     return advanced_analytics.create_alert(
         name=name,

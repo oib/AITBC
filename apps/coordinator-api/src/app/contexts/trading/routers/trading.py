@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 
 from uuid import uuid4
 

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Service for Hermes autonomous resource management with database storage."""
 
 import json

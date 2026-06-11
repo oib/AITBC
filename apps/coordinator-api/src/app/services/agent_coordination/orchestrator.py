@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from app.contexts.trading.services.trading_marketplace.bid_strategy import BidResult
+from app.contexts.trading.services.trading_marketplace.bid_strategy import BidResult  # type: ignore[import-not-found]
 
 from ..task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
 

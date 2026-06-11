@@ -58,7 +58,7 @@ async def detailed_health(request: Request) -> dict[str, Any]:
     try:
         from datetime import datetime
 
-        import psutil
+        import psutil  # type: ignore[import-untyped]
 
         return {
             "status": "healthy",
