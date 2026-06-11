@@ -190,7 +190,7 @@ class TestDependencyScanner:
         assert results == []
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0]
-        assert "/custom/path" in call_args
+        assert "/custom/path" in call_args[0]
 
     def test_parse_pip_audit_output(self):
         """Test _parse_pip_audit_output method"""

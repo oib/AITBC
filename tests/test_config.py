@@ -113,13 +113,13 @@ class TestAITBCConfig:
     def test_custom_security_settings(self):
         """Test AITBCConfig with custom security settings"""
         config = AITBCConfig(
-            secret_key="test-secret-key",
-            jwt_secret="test-jwt-secret",
+            secret_key="test-secret-key-thirty-two-characters",
+            jwt_secret="test-jwt-secret-thirty-two-characters",
             jwt_algorithm="RS256",
             jwt_expiration_hours=48
         )
-        assert config.secret_key == "test-secret-key"
-        assert config.jwt_secret == "test-jwt-secret"
+        assert config.secret_key == "test-secret-key-thirty-two-characters"
+        assert config.jwt_secret == "test-jwt-secret-thirty-two-characters"
         assert config.jwt_algorithm == "RS256"
         assert config.jwt_expiration_hours == 48
 
