@@ -170,7 +170,7 @@ class HubDiscovery:
             logger.error(f"DNS unregistration error: {e}")
             return False
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear cached hub list"""
         self.cached_hubs = []
         self.cache_time = 0

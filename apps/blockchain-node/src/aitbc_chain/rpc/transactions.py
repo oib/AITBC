@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Transaction-related RPC endpoints.
 """

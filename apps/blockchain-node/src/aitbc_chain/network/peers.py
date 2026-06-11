@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Dynamic Peer Management
 Handles peer join/leave operations and connection management

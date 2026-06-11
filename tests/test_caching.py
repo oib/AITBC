@@ -10,7 +10,6 @@ from aitbc.caching import (
     CacheEntry,
     LRUCache,
     TTLCache,
-    _generate_cache_key,
     cached,
     cached_lru,
     clear_global_caches,

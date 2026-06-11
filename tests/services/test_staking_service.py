@@ -14,8 +14,13 @@ from sqlalchemy.orm import sessionmaker
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "coordinator-api" / "src"))
 
+# Clear cached 'app' modules to avoid conflicts with agent-coordinator tests
+for mod_name in list(sys.modules.keys()):
+    if mod_name == "app" or mod_name.startswith("app."):
+        del sys.modules[mod_name]
+
 from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
-from app.services.staking_service import StakingService
+from app.contexts.staking.services.staking_service import StakingService
 
 
 @pytest.fixture
