@@ -136,7 +136,7 @@ async def list_executions(request: Request, workflow_id: str | None = None) -> d
     """List workflow executions"""
     try:
         orchestrator = get_orchestrator()
-        executions = await orchestrator.list_executions(workflow_id=workflow_id)
+        executions = await orchestrator.list_executions(workflow_id=workflow_id or "")
 
         return {
             "executions": [exec.to_dict() for exec in executions],

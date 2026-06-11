@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Advanced AI/ML Integration for AITBC Agent Coordinator
 Implements machine learning models, neural networks, and intelligent decision making

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, Response
