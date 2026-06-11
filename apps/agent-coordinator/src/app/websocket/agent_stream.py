@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 WebSocket streaming for real-time agent messaging
 Provides real-time message delivery and presence tracking

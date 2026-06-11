@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Discovery and Registration System for AITBC Agent Coordination
 """

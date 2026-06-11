@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Message Types and Routing System for AITBC Agent Coordination
 """

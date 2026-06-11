@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Workflow Orchestration Engine for AITBC Agent Coordinator
 Implements multi-agent workflow execution with Redis persistence

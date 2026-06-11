@@ -53,7 +53,7 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-def main():
+def main() -> None:
     uvicorn.run(
         "app.main:app",
         host=settings.host,
