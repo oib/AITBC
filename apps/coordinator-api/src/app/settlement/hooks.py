@@ -221,9 +221,8 @@ class SettlementHook:
     async def _sign_settlement_message(self, job: Job) -> str:
         """Sign the settlement message"""
         try:
-            from cryptography.hazmat.primitives import hashes
-            from cryptography.hazmat.primitives.asymmetric import padding
             from cryptography.hazmat.backends import default_backend
+            from cryptography.hazmat.primitives import hashes
             
             # Get private key from environment
             private_key_hex = os.environ.get("SETTLEMENT_PRIVATE_KEY")

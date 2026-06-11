@@ -3,17 +3,17 @@
 import os
 import sys
 import time
-import json
 from decimal import Decimal
 from typing import Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
-from aitbc.aitbc_logging import get_logger
-from .storage import init_db, create_deposit, update_deposit, get_deposit, BridgeDepositStatus
+
+from .storage import BridgeDepositStatus, create_deposit, get_deposit, init_db, update_deposit
 
 logger = get_logger(__name__)
 
@@ -220,7 +220,6 @@ class BridgeMonitor:
         """Poll Ethereum for new transactions to bridge address."""
         try:
             # Use web3.py directly to get full transactions
-            from web3 import Web3
             w3 = self.eth_rpc._get_web3()
             
             # Get latest block number

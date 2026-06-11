@@ -4,9 +4,9 @@ Simple HTTP server for the AITBC Trade Exchange
 """
 
 import argparse
+import logging
 import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-import logging
 
 logger = logging.getLogger(__name__)
 

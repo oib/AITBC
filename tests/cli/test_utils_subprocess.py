@@ -5,7 +5,7 @@ Tests for subprocess utility functions
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -52,8 +52,9 @@ class TestRunSubprocess:
     @patch('aitbc_cli.utils.subprocess.sys.exit')
     def test_run_subprocess_called_process_error_check_true(self, mock_exit, mock_error, mock_run):
         """Test subprocess with CalledProcessError when check=True"""
-        from aitbc_cli.utils.subprocess import run_subprocess
         import subprocess
+
+        from aitbc_cli.utils.subprocess import run_subprocess
         
         mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
         
@@ -66,8 +67,9 @@ class TestRunSubprocess:
     @patch('aitbc_cli.utils.subprocess.error')
     def test_run_subprocess_called_process_error_check_false(self, mock_error, mock_run):
         """Test subprocess with CalledProcessError when check=False"""
-        from aitbc_cli.utils.subprocess import run_subprocess
         import subprocess
+
+        from aitbc_cli.utils.subprocess import run_subprocess
         
         mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
         

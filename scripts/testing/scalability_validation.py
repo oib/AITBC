@@ -5,9 +5,7 @@ Tests system performance under load and validates scalability
 """
 
 import asyncio
-import os
 import statistics
-import subprocess
 import sys
 import time
 

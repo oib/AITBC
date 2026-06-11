@@ -4,9 +4,9 @@ AITBC Agent Integration Layer
 Connects agent protocols to existing AITBC services
 """
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
-import logging
 
 logger = logging.getLogger(__name__)
 

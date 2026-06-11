@@ -4,8 +4,9 @@ Provides easy-to-use caching decorators for common patterns
 """
 
 from functools import wraps
-from typing import Any, Callable, Optional
-from .cache import get_cache, AITBCCache
+from typing import Any, Callable
+
+from .cache import get_cache
 
 
 def cache_blockchain_data(ttl: int = 60):

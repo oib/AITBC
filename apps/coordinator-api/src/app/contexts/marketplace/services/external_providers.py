@@ -12,9 +12,9 @@ from aitbc import get_logger
 
 from ..domain.gpu_marketplace import (
     ExternalProvider,
+    GPURegistry,
     ProviderMapping,
     SyncStatus,
-    GPURegistry,
 )
 
 logger = get_logger(__name__)

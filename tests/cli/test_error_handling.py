@@ -12,17 +12,17 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from aitbc_cli.utils.error_handling import (
-    CLIError,
-    NetworkError,
-    ConfigurationError,
-    ValidationError,
     APIError,
-    handle_cli_error,
+    CLIError,
+    ConfigurationError,
+    NetworkError,
+    ValidationError,
     handle_async_cli_error,
+    handle_cli_error,
     safe_execute,
+    validate_address,
     validate_required_fields,
     validate_url,
-    validate_address,
 )
 
 

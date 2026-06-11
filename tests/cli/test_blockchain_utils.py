@@ -12,12 +12,13 @@ if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
 import pytest
-from aitbc import NetworkError
 from aitbc_cli.utils.blockchain import (
+    get_blockchain_analytics,
     get_chain_info,
     get_network_status,
-    get_blockchain_analytics,
 )
+
+from aitbc import NetworkError
 
 
 class TestGetChainInfo:

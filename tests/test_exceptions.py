@@ -4,18 +4,19 @@ Tests for AITBC exception hierarchy
 """
 
 import pytest
+
 from aitbc.exceptions import (
     AITBCError,
-    ConfigurationError,
-    NetworkError,
     AuthenticationError,
-    EncryptionError,
-    DatabaseError,
-    ValidationError,
     BridgeError,
-    RetryError,
     CircuitBreakerOpenError,
+    ConfigurationError,
+    DatabaseError,
+    EncryptionError,
+    NetworkError,
     RateLimitError,
+    RetryError,
+    ValidationError,
 )
 
 

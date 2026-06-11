@@ -4,7 +4,7 @@ Tests for chain ID utility functions
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -12,14 +12,15 @@ if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
 import pytest
-from aitbc import NetworkError
 from aitbc_cli.utils.chain_id import (
+    KNOWN_CHAINS,
+    get_chain_id,
+    get_chain_id_from_health,
     get_default_chain_id,
     validate_chain_id,
-    get_chain_id_from_health,
-    get_chain_id,
-    KNOWN_CHAINS,
 )
+
+from aitbc import NetworkError
 
 
 class TestGetDefaultChainId:

@@ -3,11 +3,11 @@ Database Optimization Tests
 Tests for read replica support and query monitoring
 """
 
-import pytest
 import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch
 from datetime import datetime
+from pathlib import Path
+
+import pytest
 
 from aitbc.database import (
     DatabaseConnection,
@@ -15,7 +15,6 @@ from aitbc.database import (
     QueryMonitor,
     ReadReplicaManager,
     create_pooled_engine,
-    get_database_connection,
 )
 
 

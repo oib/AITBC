@@ -5,7 +5,7 @@ Tests for blockchain utility functions
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -58,7 +58,7 @@ class TestGetChainInfo:
     @patch('aitbc_cli.utils.blockchain.AITBCHTTPClient')
     def test_get_chain_info_network_error(self, mock_client):
         """Test chain info with network error"""
-        from aitbc_cli.utils.blockchain import get_chain_info, NetworkError
+        from aitbc_cli.utils.blockchain import NetworkError, get_chain_info
         
         mock_http_client = Mock()
         mock_http_client.get.side_effect = NetworkError("Connection failed")
@@ -107,7 +107,7 @@ class TestGetNetworkStatus:
     @patch('aitbc_cli.utils.blockchain.AITBCHTTPClient')
     def test_get_network_status_network_error(self, mock_client):
         """Test network status with network error"""
-        from aitbc_cli.utils.blockchain import get_network_status, NetworkError
+        from aitbc_cli.utils.blockchain import NetworkError, get_network_status
         
         mock_http_client = Mock()
         mock_http_client.get.side_effect = NetworkError("Connection failed")

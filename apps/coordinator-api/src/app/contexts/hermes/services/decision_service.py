@@ -1,8 +1,9 @@
 """Service for Hermes distributed decision making."""
 
 import uuid
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
@@ -12,14 +13,13 @@ logger = get_logger(__name__)
 from ....schemas.hermes_decision import (
     DecisionProposal,
     DecisionProposalResponse,
+    DecisionResult,
     DecisionStatus,
+    DecisionType,
     Vote,
     VoteOption,
     VoteResponse,
-    DecisionResult,
-    DecisionType,
 )
-from ....models.hermes import DecisionModel, VoteModel
 
 
 class DecisionService:

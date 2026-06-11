@@ -1,7 +1,7 @@
 """REQUEST_COINS message handler with approval workflow."""
 
-import os
 import json
+import os
 import re
 from datetime import datetime, timedelta
 from typing import Any

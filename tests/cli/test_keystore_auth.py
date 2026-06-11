@@ -3,12 +3,12 @@ Keystore Auth Tests
 Tests for keystore authentication functions
 """
 
-import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
-import tempfile
-import json
 import base64
+import json
+import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -65,8 +65,8 @@ class TestDecryptPrivateKey:
 
     def test_decrypt_private_key_basic(self):
         """Test basic private key decryption"""
-        from keystore_auth import derive_key, decrypt_private_key
         from cryptography.fernet import Fernet
+        from keystore_auth import decrypt_private_key, derive_key
         
         password = "test_password"
         salt = b"test_salt"
@@ -110,6 +110,7 @@ class TestLoadKeystore:
         """Test successful keystore loading"""
         try:
             from keystore_auth import load_keystore
+
             from aitbc.utils.paths import get_keystore_path
         except ImportError:
             pytest.skip("aitbc.utils.paths import failed")
@@ -132,6 +133,7 @@ class TestLoadKeystore:
         """Test loading non-existent keystore"""
         try:
             from keystore_auth import load_keystore
+
             from aitbc.utils.paths import get_keystore_path
         except ImportError:
             pytest.skip("aitbc.utils.paths import failed")
@@ -148,7 +150,7 @@ class TestGetPrivateKey:
     def test_get_private_key_from_env(self):
         """Test getting private key with environment password"""
         try:
-            from keystore_auth import get_private_key, load_keystore, decrypt_private_key
+            from keystore_auth import decrypt_private_key, get_private_key, load_keystore
         except ImportError:
             pytest.skip("Required imports failed")
         

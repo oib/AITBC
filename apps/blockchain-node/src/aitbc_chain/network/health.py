@@ -4,12 +4,11 @@ Monitors peer liveness and performance metrics
 """
 
 import asyncio
+import logging
 import statistics
 import time
 from dataclasses import dataclass
 from enum import Enum
-
-import logging
 
 logger = logging.getLogger(__name__)
 
