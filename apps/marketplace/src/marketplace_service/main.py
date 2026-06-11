@@ -723,7 +723,7 @@ async def get_unsynced_ratings(
 ) -> Any:
     """Get ratings that haven't been synced to remote nodes"""
     try:
-        logger.info(f"GET /v1/marketplace/ratings/unsynced called")
+        logger.info("GET /v1/marketplace/ratings/unsynced called")
         ratings = await svc.get_unsynced_ratings(limit)
         return {
             "ratings": ratings,
