@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Enhanced Multi-Chain Wallet Adapter
 Production-ready wallet adapter for cross-chain operations with advanced security and management

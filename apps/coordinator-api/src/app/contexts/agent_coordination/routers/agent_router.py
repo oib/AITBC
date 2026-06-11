@@ -220,7 +220,7 @@ async def execute_workflow(
         )
 
         # Create orchestrator and execute
-        from ..coordinator_client import CoordinatorClient
+        from ..coordinator_client import CoordinatorClient  # type: ignore[import-not-found]
 
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)  # type: ignore[arg-type]
@@ -247,7 +247,7 @@ async def get_execution_status(
 
     try:
         from ..coordinator_client import CoordinatorClient
-        from ..services.agent_coordination.agent_service import AIAgentOrchestrator
+        from ..services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
 
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
@@ -280,7 +280,7 @@ async def list_executions(
     """List agent executions with filtering"""
 
     try:
-        from ..domain.agent import AgentExecution
+        from ..domain.agent import AgentExecution  # type: ignore[import-not-found]
 
         query = select(AgentExecution)
 

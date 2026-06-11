@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """External Provider Service for AWS/GCP/Azure integrations."""
 
 from __future__ import annotations

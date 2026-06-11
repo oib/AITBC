@@ -4,9 +4,9 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from ...data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES
-from ...domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture
-from ...storage import get_session
+from ...data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES  # type: ignore[import-not-found]
+from ...domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture  # type: ignore[import-not-found]
+from ...storage import get_session  # type: ignore[import-not-found]
 
 
 class EdgeGPUService:

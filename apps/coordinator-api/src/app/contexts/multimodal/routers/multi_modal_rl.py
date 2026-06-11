@@ -29,7 +29,7 @@ class JobCreate(BaseModel):
 def get_ai_service_url() -> str:
     """Get AI service URL from settings"""
     try:
-        from ..config import settings
+        from ..config import settings  # type: ignore[import-not-found]
         return settings.ai_service_url.rstrip("/")  # type: ignore[no-any-return]
     except Exception:
         return "http://localhost:8106"

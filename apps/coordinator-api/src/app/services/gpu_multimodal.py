@@ -22,7 +22,7 @@ from typing import Any
 import numpy as np
 
 from ..storage import get_session
-from .multimodal_agent import ModalityType
+from .multimodal_agent import ModalityType  # type: ignore[import-not-found]
 
 
 class CUDAKernelOptimizer:

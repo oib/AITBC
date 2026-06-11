@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Union
 
-import psutil
+import psutil  # type: ignore[import-untyped]
 import torch
 
 from aitbc import get_logger
@@ -368,7 +368,7 @@ class PerformanceMonitor:
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
-    async def export_metrics(self, format: str = "json", hours: int = 24) -> Union[str, dict[str, Any]]:  # type: ignore[name-defined]
+    async def export_metrics(self, format: str = "json", hours: int = 24) -> Union[str, dict[str, Any]]:
         """Export metrics in specified format"""
 
         summary = await self.get_performance_summary(hours)

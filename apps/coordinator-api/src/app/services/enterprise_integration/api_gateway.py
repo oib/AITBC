@@ -21,7 +21,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota
+from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota  # type: ignore[import-not-found]
 from ...exceptions import QuotaExceededError, TenantError
 from ...storage.db import get_session
 

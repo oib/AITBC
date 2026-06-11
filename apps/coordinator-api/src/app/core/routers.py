@@ -3,11 +3,12 @@ Router registration for Coordinator API.
 """
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def register_routers(app):
+def register_routers(app: Any) -> None:
     """Register all routers with the application"""
     # Core routers
     from ..contexts.agent_identity.routers import agent_identity

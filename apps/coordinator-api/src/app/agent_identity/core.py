@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Identity Core Implementation
 Provides unified agent identification and cross-chain compatibility

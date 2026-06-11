@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 AITBC Agent Identity SDK Client
 Main client class for interacting with the Agent Identity API

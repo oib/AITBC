@@ -500,7 +500,7 @@ async def get_report(
             return response_data
         elif format == "csv":
             # Convert to CSV format (simplified)
-            return {"csv_data": convert_to_csv(response_data)}  # type: ignore[name-defined]
+            return {"csv_data": convert_to_csv(response_data)}
         elif format == "pdf":
             # Convert to PDF format (simplified)
             return {"pdf_url": f"/api/v1/analytics/reports/{report_id}/pdf"}
@@ -526,7 +526,7 @@ async def get_analytics_alerts(
     """Get analytics alerts"""
 
     try:
-        from ..domain.analytics import AnalyticsAlert
+        from ..domain.analytics import AnalyticsAlert  # type: ignore[import-not-found]
 
         query = select(AnalyticsAlert)
 

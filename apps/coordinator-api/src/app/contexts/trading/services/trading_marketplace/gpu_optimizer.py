@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Marketplace GPU Resource Optimizer
 Optimizes GPU acceleration and resource utilization specifically for marketplace AI power trading

@@ -737,5 +737,5 @@ async def pricing_health_check(
         }
 
     except Exception as e:
-        logger.error(f"Dynamic pricing health check failed: {e}")  # type: ignore[name-defined]
+        logger.error(f"Dynamic pricing health check failed: {e}")
         return {"status": "unhealthy", "timestamp": datetime.now(UTC).isoformat(), "error": "Health check failed"}

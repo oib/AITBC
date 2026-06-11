@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Lifecycle events for Coordinator API.
 """

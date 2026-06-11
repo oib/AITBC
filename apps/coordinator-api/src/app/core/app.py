@@ -9,7 +9,7 @@ from fastapi import FastAPI
 logger = logging.getLogger(__name__)
 
 
-def create_app():
+def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""
     from .lifespan import lifespan
     from .middleware import setup_middleware
@@ -30,7 +30,7 @@ def create_app():
 
     # Health check endpoint
     @app.get("/health")
-    async def health_check():
+    async def health_check() -> dict[str, str]:
         return {"status": "healthy", "service": "coordinator-api"}
 
     logger.info("FastAPI application created successfully")

@@ -648,7 +648,7 @@ async def get_staking_leaderboard(
 
         # Ensure we return a dict, not a list
         if isinstance(leaderboard, list):
-            leaderboard = {
+            leaderboard = {  # type: ignore[assignment]
                 "period": period,
                 "metric": metric,
                 "leaderboard": leaderboard,
