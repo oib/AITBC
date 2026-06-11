@@ -736,7 +736,7 @@ def cached_blockchain(operation: str, ttl: int | None = None):
                 
                 metrics.record_miss(f"blockchain_{operation}", duration_ms)
                 return result
-            except Exception as e:
+            except Exception:
                 duration_ms = (datetime.now() - start_time).total_seconds() * 1000
                 metrics.record_error(f"blockchain_{operation}", duration_ms)
                 raise

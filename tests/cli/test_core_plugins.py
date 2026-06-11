@@ -3,11 +3,11 @@ Core Plugins Tests
 Tests for plugin system (non-Click functions only)
 """
 
-import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
-import tempfile
 import json
+import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

@@ -2,11 +2,11 @@
 Tests for wallet utility functions
 """
 
+import base64
+import json
 import sys
 from pathlib import Path
-import json
-import base64
-from unittest.mock import patch, mock_open
+from unittest.mock import mock_open, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

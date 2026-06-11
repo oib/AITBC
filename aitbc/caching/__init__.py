@@ -8,11 +8,11 @@ This module consolidates caching functionality split into logical submodules.
 from .blockchain import BlockchainCache, get_blockchain_cache
 from .decorators import (
     cached,
-    cached_lru,
     cached_blockchain,
+    cached_lru,
+    clear_global_caches,
     get_global_lru_cache,
     get_global_ttl_cache,
-    clear_global_caches,
 )
 from .invalidator import CacheInvalidator
 from .lru import LRUCache

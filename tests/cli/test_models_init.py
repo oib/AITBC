@@ -26,17 +26,17 @@ class TestModelsInit:
     def test_models_chain_module(self):
         """Test that chain module has expected exports"""
         from models.chain import (
-            ChainType,
+            ChainConfig,
+            ChainLimits,
+            ChainParameters,
             ChainStatus,
+            ChainType,
             ConsensusAlgorithm,
+            ConsensusConfig,
             GenesisAccount,
+            GenesisConfig,
             GenesisContract,
             PrivacyConfig,
-            ConsensusConfig,
-            ChainParameters,
-            ChainLimits,
-            GenesisConfig,
-            ChainConfig
         )
         
         assert ChainType is not None

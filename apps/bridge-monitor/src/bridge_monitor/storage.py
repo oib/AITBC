@@ -1,10 +1,10 @@
 """SQLite storage for bridge deposit tracking."""
 
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime
-from typing import Optional, List, Dict
 from enum import Enum
+from typing import Dict, List, Optional
 
 DATA_DIR = os.getenv("DATA_DIR", "/var/lib/aitbc")
 DB_PATH = os.path.join(DATA_DIR, "bridge_deposits.db")

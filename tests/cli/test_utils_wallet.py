@@ -3,13 +3,12 @@ Wallet Utils Tests
 Tests for wallet utility functions
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import patch, Mock
-import tempfile
-import json
 import base64
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -24,12 +23,13 @@ class TestDecryptPrivateKey:
 
     def test_decrypt_private_key_aes_gcm(self):
         """Test decrypting private key with AES-256-GCM"""
+        import os
+
         from aitbc_cli.utils.wallet import decrypt_private_key
+        from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.backends import default_backend
-        import os
         
         with tempfile.TemporaryDirectory() as tmpdir:
             keystore_path = Path(tmpdir) / "keystore.json"
@@ -73,9 +73,10 @@ class TestDecryptPrivateKey:
 
     def test_decrypt_private_key_fernet(self):
         """Test decrypting private key with Fernet"""
+        import hashlib
+
         from aitbc_cli.utils.wallet import decrypt_private_key
         from cryptography.fernet import Fernet
-        import hashlib
         
         with tempfile.TemporaryDirectory() as tmpdir:
             keystore_path = Path(tmpdir) / "keystore.json"

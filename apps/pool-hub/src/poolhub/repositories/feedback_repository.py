@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from datetime import timezone
 import json
+from datetime import timezone
 
 from aitbc.logging import get_logger
 from redis.asyncio import Redis

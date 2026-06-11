@@ -5,7 +5,7 @@ Tests for contract command handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,9 +14,9 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.contract import (
-    handle_contract_list,
-    handle_contract_deploy,
     handle_contract_call,
+    handle_contract_deploy,
+    handle_contract_list,
     handle_contract_verify,
 )
 

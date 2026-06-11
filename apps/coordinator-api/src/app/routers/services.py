@@ -29,6 +29,7 @@ from ..schemas import JobCreate
 from ..services import JobService
 from ..storage import get_session
 
+
 # Placeholder for service_registry - to be properly imported when module structure is fixed
 class MockServiceRegistry:
     def get_service(self, service_type):

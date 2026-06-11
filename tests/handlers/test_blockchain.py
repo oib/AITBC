@@ -5,8 +5,7 @@ Tests for blockchain command handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
-import json
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -15,17 +14,16 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.blockchain import (
-    handle_blockchain_info,
-    handle_blockchain_height,
     handle_blockchain_block,
-    handle_blockchain_init,
-    handle_blockchain_genesis,
-    handle_blockchain_import,
-    handle_blockchain_export,
-    handle_blockchain_import_chain,
     handle_blockchain_blocks_range,
-    handle_blockchain_transactions,
+    handle_blockchain_export,
+    handle_blockchain_genesis,
+    handle_blockchain_height,
+    handle_blockchain_import,
+    handle_blockchain_info,
+    handle_blockchain_init,
     handle_blockchain_mempool,
+    handle_blockchain_transactions,
 )
 
 

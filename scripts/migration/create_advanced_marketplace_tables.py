@@ -11,9 +11,9 @@ Usage:
     python scripts/migration/create_advanced_marketplace_tables.py --reset     # Drop and recreate (WARNING: data loss)
 """
 
-import sys
-import sqlite3
 import argparse
+import sqlite3
+import sys
 from pathlib import Path
 
 

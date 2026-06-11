@@ -7,20 +7,20 @@ This module consolidates database functionality split into logical submodules.
 """
 
 from .connection import DatabaseConnection
-from .monitoring import QueryMetrics, DatabaseMetrics, QueryMonitor
+from .monitoring import DatabaseMetrics, QueryMetrics, QueryMonitor
 from .pooling import (
-    create_pooled_engine,
-    create_pooled_sessionmaker,
     create_async_pooled_engine,
     create_async_pooled_sessionmaker,
+    create_pooled_engine,
+    create_pooled_sessionmaker,
 )
 from .replica import ReadReplicaManager
 from .utils import (
-    get_database_connection,
     ensure_database,
-    vacuum_database,
+    get_database_connection,
     get_table_info,
     table_exists,
+    vacuum_database,
 )
 
 __all__ = [

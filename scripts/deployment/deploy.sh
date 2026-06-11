@@ -251,7 +251,13 @@ setup_systemd_services() {
             fi
         done
     fi
-    
+
+    # Load keystore secrets before services start
+    if [[ -f "$REPO_ROOT/scripts/utils/load-keystore-secrets.sh" ]]; then
+        log "Loading keystore secrets..."
+        bash "$REPO_ROOT/scripts/utils/load-keystore-secrets.sh" || warning "Failed to load keystore secrets"
+    fi
+
     # Reload systemd
     systemctl daemon-reload
     

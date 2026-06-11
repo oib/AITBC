@@ -78,8 +78,8 @@ def register_routers(app):
     except ImportError:
         logger.warning("ML ZK proofs router not available (missing tenseal)")
 
-    from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
     from ..contexts.hermes.routers.hermes_decision import router as hermes_decision
+    from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
     from ..contexts.hermes.routers.hermes_health import router as hermes_health
     from ..contexts.hermes.routers.hermes_resource import router as hermes_resource
     from ..contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard

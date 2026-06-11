@@ -12,43 +12,37 @@ Tests all advanced marketplace features:
 """
 
 import sys
-import os
 
 # Add the app directory to the path
 sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
 
-from datetime import UTC, datetime
-from sqlmodel import Session, create_engine, SQLModel
 
 # Import models
 from app.contexts.marketplace.domain.gpu_marketplace import (
-    GPURegistry,
-    PriceHistory,
-    PriceForecast,
-    SearchHistory,
-    ResourceEmbedding,
-    UserProfile,
-    MarketMetrics,
-    TrendData,
     AnalyticsEvent,
     ExternalProvider,
-    ProviderMapping,
-    SyncStatus,
+    MarketMetrics,
     Plugin,
     PluginConfig,
+    ProviderMapping,
+    ResourceEmbedding,
+    SearchHistory,
+    SyncStatus,
+    TrendData,
+    UserProfile,
 )
+from app.contexts.marketplace.services.external_providers import ExternalProviderService
+from app.contexts.marketplace.services.market_analytics import MarketAnalytics
+from app.contexts.marketplace.services.marketplace import MarketplaceService
+from app.contexts.marketplace.services.plugin_manager import get_plugin_manager
+from app.contexts.marketplace.services.resource_matcher import ResourceMatcher
 
 # Import services
 from app.contexts.trading.services.trading_marketplace.dynamic_pricing import (
     DynamicPricingEngine,
     PricingStrategy,
-    ResourceType,
 )
-from app.contexts.marketplace.services.marketplace import MarketplaceService
-from app.contexts.marketplace.services.market_analytics import MarketAnalytics
-from app.contexts.marketplace.services.resource_matcher import ResourceMatcher
-from app.contexts.marketplace.services.external_providers import ExternalProviderService
-from app.contexts.marketplace.services.plugin_manager import get_plugin_manager
+from sqlmodel import Session, SQLModel, create_engine
 
 
 def test_advanced_pricing():

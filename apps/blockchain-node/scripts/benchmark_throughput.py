@@ -13,9 +13,9 @@ Usage:
 """
 
 import argparse
-import logging
 import asyncio
 import json
+import logging
 import statistics
 import time
 from dataclasses import dataclass

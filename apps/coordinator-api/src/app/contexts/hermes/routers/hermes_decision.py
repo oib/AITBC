@@ -1,6 +1,6 @@
 """Router for Hermes distributed decision making API."""
 
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional
 
 from sqlalchemy.orm import Session
 
@@ -8,16 +8,16 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
 from ....deps import require_admin_key
 from ....schemas.hermes_decision import (
+    DecisionListResponse,
     DecisionProposal,
     DecisionProposalResponse,
+    DecisionResult,
     DecisionStatus,
     DecisionType,
-    DecisionResult,
-    DecisionListResponse,
     Vote,
     VoteResponse,
 )

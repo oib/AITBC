@@ -11,9 +11,9 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from app.routing.agent_discovery import AgentInfo, AgentStatus, AgentType
 
 

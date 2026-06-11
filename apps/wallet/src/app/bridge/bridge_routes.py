@@ -3,10 +3,12 @@ ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
 """
 
-from fastapi import APIRouter, HTTPException
 from typing import Optional
-from .bridge_db import get_pending_deposits, get_all_deposits, update_deposit_status, get_deposit_by_tx_hash
-from .price_api import get_exchange_rate, calculate_ait_amount
+
+from fastapi import APIRouter, HTTPException
+
+from .bridge_db import get_all_deposits, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
+from .price_api import calculate_ait_amount, get_exchange_rate
 
 router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
 

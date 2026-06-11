@@ -9,13 +9,13 @@ from pathlib import Path
 import click
 
 try:
-    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger
     from aitbc_cli.config import get_config
     from aitbc_cli.utils import error, output, success, warning
+    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 except ImportError:
-    from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
     from ..config import get_config
     from ..utils import error, output, success, warning
+    from ..utils.http_client import get_logger
 
 logger = get_logger(__name__)
 

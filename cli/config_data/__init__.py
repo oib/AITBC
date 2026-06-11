@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-import yaml
 import click
+import yaml
 from dotenv import load_dotenv
 
 

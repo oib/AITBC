@@ -5,7 +5,7 @@ Tests for blockchain utility functions
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -68,6 +68,7 @@ class TestGetChainInfo:
     def test_get_chain_info_network_error(self, mock_client_class):
         """Test chain info with network error"""
         from aitbc_cli.utils.blockchain import get_chain_info
+
         from aitbc import NetworkError
         
         mock_client = Mock()

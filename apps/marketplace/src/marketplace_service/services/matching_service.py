@@ -2,7 +2,6 @@
 Marketplace matching service for matching GPU providers with consumers
 """
 
-from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -48,22 +47,22 @@ class MatchingService:
             stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == "active")
 
             # Apply filters
-            if max_price:
-                stmt = stmt.where(MarketplaceOffer.price_per_hour <= max_price)
+            if max_price is not None:
+                stmt = stmt.where(MarketplaceOffer.price_per_hour <= max_price)  # type: ignore[operator]
 
             if preferred_region:
                 stmt = stmt.where(MarketplaceOffer.region == preferred_region)
 
-            if min_gpu_memory:
-                stmt = stmt.where(MarketplaceOffer.gpu_memory_gb >= min_gpu_memory)
+            if min_gpu_memory is not None:
+                stmt = stmt.where(MarketplaceOffer.gpu_memory_gb >= min_gpu_memory)  # type: ignore[operator]
 
             if required_gpu_model:
                 stmt = stmt.where(MarketplaceOffer.gpu_model == required_gpu_model)
 
             # Order by price (lowest first) and capacity (highest first)
             stmt = stmt.order_by(
-                MarketplaceOffer.price_per_hour.asc(),
-                MarketplaceOffer.capacity.desc()
+                MarketplaceOffer.price_per_hour.asc(),  # type: ignore[union-attr]
+                MarketplaceOffer.capacity.desc()  # type: ignore[attr-defined]
             )
 
             result = await self.session.execute(stmt)

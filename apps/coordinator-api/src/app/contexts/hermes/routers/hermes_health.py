@@ -1,7 +1,8 @@
 """Router for Hermes self-healing and health monitoring API."""
 
-from typing import Annotated, Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Annotated, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
@@ -10,9 +11,8 @@ logger = get_logger(__name__)
 
 from ....deps import require_admin_key
 from ....schemas.hermes_health import (
-    HealthCheck,
-    HealthStatus,
     ErrorReport,
+    HealthCheck,
     RecoveryResult,
 )
 from ....storage import get_session

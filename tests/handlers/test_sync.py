@@ -5,7 +5,7 @@ Tests for blockchain sync handler
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

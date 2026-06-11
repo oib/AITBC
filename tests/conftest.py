@@ -8,8 +8,8 @@ from pathlib import Path
 
 # Configure Python path for test discovery
 project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "cli"))
+sys.path.insert(0, str(project_root))
 
 # Import fixtures from dedicated fixture files
 # Common fixtures (environment setup, data generators)

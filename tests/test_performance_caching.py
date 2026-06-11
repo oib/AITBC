@@ -3,17 +3,15 @@ Performance Caching Tests
 Tests for enhanced caching strategies including blockchain-specific caching
 """
 
+from unittest.mock import Mock
+
 import pytest
-from datetime import UTC, datetime, timedelta
-from unittest.mock import Mock, patch
 
 from aitbc.caching import (
     BlockchainCache,
     CacheInvalidator,
     CacheMetrics,
     LRUCache,
-    TTLCache,
-    cached_blockchain,
     get_blockchain_cache,
     get_cache_metrics,
 )

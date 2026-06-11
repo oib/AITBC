@@ -2,9 +2,8 @@
 
 import click
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError
-
 from ..utils import error, output
+from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
 @click.group()

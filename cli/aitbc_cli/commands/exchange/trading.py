@@ -2,7 +2,6 @@
 Trading-related exchange commands.
 """
 
-import click
 
 try:
     from aitbc_cli.utils import error, output, success

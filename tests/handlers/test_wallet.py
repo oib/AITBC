@@ -5,7 +5,7 @@ Tests for wallet command handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,16 +14,16 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.wallet import (
-    handle_wallet_create,
-    handle_wallet_list,
-    handle_wallet_balance,
-    handle_wallet_transactions,
-    handle_wallet_import,
-    handle_wallet_export,
-    handle_wallet_delete,
-    handle_wallet_rename,
     handle_wallet_backup,
+    handle_wallet_balance,
+    handle_wallet_create,
+    handle_wallet_delete,
+    handle_wallet_export,
+    handle_wallet_import,
+    handle_wallet_list,
+    handle_wallet_rename,
     handle_wallet_sync,
+    handle_wallet_transactions,
 )
 
 

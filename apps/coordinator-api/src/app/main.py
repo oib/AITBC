@@ -78,7 +78,7 @@ from .routers import (
 from .utils.alerting import alert_dispatcher
 from .utils.cache import cache_manager
 from .utils.metrics import build_live_metrics_payload, metrics_collector
-from .utils.security import InputValidator, get_client_ip
+from .utils.security import get_client_ip
 
 # Skip optional routers with missing dependencies
 try:
@@ -86,8 +86,8 @@ try:
 except ImportError:
     ml_zk_proofs = None
     logger.warning("ML ZK proofs router not available (missing tenseal)")
-from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
 from .contexts.hermes.routers.hermes_decision import router as hermes_decision
+from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
 from .contexts.hermes.routers.hermes_health import router as hermes_health
 from .contexts.hermes.routers.hermes_resource import router as hermes_resource
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
@@ -109,7 +109,6 @@ from aitbc import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
-    RequestValidationMiddleware,
     get_logger,
 )
 from aitbc.aitbc_logging import configure_logging

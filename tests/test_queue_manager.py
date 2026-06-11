@@ -4,6 +4,7 @@ Tests for AITBC queue manager utilities
 """
 
 import pytest
+
 from aitbc.queue_manager import (
     BackgroundTaskManager,
     Job,

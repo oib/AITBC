@@ -4,23 +4,24 @@ Node management commands for AITBC
 
 import click
 
-from .main import node
-from .monitor import monitor_command, test_command
+from .bridge import (
+    approve_bridge_command,
+    list_bridges_command,
+    reject_bridge_command,
+    request_bridge_command,
+)
+from .chain import list_chains_command, start_chain_command, stop_chain_command
+from .hub import list_hubs_command, register_hub_command, unregister_hub_command
 from .island import (
     create_island_command,
+    island_info_command,
     join_island_command,
     leave_island_command,
     list_islands_command,
-    island_info_command,
 )
-from .hub import register_hub_command, unregister_hub_command, list_hubs_command
-from .bridge import (
-    request_bridge_command,
-    approve_bridge_command,
-    reject_bridge_command,
-    list_bridges_command,
-)
-from .chain import start_chain_command, stop_chain_command, list_chains_command
+from .main import node
+from .monitor import monitor_command, test_command
+
 
 # Attach main commands
 @node.command()

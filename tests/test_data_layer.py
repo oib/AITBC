@@ -4,6 +4,7 @@ Tests for AITBC data layer abstraction
 """
 
 import pytest
+
 from aitbc.data_layer import (
     DataLayer,
     MockDataGenerator,

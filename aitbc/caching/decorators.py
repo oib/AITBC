@@ -3,17 +3,16 @@ Cache decorators for function result caching.
 """
 
 import functools
-import hashlib
-import json
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+
 from .blockchain import BlockchainCache
 from .lru import LRUCache
 from .ttl import TTLCache
-from .utils import _generate_cache_key, _generate_blockchain_cache_key
+from .utils import _generate_blockchain_cache_key, _generate_cache_key
 
 logger = get_logger(__name__)
 

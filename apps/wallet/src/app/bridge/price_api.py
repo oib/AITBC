@@ -3,10 +3,9 @@ ETH-AIT Price API
 Fetches ETH price from CoinGecko and calculates AIT exchange rate.
 """
 
-import os
-import requests
-from typing import Optional, Dict
+from typing import Dict, Optional
 
+import requests
 
 # Fixed AIT price in USD (for simplicity in MVP)
 AIT_USD_PRICE = 1.0  # 1 AIT = $1 USD

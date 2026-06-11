@@ -8,7 +8,6 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException

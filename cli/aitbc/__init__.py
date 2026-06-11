@@ -1,7 +1,8 @@
 """Minimal aitbc package for CLI compatibility"""
 
-import requests
 from typing import Any, Dict, Optional
+
+import requests
 
 
 class NetworkError(Exception):

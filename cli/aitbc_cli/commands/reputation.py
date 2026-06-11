@@ -3,8 +3,8 @@ Reputation Management CLI Commands
 Provides CLI commands for managing agent reputation, trust scores, and community feedback
 """
 
+
 import click
-from typing import Any
 
 from ..utils.http_client import get_logger
 
@@ -22,9 +22,10 @@ def reputation():
 @click.option("--format", "json", help="Output format (json, table)")
 def get_profile(agent_id: str, format: str):
     """Get reputation profile for an agent"""
-    import requests
-    from pathlib import Path
     import json
+    from pathlib import Path
+
+    import requests
 
     try:
         # Try to get coordinator API URL from config
@@ -75,9 +76,10 @@ def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: f
                 communication: float, reliability: float, value: float, 
                 text: str, tag: tuple):
     """Add community feedback for an agent"""
-    import requests
-    from pathlib import Path
     import json
+    from pathlib import Path
+
+    import requests
 
     try:
         # Try to get coordinator API URL from config
@@ -126,9 +128,10 @@ def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: f
 @click.option("--format", default="json", help="Output format (json, table)")
 def leaderboard(category: str, limit: int, region: str, format: str):
     """Get reputation leaderboard"""
-    import requests
-    from pathlib import Path
     import json
+    from pathlib import Path
+
+    import requests
 
     try:
         # Try to get coordinator API URL from config
@@ -170,9 +173,10 @@ def leaderboard(category: str, limit: int, region: str, format: str):
 @click.option("--format", "json", help="Output format (json, table)")
 def trust_score(agent_id: str, format: str):
     """Get detailed trust score breakdown for an agent"""
-    import requests
-    from pathlib import Path
     import json
+    from pathlib import Path
+
+    import requests
 
     try:
         # Try to get coordinator API URL from config
@@ -211,9 +215,10 @@ def trust_score(agent_id: str, format: str):
 @click.option("--format", "json", help="Output format (json, table)")
 def metrics(format: str):
     """Get overall reputation system metrics"""
-    import requests
-    from pathlib import Path
     import json
+    from pathlib import Path
+
+    import requests
 
     try:
         # Try to get coordinator API URL from config
@@ -254,9 +259,10 @@ def metrics(format: str):
 @click.argument("agent_id")
 def create_profile(agent_id: str):
     """Create a new reputation profile for an agent"""
-    import requests
-    from pathlib import Path
     import json
+    from pathlib import Path
+
+    import requests
 
     try:
         # Try to get coordinator API URL from config

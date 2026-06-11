@@ -4,10 +4,9 @@ Tests for tamper-evident audit logger
 """
 
 import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
 import tempfile
-import json
+from pathlib import Path
+from unittest.mock import patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -228,7 +227,7 @@ class TestConvenienceFunctions:
     def test_verify_audit_integrity(self):
         """Test verify_audit_integrity convenience function"""
         try:
-            from utils.secure_audit import verify_audit_integrity, secure_audit_logger
+            from utils.secure_audit import secure_audit_logger, verify_audit_integrity
         except ImportError:
             pytest.skip("eth_utils import failed")
         

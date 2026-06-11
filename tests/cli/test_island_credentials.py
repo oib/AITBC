@@ -2,10 +2,10 @@
 Tests for island credentials utility functions
 """
 
+import json
 import sys
 from pathlib import Path
-from unittest.mock import patch, mock_open
-import json
+from unittest.mock import mock_open, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,16 +14,16 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from aitbc_cli.utils.island_credentials import (
-    load_island_credentials,
-    get_rpc_endpoint,
+    CREDENTIALS_PATH,
     get_chain_id,
+    get_genesis_address,
+    get_genesis_block_hash,
     get_island_id,
     get_island_name,
-    get_genesis_block_hash,
-    get_genesis_address,
-    validate_credentials,
     get_p2p_port,
-    CREDENTIALS_PATH,
+    get_rpc_endpoint,
+    load_island_credentials,
+    validate_credentials,
 )
 
 

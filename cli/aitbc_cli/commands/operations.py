@@ -9,10 +9,9 @@ import click
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-
 from ..config import get_config
 from ..utils import error, output, success
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
 
 logger = get_logger(__name__)
@@ -579,7 +578,7 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
         hex_address = bech32_to_hex(proposer_address)
 
         # Calculate voting times
-        from datetime import datetime, timedelta, UTC
+        from datetime import UTC, datetime, timedelta
         voting_starts = datetime.now(UTC).isoformat()
         voting_ends = (datetime.now(UTC) + timedelta(days=voting_days)).isoformat()
 

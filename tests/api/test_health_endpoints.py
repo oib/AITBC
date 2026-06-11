@@ -11,8 +11,9 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
 from datetime import UTC, datetime
+
+import pytest
 
 
 class TestHealthEndpoints:

@@ -5,7 +5,7 @@ Tests for pool hub SLA and capacity management handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -14,14 +14,14 @@ if str(cli_path) not in sys.path:
 
 import pytest
 from handlers.pool_hub import (
-    handle_pool_hub_sla_metrics,
-    handle_pool_hub_sla_violations,
-    handle_pool_hub_capacity_snapshots,
+    handle_pool_hub_billing_sync,
+    handle_pool_hub_billing_usage,
     handle_pool_hub_capacity_forecast,
     handle_pool_hub_capacity_recommendations,
-    handle_pool_hub_billing_usage,
-    handle_pool_hub_billing_sync,
+    handle_pool_hub_capacity_snapshots,
     handle_pool_hub_collect_metrics,
+    handle_pool_hub_sla_metrics,
+    handle_pool_hub_sla_violations,
 )
 
 

@@ -6,8 +6,8 @@ import functools
 import logging
 from typing import Any, Callable, Optional
 
+from .backends import NullCache, RedisCache
 from .base import CacheBackend, CacheConfig
-from .backends import RedisCache, LRUCache, TTLCache, NullCache
 from .utils import generate_cache_key
 
 logger = logging.getLogger(__name__)

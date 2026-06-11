@@ -4,9 +4,9 @@ Tests for cross-chain agent communication system
 """
 
 import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
 from datetime import datetime
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -168,7 +168,7 @@ class TestCrossChainAgentCommunication:
     @patch('aitbc_cli.core.agent_communication.NodeClient')
     def test_validate_agent_info(self, mock_node_client):
         """Test agent info validation"""
-        from aitbc_cli.core.agent_communication import CrossChainAgentCommunication, MultiChainConfig, AgentInfo, AgentStatus
+        from aitbc_cli.core.agent_communication import AgentInfo, AgentStatus, CrossChainAgentCommunication, MultiChainConfig
         
         config = Mock(spec=MultiChainConfig)
         comm = CrossChainAgentCommunication(config)
@@ -193,7 +193,7 @@ class TestCrossChainAgentCommunication:
     @patch('aitbc_cli.core.agent_communication.NodeClient')
     def test_validate_agent_info_invalid(self, mock_node_client):
         """Test agent info validation with invalid data"""
-        from aitbc_cli.core.agent_communication import CrossChainAgentCommunication, MultiChainConfig, AgentInfo, AgentStatus
+        from aitbc_cli.core.agent_communication import AgentInfo, AgentStatus, CrossChainAgentCommunication, MultiChainConfig
         
         config = Mock(spec=MultiChainConfig)
         comm = CrossChainAgentCommunication(config)
