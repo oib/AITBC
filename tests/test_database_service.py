@@ -84,17 +84,22 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
+            # Create table first (DDL is auto-committed in SQLite)
+            with service.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("CREATE TABLE test (id INTEGER)")
+
             with pytest.raises(Exception):
                 with service.get_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute("CREATE TABLE test (id INTEGER)")
+                    cursor.execute("INSERT INTO test (id) VALUES (1)")
                     raise Exception("Test error")
-            
-            # Verify table does not exist
+
+            # Verify insert was rolled back
             with service.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='test'")
+                cursor.execute("SELECT * FROM test")
                 result = cursor.fetchone()
                 assert result is None
 
