@@ -45,15 +45,16 @@ except ImportError as e:
     ViewingKey = Mock
 
 
+@pytest.fixture
+def confidential_service(db_session):
+    """Create confidential transaction service"""
+    return ConfidentialTransactionService(db_session)
+
+
 @pytest.mark.security
 @pytest.mark.skipif(not CONFIDENTIAL_AVAILABLE, reason="Confidential transaction modules not available")
 class TestConfidentialTransactionSecurity:
     """Security tests for confidential transaction functionality"""
-
-    @pytest.fixture
-    def confidential_service(self, db_session):
-        """Create confidential transaction service"""
-        return ConfidentialTransactionService(db_session)
 
     @pytest.fixture
     def sample_sender_keys(self):
@@ -458,6 +459,7 @@ class TestConfidentialTransactionSecurity:
 
 
 @pytest.mark.security
+@pytest.mark.skipif(not CONFIDENTIAL_AVAILABLE, reason="Confidential transaction modules not available")
 class TestConfidentialTransactionVulnerabilities:
     """Test for potential vulnerabilities in confidential transactions"""
 
@@ -619,6 +621,7 @@ class TestConfidentialTransactionVulnerabilities:
 
 
 @pytest.mark.security
+@pytest.mark.skipif(not CONFIDENTIAL_AVAILABLE, reason="Confidential transaction modules not available")
 class TestConfidentialTransactionCompliance:
     """Test compliance features for confidential transactions"""
 
