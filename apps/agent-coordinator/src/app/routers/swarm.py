@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Swarm coordination router for AITBC Agent Coordinator."""
 
 

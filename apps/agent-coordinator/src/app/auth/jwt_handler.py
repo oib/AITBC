@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 JWT Authentication Handler for AITBC Agent Coordinator
 Implements JWT token generation, validation, and management

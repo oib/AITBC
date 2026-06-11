@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Request
 
@@ -11,7 +12,7 @@ router = APIRouter()
 # Health check endpoint
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
-async def health_check(request: Request):
+async def health_check(request: Request) -> dict[str, Any]:
     """Health check endpoint"""
     return {
         "status": "healthy",
@@ -23,7 +24,7 @@ async def health_check(request: Request):
 # Root endpoint
 @router.get("/")
 @rate_limit(rate=1000, per=60)
-async def root(request: Request):
+async def root(request: Request) -> dict[str, Any]:
     """Root endpoint with service information"""
     return {
         "service": "AITBC Agent Coordinator",

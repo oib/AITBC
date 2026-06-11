@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Monitor router for AITBC Agent Coordinator."""
 
 

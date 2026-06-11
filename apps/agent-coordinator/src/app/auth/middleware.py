@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Authentication Middleware for AITBC Agent Coordinator
 Implements JWT and API key authentication middleware

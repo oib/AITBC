@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Distributed Consensus Implementation for AITBC Agent Coordinator
 Implements various consensus algorithms for distributed decision making

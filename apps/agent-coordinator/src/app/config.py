@@ -9,7 +9,7 @@ try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
 except ImportError:
     from pydantic import BaseSettings  # type: ignore
-    SettingsConfigDict = None
+    SettingsConfigDict = None  # type: ignore[misc,assignment]
 from enum import Enum
 
 
@@ -286,7 +286,7 @@ class ConfigLoader:
         return settings
 
     @staticmethod
-    def validate_config():
+    def validate_config() -> None:
         """Validate configuration settings"""
         errors = []
 
