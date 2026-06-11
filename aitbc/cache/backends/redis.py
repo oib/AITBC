@@ -31,11 +31,16 @@ class RedisCache(CacheBackend):
             **kwargs: Alternative configuration (redis_url, default_ttl, etc.)
         """
         # Support old interface: RedisCache(redis_url=..., default_ttl=...)
+        _redis_url_explicitly_none = False
         if config is None:
-            redis_url = kwargs.get("redis_url", "redis://localhost:6379/0")
+            raw_redis_url = kwargs.get("redis_url")
+            if raw_redis_url is None and "redis_url" in kwargs:
+                # redis_url=None was explicitly passed → disable
+                _redis_url_explicitly_none = True
+            redis_url = raw_redis_url or "redis://localhost:6379/0"
             default_ttl = kwargs.get("default_ttl", 300)
             key_prefix = kwargs.get("key_prefix", "aitbc")
-            
+
             # Parse redis_url
             if redis_url.startswith("redis://"):
                 # Parse redis://host:port/db
@@ -48,7 +53,7 @@ class RedisCache(CacheBackend):
                 else:
                     host = host_port
                     port = 6379
-                
+
                 config = CacheConfig(
                     backend="redis",
                     host=host,
@@ -59,13 +64,13 @@ class RedisCache(CacheBackend):
                 )
             else:
                 config = CacheConfig(backend="redis", default_ttl=default_ttl, key_prefix=key_prefix)
-        
+
         self.config = config
         self.client = None
         self._max_connections = kwargs.get("max_connections", 10)
         self._timeout = kwargs.get("timeout", 5)
-        
-        if REDIS_AVAILABLE:
+
+        if REDIS_AVAILABLE and not _redis_url_explicitly_none:
             try:
                 self.client = redis.Redis(
                     host=config.host,
@@ -215,12 +220,55 @@ class RedisCache(CacheBackend):
             logger.error(f"Error incrementing cache key {key}: {e}")
             return None
     
+    def get_many(self, keys: list[str]) -> dict[str, Any]:
+        """Get multiple values from cache."""
+        if not self.client:
+            return {}
+        try:
+            values = self.client.mget(keys)
+            result = {}
+            for key, value in zip(keys, values, strict=False):
+                if value:
+                    result[key] = json.loads(value)
+            return result
+        except Exception as e:
+            logger.error(f"Redis get_many error: {e}")
+            return {}
+
+    def set_many(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
+        """Set multiple values in cache."""
+        if not self.client:
+            return False
+        try:
+            pipe = self.client.pipeline()
+            expiry = ttl if ttl is not None else self.config.default_ttl
+            for key, value in mapping.items():
+                serialized = json.dumps(value)
+                pipe.setex(key, expiry, serialized)
+            pipe.execute()
+            return True
+        except Exception as e:
+            logger.error(f"Redis set_many error: {e}")
+            return False
+
+    def delete_many(self, keys: list[str]) -> bool:
+        """Delete multiple values from cache."""
+        if not self.client:
+            return False
+        try:
+            if keys:
+                self.client.delete(*keys)
+            return True
+        except Exception as e:
+            logger.error(f"Redis delete_many error: {e}")
+            return False
+
     def close(self) -> None:
         """Close Redis connection."""
         if self.client:
             self.client.close()
             logger.info("Redis connection closed")
-    
+
     def is_available(self) -> bool:
         """Check if Redis is available."""
         return self.client is not None
