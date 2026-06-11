@@ -127,7 +127,6 @@ from .sync import (
     import_chain,
 )
 
-
 try:
     from .islands import (
         BridgeRequestRequest,
@@ -170,15 +169,15 @@ except ImportError:
     list_pending_transfers = None
 try:
     from .staking import (
+        cast_governance_vote,
+        create_governance_proposal,
+        get_agent_identity,
+        get_governance_proposal,
         get_staking_info,
+        register_agent_identity,
         stake_tokens,
         unstake_tokens,
-        register_agent_identity,
-        get_agent_identity,
         verify_agent_identity,
-        create_governance_proposal,
-        cast_governance_vote,
-        get_governance_proposal,
     )
 except ImportError:
     _logger.warning("Staking module not available")

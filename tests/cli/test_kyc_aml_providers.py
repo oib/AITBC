@@ -5,8 +5,6 @@ Tests for KYC/AML provider integration
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
-import tempfile
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -62,7 +60,7 @@ class TestKYCRequest:
 
     def test_kyc_request_creation(self):
         """Test creating KYCRequest"""
-        from utils.kyc_aml_providers import KYCRequest, KYCProvider
+        from utils.kyc_aml_providers import KYCProvider, KYCRequest
         
         request = KYCRequest(
             user_id="user123",
@@ -81,8 +79,9 @@ class TestKYCResponse:
 
     def test_kyc_response_creation(self):
         """Test creating KYCResponse"""
-        from utils.kyc_aml_providers import KYCResponse, KYCProvider, KYCStatus
         from datetime import datetime
+
+        from utils.kyc_aml_providers import KYCProvider, KYCResponse, KYCStatus
         
         response = KYCResponse(
             request_id="req123",
@@ -105,8 +104,9 @@ class TestAMLCheck:
 
     def test_aml_check_creation(self):
         """Test creating AMLCheck"""
-        from utils.kyc_aml_providers import AMLCheck, AMLRiskLevel
         from datetime import datetime
+
+        from utils.kyc_aml_providers import AMLCheck, AMLRiskLevel
         
         check = AMLCheck(
             check_id="check123",
@@ -130,7 +130,7 @@ class TestSimpleKYCProvider:
 
     def test_init(self):
         """Test SimpleKYCProvider initialization"""
-        from utils.kyc_aml_providers import SimpleKYCProvider, KYCProvider
+        from utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
         
         provider = SimpleKYCProvider()
         
@@ -139,7 +139,7 @@ class TestSimpleKYCProvider:
 
     def test_set_api_key(self):
         """Test setting API key"""
-        from utils.kyc_aml_providers import SimpleKYCProvider, KYCProvider
+        from utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
         
         provider = SimpleKYCProvider()
         provider.set_api_key(KYCProvider.CHAINALYSIS, "test_key")
@@ -148,7 +148,7 @@ class TestSimpleKYCProvider:
 
     def test_submit_kyc_verification_no_api_key(self):
         """Test submitting KYC without API key"""
-        from utils.kyc_aml_providers import SimpleKYCProvider, KYCRequest, KYCProvider
+        from utils.kyc_aml_providers import KYCProvider, KYCRequest, SimpleKYCProvider
         
         provider = SimpleKYCProvider()
         request = KYCRequest(
@@ -162,7 +162,7 @@ class TestSimpleKYCProvider:
 
     def test_submit_kyc_verification_success(self):
         """Test successful KYC submission"""
-        from utils.kyc_aml_providers import SimpleKYCProvider, KYCRequest, KYCProvider
+        from utils.kyc_aml_providers import KYCProvider, KYCRequest, SimpleKYCProvider
         
         provider = SimpleKYCProvider()
         provider.set_api_key(KYCProvider.CHAINALYSIS, "test_key")
@@ -180,7 +180,7 @@ class TestSimpleKYCProvider:
 
     def test_check_kyc_status(self):
         """Test checking KYC status"""
-        from utils.kyc_aml_providers import SimpleKYCProvider, KYCProvider
+        from utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
         
         provider = SimpleKYCProvider()
         

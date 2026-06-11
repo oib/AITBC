@@ -1,9 +1,10 @@
 """Schemas for Hermes self-healing and health monitoring."""
 
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel
 
 
 class HealthStatus(str, Enum):

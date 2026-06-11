@@ -7,12 +7,11 @@ from decimal import Decimal
 
 import click
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-
 from ..config import get_config
 from ..core.config import load_multichain_config
 from ..core.marketplace import ChainType, GlobalChainMarketplace, MarketplaceStatus
 from ..utils import error, output, success
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 

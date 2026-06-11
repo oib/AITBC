@@ -6,10 +6,9 @@ import json
 
 import click
 
-from ..utils.http_client import AITBCHTTPClient, NetworkError
-
 from ..config import get_config
 from ..utils import error, info, output, success
+from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
 @click.group()

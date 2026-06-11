@@ -5,10 +5,9 @@ Dynamic Pricing API Router
 Provides RESTful endpoints for dynamic pricing management
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
-
-import logging
 
 logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Query, Request

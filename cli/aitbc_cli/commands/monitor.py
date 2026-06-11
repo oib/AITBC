@@ -8,10 +8,10 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from ..utils import error, output, success
+
 # Import shared modules
 from ..utils.http_client import AITBCHTTPClient, get_logger
-
-from ..utils import error, output, success
 
 # Initialize logger and console
 logger = get_logger(__name__)

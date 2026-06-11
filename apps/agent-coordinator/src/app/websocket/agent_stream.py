@@ -4,7 +4,6 @@ Provides real-time message delivery and presence tracking
 Includes automatic handler triggering for PING, REQUEST_COINS, etc.
 """
 
-import asyncio
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime

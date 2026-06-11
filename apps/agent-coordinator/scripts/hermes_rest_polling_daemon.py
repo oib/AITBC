@@ -7,10 +7,8 @@ Polls Agent Coordinator REST API for messages and forwards them to Hermes Servic
 import argparse
 import asyncio
 import hashlib
-import json
 import logging
 import os
-import time
 from typing import Any
 
 import httpx

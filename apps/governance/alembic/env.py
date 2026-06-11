@@ -2,31 +2,15 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Add src directory to sys.path for module imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Import SQLModel metadata
-from sqlmodel import SQLModel
-
 # Import all models to ensure they're registered with SQLModel.metadata
-from governance_service.domain.governance import (
-    DaoTreasury,
-    Delegation,
-    GovernanceProfile,
-    GovernanceToken,
-    Proposal,
-    ProposalExecutionLog,
-    ProposalStatus,
-    TokenStake,
-    TransparencyReport,
-    Vote,
-    VoteType,
-)
+from sqlmodel import SQLModel
 
 # this is the Alembic Config object
 config = context.config

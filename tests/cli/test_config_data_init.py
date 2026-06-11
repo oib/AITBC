@@ -4,9 +4,10 @@ Tests for configuration management
 """
 
 import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
 import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
 import yaml
 
 # Add CLI path for imports

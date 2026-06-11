@@ -5,9 +5,6 @@ Tests for secure encryption utilities
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
-import tempfile
-import base64
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -97,7 +94,7 @@ class TestDecryptValue:
 
     def test_decrypt_value(self):
         """Test decrypting a value"""
-        from utils.security import encrypt_value, decrypt_value
+        from utils.security import decrypt_value, encrypt_value
         
         value = "secret_data"
         password = "test_password_123"
@@ -109,7 +106,7 @@ class TestDecryptValue:
 
     def test_decrypt_value_wrong_password(self):
         """Test decrypting with wrong password"""
-        from utils.security import encrypt_value, decrypt_value
+        from utils.security import decrypt_value, encrypt_value
         
         value = "secret_data"
         password = "test_password_123"

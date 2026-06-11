@@ -12,8 +12,8 @@ from aitbc.rate_limiting import RateLimitMiddleware
 
 from .api_jsonrpc import router as jsonrpc_router
 from .api_rest import router as receipts_router
+from .bridge import init_db, start_monitoring
 from .settings import settings
-from .bridge import start_monitoring, init_db
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +75,10 @@ async def _import_genesis_wallet_from_env():
 
 async def _import_file_wallets():
     """Auto-import wallets from wallet directory into daemon on startup."""
-    import httpx
     import json
     from pathlib import Path
+
+    import httpx
 
     wallet_dir = Path(os.getenv("WALLET_DIR", "/root/.aitbc/wallets"))
     if not wallet_dir.exists():
@@ -142,7 +143,7 @@ async def _import_file_wallets():
                 if imported > 0:
                     logger.info(f"Auto-imported {imported} wallet(s) from {wallet_dir}")
                 return  # Success, exit retry loop
-        except httpx.ConnectError as e:
+        except httpx.ConnectError:
             if attempt < max_retries - 1:
                 logger.info(f"Daemon not ready, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
                 await asyncio.sleep(retry_delay)

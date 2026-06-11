@@ -4,10 +4,9 @@ Tests for global chain marketplace system
 """
 
 import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")

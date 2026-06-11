@@ -6,6 +6,7 @@ import argparse
 from http.server import HTTPServer
 
 from aitbc import get_logger
+
 from .database import init_db
 from .handlers import ExchangeAPIHandler
 

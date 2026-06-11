@@ -4,6 +4,7 @@ Tests for AITBC crypto package initialization
 """
 
 import pytest
+
 from aitbc.crypto import __all__
 
 

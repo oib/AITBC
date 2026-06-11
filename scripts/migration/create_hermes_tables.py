@@ -11,10 +11,9 @@ Usage:
     python scripts/migration/create_hermes_tables.py --reset     # Drop and recreate (WARNING: data loss)
 """
 
-import os
-import sys
-import sqlite3
 import argparse
+import sqlite3
+import sys
 from pathlib import Path
 
 

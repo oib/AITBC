@@ -162,6 +162,7 @@ def get_wallet_balance(
     keystore: PersistentKeystoreService = Depends(get_keystore),
 ) -> dict:
     import httpx as _httpx
+
     from .settings import settings as _settings
 
     record = keystore.get_wallet(wallet_id)

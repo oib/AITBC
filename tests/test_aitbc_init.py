@@ -4,6 +4,7 @@ Tests for AITBC package initialization
 """
 
 import pytest
+
 import aitbc
 
 

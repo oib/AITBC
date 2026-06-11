@@ -19,8 +19,9 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ..deps import require_admin_key
 from app.domain.agent import AIAgentWorkflow
+
+from ..deps import require_admin_key
 from ..services.agent_security import (
     AgentAuditLog,
     AgentAuditor,

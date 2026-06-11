@@ -1,5 +1,5 @@
 #!/opt/aitbc/venv/bin/python3
-"""Shim — delegates to the real AITBC CLI entrypoint."""
+"""Deprecated shim — use `aitbc` (venv binary) directly."""
 
 import os
 import sys

@@ -13,9 +13,6 @@ from aitbc import get_logger
 from ..domain.gpu_marketplace import (
     GPUBooking,
     GPURegistry,
-    MarketMetrics,
-    TrendData,
-    AnalyticsEvent,
 )
 
 logger = get_logger(__name__)

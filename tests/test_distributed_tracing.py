@@ -3,9 +3,9 @@ Distributed Tracing Tests
 Tests for AITBC distributed tracing utilities
 """
 
-from unittest.mock import Mock, patch
 
 import pytest
+
 from aitbc.distributed_tracing import (
     OPENTELEMETRY_AVAILABLE,
     SpanContext,

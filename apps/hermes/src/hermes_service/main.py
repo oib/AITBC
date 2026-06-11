@@ -12,8 +12,8 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from .handlers import HandlerRegistry
-from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db
 from .services.transaction_service import TransactionService
+from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db
 
 # Configure logging to output to stdout (which systemd captures)
 # Note: systemd/journald already adds timestamp, so we don't include %(asctime)s

@@ -3,9 +3,9 @@ Global Marketplace Integration Service
 Integration service that combines global marketplace operations with cross-chain capabilities
 """
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-import hashlib
 from typing import Any
 
 from aitbc import get_logger

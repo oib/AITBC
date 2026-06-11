@@ -4,6 +4,7 @@ Tests for AITBC training setup environment utilities
 """
 
 import pytest
+
 from aitbc.training_setup.environment import TrainingEnvironment
 
 

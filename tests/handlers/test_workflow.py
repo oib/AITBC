@@ -5,8 +5,7 @@ Tests for workflow command handlers
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, Mock
-import json
+from unittest.mock import Mock, patch
 
 # Add CLI path for imports
 cli_path = Path("/opt/aitbc/cli")
@@ -16,8 +15,8 @@ if str(cli_path) not in sys.path:
 import pytest
 from handlers.workflow import (
     handle_workflow_create,
-    handle_workflow_schedule,
     handle_workflow_monitor,
+    handle_workflow_schedule,
 )
 
 
