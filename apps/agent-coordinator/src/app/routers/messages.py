@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 import json
 from datetime import UTC, datetime
 from typing import Any
@@ -39,7 +38,7 @@ class SubscribeRequest(BaseModel):
 # Send encrypted message
 @router.post("/send")
 @rate_limit(rate=50, per=60)
-async def send_encrypted_message(request: Request, req: SendMessageRequest):
+async def send_encrypted_message(request: Request, req: SendMessageRequest) -> Any:
     """Send encrypted message to agent"""
     try:
         encryptor = get_encryptor()
@@ -107,7 +106,7 @@ async def get_inbox(
     agent_id: str = Query(..., description="Agent ID"),
     limit: int = Query(100, description="Maximum messages"),
     unread_only: bool = Query(False, description="Only unread messages")
-):
+) -> Any:
     """Get agent's inbox"""
     try:
         if not state.message_storage:
@@ -143,7 +142,7 @@ async def get_inbox(
 async def get_messages_for_agent_compatibility(
     request: Request,
     agent_id: str
-):
+) -> Any:
     """Get messages for agent - AgentDaemon compatibility route"""
     return await get_messages_for_agent(request, agent_id)
 
@@ -151,7 +150,7 @@ async def get_messages_for_agent_compatibility(
 async def get_messages_for_agent(
     request: Request,
     agent_id: str
-):
+) -> Any:
     try:
         if not state.message_storage:
             return {
@@ -184,13 +183,13 @@ async def discover_agents(
     agent_type: str | None = Query(None, description="Filter by agent type"),
     min_health_score: float = Query(0.0, description="Minimum health score"),
     limit: int = Query(50, description="Maximum results")
-):
+) -> Any:
     """Discover agents by criteria"""
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
 
-        query = {}
+        query: dict[str, Any] = {}
         if capability:
             query["capabilities"] = [capability]
         if agent_type:
@@ -219,7 +218,7 @@ async def discover_agents(
 # Subscribe to topic
 @router.post("/subscribe")
 @rate_limit(rate=50, per=60)
-async def subscribe_to_topic(request: Request, req: SubscribeRequest):
+async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> Any:
     """Subscribe agent to topic"""
     try:
         # Store subscription in Redis
@@ -252,7 +251,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest):
 @rate_limit(rate=50, per=60)
 async def broadcast_message(
     request_http: Request, request: BroadcastRequest
-):
+) -> Any:
     """Broadcast message to multiple agents"""
     try:
         if not state.communication_manager:
@@ -276,7 +275,7 @@ async def broadcast_message(
             raise HTTPException(status_code=400, detail=f"Invalid priority: {request.priority}")
 
         # Build discovery query for filtering
-        query = {}
+        query: dict[str, Any] = {}
         if request.agent_type:
             query["agent_type"] = request.agent_type
         if request.capabilities:
@@ -350,7 +349,7 @@ async def get_message_history(
     receiver_id: str | None = Query(None, description="Filter by receiver ID"),
     limit: int = Query(100, description="Maximum number of messages"),
     offset: int = Query(0, description="Offset for pagination")
-):
+) -> Any:
     """Get message history with optional filters"""
     try:
         if not state.message_storage:
@@ -389,7 +388,7 @@ async def get_message_history(
 @rate_limit(rate=200, per=60)
 async def get_message(
     request: Request, message_id: str
-):
+) -> Any:
     """Get a specific message by ID"""
     try:
         if not state.message_storage:
@@ -417,7 +416,7 @@ async def get_message(
 @rate_limit(rate=200, per=60)
 async def get_load_balancer_stats(
     request: Request
-):
+) -> Any:
     """Get load balancer statistics"""
     try:
         if not state.load_balancer:
@@ -440,7 +439,7 @@ async def get_load_balancer_stats(
 @rate_limit(rate=200, per=60)
 async def get_registry_stats(
     request: Request
-):
+) -> Any:
     """Get agent registry statistics"""
     try:
         if not state.agent_registry:
@@ -463,7 +462,7 @@ async def get_registry_stats(
 @rate_limit(rate=200, per=60)
 async def get_agents_by_service(
     request: Request, service: str
-):
+) -> Any:
     """Get agents that provide a specific service"""
     try:
         if not state.agent_registry:
@@ -488,7 +487,7 @@ async def get_agents_by_service(
 @rate_limit(rate=200, per=60)
 async def get_agents_by_capability(
     request: Request, capability: str
-):
+) -> Any:
     """Get agents that have a specific capability"""
     try:
         if not state.agent_registry:
@@ -513,7 +512,7 @@ async def get_agents_by_capability(
 @rate_limit(rate=50, per=60)
 async def set_load_balancing_strategy(
     request: Request, strategy: str = Query(..., description="Load balancing strategy")
-):
+) -> Any:
     """Set load balancing strategy"""
     try:
         if not state.load_balancer:
@@ -544,7 +543,7 @@ async def set_load_balancing_strategy(
 @rate_limit(rate=50, per=60)
 async def add_peer(
     request: Request, agent_id: str = Query(..., description="Agent ID"), peer_id: str = Query(..., description="Peer agent ID")
-):
+) -> Any:
     """Add a peer connection for an agent"""
     try:
 
@@ -574,7 +573,7 @@ async def add_peer(
 @rate_limit(rate=50, per=60)
 async def remove_peer(
     request: Request, agent_id: str = Query(..., description="Agent ID"), peer_id: str = Query(..., description="Peer agent ID")
-):
+) -> Any:
     """Remove a peer connection for an agent"""
     try:
 
@@ -604,7 +603,7 @@ async def remove_peer(
 @rate_limit(rate=200, per=60)
 async def get_agent_peers(
     request: Request, agent_id: str
-):
+) -> Any:
     """Get all peers for a specific agent"""
     try:
 
@@ -631,7 +630,7 @@ async def get_agent_peers(
 @rate_limit(rate=200, per=60)
 async def get_all_peers(
     request: Request
-):
+) -> Any:
     """Get all peer connections in the system"""
     try:
 
