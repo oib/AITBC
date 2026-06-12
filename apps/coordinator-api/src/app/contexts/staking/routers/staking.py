@@ -25,12 +25,18 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 # Optional authentication wrapper for testing
-async def get_current_user_optional() -> None:
+async def get_current_user_optional(
+    session: Session = Depends(get_session),
+    request: Request | None = None,
+) -> dict[str, Any]:
     """Optional authentication that returns default test user if no token provided"""
     try:
-        return await _get_current_user()  # type: ignore[no-any-return]
+        if not request:
+            return {"address": "test_user_address", "is_oracle": False, "is_admin": False}
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        return await _get_current_user(session, token, request)
     except Exception:
-        return {"address": "test_user_address", "is_oracle": False, "is_admin": False}  # type: ignore[return-value]
+        return {"address": "test_user_address", "is_oracle": False, "is_admin": False}
 
 # Pydantic models for request/response
 class StakeCreateRequest(BaseModel):

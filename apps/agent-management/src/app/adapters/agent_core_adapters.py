@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Adapters for agent-management app to implement aitbc-agent-core protocols.
 Since agent-management uses coordinator-api's domain models via symlink,

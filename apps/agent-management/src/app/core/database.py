@@ -2,15 +2,15 @@
 
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from .config import ServiceSettings
 
 Base = declarative_base()
 
 
-def get_engine(settings: ServiceSettings):
+def get_engine(settings: ServiceSettings) -> Engine:
     """Create SQLAlchemy engine based on configuration."""
     db_config = settings.database
     return create_engine(
@@ -22,12 +22,12 @@ def get_engine(settings: ServiceSettings):
     )
 
 
-def get_sessionmaker(engine):
+def get_sessionmaker(engine: Engine) -> sessionmaker:
     """Create session factory."""
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-def get_db(engine) -> Generator:
+def get_db(engine: Engine) -> Generator[Session, None, None]:
     """Dependency for FastAPI endpoints."""
     Session = get_sessionmaker(engine)
     db = Session()

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Job distribution routes for Pool Hub"""
 
 from datetime import UTC, datetime

@@ -31,7 +31,7 @@ class ApprovalStrategy(ABC):
         """
         pass
 
-    def log_decision(self, request: dict[str, Any], approved: bool, reason: str):
+    def log_decision(self, request: dict[str, Any], approved: bool, reason: str) -> None:
         """Log approval decision for audit trail."""
         decision = "APPROVED" if approved else "REJECTED"
         self.logger.info(

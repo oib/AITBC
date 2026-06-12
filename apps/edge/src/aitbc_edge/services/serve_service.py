@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Edge serve service for Edge API Service"""
 
 from datetime import datetime

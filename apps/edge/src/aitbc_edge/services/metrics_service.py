@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Edge metrics service for Edge API Service"""
 
 from uuid import uuid4

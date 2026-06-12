@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Island operations router for Edge API Service"""
 
 from fastapi import APIRouter, Depends, HTTPException

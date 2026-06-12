@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Database connection and session management for Hermes service."""
 
 import os

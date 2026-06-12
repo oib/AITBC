@@ -16,6 +16,7 @@ from ..domain.governance import (
     GovernanceToken,
     Proposal,
     ProposalExecutionLog,
+    ProposalStatus,
     TokenStake,
     Vote,
 )
@@ -129,7 +130,7 @@ class GovernanceService:
         proposal = result.scalars().first()
         
         if proposal:
-            proposal.status = status
+            proposal.status = ProposalStatus(status)
             await self.session.commit()
             await self.session.refresh(proposal)
         
@@ -230,7 +231,7 @@ class GovernanceService:
         
         try:
             # Update proposal status
-            proposal.status = "executed"
+            proposal.status = ProposalStatus.EXECUTED
             proposal.executed_at = datetime.now(UTC)
             
             # Log execution success
