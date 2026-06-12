@@ -1,6 +1,7 @@
-# mypy: ignore-errors
 """Monitor router for AITBC Agent Coordinator."""
 
+
+from typing import Any
 
 from fastapi import APIRouter, Request
 
@@ -11,7 +12,7 @@ router = APIRouter(tags=["Monitor"])
 
 @router.get("/api/v1/dashboard", response_model=dict)
 @rate_limit(rate=1000, per=60)
-async def get_dashboard(request: Request):
+async def get_dashboard(request: Request) -> dict[str, Any]:
     """Get monitoring dashboard data."""
     return {
         "overall_status": "operational",
@@ -31,7 +32,7 @@ async def get_dashboard(request: Request):
 
 @router.get("/status", response_model=dict)
 @rate_limit(rate=1000, per=60)
-async def get_status(request: Request):
+async def get_status(request: Request) -> dict[str, Any]:
     """Get coordinator status."""
     return {
         "status": "online",
@@ -43,20 +44,20 @@ async def get_status(request: Request):
 
 @router.get("/miners", response_model=list[dict])
 @rate_limit(rate=500, per=60)
-async def get_miners(request: Request):
+async def get_miners(request: Request) -> list[dict[str, Any]]:
     """Get miners list."""
     return []
 
 
 @router.get("/dashboard", response_model=list[dict])
 @rate_limit(rate=500, per=60)
-async def get_history_dashboard(request: Request):
+async def get_history_dashboard(request: Request) -> list[dict[str, Any]]:
     """Get historical dashboard data."""
     return []
 
 
 @router.get("/jobs", response_model=list[dict])
 @rate_limit(rate=500, per=60)
-async def get_jobs(request: Request):
+async def get_jobs(request: Request) -> list[dict[str, Any]]:
     """Get jobs list for history and metrics commands."""
     return []

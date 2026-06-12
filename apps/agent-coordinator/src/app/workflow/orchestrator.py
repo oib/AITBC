@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Workflow Orchestration Engine for AITBC Agent Coordinator
 Implements multi-agent workflow execution with Redis persistence
@@ -12,10 +11,11 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
+redis: Any = None
 try:
     import redis.asyncio as redis
 except ImportError:
-    redis = None
+    pass
 
 from aitbc import get_logger
 
@@ -194,12 +194,12 @@ class WorkflowExecution:
 class WorkflowOrchestrator:
     """Workflow orchestration engine with Redis persistence"""
 
-    def __init__(self, redis_url: str = "redis://localhost:6379/1"):
+    def __init__(self, redis_url: str = "redis://localhost:6379/1") -> None:
         self.redis_url = redis_url
         self.redis_client: redis.Redis | None = None
         self.active_executions: dict[str, WorkflowExecution] = {}
 
-    async def start(self):
+    async def start(self) -> Any:
         """Start the orchestrator"""
         if not redis:
             logger.warning("Redis not available, workflow orchestrator running in memory-only mode")
@@ -209,7 +209,7 @@ class WorkflowOrchestrator:
         await self._load_active_executions()
         logger.info("Workflow orchestrator started")
 
-    async def stop(self):
+    async def stop(self) -> Any:
         """Stop the orchestrator"""
         if self.redis_client:
             await self.redis_client.close()
@@ -247,7 +247,7 @@ class WorkflowOrchestrator:
         logger.info(f"Created workflow {workflow_id}: {name}")
         return workflow
 
-    async def execute_workflow(self, workflow_id: str, input_parameters: dict[str, Any] = None) -> WorkflowExecution:
+    async def execute_workflow(self, workflow_id: str, input_parameters: dict[str, Any] | None = None) -> WorkflowExecution:
         """Execute a workflow"""
         # Load workflow definition
         workflow = await self._load_workflow_definition(workflow_id)
@@ -315,7 +315,7 @@ class WorkflowOrchestrator:
             logger.error(f"Error listing workflows: {e}")
             return []
 
-    async def list_executions(self, workflow_id: str = None) -> list[WorkflowExecution]:
+    async def list_executions(self, workflow_id: str | None = None) -> list[WorkflowExecution]:
         """List workflow executions"""
         if not self.redis_client:
             return []
@@ -333,7 +333,7 @@ class WorkflowOrchestrator:
             logger.error(f"Error listing executions: {e}")
             return []
 
-    async def _execute_workflow_async(self, execution: WorkflowExecution):
+    async def _execute_workflow_async(self, execution: WorkflowExecution) -> Any:
         """Execute workflow steps asynchronously"""
         execution.status = WorkflowStatus.RUNNING
         await self._save_workflow_execution(execution)
@@ -403,7 +403,7 @@ class WorkflowOrchestrator:
             if execution.execution_id in self.active_executions:
                 del self.active_executions[execution.execution_id]
 
-    async def _execute_step(self, step: WorkflowStep, input_parameters: dict[str, Any]):
+    async def _execute_step(self, step: WorkflowStep, input_parameters: dict[str, Any]) -> Any:
         """Execute a single workflow step"""
         # In a real implementation, this would:
         # 1. Send a message to the agent
@@ -423,7 +423,7 @@ class WorkflowOrchestrator:
 
         logger.info(f"Executed step {step.step_id}: {step.action} on {step.agent_id}")
 
-    async def _save_workflow_definition(self, workflow: WorkflowDefinition):
+    async def _save_workflow_definition(self, workflow: WorkflowDefinition) -> Any:
         """Save workflow definition to Redis"""
         if not self.redis_client:
             return
@@ -443,7 +443,7 @@ class WorkflowOrchestrator:
             return WorkflowDefinition.from_dict(json.loads(data))
         return None
 
-    async def _save_workflow_execution(self, execution: WorkflowExecution):
+    async def _save_workflow_execution(self, execution: WorkflowExecution) -> Any:
         """Save workflow execution to Redis"""
         if not self.redis_client:
             return
@@ -466,7 +466,7 @@ class WorkflowOrchestrator:
                     return WorkflowExecution.from_dict(json.loads(data))
         return None
 
-    async def _load_active_executions(self):
+    async def _load_active_executions(self) -> Any:
         """Load active executions from Redis"""
         if not self.redis_client:
             return

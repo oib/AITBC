@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -8,6 +7,7 @@ from aitbc.rate_limiting import rate_limit
 
 from .. import state
 from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
+from typing import Any
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -15,7 +15,7 @@ router = APIRouter()
 # Monitoring and metrics endpoints
 @router.get("/metrics")
 @rate_limit(rate=1000, per=60)
-async def get_prometheus_metrics(request: Request):
+async def get_prometheus_metrics(request: Request) -> Response:
     """Get metrics in Prometheus format"""
     try:
         metrics = metrics_registry.get_all_metrics()
@@ -58,7 +58,7 @@ async def get_prometheus_metrics(request: Request):
 
 @router.get("/metrics/summary")
 @rate_limit(rate=500, per=60)
-async def get_metrics_summary(request: Request):
+async def get_metrics_summary(request: Request) -> dict[str, Any]:
     """Get metrics summary for dashboard"""
     try:
         summary = performance_monitor.get_performance_summary()
@@ -67,7 +67,7 @@ async def get_metrics_summary(request: Request):
         system_metrics = {
             "total_agents": len(state.agent_registry.agents) if state.agent_registry else 0,
             "active_agents": len([a for a in state.agent_registry.agents.values() if getattr(a, 'is_active', True)]) if state.agent_registry else 0,
-            "total_tasks": len(state.task_distributor.task_queue._queue) if state.task_distributor and hasattr(state.task_distributor, 'task_queue') else 0,
+            "total_tasks": len(state.task_distributor.task_queue._queue) if state.task_distributor and hasattr(state.task_distributor, 'task_queue') else 0,  # type: ignore[attr-defined]
             "load_balancer_strategy": state.load_balancer.strategy.value if state.load_balancer else "unknown"
         }
 
@@ -84,11 +84,11 @@ async def get_metrics_summary(request: Request):
 
 @router.get("/metrics/health")
 @rate_limit(rate=500, per=60)
-async def get_health_metrics(request: Request):
+async def get_health_metrics(request: Request) -> dict[str, Any]:
     """Get health metrics for monitoring"""
     try:
         # Get system health metrics
-        import psutil
+        import psutil  # type: ignore[import-untyped]
 
         memory = psutil.virtual_memory()
         cpu = psutil.cpu_percent(interval=1)

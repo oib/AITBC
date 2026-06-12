@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Swarm coordination router for AITBC Agent Coordinator."""
 
 
@@ -6,6 +5,7 @@ from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
+from typing import Any
 
 router = APIRouter(prefix="/swarm", tags=["Swarm"])
 
@@ -56,7 +56,7 @@ async def list_swarms(
     swarm_id: str | None = Query(None, description="Filter by swarm ID"),
     status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(20, description="Number of swarms to list")
-):
+) -> list[Any]:
     """List active swarms."""
     # Return empty list for now - backend not fully implemented
     return []
@@ -66,7 +66,7 @@ async def list_swarms(
 @rate_limit(rate=50, per=60)
 async def join_swarm(
     http_request: Request, body: JoinRequest
-):
+) -> dict[str, Any]:
     """Join agent swarm for collective optimization."""
     import uuid
     return {
@@ -83,7 +83,7 @@ async def join_swarm(
 @rate_limit(rate=50, per=60)
 async def coordinate_swarm(
     http_request: Request, body: CoordinateRequest
-):
+) -> dict[str, Any]:
     """Coordinate swarm task execution."""
     import uuid
     return {
@@ -100,7 +100,7 @@ async def coordinate_swarm(
 @rate_limit(rate=200, per=60)
 async def get_task_status(
     request: Request, task_id: str
-):
+) -> dict[str, Any]:
     """Get swarm task status."""
     return {
         "task_id": task_id,
@@ -115,7 +115,7 @@ async def get_task_status(
 @rate_limit(rate=50, per=60)
 async def leave_swarm(
     request: Request, swarm_id: str
-):
+) -> dict[str, Any]:
     """Leave swarm."""
     return {
         "swarm_id": swarm_id,
@@ -128,7 +128,7 @@ async def leave_swarm(
 @rate_limit(rate=50, per=60)
 async def achieve_consensus(
     request: Request, task_id: str, body: ConsensusRequest
-):
+) -> dict[str, Any]:
     """Achieve swarm consensus on task result."""
     return {
         "task_id": task_id,
@@ -142,7 +142,7 @@ async def achieve_consensus(
 @rate_limit(rate=1000, per=60)
 async def get_dashboard(
     request: Request
-):
+) -> dict[str, Any]:
     """Get monitoring dashboard data."""
     return {
         "overall_status": "operational",
@@ -164,7 +164,7 @@ async def get_dashboard(
 @rate_limit(rate=1000, per=60)
 async def get_status(
     request: Request
-):
+) -> dict[str, Any]:
     """Get coordinator status."""
     return {
         "status": "online",
@@ -178,7 +178,7 @@ async def get_status(
 @rate_limit(rate=500, per=60)
 async def get_miners(
     request: Request
-):
+) -> list[Any]:
     """Get miners list."""
     return []
 
@@ -187,6 +187,6 @@ async def get_miners(
 @rate_limit(rate=500, per=60)
 async def get_history_dashboard(
     request: Request
-):
+) -> list[Any]:
     """Get historical dashboard data."""
     return []

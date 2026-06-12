@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Distributed Consensus Implementation for AITBC Agent Coordinator
 Implements various consensus algorithms for distributed decision making
@@ -39,7 +38,7 @@ class ConsensusNode:
 class DistributedConsensus:
     """Distributed consensus implementation with multiple algorithms"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: dict[str, ConsensusNode] = {}
         self.proposals: dict[str, ConsensusProposal] = {}
         self.consensus_history: list[dict[str, Any]] = []
@@ -117,7 +116,7 @@ class DistributedConsensus:
             logger.error(f"Error creating proposal: {e}")
             return {'status': 'error', 'message': str(e)}
 
-    async def _initiate_voting(self, proposal: ConsensusProposal):
+    async def _initiate_voting(self, proposal: ConsensusProposal) -> Any:
         """Initiate voting for a proposal"""
         try:
             # Notify all active nodes
@@ -134,7 +133,7 @@ class DistributedConsensus:
         except Exception as e:
             logger.error(f"Error initiating voting: {e}")
 
-    async def _simulate_node_vote(self, proposal: ConsensusProposal, node_id: str):
+    async def _simulate_node_vote(self, proposal: ConsensusProposal, node_id: str) -> Any:
         """Simulate a node's voting decision"""
         try:
             # Simple voting logic based on proposal content and node characteristics
@@ -201,7 +200,7 @@ class DistributedConsensus:
             logger.error(f"Error casting vote: {e}")
             return {'status': 'error', 'message': str(e)}
 
-    async def _check_consensus(self, proposal: ConsensusProposal):
+    async def _check_consensus(self, proposal: ConsensusProposal) -> Any:
         """Check if consensus is reached for a proposal"""
         try:
             if proposal.status != 'pending':
@@ -251,7 +250,7 @@ class DistributedConsensus:
         except Exception as e:
             logger.error(f"Error checking consensus: {e}")
 
-    async def _finalize_proposal(self, proposal: ConsensusProposal, approved: bool, reason: str):
+    async def _finalize_proposal(self, proposal: ConsensusProposal, approved: bool, reason: str) -> Any:
         """Finalize a proposal decision"""
         try:
             # Record in history
@@ -277,7 +276,7 @@ class DistributedConsensus:
         except Exception as e:
             logger.error(f"Error finalizing proposal: {e}")
 
-    async def _cleanup_old_proposals(self):
+    async def _cleanup_old_proposals(self) -> Any:
         """Clean up old and expired proposals"""
         try:
             current_time = datetime.now(UTC)
@@ -364,7 +363,7 @@ class DistributedConsensus:
             rejected_proposals = total_proposals - approved_proposals
 
             # Algorithm performance
-            algorithm_stats = defaultdict(lambda: {'approved': 0, 'total': 0})
+            algorithm_stats: defaultdict[str, dict[str, Any]] = defaultdict(lambda: {'approved': 0, 'total': 0})
             for record in self.consensus_history:
                 algorithm = record['algorithm']
                 algorithm_stats[algorithm]['total'] += 1
