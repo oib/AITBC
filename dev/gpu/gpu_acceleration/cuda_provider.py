@@ -111,10 +111,10 @@ class CUDAComputeProvider(ComputeProvider):
             cuda.init()
             self._discover_devices()
 
-            logger.info(f"CUDA Compute Provider initialized with {len(self.devices)} devices")
+            logger.info("CUDA Compute Provider initialized with %s devices", len(self.devices))
 
         except Exception as e:
-            logger.error(f"Failed to initialize CUDA provider: {e}")
+            logger.error("Failed to initialize CUDA provider: %s", e)
 
     def _find_cuda_lib(self) -> str:
         """Find the compiled CUDA library."""
@@ -180,7 +180,7 @@ class CUDAComputeProvider(ComputeProvider):
                 device = CUDADevice(i, cuda_device)
                 self.devices.append(device)
             except Exception as e:
-                logger.warning(f"Failed to initialize CUDA device {i}: {e}")
+                logger.warning("Failed to initialize CUDA device %s: %s", i, e)
 
     def initialize(self) -> bool:
         """Initialize the CUDA provider."""
@@ -201,7 +201,7 @@ class CUDAComputeProvider(ComputeProvider):
                 return False
 
         except Exception as e:
-            logger.error(f"CUDA initialization failed: {e}")
+            logger.error("CUDA initialization failed: %s", e)
             return False
 
     def shutdown(self) -> None:
@@ -219,7 +219,7 @@ class CUDAComputeProvider(ComputeProvider):
             logger.info("CUDA provider shutdown complete")
 
         except Exception as e:
-            logger.error(f"CUDA shutdown failed: {e}")
+            logger.error("CUDA shutdown failed: %s", e)
 
     def get_available_devices(self) -> list[ComputeDevice]:
         """Get list of available CUDA devices."""
@@ -252,7 +252,7 @@ class CUDAComputeProvider(ComputeProvider):
             return True
 
         except Exception as e:
-            logger.error(f"Failed to set CUDA device {device_id}: {e}")
+            logger.error("Failed to set CUDA device %s: %s", device_id, e)
             return False
 
     def get_device_info(self, device_id: int) -> ComputeDevice | None:
@@ -271,7 +271,7 @@ class CUDAComputeProvider(ComputeProvider):
 
         if device_id is not None and device_id != self.current_device_id:
             if not self.set_device(device_id):
-                raise RuntimeError(f"Failed to set device {device_id}")
+                raise RuntimeError("Failed to set device %s" % device_id)
 
         return cuda.mem_alloc(size)
 
@@ -280,7 +280,7 @@ class CUDAComputeProvider(ComputeProvider):
         try:
             memory_handle.free()
         except Exception as e:
-            logger.warning(f"Failed to free CUDA memory: {e}")
+            logger.warning("Failed to free CUDA memory: %s", e)
 
     def copy_to_device(self, host_data: Any, device_data: Any) -> None:
         """Copy data from host to CUDA device."""
@@ -332,7 +332,7 @@ class CUDAComputeProvider(ComputeProvider):
             return False
 
         except Exception as e:
-            logger.error(f"Kernel execution failed: {e}")
+            logger.error("Kernel execution failed: %s", e)
             return False
 
     def synchronize(self) -> None:
@@ -396,7 +396,7 @@ class CUDAComputeProvider(ComputeProvider):
             return success
 
         except Exception as e:
-            logger.error(f"CUDA field add failed: {e}")
+            logger.error("CUDA field add failed: %s", e)
             return False
 
     def zk_field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
@@ -431,7 +431,7 @@ class CUDAComputeProvider(ComputeProvider):
             return success
 
         except Exception as e:
-            logger.error(f"CUDA field mul failed: {e}")
+            logger.error("CUDA field mul failed: %s", e)
             return False
 
     def zk_field_inverse(self, a: np.ndarray, result: np.ndarray) -> bool:
@@ -463,7 +463,7 @@ class CUDAComputeProvider(ComputeProvider):
             return success
 
         except Exception as e:
-            logger.error(f"CUDA field inverse failed: {e}")
+            logger.error("CUDA field inverse failed: %s", e)
             return False
 
     def zk_multi_scalar_mul(
@@ -521,7 +521,7 @@ class CUDAComputeProvider(ComputeProvider):
             return success
 
         except Exception as e:
-            logger.error(f"CUDA multi-scalar mul failed: {e}")
+            logger.error("CUDA multi-scalar mul failed: %s", e)
             return False
 
     def zk_pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray) -> bool:
