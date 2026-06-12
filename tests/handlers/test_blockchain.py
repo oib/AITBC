@@ -35,17 +35,17 @@ class TestHandleBlockchainInfo:
         """Test successful blockchain info retrieval"""
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         mock_chain_info = {"height": 100, "hash": "0x123"}
-        
+
         def get_chain_info(rpc_url):
             return mock_chain_info
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_blockchain_info(args, get_chain_info, render_mapping)
-        
+
         # Should not exit if chain_info is truthy
 
     @patch('handlers.blockchain.logger')
@@ -54,15 +54,15 @@ class TestHandleBlockchainInfo:
         """Test blockchain info with no data"""
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         def get_chain_info(rpc_url):
             return None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_blockchain_info(args, get_chain_info, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -74,14 +74,14 @@ class TestHandleBlockchainHeight:
         """Test successful blockchain height retrieval"""
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         mock_chain_info = {"height": 100}
-        
+
         def get_chain_info(rpc_url):
             return mock_chain_info
-        
+
         handle_blockchain_height(args, get_chain_info)
-        
+
         mock_print.assert_called()
 
     @patch('builtins.print')
@@ -89,12 +89,12 @@ class TestHandleBlockchainHeight:
         """Test blockchain height with no data"""
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         def get_chain_info(rpc_url):
             return None
-        
+
         handle_blockchain_height(args, get_chain_info)
-        
+
         mock_print.assert_called_with(0)
 
 
@@ -115,14 +115,14 @@ class TestHandleBlockchainBlock:
             "proposer": "miner1"
         }
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.number = 100
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         handle_blockchain_block(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
     @patch('builtins.print')
@@ -131,9 +131,9 @@ class TestHandleBlockchainBlock:
         """Test block retrieval with missing block number"""
         args = Mock()
         args.number = None
-        
+
         handle_blockchain_block(args, "http://localhost:8006")
-        
+
         mock_exit.assert_called_with(1)
 
     @patch('handlers.blockchain.requests.get')
@@ -144,14 +144,14 @@ class TestHandleBlockchainBlock:
         mock_response = Mock()
         mock_response.status_code = 500
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.number = 100
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         handle_blockchain_block(args, "http://localhost:8006")
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -167,13 +167,13 @@ class TestHandleBlockchainInit:
         mock_response.status_code = 200
         mock_response.json.return_value = {"hash": "0x123", "number": 0}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.force = False
-        
+
         handle_blockchain_init(args, "http://localhost:8006")
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.blockchain.requests.get')
@@ -184,13 +184,13 @@ class TestHandleBlockchainInit:
         mock_response = Mock()
         mock_response.status_code = 404
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.force = False
-        
+
         handle_blockchain_init(args, "http://localhost:8006")
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -206,13 +206,13 @@ class TestHandleBlockchainGenesis:
         mock_response.status_code = 200
         mock_response.json.return_value = {"hash": "0x123", "number": 0}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.create = True
-        
+
         handle_blockchain_genesis(args, "http://localhost:8006")
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.blockchain.requests.get')
@@ -230,13 +230,13 @@ class TestHandleBlockchainGenesis:
             "reward": 100
         }
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.create = False
-        
+
         handle_blockchain_genesis(args, "http://localhost:8006")
-        
+
         mock_logger.info.assert_called()
 
 
@@ -252,12 +252,12 @@ class TestHandleBlockchainImport:
         args.chain_id = None
         args.file = None
         args.json = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_blockchain_import(args, "http://localhost:8006", render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -273,15 +273,15 @@ class TestHandleBlockchainExport:
         mock_response.status_code = 200
         mock_response.json.return_value = {"blocks": []}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.output = "/path/to/export.json"
-        
+
         with patch('builtins.open', new_callable=Mock) as mock_open:
             handle_blockchain_export(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.blockchain.requests.get')
@@ -293,14 +293,14 @@ class TestHandleBlockchainExport:
         mock_response.status_code = 200
         mock_response.json.return_value = {"blocks": []}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.output = None
-        
+
         handle_blockchain_export(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
 
@@ -320,19 +320,19 @@ class TestHandleBlockchainBlocksRange:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"height": 100, "hash": "0x123"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.limit = 10
         args.start = None
         args.end = None
-        
+
         def output_format(args):
             return "json"
-        
+
         handle_blockchain_blocks_range(args, "http://localhost:8006", output_format)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.blockchain.requests.get')
@@ -344,19 +344,19 @@ class TestHandleBlockchainBlocksRange:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"height": 100, "hash": "0x123"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.limit = 10
         args.start = 100
         args.end = 200
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_blockchain_blocks_range(args, "http://localhost:8006", output_format)
-        
+
         mock_get.assert_called_once()
 
 
@@ -374,16 +374,16 @@ class TestHandleBlockchainTransactions:
             {"hash": "0x123", "from": "0xabc", "to": "0xdef", "value": 100}
         ]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.address = None
         args.limit = 10
         args.offset = 0
-        
+
         handle_blockchain_transactions(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.blockchain.requests.get')
@@ -395,16 +395,16 @@ class TestHandleBlockchainTransactions:
         mock_response.status_code = 200
         mock_response.json.return_value = []
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.address = "0xabc"
         args.limit = 10
         args.offset = 0
-        
+
         handle_blockchain_transactions(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
 
@@ -422,13 +422,13 @@ class TestHandleBlockchainMempool:
             {"hash": "0x123", "from": "0xabc", "value": 100}
         ]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         handle_blockchain_mempool(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.blockchain.requests.get')
@@ -440,13 +440,13 @@ class TestHandleBlockchainMempool:
         mock_response.status_code = 200
         mock_response.json.return_value = []
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = "ait-mainnet"
-        
+
         handle_blockchain_mempool(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
 

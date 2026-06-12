@@ -1,13 +1,9 @@
-# mypy: ignore-errors
 """PostgreSQL adapter for Wallet Daemon"""
-
 import json
 from typing import Any
-
 import psycopg2
 from aitbc.logging import get_logger
 from psycopg2.extras import RealDictCursor
-
 logger = get_logger(__name__)
 
 class PostgreSQLLedgerAdapter:
@@ -21,33 +17,22 @@ class PostgreSQLLedgerAdapter:
     def _connect(self):
         """Establish database connection"""
         try:
-            self.connection = psycopg2.connect(
-                cursor_factory=RealDictCursor,
-                **self.db_config
-            )
-            logger.info("Connected to PostgreSQL wallet ledger")
+            self.connection = psycopg2.connect(cursor_factory=RealDictCursor, **self.db_config)
+            logger.info('Connected to PostgreSQL wallet ledger')
         except Exception as e:
-            logger.error(f"Failed to connect to PostgreSQL: {e}")
+            logger.error('Failed to connect to PostgreSQL: %s', e)
             raise
 
-    def create_wallet(self, wallet_id: str, public_key: str, metadata: dict[str, Any] = None) -> bool:
+    def create_wallet(self, wallet_id: str, public_key: str, metadata: dict[str, Any]=None) -> bool:
         """Create a new wallet"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO wallets (wallet_id, public_key, metadata)
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (wallet_id) DO UPDATE
-                    SET public_key = EXCLUDED.public_key,
-                        metadata = EXCLUDED.metadata,
-                        updated_at = NOW()
-                """, (wallet_id, public_key, json.dumps(metadata or {})))
-
+                cursor.execute('\n                    INSERT INTO wallets (wallet_id, public_key, metadata)\n                    VALUES (%s, %s, %s)\n                    ON CONFLICT (wallet_id) DO UPDATE\n                    SET public_key = EXCLUDED.public_key,\n                        metadata = EXCLUDED.metadata,\n                        updated_at = NOW()\n                ', (wallet_id, public_key, json.dumps(metadata or {})))
                 self.connection.commit()
-                logger.info(f"Created wallet: {wallet_id}")
+                logger.info('Created wallet: %s', wallet_id)
                 return True
         except Exception as e:
-            logger.error(f"Failed to create wallet {wallet_id}: {e}")
+            logger.error('Failed to create wallet %s: %s', wallet_id, e)
             self.connection.rollback()
             return False
 
@@ -55,84 +40,57 @@ class PostgreSQLLedgerAdapter:
         """Get wallet information"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT wallet_id, public_key, metadata, created_at, updated_at
-                    FROM wallets
-                    WHERE wallet_id = %s
-                """, (wallet_id,))
-
+                cursor.execute('\n                    SELECT wallet_id, public_key, metadata, created_at, updated_at\n                    FROM wallets\n                    WHERE wallet_id = %s\n                ', (wallet_id,))
                 result = cursor.fetchone()
                 if result:
                     return dict(result)
                 return None
         except Exception as e:
-            logger.error(f"Failed to get wallet {wallet_id}: {e}")
+            logger.error('Failed to get wallet %s: %s', wallet_id, e)
             return None
 
-    def list_wallets(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    def list_wallets(self, limit: int=100, offset: int=0) -> list[dict[str, Any]]:
         """List all wallets"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT wallet_id, public_key, metadata, created_at, updated_at
-                    FROM wallets
-                    ORDER BY created_at DESC
-                    LIMIT %s OFFSET %s
-                """, (limit, offset))
-
+                cursor.execute('\n                    SELECT wallet_id, public_key, metadata, created_at, updated_at\n                    FROM wallets\n                    ORDER BY created_at DESC\n                    LIMIT %s OFFSET %s\n                ', (limit, offset))
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
-            logger.error(f"Failed to list wallets: {e}")
+            logger.error('Failed to list wallets: %s', e)
             return []
 
     def add_wallet_event(self, wallet_id: str, event_type: str, payload: dict[str, Any]) -> bool:
         """Add an event to the wallet"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO wallet_events (wallet_id, event_type, payload)
-                    VALUES (%s, %s, %s)
-                """, (wallet_id, event_type, json.dumps(payload)))
-
+                cursor.execute('\n                    INSERT INTO wallet_events (wallet_id, event_type, payload)\n                    VALUES (%s, %s, %s)\n                ', (wallet_id, event_type, json.dumps(payload)))
                 self.connection.commit()
-                logger.debug(f"Added event {event_type} to wallet {wallet_id}")
+                logger.debug('Added event %s to wallet %s', event_type, wallet_id)
                 return True
         except Exception as e:
-            logger.error(f"Failed to add event to wallet {wallet_id}: {e}")
+            logger.error('Failed to add event to wallet %s: %s', wallet_id, e)
             self.connection.rollback()
             return False
 
-    def get_wallet_events(self, wallet_id: str, limit: int = 100) -> list[dict[str, Any]]:
+    def get_wallet_events(self, wallet_id: str, limit: int=100) -> list[dict[str, Any]]:
         """Get events for a wallet"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT id, event_type, payload, created_at
-                    FROM wallet_events
-                    WHERE wallet_id = %s
-                    ORDER BY created_at DESC
-                    LIMIT %s
-                """, (wallet_id, limit))
-
+                cursor.execute('\n                    SELECT id, event_type, payload, created_at\n                    FROM wallet_events\n                    WHERE wallet_id = %s\n                    ORDER BY created_at DESC\n                    LIMIT %s\n                ', (wallet_id, limit))
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
-            logger.error(f"Failed to get events for wallet {wallet_id}: {e}")
+            logger.error('Failed to get events for wallet %s: %s', wallet_id, e)
             return []
 
     def update_wallet_metadata(self, wallet_id: str, metadata: dict[str, Any]) -> bool:
         """Update wallet metadata"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
-                    UPDATE wallets
-                    SET metadata = %s, updated_at = NOW()
-                    WHERE wallet_id = %s
-                """, (json.dumps(metadata), wallet_id))
-
+                cursor.execute('\n                    UPDATE wallets\n                    SET metadata = %s, updated_at = NOW()\n                    WHERE wallet_id = %s\n                ', (json.dumps(metadata), wallet_id))
                 self.connection.commit()
                 return cursor.rowcount > 0
         except Exception as e:
-            logger.error(f"Failed to update metadata for wallet {wallet_id}: {e}")
+            logger.error('Failed to update metadata for wallet %s: %s', wallet_id, e)
             self.connection.rollback()
             return False
 
@@ -140,15 +98,11 @@ class PostgreSQLLedgerAdapter:
         """Delete a wallet and all its events"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
-                    DELETE FROM wallets
-                    WHERE wallet_id = %s
-                """, (wallet_id,))
-
+                cursor.execute('\n                    DELETE FROM wallets\n                    WHERE wallet_id = %s\n                ', (wallet_id,))
                 self.connection.commit()
                 return cursor.rowcount > 0
         except Exception as e:
-            logger.error(f"Failed to delete wallet {wallet_id}: {e}")
+            logger.error('Failed to delete wallet %s: %s', wallet_id, e)
             self.connection.rollback()
             return False
 
@@ -156,43 +110,24 @@ class PostgreSQLLedgerAdapter:
         """Get wallet statistics"""
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("SELECT COUNT(*) as total_wallets FROM wallets")
+                cursor.execute('SELECT COUNT(*) as total_wallets FROM wallets')
                 total_wallets = cursor.fetchone()['total_wallets']
-
-                cursor.execute("SELECT COUNT(*) as total_events FROM wallet_events")
+                cursor.execute('SELECT COUNT(*) as total_events FROM wallet_events')
                 total_events = cursor.fetchone()['total_events']
-
-                cursor.execute("""
-                    SELECT event_type, COUNT(*) as count
-                    FROM wallet_events
-                    GROUP BY event_type
-                    ORDER BY count DESC
-                """)
+                cursor.execute('\n                    SELECT event_type, COUNT(*) as count\n                    FROM wallet_events\n                    GROUP BY event_type\n                    ORDER BY count DESC\n                ')
                 event_types = {row['event_type']: row['count'] for row in cursor.fetchall()}
-
-                return {
-                    "total_wallets": total_wallets,
-                    "total_events": total_events,
-                    "event_types": event_types
-                }
+                return {'total_wallets': total_wallets, 'total_events': total_events, 'event_types': event_types}
         except Exception as e:
-            logger.error(f"Failed to get wallet stats: {e}")
+            logger.error('Failed to get wallet stats: %s', e)
             return {}
 
     def close(self):
         """Close the database connection"""
         if self.connection:
             self.connection.close()
-            logger.info("PostgreSQL connection closed")
+            logger.info('PostgreSQL connection closed')
 
-# Factory function
 def create_postgresql_adapter() -> PostgreSQLLedgerAdapter:
     """Create a PostgreSQL ledger adapter"""
-    config = {
-        "host": "localhost",
-        "database": "aitbc_wallet",
-        "user": "aitbc_user",
-        "password": "aitbc_password",
-        "port": 5432
-    }
+    config = {'host': 'localhost', 'database': 'aitbc_wallet', 'user': 'aitbc_user', 'password': 'aitbc_password', 'port': 5432}
     return PostgreSQLLedgerAdapter(config)

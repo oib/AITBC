@@ -38,7 +38,7 @@ def get_profile(agent_id: str, format: str):
             api_url = "http://localhost:8203"
 
         response = requests.get(f"{api_url}/reputation/profile/{agent_id}", timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             if format == "json":
@@ -72,8 +72,8 @@ def get_profile(agent_id: str, format: str):
 @click.option("--value", type=float, default=3.0, help="Value rating (1-5)")
 @click.option("--text", default="", help="Feedback text")
 @click.option("--tag", multiple=True, help="Feedback tags")
-def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: float, 
-                communication: float, reliability: float, value: float, 
+def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: float,
+                communication: float, reliability: float, value: float,
                 text: str, tag: tuple):
     """Add community feedback for an agent"""
     import json
@@ -107,10 +107,10 @@ def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: f
         }
 
         response = requests.post(f"{api_url}/reputation/feedback/{agent_id}", json=payload, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
-            click.echo(f"Feedback added successfully!")
+            click.echo("Feedback added successfully!")
             click.echo(f"Feedback ID: {data['id']}")
             click.echo(f"Overall Rating: {data['overall_rating']}/5.0")
             click.echo(f"Moderation Status: {data['moderation_status']}")
@@ -151,7 +151,7 @@ def leaderboard(category: str, limit: int, region: str, format: str):
             params["region"] = region
 
         response = requests.get(f"{api_url}/reputation/leaderboard", params=params, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             if format == "json":
@@ -189,7 +189,7 @@ def trust_score(agent_id: str, format: str):
             api_url = "http://localhost:8203"
 
         response = requests.get(f"{api_url}/reputation/trust-score/{agent_id}", timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             if format == "json":
@@ -231,7 +231,7 @@ def metrics(format: str):
             api_url = "http://localhost:8203"
 
         response = requests.get(f"{api_url}/reputation/metrics", timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             if format == "json":
@@ -275,10 +275,10 @@ def create_profile(agent_id: str):
             api_url = "http://localhost:8203"
 
         response = requests.post(f"{api_url}/reputation/profile/{agent_id}", timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
-            click.echo(f"Reputation profile created successfully!")
+            click.echo("Reputation profile created successfully!")
             click.echo(f"Agent ID: {data['agent_id']}")
             click.echo(f"Initial Trust Score: {data['trust_score']}")
             click.echo(f"Reputation Level: {data['reputation_level']}")

@@ -31,18 +31,18 @@ class TestHandleWorkflowCreate:
         mock_response.status_code = 200
         mock_response.json.return_value = {"job_id": "job_123"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.name = "test-workflow"
         args.template = "custom"
         args.model = "llama2:7b"
         args.prompt = "Hello"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_workflow_create(args, render_mapping)
-        
+
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
 
@@ -54,15 +54,15 @@ class TestHandleWorkflowCreate:
         mock_response.status_code = 200
         mock_response.json.return_value = {"job_id": "job_123"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         # Don't set attributes - they'll be None by default from getattr
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_workflow_create(args, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.workflow.requests.post')
@@ -73,18 +73,18 @@ class TestHandleWorkflowCreate:
         mock_response.status_code = 500
         mock_response.raise_for_status.side_effect = Exception("HTTP Error")
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.name = "test-workflow"
         args.template = "custom"
         args.model = "llama2:7b"
         args.prompt = "Hello"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_workflow_create(args, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
     @patch('handlers.workflow.requests.post')
@@ -92,18 +92,18 @@ class TestHandleWorkflowCreate:
     def test_handle_workflow_create_exception(self, mock_logger, mock_post):
         """Test workflow creation with exception"""
         mock_post.side_effect = Exception("Connection error")
-        
+
         args = Mock()
         args.name = "test-workflow"
         args.template = "custom"
         args.model = "llama2:7b"
         args.prompt = "Hello"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_workflow_create(args, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
 
@@ -117,12 +117,12 @@ class TestHandleWorkflowSchedule:
         args.name = "daily-inference"
         args.cron = "0 9 * * *"
         args.command = "aitbc workflow run daily-inference"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_workflow_schedule(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
         logged_msg = mock_logger.info.call_args[0][0]
         assert "scheduled" in logged_msg
@@ -134,12 +134,12 @@ class TestHandleWorkflowSchedule:
         args.name = None
         args.cron = None
         args.command = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_workflow_schedule(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.workflow.logger')
@@ -149,11 +149,11 @@ class TestHandleWorkflowSchedule:
         args.name = "test-workflow"
         args.cron = "0 9 * * *"
         args.command = "test command"
-        
+
         mock_render = Mock()
-        
+
         handle_workflow_schedule(args, mock_render)
-        
+
         mock_render.assert_called_once()
         call_args = mock_render.call_args
         assert "Schedule:" in call_args[0][0]
@@ -177,18 +177,18 @@ class TestHandleWorkflowMonitor:
             ]
         }
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.name = "test-workflow"
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_workflow_monitor(args, output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
         mock_logger.info.assert_called()
 
@@ -205,17 +205,17 @@ class TestHandleWorkflowMonitor:
             ]
         }
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.name = "test-workflow"
-        
+
         def output_format(args):
             return "text"
-        
+
         mock_render = Mock()
-        
+
         handle_workflow_monitor(args, output_format, mock_render)
-        
+
         mock_get.assert_called_once()
         mock_render.assert_called_once()
 
@@ -227,17 +227,17 @@ class TestHandleWorkflowMonitor:
         mock_response.status_code = 200
         mock_response.json.return_value = {"items": []}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.name = "test-workflow"
-        
+
         def output_format(args):
             return "text"
-        
+
         mock_render = Mock()
-        
+
         handle_workflow_monitor(args, output_format, mock_render)
-        
+
         mock_get.assert_called_once()
         mock_render.assert_called_once()
 
@@ -249,17 +249,17 @@ class TestHandleWorkflowMonitor:
         mock_response.status_code = 500
         mock_response.raise_for_status.side_effect = Exception("HTTP Error")
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.name = "test-workflow"
-        
+
         def output_format(args):
             return "text"
-        
+
         mock_render = Mock()
-        
+
         handle_workflow_monitor(args, output_format, mock_render)
-        
+
         mock_logger.error.assert_called()
         mock_render.assert_called_once()
 
@@ -268,17 +268,17 @@ class TestHandleWorkflowMonitor:
     def test_handle_workflow_monitor_exception(self, mock_logger, mock_get):
         """Test workflow monitoring with exception"""
         mock_get.side_effect = Exception("Connection error")
-        
+
         args = Mock()
         args.name = "test-workflow"
-        
+
         def output_format(args):
             return "text"
-        
+
         mock_render = Mock()
-        
+
         handle_workflow_monitor(args, output_format, mock_render)
-        
+
         mock_logger.error.assert_called()
         mock_render.assert_called_once()
 

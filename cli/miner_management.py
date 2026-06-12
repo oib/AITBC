@@ -428,10 +428,10 @@ def check_earnings(
         from datetime import datetime, timedelta
 
         import httpx
-        
+
         # Query coordinator API for completed jobs and payments
         headers = {"X-API-Key": api_key}
-        
+
         # Calculate time period filter
         time_filter = None
         if period == "24h":
@@ -440,14 +440,14 @@ def check_earnings(
             time_filter = (datetime.now() - timedelta(days=7)).isoformat()
         elif period == "30d":
             time_filter = (datetime.now() - timedelta(days=30)).isoformat()
-        
+
         # Query completed jobs for the miner
         response = httpx.get(
             f"{coordinator_url}/v1/miners/{miner_id}/jobs",
             headers=headers,
             params={"status": "completed", "since": time_filter} if time_filter else {}
         )
-        
+
         if response.status_code != 200:
             return {
                 "action": "earnings",
@@ -458,20 +458,20 @@ def check_earnings(
                 "jobs_completed": 0,
                 "average_payment": 0.0
             }
-        
+
         jobs_data = response.json()
         jobs = jobs_data.get("jobs", [])
-        
+
         # Calculate earnings from completed jobs
         total_earnings = 0.0
         jobs_completed = len(jobs)
-        
+
         for job in jobs:
             payment_amount = job.get("payment_amount", 0)
             total_earnings += payment_amount
-        
+
         average_payment = (total_earnings / jobs_completed) if jobs_completed > 0 else 0.0
-        
+
         return {
             "action": "earnings",
             "miner_id": miner_id,

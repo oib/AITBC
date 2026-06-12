@@ -130,7 +130,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
     # Use env var or provided chain_id
     if chain_id is None:
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-    
+
     try:
         metrics_registry.increment("rpc_gpu_register_total")
 
@@ -200,7 +200,7 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     # Use env var or provided chain_id
     if chain_id is None:
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-    
+
     try:
         metrics_registry.increment("rpc_gpu_get_total")
 
@@ -247,7 +247,7 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
     # Use env var or provided chain_id
     if chain_id is None:
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-    
+
     try:
         metrics_registry.increment("rpc_gpu_allocate_total")
 

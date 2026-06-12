@@ -72,10 +72,10 @@ class TestDependencyScanner:
     def test_scan_with_pip_audit_no_vulnerabilities(self, mock_run):
         """Test scan_with_pip_audit when no vulnerabilities found"""
         mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_pip_audit()
-        
+
         assert results == []
         mock_run.assert_called_once()
 
@@ -99,10 +99,10 @@ class TestDependencyScanner:
             ]
         }
         mock_run.return_value = Mock(returncode=1, stdout=json.dumps(audit_data), stderr="")
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_pip_audit()
-        
+
         assert len(results) == 1
         assert results[0].package == "requests"
         assert results[0].vulnerability_id == "CVE-2021-33503"
@@ -111,10 +111,10 @@ class TestDependencyScanner:
     def test_scan_with_pip_audit_not_found(self, mock_run):
         """Test scan_with_pip_audit when pip-audit not found"""
         mock_run.side_effect = FileNotFoundError()
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_pip_audit()
-        
+
         assert results == []
 
     @patch('aitbc.dependency_scanner.subprocess.run')
@@ -122,30 +122,30 @@ class TestDependencyScanner:
         """Test scan_with_pip_audit when timeout occurs"""
         from subprocess import TimeoutExpired
         mock_run.side_effect = TimeoutExpired("pip-audit", 300)
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_pip_audit()
-        
+
         assert results == []
 
     @patch('aitbc.dependency_scanner.subprocess.run')
     def test_scan_with_pip_audit_invalid_json(self, mock_run):
         """Test scan_with_pip_audit with invalid JSON output"""
         mock_run.return_value = Mock(returncode=1, stdout="invalid json", stderr="")
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_pip_audit()
-        
+
         assert results == []
 
     @patch('aitbc.dependency_scanner.subprocess.run')
     def test_scan_with_bandit_no_issues(self, mock_run):
         """Test scan_with_bandit when no issues found"""
         mock_run.return_value = Mock(returncode=0, stdout=json.dumps({"results": []}), stderr="")
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_bandit()
-        
+
         assert results == []
 
     @patch('aitbc.dependency_scanner.subprocess.run')
@@ -162,10 +162,10 @@ class TestDependencyScanner:
             ]
         }
         mock_run.return_value = Mock(returncode=1, stdout=json.dumps(bandit_data), stderr="")
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_bandit()
-        
+
         assert len(results) == 1
         assert results[0]["issue_text"] == "Test issue"
 
@@ -173,20 +173,20 @@ class TestDependencyScanner:
     def test_scan_with_bandit_not_found(self, mock_run):
         """Test scan_with_bandit when bandit not found"""
         mock_run.side_effect = FileNotFoundError()
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_bandit()
-        
+
         assert results == []
 
     @patch('aitbc.dependency_scanner.subprocess.run')
     def test_scan_with_bandit_custom_dir(self, mock_run):
         """Test scan_with_bandit with custom target directory"""
         mock_run.return_value = Mock(returncode=0, stdout=json.dumps({"results": []}), stderr="")
-        
+
         scanner = DependencyScanner()
         results = scanner.scan_with_bandit(target_dir=Path("/custom/path"))
-        
+
         assert results == []
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0]
@@ -210,10 +210,10 @@ class TestDependencyScanner:
                 }
             ]
         }
-        
+
         scanner = DependencyScanner()
         results = scanner._parse_pip_audit_output(audit_data)
-        
+
         assert len(results) == 1
         assert results[0].package == "requests"
         assert results[0].fix_available is True
@@ -237,10 +237,10 @@ class TestDependencyScanner:
                 }
             ]
         }
-        
+
         scanner = DependencyScanner()
         results = scanner._parse_pip_audit_output(audit_data)
-        
+
         assert len(results) == 1
         assert results[0].fix_available is False
         assert results[0].fixed_version is None
@@ -261,10 +261,10 @@ class TestDependencyScanner:
             )
         ]
         mock_bandit.return_value = [{"issue_text": "Test issue"}]
-        
+
         scanner = DependencyScanner()
         report = scanner.generate_report()
-        
+
         assert "timestamp" in report
         assert report["dependency_vulnerabilities"] == 1
         assert report["security_issues"] == 1
@@ -276,12 +276,12 @@ class TestDependencyScanner:
         """Test save_report method"""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_file = Path(tmpdir) / "report.json"
-            
+
             scanner = DependencyScanner()
-            
+
             with patch.object(scanner, 'generate_report', return_value={"test": "data"}):
                 scanner.save_report(output_file)
-            
+
             assert output_file.exists()
             with open(output_file) as f:
                 content = json.load(f)
@@ -297,9 +297,9 @@ class TestUtilityFunctions:
         mock_scanner = Mock()
         mock_scanner.generate_report.return_value = {"test": "data"}
         mock_scanner_class.return_value = mock_scanner
-        
+
         report = run_dependency_scan()
-        
+
         assert report == {"test": "data"}
         mock_scanner.generate_report.assert_called_once()
 
@@ -308,13 +308,13 @@ class TestUtilityFunctions:
         """Test run_dependency_scan with output file"""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_file = Path(tmpdir) / "report.json"
-            
+
             mock_scanner = Mock()
             mock_scanner.generate_report.return_value = {"test": "data"}
             mock_scanner_class.return_value = mock_scanner
-            
+
             report = run_dependency_scan(output_file=output_file)
-            
+
             assert report == {"test": "data"}
             mock_scanner.save_report.assert_called_once_with(output_file)
 
@@ -328,7 +328,7 @@ class TestUtilityFunctions:
                 "LOW": 10
             }
         }
-        
+
         result = check_vulnerability_thresholds(report)
         assert result is True
 
@@ -342,7 +342,7 @@ class TestUtilityFunctions:
                 "LOW": 0
             }
         }
-        
+
         result = check_vulnerability_thresholds(report, max_critical=0)
         assert result is False
 
@@ -356,7 +356,7 @@ class TestUtilityFunctions:
                 "LOW": 0
             }
         }
-        
+
         result = check_vulnerability_thresholds(report, max_high=0)
         assert result is False
 
@@ -370,7 +370,7 @@ class TestUtilityFunctions:
                 "LOW": 60
             }
         }
-        
+
         result = check_vulnerability_thresholds(
             report,
             max_critical=0,
@@ -383,7 +383,7 @@ class TestUtilityFunctions:
     def test_check_vulnerability_thresholds_empty_report(self):
         """Test check_vulnerability_thresholds with empty report"""
         report = {}
-        
+
         result = check_vulnerability_thresholds(report)
         assert result is True
 

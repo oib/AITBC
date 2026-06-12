@@ -10,7 +10,6 @@ import pytest
 # Import the module normally
 from aitbc import api_versioning
 
-
 # ============================================================================
 # APIVersion Enum Tests
 # ============================================================================
@@ -47,7 +46,7 @@ class TestApiVersionDecorator:
         @api_versioning.api_version()
         def test_func():
             return {"data": "test"}
-        
+
         result = test_func()
         assert result["_meta"]["api_version"] == "v1"
         assert result["data"] == "test"
@@ -56,7 +55,7 @@ class TestApiVersionDecorator:
         @api_versioning.api_version(version=api_versioning.APIVersion.V2)
         def test_func():
             return {"data": "test"}
-        
+
         result = test_func()
         assert result["_meta"]["api_version"] == "v2"
 
@@ -64,7 +63,7 @@ class TestApiVersionDecorator:
         @api_versioning.api_version(deprecated=True)
         def test_func():
             return {"data": "test"}
-        
+
         result = test_func()
         assert result["_meta"]["api_version"] == "v1"
         assert result["_meta"]["deprecated"] is True
@@ -72,7 +71,7 @@ class TestApiVersionDecorator:
     def test_api_version_deprecated_with_dates(self):
         dep_date = datetime(2024, 1, 1)
         sunset_date = datetime(2024, 12, 31)
-        
+
         @api_versioning.api_version(
             deprecated=True,
             deprecation_date=dep_date,
@@ -80,7 +79,7 @@ class TestApiVersionDecorator:
         )
         def test_func():
             return {"data": "test"}
-        
+
         result = test_func()
         assert result["_meta"]["deprecated"] is True
         assert result["_meta"]["deprecated_since"] == "2024-01-01T00:00:00"
@@ -90,7 +89,7 @@ class TestApiVersionDecorator:
         @api_versioning.api_version()
         def test_func():
             return "string result"
-        
+
         result = test_func()
         assert result == "string result"
 
@@ -98,7 +97,7 @@ class TestApiVersionDecorator:
         @api_versioning.api_version()
         def test_func():
             return {"data": "test", "_meta": {"existing": "value"}}
-        
+
         result = test_func()
         assert result["_meta"]["api_version"] == "v1"
         assert result["_meta"]["existing"] == "value"
@@ -107,7 +106,7 @@ class TestApiVersionDecorator:
         @api_versioning.api_version(version=api_versioning.APIVersion.V2, deprecated=True)
         def test_func():
             return {}
-        
+
         assert test_func._api_version == "v2"
         assert test_func._deprecated is True
         assert test_func._deprecation_date is None
@@ -117,7 +116,7 @@ class TestApiVersionDecorator:
         @api_versioning.api_version()
         def test_func(x, y):
             return {"sum": x + y}
-        
+
         result = test_func(1, 2)
         assert result["sum"] == 3
         assert result["_meta"]["api_version"] == "v1"
@@ -137,26 +136,26 @@ class TestAPIVersionRouter:
 
     def test_register_handler(self):
         router = api_versioning.APIVersionRouter()
-        
+
         def handler_v1():
             return "v1"
-        
+
         router.register_handler("v1", handler_v1)
         assert "v1" in router._version_handlers
         assert router._version_handlers["v1"] == handler_v1
 
     def test_register_multiple_handlers(self):
         router = api_versioning.APIVersionRouter()
-        
+
         def handler_v1():
             return "v1"
-        
+
         def handler_v2():
             return "v2"
-        
+
         router.register_handler("v1", handler_v1)
         router.register_handler("v2", handler_v2)
-        
+
         assert len(router._version_handlers) == 2
 
     def test_set_default_version(self):
@@ -166,50 +165,50 @@ class TestAPIVersionRouter:
 
     def test_route_with_version(self):
         router = api_versioning.APIVersionRouter()
-        
+
         def handler_v1():
             return "v1"
-        
+
         router.register_handler("v1", handler_v1)
-        
+
         handler = router.route("v1")
         assert handler == handler_v1
         assert handler() == "v1"
 
     def test_route_without_version_uses_default(self):
         router = api_versioning.APIVersionRouter()
-        
+
         def handler_v1():
             return "v1"
-        
+
         router.register_handler("v1", handler_v1)
-        
+
         handler = router.route()
         assert handler == handler_v1
 
     def test_route_unsupported_version(self):
         router = api_versioning.APIVersionRouter()
-        
+
         def handler_v1():
             return "v1"
-        
+
         router.register_handler("v1", handler_v1)
-        
+
         with pytest.raises(ValueError, match="Unsupported API version"):
             router.route("v3")
 
     def test_get_supported_versions(self):
         router = api_versioning.APIVersionRouter()
-        
+
         def handler_v1():
             return "v1"
-        
+
         def handler_v2():
             return "v2"
-        
+
         router.register_handler("v1", handler_v1)
         router.register_handler("v2", handler_v2)
-        
+
         versions = router.get_supported_versions()
         assert "v1" in versions
         assert "v2" in versions

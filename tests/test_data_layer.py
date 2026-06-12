@@ -248,17 +248,17 @@ class TestGetDataLayer:
         # Reset global instance
         import aitbc.data_layer as dl_module
         dl_module._data_layer = None
-        
+
         data_layer1 = get_data_layer(use_mock_data=True)
         data_layer2 = get_data_layer()
-        
+
         assert data_layer1 is data_layer2
 
     def test_get_data_layer_with_param(self):
         """Test get_data_layer with parameter"""
         import aitbc.data_layer as dl_module
         dl_module._data_layer = None
-        
+
         data_layer = get_data_layer(use_mock_data=False)
         assert data_layer.use_mock_data is False
 

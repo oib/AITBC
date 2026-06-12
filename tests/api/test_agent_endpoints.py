@@ -28,7 +28,7 @@ class TestAgentRegistrationRequest:
             endpoints={"http": "http://localhost:8080"},
             metadata={"region": "us-east"}
         )
-        
+
         assert request.agent_id == "agent_001"
         assert request.agent_type == "worker"
         assert len(request.capabilities) == 2
@@ -45,7 +45,7 @@ class TestAgentRegistrationRequest:
             services=["backup"],
             endpoints={"http": "http://localhost:8081"}
         )
-        
+
         assert request.agent_id == "agent_002"
         assert request.agent_type == "specialist"
         assert request.metadata == {}
@@ -60,7 +60,7 @@ class TestAgentStatusUpdate:
             status="active",
             load_metrics={"cpu": 0.5, "memory": 0.6}
         )
-        
+
         assert request.status == "active"
         assert request.load_metrics["cpu"] == 0.5
         assert request.load_metrics["memory"] == 0.6
@@ -68,14 +68,14 @@ class TestAgentStatusUpdate:
     def test_status_update_minimal(self):
         """Test status update with only status"""
         request = AgentStatusUpdate(status="busy")
-        
+
         assert request.status == "busy"
         assert request.load_metrics == {}
 
     def test_status_update_status_values(self):
         """Test valid status values"""
         valid_statuses = ["active", "inactive", "busy", "maintenance", "error"]
-        
+
         for status in valid_statuses:
             request = AgentStatusUpdate(status=status)
             assert request.status == status
@@ -93,7 +93,7 @@ class TestAgentStatusUpdate:
                 "active_connections": 50
             }
         )
-        
+
         assert len(request.load_metrics) == 6
         assert request.load_metrics["cpu"] == 0.7
         assert request.load_metrics["active_connections"] == 50
@@ -108,7 +108,7 @@ class TestAgentStatusUpdate:
             endpoints={"http": "http://localhost:8080", "grpc": "localhost:9090"},
             metadata={"region": "us-west", "gpu_model": "A100"}
         )
-        
+
         assert request.agent_id == "agent_004"
         assert request.agent_type == "specialist"
         assert len(request.capabilities) == 2
@@ -122,7 +122,7 @@ class TestAgentStatusUpdate:
             status="maintenance",
             load_metrics={"cpu": 0.1, "memory": 0.2, "gpu": 0.0}
         )
-        
+
         assert request.status == "maintenance"
         assert request.load_metrics["gpu"] == 0.0
 
@@ -135,7 +135,7 @@ class TestAgentStatusUpdate:
             services=[],
             endpoints={"http": "http://localhost:8082"}
         )
-        
+
         assert len(request.capabilities) == 0
         assert len(request.services) == 0
 
@@ -145,7 +145,7 @@ class TestAgentStatusUpdate:
             status="active",
             load_metrics={}
         )
-        
+
         assert request.load_metrics == {}
         assert request.status == "active"
 
@@ -162,7 +162,7 @@ class TestAgentStatusUpdate:
             },
             metadata={"region": "us-east", "zone": "us-east-1"}
         )
-        
+
         assert len(request.capabilities) == 2
         assert len(request.services) == 2
         assert len(request.endpoints) == 2
@@ -174,7 +174,7 @@ class TestAgentStatusUpdate:
             status="maintenance",
             load_metrics={"cpu": 0.0, "memory": 0.0}
         )
-        
+
         assert request.status == "maintenance"
         assert request.load_metrics["cpu"] == 0.0
 
@@ -187,7 +187,7 @@ class TestAgentStatusUpdate:
             services=[],
             endpoints={"http": "http://localhost:8100"}
         )
-        
+
         assert len(request.services) == 0
         assert len(request.capabilities) == 1
 
@@ -197,7 +197,7 @@ class TestAgentStatusUpdate:
             status="idle",
             load_metrics={}
         )
-        
+
         assert len(request.load_metrics) == 0
         assert request.status == "idle"
 
@@ -210,7 +210,7 @@ class TestAgentStatusUpdate:
             services=["audio_processing"],
             endpoints={"http": "http://localhost:8110"}
         )
-        
+
         assert request.agent_type == "specialist"
         assert "whisper" in request.capabilities
 
@@ -220,7 +220,7 @@ class TestAgentStatusUpdate:
             status="degraded",
             load_metrics={"cpu": 0.95, "memory": 0.90}
         )
-        
+
         assert request.status == "degraded"
         assert request.load_metrics["cpu"] == 0.95
 
@@ -233,7 +233,7 @@ class TestAgentStatusUpdate:
             services=["workflow_management"],
             endpoints={"http": "http://localhost:8112"}
         )
-        
+
         assert request.agent_type == "coordinator"
         assert "orchestration" in request.capabilities
 
@@ -243,7 +243,7 @@ class TestAgentStatusUpdate:
             status="offline",
             load_metrics={}
         )
-        
+
         assert request.status == "offline"
         assert len(request.load_metrics) == 0
 
@@ -256,7 +256,7 @@ class TestAgentStatusUpdate:
             services=["training", "inference", "backup"],
             endpoints={"http": "http://localhost:8115"}
         )
-        
+
         assert len(request.services) == 3
         assert "training" in request.services
 
@@ -271,7 +271,7 @@ class TestAgentStatusUpdate:
                 "disk": 0.85
             }
         )
-        
+
         assert request.load_metrics["cpu"] == 0.99
         assert request.load_metrics["gpu"] == 1.0
 
@@ -284,7 +284,7 @@ class TestAgentStatusUpdate:
             services=["monitoring"],
             endpoints={"http": "http://localhost:8117"}
         )
-        
+
         assert len(request.capabilities) == 0
 
     def test_status_update_with_single_metric(self):
@@ -293,7 +293,7 @@ class TestAgentStatusUpdate:
             status="active",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert len(request.load_metrics) == 1
         assert request.load_metrics["cpu"] == 0.5
 
@@ -306,7 +306,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8118"}
         )
-        
+
         assert len(request.endpoints) == 1
         assert "http" in request.endpoints
 
@@ -316,7 +316,7 @@ class TestAgentStatusUpdate:
             status="idle",
             load_metrics={}
         )
-        
+
         assert len(request.load_metrics) == 0
 
     def test_registration_request_with_special_agent_id(self):
@@ -328,7 +328,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8119"}
         )
-        
+
         assert "-" in request.agent_id
         assert "_" in request.agent_id
 
@@ -343,7 +343,7 @@ class TestAgentStatusUpdate:
                 "disk": 0.1
             }
         )
-        
+
         assert request.load_metrics["cpu"] == 0.01
         assert request.load_metrics["gpu"] == 0.0
 
@@ -356,7 +356,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8120"}
         )
-        
+
         assert "12345" in request.agent_id
 
     def test_status_update_with_status_maintenance(self):
@@ -365,7 +365,7 @@ class TestAgentStatusUpdate:
             status="maintenance",
             load_metrics={"cpu": 0.0}
         )
-        
+
         assert request.status == "maintenance"
 
     def test_registration_request_with_multiple_endpoints(self):
@@ -381,7 +381,7 @@ class TestAgentStatusUpdate:
                 "ws": "ws://localhost:8123"
             }
         )
-        
+
         assert len(request.endpoints) == 3
 
     def test_status_update_with_high_load_metrics(self):
@@ -395,7 +395,7 @@ class TestAgentStatusUpdate:
                 "disk": 0.90
             }
         )
-        
+
         assert request.load_metrics["cpu"] == 0.95
         assert request.load_metrics["gpu"] == 0.99
 
@@ -408,7 +408,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8124"}
         )
-        
+
         assert len(request.capabilities) == 0
 
     def test_status_update_with_single_metric(self):
@@ -417,7 +417,7 @@ class TestAgentStatusUpdate:
             status="idle",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert len(request.load_metrics) == 1
         assert "cpu" in request.load_metrics
 
@@ -430,7 +430,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8125"}
         )
-        
+
         assert len(request.capabilities) == 1
 
     def test_status_update_with_status_busy(self):
@@ -439,7 +439,7 @@ class TestAgentStatusUpdate:
             status="busy",
             load_metrics={"cpu": 0.8}
         )
-        
+
         assert request.status == "busy"
 
     def test_registration_request_with_single_endpoint(self):
@@ -451,7 +451,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8126"}
         )
-        
+
         assert len(request.endpoints) == 1
 
     def test_status_update_with_zero_load_metrics(self):
@@ -460,7 +460,7 @@ class TestAgentStatusUpdate:
             status="idle",
             load_metrics={"cpu": 0.0, "memory": 0.0}
         )
-        
+
         assert request.load_metrics["cpu"] == 0.0
         assert request.load_metrics["memory"] == 0.0
 
@@ -473,7 +473,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8127", "grpc": "localhost:8128"}
         )
-        
+
         assert len(request.endpoints) == 2
 
     def test_status_update_with_high_priority_status(self):
@@ -482,7 +482,7 @@ class TestAgentStatusUpdate:
             status="busy",
             load_metrics={"cpu": 0.95, "memory": 0.9}
         )
-        
+
         assert request.load_metrics["cpu"] > 0.9
         assert request.load_metrics["memory"] > 0.8
 
@@ -495,7 +495,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8129"}
         )
-        
+
         assert len(request.capabilities) == 3
 
     def test_status_update_with_single_load_metric(self):
@@ -504,7 +504,7 @@ class TestAgentStatusUpdate:
             status="busy",
             load_metrics={"cpu": 0.8}
         )
-        
+
         assert len(request.load_metrics) == 1
 
     def test_registration_request_with_empty_agent_type(self):
@@ -516,7 +516,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8130"}
         )
-        
+
         assert request.agent_type == ""
 
     def test_status_update_with_empty_status(self):
@@ -525,7 +525,7 @@ class TestAgentStatusUpdate:
             status="",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert request.status == ""
 
     def test_registration_request_with_multiple_services(self):
@@ -537,7 +537,7 @@ class TestAgentStatusUpdate:
             services=["inference", "training", "storage"],
             endpoints={"http": "http://localhost:8131"}
         )
-        
+
         assert len(request.services) == 3
 
     def test_status_update_with_multiple_load_metrics(self):
@@ -546,7 +546,7 @@ class TestAgentStatusUpdate:
             status="busy",
             load_metrics={"cpu": 0.8, "memory": 0.7, "gpu": 0.6}
         )
-        
+
         assert len(request.load_metrics) == 3
 
     def test_registration_request_with_empty_endpoints(self):
@@ -558,7 +558,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={}
         )
-        
+
         assert len(request.endpoints) == 0
 
     def test_status_update_with_empty_load_metrics(self):
@@ -567,7 +567,7 @@ class TestAgentStatusUpdate:
             status="busy",
             load_metrics={}
         )
-        
+
         assert len(request.load_metrics) == 0
 
     def test_registration_request_with_empty_capabilities(self):
@@ -579,7 +579,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8132"}
         )
-        
+
         assert len(request.capabilities) == 0
 
     def test_status_update_with_zero_load_metric(self):
@@ -588,7 +588,7 @@ class TestAgentStatusUpdate:
             status="busy",
             load_metrics={"cpu": 0.0}
         )
-        
+
         assert request.load_metrics["cpu"] == 0.0
 
     def test_registration_request_with_empty_services(self):
@@ -600,7 +600,7 @@ class TestAgentStatusUpdate:
             services=[],
             endpoints={"http": "http://localhost:8133"}
         )
-        
+
         assert len(request.services) == 0
 
     def test_status_update_with_negative_load_metric(self):
@@ -609,7 +609,7 @@ class TestAgentStatusUpdate:
             status="busy",
             load_metrics={"cpu": -0.1}
         )
-        
+
         assert request.load_metrics["cpu"] == -0.1
 
     def test_registration_request_with_numeric_agent_id(self):
@@ -621,7 +621,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8134"}
         )
-        
+
         assert "123" in request.agent_id
 
     def test_status_update_with_mixed_case_status(self):
@@ -630,7 +630,7 @@ class TestAgentStatusUpdate:
             status="Busy",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert request.status == "Busy"
 
     def test_registration_request_with_mixed_case_agent_type(self):
@@ -642,7 +642,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8135"}
         )
-        
+
         assert request.agent_type == "Worker"
 
     def test_status_update_with_numeric_status(self):
@@ -651,7 +651,7 @@ class TestAgentStatusUpdate:
             status="status123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "123" in request.status
 
     def test_registration_request_with_empty_agent_id(self):
@@ -663,7 +663,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8136"}
         )
-        
+
         assert request.agent_id == ""
 
     def test_status_update_with_empty_status(self):
@@ -672,7 +672,7 @@ class TestAgentStatusUpdate:
             status="",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert request.status == ""
 
     def test_registration_request_with_single_character_agent_id(self):
@@ -684,7 +684,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8137"}
         )
-        
+
         assert len(request.agent_id) == 1
 
     def test_status_update_with_single_character_status(self):
@@ -693,7 +693,7 @@ class TestAgentStatusUpdate:
             status="B",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert len(request.status) == 1
 
     def test_registration_request_with_numeric_agent_id(self):
@@ -705,7 +705,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8138"}
         )
-        
+
         assert request.agent_id == "123"
 
     def test_status_update_with_numeric_status(self):
@@ -714,7 +714,7 @@ class TestAgentStatusUpdate:
             status="123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert request.status == "123"
 
     def test_registration_request_with_special_characters_agent_id(self):
@@ -726,7 +726,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8139"}
         )
-        
+
         assert "@" in request.agent_id
         assert "#" in request.agent_id
         assert "$" in request.agent_id
@@ -737,7 +737,7 @@ class TestAgentStatusUpdate:
             status="status@#$",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "@" in request.status
         assert "#" in request.status
         assert "$" in request.status
@@ -751,7 +751,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8140"}
         )
-        
+
         assert " " in request.agent_id
 
     def test_status_update_with_spaces_status(self):
@@ -760,7 +760,7 @@ class TestAgentStatusUpdate:
             status="status 123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert " " in request.status
 
     def test_registration_request_with_underscore_agent_id(self):
@@ -772,7 +772,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8141"}
         )
-        
+
         assert "_" in request.agent_id
 
     def test_status_update_with_underscore_status(self):
@@ -781,7 +781,7 @@ class TestAgentStatusUpdate:
             status="status_123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "_" in request.status
 
     def test_registration_request_with_colon_agent_id(self):
@@ -793,7 +793,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8142"}
         )
-        
+
         assert ":" in request.agent_id
 
     def test_status_update_with_colon_status(self):
@@ -802,7 +802,7 @@ class TestAgentStatusUpdate:
             status="status:123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert ":" in request.status
 
     def test_registration_request_with_equals_agent_id(self):
@@ -814,7 +814,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8143"}
         )
-        
+
         assert "=" in request.agent_id
 
     def test_status_update_with_equals_status(self):
@@ -823,7 +823,7 @@ class TestAgentStatusUpdate:
             status="status=123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "=" in request.status
 
     def test_registration_request_with_bracket_agent_id(self):
@@ -835,7 +835,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8144"}
         )
-        
+
         assert "[" in request.agent_id
         assert "]" in request.agent_id
 
@@ -845,7 +845,7 @@ class TestAgentStatusUpdate:
             status="status[123]",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "[" in request.status
         assert "]" in request.status
 
@@ -858,7 +858,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8145"}
         )
-        
+
         assert "{" in request.agent_id
         assert "}" in request.agent_id
 
@@ -868,7 +868,7 @@ class TestAgentStatusUpdate:
             status="status{123}",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "{" in request.status
         assert "}" in request.status
 
@@ -881,7 +881,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8146"}
         )
-        
+
         assert "$" in request.agent_id
 
     def test_status_update_with_dollar_status(self):
@@ -890,7 +890,7 @@ class TestAgentStatusUpdate:
             status="status$123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "$" in request.status
 
     def test_status_update_with_hash_status(self):
@@ -899,7 +899,7 @@ class TestAgentStatusUpdate:
             status="status#123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "#" in request.status
 
     def test_status_update_with_exclamation_status(self):
@@ -908,7 +908,7 @@ class TestAgentStatusUpdate:
             status="status!123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "!" in request.status
 
     def test_registration_request_with_asterisk_agent_id(self):
@@ -920,7 +920,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8161"}
         )
-        
+
         assert "*" in request.agent_id
 
     def test_status_update_with_asterisk_status(self):
@@ -929,7 +929,7 @@ class TestAgentStatusUpdate:
             status="status*123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "*" in request.status
 
     def test_registration_request_with_equals_agent_id(self):
@@ -941,7 +941,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8162"}
         )
-        
+
         assert "=" in request.agent_id
 
     def test_status_update_with_equals_status(self):
@@ -950,7 +950,7 @@ class TestAgentStatusUpdate:
             status="status=123",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "=" in request.status
 
     def test_registration_request_with_curly_brace_agent_id(self):
@@ -962,7 +962,7 @@ class TestAgentStatusUpdate:
             services=["inference"],
             endpoints={"http": "http://localhost:8163"}
         )
-        
+
         assert "{" in request.agent_id
 
     def test_status_update_with_curly_brace_status(self):
@@ -971,7 +971,7 @@ class TestAgentStatusUpdate:
             status="status{123}",
             load_metrics={"cpu": 0.5}
         )
-        
+
         assert "{" in request.status
 
 

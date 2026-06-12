@@ -8,7 +8,6 @@ import importlib.util
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pytest
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -132,56 +131,56 @@ class TestEventBus:
     def test_publish_sync_handler(self):
         bus = events.EventBus()
         called = []
-        
+
         def handler(event):
             called.append(event)
-        
+
         bus.subscribe("test_event", handler)
         event = events.Event(event_type="test_event", data={"key": "value"})
         bus.publish_sync(event)
-        
+
         assert len(called) == 1
         assert called[0] == event
 
     def test_publish_async_handler(self):
         bus = events.EventBus()
         called = []
-        
+
         async def handler(event):
             called.append(event)
-        
+
         bus.subscribe("test_event", handler)
         event = events.Event(event_type="test_event", data={"key": "value"})
         asyncio.run(bus.publish(event))
-        
+
         assert len(called) == 1
         assert called[0] == event
 
     def test_publish_multiple_handlers(self):
         bus = events.EventBus()
         called = []
-        
+
         def handler1(event):
             called.append("handler1")
-        
+
         def handler2(event):
             called.append("handler2")
-        
+
         bus.subscribe("test_event", handler1)
         bus.subscribe("test_event", handler2)
         event = events.Event(event_type="test_event", data={"key": "value"})
         bus.publish_sync(event)
-        
+
         assert len(called) == 2
         assert "handler1" in called
         assert "handler2" in called
 
     def test_publish_handler_error(self):
         bus = events.EventBus()
-        
+
         def handler(event):
             raise ValueError("Handler error")
-        
+
         bus.subscribe("test_event", handler)
         event = events.Event(event_type="test_event", data={"key": "value"})
         # Should not raise, error is logged
@@ -199,7 +198,7 @@ class TestEventBus:
         event2 = events.Event(event_type="test_event", data={"key": "value2"})
         bus.publish_sync(event1)
         bus.publish_sync(event2)
-        
+
         history = bus.get_event_history()
         assert len(history) == 2
 
@@ -209,7 +208,7 @@ class TestEventBus:
         event2 = events.Event(event_type="event2", data={"key": "value2"})
         bus.publish_sync(event1)
         bus.publish_sync(event2)
-        
+
         history = bus.get_event_history(event_type="event1")
         assert len(history) == 1
         assert history[0].event_type == "event1"
@@ -219,7 +218,7 @@ class TestEventBus:
         for i in range(10):
             event = events.Event(event_type="test_event", data={"index": i})
             bus.publish_sync(event)
-        
+
         history = bus.get_event_history(limit=5)
         assert len(history) == 5
 
@@ -237,7 +236,7 @@ class TestEventBus:
         for i in range(1005):
             event = events.Event(event_type="test_event", data={"index": i})
             bus.publish_sync(event)
-        
+
         assert len(bus.event_history) == 1000
 
 
@@ -260,27 +259,27 @@ class TestAsyncEventBus:
     def test_async_event_bus_publish(self):
         bus = events.AsyncEventBus()
         called = []
-        
+
         def handler(event):
             called.append(event)
-        
+
         bus.subscribe("test_event", handler)
         event = events.Event(event_type="test_event", data={"key": "value"})
         asyncio.run(bus.publish(event))
-        
+
         assert len(called) == 1
 
     def test_async_event_bus_publish_async_handler(self):
         bus = events.AsyncEventBus()
         called = []
-        
+
         async def handler(event):
             called.append(event)
-        
+
         bus.subscribe("test_event", handler)
         event = events.Event(event_type="test_event", data={"key": "value"})
         asyncio.run(bus.publish(event))
-        
+
         assert len(called) == 1
 
 
@@ -293,22 +292,22 @@ class TestEventHandlerDecorator:
 
     def test_event_handler_decorator(self):
         events._global_event_bus = None
-        
+
         @events.event_handler("test_event")
         def handler(event):
             pass
-        
+
         bus = events.get_global_event_bus()
         assert "test_event" in bus.subscribers
         assert handler in bus.subscribers["test_event"]
 
     def test_event_handler_with_custom_bus(self):
         custom_bus = events.EventBus()
-        
+
         @events.event_handler("test_event", event_bus=custom_bus)
         def handler(event):
             pass
-        
+
         assert "test_event" in custom_bus.subscribers
         assert handler in custom_bus.subscribers["test_event"]
 
@@ -323,7 +322,7 @@ class TestPublishEventHelper:
     def test_publish_event(self):
         events._global_event_bus = None
         events.publish_event("test_event", {"key": "value"})
-        
+
         bus = events.get_global_event_bus()
         assert len(bus.event_history) == 1
         assert bus.event_history[0].event_type == "test_event"
@@ -331,7 +330,7 @@ class TestPublishEventHelper:
     def test_publish_event_with_custom_bus(self):
         custom_bus = events.EventBus()
         events.publish_event("test_event", {"key": "value"}, event_bus=custom_bus)
-        
+
         assert len(custom_bus.event_history) == 1
 
 
@@ -374,10 +373,10 @@ class TestEventFilter:
 
     def test_add_filter(self):
         filter_obj = events.EventFilter()
-        
+
         def filter_func(event):
             return event.event_type == "test"
-        
+
         filter_obj.add_filter(filter_func)
         assert len(filter_obj.filters) == 1
 
@@ -388,20 +387,20 @@ class TestEventFilter:
 
     def test_matches_with_filter(self):
         filter_obj = events.EventFilter()
-        
+
         def filter_func(event):
             return event.event_type == "test"
-        
+
         filter_obj.add_filter(filter_func)
         event = events.Event(event_type="test", data={})
         assert filter_obj.matches(event) is True
 
     def test_matches_filter_fails(self):
         filter_obj = events.EventFilter()
-        
+
         def filter_func(event):
             return event.event_type == "test"
-        
+
         filter_obj.add_filter(filter_func)
         event = events.Event(event_type="other", data={})
         assert filter_obj.matches(event) is False
@@ -409,15 +408,15 @@ class TestEventFilter:
     def test_get_filtered_events(self):
         bus = events.EventBus()
         filter_obj = events.EventFilter(event_bus=bus)
-        
+
         event1 = events.Event(event_type="test", data={})
         event2 = events.Event(event_type="other", data={})
         bus.publish_sync(event1)
         bus.publish_sync(event2)
-        
+
         def filter_func(event):
             return event.event_type == "test"
-        
+
         filter_obj.add_filter(filter_func)
         filtered = filter_obj.get_filtered_events()
         assert len(filtered) == 1
@@ -444,7 +443,7 @@ class TestEventAggregator:
         agg = events.EventAggregator()
         event = events.Event(event_type="test", data={"count": 1})
         agg.add_event(event)
-        
+
         assert "test" in agg.aggregated_events
         assert agg.aggregated_events["test"]["count"] == 1
 
@@ -454,7 +453,7 @@ class TestEventAggregator:
         event2 = events.Event(event_type="test", data={"count": 2})
         agg.add_event(event1)
         agg.add_event(event2)
-        
+
         assert agg.aggregated_events["test"]["count"] == 2
 
     def test_add_event_data_merge(self):
@@ -463,14 +462,14 @@ class TestEventAggregator:
         event2 = events.Event(event_type="test", data={"value": 5})
         agg.add_event(event1)
         agg.add_event(event2)
-        
+
         assert agg.aggregated_events["test"]["data"]["value"] == 15
 
     def test_get_aggregated_events(self):
         agg = events.EventAggregator()
         event = events.Event(event_type="test", data={})
         agg.add_event(event)
-        
+
         result = agg.get_aggregated_events()
         assert "test" in result
 
@@ -478,10 +477,10 @@ class TestEventAggregator:
         agg = events.EventAggregator(window_seconds=0.01)
         event = events.Event(event_type="test", data={})
         agg.add_event(event)
-        
+
         import time
         time.sleep(0.02)
-        
+
         result = agg.get_aggregated_events()
         assert "test" not in result
 
@@ -490,7 +489,7 @@ class TestEventAggregator:
         event = events.Event(event_type="test", data={})
         agg.add_event(event)
         agg.clear()
-        
+
         assert agg.aggregated_events == {}
 
 
@@ -507,73 +506,73 @@ class TestEventRouter:
 
     def test_add_route(self):
         router = events.EventRouter()
-        
+
         def condition(event):
             return event.event_type == "test"
-        
+
         def handler(event):
             pass
-        
+
         router.add_route(condition, handler)
         assert len(router.routes) == 1
 
     def test_route_matching(self):
         router = events.EventRouter()
         called = []
-        
+
         def condition(event):
             return event.event_type == "test"
-        
+
         def handler(event):
             called.append(event)
-        
+
         router.add_route(condition, handler)
         event = events.Event(event_type="test", data={})
         result = asyncio.run(router.route(event))
-        
+
         assert result is True
         assert len(called) == 1
 
     def test_route_no_match(self):
         router = events.EventRouter()
-        
+
         def condition(event):
             return event.event_type == "other"
-        
+
         def handler(event):
             pass
-        
+
         router.add_route(condition, handler)
         event = events.Event(event_type="test", data={})
         result = asyncio.run(router.route(event))
-        
+
         assert result is False
 
     def test_route_async_handler(self):
         router = events.EventRouter()
         called = []
-        
+
         def condition(event):
             return event.event_type == "test"
-        
+
         async def handler(event):
             called.append(event)
-        
+
         router.add_route(condition, handler)
         event = events.Event(event_type="test", data={})
         asyncio.run(router.route(event))
-        
+
         assert len(called) == 1
 
     def test_route_handler_error(self):
         router = events.EventRouter()
-        
+
         def condition(event):
             return event.event_type == "test"
-        
+
         def handler(event):
             raise ValueError("Handler error")
-        
+
         router.add_route(condition, handler)
         event = events.Event(event_type="test", data={})
         # Should not raise, error is logged

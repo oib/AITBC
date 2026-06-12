@@ -38,7 +38,7 @@ class TestHandleAiSubmit:
         mock_response.status_code = 200
         mock_response.json.return_value = {"job_id": "job_123", "status": "submitted"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
@@ -53,18 +53,18 @@ class TestHandleAiSubmit:
         args.coordinator_url = None
         args.model = None
         args.parameters = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_submit(args, "http://localhost:8006", "http://localhost:8203", first, read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.ai.click')
@@ -80,18 +80,18 @@ class TestHandleAiSubmit:
         args.job_type = None
         args.prompt_arg = None
         args.prompt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_submit(args, "http://localhost:8006", "http://localhost:8203", first, read_password, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -106,20 +106,20 @@ class TestHandleAiJobs:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"job_id": "job_1", "model": "llama2", "status": "completed"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
         args.chain_id = None
         args.limit = 10
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_jobs(args, "http://localhost:8006", "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.ai.requests.get')
@@ -130,20 +130,20 @@ class TestHandleAiJobs:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"job_id": "job_1", "model": "llama2", "status": "completed"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
         args.chain_id = None
         args.limit = 10
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_jobs(args, "http://localhost:8006", "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.ai.requests.get')
@@ -153,20 +153,20 @@ class TestHandleAiJobs:
         mock_response = Mock()
         mock_response.status_code = 500
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
         args.chain_id = None
         args.limit = 10
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_jobs(args, "http://localhost:8006", "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 
@@ -182,24 +182,24 @@ class TestHandleAiJob:
         mock_response.status_code = 200
         mock_response.json.return_value = {"job_id": "job_1", "model": "llama2", "status": "completed"}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.job_id_arg = "job_1"
         args.job_id = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_job(args, "http://localhost:8006", output_format, render_mapping, first)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.ai.click')
@@ -211,18 +211,18 @@ class TestHandleAiJob:
         args.chain_id = None
         args.job_id_arg = None
         args.job_id = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_job(args, "http://localhost:8006", output_format, render_mapping, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -238,19 +238,19 @@ class TestHandleAiStats:
         mock_response.status_code = 200
         mock_response.json.return_value = {"total_jobs": 100, "active_jobs": 10}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_stats(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 
@@ -266,18 +266,18 @@ class TestHandleAiDistributionStats:
         mock_response.status_code = 200
         mock_response.json.return_value = {"total_tasks": 50, "pending": 5}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_distribution_stats(args, "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 
@@ -288,13 +288,13 @@ class TestHandleAiServiceList:
     def test_handle_ai_service_list_success(self, mock_exit):
         """Test successful AI service list"""
         args = Mock()
-        
+
         def ai_operations(action):
             return {"services": ["service1", "service2"]}
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_service_list(args, ai_operations, render_mapping)
 
 
@@ -306,13 +306,13 @@ class TestHandleAiServiceStatus:
         """Test successful AI service status"""
         args = Mock()
         args.name = "service1"
-        
+
         def ai_operations(action, **kwargs):
             return {"name": "service1", "status": "running"}
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_service_status(args, ai_operations, render_mapping)
 
     @patch('sys.exit')
@@ -320,13 +320,13 @@ class TestHandleAiServiceStatus:
         """Test AI service status without name"""
         args = Mock()
         args.name = None
-        
+
         def ai_operations(action, **kwargs):
             return {"status": "running"}
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_service_status(args, ai_operations, render_mapping)
 
 
@@ -338,13 +338,13 @@ class TestHandleAiServiceTest:
         """Test successful AI service test"""
         args = Mock()
         args.name = "service1"
-        
+
         def ai_operations(action, **kwargs):
             return {"name": "service1", "test": "passed"}
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_service_test(args, ai_operations, render_mapping)
 
 
@@ -358,26 +358,26 @@ class TestHandleAiStatus:
         mock_coordinator_response = Mock()
         mock_coordinator_response.status_code = 200
         mock_coordinator_response.json.return_value = {"status": "healthy", "version": "1.0"}
-        
+
         mock_ai_response = Mock()
         mock_ai_response.status_code = 200
         mock_ai_response.json.return_value = {"status": "operational"}
-        
+
         mock_get.side_effect = [mock_coordinator_response, mock_ai_response]
-        
+
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_status(args, "http://localhost:8203", "http://localhost:8006", output_format, render_mapping)
-        
+
         assert mock_get.call_count == 2
 
     @patch('handlers.ai.requests.get')
@@ -387,26 +387,26 @@ class TestHandleAiStatus:
         mock_coordinator_response = Mock()
         mock_coordinator_response.status_code = 200
         mock_coordinator_response.json.return_value = {"status": "healthy"}
-        
+
         mock_ai_response = Mock()
         mock_ai_response.status_code = 200
         mock_ai_response.json.return_value = {"status": "operational"}
-        
+
         mock_get.side_effect = [mock_coordinator_response, mock_ai_response]
-        
+
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_ai_status(args, "http://localhost:8203", "http://localhost:8006", output_format, render_mapping)
-        
+
         assert mock_get.call_count == 2
 
 
