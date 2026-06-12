@@ -53,7 +53,7 @@ class SecurityAudit:
         total_weight = 0
 
         for category_name, check_function, weight in categories:
-            logger.info(f"Checking {category_name}...")
+            logger.info("Checking %s...", category_name)
             try:
                 category_score, issues = check_function()
                 total_score += category_score * weight
@@ -75,7 +75,7 @@ class SecurityAudit:
 
             except Exception as e:
                 # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
-                logger.error(f"Error in {category_name} check: {type(e).__name__}")
+                logger.error("Error in %s check: %s", category_name, type(e).__name__)
                 self.results["findings"].append({
                     "category": category_name,
                     "score": 0,
@@ -123,7 +123,7 @@ class SecurityAudit:
                             })
                             score -= 1
             except Exception as e:
-                logger.warning(f"Could not check {pattern}: {type(e).__name__}")
+                logger.warning("Could not check %s: %s", pattern, type(e).__name__)
 
         # Check for world-writable files
         try:
@@ -141,7 +141,7 @@ class SecurityAudit:
                 })
                 score -= min(5, len(writable_files))
         except Exception as e:
-            logger.warning(f"Could not check world-writable files: {type(e).__name__}")
+            logger.warning("Could not check world-writable files: %s", type(e).__name__)
 
         return max(0, score), issues
 
@@ -335,7 +335,7 @@ class SecurityAudit:
                         })
                         score -= 1
             except Exception as e:
-                logger.warning(f"Could not analyze dependencies: {type(e).__name__}")
+                logger.warning("Could not analyze dependencies: %s", type(e).__name__)
 
         # Check for poetry.lock (Poetry source of truth)
         lock_files = ["poetry.lock"]
@@ -626,7 +626,7 @@ class SecurityAudit:
         """Save audit report to file"""
         with open(output_file, 'w') as f:
             json.dump(self.results, f, indent=2)
-        logger.info(f"Security audit report saved to: {output_file}")
+        logger.info("Security audit report saved to: %s", output_file)
 
 def main():
     """Main function to run security audit"""
