@@ -78,7 +78,7 @@ def detect_cuda_version() -> str | None:
         if result.returncode == 0:
             return result.stdout.strip()
     except Exception as e:
-        logger.error(f"Failed to detect CUDA/driver version: {e}")
+        logger.error("Failed to detect CUDA/driver version: %s", e)
     return None
 
 
@@ -131,7 +131,7 @@ def get_gpu_info():
                 "utilization": int(info[3])
             }
     except Exception as e:
-        logger.error(f"Failed to get GPU info: {e}")
+        logger.error("Failed to get GPU info: %s", e)
     return None
 
 def check_ollama():
@@ -141,13 +141,13 @@ def check_ollama():
         if response.status_code == 200:
             models = response.json().get('models', [])
             model_names = [m['name'] for m in models]
-            logger.info(f"Ollama running with models: {model_names}")
+            logger.info("Ollama running with models: %s", model_names)
             return True, model_names
         else:
             logger.error("Ollama not responding")
             return False, []
     except Exception as e:
-        logger.error(f"Ollama check failed: {e}")
+        logger.error("Ollama check failed: %s", e)
         return False, []
 
 def wait_for_coordinator():
@@ -161,7 +161,7 @@ def wait_for_coordinator():
         except Exception:
             pass
 
-        logger.info(f"Waiting for coordinator... ({i+1}/{MAX_RETRIES})")
+        logger.info("Waiting for coordinator... (%s/%s)", i+1, MAX_RETRIES)
         time.sleep(RETRY_DELAY)
 
     logger.error("Coordinator not available after max retries")
@@ -190,14 +190,14 @@ def register_miner():
 
         if response.status_code == 200:
             data = response.json()
-            logger.info(f"Successfully registered miner: {data}")
+            logger.info("Successfully registered miner: %s", data)
             return data.get("session_token", "demo-token")
         else:
-            logger.error(f"Registration failed: {response.status_code} - {response.text}")
+            logger.error("Registration failed: %s - %s", response.status_code, response.text)
             return None
 
     except Exception as e:
-        logger.error(f"Registration error: {e}")
+        logger.error("Registration error: %s", e)
         return None
 
 def send_heartbeat():
@@ -245,19 +245,19 @@ def send_heartbeat():
         )
 
         if response.status_code == 200:
-            logger.info(f"Heartbeat sent (GPU: {gpu_info['utilization'] if gpu_info else 'N/A'}%)")
+            logger.info("Heartbeat sent (GPU: %s%%)", gpu_info['utilization'] if gpu_info else 'N/A')
         else:
-            logger.error(f"Heartbeat failed: {response.status_code} - {response.text}")
+            logger.error("Heartbeat failed: %s - %s", response.status_code, response.text)
 
     except Exception as e:
-        logger.error(f"Heartbeat error: {e}")
+        logger.error("Heartbeat error: %s", e)
 
 def execute_job(job, available_models):
     """Execute a job using real GPU resources"""
     job_id = job.get('job_id')
     payload = job.get('payload', {})
 
-    logger.info(f"Executing job {job_id}: {payload}")
+    logger.info("Executing job %s: %s", job_id, payload)
 
     try:
         if payload.get('type') == 'inference':
@@ -270,12 +270,12 @@ def execute_job(job, available_models):
                 # Use first available model
                 if available_models:
                     model = available_models[0]
-                    logger.info(f"Using available model: {model}")
+                    logger.info("Using available model: %s", model)
                 else:
                     raise Exception("No models available in Ollama")
 
             # Call Ollama API for real GPU inference
-            logger.info(f"Running inference on GPU with model: {model}")
+            logger.info("Running inference on GPU with model: %s", model)
             start_time = time.time()
 
             ollama_response = httpx.post(
@@ -313,30 +313,30 @@ def execute_job(job, available_models):
                     }
                 })
 
-                logger.info(f"Job {job_id} completed in {execution_time:.2f}s")
+                logger.info("Job %s completed in %.2fs", job_id, execution_time)
                 return True
             else:
-                logger.error(f"Ollama error: {ollama_response.status_code}")
+                logger.error("Ollama error: %s", ollama_response.status_code)
                 submit_result(job_id, {
                     "result": {
                         "status": "failed",
-                        "error": f"Ollama error: {ollama_response.text}"
+                        "error": "Ollama error: %s" % ollama_response.text
                     }
                 })
                 return False
         else:
             # Unsupported job type
-            logger.error(f"Unsupported job type: {payload.get('type')}")
+            logger.error("Unsupported job type: %s", payload.get('type'))
             submit_result(job_id, {
                 "result": {
                     "status": "failed",
-                    "error": f"Unsupported job type: {payload.get('type')}"
+                    "error": "Unsupported job type: %s" % payload.get('type')
                 }
             })
             return False
 
     except Exception as e:
-        logger.error(f"Job execution error: {e}")
+        logger.error("Job execution error: %s", e)
         submit_result(job_id, {
             "result": {
                 "status": "failed",
@@ -361,12 +361,12 @@ def submit_result(job_id, result):
         )
 
         if response.status_code == 200:
-            logger.info(f"Result submitted for job {job_id}")
+            logger.info("Result submitted for job %s", job_id)
         else:
-            logger.error(f"Result submission failed: {response.status_code} - {response.text}")
+            logger.error("Result submission failed: %s - %s", response.status_code, response.text)
 
     except Exception as e:
-        logger.error(f"Result submission error: {e}")
+        logger.error("Result submission error: %s", e)
 
 def poll_for_jobs():
     """Poll for available jobs"""
@@ -389,16 +389,16 @@ def poll_for_jobs():
 
         if response.status_code == 200:
             job = response.json()
-            logger.info(f"Received job: {job}")
+            logger.info("Received job: %s", job)
             return job
         elif response.status_code == 204:
             return None
         else:
-            logger.error(f"Poll failed: {response.status_code} - {response.text}")
+            logger.error("Poll failed: %s - %s", response.status_code, response.text)
             return None
 
     except Exception as e:
-        logger.error(f"Error polling for jobs: {e}")
+        logger.error("Error polling for jobs: %s", e)
         return None
 
 def main():
@@ -411,7 +411,7 @@ def main():
         logger.error("GPU not available, exiting")
         sys.exit(1)
 
-    logger.info(f"GPU detected: {gpu_info['name']} ({gpu_info['memory_total']}MB)")
+    logger.info("GPU detected: %s (%sMB)", gpu_info['name'], gpu_info['memory_total'])
 
     # Check Ollama
     ollama_available, models = check_ollama()
@@ -419,7 +419,7 @@ def main():
         logger.error("Ollama not available - please install and start Ollama")
         sys.exit(1)
 
-    logger.info(f"Ollama models available: {', '.join(models)}")
+    logger.info("Ollama models available: %s", ', '.join(models))
 
     # Wait for coordinator
     if not wait_for_coordinator():
@@ -459,7 +459,7 @@ def main():
     except KeyboardInterrupt:
         logger.info("Shutting down miner...")
     except Exception as e:
-        logger.error(f"Error in main loop: {e}")
+        logger.error("Error in main loop: %s", e)
         sys.exit(1)
 
 if __name__ == "__main__":
