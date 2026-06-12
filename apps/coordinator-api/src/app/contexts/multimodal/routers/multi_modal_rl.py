@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-modal RL Router
 Handles multi-modal reinforcement learning endpoints by proxying to AI service

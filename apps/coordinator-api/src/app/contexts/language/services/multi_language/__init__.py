@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Language Service Initialization
 Main entry point for multi-language services

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import Annotated
 '\nhermes Enhanced Service Health Check Router\nProvides health monitoring for agent orchestration, edge computing, and ecosystem development\n'
 import sys

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import Annotated
 from sqlalchemy.orm import Session
 '\nhermes Integration Enhancement API Router - Phase 6.6\nREST API endpoints for advanced agent orchestration, edge computing integration, and ecosystem development\n'

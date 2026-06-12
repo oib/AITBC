@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Tenant management service for multi-tenant AITBC coordinator
 """

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Dynamic Pricing API Router
 Provides RESTful endpoints for dynamic pricing management

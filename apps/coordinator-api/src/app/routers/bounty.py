@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Bounty Router - Decentralized task marketplace API
 

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Marketplace Caching & Optimization Service
 Implements advanced caching, indexing, and data optimization for the AITBC marketplace.

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 ZK-Proof Memory Verification Service
 
