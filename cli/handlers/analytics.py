@@ -56,7 +56,7 @@ def handle_analytics_export(args, default_rpc_url, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
 
-    logger.info(f"Analytics exported as {format_type}")
+    logger.info("Analytics exported as %s", format_type)
     render_mapping("Export:", export_data)
 
 
@@ -72,7 +72,7 @@ def handle_analytics_predict(args, default_rpc_url, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
 
-    logger.info(f"Prediction using {model} model for {target}")
+    logger.info("Prediction using %s model for %s", model, target)
     render_mapping("Prediction:", prediction_data)
 
 
@@ -88,5 +88,5 @@ def handle_analytics_optimize(args, default_rpc_url, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
 
-    logger.info(f"Analytics optimization applied for {target}")
+    logger.info("Analytics optimization applied for %s", target)
     render_mapping("Optimization:", optimization_data)
