@@ -4,7 +4,6 @@ ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
 """
 
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -20,10 +19,10 @@ async def get_price():
     Get current ETH-AIT exchange rate.
     """
     rate_info = get_exchange_rate()
-    
+
     if not rate_info["success"]:
         raise HTTPException(status_code=503, detail=rate_info["error"])
-    
+
     return {
         "pair": "ETH-AIT",
         "eth_usd": rate_info["eth_usd"],
@@ -34,7 +33,7 @@ async def get_price():
 
 
 @router.get("/deposits")
-async def list_deposits(status: Optional[str] = None, limit: int = 50, offset: int = 0):
+async def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0):
     """
     List ETH deposits.
     
@@ -47,7 +46,7 @@ async def list_deposits(status: Optional[str] = None, limit: int = 50, offset: i
         deposits = get_pending_deposits()
     else:
         deposits = get_all_deposits(limit=limit, offset=offset)
-    
+
     return {
         "deposits": deposits,
         "count": len(deposits)
@@ -61,10 +60,10 @@ async def get_deposit(deposit_id: str):
     """
     # For MVP, we'll search by tx_hash since that's our unique key
     deposit = get_deposit_by_tx_hash(deposit_id)
-    
+
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
-    
+
     return deposit
 
 
@@ -74,18 +73,18 @@ async def verify_deposit(deposit_id: str):
     Verify a deposit (admin operation).
     """
     deposit = get_deposit_by_tx_hash(deposit_id)
-    
+
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
-    
+
     if deposit["status"] != "pending":
         raise HTTPException(status_code=400, detail=f"Deposit already {deposit['status']}")
-    
+
     success = update_deposit_status(deposit_id, "verified")
-    
+
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")
-    
+
     return {
         "success": True,
         "message": "Deposit verified",
@@ -99,18 +98,18 @@ async def complete_deposit(deposit_id: str):
     Mark a deposit as completed after AIT minting (admin operation).
     """
     deposit = get_deposit_by_tx_hash(deposit_id)
-    
+
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
-    
+
     if deposit["status"] != "verified":
         raise HTTPException(status_code=400, detail="Deposit must be verified first")
-    
+
     success = update_deposit_status(deposit_id, "completed")
-    
+
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")
-    
+
     return {
         "success": True,
         "message": "Deposit completed",
@@ -128,12 +127,12 @@ async def calculate_exchange(eth_amount: float):
     """
     if eth_amount <= 0:
         raise HTTPException(status_code=400, detail="ETH amount must be positive")
-    
+
     ait_amount = calculate_ait_amount(eth_amount)
-    
+
     if ait_amount is None:
         raise HTTPException(status_code=503, detail="Failed to calculate exchange rate")
-    
+
     return {
         "eth_amount": eth_amount,
         "ait_amount": ait_amount,
@@ -148,16 +147,16 @@ async def get_price_history():
     """
     from .bridge_db import get_all_time_average
     from .price_api import get_exchange_rate
-    
+
     # Get current rates
     current_rates = get_exchange_rate()
-    
+
     if not current_rates["success"]:
         return current_rates
-    
+
     # Get all-time averages
     averages = get_all_time_average()
-    
+
     if not averages:
         # No history yet, return current rates as averages
         return {
@@ -167,11 +166,11 @@ async def get_price_history():
             "change_vs_average": None,
             "timestamp": current_rates["timestamp"]
         }
-    
+
     # Calculate change vs average
     change_usd = ((current_rates["eth_usd"] - averages["eth_usd_avg"]) / averages["eth_usd_avg"]) * 100
     change_eur = ((current_rates["eth_eur"] - averages["eth_eur_avg"]) / averages["eth_eur_avg"]) * 100
-    
+
     return {
         "success": True,
         "current": current_rates,
@@ -198,7 +197,7 @@ async def get_bridge_status():
     Get bridge service status.
     """
     import os
-    
+
     return {
         "enabled": os.getenv("BRIDGE_ENABLED", "false").lower() == "true",
         "wallet_address": os.getenv("ETH_WALLET_ADDRESS", ""),

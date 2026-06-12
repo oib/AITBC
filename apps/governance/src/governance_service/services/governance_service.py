@@ -128,12 +128,12 @@ class GovernanceService:
         stmt = select(Proposal).where(Proposal.proposal_id == proposal_id)
         result = await self.session.execute(stmt)
         proposal = result.scalars().first()
-        
+
         if proposal:
             proposal.status = ProposalStatus(status)
             await self.session.commit()
             await self.session.refresh(proposal)
-        
+
         return proposal
 
     def get_current_timestamp(self) -> int:
@@ -151,12 +151,12 @@ class GovernanceService:
             is_active=True
         )
         self.session.add(stake)
-        
+
         # Update governance token record
         token_record = await self._get_or_create_token_record(staker_address)
         token_record.staked_tokens += amount
         token_record.voting_power = await self.calculate_voting_power(staker_address)
-        
+
         await self.session.commit()
         return stake
 
@@ -165,7 +165,7 @@ class GovernanceService:
         token_record = await self._get_token_record(address)
         if not token_record:
             return 0
-        
+
         # Formula: balance + (staked * 2)
         base_power = token_record.token_balance
         staking_bonus = token_record.staked_tokens * 2
@@ -199,7 +199,7 @@ class GovernanceService:
         delegator_power = await self.calculate_voting_power(delegator_address)
         if delegator_power < amount:
             raise ValueError(f"Insufficient voting power: {delegator_power} < {amount}")
-        
+
         delegation = Delegation(
             delegator_address=delegator_address,
             delegate_address=delegate_address,
@@ -216,10 +216,10 @@ class GovernanceService:
         proposal = await self.get_proposal(proposal_id)
         if not proposal:
             return None
-        
+
         if proposal.status != "succeeded":
             raise ValueError(f"Proposal not in succeeded state: {proposal.status}")
-        
+
         # Log execution start
         execution_log = ProposalExecutionLog(
             proposal_id=proposal_id,
@@ -228,16 +228,16 @@ class GovernanceService:
             result={}
         )
         self.session.add(execution_log)
-        
+
         try:
             # Update proposal status
             proposal.status = ProposalStatus.EXECUTED
             proposal.executed_at = datetime.now(UTC)
-            
+
             # Log execution success
             execution_log.status = "completed"
             execution_log.result = {"executed_at": proposal.executed_at.isoformat()}
-            
+
             await self.session.commit()
             await self.session.refresh(proposal)
             return proposal

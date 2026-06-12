@@ -29,9 +29,9 @@ class TestRenderMapping:
     def test_render_mapping_basic(self, mock_print):
         """Test basic mapping rendering"""
         mapping = {"key1": "value1", "key2": "value2"}
-        
+
         render_mapping("Test Title", mapping)
-        
+
         # Check that print was called with title and key-value pairs
         assert mock_print.call_count == 3  # Title + 2 key-value pairs
 
@@ -39,9 +39,9 @@ class TestRenderMapping:
     def test_render_mapping_empty(self, mock_print):
         """Test rendering empty mapping"""
         mapping = {}
-        
+
         render_mapping("Test Title", mapping)
-        
+
         # Should only print title
         assert mock_print.call_count == 1
 
@@ -56,17 +56,17 @@ class TestHandleAccountGet:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
         mock_client.get.return_value = {"balance": 100, "nonce": 5}
-        
+
         args = Mock()
         args.address = "ait123"
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_account_get(args, "http://localhost:8006", output_format)
-        
+
         mock_client.get.assert_called_once()
         mock_logger.info.assert_called()
 
@@ -77,17 +77,17 @@ class TestHandleAccountGet:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
         mock_client.get.return_value = {"balance": 100}
-        
+
         args = Mock()
         args.address = "ait123"
         args.rpc_url = "http://localhost:8006"
         args.chain_id = "ait-mainnet"
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_account_get(args, "http://localhost:8006", output_format)
-        
+
         # Check that chain_id was passed in params
         call_args = mock_client.get.call_args
         assert "params" in call_args[1]
@@ -100,12 +100,12 @@ class TestHandleAccountGet:
         args = Mock()
         args.address = None
         args.rpc_url = "http://localhost:8006"
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_account_get(args, "http://localhost:8006", output_format)
-        
+
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
 
@@ -115,17 +115,17 @@ class TestHandleAccountGet:
     def test_handle_account_get_network_error(self, mock_exit, mock_logger, mock_client_class):
         """Test account retrieval with network error"""
         mock_client_class.side_effect = NetworkError("Connection failed")
-        
+
         args = Mock()
         args.address = "ait123"
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_account_get(args, "http://localhost:8006", output_format)
-        
+
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
 
@@ -135,17 +135,17 @@ class TestHandleAccountGet:
     def test_handle_account_get_generic_error(self, mock_exit, mock_logger, mock_client_class):
         """Test account retrieval with generic error"""
         mock_client_class.side_effect = Exception("Unexpected error")
-        
+
         args = Mock()
         args.address = "ait123"
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_account_get(args, "http://localhost:8006", output_format)
-        
+
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
 
@@ -156,17 +156,17 @@ class TestHandleAccountGet:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
         mock_client.get.return_value = {"balance": 100, "nonce": 5}
-        
+
         args = Mock()
         args.address = "ait123"
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "json"
-        
+
         handle_account_get(args, "http://localhost:8006", output_format)
-        
+
         # Check that JSON output was logged
         mock_logger.info.assert_called()
         # The logged message should be JSON
@@ -182,18 +182,18 @@ class TestHandleAccountGet:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
         mock_client.get.return_value = {"balance": 100}
-        
+
         args = Mock()
         args.address = "ait123"
         args.rpc_url = None
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         default_rpc = "http://default:8006"
         handle_account_get(args, default_rpc, output_format)
-        
+
         # Check that default RPC was used
         mock_client_class.assert_called_with(base_url=default_rpc, timeout=10)
 

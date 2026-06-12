@@ -19,8 +19,8 @@ for mod_name in list(sys.modules.keys()):
         del sys.modules[mod_name]
 
 # Import after path setup
-from app.domain.bounty import AgentMetrics, PerformanceTier, StakeStatus
 from app.contexts.staking.services.staking_service import StakingService
+from app.domain.bounty import AgentMetrics, PerformanceTier, StakeStatus
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel

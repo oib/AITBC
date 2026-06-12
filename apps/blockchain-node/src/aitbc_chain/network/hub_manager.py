@@ -1,9 +1,7 @@
-# mypy: ignore-errors
 """
 Hub Manager
 Manages hub operations, peer list sharing, and hub registration for federated mesh
 """
-
 import asyncio
 import json
 import os
@@ -11,20 +9,15 @@ import socket
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
-
 from aitbc import DATA_DIR, KEYSTORE_DIR, get_logger
-
 from ..config import settings
-
 logger = get_logger(__name__)
-
 
 class HubStatus(Enum):
     """Hub registration status"""
-    REGISTERED = "registered"
-    UNREGISTERED = "unregistered"
-    PENDING = "pending"
-
+    REGISTERED = 'registered'
+    UNREGISTERED = 'unregistered'
+    PENDING = 'pending'
 
 @dataclass
 class HubInfo:
@@ -40,7 +33,6 @@ class HubInfo:
     last_seen: float = 0
     peer_count: int = 0
 
-
 @dataclass
 class PeerInfo:
     """Information about a peer"""
@@ -53,37 +45,25 @@ class PeerInfo:
     public_port: int | None = None
     last_seen: float = 0
 
-
 class HubManager:
     """Manages hub operations for federated mesh"""
 
-    def __init__(self, local_node_id: str, local_address: str, local_port: int, island_id: str, island_name: str, redis_url: str | None = None):
+    def __init__(self, local_node_id: str, local_address: str, local_port: int, island_id: str, island_name: str, redis_url: str | None=None):
         self.local_node_id = local_node_id
         self.local_address = local_address
         self.local_port = local_port
         self.island_id = island_id
         self.island_name = island_name
-        self.island_chain_id = settings.island_chain_id or settings.chain_id or f"ait-{island_id[:8]}"
-        self.redis_url = redis_url or "redis://localhost:6379"
-
-        # Hub registration status
+        self.island_chain_id = settings.island_chain_id or settings.chain_id or f'ait-{island_id[:8]}'
+        self.redis_url = redis_url or 'redis://localhost:6379'
         self.is_hub = False
         self.hub_status = HubStatus.UNREGISTERED
         self.registered_at: float | None = None
-
-        # Known hubs
-        self.known_hubs: dict[str, HubInfo] = {}  # node_id -> HubInfo
-
-        # Peer registry (for providing peer lists)
-        self.peer_registry: dict[str, PeerInfo] = {}  # node_id -> PeerInfo
-
-        # Island peers (island_id -> set of node_ids)
+        self.known_hubs: dict[str, HubInfo] = {}
+        self.peer_registry: dict[str, PeerInfo] = {}
         self.island_peers: dict[str, set[str]] = {}
-
         self.running = False
         self._redis = None
-
-        # Initialize island peers for our island
         self.island_peers[self.island_id] = set()
 
     async def _connect_redis(self):
@@ -92,10 +72,10 @@ class HubManager:
             import redis.asyncio as redis
             self._redis = redis.from_url(self.redis_url)
             await self._redis.ping()
-            logger.info(f"Connected to Redis for hub persistence: {self.redis_url}")
+            logger.info('Connected to Redis for hub persistence: %s', self.redis_url)
             return True
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.error('Failed to connect to Redis: %s', e)
             return False
 
     async def _persist_hub_registration(self, hub_info: HubInfo) -> bool:
@@ -103,18 +83,16 @@ class HubManager:
         try:
             if not self._redis:
                 await self._connect_redis()
-
             if not self._redis:
-                logger.warning("Redis not available, skipping persistence")
+                logger.warning('Redis not available, skipping persistence')
                 return False
-
-            key = f"hub:{hub_info.node_id}"
+            key = f'hub:{hub_info.node_id}'
             value = json.dumps(asdict(hub_info), default=str)
-            await self._redis.setex(key, 3600, value)  # TTL: 1 hour
-            logger.info(f"Persisted hub registration to Redis: {key}")
+            await self._redis.setex(key, 3600, value)
+            logger.info('Persisted hub registration to Redis: %s', key)
             return True
         except Exception as e:
-            logger.error(f"Failed to persist hub registration: {e}")
+            logger.error('Failed to persist hub registration: %s', e)
             return False
 
     async def _remove_hub_registration(self, node_id: str) -> bool:
@@ -122,17 +100,15 @@ class HubManager:
         try:
             if not self._redis:
                 await self._connect_redis()
-
             if not self._redis:
-                logger.warning("Redis not available, skipping removal")
+                logger.warning('Redis not available, skipping removal')
                 return False
-
-            key = f"hub:{node_id}"
+            key = f'hub:{node_id}'
             await self._redis.delete(key)
-            logger.info(f"Removed hub registration from Redis: {key}")
+            logger.info('Removed hub registration from Redis: %s', key)
             return True
         except Exception as e:
-            logger.error(f"Failed to remove hub registration: {e}")
+            logger.error('Failed to remove hub registration: %s', e)
             return False
 
     async def _load_hub_registration(self) -> HubInfo | None:
@@ -140,31 +116,23 @@ class HubManager:
         try:
             if not self._redis:
                 await self._connect_redis()
-
             if not self._redis:
                 return None
-
-            key = f"hub:{self.local_node_id}"
+            key = f'hub:{self.local_node_id}'
             value = await self._redis.get(key)
             if value:
                 data = json.loads(value)
                 return HubInfo(**data)
             return None
         except Exception as e:
-            logger.error(f"Failed to load hub registration: {e}")
+            logger.error('Failed to load hub registration: %s', e)
             return None
 
     def _get_blockchain_credentials(self) -> dict:
         """Get blockchain credentials from keystore"""
         try:
             credentials = {}
-
-            # Get genesis block hash from genesis.json
-            genesis_candidates = [
-                str(settings.db_path.parent / 'genesis.json'),
-                f"{DATA_DIR}/data/{settings.chain_id}/genesis.json",
-                f'{DATA_DIR}/data/ait-mainnet/genesis.json',
-            ]
+            genesis_candidates = [str(settings.db_path.parent / 'genesis.json'), f'{DATA_DIR}/data/{settings.chain_id}/genesis.json', f'{DATA_DIR}/data/ait-mainnet/genesis.json']
             for genesis_path in genesis_candidates:
                 if os.path.exists(genesis_path):
                     with open(genesis_path) as f:
@@ -174,33 +142,24 @@ class HubManager:
                             credentials['genesis_block_hash'] = genesis_block.get('hash', '')
                         credentials['genesis_block'] = genesis_data
                     break
-
-            # Get genesis address from keystore
             keystore_path = str(KEYSTORE_DIR / 'validator_keys.json')
             if os.path.exists(keystore_path):
                 with open(keystore_path) as f:
                     keys = json.load(f)
-                    # Get first key's address
                     for key_id, key_data in keys.items():
-                        # Extract address from public key or use key_id
                         credentials['genesis_address'] = key_id
                         break
-
-            # Add chain info
             credentials['chain_id'] = self.island_chain_id
             credentials['island_id'] = self.island_id
             credentials['island_name'] = self.island_name
-
-            # Add RPC endpoint (local)
             rpc_host = self.local_address
-            if rpc_host in {"0.0.0.0", "127.0.0.1", "localhost", ""}:
+            if rpc_host in {'0.0.0.0', '127.0.0.1', 'localhost', ''}:
                 rpc_host = settings.hub_discovery_url or socket.gethostname()
-            credentials['rpc_endpoint'] = f"http://{rpc_host}:8006"
+            credentials['rpc_endpoint'] = f'http://{rpc_host}:8006'
             credentials['p2p_port'] = self.local_port
-
             return credentials
         except Exception as e:
-            logger.error(f"Failed to get blockchain credentials: {e}")
+            logger.error('Failed to get blockchain credentials: %s', e)
             return {}
 
     async def handle_join_request(self, join_request: dict) -> dict | None:
@@ -215,53 +174,20 @@ class HubManager:
         """
         try:
             requested_island_id = join_request.get('island_id')
-
-            # Validate island ID
             if requested_island_id != self.island_id:
-                logger.warning(f"Join request for island {requested_island_id} does not match our island {self.island_id}")
+                logger.warning('Join request for island %s does not match our island %s', requested_island_id, self.island_id)
                 return None
-
-            # Get all island members
             members = []
             for node_id, peer_info in self.peer_registry.items():
                 if peer_info.island_id == self.island_id:
-                    members.append({
-                        'node_id': peer_info.node_id,
-                        'address': peer_info.address,
-                        'port': peer_info.port,
-                        'is_hub': peer_info.is_hub,
-                        'public_address': peer_info.public_address,
-                        'public_port': peer_info.public_port
-                    })
-
-            # Include self in member list
-            members.append({
-                'node_id': self.local_node_id,
-                'address': self.local_address,
-                'port': self.local_port,
-                'is_hub': True,
-                'public_address': self.known_hubs.get(self.local_node_id, {}).public_address if self.local_node_id in self.known_hubs else None,
-                'public_port': self.known_hubs.get(self.local_node_id, {}).public_port if self.local_node_id in self.known_hubs else None
-            })
-
-            # Get blockchain credentials
+                    members.append({'node_id': peer_info.node_id, 'address': peer_info.address, 'port': peer_info.port, 'is_hub': peer_info.is_hub, 'public_address': peer_info.public_address, 'public_port': peer_info.public_port})
+            members.append({'node_id': self.local_node_id, 'address': self.local_address, 'port': self.local_port, 'is_hub': True, 'public_address': self.known_hubs.get(self.local_node_id, {}).public_address if self.local_node_id in self.known_hubs else None, 'public_port': self.known_hubs.get(self.local_node_id, {}).public_port if self.local_node_id in self.known_hubs else None})
             credentials = self._get_blockchain_credentials()
-
-            # Build response
-            response = {
-                'type': 'join_response',
-                'island_id': self.island_id,
-                'island_name': self.island_name,
-                'island_chain_id': self.island_chain_id or f"ait-{self.island_id[:8]}",
-                'members': members,
-                'credentials': credentials
-            }
-
-            logger.info(f"Sent join_response to node {join_request.get('node_id')} with {len(members)} members")
+            response = {'type': 'join_response', 'island_id': self.island_id, 'island_name': self.island_name, 'island_chain_id': self.island_chain_id or f'ait-{self.island_id[:8]}', 'members': members, 'credentials': credentials}
+            logger.info('Sent join_response to node %s with %s members', join_request.get('node_id'), len(members))
             return response
-
         except Exception as e:
-            logger.error(f"Error handling join request: {e}")
+            logger.error('Error handling join request: %s', e)
             return None
 
     def register_gpu_offer(self, offer_data: dict) -> bool:
@@ -270,10 +196,10 @@ class HubManager:
             offer_id = offer_data.get('offer_id')
             if offer_id:
                 self.gpu_offers[offer_id] = offer_data
-                logger.info(f"Registered GPU offer: {offer_id}")
+                logger.info('Registered GPU offer: %s', offer_id)
                 return True
         except Exception as e:
-            logger.error(f"Error registering GPU offer: {e}")
+            logger.error('Error registering GPU offer: %s', e)
         return False
 
     def register_gpu_bid(self, bid_data: dict) -> bool:
@@ -282,20 +208,20 @@ class HubManager:
             bid_id = bid_data.get('bid_id')
             if bid_id:
                 self.gpu_bids[bid_id] = bid_data
-                logger.info(f"Registered GPU bid: {bid_id}")
+                logger.info('Registered GPU bid: %s', bid_id)
                 return True
         except Exception as e:
-            logger.error(f"Error registering GPU bid: {e}")
+            logger.error('Error registering GPU bid: %s', e)
         return False
 
     def register_gpu_provider(self, node_id: str, gpu_info: dict) -> bool:
         """Register a GPU provider in the hub"""
         try:
             self.gpu_providers[node_id] = gpu_info
-            logger.info(f"Registered GPU provider: {node_id}")
+            logger.info('Registered GPU provider: %s', node_id)
             return True
         except Exception as e:
-            logger.error(f"Error registering GPU provider: {e}")
+            logger.error('Error registering GPU provider: %s', e)
         return False
 
     def register_exchange_order(self, order_data: dict) -> bool:
@@ -304,23 +230,19 @@ class HubManager:
             order_id = order_data.get('order_id')
             if order_id:
                 self.exchange_orders[order_id] = order_data
-
-                # Update order book
                 pair = order_data.get('pair')
                 side = order_data.get('side')
                 if pair and side:
                     if pair not in self.exchange_order_books:
                         self.exchange_order_books[pair] = {'bids': [], 'asks': []}
-
                     if side == 'buy':
                         self.exchange_order_books[pair]['bids'].append(order_data)
                     elif side == 'sell':
                         self.exchange_order_books[pair]['asks'].append(order_data)
-
-                logger.info(f"Registered exchange order: {order_id}")
+                logger.info('Registered exchange order: %s', order_id)
                 return True
         except Exception as e:
-            logger.error(f"Error registering exchange order: {e}")
+            logger.error('Error registering exchange order: %s', e)
         return False
 
     def get_gpu_offers(self) -> list:
@@ -339,104 +261,69 @@ class HubManager:
         """Get order book for a specific trading pair"""
         return self.exchange_order_books.get(pair, {'bids': [], 'asks': []})
 
-    async def register_as_hub(self, public_address: str | None = None, public_port: int | None = None) -> bool:
+    async def register_as_hub(self, public_address: str | None=None, public_port: int | None=None) -> bool:
         """Register this node as a hub"""
         if self.is_hub:
-            logger.warning("Already registered as hub")
+            logger.warning('Already registered as hub')
             return False
-
         self.is_hub = True
         self.hub_status = HubStatus.REGISTERED
         self.registered_at = time.time()
-
-        # Add self to known hubs
-        hub_info = HubInfo(
-            node_id=self.local_node_id,
-            address=self.local_address,
-            port=self.local_port,
-            island_id=self.island_id,
-            island_name=self.island_name,
-            public_address=public_address,
-            public_port=public_port,
-            registered_at=time.time(),
-            last_seen=time.time()
-        )
+        hub_info = HubInfo(node_id=self.local_node_id, address=self.local_address, port=self.local_port, island_id=self.island_id, island_name=self.island_name, public_address=public_address, public_port=public_port, registered_at=time.time(), last_seen=time.time())
         self.known_hubs[self.local_node_id] = hub_info
-
-        # Persist to Redis
         await self._persist_hub_registration(hub_info)
-
-        logger.info(f"Registered as hub for island {self.island_id}")
+        logger.info('Registered as hub for island %s', self.island_id)
         return True
 
     async def unregister_as_hub(self) -> bool:
         """Unregister this node as a hub"""
         if not self.is_hub:
-            logger.warning("Not registered as hub")
+            logger.warning('Not registered as hub')
             return False
-
         self.is_hub = False
         self.hub_status = HubStatus.UNREGISTERED
         self.registered_at = None
-
-        # Remove from Redis
         await self._remove_hub_registration(self.local_node_id)
-
-        # Remove self from known hubs
         if self.local_node_id in self.known_hubs:
             del self.known_hubs[self.local_node_id]
-
-        logger.info(f"Unregistered as hub for island {self.island_id}")
+        logger.info('Unregistered as hub for island %s', self.island_id)
         return True
 
     def register_peer(self, peer_info: PeerInfo) -> bool:
         """Register a peer in the registry"""
         self.peer_registry[peer_info.node_id] = peer_info
-
-        # Add to island peers
         if peer_info.island_id not in self.island_peers:
             self.island_peers[peer_info.island_id] = set()
         self.island_peers[peer_info.island_id].add(peer_info.node_id)
-
-        # Update hub peer count if peer is a hub
         if peer_info.is_hub and peer_info.node_id in self.known_hubs:
             self.known_hubs[peer_info.node_id].peer_count = len(self.island_peers.get(peer_info.island_id, set()))
-
-        logger.debug(f"Registered peer {peer_info.node_id} in island {peer_info.island_id}")
+        logger.debug('Registered peer %s in island %s', peer_info.node_id, peer_info.island_id)
         return True
 
     def unregister_peer(self, node_id: str) -> bool:
         """Unregister a peer from the registry"""
         if node_id not in self.peer_registry:
             return False
-
         peer_info = self.peer_registry[node_id]
-
-        # Remove from island peers
         if peer_info.island_id in self.island_peers:
             self.island_peers[peer_info.island_id].discard(node_id)
-
         del self.peer_registry[node_id]
-
-        # Update hub peer count
         if node_id in self.known_hubs:
             self.known_hubs[node_id].peer_count = len(self.island_peers.get(self.known_hubs[node_id].island_id, set()))
-
-        logger.debug(f"Unregistered peer {node_id}")
+        logger.debug('Unregistered peer %s', node_id)
         return True
 
     def add_known_hub(self, hub_info: HubInfo):
         """Add a known hub to the registry"""
         self.known_hubs[hub_info.node_id] = hub_info
-        logger.info(f"Added known hub {hub_info.node_id} for island {hub_info.island_id}")
+        logger.info('Added known hub %s for island %s', hub_info.node_id, hub_info.island_id)
 
     def remove_known_hub(self, node_id: str) -> bool:
         """Remove a known hub from the registry"""
         if node_id not in self.known_hubs:
             return False
-
         del self.known_hubs[node_id]
-        logger.info(f"Removed known hub {node_id}")
+        logger.info('Removed known hub %s', node_id)
         return True
 
     def get_peer_list(self, island_id: str) -> list[PeerInfo]:
@@ -447,7 +334,7 @@ class HubManager:
                 peers.append(peer_info)
         return peers
 
-    def get_hub_list(self, island_id: str | None = None) -> list[HubInfo]:
+    def get_hub_list(self, island_id: str | None=None) -> list[HubInfo]:
         """Get list of known hubs, optionally filtered by island"""
         hubs = []
         for hub_info in self.known_hubs.values():
@@ -475,55 +362,42 @@ class HubManager:
         """Update the last seen time for a peer"""
         if node_id in self.peer_registry:
             self.peer_registry[node_id].last_seen = time.time()
-
         if node_id in self.known_hubs:
             self.known_hubs[node_id].last_seen = time.time()
 
     async def start(self):
         """Start hub manager"""
         self.running = True
-        logger.info(f"Starting hub manager for node {self.local_node_id}")
-
-        # Start background tasks
-        tasks = [
-            asyncio.create_task(self._hub_health_check()),
-            asyncio.create_task(self._peer_cleanup())
-        ]
-
+        logger.info('Starting hub manager for node %s', self.local_node_id)
+        tasks = [asyncio.create_task(self._hub_health_check()), asyncio.create_task(self._peer_cleanup())]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
-            logger.error(f"Hub manager error: {e}")
+            logger.error('Hub manager error: %s', e)
         finally:
             self.running = False
 
     async def stop(self):
         """Stop hub manager"""
         self.running = False
-        logger.info("Stopping hub manager")
+        logger.info('Stopping hub manager')
 
     async def _hub_health_check(self):
         """Check health of known hubs"""
         while self.running:
             try:
                 current_time = time.time()
-
-                # Check for offline hubs (not seen for 10 minutes)
                 offline_hubs = []
                 for node_id, hub_info in self.known_hubs.items():
                     if current_time - hub_info.last_seen > 600:
                         offline_hubs.append(node_id)
-                        logger.warning(f"Hub {node_id} appears to be offline")
-
-                # Remove offline hubs (keep self if we're a hub)
+                        logger.warning('Hub %s appears to be offline', node_id)
                 for node_id in offline_hubs:
                     if node_id != self.local_node_id:
                         self.remove_known_hub(node_id)
-
-                await asyncio.sleep(60)  # Check every minute
-
+                await asyncio.sleep(60)
             except Exception as e:
-                logger.error(f"Hub health check error: {e}")
+                logger.error('Hub health check error: %s', e)
                 await asyncio.sleep(10)
 
     async def _peer_cleanup(self):
@@ -531,32 +405,22 @@ class HubManager:
         while self.running:
             try:
                 current_time = time.time()
-
-                # Remove peers not seen for 5 minutes
                 stale_peers = []
                 for node_id, peer_info in self.peer_registry.items():
                     if current_time - peer_info.last_seen > 300:
                         stale_peers.append(node_id)
-
                 for node_id in stale_peers:
                     self.unregister_peer(node_id)
-                    logger.debug(f"Removed stale peer {node_id}")
-
-                await asyncio.sleep(60)  # Check every minute
-
+                    logger.debug('Removed stale peer %s', node_id)
+                await asyncio.sleep(60)
             except Exception as e:
-                logger.error(f"Peer cleanup error: {e}")
+                logger.error('Peer cleanup error: %s', e)
                 await asyncio.sleep(10)
-
-
-# Global hub manager instance
 hub_manager_instance: HubManager | None = None
-
 
 def get_hub_manager() -> HubManager | None:
     """Get global hub manager instance"""
     return hub_manager_instance
-
 
 def create_hub_manager(node_id: str, address: str, port: int, island_id: str, island_name: str) -> HubManager:
     """Create and set global hub manager instance"""

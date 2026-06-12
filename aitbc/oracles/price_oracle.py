@@ -184,7 +184,7 @@ class PriceOracle:
                     return PriceResult(base, quote, price, "fixed", time.time(), {"source": "fixed_price"})
                 except ValueError:
                     logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", fixed_price)
-        
+
         result = self._chainlink.get_price(base, quote)
         if result is not None:
             logger.debug("Price from Chainlink %s/%s: %s", base, quote, result.price)

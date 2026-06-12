@@ -6,7 +6,6 @@ after a reboot.
 """
 
 import configparser
-import os
 import subprocess
 import tempfile
 from pathlib import Path

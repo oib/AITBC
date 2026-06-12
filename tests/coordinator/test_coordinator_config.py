@@ -44,25 +44,25 @@ class TestValidatedCorsOrigins:
         """Test validation of valid CORS origins"""
         origins = ["http://localhost:8001", "http://example.com"]
         result = validated_cors_origins(origins)
-        
+
         assert result == origins
 
     def test_validated_cors_origins_wildcard(self):
         """Test validation rejects wildcard"""
         origins = ["*"]
-        
+
         with pytest.raises(ValueError) as exc_info:
             validated_cors_origins(origins)
-        
+
         assert "Wildcard CORS origins are not allowed" in str(exc_info.value)
 
     def test_validated_cors_origins_wildcard_in_list(self):
         """Test validation rejects wildcard in list"""
         origins = ["http://localhost:8001", "*"]
-        
+
         with pytest.raises(ValueError) as exc_info:
             validated_cors_origins(origins)
-        
+
         assert "Wildcard CORS origins are not allowed" in str(exc_info.value)
 
 
@@ -147,7 +147,7 @@ class TestEnvironmentConfig:
     def test_get_development_config(self):
         """Test development environment configuration"""
         config = EnvironmentConfig.get_development_config()
-        
+
         assert config["debug"] is True
         assert config["log_level"] == LogLevel.DEBUG
         assert config["reload"] is True
@@ -155,7 +155,7 @@ class TestEnvironmentConfig:
     def test_get_testing_config(self):
         """Test testing environment configuration"""
         config = EnvironmentConfig.get_testing_config()
-        
+
         assert config["debug"] is True
         assert config["log_level"] == LogLevel.DEBUG
         assert config["enable_metrics"] is False
@@ -164,7 +164,7 @@ class TestEnvironmentConfig:
     def test_get_staging_config(self):
         """Test staging environment configuration"""
         config = EnvironmentConfig.get_staging_config()
-        
+
         assert config["debug"] is False
         assert config["log_level"] == LogLevel.INFO
         assert config["workers"] == 2
@@ -172,7 +172,7 @@ class TestEnvironmentConfig:
     def test_get_production_config(self):
         """Test production environment configuration"""
         config = EnvironmentConfig.get_production_config()
-        
+
         assert config["debug"] is False
         assert config["log_level"] == LogLevel.WARNING
         assert config["workers"] == 4
@@ -186,9 +186,9 @@ class TestConfigUtils:
         """Test getting coordinator agent config"""
         mock_settings.heartbeat_interval = 30
         mock_settings.connection_timeout = 30
-        
+
         config = ConfigUtils.get_agent_config("coordinator")
-        
+
         assert config["max_connections"] == 1000
         assert config["heartbeat_interval"] == 15
         assert config["enable_coordination"] is True
@@ -198,9 +198,9 @@ class TestConfigUtils:
         """Test getting worker agent config"""
         mock_settings.heartbeat_interval = 30
         mock_settings.connection_timeout = 30
-        
+
         config = ConfigUtils.get_agent_config("worker")
-        
+
         assert config["max_connections"] == 50
         assert config["enable_coordination"] is False
 
@@ -209,9 +209,9 @@ class TestConfigUtils:
         """Test getting config for unknown agent type"""
         mock_settings.heartbeat_interval = 30
         mock_settings.connection_timeout = 30
-        
+
         config = ConfigUtils.get_agent_config("unknown")
-        
+
         # Should return base config
         assert "heartbeat_interval" in config
         assert "max_connections" in config
@@ -224,9 +224,9 @@ class TestConfigUtils:
         mock_settings.workers = 1
         mock_settings.connection_timeout = 30
         mock_settings.enable_metrics = True
-        
+
         config = ConfigUtils.get_service_config("agent_coordinator")
-        
+
         assert config["port"] == 9001
         assert config["enable_metrics"] is True
 
@@ -237,9 +237,9 @@ class TestConfigUtils:
         mock_settings.port = 9001
         mock_settings.workers = 1
         mock_settings.connection_timeout = 30
-        
+
         config = ConfigUtils.get_service_config("unknown")
-        
+
         # Should return base config
         assert "host" in config
         assert "port" in config
@@ -260,7 +260,7 @@ class TestConfigLoader:
         mock_settings.max_task_queue_size = 10000
         mock_settings.default_strategy = "least_connections"
         mock_settings.environment = Environment.DEVELOPMENT
-        
+
         # Should not raise
         ConfigLoader.validate_config()
 
@@ -290,9 +290,9 @@ class TestConfigLoader:
         mock_settings.redis_url = "redis://localhost:6379/1"
         mock_settings.redis_max_connections = 10
         mock_settings.redis_timeout = 5
-        
+
         config = ConfigLoader.get_redis_config()
-        
+
         assert config["url"] == "redis://localhost:6379/1"
         assert config["max_connections"] == 10
         assert config["timeout"] == 5
@@ -303,9 +303,9 @@ class TestConfigLoader:
         """Test getting logging configuration"""
         mock_settings.log_level = LogLevel.INFO
         mock_settings.log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        
+
         config = ConfigLoader.get_logging_config()
-        
+
         assert config["version"] == 1
         assert "formatters" in config
         assert "handlers" in config

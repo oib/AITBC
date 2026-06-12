@@ -3,10 +3,9 @@ Tests for reputation service and trust score calculator
 """
 
 import sys
-from pathlib import Path
-
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -111,11 +110,11 @@ class TestTrustScoreCalculator:
         success_rate = 0.92
         avg_rating = 4.5
         job_count = 50
-        
+
         # Mock calculation: success rate * 100 + (rating * 10) + job factor
         job_factor = min(job_count / 100, 1.0) * 10
         performance_score = (success_rate * 100) + (avg_rating * 10) + job_factor
-        
+
         assert performance_score >= 0
         assert performance_score <= 200  # Max theoretical score
 
@@ -124,10 +123,10 @@ class TestTrustScoreCalculator:
         uptime_percentage = 99.5
         response_time_avg = 50  # ms
         on_time_delivery_rate = 0.95
-        
+
         # Mock calculation
         reliability_score = (uptime_percentage + (100 - min(response_time_avg, 100)) + (on_time_delivery_rate * 100)) / 3
-        
+
         assert reliability_score >= 0
         assert reliability_score <= 100
 
@@ -136,10 +135,10 @@ class TestTrustScoreCalculator:
         feedback_count = 20
         avg_rating = 4.3
         helpful_votes = 15
-        
+
         # Mock calculation
         community_score = (avg_rating * 20) + (feedback_count * 0.5) + (helpful_votes * 0.3)
-        
+
         assert community_score >= 0
         assert community_score <= 150
 
@@ -150,7 +149,7 @@ class TestTrustScoreCalculator:
         community_score = 80.0
         security_score = 95.0
         economic_score = 75.0
-        
+
         # Weighted average
         weights = {
             "performance": 0.3,
@@ -159,7 +158,7 @@ class TestTrustScoreCalculator:
             "security": 0.15,
             "economic": 0.1
         }
-        
+
         composite_score = (
             performance_score * weights["performance"] +
             reliability_score * weights["reliability"] +
@@ -167,7 +166,7 @@ class TestTrustScoreCalculator:
             security_score * weights["security"] +
             economic_score * weights["economic"]
         )
-        
+
         assert composite_score >= 0
         assert composite_score <= 100
 
@@ -180,7 +179,7 @@ class TestTrustScoreCalculator:
             (450, "intermediate"),
             (200, "beginner")
         ]
-        
+
         for score, expected_level in test_cases:
             if score >= 900:
                 level = ReputationLevel.MASTER
@@ -192,7 +191,7 @@ class TestTrustScoreCalculator:
                 level = ReputationLevel.INTERMEDIATE
             else:
                 level = ReputationLevel.BEGINNER
-            
+
             assert level.value == expected_level
 
 
@@ -204,9 +203,9 @@ class TestReputationDecay:
         initial_score = 800.0
         decay_rate = 0.1  # 10% per month
         months_inactive = 3
-        
+
         decayed_score = initial_score * ((1 - decay_rate) ** months_inactive)
-        
+
         assert decayed_score < initial_score
         assert decayed_score >= 0
         assert decayed_score == pytest.approx(800.0 * 0.9 ** 3, rel=0.01)
@@ -216,10 +215,10 @@ class TestReputationDecay:
         base_score = 500.0
         recent_activity_count = 10
         boost_per_activity = 2.0
-        
+
         activity_boost = min(recent_activity_count * boost_per_activity, 20.0)
         boosted_score = base_score + activity_boost
-        
+
         assert boosted_score > base_score
         assert boosted_score == pytest.approx(520.0, rel=0.01)
 
@@ -230,12 +229,12 @@ class TestReputationDecay:
         months_inactive = 2
         recent_activity_count = 5
         activity_boost_per_activity = 1.5
-        
+
         decay_amount = initial_score * decay_rate * months_inactive
         activity_boost = min(recent_activity_count * activity_boost_per_activity, 15.0)
-        
+
         final_score = initial_score - decay_amount + activity_boost
-        
+
         assert final_score >= 0
         assert final_score <= initial_score + activity_boost
 
@@ -251,13 +250,13 @@ class TestWeightedRatingCalculation:
             {"rating": 5.0, "weight": 1.5},
             {"rating": 3.0, "weight": 0.5}
         ]
-        
+
         total_weight = sum(r["weight"] for r in ratings)
         weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
         weighted_average = weighted_sum / total_weight
-        
+
         expected = (5.0*2.0 + 4.0*1.0 + 5.0*1.5 + 3.0*0.5) / (2.0 + 1.0 + 1.5 + 0.5)
-        
+
         assert weighted_average == pytest.approx(expected, rel=0.01)
         assert 1.0 <= weighted_average <= 5.0
 
@@ -269,40 +268,40 @@ class TestWeightedRatingCalculation:
             {"rating": 5.0, "days_ago": 60},
             {"rating": 3.0, "days_ago": 90}
         ]
-        
+
         # More recent ratings get higher weight
         max_days = 90
         for item in rating_data:
             item["weight"] = 1.0 - (item["days_ago"] / max_days) * 0.5
-        
+
         total_weight = sum(r["weight"] for r in rating_data)
         weighted_sum = sum(r["rating"] * r["weight"] for r in rating_data)
         recency_weighted_average = weighted_sum / total_weight
-        
+
         assert recency_weighted_average >= 1.0
         assert recency_weighted_average <= 5.0
 
     def test_empty_ratings_list(self):
         """Test weighted rating with empty list"""
         ratings = []
-        
+
         if ratings:
             total_weight = sum(r["weight"] for r in ratings)
             weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
             weighted_average = weighted_sum / total_weight
         else:
             weighted_average = 0.0
-        
+
         assert weighted_average == 0.0
 
     def test_single_rating(self):
         """Test weighted rating with single rating"""
         ratings = [{"rating": 4.5, "weight": 1.0}]
-        
+
         total_weight = sum(r["weight"] for r in ratings)
         weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
         weighted_average = weighted_sum / total_weight
-        
+
         assert weighted_average == 4.5
 
 
@@ -312,7 +311,7 @@ class TestReputationLevelCalculation:
     def test_trustee_level(self):
         """Test trustee level calculation"""
         trust_score = 0.95
-        
+
         if trust_score >= 0.9:
             level = "trustee"
         elif trust_score >= 0.7:
@@ -321,13 +320,13 @@ class TestReputationLevelCalculation:
             level = "established"
         else:
             level = "newcomer"
-        
+
         assert level == "trustee"
 
     def test_reputable_level(self):
         """Test reputable level calculation"""
         trust_score = 0.75
-        
+
         if trust_score >= 0.9:
             level = "trustee"
         elif trust_score >= 0.7:
@@ -336,13 +335,13 @@ class TestReputationLevelCalculation:
             level = "established"
         else:
             level = "newcomer"
-        
+
         assert level == "reputable"
 
     def test_established_level(self):
         """Test established level calculation"""
         trust_score = 0.6
-        
+
         if trust_score >= 0.9:
             level = "trustee"
         elif trust_score >= 0.7:
@@ -351,13 +350,13 @@ class TestReputationLevelCalculation:
             level = "established"
         else:
             level = "newcomer"
-        
+
         assert level == "established"
 
     def test_newcomer_level(self):
         """Test newcomer level calculation"""
         trust_score = 0.3
-        
+
         if trust_score >= 0.9:
             level = "trustee"
         elif trust_score >= 0.7:
@@ -366,7 +365,7 @@ class TestReputationLevelCalculation:
             level = "established"
         else:
             level = "newcomer"
-        
+
         assert level == "newcomer"
 
 
@@ -377,39 +376,39 @@ class TestReputationEventTracking:
         """Test positive reputation event"""
         event_type = "successful_job"
         impact = 0.1
-        
+
         if event_type in ["successful_job", "timely_delivery"]:
             score_change = impact
         else:
             score_change = -impact
-        
+
         assert score_change > 0
 
     def test_negative_event(self):
         """Test negative reputation event"""
         event_type = "job_failure"
         impact = 0.1
-        
+
         if event_type in ["successful_job", "timely_delivery"]:
             score_change = impact
         else:
             score_change = -impact
-        
+
         assert score_change < 0
 
     def test_event_with_magnitude(self):
         """Test event with different magnitudes"""
         event_type = "successful_job"
         magnitude = 0.2
-        
+
         base_impact = 0.1
         impact = base_impact * magnitude
-        
+
         if event_type in ["successful_job", "timely_delivery"]:
             score_change = impact
         else:
             score_change = -impact
-        
+
         assert score_change == pytest.approx(0.02)
 
 

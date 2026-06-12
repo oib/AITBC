@@ -10,10 +10,10 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 from aitbc_cli.commands.simulate import simulate
+from aitbc_cli.utils.http_client import NetworkError
 from click.testing import CliRunner
 
 from aitbc import AITBCHTTPClient
-from aitbc_cli.utils.http_client import NetworkError
 
 
 @pytest.fixture
