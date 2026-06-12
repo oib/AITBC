@@ -89,7 +89,7 @@ class SimpleKYCProvider:
     def set_api_key(self, provider: KYCProvider, api_key: str):
         """Set API key for provider"""
         self.api_keys[provider] = api_key
-        logger.info(f"✅ API key set for {provider}")
+        logger.info("✅ API key set for %s", provider)
 
     def submit_kyc_verification(self, request: KYCRequest) -> KYCResponse:
         """Submit KYC verification to provider"""
@@ -115,7 +115,7 @@ class SimpleKYCProvider:
             return response
 
         except Exception as e:
-            logger.error(f"❌ KYC submission failed: {e}")
+            logger.error("❌ KYC submission failed: %s", e)
             raise
 
     def check_kyc_status(self, request_id: str, provider: KYCProvider) -> KYCResponse:
@@ -151,7 +151,7 @@ class SimpleKYCProvider:
             )
 
         except Exception as e:
-            logger.error(f"❌ KYC status check failed: {e}")
+            logger.error("❌ KYC status check failed: %s", e)
             raise
 
     def _mock_kyc_response(self, request: KYCRequest) -> KYCResponse:
@@ -176,7 +176,7 @@ class SimpleAMLProvider:
     def set_api_key(self, provider: str, api_key: str):
         """Set API key for AML provider"""
         self.api_keys[provider] = api_key
-        logger.info(f"✅ AML API key set for {provider}")
+        logger.info("✅ AML API key set for %s", provider)
 
     def screen_user(self, user_id: str, user_data: dict[str, Any]) -> AMLCheck:
         """Screen user for AML compliance"""
@@ -214,7 +214,7 @@ class SimpleAMLProvider:
             )
 
         except Exception as e:
-            logger.error(f"❌ AML screening failed: {e}")
+            logger.error("❌ AML screening failed: %s", e)
             raise
 
 # Global instances
@@ -286,13 +286,13 @@ def test_kyc_aml_integration():
     }
 
     kyc_result = submit_kyc_verification("user123", "chainalysis", customer_data)
-    logger.info(f"✅ KYC Submitted: {kyc_result}")
+    logger.info("✅ KYC Submitted: %s", kyc_result)
     # Test KYC status check
     kyc_status = check_kyc_status(kyc_result["request_id"], "chainalysis")
-    logger.info(f"📋 KYC Status: {kyc_status}")
+    logger.info("📋 KYC Status: %s", kyc_status)
     # Test AML screening
     aml_result = perform_aml_screening("user123", customer_data)
-    logger.info(f"🔍 AML Screening: {aml_result}")
+    logger.info("🔍 AML Screening: %s", aml_result)
     logger.info("🎉 KYC/AML integration test complete!")
 if __name__ == "__main__":
     test_kyc_aml_integration()
