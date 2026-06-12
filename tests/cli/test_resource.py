@@ -5,6 +5,7 @@ utilization tracking, and API interactions with actual service calls.
 """
 
 import json
+import re
 from unittest.mock import MagicMock, Mock, patch
 
 import httpx
@@ -14,6 +15,31 @@ from click.testing import CliRunner
 
 from aitbc import AITBCHTTPClient
 from aitbc_cli.utils.http_client import NetworkError
+
+
+def extract_json_from_output(output):
+    """Extract JSON object or array from CLI output that may contain ANSI escape codes"""
+    clean = re.sub(r'\x1b\[[0-9;]*m', '', output)
+    lines = clean.strip().split('\n')
+    json_lines = []
+    in_json = False
+    brace_depth = 0
+    bracket_depth = 0
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('{') and not in_json:
+            in_json = True
+        if stripped.startswith('[') and not in_json:
+            in_json = True
+        if in_json:
+            json_lines.append(stripped)
+            brace_depth += stripped.count('{') - stripped.count('}')
+            bracket_depth += stripped.count('[') - stripped.count(']')
+            if brace_depth == 0 and bracket_depth == 0:
+                break
+    if json_lines:
+        return json.loads('\n'.join(json_lines))
+    return json.loads(clean)
 
 
 @pytest.fixture
@@ -120,7 +146,8 @@ class TestResourceCommands:
         }
 
         result = runner.invoke(resource, [
-            'deallocate', 'res_123'
+            'deallocate', 'res_123',
+            '--force'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
@@ -365,19 +392,20 @@ class TestResourceCommands:
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert 'resource_id' in data or 'allocation_id' in data
+        data = extract_json_from_output(result.output)
+        assert 'allocation_id' in data
 
     def test_resource_list_with_mock(self, runner, mock_config):
         """Test resource listing with mock flag"""
         result = runner.invoke(resource, [
             'list',
-            '--mock'
+            '--mock',
+            '--format', 'json'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert 'resources' in data or isinstance(data, list)
+        data = extract_json_from_output(result.output)
+        assert isinstance(data, list)
 
     def test_resource_release_with_mock(self, runner, mock_config):
         """Test resource release with mock flag"""
@@ -387,19 +415,20 @@ class TestResourceCommands:
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = extract_json_from_output(result.output)
         assert 'resource_id' in data or 'status' in data
 
     def test_resource_utilization_with_mock(self, runner, mock_config):
         """Test resource utilization with mock flag"""
         result = runner.invoke(resource, [
             'utilization',
-            '--mock'
+            '--mock',
+            '--format', 'json'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert 'utilization' in data or 'metrics' in data
+        data = extract_json_from_output(result.output)
+        assert 'cpu_utilization' in data
 
     def test_resource_optimize_with_mock(self, runner, mock_config):
         """Test resource optimization with mock flag"""
@@ -409,8 +438,8 @@ class TestResourceCommands:
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert 'optimization' in data or 'recommendations' in data
+        assert 'Optimization score' in result.output
+        assert 'Status: Optimized' in result.output
 
     def test_resource_allocate_with_parameters(self, runner, mock_config):
         """Test resource allocation with custom parameters"""
@@ -418,13 +447,13 @@ class TestResourceCommands:
             'allocate',
             '--resource-type', 'gpu',
             '--quantity', '8',
-            '--min-memory', '32',
+            '--priority', 'high',
             '--mock'
         ], obj={'config': mock_config, 'output': 'json'})
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert 'resource_id' in data or 'allocation_id' in data
+        data = extract_json_from_output(result.output)
+        assert 'allocation_id' in data
 
     def test_resource_status_filter_by_type(self, runner, mock_config, coordinator_available):
         """Test resource status filtered by resource type"""
