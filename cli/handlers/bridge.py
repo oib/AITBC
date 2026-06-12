@@ -27,11 +27,11 @@ def handle_bridge_health(args):
 
         logger.info("🏥 Blockchain Event Bridge Health:")
         for key, value in health.items():
-            logger.info(f"  {key}: {value}")
+            logger.info("  %s: %s", key, value)
     except NetworkError as e:
-        logger.error(f"❌ Health check failed: {e}")
+        logger.error("❌ Health check failed: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error checking health: {e}")
+        logger.error("❌ Error checking health: %s", e)
 def handle_bridge_metrics(args):
     """Get Prometheus metrics from blockchain event bridge service."""
     try:
@@ -51,9 +51,9 @@ def handle_bridge_metrics(args):
         logger.info("📊 Prometheus Metrics:")
         logger.info(metrics.text)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get metrics: {e}")
+        logger.error("❌ Failed to get metrics: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting metrics: {e}")
+        logger.error("❌ Error getting metrics: %s", e)
 def handle_bridge_status(args):
     """Get detailed status of blockchain event bridge service."""
     try:
@@ -72,11 +72,11 @@ def handle_bridge_status(args):
 
         logger.info("📊 Blockchain Event Bridge Status:")
         for key, value in status.items():
-            logger.info(f"  {key}: {value}")
+            logger.info("  %s: %s", key, value)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get status: {e}")
+        logger.error("❌ Failed to get status: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting status: {e}")
+        logger.error("❌ Error getting status: %s", e)
 def handle_bridge_config(args):
     """Show current configuration of blockchain event bridge service."""
     try:
@@ -95,11 +95,11 @@ def handle_bridge_config(args):
 
         logger.info("⚙️  Blockchain Event Bridge Configuration:")
         for key, value in service_config.items():
-            logger.info(f"  {key}: {value}")
+            logger.info("  %s: %s", key, value)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get config: {e}")
+        logger.error("❌ Failed to get config: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting config: {e}")
+        logger.error("❌ Error getting config: %s", e)
 def handle_bridge_restart(args):
     """Restart blockchain event bridge service (via systemd)."""
     try:
@@ -119,10 +119,10 @@ def handle_bridge_restart(args):
             logger.info("🔄 Blockchain event bridge restart triggered")
             logger.info("✅ Restart completed successfully")
         else:
-            logger.error(f"❌ Restart failed: {result.stderr}")
+            logger.error("❌ Restart failed: %s", result.stderr)
     except subprocess.TimeoutExpired:
         logger.info("❌ Restart timeout - service may be starting")
     except FileNotFoundError:
         logger.info("❌ systemctl not found - cannot restart service")
     except Exception as e:
-        logger.error(f"❌ Error restarting service: {e}")
+        logger.error("❌ Error restarting service: %s", e)
