@@ -128,11 +128,11 @@ class ComputeProvider(Agent):
             await self._submit_to_marketplace(offer)
             self.current_offers.append(offer)
 
-            logger.info(f"Resource offer submitted: {price_per_hour} AITBC/hour")
+            logger.info("Resource offer submitted: %s AITBC/hour", price_per_hour)
             return True
 
         except Exception as e:
-            logger.error(f"Failed to offer resources: {e}")
+            logger.error("Failed to offer resources: %s", e)
             return False
 
     async def set_availability(self, schedule: dict[str, Any]) -> bool:
@@ -147,7 +147,7 @@ class ComputeProvider(Agent):
             return True
 
         except Exception as e:
-            logger.error(f"Failed to update availability: {e}")
+            logger.error("Failed to update availability: %s", e)
             return False
 
     async def enable_dynamic_pricing(
@@ -174,7 +174,7 @@ class ComputeProvider(Agent):
             return True
 
         except Exception as e:
-            logger.error(f"Failed to enable dynamic pricing: {e}")
+            logger.error("Failed to enable dynamic pricing: %s", e)
             return False
 
     async def _dynamic_pricing_loop(self) -> None:
@@ -213,11 +213,12 @@ class ComputeProvider(Agent):
                     await self._update_marketplace_offer(offer)
 
                 logger.debug(
-                    f"Dynamic pricing: utilization={current_utilization:.2f}, price={new_price:.3f} AITBC/h"
+                    "Dynamic pricing: utilization=%.2f, price=%.3f AITBC/h",
+                    current_utilization, new_price
                 )
 
             except Exception as e:
-                logger.error(f"Dynamic pricing error: {e}")
+                logger.error("Dynamic pricing error: %s", e)
 
             # Wait for next adjustment
             await asyncio.sleep(900)  # 15 minutes
@@ -243,11 +244,11 @@ class ComputeProvider(Agent):
             # Execute job (simulate)
             asyncio.create_task(self._execute_job(job, job_request))
 
-            logger.info(f"Job accepted: {job.job_id} from {job.consumer_id}")
+            logger.info("Job accepted: %s from %s", job.job_id, job.consumer_id)
             return True
 
         except Exception as e:
-            logger.error(f"Failed to accept job: {e}")
+            logger.error("Failed to accept job: %s", e)
             return False
 
     async def _execute_job(
@@ -275,11 +276,11 @@ class ComputeProvider(Agent):
             # Notify consumer
             await self._notify_job_completion(job, earnings)
 
-            logger.info(f"Job completed: {job.job_id}, earned {earnings} AITBC")
+            logger.info("Job completed: %s, earned %s AITBC", job.job_id, earnings)
 
         except Exception as e:
             job.status = "failed"
-            logger.error(f"Job execution failed: {job.job_id} - {e}")
+            logger.error("Job execution failed: %s - %s", job.job_id, e)
 
     async def _notify_job_completion(self, job: JobExecution, earnings: float) -> None:
         """Notify consumer about job completion"""
@@ -357,15 +358,15 @@ class ComputeProvider(Agent):
             if response.status_code == 201:
                 result = response.json()
                 offer_id = result.get("offer_id")
-                logger.info(f"Offer submitted successfully: {offer_id}")
+                logger.info("Offer submitted successfully: %s", offer_id)
                 return offer_id
             else:
-                logger.error(f"Failed to submit offer: {response.status_code}")
-                raise NetworkError(f"Marketplace submission failed: {response.status_code}")
+                logger.error("Failed to submit offer: %s", response.status_code)
+                raise NetworkError("Marketplace submission failed: %s" % response.status_code)
         except NetworkError:
             raise
         except Exception as e:
-            logger.error(f"Error submitting to marketplace: {e}")
+            logger.error("Error submitting to marketplace: %s", e)
             raise
 
     async def _update_marketplace_offer(self, offer: ResourceOffer) -> None:
@@ -388,14 +389,14 @@ class ComputeProvider(Agent):
             )
 
             if response.status_code == 200:
-                logger.info(f"Offer updated successfully: {offer.provider_id}")
+                logger.info("Offer updated successfully: %s", offer.provider_id)
             else:
-                logger.error(f"Failed to update offer: {response.status_code}")
-                raise NetworkError(f"Marketplace update failed: {response.status_code}")
+                logger.error("Failed to update offer: %s", response.status_code)
+                raise NetworkError("Marketplace update failed: %s" % response.status_code)
         except NetworkError:
             raise
         except Exception as e:
-            logger.error(f"Error updating marketplace offer: {e}")
+            logger.error("Error updating marketplace offer: %s", e)
             raise
 
     @classmethod
@@ -462,7 +463,7 @@ class ComputeProvider(Agent):
                 else:
                     capabilities["supported_models"] = ["llama3.2"]
 
-                logger.info(f"GPU capabilities detected: {capabilities}")
+                logger.info("GPU capabilities detected: %s", capabilities)
             else:
                 logger.warning("nvidia-smi not available, using CPU-only capabilities")
                 capabilities["supported_models"] = ["llama3.2-quantized"]
@@ -470,12 +471,12 @@ class ComputeProvider(Agent):
                 capabilities["max_concurrent_jobs"] = 1
 
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            logger.warning(f"GPU detection failed: {e}, using CPU-only capabilities")
+            logger.warning("GPU detection failed: %s, using CPU-only capabilities", e)
             capabilities["supported_models"] = ["llama3.2-quantized"]
             capabilities["performance_score"] = 0.3
             capabilities["max_concurrent_jobs"] = 1
         except Exception as e:
-            logger.error(f"Error assessing capabilities: {e}")
+            logger.error("Error assessing capabilities: %s", e)
             capabilities["supported_models"] = ["llama3.2-quantized"]
             capabilities["performance_score"] = 0.3
             capabilities["max_concurrent_jobs"] = 1
@@ -500,13 +501,13 @@ class ComputeProvider(Agent):
         for job in self.active_jobs[:]:
             if job.status == "running":
                 job.status = "failed"
-                logger.warning(f"Job {job.job_id} marked as failed due to provider shutdown")
+                logger.warning("Job %s marked as failed due to provider shutdown", job.job_id)
 
         # Call parent cleanup
         if hasattr(super(), '__aexit__'):
             await super().__aexit__(exc_type, exc_val, exc_tb)
 
         if exc_type is not None:
-            logger.error(f"Provider {self.identity.id} exiting with exception: {exc_val}")
+            logger.error("Provider %s exiting with exception: %s", self.identity.id, exc_val)
         else:
-            logger.info(f"Provider {self.identity.id} exiting normally. Total earnings: {self.earnings} AITBC")
+            logger.info("Provider %s exiting normally. Total earnings: %s AITBC", self.identity.id, self.earnings)
