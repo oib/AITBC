@@ -51,7 +51,9 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 - ⚠️ pool-hub: 17 files - complex dependency issues, per-file ignores retained
 - ⚠️ blockchain-node: 31 files - complex database model issues, per-file ignores retained
 - ⚠️ agent-management: 6 files - external dependencies (aitbc_agent_core), per-file ignores retained
-- 📅 Remaining: 154 files with per-file ignores
+- ✅ coordinator-api: deps.py, utils/security.py (2 files) - 5 errors fixed
+- ⚠️ coordinator-api: 81 files - service method signature mismatches, module resolution issues, per-file ignores retained
+- 📅 Remaining: 148 files with per-file ignores
 
 **Priority Order for Migration**
 1. **agent-coordinator** (1 file) - prometheus_metrics.py

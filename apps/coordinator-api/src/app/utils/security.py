@@ -1,8 +1,8 @@
-# mypy: ignore-errors
 """Security utilities for API protection."""
 import hashlib
 import hmac
 import logging
+import os
 import re
 from datetime import datetime
 from fastapi import HTTPException, Request, status
@@ -78,25 +78,27 @@ class APIKeyRotator:
     @staticmethod
     def generate_api_key() -> str:
         """Generate a new API key."""
-        return hashlib.sha256(f'{datetime.utcnow().isoformat()}_{hashlib.urandom(32).hex()}'.encode()).hexdigest()
+        return hashlib.sha256(f'{datetime.utcnow().isoformat()}_{os.urandom(32).hex()}'.encode()).hexdigest()
 
     @staticmethod
     def validate_api_key_format(api_key: str) -> bool:
         """Validate API key format."""
         return len(api_key) == 64 and all((c in '0123456789abcdef' for c in api_key.lower()))
 
-async def verify_api_key(request: Request, credentials: HTTPAuthorizationCredentials | None=security) -> str:
+async def verify_api_key(request: Request, credentials: HTTPAuthorizationCredentials | None = None) -> str:
     """Verify API key from request."""
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='API key required', headers={'WWW-Authenticate': 'Bearer'})
     api_key = credentials.credentials
     if not APIKeyRotator.validate_api_key_format(api_key):
-        logger.warning('Invalid API key format from %s', request.client.host)
+        client_host = request.client.host if request.client else 'unknown'
+        logger.warning('Invalid API key format from %s', client_host)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid API key format')
     from ..config import settings
     all_allowed_keys = settings.client_api_keys + settings.miner_api_keys + settings.admin_api_keys
     if api_key not in all_allowed_keys:
-        logger.warning('Invalid API key from %s', request.client.host)
+        client_host = request.client.host if request.client else 'unknown'
+        logger.warning('Invalid API key from %s', client_host)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid API key')
     return api_key
 
