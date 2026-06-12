@@ -21,7 +21,7 @@ on:
         type: boolean
 
 concurrency:
-  group: deploy-testnet-${{ gitea.ref }}
+  group: deploy-testnet-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -33,24 +33,22 @@ jobs:
       url: https://testnet.aitbc.network
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/deploy-testnet
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
@@ -62,20 +60,20 @@ jobs:
 
       - name: Compile contracts
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           pnpm hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Run contract tests
         continue-on-error: true
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           pnpm hardhat test || echo "⚠️ Some contract tests failed - continuing with deployment"
           echo "✅ Contract tests completed"
 
       - name: Deploy contracts to testnet
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Skip deployment - no Ethereum-compatible testnet endpoint available
           # AITBC blockchain uses custom RPC protocol, not standard Ethereum JSON-RPC
@@ -86,7 +84,7 @@ jobs:
       - name: Verify contracts on block explorer
         if: inputs.verify_contracts != false
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Load verification configuration
           export ETHERSCAN_API_KEY=${{ secrets.TESTNET_EXPLORER_API_KEY }}
@@ -99,7 +97,7 @@ jobs:
 
       - name: Record deployment metadata
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Save deployment information
           cat > deployment-info.json << EOF
@@ -120,7 +118,7 @@ jobs:
 
       - name: Setup monitoring alerts
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Configure monitoring for deployed contracts
           bash scripts/monitoring/setup-contract-monitoring.sh testnet
@@ -129,12 +127,9 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Skip smoke tests - script doesn't exist
           echo "⚠️  Skipping smoke tests - script not found"
           echo "✅ Smoke tests skipped"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

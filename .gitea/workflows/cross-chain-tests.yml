@@ -22,7 +22,7 @@ on:
         type: string
 
 concurrency:
-  group: cross-chain-tests-${{ gitea.ref }}
+  group: cross-chain-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -31,24 +31,22 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/cross-chain-sync
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           rm -rf venv
           
           bash scripts/ci/setup-python-venv.sh \
@@ -60,7 +58,7 @@ jobs:
 
       - name: Test cross-chain block synchronization
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           CHAINS="${{ inputs.chains || 'ait-mainnet,ait-testnet' }}"
           
@@ -80,33 +78,27 @@ jobs:
           asyncio.run(test_sync())
           "
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   test-cross-chain-transactions:
     runs-on: debian
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/cross-chain-tx
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           rm -rf venv
           
           bash scripts/ci/setup-python-venv.sh \
@@ -118,7 +110,7 @@ jobs:
 
       - name: Test cross-chain transactions
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           echo "🧪 Testing cross-chain transactions"
 
@@ -140,33 +132,27 @@ jobs:
           asyncio.run(test_cross_chain_tx())
           "
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   test-multi-chain-consensus:
     runs-on: debian
     timeout-minutes: 25
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/multi-chain-consensus
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           rm -rf venv
           
           bash scripts/ci/setup-python-venv.sh \
@@ -178,7 +164,7 @@ jobs:
 
       - name: Test multi-chain consensus
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "🧪 Testing multi-chain consensus"
           
@@ -194,34 +180,28 @@ jobs:
           asyncio.run(test_consensus())
           "
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   aggregate-results:
     runs-on: debian
     timeout-minutes: 10
     needs: [test-cross-chain-sync, test-cross-chain-transactions, test-multi-chain-consensus]
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/cross-chain-results
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Aggregate test results
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "📊 Aggregating cross-chain test results"
           
@@ -242,6 +222,3 @@ jobs:
               exit 1
           fi
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
