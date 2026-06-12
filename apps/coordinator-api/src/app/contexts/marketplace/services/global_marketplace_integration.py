@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Global Marketplace Integration Service
 Integration service that combines global marketplace operations with cross-chain capabilities

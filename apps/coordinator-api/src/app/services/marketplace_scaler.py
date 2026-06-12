@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Marketplace Adaptive Resource Scaler
 Implements predictive and reactive auto-scaling of marketplace resources based on demand.

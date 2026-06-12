@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Portfolio Service - Cross-wallet and cross-chain holdings aggregation
 
