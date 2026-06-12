@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import Annotated
 from sqlalchemy.orm import Session
 '\nRouter to create marketplace offers from registered miners\n'

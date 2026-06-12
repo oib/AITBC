@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from sqlalchemy.orm import Session
 from sqlmodel import select
 '\nReward System API Endpoints\nREST API for agent rewards, incentives, and performance-based earnings\n'

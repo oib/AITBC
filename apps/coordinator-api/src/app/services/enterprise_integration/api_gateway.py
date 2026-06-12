@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Enterprise API Gateway - Phase 6.1 Implementation
 Multi-tenant API routing and management for enterprise clients

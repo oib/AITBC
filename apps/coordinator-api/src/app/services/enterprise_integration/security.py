@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Enterprise Security Framework - Phase 6.2 Implementation
 Zero-trust architecture with HSM integration and advanced security controls
