@@ -60,7 +60,7 @@ class ChaosTestNetwork:
             pods = result.stdout.strip().split()
             return pods
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to get blockchain pods: {e}")
+            logger.error("Failed to get blockchain pods: %s", e)
             return []
 
     def get_coordinator_pods(self) -> list[str]:
@@ -77,12 +77,12 @@ class ChaosTestNetwork:
             pods = result.stdout.strip().split()
             return pods
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to get coordinator pods: {e}")
+            logger.error("Failed to get coordinator pods: %s", e)
             return []
 
     def apply_network_partition(self, pods: list[str], target_pods: list[str]) -> bool:
         """Apply network partition using iptables"""
-        logger.info(f"Applying network partition: blocking traffic between {len(pods)} and {len(target_pods)} pods")
+        logger.info("Applying network partition: blocking traffic between %s and %s pods", len(pods), len(target_pods))
 
         for pod in pods:
             if pod in target_pods:
@@ -110,10 +110,10 @@ class ChaosTestNetwork:
                     ]
                     subprocess.run(iptables_cmd, check=True)
 
-                    logger.info(f"Blocked traffic from {pod} to {target_pod} ({target_ip})")
+                    logger.info("Blocked traffic from %s to %s (%s)", pod, target_pod, target_ip)
 
                 except subprocess.CalledProcessError as e:
-                    logger.error(f"Failed to block traffic from {pod} to {target_pod}: {e}")
+                    logger.error("Failed to block traffic from %s to %s: %s", pod, target_pod, e)
                     return False
 
         self.metrics["affected_nodes"] = pods + target_pods
@@ -131,10 +131,10 @@ class ChaosTestNetwork:
                     "iptables", "-F", "OUTPUT"
                 ]
                 subprocess.run(cmd, check=True)
-                logger.info(f"Removed network rules from {pod}")
+                logger.info("Removed network rules from %s", pod)
 
             except subprocess.CalledProcessError as e:
-                logger.error(f"Failed to remove network rules from {pod}: {e}")
+                logger.error("Failed to remove network rules from %s: %s", pod, e)
                 return False
 
         return True
@@ -160,7 +160,7 @@ class ChaosTestNetwork:
 
     async def monitor_consensus(self, duration: int = 60) -> bool:
         """Monitor blockchain consensus health"""
-        logger.info(f"Monitoring consensus for {duration} seconds")
+        logger.info("Monitoring consensus for %s seconds", duration)
 
         start_time = time.time()
         last_height = 0
@@ -188,15 +188,15 @@ class ChaosTestNetwork:
                         # Check if blockchain is progressing
                         if current_height > last_height:
                             last_height = current_height
-                            logger.info(f"Blockchain progressing, height: {current_height}")
+                            logger.info("Blockchain progressing, height: %s", current_height)
                         elif time.time() - start_time > 30:  # Allow 30s for initial sync
-                            logger.warning(f"Blockchain stuck at height {current_height}")
+                            logger.warning("Blockchain stuck at height %s", current_height)
 
                     except json.JSONDecodeError:
                         pass
 
             except Exception as e:
-                logger.debug(f"Consensus check failed: {e}")
+                logger.debug("Consensus check failed: %s", e)
 
             await asyncio.sleep(5)
 
@@ -204,7 +204,7 @@ class ChaosTestNetwork:
 
     async def generate_load(self, duration: int, concurrent: int = 5):
         """Generate synthetic load on blockchain nodes"""
-        logger.info(f"Generating load for {duration} seconds with {concurrent} concurrent requests")
+        logger.info("Generating load for %s seconds with %s concurrent requests", duration, concurrent)
 
         # Get service URL
         cmd = [
@@ -239,7 +239,7 @@ class ChaosTestNetwork:
             # Brief pause
             await asyncio.sleep(1)
 
-        logger.info(f"Load generation completed. Success: {self.metrics['success_count']}, Errors: {self.metrics['error_count']}")
+        logger.info("Load generation completed. Success: %s, Errors: %s", self.metrics['success_count'], self.metrics['error_count'])
 
     async def run_test(self, partition_duration: int = 60, partition_ratio: float = 0.5):
         """Run the complete network partition chaos test"""
@@ -257,12 +257,12 @@ class ChaosTestNetwork:
         partition_pods = all_pods[:num_partition]
         remaining_pods = all_pods[num_partition:]
 
-        logger.info(f"Partitioning {len(partition_pods)} pods out of {len(all_pods)} total")
+        logger.info("Partitioning %s pods out of %s total", len(partition_pods), len(all_pods))
 
         # Phase 1: Baseline test
         logger.info("Phase 1: Baseline connectivity test")
         baseline_connectivity = await self.test_connectivity(all_pods)
-        logger.info(f"Baseline connectivity: {sum(baseline_connectivity.values())}/{len(all_pods)} pods connected")
+        logger.info("Baseline connectivity: %s/%s pods connected", sum(baseline_connectivity.values()), len(all_pods))
 
         # Phase 2: Generate initial load
         logger.info("Phase 2: Generating initial load")
@@ -279,10 +279,10 @@ class ChaosTestNetwork:
         # Verify partition is effective
         await asyncio.sleep(5)
         partitioned_connectivity = await self.test_connectivity(all_pods)
-        logger.info(f"Partitioned connectivity: {sum(partitioned_connectivity.values())}/{len(all_pods)} pods connected")
+        logger.info("Partitioned connectivity: %s/%s pods connected", sum(partitioned_connectivity.values()), len(all_pods))
 
         # Phase 4: Monitor during partition
-        logger.info(f"Phase 4: Monitoring system during {partition_duration}s partition")
+        logger.info("Phase 4: Monitoring system during %ss partition", partition_duration)
         consensus_healthy = await self.monitor_consensus(partition_duration)
 
         # Phase 5: Remove partition and monitor recovery
@@ -305,7 +305,7 @@ class ChaosTestNetwork:
         all_connected = all(recovery_connectivity.values())
         if all_connected:
             self.metrics["recovery_time"] = recovery_time - (datetime.fromisoformat(self.metrics["partition_end"]).timestamp())
-            logger.info(f"Network recovered in {self.metrics['recovery_time']:.2f} seconds")
+            logger.info("Network recovered in %.2f seconds", self.metrics['recovery_time'])
 
         # Phase 6: Post-recovery load test
         logger.info("Phase 6: Post-recovery load test")
@@ -329,7 +329,7 @@ class ChaosTestNetwork:
         with open(filename, "w") as f:
             json.dump(self.metrics, f, indent=2)
 
-        logger.info(f"Test results saved to: {filename}")
+        logger.info("Test results saved to: %s", filename)
 
         # Print summary
         print("\n=== Chaos Test Summary ===")
@@ -352,7 +352,7 @@ async def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        logger.info(f"DRY RUN: Would partition {args.partition_ratio * 100}% of nodes for {args.partition_duration} seconds")
+        logger.info("DRY RUN: Would partition %s%% of nodes for %s seconds", args.partition_ratio * 100, args.partition_duration)
         return
 
     # Verify kubectl is available
