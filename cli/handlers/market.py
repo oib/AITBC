@@ -42,7 +42,7 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
     marketplace_url = _marketplace_url(args, default_coordinator_url)
     chain_id = getattr(args, "chain_id", None)
 
-    print(f"Getting marketplace listings from {marketplace_url}...")
+    print("Getting marketplace listings from %s...", marketplace_url)
     try:
         params = {}
         if chain_id:
@@ -58,10 +58,10 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
                 if isinstance(listings, list):
                     if listings:
                         for listing in listings:
-                            print(f"  - ID: {listing.get('id', 'N/A')}")
-                            print(f"    Model: {listing.get('model', 'N/A')}")
-                            print(f"    Price: {listing.get('price_per_hour', 0)} AIT/hour")
-                            print(f"    Status: {listing.get('status', 'N/A')}")
+                            print("  - ID: %s", listing.get('id', 'N/A'))
+                            print("    Model: %s", listing.get('model', 'N/A'))
+                            print("    Price: %s AIT/hour", listing.get('price_per_hour', 0))
+                            print("    Status: %s", listing.get('status', 'N/A'))
                     else:
                         print("  No GPU listings found")
                 else:
@@ -71,7 +71,7 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
             print(f"Error: {response.text}")
             return
     except Exception as e:
-        print(f"Error getting listings: {e}")
+        print("Error getting listings: %s", e)
         return
 
 
@@ -100,7 +100,7 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
     if chain_id:
         listing_data["chain_id"] = chain_id
 
-    logger.info(f"Creating marketplace listing on {marketplace_url}...")
+    logger.info("Creating marketplace listing on %s...", marketplace_url)
     try:
         response = requests.post(f"{marketplace_url}/v1/marketplace/offers", json=listing_data, headers=headers, timeout=30)
         if response.status_code in (200, 201):
@@ -108,11 +108,11 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
             logger.info("Listing created successfully")
             render_mapping("Listing:", result)
         else:
-            logger.error(f"Creation failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Creation failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             return
     except Exception as e:
-        logger.error(f"Error creating listing: {e}")
+        logger.error("Error creating listing: %s", e)
         return
 
 
@@ -125,7 +125,7 @@ def handle_market_get(args, default_rpc_url):
         logger.error("Error: --listing-id is required")
         return
 
-    logger.info(f"Getting listing {args.listing_id} from {marketplace_url}...")
+    logger.info("Getting listing %s from %s...", args.listing_id, marketplace_url)
     try:
         import requests
         response = requests.get(f"{marketplace_url}/v1/marketplace/offers/{args.listing_id}", timeout=10)
@@ -133,11 +133,11 @@ def handle_market_get(args, default_rpc_url):
             listing = response.json()
             logger.info(json.dumps(listing, indent=2))
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             return
     except Exception as e:
-        logger.error(f"Error getting listing: {e}")
+        logger.error("Error getting listing: %s", e)
         return
 
 
@@ -153,7 +153,7 @@ def handle_market_delete(args, default_coordinator_url, read_password, render_ma
     headers = _auth_headers(args, read_password)
     endpoint_type = "orders" if str(listing_id).startswith("order_") else "offers"
 
-    logger.info(f"Deleting {endpoint_type[:-1]} {listing_id} on {marketplace_url}...")
+    logger.info("Deleting %s %s on %s...", endpoint_type[:-1], listing_id, marketplace_url)
     try:
         response = requests.delete(f"{marketplace_url}/v1/marketplace/{endpoint_type}/{listing_id}", headers=headers, timeout=30)
         if response.status_code == 200:
@@ -161,11 +161,11 @@ def handle_market_delete(args, default_coordinator_url, read_password, render_ma
             logger.info("Marketplace item deleted successfully")
             render_mapping("Delete result:", result)
         else:
-            logger.error(f"Deletion failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Deletion failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             return
     except Exception as e:
-        logger.error(f"Error deleting listing: {e}")
+        logger.error("Error deleting listing: %s", e)
         return
 
 
@@ -193,7 +193,7 @@ def handle_market_gpu_register(args, default_coordinator_url):
         parts = result.stdout.strip().split(", ")
         if len(parts) < 3:
             logger.error("Error: Could not parse nvidia-smi output")
-            logger.error(f"Output: {result.stdout}")
+            logger.error("Output: %s", result.stdout)
             return
 
         detected_name = parts[0]
@@ -207,12 +207,12 @@ def handle_market_gpu_register(args, default_coordinator_url):
         gpu_name = detected_name
         compute_capability = detected_compute
 
-        logger.info(f"  Detected GPU: {gpu_name}")
-        logger.info(f"  Detected Memory: {memory_gb} GB")
-        logger.info(f"  Detected Compute Capability: {compute_capability}")
+        logger.info("  Detected GPU: %s", gpu_name)
+        logger.info("  Detected Memory: %s GB", memory_gb)
+        logger.info("  Detected Compute Capability: %s", compute_capability)
 
     except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
-        logger.error(f"Error: Could not run nvidia-smi: {e}")
+        logger.error("Error: Could not run nvidia-smi: %s", e)
         logger.error("GPU registration requires nvidia-smi to detect actual hardware")
         logger.error("Please ensure NVIDIA drivers and nvidia-smi are installed")
         return
@@ -233,7 +233,7 @@ def handle_market_gpu_register(args, default_coordinator_url):
         "registered_at": __import__("datetime").datetime.now().isoformat()
     }
 
-    logger.info(f"Registering GPU on {gpu_url}...")
+    logger.info("Registering GPU on %s...", gpu_url)
     try:
         # Prepare blockchain transaction data
         gpu_transaction = {
@@ -273,20 +273,20 @@ def handle_market_gpu_register(args, default_coordinator_url):
 
             if isinstance(result, dict) and result.get("blockchain_registered"):
                 print("GPU registered successfully on blockchain")
-                print(f"  GPU ID: {result.get('transaction_id', 'N/A')}")
-                print(f"  Blockchain TX: {result.get('blockchain_tx_hash', 'N/A')}")
+                print("  GPU ID: %s", result.get('transaction_id', 'N/A'))
+                print("  Blockchain TX: %s", result.get('blockchain_tx_hash', 'N/A'))
             elif isinstance(result, dict):
-                print(f"GPU registered locally: {result.get('transaction_id', 'N/A')}")
+                print("GPU registered locally: %s", result.get('transaction_id', 'N/A'))
             else:
-                print(f"GPU registration completed: {result}")
+                print("GPU registration completed: %s", result)
             print("Registration result:")
             print(result)
         else:
-            logger.error(f"Registration failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Registration failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             return
     except Exception as e:
-        logger.error(f"Error registering GPU: {e}")
+        logger.error("Error registering GPU: %s", e)
         return
 
 
@@ -295,7 +295,7 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
     # Use GPU service URL instead of coordinator URL
     gpu_url = getattr(args, 'gpu_url', 'http://localhost:8101')
 
-    print(f"Listing GPUs from {gpu_url}...")
+    print("Listing GPUs from %s...", gpu_url)
     try:
         params = {
             "action": "offer",
@@ -323,12 +323,12 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
                     if gpus:
                         for gpu in gpus:
                             if isinstance(gpu, dict):
-                                print(f"  - ID: {gpu.get('id', 'N/A')}")
-                                print(f"    Model: {gpu.get('model', 'N/A')}")
-                                print(f"    Memory: {gpu.get('memory_gb', 'N/A')} GB")
-                                print(f"    Price: {gpu.get('price_per_hour', 0)} AIT/hour")
-                                print(f"    Status: {gpu.get('status', 'N/A')}")
-                                print(f"    Region: {gpu.get('region', 'N/A')}")
+                                print("  - ID: %s", gpu.get('id', 'N/A'))
+                                print("    Model: %s", gpu.get('model', 'N/A'))
+                                print("    Memory: %s GB", gpu.get('memory_gb', 'N/A'))
+                                print("    Price: %s AIT/hour", gpu.get('price_per_hour', 0))
+                                print("    Status: %s", gpu.get('status', 'N/A'))
+                                print("    Region: %s", gpu.get('region', 'N/A'))
                     else:
                         print("  No GPUs found")
                 else:
@@ -339,7 +339,7 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
             print(f"Error: {response.text}")
             return
     except Exception as e:
-        print(f"Error listing GPUs: {e}")
+        print("Error listing GPUs: %s", e)
         return
 
 
@@ -357,7 +357,7 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
         "price": getattr(args, "price", None)
     }
 
-    logger.info(f"Submitting purchase to {marketplace_url}...")
+    logger.info("Submitting purchase to %s...", marketplace_url)
     try:
         response = requests.post(f"{marketplace_url}/v1/marketplace/offers/{args.item}/book", json=purchase_data, headers=_auth_headers(args, read_password), timeout=30)
         if response.status_code in (200, 201):
@@ -365,11 +365,11 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
             logger.info("Purchase submitted successfully")
             render_mapping("Purchase:", result)
         else:
-            logger.error(f"Purchase failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Purchase failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             return
     except Exception as e:
-        logger.error(f"Error submitting purchase: {e}")
+        logger.error("Error submitting purchase: %s", e)
         return
 
 
@@ -386,7 +386,7 @@ def handle_market_orders(args, default_coordinator_url, output_format, render_ma
     if wallet:
         params["wallet"] = wallet
 
-    logger.info(f"Getting marketplace orders from {marketplace_url}...")
+    logger.info("Getting marketplace orders from %s...", marketplace_url)
     try:
         response = requests.get(f"{marketplace_url}/v1/marketplace/orders", params=params, timeout=10)
         if response.status_code == 200:
@@ -401,17 +401,17 @@ def handle_market_orders(args, default_coordinator_url, output_format, render_ma
                 logger.info("  No active orders found")
                 return
             for order in orders:
-                logger.info(f"  - ID: {order.get('id', 'N/A')}")
-                logger.info(f"    Type: {order.get('order_type', 'N/A')}")
-                logger.info(f"    Item: {order.get('item', 'N/A')}")
-                logger.info(f"    Price: {order.get('price', 0)} AIT")
-                logger.info(f"    Status: {order.get('status', 'N/A')}")
+                logger.info("  - ID: %s", order.get('id', 'N/A'))
+                logger.info("    Type: %s", order.get('order_type', 'N/A'))
+                logger.info("    Item: %s", order.get('item', 'N/A'))
+                logger.info("    Price: %s AIT", order.get('price', 0))
+                logger.info("    Status: %s", order.get('status', 'N/A'))
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             return
     except Exception as e:
-        logger.error(f"Error getting orders: {e}")
+        logger.error("Error getting orders: %s", e)
         return
 
 
@@ -419,7 +419,7 @@ def handle_market_list_plugins(args, default_coordinator_url, output_format, ren
     """Handle marketplace plugin listing command."""
     marketplace_url = _marketplace_url(args, default_coordinator_url)
 
-    logger.info(f"Getting marketplace plugins from {marketplace_url}...")
+    logger.info("Getting marketplace plugins from %s...", marketplace_url)
     try:
         response = requests.get(f"{marketplace_url}/v1/marketplace/plugins", timeout=10)
         if response.status_code == 200:
@@ -434,16 +434,16 @@ def handle_market_list_plugins(args, default_coordinator_url, output_format, ren
                 logger.info("  No plugins found")
                 return
             for plugin in plugins:
-                logger.info(f"  - ID: {plugin.get('id', 'N/A')}")
-                logger.info(f"    Name: {plugin.get('name', 'N/A')}")
-                logger.info(f"    Type: {plugin.get('type', 'N/A')}")
-                logger.info(f"    Author: {plugin.get('author', 'N/A')}")
-                logger.info(f"    Description: {plugin.get('description', 'N/A')}")
-                logger.info(f"    Version: {plugin.get('version', 'N/A')}")
+                logger.info("  - ID: %s", plugin.get('id', 'N/A'))
+                logger.info("    Name: %s", plugin.get('name', 'N/A'))
+                logger.info("    Type: %s", plugin.get('type', 'N/A'))
+                logger.info("    Author: %s", plugin.get('author', 'N/A'))
+                logger.info("    Description: %s", plugin.get('description', 'N/A'))
+                logger.info("    Version: %s", plugin.get('version', 'N/A'))
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             return
     except Exception as e:
-        logger.error(f"Error getting plugins: {e}")
+        logger.error("Error getting plugins: %s", e)
         return

@@ -32,11 +32,11 @@ def handle_pool_hub_sla_metrics(args):
 
         logger.info(" SLA Metrics:")
         for key, value in metrics.items():
-            logger.info(f"  {key}: {value}")
+            logger.info("  %s: %s", key, value)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get SLA metrics: {e}")
+        logger.error("❌ Failed to get SLA metrics: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting SLA metrics: {e}")
+        logger.error("❌ Error getting SLA metrics: %s", e)
 def handle_pool_hub_sla_violations(args):
     """Get SLA violations across all miners."""
     try:
@@ -54,11 +54,11 @@ def handle_pool_hub_sla_violations(args):
 
         logger.info("⚠️  SLA Violations:")
         for v in violations:
-            logger.info(f"  {v}")
+            logger.info("  %s", v)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get violations: {e}")
+        logger.error("❌ Failed to get violations: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting violations: {e}")
+        logger.error("❌ Error getting violations: %s", e)
 def handle_pool_hub_capacity_snapshots(args):
     """Get capacity planning snapshots."""
     try:
@@ -77,11 +77,11 @@ def handle_pool_hub_capacity_snapshots(args):
 
         logger.info("📊 Capacity Snapshots:")
         for s in snapshots:
-            logger.info(f"  {s}")
+            logger.info("  %s", s)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get snapshots: {e}")
+        logger.error("❌ Failed to get snapshots: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting snapshots: {e}")
+        logger.error("❌ Error getting snapshots: %s", e)
 def handle_pool_hub_capacity_forecast(args):
     """Get capacity forecast."""
     try:
@@ -100,11 +100,11 @@ def handle_pool_hub_capacity_forecast(args):
 
         logger.info("🔮 Capacity Forecast:")
         for key, value in forecast.items():
-            logger.info(f"  {key}: {value}")
+            logger.info("  %s: %s", key, value)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get forecast: {e}")
+        logger.error("❌ Failed to get forecast: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting forecast: {e}")
+        logger.error("❌ Error getting forecast: %s", e)
 def handle_pool_hub_capacity_recommendations(args):
     """Get scaling recommendations."""
     try:
@@ -123,11 +123,11 @@ def handle_pool_hub_capacity_recommendations(args):
 
         logger.info("💡 Capacity Recommendations:")
         for r in recommendations:
-            logger.info(f"  {r}")
+            logger.info("  %s", r)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get recommendations: {e}")
+        logger.error("❌ Failed to get recommendations: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting recommendations: {e}")
+        logger.error("❌ Error getting recommendations: %s", e)
 def handle_pool_hub_billing_usage(args):
     """Get billing usage data."""
     try:
@@ -146,11 +146,11 @@ def handle_pool_hub_billing_usage(args):
 
         logger.info("💰 Billing Usage:")
         for key, value in usage.items():
-            logger.info(f"  {key}: {value}")
+            logger.info("  %s: %s", key, value)
     except NetworkError as e:
-        logger.error(f"❌ Failed to get billing usage: {e}")
+        logger.error("❌ Failed to get billing usage: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error getting billing usage: {e}")
+        logger.error("❌ Error getting billing usage: %s", e)
 def handle_pool_hub_billing_sync(args):
     """Trigger billing sync with coordinator-api."""
     try:
@@ -167,11 +167,11 @@ def handle_pool_hub_billing_sync(args):
         result = http_client.post("/v1/sla/billing/sync")
 
         logger.info("🔄 Billing sync triggered")
-        logger.info(f"✅ {result.get('message', 'Success')}")
+        logger.info("✅ %s", result.get('message', 'Success'))
     except NetworkError as e:
-        logger.error(f"❌ Billing sync failed: {e}")
+        logger.error("❌ Billing sync failed: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error triggering billing sync: {e}")
+        logger.error("❌ Error triggering billing sync: %s", e)
 def handle_pool_hub_collect_metrics(args):
     """Trigger SLA metrics collection."""
     try:
@@ -188,8 +188,8 @@ def handle_pool_hub_collect_metrics(args):
         result = http_client.post("/v1/sla/metrics/collect")
 
         logger.info("📊 SLA metrics collection triggered")
-        logger.info(f"✅ {result.get('message', 'Success')}")
+        logger.info("✅ %s", result.get('message', 'Success'))
     except NetworkError as e:
-        logger.error(f"❌ Metrics collection failed: {e}")
+        logger.error("❌ Metrics collection failed: %s", e)
     except Exception as e:
-        logger.error(f"❌ Error triggering metrics collection: {e}")
+        logger.error("❌ Error triggering metrics collection: %s", e)

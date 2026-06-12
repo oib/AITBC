@@ -20,19 +20,19 @@ def handle_contract_list(args, default_rpc_url: str):
             if data.get("success") is not False:
                 contracts = data.get("contracts", [])
                 if contracts:
-                    logger.info(f"Deployed contracts ({len(contracts)}):")
+                    logger.info("Deployed contracts (%s):", len(contracts))
                     for contract in contracts:
-                        logger.info(f"  - Address: {contract.get('address', 'N/A')}")
-                        logger.info(f"    Type: {contract.get('type', 'N/A')}")
-                        logger.info(f"    Deployed: {contract.get('deployed_at', 'N/A')}")
+                        logger.info("  - Address: %s", contract.get('address', 'N/A'))
+                        logger.info("    Type: %s", contract.get('type', 'N/A'))
+                        logger.info("    Deployed: %s", contract.get('deployed_at', 'N/A'))
                 else:
                     logger.info("No contracts deployed")
             else:
-                logger.error(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error("Error: %s", data.get('error', 'Unknown error'))
         else:
-            logger.error(f"Error: RPC returned {response.status_code}")
+            logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:
-        logger.error(f"Error listing contracts: {e}")
+        logger.error("Error listing contracts: %s", e)
 def handle_contract_deploy(args, default_rpc_url: str, read_password, render_mapping):
     """Handle contract deploy command"""
     rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
@@ -66,11 +66,11 @@ def handle_contract_deploy(args, default_rpc_url: str, read_password, render_map
             if data.get("success"):
                 render_mapping("Contract deployed successfully", data)
             else:
-                logger.error(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error("Error: %s", data.get('error', 'Unknown error'))
         else:
-            logger.error(f"Error: RPC returned {response.status_code}")
+            logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:
-        logger.error(f"Error deploying contract: {e}")
+        logger.error("Error deploying contract: %s", e)
 def handle_contract_call(args, default_rpc_url: str, read_password):
     """Handle contract call command"""
     rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
@@ -113,15 +113,15 @@ def handle_contract_call(args, default_rpc_url: str, read_password):
             if data.get("success"):
                 result = data.get("result")
                 logger.info("Contract call result:")
-                logger.info(f"  Address: {contract_address}")
-                logger.info(f"  Method: {method}")
-                logger.info(f"  Result: {result}")
+                logger.info("  Address: %s", contract_address)
+                logger.info("  Method: %s", method)
+                logger.info("  Result: %s", result)
             else:
-                logger.error(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error("Error: %s", data.get('error', 'Unknown error'))
         else:
-            logger.error(f"Error: RPC returned {response.status_code}")
+            logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:
-        logger.error(f"Error calling contract: {e}")
+        logger.error("Error calling contract: %s", e)
 def handle_contract_verify(args, default_rpc_url: str, read_password):
     """Handle contract verify command (for ZK proofs)"""
     rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
@@ -161,13 +161,13 @@ def handle_contract_verify(args, default_rpc_url: str, read_password):
             if data.get("success"):
                 result = data.get("result")
                 logger.info("Verification result:")
-                logger.info(f"  Address: {contract_address}")
-                logger.info(f"  Valid: {result.get('valid', False)}")
+                logger.info("  Address: %s", contract_address)
+                logger.info("  Valid: %s", result.get('valid', False))
                 if result.get('receipt_hash'):
-                    logger.info(f"  Receipt Hash: {result.get('receipt_hash')}")
+                    logger.info("  Receipt Hash: %s", result.get('receipt_hash'))
             else:
-                logger.error(f"Error: {data.get('error', 'Unknown error')}")
+                logger.error("Error: %s", data.get('error', 'Unknown error'))
         else:
-            logger.error(f"Error: RPC returned {response.status_code}")
+            logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:
-        logger.error(f"Error verifying contract: {e}")
+        logger.error("Error verifying contract: %s", e)

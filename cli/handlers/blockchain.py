@@ -31,7 +31,7 @@ def handle_blockchain_block(args, default_rpc_url):
 
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
     chain_id = getattr(args, 'chain_id', None) or os.getenv('CHAIN_ID', None)
-    print(f"Querying block #{args.number} from {rpc_url} (chain: {chain_id or 'default'})...")
+    print("Querying block #%s from %s (chain: %s)...", args.number, rpc_url, chain_id or 'default')
     try:
         params = {}
         if chain_id:
@@ -39,38 +39,38 @@ def handle_blockchain_block(args, default_rpc_url):
         response = requests.get(f"{rpc_url}/rpc/blocks/{args.number}", params=params, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            print(f"Block #{args.number}:")
-            print(f"  Hash: {data.get('hash', 'N/A')}")
-            print(f"  Timestamp: {data.get('timestamp', 'N/A')}")
-            print(f"  Transactions: {data.get('tx_count', len(data.get('transactions', [])))}")
-            print(f"  Miner: {data.get('proposer', 'N/A')}")
+            print("Block #%s:", args.number)
+            print("  Hash: %s", data.get('hash', 'N/A'))
+            print("  Timestamp: %s", data.get('timestamp', 'N/A'))
+            print("  Transactions: %s", data.get('tx_count', len(data.get('transactions', []))))
+            print("  Miner: %s", data.get('proposer', 'N/A'))
         else:
-            print(f"Failed to get block: {response.status_code}")
+            print("Failed to get block: %s", response.status_code)
             sys.exit(1)
     except Exception as e:
-        print(f"Error getting block: {e}")
+        print("Error getting block: %s", e)
         sys.exit(1)
 
 
 def handle_blockchain_init(args, default_rpc_url):
     """Handle blockchain init command."""
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-    logger.info(f"Checking blockchain status on {rpc_url}...")
+    logger.info("Checking blockchain status on %s...", rpc_url)
     try:
         # Check if blockchain is already initialized by checking for genesis block (block 0)
         response = requests.get(f"{rpc_url}/rpc/blocks/0", timeout=10)
         if response.status_code == 200:
             data = response.json()
             logger.info("Blockchain already initialized")
-            logger.info(f"Genesis block hash: {data.get('hash', 'N/A')}")
-            logger.info(f"Block number: {data.get('number', 0)}")
+            logger.info("Genesis block hash: %s", data.get('hash', 'N/A'))
+            logger.info("Block number: %s", data.get('number', 0))
             if args.force:
                 logger.info("Force flag ignored - blockchain already initialized")
         else:
-            logger.info(f"Blockchain not initialized or endpoint unavailable: {response.status_code}")
+            logger.info("Blockchain not initialized or endpoint unavailable: %s", response.status_code)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error checking blockchain status: {e}")
+        logger.error("Error checking blockchain status: %s", e)
         logger.info("Note: Blockchain may not be initialized or RPC endpoint unavailable")
         sys.exit(1)
 
@@ -80,43 +80,43 @@ def handle_blockchain_genesis(args, default_rpc_url):
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
 
     if args.create:
-        logger.info(f"Creating genesis block on {rpc_url}...")
+        logger.info("Creating genesis block on %s...", rpc_url)
         try:
             # Check if genesis block already exists
             response = requests.get(f"{rpc_url}/rpc/blocks/0", timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 logger.info("Genesis block already exists")
-                logger.info(f"Block hash: {data.get('hash', 'N/A')}")
-                logger.info(f"Block number: {data.get('number', 0)}")
-                logger.info(f"Timestamp: {data.get('timestamp', 'N/A')}")
+                logger.info("Block hash: %s", data.get('hash', 'N/A'))
+                logger.info("Block number: %s", data.get('number', 0))
+                logger.info("Timestamp: %s", data.get('timestamp', 'N/A'))
                 logger.info("Skipping genesis block creation")
                 return
             else:
-                logger.info(f"Cannot create genesis block - endpoint not available: {response.status_code}")
+                logger.info("Cannot create genesis block - endpoint not available: %s", response.status_code)
                 logger.info("Note: Genesis block creation may not be supported in current RPC implementation")
                 sys.exit(1)
         except Exception as e:
-            logger.error(f"Error checking genesis block: {e}")
+            logger.error("Error checking genesis block: %s", e)
             logger.info("Note: Genesis block creation may not be supported in current RPC implementation")
             sys.exit(1)
     else:
-        logger.info(f"Inspecting genesis block on {rpc_url}...")
+        logger.info("Inspecting genesis block on %s...", rpc_url)
         try:
             response = requests.get(f"{rpc_url}/rpc/blocks/0", timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 logger.info("Genesis block information:")
-                logger.info(f"  Hash: {data.get('hash', 'N/A')}")
-                logger.info(f"  Number: {data.get('number', 0)}")
-                logger.info(f"  Timestamp: {data.get('timestamp', 'N/A')}")
-                logger.info(f"  Miner: {data.get('miner', 'N/A')}")
-                logger.info(f"  Reward: {data.get('reward', 'N/A')} AIT")
+                logger.info("  Hash: %s", data.get('hash', 'N/A'))
+                logger.info("  Number: %s", data.get('number', 0))
+                logger.info("  Timestamp: %s", data.get('timestamp', 'N/A'))
+                logger.info("  Miner: %s", data.get('miner', 'N/A'))
+                logger.info("  Reward: %s AIT", data.get('reward', 'N/A'))
             else:
-                logger.error(f"Failed to get genesis block: {response.status_code}")
+                logger.error("Failed to get genesis block: %s", response.status_code)
                 sys.exit(1)
         except Exception as e:
-            logger.error(f"Error inspecting genesis block: {e}")
+            logger.error("Error inspecting genesis block: %s", e)
             sys.exit(1)
 
 
@@ -139,7 +139,7 @@ def handle_blockchain_import(args, default_rpc_url, render_mapping):
     if chain_id:
         block_data["chain_id"] = chain_id
 
-    logger.info(f"Importing block to {rpc_url}...")
+    logger.info("Importing block to %s...", rpc_url)
     try:
         response = requests.post(f"{rpc_url}/rpc/importBlock", json=block_data, timeout=30)
         if response.status_code == 200:
@@ -147,11 +147,11 @@ def handle_blockchain_import(args, default_rpc_url, render_mapping):
             logger.info("Block imported successfully")
             render_mapping("Import result:", result)
         else:
-            logger.error(f"Import failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Import failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error importing block: {e}")
+        logger.error("Error importing block: %s", e)
         sys.exit(1)
 
 
@@ -160,7 +160,7 @@ def handle_blockchain_export(args, default_rpc_url):
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
 
-    logger.info(f"Exporting chain from {rpc_url}...")
+    logger.info("Exporting chain from %s...", rpc_url)
     try:
         params = {}
         if chain_id:
@@ -172,15 +172,15 @@ def handle_blockchain_export(args, default_rpc_url):
             if args.output:
                 with open(args.output, "w") as f:
                     json.dump(chain_data, f, indent=2)
-                logger.info(f"Chain exported to {args.output}")
+                logger.info("Chain exported to %s", args.output)
             else:
                 logger.info(json.dumps(chain_data, indent=2))
         else:
-            logger.error(f"Export failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Export failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error exporting chain: {e}")
+        logger.error("Error exporting chain: %s", e)
         sys.exit(1)
 
 
@@ -195,7 +195,7 @@ def handle_blockchain_import_chain(args, default_rpc_url, render_mapping):
     with open(args.file) as f:
         chain_data = json.load(f)
 
-    logger.info(f"Importing chain state to {rpc_url}...")
+    logger.info("Importing chain state to %s...", rpc_url)
     try:
         response = requests.post(f"{rpc_url}/rpc/import-chain", json=chain_data, timeout=120)
         if response.status_code == 200:
@@ -203,11 +203,11 @@ def handle_blockchain_import_chain(args, default_rpc_url, render_mapping):
             logger.info("Chain state imported successfully")
             render_mapping("Import result:", result)
         else:
-            logger.error(f"Import failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Import failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error importing chain state: {e}")
+        logger.error("Error importing chain state: %s", e)
         sys.exit(1)
 
 
@@ -224,7 +224,7 @@ def handle_blockchain_blocks_range(args, default_rpc_url, output_format):
     if chain_id:
         params["chain_id"] = chain_id
 
-    logger.info(f"Querying blocks range from {rpc_url}...")
+    logger.info("Querying blocks range from %s...", rpc_url)
     try:
         response = requests.get(f"{rpc_url}/rpc/blocks-range", params=params, timeout=30)
         if response.status_code == 200:
@@ -232,18 +232,18 @@ def handle_blockchain_blocks_range(args, default_rpc_url, output_format):
             if output_format(args) == "json":
                 logger.info(json.dumps(blocks_data, indent=2))
             else:
-                logger.info(f"Blocks range: {args.start or 'head'} to {args.end or 'limit ' + str(args.limit)}")
+                logger.info("Blocks range: %s to %s", args.start or 'head', args.end or 'limit ' + str(args.limit))
                 if isinstance(blocks_data, list):
                     for block in blocks_data:
-                        logger.info(f"  - Block #{block.get('height', 'N/A')}: {block.get('hash', 'N/A')}")
+                        logger.info("  - Block #%s: %s", block.get('height', 'N/A'), block.get('hash', 'N/A'))
                 else:
                     logger.info(json.dumps(blocks_data, indent=2))
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error querying blocks range: {e}")
+        logger.error("Error querying blocks range: %s", e)
         sys.exit(1)
 
 
@@ -252,7 +252,7 @@ def handle_blockchain_transactions(args, default_rpc_url):
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
 
-    logger.info(f"Querying transactions from {rpc_url}...")
+    logger.info("Querying transactions from %s...", rpc_url)
     try:
         params = {}
         if args.address:
@@ -268,20 +268,20 @@ def handle_blockchain_transactions(args, default_rpc_url):
         if response.status_code == 200:
             transactions = response.json()
             if isinstance(transactions, list):
-                logger.info(f"Transactions: {len(transactions)} found")
+                logger.info("Transactions: %s found", len(transactions))
                 for tx in transactions[:args.limit]:
-                    logger.info(f"  - Hash: {tx.get('hash', 'N/A')}")
-                    logger.info(f"    From: {tx.get('from', 'N/A')}")
-                    logger.info(f"    To: {tx.get('to', 'N/A')}")
-                    logger.info(f"    Amount: {tx.get('value', 0)} AIT")
+                    logger.info("  - Hash: %s", tx.get('hash', 'N/A'))
+                    logger.info("    From: %s", tx.get('from', 'N/A'))
+                    logger.info("    To: %s", tx.get('to', 'N/A'))
+                    logger.info("    Amount: %s AIT", tx.get('value', 0))
             else:
                 logger.info(json.dumps(transactions, indent=2))
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error querying transactions: {e}")
+        logger.error("Error querying transactions: %s", e)
         sys.exit(1)
 
 
@@ -290,7 +290,7 @@ def handle_blockchain_mempool(args, default_rpc_url):
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
 
-    logger.info(f"Getting pending transactions from {rpc_url}...")
+    logger.info("Getting pending transactions from %s...", rpc_url)
     try:
         params = {}
         if chain_id:
@@ -300,17 +300,17 @@ def handle_blockchain_mempool(args, default_rpc_url):
         if response.status_code == 200:
             mempool = response.json()
             if isinstance(mempool, list):
-                logger.info(f"Pending transactions: {len(mempool)}")
+                logger.info("Pending transactions: %s", len(mempool))
                 for tx in mempool:
-                    logger.info(f"  - Hash: {tx.get('hash', 'N/A')}")
-                    logger.info(f"    From: {tx.get('from', 'N/A')}")
-                    logger.info(f"    Amount: {tx.get('value', 0)} AIT")
+                    logger.info("  - Hash: %s", tx.get('hash', 'N/A'))
+                    logger.info("    From: %s", tx.get('from', 'N/A'))
+                    logger.info("    Amount: %s AIT", tx.get('value', 0))
             else:
                 logger.info(json.dumps(mempool, indent=2))
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error getting mempool: {e}")
+        logger.error("Error getting mempool: %s", e)
         sys.exit(1)
