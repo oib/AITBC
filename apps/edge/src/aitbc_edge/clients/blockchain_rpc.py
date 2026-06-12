@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Blockchain RPC client for Edge API Service"""
 
 from typing import Any

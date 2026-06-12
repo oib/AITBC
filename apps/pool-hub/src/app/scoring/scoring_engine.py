@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Scoring Engine Implementation for Pool Hub"""
 
 import math

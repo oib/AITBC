@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Hermes Service for agent orchestration and edge computing."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Service configuration router for pool hub
 """

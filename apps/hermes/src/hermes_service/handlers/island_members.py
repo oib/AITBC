@@ -13,7 +13,7 @@ def get_island_members() -> set[str]:
         Set of member IDs/names that are syncing with the blockchain.
     """
     logger = logging.getLogger(__name__)
-    members = set()
+    members: set[str] = set()
 
     try:
         # Query journalctl for blockchain sync events

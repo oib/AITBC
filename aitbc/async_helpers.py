@@ -51,8 +51,8 @@ async def gather_with_concurrency[T](
 async def run_with_timeout[T](
     coro: Coroutine[Any, Any, T],
     timeout: float,
-    default: T = None
-) -> T:
+    default: T | None = None
+) -> T | None:
     """
     Run a coroutine with a timeout.
 
@@ -111,7 +111,7 @@ def sync_to_async(func: Callable) -> Callable:
         Async wrapper function
     """
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         return func(*args, **kwargs)
     return wrapper
 
@@ -127,7 +127,7 @@ def async_to_sync(func: Callable) -> Callable:
         Synchronous wrapper function
     """
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         return asyncio.run(func(*args, **kwargs))
     return wrapper
 
@@ -150,7 +150,7 @@ async def retry_async(
     Returns:
         Result of the coroutine
     """
-    last_exception = None
+    last_exception: Exception | None = None
     current_delay = delay
 
     for attempt in range(max_attempts):
@@ -162,7 +162,9 @@ async def retry_async(
                 await asyncio.sleep(current_delay)
                 current_delay *= backoff
 
-    raise last_exception
+    if last_exception:
+        raise last_exception
+    raise RuntimeError("Retry failed without exception")
 
 
 async def wait_for_condition(

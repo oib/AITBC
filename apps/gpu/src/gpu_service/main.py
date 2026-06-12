@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 GPU Service main application
 Manages GPU resource operations

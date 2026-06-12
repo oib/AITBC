@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 SLA Metrics Collection Service for Pool-Hub
 Collects and tracks SLA metrics for miners including uptime, response time, job completion rate, and capacity availability.

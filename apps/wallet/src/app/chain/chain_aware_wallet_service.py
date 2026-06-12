@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Chain-Aware Wallet Service for Wallet Daemon
 

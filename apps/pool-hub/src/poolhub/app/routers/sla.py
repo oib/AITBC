@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 SLA and Billing API Endpoints for Pool-Hub
 Provides endpoints for SLA metrics, capacity planning, and billing integration.

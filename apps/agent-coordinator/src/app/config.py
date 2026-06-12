@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     connection_timeout: int = 30
 
     # Security settings
-    secret_key: str
+    secret_key: str = "default_secret_key_change_in_production"
     allowed_hosts: list = ["*"]
     cors_origins: list[str] = [
         "http://localhost:8001",

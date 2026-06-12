@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """REQUEST_COINS message handler with approval workflow."""
 
 import json

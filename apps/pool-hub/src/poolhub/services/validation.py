@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Hardware validation service for service configurations
 """

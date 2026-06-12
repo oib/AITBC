@@ -59,12 +59,16 @@ def rate_limit(
     Returns:
         Decorated function with rate limiting
     """
-    def decorator(func: F) -> F:
+    from typing import ParamSpec
+
+    P = ParamSpec("P")
+
+    def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
         limiter = RateLimiter(rate=rate, per=per)
         is_async = asyncio.iscoroutinefunction(func)
 
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> Any:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             # Extract request from args (FastAPI passes request as first arg for dependency injection)
             request = None
             for arg in args:

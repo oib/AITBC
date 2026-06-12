@@ -265,6 +265,19 @@ setup_systemd_services() {
     # Reload systemd
     systemctl daemon-reload
     
+    # Enable recovery service to run on boot
+    if systemctl list-unit-files | grep -q "aitbc-recovery.service"; then
+        log "Enabling aitbc-recovery service for automatic startup on boot..."
+        systemctl enable aitbc-recovery
+        if systemctl is-enabled --quiet aitbc-recovery; then
+            success "aitbc-recovery service enabled successfully"
+        else
+            error "Failed to enable aitbc-recovery service"
+        fi
+    else
+        warning "aitbc-recovery.service not found, skipping enable"
+    fi
+    
     success "Systemd services setup completed"
 }
 

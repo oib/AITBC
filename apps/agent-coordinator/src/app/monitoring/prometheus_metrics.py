@@ -343,54 +343,54 @@ class PerformanceMonitor:
 
     def record_agent_registration(self):
         """Record agent registration"""
-        self.registry.counter("agent_registrations_total").inc()
+        self.registry.counter("agent_registrations_total", "Total agent registrations").inc()
 
     def record_agent_unregistration(self):
         """Record agent unregistration"""
-        self.registry.counter("agent_unregistrations_total").inc()
+        self.registry.counter("agent_unregistrations_total", "Total agent unregistrations").inc()
 
     def update_agent_count(self, total: int, active: int, inactive: int):
         """Update agent counts"""
-        self.registry.gauge("agents_total").set(total, status="total")
-        self.registry.gauge("agents_total").set(active, status="active")
-        self.registry.gauge("agents_total").set(inactive, status="inactive")
+        self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(total, status="total")
+        self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(active, status="active")
+        self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(inactive, status="inactive")
 
     def record_task_submission(self):
         """Record task submission"""
-        self.registry.counter("tasks_submitted_total").inc()
-        self.registry.gauge("tasks_active").inc()
+        self.registry.counter("tasks_submitted_total", "Total tasks submitted").inc()
+        self.registry.gauge("tasks_active", "Number of active tasks").inc()
 
     def record_task_completion(self, task_type: str, duration: float):
         """Record task completion"""
-        self.registry.counter("tasks_completed_total").inc()
-        self.registry.gauge("tasks_active").dec()
-        self.registry.histogram("task_duration_seconds").observe(duration, task_type=task_type)
+        self.registry.counter("tasks_completed_total", "Total tasks completed").inc()
+        self.registry.gauge("tasks_active", "Number of active tasks").dec()
+        self.registry.histogram("task_duration_seconds", "Task execution duration", [1.0, 5.0, 10.0, 30.0, 60.0, 300.0], ["task_type"]).observe(duration, task_type=task_type)
 
     def record_ai_operation(self, operation_type: str, status: str, duration: float = None):
         """Record AI operation"""
-        self.registry.counter("ai_operations_total").inc(
+        self.registry.counter("ai_operations_total", "Total AI operations", ["operation_type", "status"]).inc(
             operation_type=operation_type,
             status=status
         )
 
         if duration is not None:
-            self.registry.histogram("ai_prediction_duration_seconds").observe(duration)
+            self.registry.histogram("ai_prediction_duration_seconds", "AI prediction duration", [0.1, 0.5, 1.0, 2.0, 5.0]).observe(duration)
 
     def update_ai_model_count(self, model_type: str, count: int):
         """Update AI model count"""
-        self.registry.gauge("ai_models_total").set(count, model_type=model_type)
+        self.registry.gauge("ai_models_total", "Total AI models", ["model_type"]).set(count, model_type=model_type)
 
     def record_consensus_proposal(self, status: str, duration: float = None):
         """Record consensus proposal"""
-        self.registry.counter("consensus_proposals_total").inc(status=status)
+        self.registry.counter("consensus_proposals_total", "Total consensus proposals", ["status"]).inc(status=status)
 
         if duration is not None:
-            self.registry.histogram("consensus_duration_seconds").observe(duration)
+            self.registry.histogram("consensus_duration_seconds", "Consensus decision duration", [1.0, 5.0, 10.0, 30.0]).observe(duration)
 
     def update_consensus_node_count(self, total: int, active: int):
         """Update consensus node counts"""
-        self.registry.gauge("consensus_nodes_total").set(total, status="total")
-        self.registry.gauge("consensus_nodes_total").set(active, status="active")
+        self.registry.gauge("consensus_nodes_total", "Total consensus nodes", ["status"]).set(total, status="total")
+        self.registry.gauge("consensus_nodes_total", "Total consensus nodes", ["status"]).set(active, status="active")
 
     def update_system_metrics(self, memory_bytes: int, cpu_percent: float):
         """Update system metrics"""
@@ -402,27 +402,27 @@ class PerformanceMonitor:
         """Update load balancer strategy"""
         # Reset all strategy gauges
         for s in ["round_robin", "least_connections", "weighted", "random"]:
-            self.registry.gauge("load_balancer_strategy").set(0, strategy=s)
+            self.registry.gauge("load_balancer_strategy", "Current load balancing strategy", ["strategy"]).set(0, strategy=s)
 
         # Set current strategy
-        self.registry.gauge("load_balancer_strategy").set(1, strategy=strategy)
+        self.registry.gauge("load_balancer_strategy", "Current load balancing strategy", ["strategy"]).set(1, strategy=strategy)
 
     def record_load_balancer_assignment(self, strategy: str, decision_time: float):
         """Record load balancer assignment"""
-        self.registry.counter("load_balancer_assignments_total").inc(strategy=strategy)
-        self.registry.histogram("load_balancer_decision_time_seconds").observe(decision_time)
+        self.registry.counter("load_balancer_assignments_total", "Total load balancer assignments", ["strategy"]).inc(strategy=strategy)
+        self.registry.histogram("load_balancer_decision_time_seconds", "Load balancer decision time", [0.001, 0.005, 0.01, 0.025, 0.05]).observe(decision_time)
 
     def record_message_sent(self, message_type: str, status: str, size: int):
         """Record message sent"""
-        self.registry.counter("messages_sent_total").inc(
+        self.registry.counter("messages_sent_total", "Total messages sent", ["message_type", "status"]).inc(
             message_type=message_type,
             status=status
         )
-        self.registry.histogram("message_size_bytes").observe(size)
+        self.registry.histogram("message_size_bytes", "Message size in bytes", [100, 1000, 10000, 100000]).observe(size)
 
     def update_active_connections(self, count: int):
         """Update active connections count"""
-        self.registry.gauge("active_connections").set(count)
+        self.registry.gauge("active_connections", "Number of active connections").set(count)
 
     def get_performance_summary(self) -> dict[str, Any]:
         """Get performance summary"""

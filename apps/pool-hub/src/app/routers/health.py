@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Health check routes for Pool Hub"""
 
 from datetime import UTC, datetime

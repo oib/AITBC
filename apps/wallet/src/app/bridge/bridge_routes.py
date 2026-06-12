@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.

@@ -7,7 +7,7 @@ from pathlib import Path
 from ..core.config import ServiceSettings
 
 
-def setup_logging(settings: ServiceSettings | None = None, level: str = None) -> logging.Logger:
+def setup_logging(settings: ServiceSettings | None = None, level: str | None = None) -> logging.Logger:
     """Configure structured logging for the service.
 
     Args:
