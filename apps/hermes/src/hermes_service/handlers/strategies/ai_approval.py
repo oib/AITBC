@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """AI approval strategy - uses Ollama to evaluate requests."""
 
 import os

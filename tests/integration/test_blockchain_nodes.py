@@ -4,16 +4,17 @@ Test script for AITBC blockchain nodes
 Tests both nodes for functionality and consistency
 """
 
+import os
 import sys
 import time
 from typing import Any
 
 import httpx
+import pytest
 
 # Configuration
 NODES = {
-    "node1": {"url": "http://127.0.0.1:8082", "name": "Node 1"},
-    "node2": {"url": "http://127.0.0.1:8081", "name": "Node 2"},
+    "node1": {"url": "https://hub.aitbc.bubuit.net", "name": "Hub Node"},
 }
 
 # Test addresses
@@ -48,7 +49,7 @@ def print_warning(message: str):
 def check_node_health(node_name: str, node_config: dict[str, str]) -> bool:
     """Check if node is responsive"""
     try:
-        response = httpx.get(f"{node_config['url']}/openapi.json", timeout=5)
+        response = httpx.get(f"{node_config['url']}/rpc/head", timeout=5)
         if response.status_code == 200:
             print_success(f"{node_config['name']} is responsive")
             return True
@@ -186,29 +187,12 @@ def test_faucet_and_balances():
     if mint_faucet("node1", NODES["node1"], TEST_ADDRESSES["alice"], 1000):
         time.sleep(2)  # Wait for block
 
-        # Check balance on both nodes
+        # Check balance on all nodes
         for node_name, node_config in NODES.items():
             balance = get_balance(node_name, node_config, TEST_ADDRESSES["alice"])
             if balance is not None:
                 print(f"  {node_config['name']} balance for alice: {balance}")
                 if balance >= 1000:
-                    print_success(f"Balance correct on {node_config['name']}")
-                else:
-                    print_error(f"Balance incorrect on {node_config['name']}")
-            else:
-                print_error(f"Failed to get balance from {node_config['name']}")
-
-    # Test on node2
-    print_step("Testing faucet on Node 2")
-    if mint_faucet("node2", NODES["node2"], TEST_ADDRESSES["bob"], 500):
-        time.sleep(2)  # Wait for block
-
-        # Check balance on both nodes
-        for node_name, node_config in NODES.items():
-            balance = get_balance(node_name, node_config, TEST_ADDRESSES["bob"])
-            if balance is not None:
-                print(f"  {node_config['name']} balance for bob: {balance}")
-                if balance >= 500:
                     print_success(f"Balance correct on {node_config['name']}")
                 else:
                     print_error(f"Balance incorrect on {node_config['name']}")

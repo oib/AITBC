@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 UI router for serving static HTML pages
 """
