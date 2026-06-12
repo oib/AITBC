@@ -94,7 +94,7 @@ class CPUComputeProvider(ComputeProvider):
             logger.info("CPU Compute Provider initialized")
             return True
         except Exception as e:
-            logger.error(f"CPU initialization failed: {e}")
+            logger.error("CPU initialization failed: %s", e)
             return False
 
     def shutdown(self) -> None:
@@ -105,7 +105,7 @@ class CPUComputeProvider(ComputeProvider):
             self.initialized = False
             logger.info("CPU provider shutdown complete")
         except Exception as e:
-            logger.error(f"CPU shutdown failed: {e}")
+            logger.error("CPU shutdown failed: %s", e)
 
     def get_available_devices(self) -> list[ComputeDevice]:
         """Get list of available CPU devices."""
@@ -148,7 +148,7 @@ class CPUComputeProvider(ComputeProvider):
             if memory_handle in self.memory_allocations:
                 del self.memory_allocations[memory_handle]
         except Exception as e:
-            logger.warning(f"Failed to free CPU memory: {e}")
+            logger.warning("Failed to free CPU memory: %s", e)
 
     def copy_to_device(self, host_data: Any, device_data: Any) -> None:
         """Copy data from host to CPU (no-op, already on host)."""
@@ -191,10 +191,10 @@ class CPUComputeProvider(ComputeProvider):
             elif kernel_name == "field_inverse":
                 return self._cpu_field_inverse(*args)
             else:
-                logger.warning(f"Unknown CPU kernel: {kernel_name}")
+                logger.warning("Unknown CPU kernel: %s", kernel_name)
                 return False
         except Exception as e:
-            logger.error(f"CPU kernel execution failed: {e}")
+            logger.error("CPU kernel execution failed: %s", e)
             return False
 
     def _cpu_field_add(self, a_ptr, b_ptr, result_ptr, count):
@@ -246,7 +246,7 @@ class CPUComputeProvider(ComputeProvider):
             np.add(a, b, out=result, dtype=result.dtype)
             return True
         except Exception as e:
-            logger.error(f"CPU field add failed: {e}")
+            logger.error("CPU field add failed: %s", e)
             return False
 
     def zk_field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
@@ -257,7 +257,7 @@ class CPUComputeProvider(ComputeProvider):
             np.multiply(a, b, out=result, dtype=result.dtype)
             return True
         except Exception as e:
-            logger.error(f"CPU field mul failed: {e}")
+            logger.error("CPU field mul failed: %s", e)
             return False
 
     def zk_field_inverse(self, a: np.ndarray, result: np.ndarray) -> bool:
@@ -273,7 +273,7 @@ class CPUComputeProvider(ComputeProvider):
                     result[i] = 0  # Inverse of 0 is 0 (simplified)
             return True
         except Exception as e:
-            logger.error(f"CPU field inverse failed: {e}")
+            logger.error("CPU field inverse failed: %s", e)
             return False
 
     def zk_multi_scalar_mul(
@@ -300,7 +300,7 @@ class CPUComputeProvider(ComputeProvider):
 
             return True
         except Exception as e:
-            logger.error(f"CPU multi-scalar mul failed: {e}")
+            logger.error("CPU multi-scalar mul failed: %s", e)
             return False
 
     def zk_pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray) -> bool:
@@ -312,7 +312,7 @@ class CPUComputeProvider(ComputeProvider):
             np.multiply(p1, p2, out=result, dtype=result.dtype)
             return True
         except Exception as e:
-            logger.error(f"CPU pairing failed: {e}")
+            logger.error("CPU pairing failed: %s", e)
             return False
 
     # Performance and monitoring

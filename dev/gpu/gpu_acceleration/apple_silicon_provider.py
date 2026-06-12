@@ -118,9 +118,9 @@ class AppleSiliconComputeProvider(ComputeProvider):
 
         try:
             self._discover_devices()
-            logger.info(f"Apple Silicon Compute Provider initialized with {len(self.devices)} devices")
+            logger.info("Apple Silicon Compute Provider initialized with %s devices", len(self.devices))
         except Exception as e:
-            logger.error(f"Failed to initialize Apple Silicon provider: {e}")
+            logger.error("Failed to initialize Apple Silicon provider: %s", e)
 
     def _discover_devices(self):
         """Discover available Apple Silicon GPU devices."""
@@ -136,7 +136,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                     self.command_queue = self.metal_device.newCommandQueue()
 
         except Exception as e:
-            logger.warning(f"Failed to discover Apple Silicon devices: {e}")
+            logger.warning("Failed to discover Apple Silicon devices: %s", e)
 
     def initialize(self) -> bool:
         """Initialize the Apple Silicon provider."""
@@ -153,7 +153,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 return False
 
         except Exception as e:
-            logger.error(f"Apple Silicon initialization failed: {e}")
+            logger.error("Apple Silicon initialization failed: %s", e)
             return False
 
     def shutdown(self) -> None:
@@ -166,7 +166,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             logger.info("Apple Silicon provider shutdown complete")
 
         except Exception as e:
-            logger.error(f"Apple Silicon shutdown failed: {e}")
+            logger.error("Apple Silicon shutdown failed: %s", e)
 
     def get_available_devices(self) -> list[ComputeDevice]:
         """Get list of available Apple Silicon devices."""
@@ -185,7 +185,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             self.current_device_id = device_id
             return True
         except Exception as e:
-            logger.error(f"Failed to set Apple Silicon device {device_id}: {e}")
+            logger.error("Failed to set Apple Silicon device %s: %s", device_id, e)
             return False
 
     def get_device_info(self, device_id: int) -> ComputeDevice | None:
@@ -207,7 +207,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             buffer = self.metal_device.newBufferWithLength_options_(size, Metal.MTLResourceStorageModeShared)
             return buffer
         except Exception as e:
-            raise RuntimeError(f"Failed to allocate Apple Silicon memory: {e}")
+            raise RuntimeError("Failed to allocate Apple Silicon memory: %s" % e)
 
     def free_memory(self, memory_handle: Any) -> None:
         """Free allocated Apple Silicon memory."""
@@ -216,7 +216,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
         try:
             memory_handle = None
         except Exception as e:
-            logger.warning(f"Failed to free Apple Silicon memory: {e}")
+            logger.warning("Failed to free Apple Silicon memory: %s", e)
 
     def copy_to_device(self, host_data: Any, device_data: Any) -> None:
         """Copy data from host to Apple Silicon GPU."""
@@ -228,7 +228,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 # Copy numpy array to Metal buffer
                 device_data.contents().copy_bytes_from_length_(host_data.tobytes(), host_data.nbytes)
         except Exception as e:
-            logger.error(f"Failed to copy to Apple Silicon device: {e}")
+            logger.error("Failed to copy to Apple Silicon device: %s", e)
 
     def copy_to_host(self, device_data: Any, host_data: Any) -> None:
         """Copy data from Apple Silicon GPU to host."""
@@ -241,7 +241,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 bytes_data = device_data.contents().bytes()
                 host_data.flat[:] = np.frombuffer(bytes_data[:host_data.nbytes], dtype=host_data.dtype)
         except Exception as e:
-            logger.error(f"Failed to copy from Apple Silicon device: {e}")
+            logger.error("Failed to copy from Apple Silicon device: %s", e)
 
     def execute_kernel(
         self,
@@ -261,11 +261,11 @@ class AppleSiliconComputeProvider(ComputeProvider):
             if kernel_name in ["field_add", "field_mul", "field_inverse"]:
                 return self._simulate_kernel(kernel_name, args)
             else:
-                logger.warning(f"Unknown Apple Silicon kernel: {kernel_name}")
+                logger.warning("Unknown Apple Silicon kernel: %s", kernel_name)
                 return False
 
         except Exception as e:
-            logger.error(f"Apple Silicon kernel execution failed: {e}")
+            logger.error("Apple Silicon kernel execution failed: %s", e)
             return False
 
     def _simulate_kernel(self, kernel_name: str, args: list[Any]) -> bool:
@@ -294,7 +294,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 # This is a simplified synchronization
                 pass
             except Exception as e:
-                logger.error(f"Apple Silicon synchronization failed: {e}")
+                logger.error("Apple Silicon synchronization failed: %s", e)
 
     def get_memory_info(self, device_id: int | None = None) -> tuple[int, int]:
         """Get Apple Silicon memory information."""
@@ -323,7 +323,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             np.add(a, b, out=result, dtype=result.dtype)
             return True
         except Exception as e:
-            logger.error(f"Apple Silicon field add failed: {e}")
+            logger.error("Apple Silicon field add failed: %s", e)
             return False
 
     def zk_field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
@@ -334,7 +334,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             np.multiply(a, b, out=result, dtype=result.dtype)
             return True
         except Exception as e:
-            logger.error(f"Apple Silicon field mul failed: {e}")
+            logger.error("Apple Silicon field mul failed: %s", e)
             return False
 
     def zk_field_inverse(self, a: np.ndarray, result: np.ndarray) -> bool:
@@ -349,7 +349,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                     result[i] = 0
             return True
         except Exception as e:
-            logger.error(f"Apple Silicon field inverse failed: {e}")
+            logger.error("Apple Silicon field inverse failed: %s", e)
             return False
 
     def zk_multi_scalar_mul(
@@ -372,7 +372,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
 
             return True
         except Exception as e:
-            logger.error(f"Apple Silicon multi-scalar mul failed: {e}")
+            logger.error("Apple Silicon multi-scalar mul failed: %s", e)
             return False
 
     def zk_pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray) -> bool:
@@ -383,7 +383,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             np.multiply(p1, p2, out=result, dtype=result.dtype)
             return True
         except Exception as e:
-            logger.error(f"Apple Silicon pairing failed: {e}")
+            logger.error("Apple Silicon pairing failed: %s", e)
             return False
 
     # Performance and monitoring
