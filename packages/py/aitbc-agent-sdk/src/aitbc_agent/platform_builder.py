@@ -30,7 +30,7 @@ class PlatformBuilder:
         """Add a compute provider agent"""
         agent = Agent.create(name, "compute_provider", capabilities)
         self.agents.append(agent)
-        logger.info(f"Added provider: {name}")
+        logger.info("Added provider: %s", name)
         return self
 
     def add_consumer(
@@ -39,7 +39,7 @@ class PlatformBuilder:
         """Add a compute consumer agent"""
         agent = Agent.create(name, "compute_consumer", capabilities)
         self.agents.append(agent)
-        logger.info(f"Added consumer: {name}")
+        logger.info("Added consumer: %s", name)
         return self
 
     def build(self) -> dict[str, Any]:
