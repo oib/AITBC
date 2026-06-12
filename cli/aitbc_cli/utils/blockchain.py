@@ -29,10 +29,10 @@ def get_chain_info(rpc_url: str = "http://localhost:8202") -> dict | None:
         result['tx_count'] = head.get('tx_count', 0)
         return result if result else None
     except NetworkError as e:
-        logger.error(f"Error: {e}")
+        logger.error("Error: %s", e)
         return None
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error("Error: %s", e)
         return None
 
 
@@ -43,10 +43,10 @@ def get_network_status(rpc_url: str = "http://localhost:8202") -> dict | None:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         return http_client.get("/rpc/head")
     except NetworkError as e:
-        logger.error(f"Error getting network status: {e}")
+        logger.error("Error getting network status: %s", e)
         return None
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error("Error: %s", e)
         return None
 
 
@@ -91,5 +91,5 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
             return {"type": analytics_type, "status": "Not implemented yet"}
 
     except Exception as e:
-        logger.error(f"Error getting analytics: {e}")
+        logger.error("Error getting analytics: %s", e)
         return None
