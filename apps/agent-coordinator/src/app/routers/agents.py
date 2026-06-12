@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,7 +18,7 @@ router = APIRouter()
 @rate_limit(rate=50, per=60)
 async def register_agent(
     request_http: Request, request: AgentRegistrationRequest
-):
+) -> dict[str, Any]:
     """Register a new agent"""
     try:
         if not state.agent_registry:
@@ -62,7 +61,7 @@ async def register_agent(
 @rate_limit(rate=200, per=60)
 async def discover_agents(
     request: Request, query: dict[str, Any]
-):
+) -> dict[str, Any]:
     """Discover agents based on criteria"""
     try:
         if not state.agent_registry:
@@ -87,7 +86,7 @@ async def discover_agents(
 @rate_limit(rate=200, per=60)
 async def get_agent(
     request: Request, agent_id: str
-):
+) -> dict[str, Any]:
     """Get agent information by ID"""
     try:
         if not state.agent_registry:
@@ -115,7 +114,7 @@ async def get_agent(
 @rate_limit(rate=50, per=60)
 async def update_agent_status(
     request: Request, agent_id: str, request_status: AgentStatusUpdate
-):
+) -> dict[str, Any]:
     """Update agent status"""
     try:
         if not state.agent_registry:
@@ -125,8 +124,8 @@ async def update_agent_status(
 
         success = await state.agent_registry.update_agent_status(
             agent_id,
-            AgentStatus(request.status),
-            request.load_metrics
+            AgentStatus(request_status.status),
+            request_status.load_metrics
         )
 
         if success:
@@ -134,7 +133,7 @@ async def update_agent_status(
                 "status": "success",
                 "message": f"Agent {agent_id} status updated",
                 "agent_id": agent_id,
-                "new_status": request.status,
+                "new_status": request_status.status,
                 "updated_at": datetime.now(UTC).isoformat()
             }
         else:
@@ -149,7 +148,7 @@ async def update_agent_status(
 @rate_limit(rate=100, per=60)
 async def agent_heartbeat(
     request: Request, agent_id: str
-):
+) -> dict[str, Any]:
     """Receive heartbeat from agent"""
     try:
         if not state.agent_registry:

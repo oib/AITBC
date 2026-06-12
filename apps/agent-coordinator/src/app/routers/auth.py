@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,7 +17,7 @@ router = APIRouter()
 @rate_limit(rate=50, per=60)
 async def login(
     request: Request, login_data: dict[str, str]
-):
+) -> dict[str, Any]:
     """User login with username and password"""
     try:
         username = login_data.get("username")
@@ -92,7 +91,7 @@ async def login(
 @rate_limit(rate=100, per=60)
 async def refresh_token(
     request: Request, refresh_data: dict[str, str]
-):
+) -> dict[str, Any]:
     """Refresh access token using refresh token"""
     try:
         refresh_token = refresh_data.get("refresh_token")
@@ -117,7 +116,7 @@ async def refresh_token(
 @rate_limit(rate=200, per=60)
 async def validate_token(
     request: Request, validate_data: dict[str, str]
-):
+) -> dict[str, Any]:
     """Validate JWT token"""
     try:
         token = validate_data.get("token")
@@ -143,16 +142,16 @@ async def validate_token(
 async def generate_api_key(
     request: Request,
     user_id: str,
-    permissions: list[str] = None,
+    permissions: list[str] | None = None,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Generate API key for user"""
     try:
         # Check if user has permission to generate API keys
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-        result = api_key_manager.generate_api_key(user_id, permissions)
+        result = api_key_manager.generate_api_key(user_id, permissions or [])
 
         return result
 
@@ -166,7 +165,7 @@ async def generate_api_key(
 @rate_limit(rate=200, per=60)
 async def validate_api_key(
     request: Request, api_key: str
-):
+) -> dict[str, Any]:
     """Validate API key"""
     try:
         result = api_key_manager.validate_api_key(api_key)
@@ -188,7 +187,7 @@ async def revoke_api_key(
     request: Request,
     api_key: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Revoke API key"""
     try:
         # Check if user has permission to manage API keys

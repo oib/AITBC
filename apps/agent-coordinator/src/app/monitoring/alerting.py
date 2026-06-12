@@ -114,12 +114,12 @@ class AlertRule:
 class SLAMonitor:
     """SLA monitoring and compliance tracking"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sla_rules = {}  # {sla_id: SLARule}
         self.sla_metrics = {}  # {sla_id: [compliance_data]}
         self.violations = {}  # {sla_id: [violations]}
 
-    def add_sla_rule(self, sla_id: str, name: str, target: float, window: timedelta, metric: str):
+    def add_sla_rule(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> Any:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {
             "name": name,
@@ -130,7 +130,7 @@ class SLAMonitor:
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def record_metric(self, sla_id: str, value: float, timestamp: datetime = None):
+    def record_metric(self, sla_id: str, value: float, timestamp: datetime = None) -> Any:
         """Record SLA metric value"""
         if sla_id not in self.sla_rules:
             return
@@ -237,12 +237,12 @@ class SLAMonitor:
 class NotificationManager:
     """Manages notifications across different channels"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.email_config = {}
         self.slack_config = {}
         self.webhook_configs = {}
 
-    def configure_email(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str):
+    def configure_email(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -252,21 +252,21 @@ class NotificationManager:
             "from_email": from_email
         }
 
-    def configure_slack(self, webhook_url: str, channel: str):
+    def configure_slack(self, webhook_url: str, channel: str) -> Any:
         """Configure Slack notifications"""
         self.slack_config = {
             "webhook_url": webhook_url,
             "channel": channel
         }
 
-    def add_webhook(self, name: str, url: str, headers: dict[str, str] = None):
+    def add_webhook(self, name: str, url: str, headers: dict[str, str] = None) -> Any:
         """Add webhook configuration"""
         self.webhook_configs[name] = {
             "url": url,
             "headers": headers or {}
         }
 
-    async def send_notification(self, channel: NotificationChannel, alert: Alert, message: str):
+    async def send_notification(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -283,7 +283,7 @@ class NotificationManager:
         except Exception as e:
             logger.error(f"Failed to send notification via {channel.value}: {e}")
 
-    async def _send_email(self, alert: Alert, message: str):
+    async def _send_email(self, alert: Alert, message: str) -> Any:
         """Send email notification"""
         if not EMAIL_AVAILABLE:
             logger.warning("Email functionality not available")
@@ -324,7 +324,7 @@ Annotations: {json.dumps(alert.annotations, indent=2)}
         except Exception as e:
             logger.error(f"Failed to send email: {e}")
 
-    async def _send_slack(self, alert: Alert, message: str):
+    async def _send_slack(self, alert: Alert, message: str) -> Any:
         """Send Slack notification"""
         if not self.slack_config:
             logger.warning("Slack not configured")
@@ -368,7 +368,7 @@ Annotations: {json.dumps(alert.annotations, indent=2)}
         except Exception as e:
             logger.error(f"Failed to send Slack notification: {e}")
 
-    async def _send_webhook(self, alert: Alert, message: str):
+    async def _send_webhook(self, alert: Alert, message: str) -> Any:
         """Send webhook notification"""
         webhook_configs = self.webhook_configs
 
@@ -391,7 +391,7 @@ Annotations: {json.dumps(alert.annotations, indent=2)}
             except Exception as e:
                 logger.error(f"Failed to send webhook to {name}: {e}")
 
-    def _send_log(self, alert: Alert, message: str):
+    def _send_log(self, alert: Alert, message: str) -> Any:
         """Send log notification"""
         log_level = {
             AlertSeverity.CRITICAL: logging.CRITICAL,
@@ -408,7 +408,7 @@ Annotations: {json.dumps(alert.annotations, indent=2)}
 class AlertManager:
     """Main alert management system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.alerts = {}  # {alert_id: Alert}
         self.rules = {}  # {rule_id: AlertRule}
         self.notification_manager = NotificationManager()
@@ -418,7 +418,7 @@ class AlertManager:
         # Initialize default rules
         self._initialize_default_rules()
 
-    def _initialize_default_rules(self):
+    def _initialize_default_rules(self) -> Any:
         """Initialize default alert rules"""
         default_rules = [
             AlertRule(
@@ -482,18 +482,18 @@ class AlertManager:
         for rule in default_rules:
             self.rules[rule.rule_id] = rule
 
-    def add_rule(self, rule: AlertRule):
+    def add_rule(self, rule: AlertRule) -> Any:
         """Add alert rule"""
         self.rules[rule.rule_id] = rule
 
-    def remove_rule(self, rule_id: str):
+    def remove_rule(self, rule_id: str) -> Any:
         """Remove alert rule"""
         if rule_id in self.rules:
             del self.rules[rule_id]
         if rule_id in self.active_conditions:
             del self.active_conditions[rule_id]
 
-    def evaluate_rules(self, metrics: dict[str, Any]):
+    def evaluate_rules(self, metrics: dict[str, Any]) -> Any:
         """Evaluate all alert rules against current metrics"""
         for rule_id, rule in self.rules.items():
             if not rule.enabled:
@@ -543,7 +543,7 @@ class AlertManager:
 
         return False
 
-    def _trigger_alert(self, rule: AlertRule, metrics: dict[str, Any]):
+    def _trigger_alert(self, rule: AlertRule, metrics: dict[str, Any]) -> Any:
         """Trigger an alert"""
         alert_id = f"{rule.rule_id}_{int(datetime.now(UTC).timestamp())}"
 

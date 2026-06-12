@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Message Types and Routing System for AITBC Agent Coordination
 """
@@ -78,7 +77,7 @@ class TaskMessage(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @validator('deadline')
-    def validate_deadline(cls, v):
+    def validate_deadline(cls, v: Any) -> Any:
         if v and v < datetime.now(UTC):
             raise ValueError("Deadline cannot be in the past")
         return v
@@ -130,8 +129,9 @@ class ConsensusMessage(BaseModel):
 class MessageRouter:
     """Advanced message routing system"""
 
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str) -> None:
         self.agent_id = agent_id
+        self.round_robin_index = 0
         self.routing_rules: list[RoutingRule] = []
         self.message_queue: asyncio.Queue = asyncio.Queue(maxsize=10000)
         self.dead_letter_queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
@@ -144,14 +144,14 @@ class MessageRouter:
         self.active_routes: dict[str, str] = {}  # message_id -> route
         self.load_balancer_index = 0
 
-    def add_routing_rule(self, rule: RoutingRule):
+    def add_routing_rule(self, rule: RoutingRule) -> Any:
         """Add a routing rule"""
         self.routing_rules.append(rule)
         # Sort by priority (higher priority first)
         self.routing_rules.sort(key=lambda r: r.priority, reverse=True)
         logger.info(f"Added routing rule: {rule.name}")
 
-    def remove_routing_rule(self, rule_id: str):
+    def remove_routing_rule(self, rule_id: str) -> Any:
         """Remove a routing rule"""
         self.routing_rules = [r for r in self.routing_rules if r.rule_id != rule_id]
         logger.info(f"Removed routing rule: {rule_id}")
@@ -268,17 +268,18 @@ class MessageRouter:
 class LoadBalancer:
     """Load balancer for message distribution"""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        self.round_robin_index = 0
         self.agent_loads: dict[str, float] = {}
         self.agent_weights: dict[str, float] = {}
         self.last_updated = datetime.now(UTC)
 
-    def update_agent_load(self, agent_id: str, load: float):
+    def update_agent_load(self, agent_id: str, load: float) -> Any:
         """Update agent load information"""
         self.agent_loads[agent_id] = load
         self.last_updated = datetime.now(UTC)
 
-    def set_agent_weight(self, agent_id: str, weight: float):
+    def set_agent_weight(self, agent_id: str, weight: float) -> Any:
         """Set agent weight for load balancing"""
         self.agent_weights[agent_id] = weight
 
@@ -300,8 +301,8 @@ class LoadBalancer:
 
     def _round_robin_selection(self, agents: list[str]) -> str:
         """Round-robin agent selection"""
-        agent = agents[self.load_balancer_index % len(agents)]
-        self.load_balancer_index += 1
+        agent = agents[self.round_robin_index % len(agents)]
+        self.round_robin_index += 1
         return agent
 
     def _load_balanced_selection(self, agents: list[str]) -> str:
@@ -339,7 +340,7 @@ class LoadBalancer:
 class MessageQueue:
     """Advanced message queue with priority and persistence"""
 
-    def __init__(self, max_size: int = 10000):
+    def __init__(self, max_size: int = 10000) -> None:
         self.max_size = max_size
         self.queues: dict[Priority, asyncio.Queue] = {
             Priority.CRITICAL: asyncio.Queue(maxsize=max_size // 4),
@@ -373,7 +374,7 @@ class MessageQueue:
         for priority in [Priority.CRITICAL, Priority.HIGH, Priority.NORMAL, Priority.LOW]:
             queue = self.queues[priority]
             try:
-                message = queue.get_nowait()
+                message: AgentMessage = queue.get_nowait()
                 logger.debug(f"Dequeued message {message.id} with priority {priority}")
                 return message
             except asyncio.QueueEmpty:
@@ -381,7 +382,7 @@ class MessageQueue:
 
         return None
 
-    async def confirm_delivery(self, message_id: str):
+    async def confirm_delivery(self, message_id: str) -> Any:
         """Confirm message delivery"""
         self.delivery_confirmations[message_id] = True
 
@@ -404,7 +405,7 @@ class MessageQueue:
 class MessageProcessor:
     """Message processor with async handling"""
 
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str) -> None:
         self.agent_id = agent_id
         self.router = MessageRouter(agent_id)
         self.load_balancer = LoadBalancer()
@@ -416,7 +417,7 @@ class MessageProcessor:
             "errors": 0
         }
 
-    def register_processor(self, message_type: MessageType, processor: Callable):
+    def register_processor(self, message_type: MessageType, processor: Callable) -> Any:
         """Register message processor"""
         self.processors[message_type.value] = processor
         logger.info(f"Registered processor for {message_type.value}")
@@ -452,7 +453,7 @@ class MessageProcessor:
             self.processing_stats["errors"] += 1
             return False
 
-    async def start_processing(self):
+    async def start_processing(self) -> Any:
         """Start message processing loop"""
         while True:
             try:
@@ -558,14 +559,14 @@ def create_consensus_message(sender_id: str, proposal: dict[str, Any], voting_op
     )
 
 # Example usage
-async def example_usage():
+async def example_usage() -> Any:
     """Example of how to use the message routing system"""
 
     # Create message processor
     processor = MessageProcessor("agent-001")
 
     # Register processors
-    async def process_task(message: AgentMessage):
+    async def process_task(message: AgentMessage) -> Any:
         task_data = TaskMessage(**message.payload)
         logger.info(f"Processing task: {task_data.task_id}")
 

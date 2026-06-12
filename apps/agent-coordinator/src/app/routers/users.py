@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -20,7 +19,7 @@ async def assign_user_role(
     user_id: str,
     role: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Assign role to user"""
     try:
         # Check if user has permission to manage roles
@@ -48,7 +47,7 @@ async def get_user_role(
     request: Request,
     user_id: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get user's role"""
     try:
         # Check if user has permission to view users
@@ -71,7 +70,7 @@ async def get_user_permissions(
     request: Request,
     user_id: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get user's permissions"""
     try:
         # Users can view their own permissions, admins can view any
@@ -95,7 +94,7 @@ async def grant_user_permission(
     user_id: str,
     permission: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Grant custom permission to user"""
     try:
         # Check if user has permission to manage permissions
@@ -124,7 +123,7 @@ async def revoke_user_permission(
     user_id: str,
     permission: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Revoke custom permission from user"""
     try:
         # Check if user has permission to manage permissions
@@ -151,7 +150,7 @@ async def revoke_user_permission(
 @rate_limit(rate=200, per=60)
 async def list_all_roles(
     request: Request, current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """List all available roles and their permissions"""
     try:
         # Check if user has permission to view roles
@@ -174,7 +173,7 @@ async def get_role_permissions(
     request: Request,
     role: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get all permissions for a specific role"""
     try:
         # Check if user has permission to view roles
@@ -200,7 +199,7 @@ async def get_role_permissions(
 @rate_limit(rate=200, per=60)
 async def get_permission_stats(
     request: Request, current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get statistics about permissions and users"""
     try:
         # Check if user has permission to view security stats
@@ -223,7 +222,7 @@ async def get_permission_stats(
 @require_role([Role.ADMIN])
 async def admin_only_endpoint(
     request: Request, current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Admin-only endpoint example"""
     return {
         "status": "success",
@@ -242,7 +241,7 @@ async def admin_only_endpoint(
 @require_role([Role.ADMIN, Role.OPERATOR])
 async def operator_endpoint(
     request: Request, current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Operator and admin endpoint example"""
     return {
         "status": "success",

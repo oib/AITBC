@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -17,7 +16,7 @@ router = APIRouter()
 @rate_limit(rate=50, per=60)
 async def record_learning_experience(
     request: Request, experience_data: dict[str, Any]
-):
+) -> dict[str, Any]:
     """Record a learning experience for the AI system"""
     try:
         result = await learning_system.record_experience(experience_data)
@@ -30,7 +29,7 @@ async def record_learning_experience(
 @rate_limit(rate=200, per=60)
 async def get_learning_statistics(
     request: Request
-):
+) -> dict[str, Any]:
     """Get learning system statistics"""
     try:
         result = await learning_system.get_learning_statistics()
@@ -43,7 +42,7 @@ async def get_learning_statistics(
 @rate_limit(rate=100, per=60)
 async def predict_performance(
     request: Request, context: dict[str, Any], action: str = Query(...)
-):
+) -> dict[str, Any]:
     """Predict performance for a given action"""
     try:
         result = await learning_system.predict_performance(context, action)
@@ -56,7 +55,7 @@ async def predict_performance(
 @rate_limit(rate=100, per=60)
 async def recommend_action(
     request: Request, context: dict[str, Any], available_actions: list[str]
-):
+) -> dict[str, Any]:
     """Get AI-recommended action"""
     try:
         result = await learning_system.recommend_action(context, available_actions)
@@ -69,7 +68,7 @@ async def recommend_action(
 @rate_limit(rate=50, per=60)
 async def create_neural_network(
     request: Request, config: dict[str, Any]
-):
+) -> dict[str, Any]:
     """Create a new neural network"""
     try:
         result = await ai_integration.create_neural_network(config)
@@ -82,7 +81,7 @@ async def create_neural_network(
 @rate_limit(rate=50, per=60)
 async def train_neural_network(
     request: Request, network_id: str, training_data: list[dict[str, Any]], epochs: int = 100
-):
+) -> dict[str, Any]:
     """Train a neural network"""
     try:
         result = await ai_integration.train_neural_network(network_id, training_data, epochs)
@@ -95,7 +94,7 @@ async def train_neural_network(
 @rate_limit(rate=100, per=60)
 async def predict_with_neural_network(
     request: Request, network_id: str, features: list[float]
-):
+) -> dict[str, Any]:
     """Make prediction with neural network"""
     try:
         result = await ai_integration.predict_with_neural_network(network_id, features)
@@ -108,7 +107,7 @@ async def predict_with_neural_network(
 @rate_limit(rate=50, per=60)
 async def create_ml_model(
     request: Request, config: dict[str, Any]
-):
+) -> dict[str, Any]:
     """Create a new ML model"""
     try:
         result = await ai_integration.create_ml_model(config)
@@ -121,7 +120,7 @@ async def create_ml_model(
 @rate_limit(rate=50, per=60)
 async def train_ml_model(
     request: Request, model_id: str, training_data: list[dict[str, Any]]
-):
+) -> dict[str, Any]:
     """Train an ML model"""
     try:
         result = await ai_integration.train_ml_model(model_id, training_data)
@@ -134,7 +133,7 @@ async def train_ml_model(
 @rate_limit(rate=100, per=60)
 async def predict_with_ml_model(
     request: Request, model_id: str, features: list[float]
-):
+) -> dict[str, Any]:
     """Make prediction with ML model"""
     try:
         result = await ai_integration.predict_with_ml_model(model_id, features)
@@ -147,7 +146,7 @@ async def predict_with_ml_model(
 @rate_limit(rate=200, per=60)
 async def get_ai_statistics(
     request: Request
-):
+) -> dict[str, Any]:
     """Get comprehensive AI/ML statistics"""
     try:
         result = await ai_integration.get_ai_statistics()

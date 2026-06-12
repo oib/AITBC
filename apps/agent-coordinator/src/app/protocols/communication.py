@@ -76,12 +76,12 @@ class AgentMessage:
 class CommunicationProtocol:
     """Base class for communication protocols"""
 
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str) -> None:
         self.agent_id = agent_id
         self.message_handlers: dict[MessageType, list[Callable]] = {}
         self.active_connections: dict[str, Any] = {}
 
-    async def register_handler(self, message_type: MessageType, handler: Callable):
+    async def register_handler(self, message_type: MessageType, handler: Callable) -> Any:
         """Register a message handler for a specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
@@ -103,7 +103,7 @@ class CommunicationProtocol:
             logger.error(f"Error sending message: {e}")
             return False
 
-    async def receive_message(self, message: AgentMessage):
+    async def receive_message(self, message: AgentMessage) -> Any:
         """Process received message"""
         try:
             # Check TTL
@@ -127,24 +127,24 @@ class CommunicationProtocol:
         age = (datetime.now(UTC) - message.timestamp).total_seconds()
         return age > message.ttl
 
-    async def _send_to_agent(self, message: AgentMessage):
+    async def _send_to_agent(self, message: AgentMessage) -> Any:
         """Send message to specific agent"""
         raise NotImplementedError("Subclasses must implement _send_to_agent")
 
-    async def _broadcast_message(self, message: AgentMessage):
+    async def _broadcast_message(self, message: AgentMessage) -> Any:
         """Broadcast message to all connected agents"""
         raise NotImplementedError("Subclasses must implement _broadcast_message")
 
 class HierarchicalProtocol(CommunicationProtocol):
     """Hierarchical communication protocol (master-agent → sub-agents)"""
 
-    def __init__(self, agent_id: str, is_master: bool = False):
+    def __init__(self, agent_id: str, is_master: bool = False) -> None:
         super().__init__(agent_id)
         self.is_master = is_master
         self.sub_agents: list[str] = []
         self.master_agent: str | None = None
 
-    async def add_sub_agent(self, agent_id: str):
+    async def add_sub_agent(self, agent_id: str) -> Any:
         """Add a sub-agent to this master agent"""
         if self.is_master:
             self.sub_agents.append(agent_id)
@@ -152,7 +152,7 @@ class HierarchicalProtocol(CommunicationProtocol):
         else:
             logger.warning(f"Agent {self.agent_id} is not a master, cannot add sub-agents")
 
-    async def send_to_sub_agents(self, message: AgentMessage):
+    async def send_to_sub_agents(self, message: AgentMessage) -> Any:
         """Send message to all sub-agents"""
         if not self.is_master:
             logger.warning(f"Agent {self.agent_id} is not a master")
@@ -163,7 +163,7 @@ class HierarchicalProtocol(CommunicationProtocol):
             message.receiver_id = sub_agent_id
             await self.send_message(message)
 
-    async def send_to_master(self, message: AgentMessage):
+    async def send_to_master(self, message: AgentMessage) -> Any:
         """Send message to master agent"""
         if self.is_master:
             logger.warning(f"Agent {self.agent_id} is a master, cannot send to master")
@@ -179,22 +179,22 @@ class HierarchicalProtocol(CommunicationProtocol):
 class PeerToPeerProtocol(CommunicationProtocol):
     """Peer-to-peer communication protocol (agent ↔ agent)"""
 
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str) -> None:
         super().__init__(agent_id)
         self.peers: dict[str, dict[str, Any]] = {}
 
-    async def add_peer(self, peer_id: str, connection_info: dict[str, Any]):
+    async def add_peer(self, peer_id: str, connection_info: dict[str, Any]) -> Any:
         """Add a peer to the peer network"""
         self.peers[peer_id] = connection_info
         logger.info(f"Added peer {peer_id} to agent {self.agent_id}")
 
-    async def remove_peer(self, peer_id: str):
+    async def remove_peer(self, peer_id: str) -> Any:
         """Remove a peer from the peer network"""
         if peer_id in self.peers:
             del self.peers[peer_id]
             logger.info(f"Removed peer {peer_id} from agent {self.agent_id}")
 
-    async def send_to_peer(self, message: AgentMessage, peer_id: str):
+    async def send_to_peer(self, message: AgentMessage, peer_id: str) -> Any:
         """Send message to specific peer"""
         if peer_id not in self.peers:
             logger.warning(f"Peer {peer_id} not found")
@@ -204,7 +204,7 @@ class PeerToPeerProtocol(CommunicationProtocol):
         message.message_type = MessageType.PEER_TO_PEER
         return await self.send_message(message)
 
-    async def broadcast_to_peers(self, message: AgentMessage):
+    async def broadcast_to_peers(self, message: AgentMessage) -> Any:
         """Broadcast message to all peers"""
         message.message_type = MessageType.PEER_TO_PEER
         for peer_id in self.peers:
@@ -214,24 +214,24 @@ class PeerToPeerProtocol(CommunicationProtocol):
 class BroadcastProtocol(CommunicationProtocol):
     """Broadcast communication protocol (agent → all agents)"""
 
-    def __init__(self, agent_id: str, broadcast_channel: str = "global"):
+    def __init__(self, agent_id: str, broadcast_channel: str = "global") -> None:
         super().__init__(agent_id)
         self.broadcast_channel = broadcast_channel
         self.subscribers: list[str] = []
 
-    async def subscribe(self, agent_id: str):
+    async def subscribe(self, agent_id: str) -> Any:
         """Subscribe to broadcast channel"""
         if agent_id not in self.subscribers:
             self.subscribers.append(agent_id)
             logger.info(f"Agent {agent_id} subscribed to {self.broadcast_channel}")
 
-    async def unsubscribe(self, agent_id: str):
+    async def unsubscribe(self, agent_id: str) -> Any:
         """Unsubscribe from broadcast channel"""
         if agent_id in self.subscribers:
             self.subscribers.remove(agent_id)
             logger.info(f"Agent {agent_id} unsubscribed from {self.broadcast_channel}")
 
-    async def broadcast(self, message: AgentMessage):
+    async def broadcast(self, message: AgentMessage) -> Any:
         """Broadcast message to all subscribers"""
         message.message_type = MessageType.BROADCAST
         message.receiver_id = None  # Broadcast to all
@@ -245,11 +245,11 @@ class BroadcastProtocol(CommunicationProtocol):
 class CommunicationManager:
     """Manages multiple communication protocols for an agent"""
 
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str) -> None:
         self.agent_id = agent_id
         self.protocols: dict[str, CommunicationProtocol] = {}
 
-    def add_protocol(self, name: str, protocol: CommunicationProtocol):
+    def add_protocol(self, name: str, protocol: CommunicationProtocol) -> Any:
         """Add a communication protocol"""
         self.protocols[name] = protocol
         logger.info(f"Added protocol {name} to agent {self.agent_id}")
@@ -265,7 +265,7 @@ class CommunicationManager:
             return await protocol.send_message(message)
         return False
 
-    async def register_handler(self, protocol_name: str, message_type: MessageType, handler: Callable):
+    async def register_handler(self, protocol_name: str, message_type: MessageType, handler: Callable) -> Any:
         """Register message handler for specific protocol"""
         protocol = self.get_protocol(protocol_name)
         if protocol:
@@ -332,11 +332,11 @@ class MessageTemplates:
 class WebSocketHandler:
     """WebSocket handler for real-time agent communication"""
 
-    def __init__(self, communication_manager: CommunicationManager):
+    def __init__(self, communication_manager: CommunicationManager) -> None:
         self.communication_manager = communication_manager
         self.websocket_connections: dict[str, Any] = {}
 
-    async def handle_connection(self, websocket, agent_id: str):
+    async def handle_connection(self, websocket, agent_id: str) -> Any:
         """Handle WebSocket connection from agent"""
         import websockets
 
@@ -354,7 +354,7 @@ class WebSocketHandler:
             if agent_id in self.websocket_connections:
                 del self.websocket_connections[agent_id]
 
-    async def send_to_agent(self, agent_id: str, message: AgentMessage):
+    async def send_to_agent(self, agent_id: str, message: AgentMessage) -> Any:
         """Send message to agent via WebSocket"""
         if agent_id in self.websocket_connections:
             websocket = self.websocket_connections[agent_id]
@@ -362,7 +362,7 @@ class WebSocketHandler:
             return True
         return False
 
-    async def broadcast_message(self, message: AgentMessage):
+    async def broadcast_message(self, message: AgentMessage) -> Any:
         """Broadcast message to all connected agents"""
         for websocket in self.websocket_connections.values():
             await websocket.send(json.dumps(message.to_dict()))
@@ -371,11 +371,11 @@ class WebSocketHandler:
 class RedisMessageBroker:
     """Redis-based message broker for agent communication"""
 
-    def __init__(self, redis_url: str):
+    def __init__(self, redis_url: str) -> None:
         self.redis_url = redis_url
         self.channels: dict[str, Any] = {}
 
-    async def publish_message(self, channel: str, message: AgentMessage):
+    async def publish_message(self, channel: str, message: AgentMessage) -> Any:
         """Publish message to Redis channel"""
         import redis.asyncio as redis
         redis_client = redis.from_url(self.redis_url)
@@ -383,7 +383,7 @@ class RedisMessageBroker:
         await redis_client.publish(channel, json.dumps(message.to_dict()))
         await redis_client.close()
 
-    async def subscribe_to_channel(self, channel: str, handler: Callable):
+    async def subscribe_to_channel(self, channel: str, handler: Callable) -> Any:
         """Subscribe to Redis channel"""
         import redis.asyncio as redis
         redis_client = redis.from_url(self.redis_url)
@@ -396,7 +396,7 @@ class RedisMessageBroker:
         # Start listening for messages
         asyncio.create_task(self._listen_to_channel(channel, pubsub, handler))
 
-    async def _listen_to_channel(self, channel: str, pubsub: Any, handler: Callable):
+    async def _listen_to_channel(self, channel: str, pubsub: Any, handler: Callable) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -417,7 +417,7 @@ def create_protocol(protocol_type: str, agent_id: str, **kwargs) -> Communicatio
         raise ValueError(f"Unknown protocol type: {protocol_type}")
 
 # Example usage
-async def example_usage():
+async def example_usage() -> Any:
     """Example of how to use the communication protocols"""
 
     # Create communication manager
@@ -433,7 +433,7 @@ async def example_usage():
     comm_manager.add_protocol("broadcast", broadcast_protocol)
 
     # Register message handlers
-    async def handle_heartbeat(message: AgentMessage):
+    async def handle_heartbeat(message: AgentMessage) -> Any:
         logger.info(f"Received heartbeat from {message.sender_id}")
 
     await comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, handle_heartbeat)
