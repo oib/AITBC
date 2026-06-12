@@ -51,7 +51,7 @@ class OracleAgentExample:
 
         # Register with network
         agent_address = await self.agent.register_with_network()
-        logger.info(f"Agent registered at address: {agent_address}")
+        logger.info("Agent registered at address: %s", agent_address)
 
         # Register oracle services
         await self.register_oracle_services()
@@ -94,7 +94,7 @@ class OracleAgentExample:
 
         for service in services:
             service_id = await self.blockchain_client.register_oracle_service(service)
-            logger.info(f"Registered oracle service: {service['type']} (ID: {service_id})")
+            logger.info("Registered oracle service: %s (ID: %s)", service['type'], service_id)
 
     async def data_collection_loop(self):
         """Main loop for collecting and submitting oracle data"""
@@ -106,13 +106,13 @@ class OracleAgentExample:
                         data = await data_func()
                         await self.submit_oracle_data(data_type, data)
                     except Exception as e:
-                        logger.error(f"Error collecting {data_type} data: {e}")
+                        logger.error("Error collecting %s data: %s", data_type, e)
 
                 # Sleep before next collection
                 await asyncio.sleep(60)
 
             except Exception as e:
-                logger.error(f"Error in data collection loop: {e}")
+                logger.error("Error in data collection loop: %s", e)
                 await asyncio.sleep(30)
 
     async def submit_oracle_data(self, data_type: str, data: dict[str, Any]):
@@ -129,10 +129,10 @@ class OracleAgentExample:
 
             # Submit to blockchain
             tx_hash = await self.blockchain_client.submit_oracle_data(oracle_data)
-            logger.info(f"Submitted {data_type} data: {tx_hash}")
+            logger.info("Submitted %s data: %s", data_type, tx_hash)
 
         except Exception as e:
-            logger.error(f"Error submitting {data_type} data: {e}")
+            logger.error("Error submitting %s data: %s", data_type, e)
 
     async def get_price_data(self) -> dict[str, Any]:
         """Get real-time price data from external APIs"""
@@ -165,7 +165,7 @@ class OracleAgentExample:
                     }
                 }
         except Exception as e:
-            logger.error(f"Error getting crypto prices: {e}")
+            logger.error("Error getting crypto prices: %s", e)
 
         # Get stock prices (using Alpha Vantage API - would need API key)
         try:
@@ -175,7 +175,7 @@ class OracleAgentExample:
                 "GOOGL": {"price": 2800.75, "change": "-15.25"}
             }
         except Exception as e:
-            logger.error(f"Error getting stock prices: {e}")
+            logger.error("Error getting stock prices: %s", e)
 
         return prices
 
@@ -199,7 +199,7 @@ class OracleAgentExample:
                     "wind_speed": 10.5   # km/h
                 }
             except Exception as e:
-                logger.error(f"Error getting weather for {city}: {e}")
+                logger.error("Error getting weather for %s: %s", city, e)
 
         return weather
 
@@ -272,7 +272,7 @@ class OracleAgentExample:
         else:
             return {
                 "success": False,
-                "error": f"Unknown data type: {data_type}"
+                "error": "Unknown data type: %s" % data_type
             }
 
     async def get_agent_status(self) -> dict[str, Any]:
@@ -301,14 +301,14 @@ async def main():
         while True:
             # Print status every 60 seconds
             status = await agent.get_agent_status()
-            logger.info(f"Oracle agent status: {status}")
+            logger.info("Oracle agent status: %s", status)
             await asyncio.sleep(60)
 
     except KeyboardInterrupt:
         logger.info("Shutting down oracle agent...")
         await agent.stop()
     except Exception as e:
-        logger.error(f"Oracle agent error: {e}")
+        logger.error("Oracle agent error: %s", e)
         await agent.stop()
 
 if __name__ == "__main__":
