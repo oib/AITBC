@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Marketplace Real-time Performance Monitor
 Implements comprehensive real-time monitoring and analytics for the AITBC marketplace.

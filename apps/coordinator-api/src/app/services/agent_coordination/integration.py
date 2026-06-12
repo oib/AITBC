@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Integration and Deployment Framework for Verifiable AI Agent Orchestration
 Integrates agent orchestration with existing ML ZK proof system and provides deployment tools

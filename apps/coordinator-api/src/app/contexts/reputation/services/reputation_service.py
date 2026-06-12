@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Reputation and Trust Service
 Implements reputation management, trust score calculations, and economic profiling

@@ -42,7 +42,7 @@ app.include_router(metrics, prefix=f'{settings.api_prefix}/metrics', tags=['metr
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler"""
-    logger.error('Unhandled exception: %s', exc, exc_info=True)
+    logger.error('Unhandled exception: %s', exc)
     return JSONResponse(status_code=500, content={'error': 'Internal server error', 'detail': str(exc)})
 if __name__ == '__main__':
     import uvicorn

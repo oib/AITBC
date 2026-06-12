@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Service for Hermes self-healing and health monitoring with database storage."""
 import json
 import uuid

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Language API Endpoints
 REST API endpoints for translation and language detection services

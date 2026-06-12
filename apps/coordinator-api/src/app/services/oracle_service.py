@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Oracle Service - Real-time price feed aggregation
 

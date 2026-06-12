@@ -9,6 +9,7 @@ import pytest
 
 @pytest.mark.e2e
 @pytest.mark.slow
+@pytest.mark.skip(reason="E2E test requires external services")
 class TestJobLifecycle:
     """End-to-end test for complete job lifecycle"""
 

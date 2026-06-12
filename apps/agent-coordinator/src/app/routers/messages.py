@@ -45,7 +45,8 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> A
         else:
             message_data = {'sender': req.sender, 'recipient': req.recipient, 'content': json.dumps(req.content), 'message_type': req.message_type, 'encrypted': False, 'priority': req.priority, 'timestamp': datetime.now(UTC).isoformat()}
         if state.message_storage:
-            message_id = f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{req.sender[:8]}"
+            import uuid
+            message_id = f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
             redis_message_data = {k: str(v) if not isinstance(v, str) else v for k, v in message_data.items()}
             await state.message_storage.store_message(message_id, redis_message_data)
         return {'status': 'success', 'message_id': message_id if state.message_storage else 'in-memory', 'sender': req.sender, 'recipient': req.recipient, 'encrypted': req.encrypt, 'sent_at': datetime.now(UTC).isoformat()}
@@ -68,6 +69,29 @@ async def get_inbox(request: Request, agent_id: str=Query(..., description='Agen
         return {'agent_id': agent_id, 'messages': messages, 'count': len(messages), 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting inbox: %s', e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get('/history')
+@rate_limit(rate=200, per=60)
+async def get_message_history(request: Request, sender_id: str | None=Query(None, description='Filter by sender ID'), receiver_id: str | None=Query(None, description='Filter by receiver ID'), limit: int=Query(100, description='Maximum number of messages'), offset: int=Query(0, description='Offset for pagination')) -> Any:
+    """Get message history with optional filters"""
+    try:
+        if not state.message_storage:
+            raise HTTPException(status_code=503, detail='Message storage not available')
+        if sender_id:
+            messages = await state.message_storage.get_messages_by_sender(sender_id, limit, offset)
+        elif receiver_id:
+            messages = await state.message_storage.get_messages_by_receiver(receiver_id, limit, offset)
+        else:
+            messages = await state.message_storage.get_all_messages(limit, offset)
+        total = 0
+        if state.message_storage:
+            total = await state.message_storage.get_message_count()
+        return {'status': 'success', 'messages': messages, 'count': len(messages), 'total': total, 'limit': limit, 'offset': offset, 'timestamp': datetime.now(UTC).isoformat()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error('Error retrieving message history: %s', e)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/{agent_id}')
@@ -167,29 +191,6 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest) ->
         raise
     except Exception as e:
         logger.error('Error broadcasting message: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get('/history')
-@rate_limit(rate=200, per=60)
-async def get_message_history(request: Request, sender_id: str | None=Query(None, description='Filter by sender ID'), receiver_id: str | None=Query(None, description='Filter by receiver ID'), limit: int=Query(100, description='Maximum number of messages'), offset: int=Query(0, description='Offset for pagination')) -> Any:
-    """Get message history with optional filters"""
-    try:
-        if not state.message_storage:
-            raise HTTPException(status_code=503, detail='Message storage not available')
-        if sender_id:
-            messages = await state.message_storage.get_messages_by_sender(sender_id, limit, offset)
-        elif receiver_id:
-            messages = await state.message_storage.get_messages_by_receiver(receiver_id, limit, offset)
-        else:
-            messages = await state.message_storage.get_all_messages(limit, offset)
-        total = 0
-        if state.message_storage:
-            total = await state.message_storage.get_message_count()
-        return {'status': 'success', 'messages': messages, 'count': len(messages), 'total': total, 'limit': limit, 'offset': offset, 'timestamp': datetime.now(UTC).isoformat()}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error('Error retrieving message history: %s', e)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/id/{message_id}')
