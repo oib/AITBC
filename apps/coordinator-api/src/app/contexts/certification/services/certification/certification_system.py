@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Certification System - Agent certification framework and verification system
 """

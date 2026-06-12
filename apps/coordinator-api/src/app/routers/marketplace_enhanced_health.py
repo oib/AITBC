@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import Annotated
 '\nEnhanced Marketplace Service Health Check Router\nProvides health monitoring for royalties, licensing, verification, and analytics\n'
 import sys

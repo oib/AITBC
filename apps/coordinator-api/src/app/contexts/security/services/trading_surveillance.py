@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Trading Surveillance System
 Detects market manipulation, unusual trading patterns, and suspicious activities

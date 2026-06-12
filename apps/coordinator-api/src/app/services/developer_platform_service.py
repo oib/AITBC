@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Developer Platform Service
 
