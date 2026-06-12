@@ -223,7 +223,7 @@ class CLITranslationSecurityManager:
             )
 
         except Exception as e:
-            logger.error(f"Translation failed: {e}")
+            logger.error("Translation failed: %s", e)
             warnings.append(f"Translation failed: {str(e)}")
 
             # Always fallback to original text for security
@@ -272,7 +272,7 @@ class CLITranslationSecurityManager:
             result = await self._external_translate(request, policy)
             return result, False
         except Exception as e:
-            logger.warning(f"External translation failed, using local fallback: {e}")
+            logger.warning("External translation failed, using local fallback: %s", e)
             result = await self._local_translate(request)
             return result, True
 
