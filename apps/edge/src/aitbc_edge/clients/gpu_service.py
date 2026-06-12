@@ -1,7 +1,6 @@
-# mypy: ignore-errors
 """GPU service client for Edge API Service"""
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -11,11 +10,11 @@ from ..config import settings
 class GPUServiceClient:
     """Client for GPU service communication"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = f"http://{settings.gpu_service_host}:{settings.gpu_service_port}"
         self.client = httpx.AsyncClient(timeout=30.0)
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP client"""
         await self.client.aclose()
 
@@ -23,11 +22,11 @@ class GPUServiceClient:
         """Scan GPUs via GPU service"""
         response = await self.client.post(f"{self.base_url}/v1/marketplace/edge-gpu/scan/{miner_id}")
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
-    async def get_gpu_profiles(self, architecture: str = None, edge_optimized: bool = None, min_memory_gb: int = None) -> list[dict[str, Any]]:
+    async def get_gpu_profiles(self, architecture: str | None = None, edge_optimized: bool | None = None, min_memory_gb: int | None = None) -> list[dict[str, Any]]:
         """Get GPU profiles via GPU service"""
-        params = {}
+        params: dict[str, str | int | bool] = {}
         if architecture:
             params["architecture"] = architecture
         if edge_optimized is not None:
@@ -37,16 +36,16 @@ class GPUServiceClient:
 
         response = await self.client.get(f"{self.base_url}/v1/marketplace/edge-gpu/profiles", params=params)
         response.raise_for_status()
-        return response.json()
+        return cast(list[dict[str, Any]], response.json())
 
     async def get_gpu_metrics(self, gpu_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """Get GPU metrics via GPU service"""
         response = await self.client.get(f"{self.base_url}/v1/marketplace/edge-gpu/metrics/{gpu_id}", params={"limit": limit})
         response.raise_for_status()
-        return response.json()
+        return cast(list[dict[str, Any]], response.json())
 
     async def get_miner_gpus(self, miner_id: str) -> list[dict[str, Any]]:
         """Get GPUs registered by a miner"""
         response = await self.client.get(f"{self.base_url}/v1/miners/{miner_id}/gpus")
         response.raise_for_status()
-        return response.json()
+        return cast(list[dict[str, Any]], response.json())

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Prometheus Metrics Implementation for AITBC Agent Coordinator
 Implements comprehensive metrics collection and monitoring
@@ -49,14 +48,14 @@ class Counter:
         with self.lock:
             return dict(self.values)
 
-    def reset(self, **label_values):
+    def reset(self, **label_values: str) -> None:
         """Reset counter value"""
         with self.lock:
             key = self._make_key(label_values)
             if key in self.values:
                 del self.values[key]
 
-    def reset_all(self):
+    def reset_all(self) -> None:
         """Reset all counter values"""
         with self.lock:
             self.values.clear()
@@ -89,19 +88,19 @@ class Gauge:
             key = self._make_key(label_values)
             self.values[key] = value
 
-    def inc(self, value: float = 1.0, **label_values):
+    def inc(self, value: float = 1.0, **label_values: str) -> None:
         """Increment gauge by value"""
         with self.lock:
             key = self._make_key(label_values)
             self.values[key] += value
 
-    def dec(self, value: float = 1.0, **label_values):
+    def dec(self, value: float = 1.0, **label_values: str) -> None:
         """Decrement gauge by value"""
         with self.lock:
             key = self._make_key(label_values)
             self.values[key] -= value
 
-    def get_value(self, **label_values) -> float:
+    def get_value(self, **label_values: str) -> float:
         """Get current gauge value"""
         with self.lock:
             key = self._make_key(label_values)
@@ -111,6 +110,11 @@ class Gauge:
         """Get all gauge values"""
         with self.lock:
             return dict(self.values)
+
+    def reset_all(self) -> None:
+        """Reset all gauge values"""
+        with self.lock:
+            self.values.clear()
 
     def _make_key(self, label_values: dict[str, str]) -> str:
         """Create key from label values"""
@@ -127,17 +131,17 @@ class Gauge:
 class Histogram:
     """Prometheus-style histogram metric"""
 
-    def __init__(self, name: str, description: str, buckets: list[float] = None, labels: list[str] = None):
+    def __init__(self, name: str, description: str, buckets: list[float] | None = None, labels: list[str] | None = None) -> None:
         self.name = name
         self.description = description
         self.buckets = buckets or [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
         self.labels = labels or []
-        self.values = defaultdict(lambda: defaultdict(int))  # {key: {bucket: count}}
-        self.counts = defaultdict(int)  # {key: total_count}
-        self.sums = defaultdict(float)  # {key: total_sum}
+        self.values: defaultdict[str, defaultdict[float | str, int]] = defaultdict(lambda: defaultdict(int))  # {key: {bucket: count}}
+        self.counts: defaultdict[str, int] = defaultdict(int)  # {key: total_count}
+        self.sums: defaultdict[str, float] = defaultdict(float)  # {key: total_sum}
         self.lock = threading.Lock()
 
-    def observe(self, value: float, **label_values):
+    def observe(self, value: float, **label_values: str) -> None:
         """Observe a value"""
         with self.lock:
             key = self._make_key(label_values)
@@ -149,24 +153,25 @@ class Histogram:
             # Find appropriate bucket
             for bucket in self.buckets:
                 if value <= bucket:
-                    self.values[key][bucket] += 1
+                    self.values[key][str(bucket)] += 1
 
             # Always increment infinity bucket
             self.values[key]["inf"] += 1
 
-    def get_bucket_counts(self, **label_values) -> dict[str, int]:
+    def get_bucket_counts(self, **label_values: str) -> dict[str, int]:
         """Get bucket counts for labels"""
         with self.lock:
             key = self._make_key(label_values)
-            return dict(self.values.get(key, {}))
+            bucket_data: defaultdict[float | str, int] = self.values.get(key, defaultdict(int))
+            return {str(k): v for k, v in bucket_data.items()}
 
-    def get_count(self, **label_values) -> int:
+    def get_count(self, **label_values: str) -> int:
         """Get total count for labels"""
         with self.lock:
             key = self._make_key(label_values)
             return self.counts.get(key, 0)
 
-    def get_sum(self, **label_values) -> float:
+    def get_sum(self, **label_values: str) -> float:
         """Get sum of values for labels"""
         with self.lock:
             key = self._make_key(label_values)
@@ -187,27 +192,27 @@ class Histogram:
 class MetricsRegistry:
     """Central metrics registry"""
 
-    def __init__(self):
-        self.counters = {}
-        self.gauges = {}
-        self.histograms = {}
+    def __init__(self) -> None:
+        self.counters: dict[str, Counter] = {}
+        self.gauges: dict[str, Gauge] = {}
+        self.histograms: dict[str, Histogram] = {}
         self.lock = threading.Lock()
 
-    def counter(self, name: str, description: str, labels: list[str] = None) -> Counter:
+    def counter(self, name: str, description: str, labels: list[str] | None = None) -> Counter:
         """Create or get counter"""
         with self.lock:
             if name not in self.counters:
                 self.counters[name] = Counter(name, description, labels)
             return self.counters[name]
 
-    def gauge(self, name: str, description: str, labels: list[str] = None) -> Gauge:
+    def gauge(self, name: str, description: str, labels: list[str] | None = None) -> Gauge:
         """Create or get gauge"""
         with self.lock:
             if name not in self.gauges:
                 self.gauges[name] = Gauge(name, description, labels)
             return self.gauges[name]
 
-    def histogram(self, name: str, description: str, buckets: list[float] = None, labels: list[str] = None) -> Histogram:
+    def histogram(self, name: str, description: str, buckets: list[float] | None = None, labels: list[str] | None = None) -> Histogram:
         """Create or get histogram"""
         with self.lock:
             if name not in self.histograms:
@@ -240,14 +245,14 @@ class MetricsRegistry:
                 metrics[name] = {
                     "type": "histogram",
                     "description": histogram.description,
-                    "buckets": histogram.buckets,
+                    "buckets": [str(b) for b in histogram.buckets],
                     "counts": dict(histogram.counts),
                     "sums": dict(histogram.sums)
                 }
 
             return metrics
 
-    def reset_all(self):
+    def reset_all(self) -> None:
         """Reset all metrics"""
         with self.lock:
             for counter in self.counters.values():
@@ -264,16 +269,16 @@ class MetricsRegistry:
 class PerformanceMonitor:
     """Performance monitoring and metrics collection"""
 
-    def __init__(self, registry: MetricsRegistry):
+    def __init__(self, registry: MetricsRegistry) -> None:
         self.registry = registry
         self.start_time = time.time()
-        self.request_times = deque(maxlen=1000)
-        self.error_counts = defaultdict(int)
+        self.request_times: deque[float] = deque(maxlen=1000)
+        self.error_counts: defaultdict[str, int] = defaultdict(int)
 
         # Initialize metrics
         self._initialize_metrics()
 
-    def _initialize_metrics(self):
+    def _initialize_metrics(self) -> None:
         """Initialize all performance metrics"""
         # Request metrics
         self.registry.counter("http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"])
@@ -322,7 +327,7 @@ class PerformanceMonitor:
         self.registry.gauge("system_uptime_seconds", "System uptime in seconds").set(0)
         self.registry.gauge("active_connections", "Number of active connections").set(0)
 
-    def record_request(self, method: str, endpoint: str, status_code: int, duration: float):
+    def record_request(self, method: str, endpoint: str, status_code: int, duration: float) -> None:
         """Record HTTP request metrics"""
         self.registry.counter("http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]).inc(
             method=method,
@@ -341,32 +346,32 @@ class PerformanceMonitor:
         if status_code >= 400:
             self.error_counts[f"{method}_{endpoint}"] += 1
 
-    def record_agent_registration(self):
+    def record_agent_registration(self) -> None:
         """Record agent registration"""
         self.registry.counter("agent_registrations_total", "Total agent registrations").inc()
 
-    def record_agent_unregistration(self):
+    def record_agent_unregistration(self) -> None:
         """Record agent unregistration"""
         self.registry.counter("agent_unregistrations_total", "Total agent unregistrations").inc()
 
-    def update_agent_count(self, total: int, active: int, inactive: int):
+    def update_agent_count(self, total: int, active: int, inactive: int) -> None:
         """Update agent counts"""
         self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(total, status="total")
         self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(active, status="active")
         self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(inactive, status="inactive")
 
-    def record_task_submission(self):
+    def record_task_submission(self) -> None:
         """Record task submission"""
         self.registry.counter("tasks_submitted_total", "Total tasks submitted").inc()
         self.registry.gauge("tasks_active", "Number of active tasks").inc()
 
-    def record_task_completion(self, task_type: str, duration: float):
+    def record_task_completion(self, task_type: str, duration: float) -> None:
         """Record task completion"""
         self.registry.counter("tasks_completed_total", "Total tasks completed").inc()
         self.registry.gauge("tasks_active", "Number of active tasks").dec()
         self.registry.histogram("task_duration_seconds", "Task execution duration", [1.0, 5.0, 10.0, 30.0, 60.0, 300.0], ["task_type"]).observe(duration, task_type=task_type)
 
-    def record_ai_operation(self, operation_type: str, status: str, duration: float = None):
+    def record_ai_operation(self, operation_type: str, status: str, duration: float | None = None) -> None:
         """Record AI operation"""
         self.registry.counter("ai_operations_total", "Total AI operations", ["operation_type", "status"]).inc(
             operation_type=operation_type,
@@ -376,29 +381,29 @@ class PerformanceMonitor:
         if duration is not None:
             self.registry.histogram("ai_prediction_duration_seconds", "AI prediction duration", [0.1, 0.5, 1.0, 2.0, 5.0]).observe(duration)
 
-    def update_ai_model_count(self, model_type: str, count: int):
+    def update_ai_model_count(self, model_type: str, count: int) -> None:
         """Update AI model count"""
         self.registry.gauge("ai_models_total", "Total AI models", ["model_type"]).set(count, model_type=model_type)
 
-    def record_consensus_proposal(self, status: str, duration: float = None):
+    def record_consensus_proposal(self, status: str, duration: float | None = None) -> None:
         """Record consensus proposal"""
         self.registry.counter("consensus_proposals_total", "Total consensus proposals", ["status"]).inc(status=status)
 
         if duration is not None:
             self.registry.histogram("consensus_duration_seconds", "Consensus decision duration", [1.0, 5.0, 10.0, 30.0]).observe(duration)
 
-    def update_consensus_node_count(self, total: int, active: int):
+    def update_consensus_node_count(self, total: int, active: int) -> None:
         """Update consensus node counts"""
         self.registry.gauge("consensus_nodes_total", "Total consensus nodes", ["status"]).set(total, status="total")
         self.registry.gauge("consensus_nodes_total", "Total consensus nodes", ["status"]).set(active, status="active")
 
-    def update_system_metrics(self, memory_bytes: int, cpu_percent: float):
+    def update_system_metrics(self, memory_bytes: int, cpu_percent: float) -> None:
         """Update system metrics"""
         self.registry.gauge("system_memory_usage_bytes", "Memory usage in bytes").set(memory_bytes)
         self.registry.gauge("system_cpu_usage_percent", "CPU usage percentage").set(cpu_percent)
         self.registry.gauge("system_uptime_seconds", "System uptime in seconds").set(time.time() - self.start_time)
 
-    def update_load_balancer_strategy(self, strategy: str):
+    def update_load_balancer_strategy(self, strategy: str) -> None:
         """Update load balancer strategy"""
         # Reset all strategy gauges
         for s in ["round_robin", "least_connections", "weighted", "random"]:
@@ -407,12 +412,12 @@ class PerformanceMonitor:
         # Set current strategy
         self.registry.gauge("load_balancer_strategy", "Current load balancing strategy", ["strategy"]).set(1, strategy=strategy)
 
-    def record_load_balancer_assignment(self, strategy: str, decision_time: float):
+    def record_load_balancer_assignment(self, strategy: str, decision_time: float) -> None:
         """Record load balancer assignment"""
         self.registry.counter("load_balancer_assignments_total", "Total load balancer assignments", ["strategy"]).inc(strategy=strategy)
         self.registry.histogram("load_balancer_decision_time_seconds", "Load balancer decision time", [0.001, 0.005, 0.01, 0.025, 0.05]).observe(decision_time)
 
-    def record_message_sent(self, message_type: str, status: str, size: int):
+    def record_message_sent(self, message_type: str, status: str, size: int) -> None:
         """Record message sent"""
         self.registry.counter("messages_sent_total", "Total messages sent", ["message_type", "status"]).inc(
             message_type=message_type,
@@ -420,7 +425,7 @@ class PerformanceMonitor:
         )
         self.registry.histogram("message_size_bytes", "Message size in bytes", [100, 1000, 10000, 100000]).observe(size)
 
-    def update_active_connections(self, count: int):
+    def update_active_connections(self, count: int) -> None:
         """Update active connections count"""
         self.registry.gauge("active_connections", "Number of active connections").set(count)
 
