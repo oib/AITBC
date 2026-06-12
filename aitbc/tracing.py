@@ -8,20 +8,20 @@ import os
 from collections.abc import Callable
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
 # OpenTelemetry imports (optional - gracefully handle if not installed)
 try:
-    from opentelemetry import trace
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-    from opentelemetry.trace import Status, StatusCode
+    from opentelemetry import trace  # type: ignore
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # type: ignore
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # type: ignore
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor  # type: ignore
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource  # type: ignore
+    from opentelemetry.sdk.trace import TracerProvider  # type: ignore
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter  # type: ignore
+    from opentelemetry.trace import Status, StatusCode  # type: ignore
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
@@ -65,17 +65,20 @@ def setup_tracing(
     # Configure exporter based on type
     if exporter == "console":
         span_processor = BatchSpanProcessor(ConsoleSpanExporter())
-        _tracer_provider.add_span_processor(span_processor)
+        if _tracer_provider:
+            _tracer_provider.add_span_processor(span_processor)  # type: ignore
     elif exporter == "otlp":
         try:
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # type: ignore
             otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
             span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint))
-            _tracer_provider.add_span_processor(span_processor)
+            if _tracer_provider:
+                _tracer_provider.add_span_processor(span_processor)  # type: ignore
         except ImportError:
             logger.warning("OTLP exporter not available, falling back to console")
             span_processor = BatchSpanProcessor(ConsoleSpanExporter())
-            _tracer_provider.add_span_processor(span_processor)
+            if _tracer_provider:
+                _tracer_provider.add_span_processor(span_processor)  # type: ignore
 
     # Set global tracer provider
     trace.set_tracer_provider(_tracer_provider)
@@ -96,7 +99,7 @@ def get_tracer() -> object | None:
     return _tracer
 
 
-def instrument_fastapi(app) -> None:
+def instrument_fastapi(app: Any) -> None:
     """
     Instrument FastAPI application with tracing
 
@@ -127,7 +130,7 @@ def instrument_httpx() -> None:
         logger.error(f"Failed to instrument HTTPX: {e}")
 
 
-def instrument_sqlalchemy(engine) -> None:
+def instrument_sqlalchemy(engine: Any) -> None:
     """
     Instrument SQLAlchemy engine with tracing
 
@@ -149,7 +152,7 @@ def instrument_sqlalchemy(engine) -> None:
 def trace_span(
     name: str,
     attributes: dict[str, Any] | None = None
-):
+) -> Any:
     """
     Context manager for creating a trace span
 
@@ -164,11 +167,11 @@ def trace_span(
         yield None
         return
 
-    with _tracer.start_as_current_span(name, attributes=attributes or {}) as span:
+    with _tracer.start_as_current_span(name, attributes=attributes or {}) as span:  # type: ignore
         yield span
 
 
-def trace_function(name: str | None = None):
+def trace_function(name: str | None = None) -> Any:
     """
     Decorator for tracing function execution
 
@@ -185,7 +188,7 @@ def trace_function(name: str | None = None):
         span_name = name or f"{func.__module__}.{func.__name__}"
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             with _tracer.start_as_current_span(span_name) as span:
                 # Add function arguments as attributes (if small)
                 try:
@@ -209,7 +212,7 @@ def trace_function(name: str | None = None):
     return decorator
 
 
-def trace_async_function(name: str | None = None):
+def trace_async_function(name: str | None = None) -> Any:
     """
     Decorator for tracing async function execution
 
@@ -226,7 +229,7 @@ def trace_async_function(name: str | None = None):
         span_name = name or f"{func.__module__}.{func.__name__}"
 
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             with _tracer.start_as_current_span(span_name) as span:
                 # Add function arguments as attributes (if small)
                 try:

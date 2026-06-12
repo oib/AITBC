@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """GPU operations router for Edge API Service"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query

@@ -2,8 +2,9 @@
 High-priority tests for staking service functionality
 """
 
+import os
+
 import pytest
-pytestmark = pytest.mark.skip("Skipping broken test file")
 
 import sys
 from datetime import UTC, datetime, timedelta
@@ -24,7 +25,16 @@ from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeSt
 from app.contexts.staking.services.staking_service import StakingService
 
 
-@pytest.fixture
+# Skip staking tests in full suite due to SQLite index conflicts with coordinator tests
+# Run separately with: pytest tests/services/test_staking_service.py
+# Or enable with: AITBC_RUN_STAKING_TESTS=1 pytest tests/services/test_staking_service.py
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("AITBC_RUN_STAKING_TESTS"),
+    reason="SQLite index conflict in full suite - set AITBC_RUN_STAKING_TESTS=1 to run"
+)
+
+
+@pytest.fixture(scope="function")
 def db_session():
     """Create SQLite in-memory database for testing"""
     engine = create_engine("sqlite:///:memory:", echo=False)

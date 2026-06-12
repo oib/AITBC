@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 class BridgeMonitor:
     """Monitor Ethereum wallet for deposits and bridge to AIT."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.eth_rpc = EthereumRPCClient()
         self.price_oracle = get_price_oracle()
         
@@ -95,7 +95,7 @@ class BridgeMonitor:
                 return None
             
             # AIT amount = (ETH amount * ETH/USD) / (AIT/USD)
-            ait_amount = (eth_amount * eth_usd) / ait_usd
+            ait_amount = (eth_amount * Decimal(eth_usd)) / Decimal(ait_usd)
             logger.info(f"Price calculation: {eth_amount} ETH * ${eth_usd} / ${ait_usd} = {ait_amount} AIT")
             return ait_amount
         except Exception as e:
@@ -148,7 +148,7 @@ class BridgeMonitor:
             
             if submit_response.status_code == 200:
                 result = submit_response.json()
-                tx_hash = result.get("tx_hash")
+                tx_hash: str | None = result.get("tx_hash")
                 logger.info(f"AIT transfer submitted: {tx_hash}")
                 return tx_hash
             else:
@@ -158,7 +158,7 @@ class BridgeMonitor:
             logger.error(f"Error submitting AIT transfer: {e}")
             return None
     
-    def process_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str):
+    def process_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> None:
         """Process a single ETH deposit."""
         logger.info(f"Processing deposit: {tx_hash} from {from_address}, amount: {eth_amount} ETH")
         
@@ -216,7 +216,7 @@ class BridgeMonitor:
         else:
             update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Failed to submit AIT transfer")
     
-    def poll_ethereum(self):
+    def poll_ethereum(self) -> None:
         """Poll Ethereum for new transactions to bridge address."""
         try:
             # Use web3.py directly to get full transactions
@@ -257,7 +257,7 @@ class BridgeMonitor:
         except Exception as e:
             logger.error(f"Error polling Ethereum: {e}")
     
-    def run(self):
+    def run(self) -> None:
         """Main polling loop."""
         logger.info("Starting bridge monitor polling loop")
         
@@ -270,7 +270,7 @@ class BridgeMonitor:
             time.sleep(self.poll_interval)
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     monitor = BridgeMonitor()
     monitor.run()

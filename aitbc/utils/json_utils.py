@@ -25,7 +25,10 @@ def load_json(path: Path) -> dict[str, Any]:
     """
     try:
         with open(path) as f:
-            return json.load(f)
+            data: Any = json.load(f)
+            if not isinstance(data, dict):
+                raise ConfigurationError(f"JSON file does not contain a dictionary: {path}")
+            return data
     except FileNotFoundError:
         raise ConfigurationError(f"JSON file not found: {path}") from None
     except json.JSONDecodeError as e:
@@ -91,7 +94,10 @@ def string_to_json(json_str: str) -> dict[str, Any]:
         ConfigurationError: If string cannot be parsed
     """
     try:
-        return json.loads(json_str)
+        data: Any = json.loads(json_str)
+        if not isinstance(data, dict):
+            raise ConfigurationError("JSON string does not contain a dictionary")
+        return data
     except json.JSONDecodeError as e:
         raise ConfigurationError(f"Invalid JSON string: {e}") from e
 

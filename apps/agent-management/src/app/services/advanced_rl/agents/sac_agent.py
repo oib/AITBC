@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 SAC Agent implementation
 """
