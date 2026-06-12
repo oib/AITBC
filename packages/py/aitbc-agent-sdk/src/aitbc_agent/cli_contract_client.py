@@ -79,7 +79,7 @@ class CLIContractClient:
 
         try:
             if logger:
-                logger.info(f"Calling CLI: {method_name} on {contract_name}")
+                logger.info("Calling CLI: %s on %s", method_name, contract_name)
 
             result = await asyncio.to_thread(
                 subprocess.run, cmd, capture_output=True, text=True, timeout=30
@@ -89,20 +89,20 @@ class CLIContractClient:
                 raise Exception(f"CLI call failed: {result.stderr}")
 
             if logger:
-                logger.info(f"CLI call successful: {method_name}")
+                logger.info("CLI call successful: %s", method_name)
 
             # Return pseudo tx hash
             return f"cli-{method_name}-{int(asyncio.get_event_loop().time())}"
 
         except Exception as e:
             if logger:
-                logger.error(f"CLI transaction failed: {e}")
+                logger.error("CLI transaction failed: %s", e)
             raise
 
     async def wait_for_transaction(self, tx_hash: str, timeout: int = 120) -> dict:
         """Wait for transaction (CLI version - returns immediately)"""
         if logger:
-            logger.info(f"Transaction {tx_hash} completed (CLI mode)")
+            logger.info("Transaction %s completed (CLI mode)", tx_hash)
         return {
             "status": "success",
             "block_number": 0,
