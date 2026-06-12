@@ -356,3 +356,4 @@ codeql-db/
 
 # Poetry lock files (coordinator-api uses local poetry)
 apps/coordinator-api/poetry.lock
+contracts/governance/lib/
