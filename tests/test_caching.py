@@ -148,7 +148,7 @@ class TestLRUCache:
         stats = cache.get_stats()
         assert stats["hit_rate"] == 0
 
-    @patch('aitbc.caching.lru.logger')
+    @patch('aitbc.caching.logger')
     def test_print_stats(self, mock_logger):
         """Test print stats logs output"""
         cache = LRUCache()
@@ -449,7 +449,7 @@ class TestGlobalCaches:
         assert lru_cache.get("key1") is None
         assert ttl_cache.get("key2") is None
 
-    @patch('aitbc.caching.decorators.logger')
+    @patch('aitbc.caching.logger')
     def test_clear_global_caches_logging(self, mock_logger):
         """Test clear global caches logs"""
         clear_global_caches()

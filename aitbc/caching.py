@@ -16,6 +16,27 @@ from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+__all__ = [
+    "CacheEntry",
+    "BlockchainCache",
+    "CacheMetrics",
+    "LRUCache",
+    "TTLCache",
+    "cached",
+    "cached_lru",
+    "cached_blockchain",
+    "clear_global_caches",
+    "get_global_lru_cache",
+    "get_global_ttl_cache",
+    "CacheInvalidator",
+    "get_blockchain_cache",
+    "get_cache_metrics",
+    "RedisCache",
+    "get_cache",
+    "_generate_cache_key",
+    "generate_cache_key",
+]
+
 
 @dataclass
 class CacheEntry:
@@ -655,6 +676,23 @@ def _generate_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
     return ":".join(key_parts)
 
 
+def generate_cache_key(prefix: str, *args: Any, **kwargs: Any) -> str:
+    """Generate a consistent cache key from arguments.
+
+    Public alias of ``_generate_cache_key`` with a signature matching the
+    legacy ``aitbc.cache.utils.generate_cache_key`` API.
+    """
+    key_parts = [prefix]
+    key_parts.extend(str(arg) for arg in args)
+    for k in sorted(kwargs.keys()):
+        key_parts.append(f"{k}={kwargs[k]}")
+    key_string = ":".join(key_parts)
+    if len(key_string) > 200:
+        key_hash = hashlib.sha256(key_string.encode()).hexdigest()[:16]
+        return f"{prefix}:{key_hash}"
+    return key_string
+
+
 # Global cache instances
 _global_lru_cache = LRUCache(capacity=256)
 _global_ttl_cache = TTLCache(default_ttl=300)
@@ -690,8 +728,6 @@ def cached_blockchain(operation: str, ttl: int | None = None):
     Returns:
         Decorated function with blockchain caching
     """
-    from .redis_cache import get_cache
-    
     # Get blockchain cache instance
     redis_cache = get_cache()
     blockchain_cache = BlockchainCache(redis_cache=redis_cache)
@@ -924,17 +960,76 @@ class CacheInvalidator:
         return 0
 
 
+class RedisCache:
+    """Minimal Redis cache wrapper for backward compatibility."""
+
+    def __init__(self, redis_url: str | None = None, max_connections: int = 10,
+                 timeout: int = 5, default_ttl: int = 3600) -> None:
+        self._url = redis_url
+        self._default_ttl = default_ttl
+        self._client: Any = None
+        self._data: dict[str, Any] = {}
+        try:
+            import redis
+            self._client = redis.from_url(redis_url or "redis://localhost:6379/0")
+            self._client.ping()
+        except Exception:
+            self._client = None
+
+    def get(self, key: str) -> Any | None:
+        if self._client:
+            try:
+                return self._client.get(key)
+            except Exception:
+                pass
+        return self._data.get(key)
+
+    def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
+        if self._client:
+            try:
+                self._client.setex(key, ttl or self._default_ttl, value)
+                return True
+            except Exception:
+                pass
+        self._data[key] = value
+        return True
+
+    def delete(self, key: str) -> bool:
+        if self._client:
+            try:
+                return bool(self._client.delete(key))
+            except Exception:
+                pass
+        return key in self._data and (self._data.pop(key, None) is not None or True)
+
+    def is_available(self) -> bool:
+        return self._client is not None
+
+
+_global_redis_cache: RedisCache | None = None
+
+
+def get_cache(redis_url: str | None = None, max_connections: int = 10,
+              timeout: int = 5, default_ttl: int = 3600) -> RedisCache:
+    """Get or create a Redis cache instance."""
+    global _global_redis_cache
+    if _global_redis_cache is None:
+        _global_redis_cache = RedisCache(
+            redis_url=redis_url, max_connections=max_connections,
+            timeout=timeout, default_ttl=default_ttl
+        )
+    return _global_redis_cache
+
+
 def get_blockchain_cache(redis_url: str | None = None) -> BlockchainCache:
     """
     Get or create global blockchain cache instance
-    
+
     Args:
         redis_url: Redis connection URL
-        
+
     Returns:
         BlockchainCache instance
     """
-    from .redis_cache import get_cache
-    
     redis_cache = get_cache(redis_url=redis_url)
     return BlockchainCache(redis_cache=redis_cache)
