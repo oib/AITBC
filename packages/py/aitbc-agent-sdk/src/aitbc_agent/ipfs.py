@@ -40,10 +40,10 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("cid")
             else:
-                logger.error(f"IPFS store failed: {result.get('error')}")
+                logger.error("IPFS store failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"store_ipfs failed: {e}")
+            logger.error("store_ipfs failed: %s", e)
             raise
 
     def retrieve_ipfs(self, cid: str, output_path: str | None = None) -> bytes:
@@ -63,10 +63,10 @@ class IPFSOperations:
                 # Otherwise, return the file path from result
                 return result["data"].get("file_path", "")
             else:
-                logger.error(f"IPFS retrieve failed: {result.get('error')}")
+                logger.error("IPFS retrieve failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"retrieve_ipfs failed: {e}")
+            logger.error("retrieve_ipfs failed: %s", e)
             raise
 
     def pin_ipfs(self, cid: str) -> bool:
@@ -76,10 +76,10 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("pinned", False)
             else:
-                logger.error(f"IPFS pin failed: {result.get('error')}")
+                logger.error("IPFS pin failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"pin_ipfs failed: {e}")
+            logger.error("pin_ipfs failed: %s", e)
             raise
 
     def list_ipfs(self) -> list:
@@ -89,10 +89,10 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("items", [])
             else:
-                logger.error(f"IPFS list failed: {result.get('error')}")
+                logger.error("IPFS list failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"list_ipfs failed: {e}")
+            logger.error("list_ipfs failed: %s", e)
             raise
 
     async def store_ipfs_async(self, data: bytes, pin: bool = True, name: str | None = None) -> str:
@@ -116,12 +116,12 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("cid")
             else:
-                logger.error(f"IPFS store async failed: {result.get('error')}")
+                logger.error("IPFS store async failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
-            logger.error(f"store_ipfs_async failed: {e}")
+            logger.error("store_ipfs_async failed: %s", e)
             raise
 
     async def retrieve_ipfs_async(self, cid: str, output_path: str | None = None) -> bytes:
@@ -137,5 +137,5 @@ class IPFSOperations:
                     return f.read()
             return result["data"].get("file_path", "")
         else:
-            logger.error(f"IPFS retrieve async failed: {result.get('error')}")
+            logger.error("IPFS retrieve async failed: %s", result.get('error'))
             raise Exception(result.get("error"))

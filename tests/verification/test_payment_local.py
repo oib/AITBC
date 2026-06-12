@@ -56,9 +56,9 @@ class PaymentIntegrationTest:
         response = self.client.get(f"{COORDINATOR_URL}/health")
 
         if response.status_code == 200:
-            logger.info(f"✓ Coordinator healthy: {response.json()}")
+            logger.info("✓ Coordinator healthy: %s", response.json())
         else:
-            raise Exception(f"Coordinator health check failed: {response.status_code}")
+            raise Exception("Coordinator health check failed: %s" % response.status_code)
 
     async def submit_job_with_payment(self):
         """Submit a job with AITBC token payment"""
@@ -88,12 +88,12 @@ class PaymentIntegrationTest:
         if response.status_code == 201:
             job = response.json()
             self.job_id = job["job_id"]
-            logger.info(f"✓ Job created with ID: {self.job_id}")
-            logger.info(f"  Payment status: {job.get('payment_status', 'N/A')}")
+            logger.info("✓ Job created with ID: %s", self.job_id)
+            logger.info("  Payment status: %s", job.get('payment_status', 'N/A'))
         else:
-            logger.error(f"Failed to create job: {response.status_code}")
-            logger.error(f"Response: {response.text}")
-            raise Exception(f"Failed to create job: {response.status_code}")
+            logger.error("Failed to create job: %s", response.status_code)
+            logger.error("Response: %s", response.text)
+            raise Exception("Failed to create job: %s" % response.status_code)
 
     async def check_job_and_payment_status(self):
         """Check job status and payment details"""
@@ -109,9 +109,9 @@ class PaymentIntegrationTest:
 
         if response.status_code == 200:
             job = response.json()
-            logger.info(f"✓ Job status: {job['state']}")
-            logger.info(f"  Payment ID: {job.get('payment_id', 'N/A')}")
-            logger.info(f"  Payment status: {job.get('payment_status', 'N/A')}")
+            logger.info("✓ Job status: %s", job['state'])
+            logger.info("  Payment ID: %s", job.get('payment_id', 'N/A'))
+            logger.info("  Payment status: %s", job.get('payment_status', 'N/A'))
 
             self.payment_id = job.get('payment_id')
 
@@ -125,13 +125,13 @@ class PaymentIntegrationTest:
                 if payment_response.status_code == 200:
                     payment = payment_response.json()
                     logger.info("✓ Payment details:")
-                    logger.info(f"  Amount: {payment['amount']} {payment['currency']}")
-                    logger.info(f"  Status: {payment['status']}")
-                    logger.info(f"  Method: {payment['payment_method']}")
+                    logger.info("  Amount: %s %s", payment['amount'], payment['currency'])
+                    logger.info("  Status: %s", payment['status'])
+                    logger.info("  Method: %s", payment['payment_method'])
                 else:
-                    logger.warning(f"Could not fetch payment details: {payment_response.status_code}")
+                    logger.warning("Could not fetch payment details: %s", payment_response.status_code)
         else:
-            raise Exception(f"Failed to get job status: {response.status_code}")
+            raise Exception("Failed to get job status: %s" % response.status_code)
 
     async def complete_job(self):
         """Simulate miner completing the job"""
@@ -152,13 +152,13 @@ class PaymentIntegrationTest:
                 poll_data = poll_response.json()
                 break
             elif poll_response.status_code == 204:
-                logger.info(f"  No job available yet, retrying... ({attempt + 1}/5)")
+                logger.info("  No job available yet, retrying... (%s/5)", attempt + 1)
                 await asyncio.sleep(1)
             else:
-                raise Exception(f"Failed to poll for job: {poll_response.status_code}")
+                raise Exception("Failed to poll for job: %s" % poll_response.status_code)
 
         if poll_data and poll_data.get("job_id") == self.job_id:
-            logger.info(f"✓ Miner received job: {self.job_id}")
+            logger.info("✓ Miner received job: %s", self.job_id)
 
             # Submit job result
             result_data = {
@@ -182,11 +182,11 @@ class PaymentIntegrationTest:
 
             if submit_response.status_code == 200:
                 logger.info("✓ Job result submitted successfully")
-                logger.info(f"  Receipt: {submit_response.json().get('receipt', {}).get('receipt_id', 'N/A')}")
+                logger.info("  Receipt: %s", submit_response.json().get('receipt', {}).get('receipt_id', 'N/A'))
             else:
-                raise Exception(f"Failed to submit result: {submit_response.status_code}")
+                raise Exception("Failed to submit result: %s" % submit_response.status_code)
         elif poll_data:
-            logger.warning(f"Miner received different job: {poll_data.get('job_id')}")
+            logger.warning("Miner received different job: %s", poll_data.get('job_id'))
         else:
             raise Exception("No job received after 5 retries")
 
@@ -207,8 +207,8 @@ class PaymentIntegrationTest:
 
         if response.status_code == 200:
             job = response.json()
-            logger.info(f"✓ Final job status: {job['state']}")
-            logger.info(f"  Final payment status: {job.get('payment_status', 'N/A')}")
+            logger.info("✓ Final job status: %s", job['state'])
+            logger.info("  Final payment status: %s", job.get('payment_status', 'N/A'))
 
             # Get payment receipt
             if self.payment_id:
@@ -220,13 +220,13 @@ class PaymentIntegrationTest:
                 if receipt_response.status_code == 200:
                     receipt = receipt_response.json()
                     logger.info("✓ Payment receipt:")
-                    logger.info(f"  Status: {receipt['status']}")
-                    logger.info(f"  Verified at: {receipt.get('verified_at', 'N/A')}")
-                    logger.info(f"  Transaction hash: {receipt.get('transaction_hash', 'N/A')}")
+                    logger.info("  Status: %s", receipt['status'])
+                    logger.info("  Verified at: %s", receipt.get('verified_at', 'N/A'))
+                    logger.info("  Transaction hash: %s", receipt.get('transaction_hash', 'N/A'))
                 else:
-                    logger.warning(f"Could not fetch payment receipt: {receipt_response.status_code}")
+                    logger.warning("Could not fetch payment receipt: %s", receipt_response.status_code)
         else:
-            raise Exception(f"Failed to verify payment release: {response.status_code}")
+            raise Exception("Failed to verify payment release: %s" % response.status_code)
 
     async def test_refund_flow(self):
         """Test payment refund for failed jobs"""
@@ -256,7 +256,7 @@ class PaymentIntegrationTest:
             fail_job_id = fail_job["job_id"]
             fail_payment_id = fail_job.get("payment_id")
 
-            logger.info(f"✓ Created test job for refund: {fail_job_id}")
+            logger.info("✓ Created test job for refund: %s", fail_job_id)
 
             # Simulate job failure
             fail_headers = {"X-Api-Key": MINER_KEY}
@@ -299,12 +299,12 @@ class PaymentIntegrationTest:
                             if payment_response.status_code == 200:
                                 payment = payment_response.json()
                                 logger.info("✓ Payment refunded:")
-                                logger.info(f"  Status: {payment['status']}")
-                                logger.info(f"  Refunded at: {payment.get('refunded_at', 'N/A')}")
+                                logger.info("  Status: %s", payment['status'])
+                                logger.info("  Refunded at: %s", payment.get('refunded_at', 'N/A'))
                             else:
-                                logger.warning(f"Could not verify refund: {payment_response.status_code}")
+                                logger.warning("Could not verify refund: %s", payment_response.status_code)
                     else:
-                        logger.warning(f"Failed to submit job failure: {fail_response.status_code}")
+                        logger.warning("Failed to submit job failure: %s", fail_response.status_code)
 
         logger.info("\n=== Test Summary ===")
         logger.info("✓ Job creation with payment")
@@ -320,7 +320,7 @@ async def main():
     try:
         await test.test_complete_payment_flow()
     except Exception as e:
-        logger.error(f"Test failed: {e}")
+        logger.error("Test failed: %s", e)
         raise
 
 if __name__ == "__main__":
