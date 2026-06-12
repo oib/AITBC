@@ -93,12 +93,12 @@ class SwarmCoordinator(Agent):
             asyncio.create_task(self._swarm_participation_loop(swarm_id))
 
             logger.info(
-                f"Joined swarm: {swarm_id} as {config.get('role', 'participant')}"
+                "Joined swarm: %s as %s", swarm_id, config.get('role', 'participant')
             )
             return True
 
         except Exception as e:
-            logger.error(f"Failed to join swarm {swarm_type}: {e}")
+            logger.error("Failed to join swarm %s: %s", swarm_type, e)
             return False
 
     async def _swarm_participation_loop(self, swarm_id: str) -> None:
@@ -120,7 +120,7 @@ class SwarmCoordinator(Agent):
                 swarm_config["last_activity"] = datetime.now(UTC).isoformat()
 
             except Exception as e:
-                logger.error(f"Swarm participation error for {swarm_id}: {e}")
+                logger.error("Swarm participation error for %s: %s", swarm_id, e)
 
             # Wait before next participation cycle
             await asyncio.sleep(60)  # 1 minute
@@ -151,12 +151,12 @@ class SwarmCoordinator(Agent):
             self.joined_swarms[message.swarm_id]["contribution_count"] += 1
 
             logger.info(
-                f"Broadcasted to swarm {message.swarm_id}: {message.message_type}"
+                "Broadcasted to swarm %s: %s", message.swarm_id, message.message_type
             )
             return True
 
         except Exception as e:
-            logger.error(f"Failed to broadcast to swarm: {e}")
+            logger.error("Failed to broadcast to swarm: %s", e)
             return False
 
     async def _contribute_swarm_data(self, swarm_id: str) -> None:
@@ -186,7 +186,7 @@ class SwarmCoordinator(Agent):
             await self.broadcast_to_swarm(message)
 
         except Exception as e:
-            logger.error(f"Failed to contribute swarm data: {e}")
+            logger.error("Failed to contribute swarm data: %s", e)
 
     async def _get_load_balancing_data(self) -> dict[str, Any]:
         """Get actual load balancing metrics from coordinator"""
@@ -199,10 +199,10 @@ class SwarmCoordinator(Agent):
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    logger.warning(f"Failed to get load balancing metrics: {response.status_code}")
+                    logger.warning("Failed to get load balancing metrics: %s", response.status_code)
                     return self._get_default_load_balancing_data()
         except Exception as e:
-            logger.error(f"Error fetching load balancing data: {e}")
+            logger.error("Error fetching load balancing data: %s", e)
             return self._get_default_load_balancing_data()
 
     def _get_default_load_balancing_data(self) -> dict[str, Any]:
@@ -227,10 +227,10 @@ class SwarmCoordinator(Agent):
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    logger.warning(f"Failed to get pricing data: {response.status_code}")
+                    logger.warning("Failed to get pricing data: %s", response.status_code)
                     return self._get_default_pricing_data()
         except Exception as e:
-            logger.error(f"Error fetching pricing data: {e}")
+            logger.error("Error fetching pricing data: %s", e)
             return self._get_default_pricing_data()
 
     def _get_default_pricing_data(self) -> dict[str, Any]:
@@ -254,10 +254,10 @@ class SwarmCoordinator(Agent):
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    logger.warning(f"Failed to get security metrics: {response.status_code}")
+                    logger.warning("Failed to get security metrics: %s", response.status_code)
                     return self._get_default_security_data()
         except Exception as e:
-            logger.error(f"Error fetching security data: {e}")
+            logger.error("Error fetching security data: %s", e)
             return self._get_default_security_data()
 
     def _get_default_security_data(self) -> dict[str, Any]:
@@ -303,12 +303,12 @@ class SwarmCoordinator(Agent):
             coordination_result = await self._submit_coordination_proposal(proposal)
 
             logger.info(
-                f"Task coordination initiated: {task} with {collaborators} collaborators"
+                "Task coordination initiated: %s with %s collaborators", task, collaborators
             )
             return coordination_result
 
         except Exception as e:
-            logger.error(f"Failed to coordinate task: {e}")
+            logger.error("Failed to coordinate task: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_market_intelligence(self) -> dict[str, Any]:
@@ -342,7 +342,7 @@ class SwarmCoordinator(Agent):
                 return {"error": "Not joined to pricing swarm"}
 
         except Exception as e:
-            logger.error(f"Failed to get market intelligence: {e}")
+            logger.error("Failed to get market intelligence: %s", e)
             return {"error": str(e)}
 
     async def analyze_swarm_benefits(self) -> dict[str, Any]:
@@ -374,7 +374,7 @@ class SwarmCoordinator(Agent):
             }
 
         except Exception as e:
-            logger.error(f"Failed to analyze swarm benefits: {e}")
+            logger.error("Failed to analyze swarm benefits: %s", e)
             return {"error": str(e)}
 
     async def _register_with_swarm(
@@ -392,11 +392,11 @@ class SwarmCoordinator(Agent):
                     timeout=10
                 )
                 if response.status_code == 201:
-                    logger.info(f"Successfully registered with swarm: {swarm_id}")
+                    logger.info("Successfully registered with swarm: %s", swarm_id)
                 else:
-                    logger.warning(f"Failed to register with swarm {swarm_id}: {response.status_code}")
+                    logger.warning("Failed to register with swarm %s: %s", swarm_id, response.status_code)
         except Exception as e:
-            logger.error(f"Error registering with swarm: {e}")
+            logger.error("Error registering with swarm: %s", e)
 
     async def _broadcast_to_swarm_network(self, message: SwarmMessage) -> None:
         """Broadcast message to swarm network via API"""
@@ -408,11 +408,11 @@ class SwarmCoordinator(Agent):
                     timeout=10
                 )
                 if response.status_code == 200:
-                    logger.info(f"Message broadcast to swarm: {message.swarm_id}")
+                    logger.info("Message broadcast to swarm: %s", message.swarm_id)
                 else:
-                    logger.warning(f"Failed to broadcast to swarm: {response.status_code}")
+                    logger.warning("Failed to broadcast to swarm: %s", response.status_code)
         except Exception as e:
-            logger.error(f"Error broadcasting to swarm: {e}")
+            logger.error("Error broadcasting to swarm: %s", e)
 
     async def _process_swarm_messages(self, swarm_id: str) -> None:
         """Process incoming swarm messages via API"""
@@ -424,11 +424,11 @@ class SwarmCoordinator(Agent):
                 )
                 if response.status_code == 200:
                     messages = response.json()
-                    logger.info(f"Received {len(messages.get('messages', []))} messages from swarm")
+                    logger.info("Received %s messages from swarm", len(messages.get('messages', [])))
                 else:
-                    logger.warning(f"Failed to get swarm messages: {response.status_code}")
+                    logger.warning("Failed to get swarm messages: %s", response.status_code)
         except Exception as e:
-            logger.error(f"Error processing swarm messages: {e}")
+            logger.error("Error processing swarm messages: %s", e)
 
     async def _participate_in_decisions(self, swarm_id: str) -> None:
         """Participate in swarm decision making via API"""
@@ -440,11 +440,11 @@ class SwarmCoordinator(Agent):
                     timeout=10
                 )
                 if response.status_code == 200:
-                    logger.info(f"Participating in decisions for swarm: {swarm_id}")
+                    logger.info("Participating in decisions for swarm: %s", swarm_id)
                 else:
-                    logger.warning(f"Failed to participate in decisions: {response.status_code}")
+                    logger.warning("Failed to participate in decisions: %s", response.status_code)
         except Exception as e:
-            logger.error(f"Error participating in swarm decisions: {e}")
+            logger.error("Error participating in swarm decisions: %s", e)
 
     async def _submit_coordination_proposal(
         self, proposal: dict[str, Any]
@@ -459,10 +459,10 @@ class SwarmCoordinator(Agent):
                 )
                 if response.status_code == 201:
                     result = response.json()
-                    logger.info(f"Coordination proposal submitted: {proposal['task_id']}")
+                    logger.info("Coordination proposal submitted: %s", proposal['task_id'])
                     return result
                 else:
-                    logger.warning(f"Failed to submit coordination proposal: {response.status_code}")
+                    logger.warning("Failed to submit coordination proposal: %s", response.status_code)
                     return {
                         "success": False,
                         "proposal_id": proposal["task_id"],
@@ -470,7 +470,7 @@ class SwarmCoordinator(Agent):
                         "error": f"HTTP {response.status_code}"
                     }
         except Exception as e:
-            logger.error(f"Error submitting coordination proposal: {e}")
+            logger.error("Error submitting coordination proposal: %s", e)
             return {
                 "success": False,
                 "proposal_id": proposal["task_id"],
