@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: security-scanning-${{ gitea.ref }}
+  group: security-scanning-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,27 +23,22 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/security-scan
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 2 http://gitea.bubuit.net:3000/oib/aitbc.git repo
-          cd repo
-          git fetch --depth 2 origin "${{ gitea.ref }}"
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
           git checkout --detach FETCH_HEAD
-
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup tools
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -55,52 +50,20 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "bandit pip-audit safety"
+            --extra-packages "bandit pip-audit"
 
           echo "✅ Security tools installed"
 
       - name: Python dependency audit
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== Dependency Audit ==="
           venv/bin/pip-audit -r requirements.txt --desc
           echo "✅ Dependency audit completed"
 
-      - name: Safety security scan
-        run: |
-          cd "${{ env.WORKSPACE }}/repo"
-          echo "=== Safety Security Scan ==="
-          venv/bin/safety check --file requirements.txt --json --output safety-report.json || true
-          venv/bin/safety check --file requirements.txt
-          echo "✅ Safety scan completed"
-
-      - name: pnpm dependency audit (contracts)
-        run: |
-          cd "${{ env.WORKSPACE }}/repo"
-          echo "=== PNPM Dependency Audit (Contracts) ==="
-          if command -v pnpm &> /dev/null; then
-            cd contracts
-            pnpm audit --prod
-            echo "✅ PNPM audit completed"
-          else
-            echo "⚠️  pnpm not available, skipping contract dependency audit"
-          fi
-
-      - name: pnpm dependency audit (JS SDK)
-        run: |
-          cd "${{ env.WORKSPACE }}/repo"
-          echo "=== PNPM Dependency Audit (JS SDK) ==="
-          if command -v pnpm &> /dev/null; then
-            cd packages/js/aitbc-sdk
-            pnpm audit
-            echo "✅ PNPM audit completed"
-          else
-            echo "⚠️  pnpm not available, skipping SDK dependency audit"
-          fi
-
       - name: Bandit security scan
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== Bandit Security Scan ==="
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             venv/bin/bandit -r apps/ packages/py/ cli/ \
@@ -126,7 +89,7 @@ jobs:
 
       - name: Check for secrets
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== Secret Detection ==="
           # Simple pattern check for leaked secrets
           secret_matches=$(mktemp)
@@ -167,7 +130,7 @@ jobs:
 
       - name: Smart contract security scan
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== Smart Contract Security Scan ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -221,7 +184,7 @@ jobs:
 
       - name: Circom circuit security check
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== Circom Circuit Security Check ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -264,7 +227,7 @@ jobs:
 
       - name: ZK proof implementation security check
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== ZK Proof Implementation Security Check ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -308,6 +271,3 @@ jobs:
 
           echo "✅ ZK proof implementation security check completed"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

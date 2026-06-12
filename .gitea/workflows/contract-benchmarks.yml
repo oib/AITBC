@@ -23,7 +23,7 @@ on:
           - throughput
 
 concurrency:
-  group: contract-benchmarks-${{ gitea.ref }}
+  group: contract-benchmarks-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -32,39 +32,34 @@ jobs:
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/gas-benchmarks
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
-
+          cd "/opt/aitbc/contracts"
+          
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-
-          # Approve build scripts for native dependencies
-          pnpm approve-builds
-
+          
           pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run gas usage benchmarks
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           echo "🧪 Running gas usage benchmarks"
           
@@ -75,7 +70,7 @@ jobs:
 
       - name: Upload gas report
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "📊 Gas report upload skipped (reports will be added when tests are implemented)"
           
@@ -85,48 +80,39 @@ jobs:
           
           echo "✅ Gas report placeholder uploaded"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   benchmark-execution-time:
     runs-on: debian
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/execution-benchmarks
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
-
+          cd "/opt/aitbc/contracts"
+          
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-
-          # Approve build scripts for native dependencies
-          pnpm approve-builds
-
+          
           pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run execution time benchmarks
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           echo "🧪 Running execution time benchmarks"
           
@@ -136,7 +122,7 @@ jobs:
 
       - name: Upload execution time report
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "📊 Execution time report upload skipped (reports will be added when tests are implemented)"
           
@@ -145,48 +131,39 @@ jobs:
           
           echo "✅ Execution time report placeholder uploaded"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   benchmark-throughput:
     runs-on: debian
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/throughput-benchmarks
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
-
+          cd "/opt/aitbc/contracts"
+          
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-
-          # Approve build scripts for native dependencies
-          pnpm approve-builds
-
+          
           pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run throughput benchmarks
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           echo "🧪 Running throughput benchmarks"
           
@@ -196,7 +173,7 @@ jobs:
 
       - name: Upload throughput report
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "📊 Throughput report upload skipped (reports will be added when tests are implemented)"
           
@@ -205,34 +182,28 @@ jobs:
           
           echo "✅ Throughput report placeholder uploaded"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   compare-benchmarks:
     runs-on: debian
     timeout-minutes: 15
     needs: [benchmark-gas-usage, benchmark-execution-time, benchmark-throughput]
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/benchmark-comparison
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Compare with previous benchmarks
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "📊 Comparing benchmark results"
           
@@ -243,7 +214,7 @@ jobs:
 
       - name: Generate benchmark report
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "📝 Generating benchmark report"
           
@@ -251,6 +222,3 @@ jobs:
           
           echo "✅ Benchmark report generated"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
