@@ -48,7 +48,7 @@ class ComputingAgentExample:
 
         # Register with network
         agent_address = await self.agent.register_with_network()
-        logger.info(f"Agent registered at address: {agent_address}")
+        logger.info("Agent registered at address: %s", agent_address)
 
         # Register computing services
         await self.register_computing_services()
@@ -91,7 +91,7 @@ class ComputingAgentExample:
 
         for service in services:
             service_id = await self.blockchain_client.register_service(service)
-            logger.info(f"Registered service: {service['type']} (ID: {service_id})")
+            logger.info("Registered service: %s (ID: %s)", service['type'], service_id)
 
     async def task_processing_loop(self):
         """Main loop for processing incoming tasks"""
@@ -111,12 +111,12 @@ class ComputingAgentExample:
                 await asyncio.sleep(5)
 
             except Exception as e:
-                logger.error(f"Error in task processing loop: {e}")
+                logger.error("Error in task processing loop: %s", e)
                 await asyncio.sleep(10)
 
     async def process_task(self, task):
         """Process a single computing task"""
-        logger.info(f"Processing task {task.id}: {task.type}")
+        logger.info("Processing task %s: %s", task.id, task.type)
 
         try:
             # Add to active tasks
@@ -134,7 +134,7 @@ class ComputingAgentExample:
             elif task.type == "encryption_services":
                 result = await self.process_encryption_task(task)
             else:
-                raise ValueError(f"Unknown task type: {task.type}")
+                raise ValueError("Unknown task type: %s" % task.type)
 
             # Submit result to blockchain
             await self.blockchain_client.submit_task_result(task.id, result)
@@ -143,10 +143,10 @@ class ComputingAgentExample:
             self.active_tasks[task.id]["status"] = "completed"
             self.active_tasks[task.id]["result"] = result
 
-            logger.info(f"Task {task.id} completed successfully")
+            logger.info("Task %s completed successfully", task.id)
 
         except Exception as e:
-            logger.error(f"Error processing task {task.id}: {e}")
+            logger.error("Error processing task %s: %s", task.id, e)
 
             # Submit error result
             await self.blockchain_client.submit_task_result(
@@ -207,7 +207,7 @@ class ComputingAgentExample:
         elif processing_type == "machine_learning":
             result = await self.computing_engine.machine_learning_analysis(data)
         else:
-            raise ValueError(f"Unknown processing type: {processing_type}")
+            raise ValueError("Unknown processing type: %s" % processing_type)
 
         # Add metadata
         result["metadata"] = {
@@ -233,7 +233,7 @@ class ComputingAgentExample:
         elif operation == "hash":
             result = self.computing_engine.hash_data(data, task.parameters)
         else:
-            raise ValueError(f"Unknown operation: {operation}")
+            raise ValueError("Unknown operation: %s" % operation)
 
         # Add metadata
         result["metadata"] = {
@@ -251,7 +251,7 @@ class ComputingAgentExample:
         for task_id, task_info in list(self.active_tasks.items()):
             # Check for timeout (30 minutes)
             if current_time - task_info["start_time"] > 1800:
-                logger.warning(f"Task {task_id} timed out")
+                logger.warning("Task %s timed out", task_id)
                 await self.blockchain_client.submit_task_result(
                     task_id,
                     {"error": "Task timeout", "status": "failed"}
@@ -291,14 +291,14 @@ async def main():
         while True:
             # Print status every 30 seconds
             status = await agent.get_agent_status()
-            logger.info(f"Agent status: {status}")
+            logger.info("Agent status: %s", status)
             await asyncio.sleep(30)
 
     except KeyboardInterrupt:
         logger.info("Shutting down agent...")
         await agent.stop()
     except Exception as e:
-        logger.error(f"Agent error: {e}")
+        logger.error("Agent error: %s", e)
         await agent.stop()
 
 if __name__ == "__main__":
