@@ -1,5 +1,6 @@
 README.md
 setup.py
+aitbc/__init__.py
 aitbc_cli/__init__.py
 aitbc_cli/config.py
 aitbc_cli.egg-info/PKG-INFO
@@ -57,6 +58,19 @@ aitbc_cli/commands/system_architect.py
 aitbc_cli/commands/transactions.py
 aitbc_cli/commands/wallet.py
 aitbc_cli/commands/workflow.py
+aitbc_cli/commands/exchange/__init__.py
+aitbc_cli/commands/exchange/bridge.py
+aitbc_cli/commands/exchange/main.py
+aitbc_cli/commands/exchange/payments.py
+aitbc_cli/commands/exchange/trading.py
+aitbc_cli/commands/exchange/wallet.py
+aitbc_cli/commands/node/__init__.py
+aitbc_cli/commands/node/bridge.py
+aitbc_cli/commands/node/chain.py
+aitbc_cli/commands/node/hub.py
+aitbc_cli/commands/node/island.py
+aitbc_cli/commands/node/main.py
+aitbc_cli/commands/node/monitor.py
 aitbc_cli/core/__init__.py
 aitbc_cli/core/__version__.py
 aitbc_cli/core/agent_communication.py
@@ -77,6 +91,7 @@ aitbc_cli/utils/chain_id.py
 aitbc_cli/utils/crypto_utils.py
 aitbc_cli/utils/dual_mode_wallet_adapter.py
 aitbc_cli/utils/error_handling.py
+aitbc_cli/utils/http_client.py
 aitbc_cli/utils/island_credentials.py
 aitbc_cli/utils/subprocess.py
 aitbc_cli/utils/wallet.py
