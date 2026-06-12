@@ -9,7 +9,7 @@ from ..storage import get_session
 class IslandService:
     """Service for island operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.rpc_client = BlockchainRPCClient()
 
     async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> dict:
@@ -51,7 +51,7 @@ class IslandService:
         if result.get("success"):
             async with get_session() as session:
                 from sqlmodel import delete
-                stmt = delete(IslandMembership).where(IslandMembership.island_id == island_id)
+                stmt = delete(IslandMembership).where(IslandMembership.island_id == island_id)  # type: ignore[arg-type]
                 await session.execute(stmt)
                 await session.commit()
 
@@ -60,7 +60,8 @@ class IslandService:
     async def list_islands(self) -> list[dict]:
         """List all islands via blockchain RPC"""
         result = await self.rpc_client.list_islands()
-        return result.get("islands", [])
+        islands = result.get("islands", [])
+        return islands if isinstance(islands, list) else []
 
     async def get_island(self, island_id: str) -> dict | None:
         """Get island details via blockchain RPC"""

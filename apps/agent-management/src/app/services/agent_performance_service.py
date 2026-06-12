@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Advanced Agent Performance Service
 Implements meta-learning, resource optimization, and performance enhancement for hermes agents

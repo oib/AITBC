@@ -15,7 +15,7 @@ class MetricsCollector:
     Tracks counters, timers, and gauges.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize metrics collector."""
         self.counters: dict[str, int] = defaultdict(int)
         self.timers: dict[str, list] = defaultdict(list)
@@ -154,7 +154,7 @@ class PerformanceTimer:
     Context manager for timing operations.
     """
 
-    def __init__(self, collector: MetricsCollector, metric: str):
+    def __init__(self, collector: MetricsCollector, metric: str) -> None:
         """
         Initialize timer.
 
@@ -164,14 +164,14 @@ class PerformanceTimer:
         """
         self.collector = collector
         self.metric = metric
-        self.start_time = None
+        self.start_time: float | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "PerformanceTimer":
         """Start timing."""
         self.start_time = time.time()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Stop timing and record metric."""
         if self.start_time:
             duration = time.time() - self.start_time
@@ -183,12 +183,12 @@ class HealthChecker:
     Health check utilities for AITBC applications.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize health checker."""
         self.checks: dict[str, Any] = {}
         self.last_check: datetime | None = None
 
-    def add_check(self, name: str, check_func: callable) -> None:
+    def add_check(self, name: str, check_func: Any) -> None:
         """
         Add a health check.
 

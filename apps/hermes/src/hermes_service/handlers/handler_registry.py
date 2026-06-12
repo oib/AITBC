@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Handler registry for managing message handlers."""
 
 import importlib

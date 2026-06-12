@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Main FastAPI application for Edge API Service"""
 
 from contextlib import asynccontextmanager

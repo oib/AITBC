@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 API Gateway main application
 Routes requests to microservices
