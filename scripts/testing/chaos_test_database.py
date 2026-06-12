@@ -60,7 +60,7 @@ class ChaosTestDatabase:
             pod = result.stdout.strip()
             return pod if pod else None
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to get PostgreSQL pod: {e}")
+            logger.error("Failed to get PostgreSQL pod: %s", e)
             return None
 
     def simulate_database_connection_failure(self) -> bool:
@@ -84,12 +84,12 @@ class ChaosTestDatabase:
             ]
             subprocess.run(cmd, check=True)
 
-            logger.info(f"Blocked PostgreSQL connections on pod {pod}")
+            logger.info("Blocked PostgreSQL connections on pod %s", pod)
             self.metrics["failure_type"] = "connection_blocked"
             return True
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to block PostgreSQL connections: {e}")
+            logger.error("Failed to block PostgreSQL connections: %s", e)
             return False
 
     def simulate_database_high_latency(self, latency_ms: int = 5000) -> bool:
@@ -106,12 +106,12 @@ class ChaosTestDatabase:
             ]
             subprocess.run(cmd, check=True)
 
-            logger.info(f"Added {latency_ms}ms latency to PostgreSQL on pod {pod}")
+            logger.info("Added %sms latency to PostgreSQL on pod %s", latency_ms, pod)
             self.metrics["failure_type"] = "high_latency"
             return True
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to add latency to PostgreSQL: {e}")
+            logger.error("Failed to add latency to PostgreSQL: %s", e)
             return False
 
     def restore_database(self) -> bool:
@@ -141,11 +141,11 @@ class ChaosTestDatabase:
             ]
             subprocess.run(cmd, check=False)
 
-            logger.info(f"Restored PostgreSQL connections on pod {pod}")
+            logger.info("Restored PostgreSQL connections on pod %s", pod)
             return True
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to restore PostgreSQL: {e}")
+            logger.error("Failed to restore PostgreSQL: %s", e)
             return False
 
     async def test_database_connectivity(self) -> bool:
@@ -201,7 +201,7 @@ class ChaosTestDatabase:
 
     async def generate_load(self, duration: int, concurrent: int = 10):
         """Generate synthetic load on coordinator API"""
-        logger.info(f"Generating load for {duration} seconds with {concurrent} concurrent requests")
+        logger.info("Generating load for %s seconds with %s concurrent requests", duration, concurrent)
 
         # Get service URL
         cmd = [
@@ -236,7 +236,7 @@ class ChaosTestDatabase:
             # Brief pause
             await asyncio.sleep(1)
 
-        logger.info(f"Load generation completed. Success: {self.metrics['success_count']}, Errors: {self.metrics['error_count']}")
+        logger.info("Load generation completed. Success: %s, Errors: %s", self.metrics['success_count'], self.metrics['error_count'])
 
     async def wait_for_recovery(self, timeout: int = 300) -> bool:
         """Wait for database and API to recover"""
@@ -252,7 +252,7 @@ class ChaosTestDatabase:
             if db_connected and api_healthy:
                 recovery_time = time.time() - start_time
                 self.metrics["recovery_time"] = recovery_time
-                logger.info(f"Database and API recovered in {recovery_time:.2f} seconds")
+                logger.info("Database and API recovered in %.2f seconds", recovery_time)
                 return True
 
             await asyncio.sleep(5)
@@ -262,7 +262,7 @@ class ChaosTestDatabase:
 
     async def run_test(self, failure_type: str = "connection", failure_duration: int = 60):
         """Run the complete database chaos test"""
-        logger.info(f"Starting database chaos test - failure type: {failure_type}")
+        logger.info("Starting database chaos test - failure type: %s", failure_type)
         self.metrics["test_start"] = datetime.now(UTC).isoformat()
 
         # Phase 1: Baseline test
@@ -293,7 +293,7 @@ class ChaosTestDatabase:
                 logger.error("Failed to induce database latency")
                 return False
         else:
-            logger.error(f"Unknown failure type: {failure_type}")
+            logger.error("Unknown failure type: %s", failure_type)
             return False
 
         # Verify failure is effective
@@ -301,10 +301,10 @@ class ChaosTestDatabase:
         db_connected = await self.test_database_connectivity()
         api_healthy = await self.test_api_health()
 
-        logger.info(f"During failure - DB connected: {db_connected}, API healthy: {api_healthy}")
+        logger.info("During failure - DB connected: %s, API healthy: %s", db_connected, api_healthy)
 
         # Phase 4: Monitor during failure
-        logger.info(f"Phase 4: Monitoring system during {failure_duration}s failure")
+        logger.info("Phase 4: Monitoring system during %ss failure", failure_duration)
 
         # Generate load during failure
         await self.generate_load(failure_duration)
@@ -344,7 +344,7 @@ class ChaosTestDatabase:
         with open(filename, "w") as f:
             json.dump(self.metrics, f, indent=2)
 
-        logger.info(f"Test results saved to: {filename}")
+        logger.info("Test results saved to: %s", filename)
 
         # Print summary
         print("\n=== Chaos Test Summary ===")
@@ -367,7 +367,7 @@ async def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        logger.info(f"DRY RUN: Would simulate {args.failure_type} database failure for {args.failure_duration} seconds")
+        logger.info("DRY RUN: Would simulate %s database failure for %s seconds", args.failure_type, args.failure_duration)
         return
 
     # Verify kubectl is available

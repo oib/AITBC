@@ -22,10 +22,10 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("bounty_id", "")
             else:
-                logger.error(f"Bounty create failed: {result.get('error')}")
+                logger.error("Bounty create failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"create_bounty failed: {e}")
+            logger.error("create_bounty failed: %s", e)
             raise
 
     def list_bounties(self, status: str = "open") -> list[dict]:
@@ -36,10 +36,10 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("bounties", [])
             else:
-                logger.error(f"Bounty list failed: {result.get('error')}")
+                logger.error("Bounty list failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"list_bounties failed: {e}")
+            logger.error("list_bounties failed: %s", e)
             raise
 
     def submit_bounty_solution(self, bounty_id: str, solution: str) -> str:
@@ -50,10 +50,10 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("submission_id", "")
             else:
-                logger.error(f"Bounty submit failed: {result.get('error')}")
+                logger.error("Bounty submit failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"submit_bounty_solution failed: {e}")
+            logger.error("submit_bounty_solution failed: %s", e)
             raise
 
     def claim_bounty(self, bounty_id: str) -> bool:
@@ -64,8 +64,8 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("claimed", False)
             else:
-                logger.error(f"Bounty claim failed: {result.get('error')}")
+                logger.error("Bounty claim failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"claim_bounty failed: {e}")
+            logger.error("claim_bounty failed: %s", e)
             raise
