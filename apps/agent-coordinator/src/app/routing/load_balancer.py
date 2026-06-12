@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Load Balancer for Agent Distribution and Task Assignment
 """
@@ -102,7 +101,7 @@ class AgentWeight:
 class LoadBalancer:
     """Advanced load balancer for agent distribution"""
 
-    def __init__(self, registry: AgentRegistry):
+    def __init__(self, registry: AgentRegistry) -> None:
         self.registry = registry
         self.strategy = LoadBalancingStrategy.LEAST_CONNECTIONS
         self.agent_weights: dict[str, AgentWeight] = {}
@@ -118,12 +117,12 @@ class LoadBalancer:
         self.successful_assignments = 0
         self.failed_assignments = 0
 
-    def set_strategy(self, strategy: LoadBalancingStrategy):
+    def set_strategy(self, strategy: LoadBalancingStrategy) -> Any:
         """Set load balancing strategy"""
         self.strategy = strategy
         logger.info(f"Load balancing strategy changed to: {strategy.value}")
 
-    def set_agent_weight(self, agent_id: str, weight: float, capacity: int = 100):
+    def set_agent_weight(self, agent_id: str, weight: float, capacity: int = 100) -> Any:
         """Set agent weight and capacity"""
         self.agent_weights[agent_id] = AgentWeight(
             agent_id=agent_id,
@@ -132,7 +131,7 @@ class LoadBalancer:
         )
         logger.info(f"Set weight for agent {agent_id}: {weight}, capacity: {capacity}")
 
-    def update_agent_metrics(self, agent_id: str, metrics: LoadMetrics):
+    def update_agent_metrics(self, agent_id: str, metrics: LoadMetrics) -> Any:
         """Update agent load metrics"""
         self.agent_metrics[agent_id] = metrics
         self.agent_metrics[agent_id].last_updated = datetime.now(UTC)
@@ -140,7 +139,7 @@ class LoadBalancer:
         # Update performance score based on metrics
         self._update_performance_score(agent_id, metrics)
 
-    def _update_performance_score(self, agent_id: str, metrics: LoadMetrics):
+    def _update_performance_score(self, agent_id: str, metrics: LoadMetrics) -> Any:
         """Update agent performance score based on metrics"""
         if agent_id not in self.agent_weights:
             self.agent_weights[agent_id] = AgentWeight(agent_id=agent_id)
@@ -221,7 +220,7 @@ class LoadBalancer:
             self.failed_assignments += 1
             return None
 
-    async def complete_task(self, task_id: str, success: bool, response_time: float | None = None, error_message: str | None = None):
+    async def complete_task(self, task_id: str, success: bool, response_time: float | None = None, error_message: str | None = None) -> Any:
         """Mark task as completed"""
         try:
             if task_id not in self.task_assignments:
@@ -351,7 +350,7 @@ class LoadBalancer:
         elif self.strategy == LoadBalancingStrategy.CONSISTENT_HASH:
             return self._consistent_hash_selection(eligible_agents, task_data)
         else:
-            return eligible_agents[0]
+            return eligible_agents[0]  # type: ignore[unreachable]
 
     def _round_robin_selection(self, agents: list[str]) -> str:
         """Round-robin agent selection"""
@@ -393,7 +392,7 @@ class LoadBalancer:
     def _weighted_round_robin_selection(self, agents: list[str]) -> str:
         """Weighted round-robin selection"""
         # Calculate total weight
-        total_weight = 0
+        total_weight = 0.0
         for agent_id in agents:
             weight = self.agent_weights.get(agent_id, AgentWeight(agent_id=agent_id))
             total_weight += weight.weight
@@ -403,7 +402,7 @@ class LoadBalancer:
 
         # Select agent based on weight
         current_weight = self.round_robin_index % total_weight
-        accumulated_weight = 0
+        accumulated_weight = 0.0
 
         for agent_id in agents:
             weight = self.agent_weights.get(agent_id, AgentWeight(agent_id=agent_id))
@@ -417,7 +416,7 @@ class LoadBalancer:
 
     def _resource_based_selection(self, agents: list[str]) -> str:
         """Resource-based selection considering CPU and memory"""
-        best_score = -1
+        best_score = -1.0
         selected_agent = None
 
         for agent_id in agents:
@@ -445,7 +444,7 @@ class LoadBalancer:
         if not required_capabilities:
             return agents[0]
 
-        best_score = -1
+        best_score = -1.0
         selected_agent = None
 
         for agent_id in agents:
@@ -480,7 +479,7 @@ class LoadBalancer:
         task_type = task_data.get("task_type", "unknown")
 
         # Calculate predicted performance for each agent
-        best_score = -1
+        best_score = -1.0
         selected_agent = None
 
         for agent_id in agents:
@@ -527,7 +526,7 @@ class LoadBalancer:
         # Wrap around
         return self.consistent_hash_ring[min(self.consistent_hash_ring.keys())]
 
-    def _build_hash_ring(self, agents: list[str]):
+    def _build_hash_ring(self, agents: list[str]) -> Any:
         """Build consistent hash ring"""
         self.consistent_hash_ring = {}
 
@@ -578,10 +577,10 @@ class LoadBalancer:
 class TaskDistributor:
     """Task distributor with advanced load balancing"""
 
-    def __init__(self, load_balancer: LoadBalancer):
+    def __init__(self, load_balancer: LoadBalancer) -> None:
         self.load_balancer = load_balancer
-        self.task_queue = asyncio.Queue()
-        self.priority_queues = {
+        self.task_queue: asyncio.Queue[Any] = asyncio.Queue()
+        self.priority_queues: dict[TaskPriority, asyncio.Queue[Any]] = {
             TaskPriority.URGENT: asyncio.Queue(),
             TaskPriority.CRITICAL: asyncio.Queue(),
             TaskPriority.HIGH: asyncio.Queue(),
@@ -595,7 +594,7 @@ class TaskDistributor:
             "avg_distribution_time": 0.0
         }
 
-    async def submit_task(self, task_data: dict[str, Any], priority: TaskPriority = TaskPriority.NORMAL, requirements: dict[str, Any] | None = None):
+    async def submit_task(self, task_data: dict[str, Any], priority: TaskPriority = TaskPriority.NORMAL, requirements: dict[str, Any] | None = None) -> Any:
         """Submit task for distribution"""
         task_info = {
             "task_data": task_data,
@@ -607,7 +606,7 @@ class TaskDistributor:
         await self.priority_queues[priority].put(task_info)
         logger.info(f"Task submitted with priority {priority.value}")
 
-    async def start_distribution(self):
+    async def start_distribution(self) -> Any:
         """Start task distribution loop"""
         logger.warning("="*60)
         logger.warning("DEBUG: TASK DISTRIBUTION LOOP STARTED")
@@ -635,7 +634,7 @@ class TaskDistributor:
                 logger.error(f"Error in distribution loop: {e}")
                 await asyncio.sleep(1)
 
-    async def _distribute_task(self, task_info: dict[str, Any]):
+    async def _distribute_task(self, task_info: dict[str, Any]) -> Any:
         """Distribute a single task"""
         start_time = datetime.now(UTC)
 
@@ -683,7 +682,7 @@ class TaskDistributor:
                 if total_distributed > 0 else distribution_time
             )
 
-    async def _send_task_to_agent(self, agent_id: str, task_message: AgentMessage):
+    async def _send_task_to_agent(self, agent_id: str, task_message: AgentMessage) -> Any:
         """Send task to agent via HTTP"""
         try:
             # Get agent info from registry to find endpoint
@@ -702,7 +701,7 @@ class TaskDistributor:
             message_dict = task_message.to_dict()
 
             # Ensure payload is JSON serializable (convert datetime objects)
-            def convert_datetime(obj):
+            def convert_datetime(obj: Any) -> Any:
                 if isinstance(obj, datetime):
                     return obj.isoformat()
                 elif isinstance(obj, dict):
@@ -732,7 +731,7 @@ class TaskDistributor:
             logger.error(f"Error sending task to agent {agent_id}: {e}")
             return False
 
-    async def _simulate_task_completion(self, task_info: dict[str, Any], agent_id: str):
+    async def _simulate_task_completion(self, task_info: dict[str, Any], agent_id: str) -> Any:
         """Simulate task completion (for testing)"""
         # Simulate task processing time
         processing_time = 1.0 + (hash(task_info["task_data"].get("task_id", "")) % 5)
@@ -786,7 +785,7 @@ class TaskDistributor:
         return cleared_count
 
 # Example usage
-async def example_usage():
+async def example_usage() -> Any:
     """Example of how to use the load balancer"""
 
     # Create registry and load balancer
