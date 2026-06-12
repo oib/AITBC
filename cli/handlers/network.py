@@ -27,8 +27,8 @@ def handle_network_peers(args, default_rpc_url, get_network_snapshot):
     logger.info("Network peers:")
     for node in snapshot["nodes"]:
         endpoint = urlparse(node["rpc_url"]).netloc
-        status = "Connected" if node["healthy"] else f"Unreachable ({node['error'] or 'unknown error'})"
-        logger.info(f"  - {node['name']} ({endpoint}) - {status}")
+        status = "Connected" if node["healthy"] else "Unreachable (%s)" % (node['error'] or 'unknown error')
+        logger.info("  - %s (%s) - %s", node['name'], endpoint, status)
 def handle_network_sync(args, default_rpc_url, get_network_snapshot):
     """Handle network sync status query."""
     import click
@@ -81,7 +81,7 @@ def handle_network_force_sync(args, default_rpc_url, render_mapping):
     if chain_id:
         sync_data["chain_id"] = chain_id
 
-    logger.info(f"Forcing sync to peer {args.peer} on {rpc_url}...")
+    logger.info("Forcing sync to peer %s on %s...", args.peer, rpc_url)
     try:
         response = requests.post(f"{rpc_url}/rpc/force-sync", json=sync_data, timeout=60)
         if response.status_code == 200:
@@ -89,9 +89,9 @@ def handle_network_force_sync(args, default_rpc_url, render_mapping):
             logger.info("Force sync initiated successfully")
             render_mapping("Sync result:", result)
         else:
-            logger.error(f"Force sync failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Force sync failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error forcing sync: {e}")
+        logger.error("Error forcing sync: %s", e)
         sys.exit(1)
