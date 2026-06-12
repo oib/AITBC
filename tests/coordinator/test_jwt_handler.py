@@ -6,6 +6,10 @@ Tests for JWT token generation, validation, and password management
 import sys
 from pathlib import Path
 
+from datetime import timedelta
+
+import pytest
+
 # Add coordinator path for imports
 coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
@@ -15,10 +19,6 @@ if str(coordinator_path) not in sys.path:
 for mod_name in list(sys.modules.keys()):
     if mod_name == "app" or mod_name.startswith("app."):
         del sys.modules[mod_name]
-
-from datetime import timedelta
-
-import pytest
 
 try:
     from app.auth.jwt_handler import (
