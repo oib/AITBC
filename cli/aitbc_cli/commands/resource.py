@@ -28,52 +28,17 @@ def resource():
 @click.option('--mock', is_flag=True, help='Use mock data for experimental command')
 def allocate(resource_type: str, quantity: int, priority: str, mock: bool):
     """Allocate resources (EXPERIMENTAL)"""
-    try:
-        import httpx
-        
-        config = get_config()
-        coordinator_url = config.get("coordinator_url", "http://localhost:8203")
-        api_key = config.get("coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-        
-        if not mock:
-            # Implement actual resource allocation via coordinator API
-            allocation_payload = {
-                "resource_type": resource_type,
-                "quantity": quantity,
-                "priority": priority
-            }
-            
-            headers = {}
-            if api_key:
-                headers["X-API-Key"] = api_key
-            
-            response = httpx.post(
-                f"{coordinator_url}/v1/resources/allocate",
-                json=allocation_payload,
-                headers=headers
-            )
-            
-            if response.status_code != 200:
-                error(f"Failed to allocate resources: {response.text}")
-                return 1
-            
-            result = response.json()
-            success(f"Allocated {quantity} {resource_type} with {priority} priority")
-            click.echo(f"Allocation ID: {result.get('allocation_id')}")
-            click.echo(f"Status: {result.get('status', 'Allocated')}")
-            click.echo(f"Cost per hour: {result.get('cost_per_hour', 25)} AIT")
-            return 0
-        else:
-            # Mock mode
-            success(f"Allocate {quantity} {resource_type} with {priority} priority")
-            click.echo(f"Allocation ID: alloc_{int(time.time())}")
-            click.echo("Status: Allocated (mock)")
-            click.echo("Cost per hour: 25 AIT")
-            return 0
-            
-    except Exception as e:
-        error(f"Error allocating resources: {e}")
-        return 1
+    if not mock:
+        error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
+        click.echo("To proceed with mock data, run: aitbc resource allocate --mock")
+        raise click.Abort()
+
+    success(f"Allocate {quantity} {resource_type} with {priority} priority")
+    click.echo(json.dumps({
+        "allocation_id": f"alloc_{int(time.time())}",
+        "status": "Allocated (mock)",
+        "cost_per_hour": 25
+    }))
 
 
 @resource.command()
@@ -85,7 +50,7 @@ def list(resource_id: str | None, format: str, mock: bool):
     if not mock:
         error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
         click.echo("To proceed with mock data, run: aitbc resource list --mock")
-        return 1
+        raise click.Abort()
 
     success("Allocated resources:")
     resources = [
@@ -107,40 +72,13 @@ def list(resource_id: str | None, format: str, mock: bool):
 @click.option('--mock', is_flag=True, help='Use mock data for experimental command')
 def release(resource_id: str, mock: bool):
     """Release allocated resources (EXPERIMENTAL)"""
-    try:
-        import httpx
-        
-        config = get_config()
-        coordinator_url = config.get("coordinator_url", "http://localhost:8203")
-        api_key = config.get("coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-        
-        if not mock:
-            # Implement actual resource release via coordinator API
-            headers = {}
-            if api_key:
-                headers["X-API-Key"] = api_key
-            
-            response = httpx.post(
-                f"{coordinator_url}/v1/resources/{resource_id}/release",
-                headers=headers
-            )
-            
-            if response.status_code != 200:
-                error(f"Failed to release resource: {response.text}")
-                return 1
-            
-            success(f"Release resource {resource_id}")
-            click.echo("Status: Released")
-            return 0
-        else:
-            # Mock mode
-            success(f"Release resource {resource_id}")
-            click.echo("Status: Released (mock)")
-            return 0
-            
-    except Exception as e:
-        error(f"Error releasing resource: {e}")
-        return 1
+    if not mock:
+        error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
+        click.echo("To proceed with mock data, run: aitbc resource release --mock")
+        raise click.Abort()
+
+    success(f"Release resource {resource_id}")
+    click.echo(json.dumps({"resource_id": resource_id, "status": "Released (mock)"}))
 
 
 @resource.command()
@@ -151,7 +89,7 @@ def utilization(format: str, mock: bool):
     if not mock:
         error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
         click.echo("To proceed with mock data, run: aitbc resource utilization --mock")
-        return 1
+        raise click.Abort()
 
     success("Resource utilization:")
     metrics = {
@@ -180,7 +118,7 @@ def optimize(target: str, agent_id: str | None, mock: bool):
     if not mock:
         error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
         click.echo("To proceed with mock data, run: aitbc resource optimize --mock")
-        return 1
+        raise click.Abort()
 
     success(f"Optimize resources for target: {target}")
     if agent_id:
