@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: js-sdk-tests-${{ gitea.ref }}
+  group: js-sdk-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -20,61 +20,55 @@ jobs:
     timeout-minutes: 10
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/js-sdk-tests
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Verify Node.js
         run: |
           echo "Node: $(node --version)"
-          echo "pnpm: $(pnpm --version)"
-
-      - name: Install pnpm
-        run: |
-          npm install -g pnpm
-          echo "✅ pnpm installed"
+          echo "npm: $(npm --version)"
 
       - name: Install dependencies
         run: |
-          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
+          cd "/opt/aitbc/packages/js/aitbc-sdk"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
           
-          pnpm install
+          if [[ -f package-lock.json ]]; then
+            npm ci
+          else
+            npm install
+          fi
           echo "✅ Dependencies installed"
 
       - name: Build TypeScript
         run: |
-          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
-          pnpm run build
+          cd "/opt/aitbc/packages/js/aitbc-sdk"
+          npm run build
           echo "✅ TypeScript build completed"
 
       - name: Lint
         run: |
-          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
-          pnpm run lint
+          cd "/opt/aitbc/packages/js/aitbc-sdk"
+          npm run lint
           echo "✅ Lint passed"
-          pnpm prettier --check "src/**/*.ts"
+          npx prettier --check "src/**/*.ts"
           echo "✅ Prettier passed"
 
       - name: Run tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
-          pnpm test
+          cd "/opt/aitbc/packages/js/aitbc-sdk"
+          npm test
           echo "✅ Tests passed"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

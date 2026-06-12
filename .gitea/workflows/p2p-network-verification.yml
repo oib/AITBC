@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: p2p-network-verification-${{ gitea.ref }}
+  group: p2p-network-verification-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,24 +21,22 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/p2p-network-verification
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -51,7 +49,7 @@ jobs:
 
       - name: Run P2P network verification
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/multi-node/p2p-verification.sh
 
       - name: P2P verification report
@@ -62,6 +60,3 @@ jobs:
             tail -50 /var/log/aitbc/p2p-verification.log
           fi
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
