@@ -99,7 +99,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
         return dashboard_data
 
     except Exception as e:
-        logger.error(f"Failed to generate monitoring dashboard: {e}")
+        logger.error("Failed to generate monitoring dashboard: %s", e)
         return {
             "error": "Failed to generate dashboard",
             "timestamp": datetime.now(UTC).isoformat(),
@@ -138,7 +138,7 @@ async def services_summary() -> dict[str, Any]:
         return summary
 
     except Exception as e:
-        logger.error(f"Failed to generate services summary: {e}")
+        logger.error("Failed to generate services summary: %s", e)
         return {"error": "Failed to generate summary", "timestamp": datetime.now(UTC).isoformat()}
 
 
@@ -185,7 +185,7 @@ async def system_metrics() -> dict[str, Any]:
         return metrics
 
     except Exception as e:
-        logger.error(f"Failed to collect system metrics: {e}")
+        logger.error("Failed to collect system metrics: %s", e)
         return {"error": "Failed to collect metrics", "timestamp": datetime.now(UTC).isoformat()}
 
 
@@ -229,7 +229,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
                 "details": response.json(),
             }
     except Exception as e:
-        logger.warning(f"Service {service_name} health check failed: {e}")
+        logger.warning("Service %s health check failed: %s", service_name, e)
         return {
             "status": "unhealthy",
             "error": str(e),
