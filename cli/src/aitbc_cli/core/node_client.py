@@ -52,9 +52,9 @@ class NodeClient:
         except Exception as e:
             # For development, we'll continue without authentication
             if self._dev_mocks_enabled:
-                logger.warning(f"[DEV_MODE] Authentication failed for node {self.config.id}: {e}")
+                logger.warning("[DEV_MODE] Authentication failed for node %s: %s", self.config.id, e)
             else:
-                logger.error(f"Authentication failed for node {self.config.id}: {e}")
+                logger.error("Authentication failed for node %s: %s", self.config.id, e)
                 raise
 
     async def get_node_info(self) -> dict[str, Any]:
@@ -69,10 +69,10 @@ class NodeClient:
             # Return mock data for development
             if self._dev_mocks_enabled:
                 self._mock_fallback_count += 1
-                logger.warning(f"[DEV_MODE] Using mock node info for {self.config.id} (fallback #{self._mock_fallback_count})")
+                logger.warning("[DEV_MODE] Using mock node info for %s (fallback #%s)", self.config.id, self._mock_fallback_count)
                 return self._get_mock_node_info()
             else:
-                logger.error(f"Failed to get node info for {self.config.id}: {e}")
+                logger.error("Failed to get node info for %s: %s", self.config.id, e)
                 raise
 
     async def get_hosted_chains(self) -> list[ChainInfo]:
@@ -185,7 +185,7 @@ class NodeClient:
         except Exception:
             # Mock chain creation for development
             chain_id = genesis_block.get("chain_id", f"MOCK-CHAIN-{hash(str(genesis_block)) % 10000}")
-            logger.info(f"Mock created chain {chain_id} on node {self.config.id}")
+            logger.info("Mock created chain %s on node %s", chain_id, self.config.id)
             return chain_id
 
     async def delete_chain(self, chain_id: str) -> bool:
@@ -198,7 +198,7 @@ class NodeClient:
                 raise Exception(f"Chain deletion failed: {response.status_code}")
         except Exception:
             # Mock chain deletion for development
-            logger.info(f"Mock deleted chain {chain_id} from node {self.config.id}")
+            logger.info("Mock deleted chain %s from node %s", chain_id, self.config.id)
             return True
 
     async def get_chain_stats(self, chain_id: str) -> dict[str, Any]:
@@ -233,7 +233,7 @@ class NodeClient:
                 "backup_size_mb": 50.0,
                 "checksum": "mock_checksum_12345"
             }
-            logger.info(f"Mock backed up chain {chain_id} to {backup_info['backup_file']}")
+            logger.info("Mock backed up chain %s to %s", chain_id, backup_info['backup_file'])
             return backup_info
 
     async def restore_chain(self, backup_file: str, chain_id: str | None = None) -> dict[str, Any]:
@@ -254,7 +254,7 @@ class NodeClient:
                 "blocks_restored": 1000,
                 "verification_passed": True
             }
-            logger.info(f"Mock restored chain from {backup_file}")
+            logger.info("Mock restored chain from %s", backup_file)
             return restore_info
 
     def _parse_chain_info(self, chain_data: dict[str, Any]) -> ChainInfo:
