@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: blockchain-sync-verification-${{ gitea.ref }}
+  group: blockchain-sync-verification-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,24 +25,22 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/blockchain-sync-verification
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -55,7 +53,7 @@ jobs:
 
       - name: Run blockchain synchronization verification
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           CHECK_CHAIN_ID_CONSISTENCY=false CHAINS="ait-mainnet,ait-testnet" bash scripts/multi-node/sync-verification.sh
 
       - name: Sync verification report
@@ -66,6 +64,3 @@ jobs:
             tail -50 /var/log/aitbc/sync-verification.log
           fi
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

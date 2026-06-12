@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: package-tests-${{ gitea.ref }}
+  group: package-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,24 +35,22 @@ jobs:
             path: "packages/py/aitbc-agent-sdk"
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/pkg-${{ matrix.package.name }}
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup and test package
         run: |
-          cd "${{ env.WORKSPACE }}/repo/${{ matrix.package.path }}"
+          cd "/opt/aitbc/${{ matrix.package.path }}"
           echo "=== Testing ${{ matrix.package.name }} ==="
           echo "Directory: $(pwd)"
           ls -la
@@ -63,14 +61,14 @@ jobs:
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv venv-build
 
-          bash "${{ env.WORKSPACE }}/repo/scripts/ci/setup-python-venv.sh" \
+          bash "/opt/aitbc/scripts/ci/setup-python-venv.sh" \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --mode copy \
             --extra-packages "pytest mypy black pydantic-settings fastapi uvicorn httpx requests"
 
           if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
-            venv/bin/python -m pip install -q -e "${{ env.WORKSPACE }}/repo/packages/py/aitbc-crypto"
+            venv/bin/python -m pip install -q -e "/opt/aitbc/packages/py/aitbc-crypto"
           fi
 
           # Install dependencies
@@ -97,7 +95,7 @@ jobs:
           if [[ -d "tests" ]]; then
             # Make package src first, then repo root for shared imports (e.g. `from aitbc import ...`)
             # Combined with `-c /dev/null`, this avoids monorepo pytest.ini path conflicts.
-            export PYTHONPATH="$PWD/src:${{ env.WORKSPACE }}/repo:$PYTHONPATH"
+            export PYTHONPATH="$PWD/src:/opt/aitbc:$PYTHONPATH"
             echo "=== Debug Info ==="
             echo "PWD: $PWD"
             echo "PYTHONPATH: $PYTHONPATH"
@@ -122,10 +120,10 @@ jobs:
 
       - name: Build package
         run: |
-          cd "${{ env.WORKSPACE }}/repo/${{ matrix.package.path }}"
+          cd "/opt/aitbc/${{ matrix.package.path }}"
 
           if [[ -f "pyproject.toml" ]]; then
-            bash "${{ env.WORKSPACE }}/repo/scripts/ci/setup-python-venv.sh" \
+            bash "/opt/aitbc/scripts/ci/setup-python-venv.sh" \
               --repo-dir "$PWD" \
               --venv-dir "$PWD/venv-build" \
               --skip-requirements \
@@ -134,10 +132,6 @@ jobs:
             venv-build/bin/python -m build
             echo "✅ Package built"
           fi
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
 
   test-javascript-packages:
     name: JavaScript package - ${{ matrix.package.name }}
@@ -154,24 +148,22 @@ jobs:
             path: "packages/solidity/aitbc-token"
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/jspkg-${{ matrix.package.name }}
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup and test package
         run: |
-          cd "${{ env.WORKSPACE }}/repo/${{ matrix.package.path }}"
+          cd "/opt/aitbc/${{ matrix.package.path }}"
           echo "=== Testing ${{ matrix.package.name }} ==="
 
           if [[ ! -f "package.json" ]]; then
@@ -206,6 +198,3 @@ jobs:
 
           echo "✅ ${{ matrix.package.name }} completed"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
