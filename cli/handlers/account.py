@@ -26,7 +26,7 @@ def handle_account_get(args, default_rpc_url, output_format):
         logger.error("Error: --address is required")
         sys.exit(1)
 
-    logger.info(f"Getting account {args.address} from {rpc_url}...")
+    logger.info("Getting account %s from %s...", args.address, rpc_url)
     try:
         params = {}
         if chain_id:
@@ -39,8 +39,8 @@ def handle_account_get(args, default_rpc_url, output_format):
         else:
             render_mapping(f"Account {args.address}:", account)
     except NetworkError as e:
-        logger.error(f"Error getting account: {e}")
+        logger.error("Error getting account: %s", e)
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error getting account: {e}")
+        logger.error("Error getting account: %s", e)
         sys.exit(1)
