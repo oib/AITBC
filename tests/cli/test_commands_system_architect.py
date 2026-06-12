@@ -41,10 +41,10 @@ class TestSystemArchitectCommands:
         try:
             from aitbc_cli.commands.system_architect import audit
             from click.testing import CliRunner
-            
+
             runner = CliRunner()
             result = runner.invoke(audit)
-            
+
             # Verify command executed
             assert result.exit_code == 0
             assert "System Architecture Audit" in result.output
@@ -57,10 +57,10 @@ class TestSystemArchitectCommands:
         try:
             from aitbc_cli.commands.system_architect import paths
             from click.testing import CliRunner
-            
+
             runner = CliRunner()
             result = runner.invoke(paths)
-            
+
             # Verify command executed
             assert result.exit_code == 0
             assert "System Architecture Paths" in result.output

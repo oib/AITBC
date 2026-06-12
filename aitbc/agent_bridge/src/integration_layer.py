@@ -117,10 +117,10 @@ class AgentServiceBridge:
                 }
                 return True
             else:
-                logger.warning(f"Registration failed: {registration_result}")
+                logger.warning("Registration failed: %s", registration_result)
                 return False
         except Exception as e:
-            logger.error(f"Failed to start agent {agent_id}: {e}")
+            logger.error("Failed to start agent %s: %s", agent_id, e)
             return False
 
     async def stop_agent(self, agent_id: str) -> bool:

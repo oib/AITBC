@@ -25,10 +25,10 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             assert logger.log_dir == Path(tmpdir)
             assert logger.log_file == Path(tmpdir) / "audit_secure.jsonl"
             assert logger.integrity_file == Path(tmpdir) / "integrity.json"
@@ -40,12 +40,12 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             integrity_data = logger._get_integrity_data()
-            
+
             assert integrity_data["genesis_hash"] is None
             assert integrity_data["last_hash"] is None
             assert integrity_data["entry_count"] == 0
@@ -58,15 +58,15 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             logger.log("test_action", {"key": "value"}, "test_user")
-            
+
             # Check log file was created
             assert logger.log_file.exists()
-            
+
             # Check integrity was updated
             integrity_data = logger._get_integrity_data()
             assert integrity_data["entry_count"] == 1
@@ -79,12 +79,12 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             is_valid, issues = logger.verify_integrity()
-            
+
             assert is_valid is True
             assert "No audit log exists" in issues
 
@@ -94,12 +94,12 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             logs = logger.get_logs(verify=False)
-            
+
             assert logs == []
 
     def test_get_logs_with_entries(self):
@@ -108,15 +108,15 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             logger.log("action1", {"key": "value1"}, "user1")
             logger.log("action2", {"key": "value2"}, "user2")
-            
+
             logs = logger.get_logs(limit=10, verify=False)
-            
+
             assert len(logs) == 2
             assert logs[0]["action"] == "action1"
             assert logs[1]["action"] == "action2"
@@ -127,16 +127,16 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             logger.log("action1", {"key": "value1"}, "user1")
             logger.log("action2", {"key": "value2"}, "user2")
             logger.log("action1", {"key": "value3"}, "user3")
-            
+
             logs = logger.get_logs(limit=10, action_filter="action1", verify=False)
-            
+
             assert len(logs) == 2
             assert all(log["action"] == "action1" for log in logs)
 
@@ -146,16 +146,16 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             logger.log("create_wallet", {"address": "0x123"}, "user1")
             logger.log("delete_wallet", {"address": "0x456"}, "user2")
             logger.log("create_wallet", {"address": "0x789"}, "user3")
-            
+
             results = logger.search_logs("create_wallet", limit=10)
-            
+
             assert len(results) == 2
             assert all("create_wallet" in str(r) for r in results)
 
@@ -165,14 +165,14 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             logger.log("test_action", {}, "test_user")
-            
+
             chain_info = logger.get_chain_info()
-            
+
             assert "genesis_hash" in chain_info
             assert "last_hash" in chain_info
             assert "entry_count" in chain_info
@@ -186,15 +186,15 @@ class TestSecureAuditLogger:
             from utils.secure_audit import SecureAuditLogger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             logger.log("action1", {"key": "value1"}, "user1")
             logger.log("action2", {"key": "value2"}, "user2")
-            
+
             report = logger.export_audit_report()
-            
+
             assert "audit_report" in report
             assert "integrity" in report["audit_report"]
             assert "statistics" in report["audit_report"]
@@ -210,17 +210,17 @@ class TestConvenienceFunctions:
             from utils.secure_audit import log_action, secure_audit_logger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # Patch the global logger's log_dir
             original_logger = secure_audit_logger
             from utils.secure_audit import SecureAuditLogger
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             # Temporarily replace global logger
             with patch('utils.secure_audit.secure_audit_logger', new_logger):
                 log_action("test_action", {"key": "value"}, "test_user")
-                
+
                 integrity_data = new_logger._get_integrity_data()
                 assert integrity_data["entry_count"] == 1
 
@@ -230,14 +230,14 @@ class TestConvenienceFunctions:
             from utils.secure_audit import secure_audit_logger, verify_audit_integrity
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             from utils.secure_audit import SecureAuditLogger
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             with patch('utils.secure_audit.secure_audit_logger', new_logger):
                 is_valid, issues = verify_audit_integrity()
-                
+
                 assert is_valid is True
 
     def test_get_audit_logs(self):
@@ -246,14 +246,14 @@ class TestConvenienceFunctions:
             from utils.secure_audit import get_audit_logs, secure_audit_logger
         except ImportError:
             pytest.skip("eth_utils import failed")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             from utils.secure_audit import SecureAuditLogger
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
-            
+
             with patch('utils.secure_audit.secure_audit_logger', new_logger):
                 logs = get_audit_logs(limit=10)
-                
+
                 assert logs == []
 
 

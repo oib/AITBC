@@ -48,7 +48,7 @@ async def websocket_status() -> dict[str, Any]:
         "connected_agents": list(connection_manager.active_connections.keys()),
         "registered_handlers": list(connection_manager.message_handlers.keys()),
         "queued_messages": {
-            agent_id: len(messages) 
+            agent_id: len(messages)
             for agent_id, messages in connection_manager.agent_inboxes.items()
         }
     }

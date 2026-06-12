@@ -8,9 +8,9 @@ import importlib.util
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
+
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -198,7 +198,7 @@ class TestStatePersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = Path(tmpdir) / "state.json"
             persistence = state.StatePersistence(str(storage_path))
-            
+
             transitions = {
                 "idle": ["running"],
                 "running": ["stopped"],
@@ -206,7 +206,7 @@ class TestStatePersistence:
             }
             machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
             machine.transition("running")
-            
+
             persistence.save_state(machine)
             assert storage_path.exists()
 
@@ -214,7 +214,7 @@ class TestStatePersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = Path(tmpdir) / "state.json"
             persistence = state.StatePersistence(str(storage_path))
-            
+
             transitions = {
                 "idle": ["running"],
                 "running": ["stopped"],
@@ -223,7 +223,7 @@ class TestStatePersistence:
             machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
             machine.transition("running")
             machine.set_state_data({"value": "test"})
-            
+
             persistence.save_state(machine)
             loaded = persistence.load_state()
             assert loaded is not None
@@ -241,11 +241,11 @@ class TestStatePersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = Path(tmpdir) / "state.json"
             persistence = state.StatePersistence(str(storage_path))
-            
+
             transitions = {"idle": [], "running": []}
             machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
             persistence.save_state(machine)
-            
+
             persistence.delete_state()
             assert not storage_path.exists()
 
@@ -273,7 +273,7 @@ class TestAsyncStateMachine:
                     "running": ["stopped"],
                     "stopped": []
                 }.get(state, [])
-        
+
         machine = ConcreteAsyncMachine(initial_state="idle")
         assert machine.current_state == "idle"
         assert len(machine.transition_handlers) == 0
@@ -282,7 +282,7 @@ class TestAsyncStateMachine:
         class ConcreteAsyncMachine(state.AsyncStateMachine):
             def get_valid_transitions(self, state: str) -> list[str]:
                 return {"idle": ["running"], "running": []}.get(state, [])
-        
+
         machine = ConcreteAsyncMachine(initial_state="idle")
         handler = lambda t: None
         machine.on_transition("running", handler)
@@ -293,7 +293,7 @@ class TestAsyncStateMachine:
             class ConcreteAsyncMachine(state.AsyncStateMachine):
                 def get_valid_transitions(self, state: str) -> list[str]:
                     return {"idle": ["running"], "running": []}.get(state, [])
-            
+
             machine = ConcreteAsyncMachine(initial_state="idle")
             await machine.transition_async("running")
             assert machine.current_state == "running"
@@ -306,7 +306,7 @@ class TestAsyncStateMachine:
             class ConcreteAsyncMachine(state.AsyncStateMachine):
                 def get_valid_transitions(self, state: str) -> list[str]:
                     return {"idle": ["running"], "running": []}.get(state, [])
-            
+
             machine = ConcreteAsyncMachine(initial_state="idle")
             with pytest.raises(state.StateTransitionError):
                 await machine.transition_async("stopped")
@@ -316,15 +316,15 @@ class TestAsyncStateMachine:
     def test_transition_async_with_handler(self):
         async def _test():
             call_count = 0
-            
+
             def handler(transition):
                 nonlocal call_count
                 call_count += 1
-            
+
             class ConcreteAsyncMachine(state.AsyncStateMachine):
                 def get_valid_transitions(self, state: str) -> list[str]:
                     return {"idle": ["running"], "running": []}.get(state, [])
-            
+
             machine = ConcreteAsyncMachine(initial_state="idle")
             machine.on_transition("running", handler)
             await machine.transition_async("running")
@@ -335,15 +335,15 @@ class TestAsyncStateMachine:
     def test_transition_async_with_async_handler(self):
         async def _test():
             call_count = 0
-            
+
             async def handler(transition):
                 nonlocal call_count
                 call_count += 1
-            
+
             class ConcreteAsyncMachine(state.AsyncStateMachine):
                 def get_valid_transitions(self, state: str) -> list[str]:
                     return {"idle": ["running"], "running": []}.get(state, [])
-            
+
             machine = ConcreteAsyncMachine(initial_state="idle")
             machine.on_transition("running", handler)
             await machine.transition_async("running")
@@ -370,7 +370,7 @@ class TestStateMonitor:
         transitions = {"idle": [], "running": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
-        
+
         observer = lambda t: None
         monitor.add_observer(observer)
         assert observer in monitor.observers
@@ -379,7 +379,7 @@ class TestStateMonitor:
         transitions = {"idle": [], "running": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
-        
+
         observer = lambda t: None
         monitor.add_observer(observer)
         result = monitor.remove_observer(observer)
@@ -390,7 +390,7 @@ class TestStateMonitor:
         transitions = {"idle": [], "running": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
-        
+
         observer = lambda t: None
         result = monitor.remove_observer(observer)
         assert result is False
@@ -399,12 +399,12 @@ class TestStateMonitor:
         transitions = {"idle": ["running"], "running": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
-        
+
         call_count = 0
         def observer(transition):
             nonlocal call_count
             call_count += 1
-        
+
         monitor.add_observer(observer)
         transition = state.StateTransition(from_state="idle", to_state="running")
         monitor.notify_observers(transition)
@@ -414,7 +414,7 @@ class TestStateMonitor:
         transitions = {"idle": ["running"], "running": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
-        
+
         wrapped = monitor.wrap_transition(machine.transition)
         wrapped("running")
         assert machine.current_state == "running"
@@ -515,12 +515,12 @@ class TestStateSnapshot:
         machine1 = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         machine1.transition("running")
         machine1.set_state_data({"value": "test"})
-        
+
         snapshot = state.StateSnapshot(machine1)
-        
+
         machine2 = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         snapshot.restore(machine2)
-        
+
         assert machine2.current_state == "running"
         assert machine2.state_data["running"]["value"] == "test"
         assert len(machine2.transitions) == 1

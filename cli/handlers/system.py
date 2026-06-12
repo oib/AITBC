@@ -100,6 +100,9 @@ def handle_agent_action(args, agent_operations, render_mapping):
         # Handle case where result doesn't have 'action' field (e.g., message send)
         if 'action' in result:
             render_mapping(f"Agent {result['action']}:", result)
+    except Exception as e:
+        logger.error(f"Error in agent operations: {e}")
+        render_mapping(f"Agent {args.agent_action} error:", {"error": str(e)})
 
 
 def handle_agent_coordinator_action(args, render_mapping):

@@ -35,9 +35,9 @@ class TestHandlePoolHubSlaMetrics:
         args = Mock()
         args.test_mode = True
         args.miner_id = None
-        
+
         handle_pool_hub_sla_metrics(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 
@@ -50,9 +50,9 @@ class TestHandlePoolHubSlaViolations:
         """Test SLA violations in test mode"""
         args = Mock()
         args.test_mode = True
-        
+
         handle_pool_hub_sla_violations(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 
@@ -65,9 +65,9 @@ class TestHandlePoolHubCapacitySnapshots:
         """Test capacity snapshots in test mode"""
         args = Mock()
         args.test_mode = True
-        
+
         handle_pool_hub_capacity_snapshots(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 
@@ -80,9 +80,9 @@ class TestHandlePoolHubCapacityForecast:
         """Test capacity forecast in test mode"""
         args = Mock()
         args.test_mode = True
-        
+
         handle_pool_hub_capacity_forecast(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 
@@ -95,9 +95,9 @@ class TestHandlePoolHubCapacityRecommendations:
         """Test capacity recommendations in test mode"""
         args = Mock()
         args.test_mode = True
-        
+
         handle_pool_hub_capacity_recommendations(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 
@@ -110,9 +110,9 @@ class TestHandlePoolHubBillingUsage:
         """Test billing usage in test mode"""
         args = Mock()
         args.test_mode = True
-        
+
         handle_pool_hub_billing_usage(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 
@@ -125,9 +125,9 @@ class TestHandlePoolHubBillingSync:
         """Test billing sync in test mode"""
         args = Mock()
         args.test_mode = True
-        
+
         handle_pool_hub_billing_sync(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 
@@ -140,9 +140,9 @@ class TestHandlePoolHubCollectMetrics:
         """Test metrics collection in test mode"""
         args = Mock()
         args.test_mode = True
-        
+
         handle_pool_hub_collect_metrics(args)
-        
+
         assert mock_logger.info.call_count > 0
 
 

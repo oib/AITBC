@@ -1,9 +1,7 @@
 """Base handler class for Hermes message handlers."""
-
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
-
 
 class BaseHandler(ABC):
     """Abstract base class for message handlers."""
@@ -23,28 +21,17 @@ class BaseHandler(ABC):
         """Process the message and return a response."""
         pass
 
-    def send_response(self, recipient: str, content: str, message_type: str = "direct") -> dict[str, Any]:
+    def send_response(self, recipient: str, content: str, message_type: str='direct') -> dict[str, Any]:
         """Send a response message via the Coordinator API."""
         import requests
-
         try:
-            response = requests.post(
-                f"{self.coordinator_url}/api/v1/agent/messages/send",
-                json={
-                    "sender": self.agent_id,
-                    "recipient": recipient,
-                    "content": {"text": content},
-                    "message_type": message_type,
-                    "encrypt": False
-                },
-                timeout=10
-            )
+            response = requests.post(f'{self.coordinator_url}/api/v1/agent/messages/send', json={'sender': self.agent_id, 'recipient': recipient, 'content': {'text': content}, 'message_type': message_type, 'encrypt': False}, timeout=10)
             if response.status_code == 200:
-                self.logger.info(f"Response sent successfully to {recipient}")
-                return {"status": "success", "response": response.json()}
+                self.logger.info('Response sent successfully to %s', recipient)
+                return {'status': 'success', 'response': response.json()}
             else:
-                self.logger.error(f"Failed to send response: {response.text}")
-                return {"status": "error", "error": response.text}
+                self.logger.error('Failed to send response: %s', response.text)
+                return {'status': 'error', 'error': response.text}
         except Exception as e:
-            self.logger.error(f"Error sending response: {e}")
-            return {"status": "error", "error": str(e)}
+            self.logger.error('Error sending response: %s', e)
+            return {'status': 'error', 'error': str(e)}

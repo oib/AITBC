@@ -219,7 +219,7 @@ class SecretManager:
         """
         ttl_hours = ttl_hours or self.default_ttl_hours
         encrypted = self.fernet.encrypt(value.encode('utf-8'))
-        
+
         self.secrets[key] = {
             "encrypted_value": encrypted.decode('utf-8'),
             "created_at": datetime.now(UTC).isoformat(),
@@ -269,9 +269,9 @@ class SecretManager:
 
         old_secret = self.secrets[key]
         ttl_hours = ttl_hours or self.default_ttl_hours
-        
+
         encrypted = self.fernet.encrypt(new_value.encode('utf-8'))
-        
+
         self.secrets[key] = {
             "encrypted_value": encrypted.decode('utf-8'),
             "created_at": old_secret["created_at"],  # Keep original creation time
@@ -279,7 +279,7 @@ class SecretManager:
             "version": old_secret["version"] + 1,
             "rotated_at": datetime.now(UTC).isoformat()
         }
-        
+
         return True
 
     def delete_secret(self, key: str) -> bool:
@@ -300,7 +300,7 @@ class SecretManager:
         """
         if include_expired:
             return list(self.secrets.keys())
-        
+
         # Only return non-expired secrets
         current_time = datetime.now(UTC)
         return [
@@ -359,7 +359,7 @@ class SecretManager:
         try:
             new_fernet = Fernet(new_key)
             reencrypted_secrets = {}
-            
+
             for key, data in self.secrets.items():
                 # Decrypt with old key
                 decrypted = self.fernet.decrypt(data["encrypted_value"].encode('utf-8'))
@@ -370,7 +370,7 @@ class SecretManager:
                     "encrypted_value": reencrypted.decode('utf-8'),
                     "rotated_at": datetime.now(UTC).isoformat()
                 }
-            
+
             self.fernet = new_fernet
             self.secrets = reencrypted_secrets
             return True
@@ -392,7 +392,7 @@ class SecretManager:
             Dictionary of secret metadata
         """
         export_data = {}
-        
+
         for key, data in self.secrets.items():
             export_data[key] = {
                 "created_at": data["created_at"],
@@ -401,12 +401,12 @@ class SecretManager:
                 "rotated_at": data["rotated_at"],
                 "is_expired": datetime.now(UTC) > datetime.fromisoformat(data["expires_at"])
             }
-            
+
             if include_values:
                 decrypted = self.get_secret(key)
                 if decrypted:
                     export_data[key]["value"] = decrypted
-        
+
         return export_data
 
 

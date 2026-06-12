@@ -7,7 +7,6 @@ SQLite database for tracking ETH deposits and AIT minting operations.
 import os
 import sqlite3
 from datetime import datetime
-from typing import Dict, List, Optional
 
 DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
 
@@ -17,7 +16,7 @@ def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS eth_deposits (
             id TEXT PRIMARY KEY,
@@ -31,7 +30,7 @@ def init_db():
             completed_at TIMESTAMP
         )
     """)
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS price_history (
             id INTEGER PRIMARY KEY,
@@ -42,7 +41,7 @@ def init_db():
             exchange_rate_eur REAL NOT NULL
         )
     """)
-    
+
     conn.commit()
     conn.close()
 
@@ -51,10 +50,10 @@ def insert_deposit(tx_hash: str, from_address: str, amount_eth: float, amount_ai
     """Insert a new deposit record."""
     import uuid
     deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
-    
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute(
             """
@@ -72,21 +71,21 @@ def insert_deposit(tx_hash: str, from_address: str, amount_eth: float, amount_ai
         conn.close()
 
 
-def get_pending_deposits() -> List[Dict]:
+def get_pending_deposits() -> list[dict]:
     """Get all pending deposits."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at
         FROM eth_deposits
         WHERE status = 'pending'
         ORDER BY created_at DESC
     """)
-    
+
     rows = cursor.fetchall()
     conn.close()
-    
+
     return [
         {
             "id": row[0],
@@ -105,9 +104,9 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     """Update deposit status."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     timestamp_field = "verified_at" if status == "verified" else "completed_at"
-    
+
     cursor.execute(
         f"""
         UPDATE eth_deposits
@@ -116,31 +115,31 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
         """,
         (status, datetime.now().isoformat(), deposit_id)
     )
-    
+
     conn.commit()
     rows_affected = cursor.rowcount
     conn.close()
-    
+
     return rows_affected > 0
 
 
-def get_deposit_by_tx_hash(tx_hash: str) -> Optional[Dict]:
+def get_deposit_by_tx_hash(tx_hash: str) -> dict | None:
     """Get deposit by transaction hash."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
         FROM eth_deposits
         WHERE tx_hash = ?
     """, (tx_hash,))
-    
+
     row = cursor.fetchone()
     conn.close()
-    
+
     if not row:
         return None
-    
+
     return {
         "id": row[0],
         "tx_hash": row[1],
@@ -154,21 +153,21 @@ def get_deposit_by_tx_hash(tx_hash: str) -> Optional[Dict]:
     }
 
 
-def get_all_deposits(limit: int = 50, offset: int = 0) -> List[Dict]:
+def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict]:
     """Get all deposits with pagination."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
         FROM eth_deposits
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
     """, (limit, offset))
-    
+
     rows = cursor.fetchall()
     conn.close()
-    
+
     return [
         {
             "id": row[0],
@@ -189,7 +188,7 @@ def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: floa
     """Insert a new price history record."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute(
         """
         INSERT INTO price_history (eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur)
@@ -197,16 +196,16 @@ def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: floa
         """,
         (eth_usd, eth_eur, exchange_rate_usd, exchange_rate_eur)
     )
-    
+
     conn.commit()
     conn.close()
 
 
-def get_all_time_average() -> Dict:
+def get_all_time_average() -> dict:
     """Get all-time average prices from history."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         SELECT 
             AVG(eth_usd_price) as avg_usd,
@@ -216,10 +215,10 @@ def get_all_time_average() -> Dict:
             COUNT(*) as count
         FROM price_history
     """)
-    
+
     result = cursor.fetchone()
     conn.close()
-    
+
     if result and result[4] > 0:  # count > 0
         return {
             "eth_usd_avg": result[0],
@@ -228,7 +227,7 @@ def get_all_time_average() -> Dict:
             "exchange_rate_eur_avg": result[3],
             "count": result[4]
         }
-    
+
     return None
 
 
@@ -236,16 +235,16 @@ def cleanup_old_prices(days: int = 30):
     """Clean up price history older than specified days."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute(
-        """
+        f"""
         DELETE FROM price_history
-        WHERE timestamp < datetime('now', '-{} days')
-        """.format(days)
+        WHERE timestamp < datetime('now', '-{days} days')
+        """
     )
-    
+
     deleted_count = cursor.rowcount
     conn.commit()
     conn.close()
-    
+
     return deleted_count

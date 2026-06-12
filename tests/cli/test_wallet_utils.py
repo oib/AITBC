@@ -38,16 +38,16 @@ class TestDecryptPrivateKey:
             }
         }
         mock_file.return_value.read.return_value = json.dumps(keystore_data)
-        
+
         with patch('aitbc_cli.utils.wallet.PBKDF2HMAC') as mock_kdf, \
              patch('aitbc_cli.utils.wallet.AESGCM') as mock_aesgcm:
-            
+
             mock_key = b'0' * 32
             mock_kdf.return_value.derive.return_value = mock_key
             mock_aesgcm.return_value.decrypt.return_value = b'decrypted_key'
-            
+
             result = decrypt_private_key(Path("/test/keystore.json"), "password")
-            
+
             assert result == '6465637279707465645f6b6579'  # hex of b'decrypted_key'
 
     @patch('builtins.open', new_callable=mock_open)
@@ -64,15 +64,15 @@ class TestDecryptPrivateKey:
             }
         }
         mock_file.return_value.read.return_value = json.dumps(keystore_data)
-        
+
         with patch('aitbc_cli.utils.wallet.hashlib.pbkdf2_hmac') as mock_pbkdf2, \
              patch('cryptography.fernet.Fernet') as mock_fernet:
-            
+
             mock_pbkdf2.return_value = b'0' * 32
             mock_fernet.return_value.decrypt.return_value = b'decrypted_key'
-            
+
             result = decrypt_private_key(Path("/test/keystore.json"), "password")
-            
+
             assert result == 'decrypted_key'
 
     @patch('builtins.open', new_callable=mock_open)
@@ -89,15 +89,15 @@ class TestDecryptPrivateKey:
             }
         }
         mock_file.return_value.read.return_value = json.dumps(keystore_data)
-        
+
         with patch('aitbc_cli.utils.wallet.hashlib.pbkdf2_hmac') as mock_pbkdf2, \
              patch('cryptography.fernet.Fernet') as mock_fernet:
-            
+
             mock_pbkdf2.return_value = b'0' * 32
             mock_fernet.return_value.decrypt.return_value = b'decrypted_key'
-            
+
             result = decrypt_private_key(Path("/test/keystore.json"), "password")
-            
+
             assert result == 'decrypted_key'
 
     @patch('builtins.open', new_callable=mock_open)
@@ -115,16 +115,16 @@ class TestDecryptPrivateKey:
             'ciphertext': '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         }
         mock_file.return_value.read.return_value = json.dumps(keystore_data)
-        
+
         with patch('aitbc_cli.utils.wallet.PBKDF2HMAC') as mock_kdf, \
              patch('aitbc_cli.utils.wallet.AESGCM') as mock_aesgcm:
-            
+
             mock_key = b'0' * 32
             mock_kdf.return_value.derive.return_value = mock_key
             mock_aesgcm.return_value.decrypt.return_value = b'decrypted_key'
-            
+
             result = decrypt_private_key(Path("/test/keystore.json"), "password")
-            
+
             assert result == '6465637279707465645f6b6579'
 
     @patch('builtins.open', new_callable=mock_open)
@@ -137,10 +137,10 @@ class TestDecryptPrivateKey:
             }
         }
         mock_file.return_value.read.return_value = json.dumps(keystore_data)
-        
+
         with pytest.raises(ValueError) as exc_info:
             decrypt_private_key(Path("/test/keystore.json"), "password")
-        
+
         assert "Unsupported cipher" in str(exc_info.value)
 
     @patch('builtins.open', new_callable=mock_open)
@@ -152,17 +152,17 @@ class TestDecryptPrivateKey:
             }
         }
         mock_file.return_value.read.return_value = json.dumps(keystore_data)
-        
+
         with pytest.raises(ValueError) as exc_info:
             decrypt_private_key(Path("/test/keystore.json"), "password")
-        
+
         assert "Unsupported cipher" in str(exc_info.value)
 
     @patch('builtins.open', new_callable=mock_open)
     def test_decrypt_file_not_found(self, mock_file):
         """Test error when keystore file doesn't exist"""
         mock_file.side_effect = FileNotFoundError("File not found")
-        
+
         with pytest.raises(FileNotFoundError):
             decrypt_private_key(Path("/nonexistent/keystore.json"), "password")
 
@@ -170,7 +170,7 @@ class TestDecryptPrivateKey:
     def test_decrypt_invalid_json(self, mock_file):
         """Test error when keystore file has invalid JSON"""
         mock_file.return_value.read.return_value = "invalid json"
-        
+
         with pytest.raises(json.JSONDecodeError):
             decrypt_private_key(Path("/test/keystore.json"), "password")
 
