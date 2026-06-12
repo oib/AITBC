@@ -6,7 +6,7 @@ Provides authentication, authorization, and access control mechanisms
 import os
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import jwt
@@ -39,10 +39,10 @@ class AccessController:
     Centralized access control for AITBC services
     Handles authentication, authorization, and access control
     """
-    
+
     def __init__(
         self,
-        secret_key: Optional[str] = None,
+        secret_key: str | None = None,
         algorithm: str = "HS256",
         token_expiry: int = 3600
     ):
@@ -58,7 +58,7 @@ class AccessController:
         self.algorithm = algorithm
         self.token_expiry = token_expiry
         self.jwt_available = JWT_AVAILABLE
-        
+
         # Role-based access control
         self.role_permissions = {
             "admin": ["*"],  # Full access
@@ -67,14 +67,14 @@ class AccessController:
             "service": ["read", "write"],
             "guest": ["read"]
         }
-        
-        logger.info(f"Access controller initialized (JWT available: {self.jwt_available})")
-    
+
+        logger.info("Access controller initialized (JWT available: %s)", self.jwt_available)
+
     def create_token(
         self,
         user_id: str,
-        roles: List[str],
-        additional_claims: Optional[Dict[str, Any]] = None
+        roles: list[str],
+        additional_claims: dict[str, Any] | None = None
     ) -> str:
         """
         Create JWT token for user
@@ -89,10 +89,10 @@ class AccessController:
         """
         if not self.jwt_available:
             raise AccessControlError("JWT not available")
-        
+
         now = datetime.utcnow()
         expiry = now + timedelta(seconds=self.token_expiry)
-        
+
         claims = {
             "sub": user_id,
             "roles": roles,
@@ -100,14 +100,14 @@ class AccessController:
             "exp": expiry.timestamp(),
             "iss": "aitbc"
         }
-        
+
         if additional_claims:
             claims.update(additional_claims)
-        
+
         token = jwt.encode(claims, self.secret_key, algorithm=self.algorithm)
         return token
-    
-    def verify_token(self, token: str) -> Dict[str, Any]:
+
+    def verify_token(self, token: str) -> dict[str, Any]:
         """
         Verify and decode JWT token
         
@@ -122,7 +122,7 @@ class AccessController:
         """
         if not self.jwt_available:
             raise AccessControlError("JWT not available")
-        
+
         try:
             claims = jwt.decode(
                 token,
@@ -135,10 +135,10 @@ class AccessController:
             raise AuthenticationError("Token has expired")
         except jwt.InvalidTokenError as e:
             raise AuthenticationError(f"Invalid token: {str(e)}")
-    
+
     def check_permission(
         self,
-        user_roles: List[str],
+        user_roles: list[str],
         required_permission: str
     ) -> bool:
         """
@@ -156,9 +156,9 @@ class AccessController:
                 permissions = self.role_permissions[role]
                 if "*" in permissions or required_permission in permissions:
                     return True
-        
+
         return False
-    
+
     def require_role(self, *required_roles: str):
         """
         Decorator to require specific roles
@@ -176,25 +176,25 @@ class AccessController:
             def wrapper(*args, **kwargs):
                 # Extract token from kwargs or context
                 token = kwargs.get('token') or kwargs.get('auth_token')
-                
+
                 if not token:
                     raise AuthorizationError("Authentication required")
-                
+
                 try:
                     claims = self.verify_token(token)
                     user_roles = claims.get('roles', [])
-                    
+
                     # Check if user has any of the required roles
                     if not any(role in user_roles for role in required_roles):
                         raise AuthorizationError(f"Insufficient permissions. Required: {required_roles}")
-                    
+
                     return func(*args, **kwargs)
                 except AuthenticationError as e:
                     raise AuthorizationError(f"Authentication failed: {str(e)}")
-            
+
             return wrapper
         return decorator
-    
+
     def require_permission(self, *required_permissions: str):
         """
         Decorator to require specific permissions
@@ -212,23 +212,23 @@ class AccessController:
             def wrapper(*args, **kwargs):
                 # Extract token from kwargs or context
                 token = kwargs.get('token') or kwargs.get('auth_token')
-                
+
                 if not token:
                     raise AuthorizationError("Authentication required")
-                
+
                 try:
                     claims = self.verify_token(token)
                     user_roles = claims.get('roles', [])
-                    
+
                     # Check if user has all required permissions
                     for permission in required_permissions:
                         if not self.check_permission(user_roles, permission):
                             raise AuthorizationError(f"Insufficient permissions. Required: {required_permissions}")
-                    
+
                     return func(*args, **kwargs)
                 except AuthenticationError as e:
                     raise AuthorizationError(f"Authentication failed: {str(e)}")
-            
+
             return wrapper
         return decorator
 
@@ -237,8 +237,8 @@ class APIKeyAuth:
     """
     API Key authentication for service-to-service communication
     """
-    
-    def __init__(self, valid_keys: Optional[List[str]] = None):
+
+    def __init__(self, valid_keys: list[str] | None = None):
         """
         Initialize API key authenticator
         
@@ -251,9 +251,9 @@ class APIKeyAuth:
             self.valid_keys = [k.strip() for k in keys_str.split(",") if k.strip()]
         else:
             self.valid_keys = valid_keys
-        
-        logger.info(f"API Key auth initialized with {len(self.valid_keys)} valid keys")
-    
+
+        logger.info("API Key auth initialized with %d valid keys", len(self.valid_keys))
+
     def verify_key(self, api_key: str) -> bool:
         """
         Verify API key
@@ -265,7 +265,7 @@ class APIKeyAuth:
             True if key is valid, False otherwise
         """
         return api_key in self.valid_keys
-    
+
     def require_api_key(self):
         """
         Decorator to require valid API key
@@ -280,15 +280,15 @@ class APIKeyAuth:
             def wrapper(*args, **kwargs):
                 # Extract API key from kwargs or headers
                 api_key = kwargs.get('api_key') or kwargs.get('x_api_key')
-                
+
                 if not api_key:
                     raise AuthorizationError("API key required")
-                
+
                 if not self.verify_key(api_key):
                     raise AuthorizationError("Invalid API key")
-                
+
                 return func(*args, **kwargs)
-            
+
             return wrapper
         return decorator
 
@@ -297,9 +297,9 @@ class SecureHeaders:
     """
     Security headers for HTTP responses
     """
-    
+
     @staticmethod
-    def get_security_headers() -> Dict[str, str]:
+    def get_security_headers() -> dict[str, str]:
         """
         Get standard security headers
         
@@ -318,7 +318,7 @@ class SecureHeaders:
 
 
 # Global access controller instance
-_access_controller: Optional[AccessController] = None
+_access_controller: AccessController | None = None
 
 
 def get_access_controller() -> AccessController:

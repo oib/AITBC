@@ -27,7 +27,7 @@ def get_sessionmaker(engine: Engine) -> sessionmaker:
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-def get_db(engine: Engine) -> Generator[Session, None, None]:
+def get_db(engine: Engine) -> Generator[Session]:
     """Dependency for FastAPI endpoints."""
     Session = get_sessionmaker(engine)
     db = Session()

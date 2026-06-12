@@ -24,8 +24,6 @@ sys.path.insert(0, str(repo_root))
 
 # Import base user classes from existing load test files
 try:
-    import random
-    from datetime import datetime, timedelta, timezone
 
     from locust import HttpUser, between, task
 except Exception:

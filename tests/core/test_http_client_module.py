@@ -3,13 +3,13 @@ Tests for AITBC HTTP client module (network/http_client.py)
 This module has 11% coverage and 370 statements.
 """
 
-import asyncio
 import importlib.util
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -104,7 +104,7 @@ class TestAITBCHTTPClient:
         client = http_client.AITBCHTTPClient()
         client._circuit_open = True
         client._circuit_open_time = datetime.now()
-        
+
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client._check_circuit_breaker()
 
@@ -136,7 +136,7 @@ class TestAITBCHTTPClient:
     def test_rate_limit_exceeded(self):
         client = http_client.AITBCHTTPClient(rate_limit=2)
         client._request_times = [datetime.now(), datetime.now()]
-        
+
         with pytest.raises(http_client.RateLimitError):
             client._check_rate_limit()
 
@@ -205,7 +205,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         result = client.get("/test")
-        
+
         assert result == {"result": "success"}
         mock_get.assert_called_once()
 
@@ -213,9 +213,9 @@ class TestAITBCHTTPClient:
     def test_get_with_cache_hit(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com", enable_cache=True)
         client._cache["https://api.example.com/test"] = ({"cached": True}, datetime.now())
-        
+
         result = client.get("/test")
-        
+
         assert result == {"cached": True}
         mock_get.assert_not_called()
 
@@ -228,7 +228,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com", enable_cache=True)
         result = client.get("/test")
-        
+
         assert result == {"result": "success"}
         assert "https://api.example.com/test" in client._cache
 
@@ -237,7 +237,7 @@ class TestAITBCHTTPClient:
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         client._circuit_open = True
         client._circuit_open_time = datetime.now()
-        
+
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client.get("/test")
 
@@ -245,7 +245,7 @@ class TestAITBCHTTPClient:
     def test_get_rate_limit_exceeded(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com", rate_limit=1)
         client._request_times = [datetime.now()]
-        
+
         with pytest.raises(http_client.RateLimitError):
             client.get("/test")
 
@@ -258,7 +258,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         result = client.get("/test", params={"page": 1})
-        
+
         assert result == {"result": "success"}
         mock_get.assert_called_once()
 
@@ -271,7 +271,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         result = client.get("/test", headers={"Custom": "Header"})
-        
+
         assert result == {"result": "success"}
 
     @patch('requests.Session.post')
@@ -283,7 +283,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         result = client.post("/test", json={"data": "value"})
-        
+
         assert result == {"result": "success"}
         mock_post.assert_called_once()
 
@@ -292,7 +292,7 @@ class TestAITBCHTTPClient:
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         client._circuit_open = True
         client._circuit_open_time = datetime.now()
-        
+
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client.post("/test")
 
@@ -305,7 +305,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         result = client.put("/test", json={"data": "value"})
-        
+
         assert result == {"result": "success"}
         mock_put.assert_called_once()
 
@@ -318,7 +318,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         result = client.delete("/test")
-        
+
         assert result == {"result": "success"}
         mock_delete.assert_called_once()
 
@@ -331,7 +331,7 @@ class TestAITBCHTTPClient:
 
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         result = client.delete("/test")
-        
+
         assert result == {}
 
     def test_context_manager(self):
@@ -380,7 +380,7 @@ class TestAsyncAITBCHTTPClient:
             import httpx
         except ImportError:
             pytest.skip("httpx not available")
-        
+
         client = http_client.AsyncAITBCHTTPClient(base_url="https://api.example.com")
         async with client:
             assert client._client is not None
@@ -394,7 +394,7 @@ class TestAsyncAITBCHTTPClient:
         client = http_client.AsyncAITBCHTTPClient()
         client._circuit_open = True
         client._circuit_open_time = datetime.now()
-        
+
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client._check_circuit_breaker()
 
@@ -406,7 +406,7 @@ class TestAsyncAITBCHTTPClient:
     def test_async_rate_limit_exceeded(self):
         client = http_client.AsyncAITBCHTTPClient(rate_limit=2)
         client._request_times = [datetime.now(), datetime.now()]
-        
+
         with pytest.raises(http_client.RateLimitError):
             client._check_rate_limit()
 

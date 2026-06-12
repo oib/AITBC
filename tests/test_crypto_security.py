@@ -182,10 +182,10 @@ class TestSessionManager:
         """Test cleanup_expired_sessions method"""
         manager = SessionManager(session_timeout=0)
         session_id = manager.create_session("user123")
-        
+
         import time
         time.sleep(0.1)
-        
+
         count = manager.cleanup_expired_sessions()
         assert count >= 0
 
@@ -246,7 +246,7 @@ class TestAPIKeyManager:
         key1 = manager.create_api_key("user123")
         key2 = manager.create_api_key("user123")
         key3 = manager.create_api_key("user456")
-        
+
         user_keys = manager.list_user_keys("user123")
         assert len(user_keys) == 2
         assert key1 in user_keys

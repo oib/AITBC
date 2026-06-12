@@ -26,26 +26,26 @@ class TestHandleResourceStatus:
         mock_cpu = Mock()
         mock_cpu.percent = 45
         mock_psutil.cpu_percent.return_value = 45
-        
+
         mock_memory = Mock()
         mock_memory.percent = 60
         mock_psutil.virtual_memory.return_value = mock_memory
-        
+
         mock_disk = Mock()
         mock_disk.percent = 70
         mock_psutil.disk_usage.return_value = mock_disk
-        
+
         args = Mock()
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_status
         handle_resource_status(args, output_format, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.resource.psutil')
@@ -55,25 +55,25 @@ class TestHandleResourceStatus:
         mock_cpu = Mock()
         mock_cpu.percent = 45
         mock_psutil.cpu_percent.return_value = 45
-        
+
         mock_memory = Mock()
         mock_memory.percent = 60
         mock_psutil.virtual_memory.return_value = mock_memory
-        
+
         mock_disk = Mock()
         mock_disk.percent = 70
         mock_psutil.disk_usage.return_value = mock_disk
-        
+
         args = Mock()
-        
+
         def output_format(args):
             return "text"
-        
+
         mock_render = Mock()
-        
+
         from handlers.resource import handle_resource_status
         handle_resource_status(args, output_format, mock_render)
-        
+
         mock_render.assert_called_once()
 
     @patch('handlers.resource.psutil')
@@ -81,17 +81,17 @@ class TestHandleResourceStatus:
     def test_handle_resource_status_exception(self, mock_logger, mock_psutil):
         """Test resource status with exception"""
         mock_psutil.cpu_percent.side_effect = Exception("System error")
-        
+
         args = Mock()
-        
+
         def output_format(args):
             return "text"
-        
+
         mock_render = Mock()
-        
+
         from handlers.resource import handle_resource_status
         handle_resource_status(args, output_format, mock_render)
-        
+
         mock_logger.error.assert_called()
 
 
@@ -108,18 +108,18 @@ class TestHandleResourceAllocate:
         mock_response.status_code = 200
         mock_response.json.return_value = {"session_token": "token123"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.agent_id = "miner1"
         args.cpu = 4
         args.memory = 8192
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_allocate
         handle_resource_allocate(args, render_mapping)
-        
+
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
 
@@ -133,18 +133,18 @@ class TestHandleResourceAllocate:
         mock_response.status_code = 200
         mock_response.json.return_value = {"session_token": "token123"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.agent_id = None
         args.cpu = None
         args.memory = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_allocate
         handle_resource_allocate(args, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.resource.os.getenv')
@@ -154,18 +154,18 @@ class TestHandleResourceAllocate:
         mock_getenv.return_value = 'test-api-key'
         """Test resource allocation with exception"""
         mock_post.side_effect = Exception("Connection error")
-        
+
         args = Mock()
         args.agent_id = "miner1"
         args.cpu = 4
         args.memory = 8192
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_allocate
         handle_resource_allocate(args, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
 
@@ -178,13 +178,13 @@ class TestHandleResourceMonitor:
         args = Mock()
         args.interval = None
         args.duration = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_monitor
         handle_resource_monitor(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.resource.logger')
@@ -193,13 +193,13 @@ class TestHandleResourceMonitor:
         args = Mock()
         args.interval = 10
         args.duration = 60
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_monitor
         handle_resource_monitor(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
 
@@ -211,13 +211,13 @@ class TestHandleResourceOptimize:
         """Test resource optimization with default target"""
         args = Mock()
         args.target = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_optimize
         handle_resource_optimize(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.resource.logger')
@@ -225,13 +225,13 @@ class TestHandleResourceOptimize:
         """Test resource optimization with custom target"""
         args = Mock()
         args.target = "memory"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_optimize
         handle_resource_optimize(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
 
@@ -243,13 +243,13 @@ class TestHandleResourceBenchmark:
         """Test CPU benchmark"""
         args = Mock()
         args.type = "cpu"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_benchmark
         handle_resource_benchmark(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.resource.logger')
@@ -257,13 +257,13 @@ class TestHandleResourceBenchmark:
         """Test memory benchmark"""
         args = Mock()
         args.type = "memory"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_benchmark
         handle_resource_benchmark(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.resource.logger')
@@ -271,13 +271,13 @@ class TestHandleResourceBenchmark:
         """Test benchmark with default type"""
         args = Mock()
         args.type = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_benchmark
         handle_resource_benchmark(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.resource.logger')
@@ -285,13 +285,13 @@ class TestHandleResourceBenchmark:
         """Test benchmark with exception"""
         args = Mock()
         args.type = "invalid"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         from handlers.resource import handle_resource_benchmark
         handle_resource_benchmark(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
 

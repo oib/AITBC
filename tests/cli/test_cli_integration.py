@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import httpx
 import pytest
 from click.testing import CliRunner
 from starlette.testclient import TestClient as StarletteTestClient
@@ -66,6 +65,7 @@ def _bypass_api_key_auth():
 def mock_config():
     """Patch get_config so CLI commands route to the test server."""
     from unittest.mock import Mock
+
     from aitbc_cli import config as config_module
 
     mock_cfg = Mock()

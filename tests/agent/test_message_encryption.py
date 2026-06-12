@@ -29,7 +29,7 @@ class TestAgentKeyPair:
         agent_id = "test_agent_001"
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         key_pair = encryptor.generate_key_pair(agent_id)
-        
+
         assert key_pair.agent_id == agent_id
         assert key_pair.public_key is not None
         assert key_pair.private_key is not None
@@ -41,14 +41,14 @@ class TestAgentKeyPair:
         agent_id = "test_agent_002"
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         key_pair = encryptor.generate_key_pair(agent_id)
-        
+
         # Convert to dict
         key_dict = key_pair.to_dict()
         assert "agent_id" in key_dict
         assert "public_key" in key_dict
         assert "private_key" in key_dict
         assert "key_id" in key_dict
-        
+
         # Convert from dict
         restored_key_pair = AgentKeyPair.from_dict(key_dict)
         assert restored_key_pair.agent_id == key_pair.agent_id
@@ -59,7 +59,7 @@ class TestAgentKeyPair:
         agent_id = "test_agent_003"
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(agent_id)
-        
+
         public_key = encryptor.get_public_key(agent_id)
         assert public_key is not None
         assert len(public_key) > 0
@@ -68,14 +68,14 @@ class TestAgentKeyPair:
         """Test registering a public key from another agent"""
         agent_id = "test_agent_004"
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
-        
+
         # Generate key pair for agent
         key_pair = encryptor.generate_key_pair(agent_id)
-        
+
         # Register same public key as external (simulating another agent)
         success = encryptor.register_public_key(f"{agent_id}_external", key_pair.public_key)
         assert success is True
-        
+
         # Retrieve the registered key
         external_key = encryptor.get_public_key(f"{agent_id}_external")
         assert external_key is not None
@@ -91,7 +91,7 @@ class TestEncryptedMessage:
         session_key = b"session_key"
         nonce = b"nonce"
         signature = b"signature"
-        
+
         encrypted_msg = EncryptedMessage(
             ciphertext=ciphertext,
             session_key=session_key,
@@ -99,7 +99,7 @@ class TestEncryptedMessage:
             signature=signature,
             sender_id=sender_id
         )
-        
+
         assert encrypted_msg.ciphertext == ciphertext
         assert encrypted_msg.session_key == session_key
         assert encrypted_msg.nonce == nonce
@@ -117,7 +117,7 @@ class TestEncryptedMessage:
             signature=b"signature",
             sender_id=sender_id
         )
-        
+
         # Convert to dict
         msg_dict = encrypted_msg.to_dict()
         assert "ciphertext" in msg_dict
@@ -126,7 +126,7 @@ class TestEncryptedMessage:
         assert "signature" in msg_dict
         assert "sender_id" in msg_dict
         assert "timestamp" in msg_dict
-        
+
         # Convert from dict
         restored_msg = EncryptedMessage.from_dict(msg_dict)
         assert restored_msg.sender_id == encrypted_msg.sender_id
@@ -140,23 +140,23 @@ class TestMessageEncryption:
         """Test encrypting a message for a recipient"""
         sender_id = "agent_001"
         recipient_id = "agent_002"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(sender_id)
         encryptor.generate_key_pair(recipient_id)
-        
+
         message_content = {
             "content": "Hello, this is a test message",
             "message_type": "direct",
             "timestamp": datetime.now(UTC).isoformat()
         }
-        
+
         encrypted_msg = encryptor.encrypt_message(
             message=message_content,
             sender_id=sender_id,
             recipient_id=recipient_id
         )
-        
+
         assert encrypted_msg is not None
         assert encrypted_msg.sender_id == sender_id
         assert encrypted_msg.ciphertext is not None
@@ -167,29 +167,29 @@ class TestMessageEncryption:
         """Test decrypting a message"""
         sender_id = "agent_003"
         recipient_id = "agent_004"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(sender_id)
         encryptor.generate_key_pair(recipient_id)
-        
+
         message_content = {
             "content": "Decryption test message",
             "message_type": "direct"
         }
-        
+
         # Encrypt message
         encrypted_msg = encryptor.encrypt_message(
             message=message_content,
             sender_id=sender_id,
             recipient_id=recipient_id
         )
-        
+
         # Decrypt message
         decrypted_message = encryptor.decrypt_message(
             encrypted_msg=encrypted_msg,
             recipient_id=recipient_id
         )
-        
+
         assert decrypted_message is not None
         assert decrypted_message["content"] == message_content["content"]
         assert decrypted_message["message_type"] == message_content["message_type"]
@@ -198,38 +198,38 @@ class TestMessageEncryption:
         """Test verifying message signature"""
         sender_id = "agent_005"
         recipient_id = "agent_006"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(sender_id)
         encryptor.generate_key_pair(recipient_id)
-        
+
         message_content = {"content": "Signature test"}
-        
+
         encrypted_msg = encryptor.encrypt_message(
             message=message_content,
             sender_id=sender_id,
             recipient_id=recipient_id
         )
-        
+
         # Verify signature
         is_valid = encryptor.verify_signature(
             encrypted_msg=encrypted_msg,
             sender_id=sender_id
         )
-        
+
         assert is_valid is True
 
     def test_key_pair_rotation(self):
         """Test rotating key pairs"""
         agent_id = "agent_007"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         old_key = encryptor.generate_key_pair(agent_id)
         old_public_key = old_key.public_key
-        
+
         # Rotate key
         new_key = encryptor.rotate_key_pair(agent_id)
-        
+
         assert new_key is not None
         assert new_key.agent_id == agent_id
         assert new_key.public_key != old_public_key  # Keys should be different
@@ -239,19 +239,19 @@ class TestMessageEncryption:
         """Test encryption fails when recipient has no key"""
         sender_id = "agent_008"
         recipient_id = "agent_009"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(sender_id)
         # Don't generate recipient key
-        
+
         message_content = {"content": "Test"}
-        
+
         encrypted_msg = encryptor.encrypt_message(
             message=message_content,
             sender_id=sender_id,
             recipient_id=recipient_id
         )
-        
+
         assert encrypted_msg is None
 
     @pytest.mark.skip("Isolation failure in full suite")
@@ -259,11 +259,11 @@ class TestMessageEncryption:
         """Test decryption fails when sender has no key"""
         sender_id = "agent_010"
         recipient_id = "agent_011"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(recipient_id)
         # Don't generate sender key
-        
+
         # Manually create encrypted message (simulating external sender)
         from app.encryption.message_encryption import EncryptedMessage
         encrypted_msg = EncryptedMessage(
@@ -273,62 +273,62 @@ class TestMessageEncryption:
             signature=b"test",
             sender_id=sender_id
         )
-        
+
         decrypted = encryptor.decrypt_message(
             encrypted_msg=encrypted_msg,
             recipient_id=recipient_id
         )
-        
+
         assert decrypted is None
 
     def test_encryption_with_large_message(self):
         """Test encryption of large message"""
         sender_id = "agent_large_1"
         recipient_id = "agent_large_2"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(sender_id)
         encryptor.generate_key_pair(recipient_id)
-        
+
         # Large message
         large_message = {"content": "A" * 10000}
-        
+
         encrypted_msg = encryptor.encrypt_message(
             message=large_message,
             sender_id=sender_id,
             recipient_id=recipient_id
         )
-        
+
         decrypted = encryptor.decrypt_message(
             encrypted_msg=encrypted_msg,
             recipient_id=recipient_id
         )
-        
+
         assert decrypted == large_message
 
     def test_encryption_with_special_characters(self):
         """Test encryption of message with special characters"""
         sender_id = "agent_special_1"
         recipient_id = "agent_special_2"
-        
+
         encryptor = MessageEncryptor(keys_dir="/tmp/test_agent_keys")
         encryptor.generate_key_pair(sender_id)
         encryptor.generate_key_pair(recipient_id)
-        
+
         # Message with special characters
         special_message = {"content": "Test @#$%^&*()_+-=[]{}|;':,.<>?/~"}
-        
+
         encrypted_msg = encryptor.encrypt_message(
             message=special_message,
             sender_id=sender_id,
             recipient_id=recipient_id
         )
-        
+
         decrypted = encryptor.decrypt_message(
             encrypted_msg=encrypted_msg,
             recipient_id=recipient_id
         )
-        
+
         assert decrypted == special_message
 
     def test_encryption_with_multiple_recipients(self):

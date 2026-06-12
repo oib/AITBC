@@ -684,20 +684,20 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             import sys
             sys.path.insert(0, '/opt/aitbc')
             from aitbc.oracles.price_oracle import get_price_oracle
-            
+
             oracle = get_price_oracle()
             eth_usd = oracle.get_price('ETH', 'USD')
             eth_eur = oracle.get_price('ETH', 'EUR')
             ait_usd = oracle.get_price('AIT', 'USD')
-            
+
             # Calculate AIT/EUR from ETH prices
             ait_eur_price = None
             if eth_usd and eth_eur and ait_usd:
                 ait_eur_price = (ait_usd.price * eth_eur.price) / eth_usd.price
-            
+
             # Calculate ETH/AIT rate
             eth_ait_rate = (eth_usd.price / ait_usd.price) if eth_usd and ait_usd else 0
-            
+
             self.send_json_response({
                 'success': True,
                 'current': {
@@ -719,10 +719,10 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             import sys
             sys.path.insert(0, '/opt/aitbc')
             from aitbc.oracles.price_oracle import get_price_oracle
-            
+
             oracle = get_price_oracle()
             ait_usd = oracle.get_price('AIT', 'USD')
-            
+
             if ait_usd:
                 self.send_json_response({
                     'price': ait_usd.price,
@@ -805,24 +805,24 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             import sys
             sys.path.insert(0, '/opt/aitbc')
             from aitbc.oracles.price_oracle import get_price_oracle
-            
+
             body = self._read_json_body()
             eth_amount = float(body.get('eth_amount', 0))
             ait_address = body.get('ait_address', '')
-            
+
             if not eth_amount or not ait_address:
                 self.send_json_response({'error': 'eth_amount and ait_address required'}, status=400)
                 return
-            
+
             # Get bridge configuration
             bridge_eth_address = os.getenv('BRIDGE_ETH_ADDRESS')
             min_eth_deposit = float(os.getenv('MIN_ETH_DEPOSIT', '0.001'))
             eth_network = os.getenv('ETH_NETWORK', 'sepolia')
-            
+
             if not bridge_eth_address:
                 self.send_json_response({'error': 'Bridge not configured - BRIDGE_ETH_ADDRESS not set'}, status=500)
                 return
-            
+
             # Validate minimum deposit
             if eth_amount < min_eth_deposit:
                 self.send_json_response({
@@ -830,21 +830,21 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     'min_deposit': min_eth_deposit
                 }, status=400)
                 return
-            
+
             # Get prices for estimate
             oracle = get_price_oracle()
             eth_usd = oracle.get_price('ETH', 'USD')
             ait_usd = oracle.get_price('AIT', 'USD')
-            
+
             # Calculate AIT amount
             ait_amount = None
             if eth_usd and ait_usd and ait_usd.price > 0:
                 ait_amount = (eth_amount * eth_usd.price) / ait_usd.price
-            
+
             # Calculate fee (0.5%)
             fee_eth = eth_amount * 0.005
             net_eth = eth_amount - fee_eth
-            
+
             self.send_json_response({
                 'status': 'ready',
                 'message': 'Send ETH to the bridge address with your AIT address in transaction data',
@@ -873,15 +873,15 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         try:
             import sys
             sys.path.insert(0, '/opt/aitbc')
-            
+
             body = self._read_json_body()
             ait_amount = float(body.get('ait_amount', 0))
             eth_address = body.get('eth_address', '')
-            
+
             if not ait_amount or not eth_address:
                 self.send_json_response({'error': 'ait_amount and eth_address required'}, status=400)
                 return
-            
+
             # Feature is disabled
             self.send_json_response({
                 'status': 'disabled',
@@ -900,12 +900,12 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             from urllib.parse import parse_qs
             sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
             from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
-            
+
             params = parse_qs(parsed.query)
             status_filter = params.get('status', [None])[0]
             limit = int(params.get('limit', [50])[0])
             offset = int(params.get('offset', [0])[0])
-            
+
             status = None
             if status_filter:
                 try:
@@ -913,10 +913,10 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 except ValueError:
                     self.send_json_response({'error': f'Invalid status: {status_filter}'}, status=400)
                     return
-            
+
             deposits = get_deposits(status=status, limit=limit, offset=offset)
             total = count_deposits(status=status)
-            
+
             # Convert sqlite3.Row objects to dicts if needed
             deposits_list = []
             for d in deposits:
@@ -925,7 +925,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 else:
                     # sqlite3.Row object
                     deposits_list.append(dict(d))
-            
+
             self.send_json_response({
                 'deposits': deposits_list,
                 'count': len(deposits_list),
@@ -942,12 +942,12 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             import sys
             sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
             from bridge_monitor.storage import get_deposit
-            
+
             deposit = get_deposit(tx_hash)
             if not deposit:
                 self.send_json_response({'error': 'Deposit not found'}, status=404)
                 return
-            
+
             self.send_json_response(deposit)
         except Exception as e:
             self.send_json_response({'error': str(e)}, status=500)
@@ -957,32 +957,32 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         try:
             body = self._read_json_body()
             eth_amount = float(body.get('eth_amount', 0))
-            
+
             if eth_amount <= 0:
                 self.send_json_response({'error': 'eth_amount must be positive'}, status=400)
                 return
-            
+
             import sys
             sys.path.insert(0, '/opt/aitbc')
             from aitbc.oracles.price_oracle import get_price_oracle
-            
+
             oracle = get_price_oracle()
             eth_usd_result = oracle.get_price('ETH', 'USD')
             ait_usd_result = oracle.get_price('AIT', 'USD')
-            
+
             if not eth_usd_result or not ait_usd_result:
                 self.send_json_response({'error': 'Cannot get oracle prices'}, status=503)
                 return
-            
+
             eth_usd = eth_usd_result.price
             ait_usd = ait_usd_result.price
-            
+
             if ait_usd == 0:
                 self.send_json_response({'error': 'AIT/USD price is zero'}, status=503)
                 return
-            
+
             ait_amount = (eth_amount * eth_usd) / ait_usd
-            
+
             self.send_json_response({
                 'eth_amount': eth_amount,
                 'eth_usd_price': eth_usd,

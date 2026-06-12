@@ -76,7 +76,7 @@ def main() -> int:
 
     keystore_path = Path(os.getenv("WALLET_DIR", str(KEYSTORE_DIR)))
     print(f"Scanning keystore: {keystore_path}")
-    print(f"Using password from WALLET_IMPORT_PASSWORD env var")
+    print("Using password from WALLET_IMPORT_PASSWORD env var")
 
     migrated, skipped = migrate_wallets(keystore_path, password)
 

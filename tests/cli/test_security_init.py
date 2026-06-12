@@ -28,7 +28,7 @@ class TestSecurityInit:
             get_translation_security_report,
             secure_translation,
         )
-        
+
         assert CLITranslationSecurityManager is not None
         assert SecurityLevel is not None
         assert TranslationMode is not None
@@ -40,7 +40,7 @@ class TestSecurityInit:
     def test_security_all_exports(self):
         """Test __all__ contains expected exports"""
         import security
-        
+
         expected_exports = [
             "CLITranslationSecurityManager",
             "SecurityLevel",
@@ -50,7 +50,7 @@ class TestSecurityInit:
             "configure_translation_security",
             "get_translation_security_report"
         ]
-        
+
         for export in expected_exports:
             assert export in security.__all__
 

@@ -38,7 +38,7 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path, pool_size=5)
-            
+
             assert service.db_path == db_path
             assert service.pool_size == 5
             assert service._connections == []
@@ -49,7 +49,7 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "subdir" / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             assert db_path.parent.exists()
             assert db_path.exists()
 
@@ -58,7 +58,7 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             with service.get_connection() as conn:
                 assert conn is not None
 
@@ -67,11 +67,11 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             with service.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("CREATE TABLE test (id INTEGER)")
-            
+
             # Verify table exists
             with service.get_connection() as conn:
                 cursor = conn.cursor()
@@ -108,15 +108,15 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             # Create table and insert data
             service.execute_update("CREATE TABLE test (id INTEGER, name TEXT)")
             service.execute_update("INSERT INTO test (id, name) VALUES (?, ?)", (1, "Alice"))
             service.execute_update("INSERT INTO test (id, name) VALUES (?, ?)", (2, "Bob"))
-            
+
             # Query data
             results = service.execute_query("SELECT * FROM test")
-            
+
             assert len(results) == 2
             assert results[0]["id"] == 1
             assert results[0]["name"] == "Alice"
@@ -128,13 +128,13 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             service.execute_update("CREATE TABLE test (id INTEGER, name TEXT)")
             service.execute_update("INSERT INTO test (id, name) VALUES (?, ?)", (1, "Alice"))
             service.execute_update("INSERT INTO test (id, name) VALUES (?, ?)", (2, "Bob"))
-            
+
             results = service.execute_query("SELECT * FROM test WHERE id = ?", (1,))
-            
+
             assert len(results) == 1
             assert results[0]["name"] == "Alice"
 
@@ -143,9 +143,9 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             service.execute_update("CREATE TABLE test (id INTEGER)")
-            
+
             results = service.execute_query("SELECT * FROM test")
             assert results == []
 
@@ -154,9 +154,9 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             service.execute_update("CREATE TABLE test (id INTEGER, name TEXT)")
-            
+
             rowcount = service.execute_update("INSERT INTO test (id, name) VALUES (?, ?)", (1, "Alice"))
             assert rowcount == 1
 
@@ -165,12 +165,12 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             service.execute_update("CREATE TABLE test (id INTEGER, active INTEGER)")
             service.execute_update("INSERT INTO test (id, active) VALUES (?, ?)", (1, 1))
             service.execute_update("INSERT INTO test (id, active) VALUES (?, ?)", (2, 1))
             service.execute_update("INSERT INTO test (id, active) VALUES (?, ?)", (3, 0))
-            
+
             rowcount = service.execute_update("UPDATE test SET active = 0 WHERE active = 1")
             assert rowcount == 2
 
@@ -179,18 +179,18 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             service.execute_update("CREATE TABLE test (id INTEGER, name TEXT)")
-            
+
             queries = [
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (1, "Alice")),
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (2, "Bob")),
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (3, "Charlie"))
             ]
-            
+
             result = service.execute_transaction(queries)
             assert result is True
-            
+
             # Verify all rows inserted
             results = service.execute_query("SELECT * FROM test")
             assert len(results) == 3
@@ -200,18 +200,18 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             service.execute_update("CREATE TABLE test (id INTEGER, name TEXT)")
-            
+
             queries = [
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (1, "Alice")),
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (2, "Bob")),
                 ("INSERT INTO test (id, name, invalid) VALUES (?, ?, ?)", (3, "Charlie", "error"))  # Invalid
             ]
-            
+
             with pytest.raises(Exception):
                 service.execute_transaction(queries)
-            
+
             # Verify no rows inserted
             results = service.execute_query("SELECT * FROM test")
             assert len(results) == 0
@@ -221,14 +221,14 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path, pool_size=3)
-            
+
             # Get multiple connections
             conn1 = service._get_connection()
             conn2 = service._get_connection()
             conn3 = service._get_connection()
-            
+
             assert len(service._connections) == 3
-            
+
             # Should reuse connections
             conn4 = service._get_connection()
             assert len(service._connections) == 3
@@ -238,15 +238,15 @@ class TestSQLiteDatabaseService:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = SQLiteDatabaseService(db_path)
-            
+
             # Create some connections
             service._get_connection()
             service._get_connection()
-            
+
             assert len(service._connections) == 2
-            
+
             service.close()
-            
+
             assert len(service._connections) == 0
 
 
@@ -258,7 +258,7 @@ class TestDatabaseServiceFactory:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = DatabaseServiceFactory.create_sqlite_service(db_path, pool_size=5)
-            
+
             assert isinstance(service, SQLiteDatabaseService)
             assert service.db_path == db_path
             assert service.pool_size == 5
@@ -268,14 +268,14 @@ class TestDatabaseServiceFactory:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             service = DatabaseServiceFactory.create_service("sqlite", db_path=db_path, pool_size=3)
-            
+
             assert isinstance(service, SQLiteDatabaseService)
 
     def test_create_service_unknown_type(self):
         """Test create_service with unknown type raises error"""
         with pytest.raises(ValueError) as exc_info:
             DatabaseServiceFactory.create_service("unknown_type")
-        
+
         assert "Unknown database type" in str(exc_info.value)
 
 
