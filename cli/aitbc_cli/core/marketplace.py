@@ -183,7 +183,7 @@ class GlobalChainMarketplace:
             return listing_id
 
         except Exception as e:
-            logger.error(f"Error creating listing: {e}")
+            logger.error("Error creating listing: %s", e)
             return None
 
     async def purchase_chain(self, listing_id: str, buyer_id: str, payment_method: str) -> str | None:
@@ -238,7 +238,7 @@ class GlobalChainMarketplace:
             return transaction_id
 
         except Exception as e:
-            logger.error(f"Error purchasing chain: {e}")
+            logger.error("Error purchasing chain: %s", e)
             return None
 
     async def complete_transaction(self, transaction_id: str, transaction_hash: str) -> bool:
@@ -269,7 +269,7 @@ class GlobalChainMarketplace:
             return True
 
         except Exception as e:
-            logger.error(f"Error completing transaction: {e}")
+            logger.error("Error completing transaction: %s", e)
             return False
 
     async def get_chain_economy(self, chain_id: str) -> ChainEconomy | None:
@@ -297,7 +297,7 @@ class GlobalChainMarketplace:
             return self.chain_economies[chain_id]
 
         except Exception as e:
-            logger.error(f"Error getting chain economy: {e}")
+            logger.error("Error getting chain economy: %s", e)
             return None
 
     async def search_listings(self, chain_type: ChainType | None = None,
@@ -334,7 +334,7 @@ class GlobalChainMarketplace:
             return results
 
         except Exception as e:
-            logger.error(f"Error searching listings: {e}")
+            logger.error("Error searching listings: %s", e)
             return []
 
     async def get_user_transactions(self, user_id: str, role: str = "both") -> list[MarketplaceTransaction]:
@@ -360,7 +360,7 @@ class GlobalChainMarketplace:
             return results
 
         except Exception as e:
-            logger.error(f"Error getting user transactions: {e}")
+            logger.error("Error getting user transactions: %s", e)
             return []
 
     async def get_marketplace_overview(self) -> dict[str, Any]:
@@ -389,7 +389,7 @@ class GlobalChainMarketplace:
             return overview
 
         except Exception as e:
-            logger.error(f"Error getting marketplace overview: {e}")
+            logger.error("Error getting marketplace overview: %s", e)
             return {}
 
     async def _create_escrow_contract(self, transaction: MarketplaceTransaction):
@@ -413,7 +413,7 @@ class GlobalChainMarketplace:
             self.escrow_contracts[transaction.escrow_address] = escrow_contract
 
         except Exception as e:
-            logger.error(f"Error creating escrow contract: {e}")
+            logger.error("Error creating escrow contract: %s", e)
     async def _release_escrow(self, transaction: MarketplaceTransaction):
         """Release escrow funds"""
         try:
@@ -435,7 +435,7 @@ class GlobalChainMarketplace:
                 }
 
         except Exception as e:
-            logger.error(f"Error releasing escrow: {e}")
+            logger.error("Error releasing escrow: %s", e)
     async def _update_chain_economy(self, chain_id: str, transaction_price: Decimal | None = None):
         """Update chain economic metrics"""
         try:
@@ -478,7 +478,7 @@ class GlobalChainMarketplace:
             economy.last_updated = datetime.now()
 
         except Exception as e:
-            logger.error(f"Error updating chain economy: {e}")
+            logger.error("Error updating chain economy: %s", e)
     async def _update_market_metrics(self):
         """Update marketplace performance metrics"""
         try:
@@ -536,7 +536,7 @@ class GlobalChainMarketplace:
             )
 
         except Exception as e:
-            logger.error(f"Error updating market metrics: {e}")
+            logger.error("Error updating market metrics: %s", e)
     def _update_user_reputation(self, user_id: str, delta: float):
         """Update user reputation"""
         try:
@@ -544,7 +544,7 @@ class GlobalChainMarketplace:
             new_rep = max(0.0, min(1.0, current_rep + delta))
             self.user_reputations[user_id] = new_rep
         except Exception as e:
-            logger.error(f"Error updating user reputation: {e}")
+            logger.error("Error updating user reputation: %s", e)
     async def _calculate_24h_volume(self) -> Decimal:
         """Calculate 24-hour trading volume"""
         try:
@@ -556,7 +556,7 @@ class GlobalChainMarketplace:
 
             return sum(t.price for t in recent_transactions)
         except Exception as e:
-            logger.error(f"Error calculating 24h volume: {e}")
+            logger.error("Error calculating 24h volume: %s", e)
             return Decimal('0')
 
     async def _get_top_performing_chains(self, limit: int = 10) -> list[dict[str, Any]]:
@@ -582,7 +582,7 @@ class GlobalChainMarketplace:
             return top_chains[:limit]
 
         except Exception as e:
-            logger.error(f"Error getting top performing chains: {e}")
+            logger.error("Error getting top performing chains: %s", e)
             return []
 
     async def _calculate_price_trends(self) -> dict[str, list[float]]:
@@ -601,7 +601,7 @@ class GlobalChainMarketplace:
             return trends
 
         except Exception as e:
-            logger.error(f"Error calculating price trends: {e}")
+            logger.error("Error calculating price trends: %s", e)
             return {}
 
     async def _get_chain_types_distribution(self) -> dict[str, int]:
@@ -615,7 +615,7 @@ class GlobalChainMarketplace:
             return dict(distribution)
 
         except Exception as e:
-            logger.error(f"Error getting chain types distribution: {e}")
+            logger.error("Error getting chain types distribution: %s", e)
             return {}
 
     async def _get_user_activity_metrics(self) -> dict[str, Any]:
@@ -637,7 +637,7 @@ class GlobalChainMarketplace:
             }
 
         except Exception as e:
-            logger.error(f"Error getting user activity metrics: {e}")
+            logger.error("Error getting user activity metrics: %s", e)
             return {}
 
     async def _get_escrow_summary(self) -> dict[str, Any]:
@@ -659,5 +659,5 @@ class GlobalChainMarketplace:
             }
 
         except Exception as e:
-            logger.error(f"Error getting escrow summary: {e}")
+            logger.error("Error getting escrow summary: %s", e)
             return {}
