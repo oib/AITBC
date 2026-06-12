@@ -24,7 +24,7 @@ on:
         type: boolean
 
 concurrency:
-  group: deploy-mainnet-${{ gitea.ref }}
+  group: deploy-mainnet-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -33,24 +33,22 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/pre-deployment
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Run security scan
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Run comprehensive security scan before mainnet deployment
           bash scripts/ci/security-scan.sh
@@ -60,7 +58,7 @@ jobs:
       - name: Run contract tests
         if: inputs.skip_tests != true
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
@@ -73,16 +71,12 @@ jobs:
 
       - name: Verify deployment readiness
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Check all pre-deployment requirements
           bash scripts/deployment/check-deployment-readiness.sh mainnet
           
           echo "✅ Deployment readiness verified"
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
 
   deploy-mainnet:
     runs-on: debian
@@ -93,24 +87,22 @@ jobs:
       url: https://mainnet.aitbc.network
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/deploy-mainnet
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
@@ -122,13 +114,13 @@ jobs:
 
       - name: Compile contracts
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           pnpm hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Deploy contracts to mainnet
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Load mainnet deployment configuration
           export HARDHAT_NETWORK=mainnet
@@ -143,7 +135,7 @@ jobs:
       - name: Verify contracts on Etherscan
         if: inputs.verify_contracts != false
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Load Etherscan verification configuration
           export ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
@@ -167,14 +159,14 @@ jobs:
 
       - name: Record deployment metadata
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Save deployment information
           cat > deployment-info.json << EOF
           {
             "network": "mainnet",
             "commit": "${{ github.sha }}",
-            "tag": "${{ gitea.ref_name }}",
+            "tag": "${{ github.ref_name }}",
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "deployed_by": "${{ github.actor }}",
             "contracts": {
@@ -191,7 +183,7 @@ jobs:
 
       - name: Setup contract monitoring
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Configure monitoring for deployed contracts on mainnet
           bash scripts/monitoring/setup-contract-monitoring.sh mainnet
@@ -200,16 +192,12 @@ jobs:
 
       - name: Run production smoke tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Run smoke tests against deployed contracts on mainnet
           bash scripts/testing/run-production-smoke-tests.sh mainnet
           
           echo "✅ Production smoke tests passed"
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
 
   post-deployment-monitoring:
     runs-on: debian
@@ -217,24 +205,22 @@ jobs:
     if: always()
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/post-deployment
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Configure automated monitoring alerts
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Setup automated alerts for contract events
           bash scripts/monitoring/setup-automated-alerts.sh mainnet
@@ -243,13 +229,10 @@ jobs:
 
       - name: Verify monitoring setup
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Verify monitoring is working
           bash scripts/monitoring/verify-monitoring.sh mainnet
           
           echo "✅ Monitoring verification passed"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: production-tests-${{ gitea.ref }}
+  group: production-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -22,24 +22,22 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/production-tests
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup test environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -72,7 +70,7 @@ jobs:
 
       - name: Start agent coordinator
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           export PYTHONPATH="apps/coordinator-api/src:$PYTHONPATH"
 
           echo "Ensuring default port 8011 is available..."
@@ -124,7 +122,7 @@ jobs:
 
       - name: Run production tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           export PYTHONPATH="apps/coordinator-api/src:$PYTHONPATH"
 
           # Test both chains
@@ -134,7 +132,7 @@ jobs:
             -v \
             --tb=short \
             --timeout=30 \
-            -k "not test_error_handling and not eth"
+            -k "not test_error_handling"
 
           echo "✅ Production tests completed"
 

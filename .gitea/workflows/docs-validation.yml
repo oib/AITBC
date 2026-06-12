@@ -16,11 +16,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: docs-validation-${{ gitea.ref }}
+  group: docs-validation-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  WORKSPACE_BASE: /var/lib/aitbc-workspaces
+  WORKSPACE_BASE: /opt/aitbc
   REPO_URL: http://gitea.bubuit.net:3000/oib/aitbc.git
   STANDARD_DIRS: /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
@@ -30,17 +30,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          WORKSPACE="${{ env.WORKSPACE_BASE }}/docs-validation"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
-          git clone --depth 1 "${{ env.REPO_URL }}" repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          cd "/opt/aitbc"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Ensure standard directories
@@ -52,7 +49,7 @@ jobs:
 
       - name: Lint Markdown files
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          cd "/opt/aitbc"
           
           echo "=== Linting Markdown ==="
           if command -v markdownlint >/dev/null 2>&1; then
@@ -102,7 +99,7 @@ jobs:
 
       - name: Check documentation structure
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          cd "/opt/aitbc"
           echo "=== Documentation Structure ==="
           required_files=(
             docs/README.md
@@ -146,7 +143,7 @@ jobs:
 
       - name: Validate master index structure
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          cd "/opt/aitbc"
           echo "=== Master Index Structure ==="
 
           master_index_markers=(
@@ -167,7 +164,7 @@ jobs:
 
       - name: Validate priority docs metadata
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          cd "/opt/aitbc"
           echo "=== Priority Documentation Metadata ==="
 
           priority_docs=(
@@ -209,32 +206,25 @@ jobs:
       - name: Documentation stats
         if: always()
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
+          cd "/opt/aitbc"
           echo "=== Documentation Statistics ==="
           echo "  Markdown files: $(find docs -name '*.md' 2>/dev/null | wc -l)"
           echo "  Total size: $(du -sh docs 2>/dev/null | cut -f1)"
           echo "  Categories: $(ls -1 docs 2>/dev/null | wc -l)"
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE_BASE }}/docs-validation"
 
   validate-policies-strict:
     runs-on: debian
     timeout-minutes: 10
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          WORKSPACE="${{ env.WORKSPACE_BASE }}/docs-validation-policies"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
-          git clone --depth 1 "${{ env.REPO_URL }}" repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation-policies/repo"
+          cd "/opt/aitbc"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Ensure standard directories
@@ -246,7 +236,7 @@ jobs:
 
       - name: Strict lint policy docs
         run: |
-          cd "${{ env.WORKSPACE_BASE }}/docs-validation-policies/repo"
+          cd "/opt/aitbc"
 
           shopt -s globstar nullglob
           mapfile -t targets < <(printf '%s\n' docs/policies/*.md docs/policies/**/*.md | awk '!seen[$0]++')
@@ -260,6 +250,3 @@ jobs:
           markdownlint "${targets[@]}"
           echo "✅ Policy docs lint passed"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE_BASE }}/docs-validation-policies"

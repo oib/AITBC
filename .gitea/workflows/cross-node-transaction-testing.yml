@@ -12,7 +12,7 @@ on:
     - cron: '0 */6 * * *'  # Run every 6 hours
 
 concurrency:
-  group: cross-node-transaction-testing-${{ gitea.ref }}
+  group: cross-node-transaction-testing-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,24 +21,22 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/cross-node-transaction-testing
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -51,7 +49,7 @@ jobs:
 
       - name: Run cross-node transaction test
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           CHAINS="ait-mainnet,ait-testnet" bash scripts/multi-node/cross-node-transaction-test.sh
 
       - name: Transaction test report
@@ -62,6 +60,3 @@ jobs:
             tail -50 /var/log/aitbc/cross-node-transaction-test.log
           fi
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: systemd-sync-${{ gitea.ref }}
+  group: systemd-sync-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -20,24 +20,22 @@ jobs:
     timeout-minutes: 5
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/systemd-sync
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Validate service files
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== Validating systemd service files ==="
           
           # Ensure standard directories exist
@@ -71,7 +69,7 @@ jobs:
       - name: Sync service files
         if: github.event_name != 'pull_request'
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           if [[ ! -d "systemd" ]]; then
             exit 0
@@ -126,7 +124,7 @@ jobs:
 
       - name: Service status check
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "=== AITBC Service Status ==="
 
           mapfile -t services < <(
@@ -146,6 +144,3 @@ jobs:
             printf "  %-35s active=%-10s enabled=%s\n" "$svc" "$status" "$enabled"
           done
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

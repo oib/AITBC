@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: api-endpoint-tests-${{ gitea.ref }}
+  group: api-endpoint-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,24 +23,22 @@ jobs:
     timeout-minutes: 10
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/api-tests
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup test environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -56,7 +54,7 @@ jobs:
 
       - name: Start required services
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           echo "Starting AITBC services for endpoint testing..."
 
           mapfile -t services < <(
@@ -153,7 +151,7 @@ jobs:
 
       - name: Run API endpoint tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           if [ ! -f "${{ env.WORKSPACE }}/status" ] || [ "$(cat "${{ env.WORKSPACE }}/status")" != "true" ]; then
             echo "⚠️  Services not available - skipping API endpoint tests"
             exit 0
@@ -165,7 +163,7 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           # Stop the services we started
           mapfile -t services < <(
             find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
