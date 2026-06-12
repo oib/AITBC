@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Agent Discovery and Registration System for AITBC Agent Coordination
 """
@@ -13,10 +12,11 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+redis: Any = None
 try:
     import redis.asyncio as redis
 except ImportError:  # pragma: no cover - optional dependency for runtime agent registry
-    redis = None
+    pass
 
 from aitbc import get_logger
 
@@ -90,7 +90,7 @@ class AgentInfo:
 class AgentRegistry:
     """Central agent registry for discovery and management"""
 
-    def __init__(self, redis_url: str = "redis://localhost:6379/1"):
+    def __init__(self, redis_url: str = "redis://localhost:6379/1") -> None:
         self.redis_url = redis_url
         self.redis_client: redis.Redis | None = None
         self.agents: dict[str, AgentInfo] = {}
@@ -101,7 +101,7 @@ class AgentRegistry:
         self.cleanup_interval = 60  # seconds
         self.max_heartbeat_age = 120  # seconds
 
-    async def start(self):
+    async def start(self) -> Any:
         """Start the registry service"""
         self.redis_client = redis.from_url(self.redis_url)
 
@@ -114,7 +114,7 @@ class AgentRegistry:
 
         logger.info("Agent registry started")
 
-    async def stop(self):
+    async def stop(self) -> Any:
         """Stop the registry service"""
         if self.redis_client:
             await self.redis_client.close()
@@ -290,8 +290,8 @@ class AgentRegistry:
     async def get_registry_stats(self) -> dict[str, Any]:
         """Get registry statistics"""
         total_agents = len(self.agents)
-        status_counts = {}
-        type_counts = {}
+        status_counts: dict[str, int] = {}
+        type_counts: dict[str, int] = {}
 
         for agent_info in self.agents.values():
             # Count by status
@@ -311,7 +311,7 @@ class AgentRegistry:
             "last_cleanup": datetime.now(UTC).isoformat()
         }
 
-    def _update_indexes(self, agent_info: AgentInfo):
+    def _update_indexes(self, agent_info: AgentInfo) -> Any:
         """Update search indexes"""
         # Service index
         for service in agent_info.services:
@@ -330,7 +330,7 @@ class AgentRegistry:
             self.type_index[agent_info.agent_type] = set()
         self.type_index[agent_info.agent_type].add(agent_info.agent_id)
 
-    def _remove_from_indexes(self, agent_info: AgentInfo):
+    def _remove_from_indexes(self, agent_info: AgentInfo) -> Any:
         """Remove agent from search indexes"""
         # Service index
         for service in agent_info.services:
@@ -381,7 +381,7 @@ class AgentRegistry:
 
         return max(0.0, min(1.0, base_score))
 
-    async def _save_agent_to_redis(self, agent_info: AgentInfo):
+    async def _save_agent_to_redis(self, agent_info: AgentInfo) -> Any:
         """Save agent information to Redis"""
         if not self.redis_client:
             return
@@ -393,7 +393,7 @@ class AgentRegistry:
             json.dumps(agent_info.to_dict())
         )
 
-    async def _remove_agent_from_redis(self, agent_id: str):
+    async def _remove_agent_from_redis(self, agent_id: str) -> Any:
         """Remove agent from Redis"""
         if not self.redis_client:
             return
@@ -401,7 +401,7 @@ class AgentRegistry:
         key = f"agent:{agent_id}"
         await self.redis_client.delete(key)
 
-    async def _load_agents_from_redis(self):
+    async def _load_agents_from_redis(self) -> Any:
         """Load agents from Redis"""
         if not self.redis_client:
             return
@@ -422,7 +422,7 @@ class AgentRegistry:
         except Exception as e:
             logger.error(f"Error loading agents from Redis: {e}")
 
-    async def _publish_agent_event(self, event_type: str, agent_info: AgentInfo):
+    async def _publish_agent_event(self, event_type: str, agent_info: AgentInfo) -> Any:
         """Publish agent event to Redis"""
         if not self.redis_client:
             return
@@ -435,7 +435,7 @@ class AgentRegistry:
 
         await self.redis_client.publish("agent_events", json.dumps(event))
 
-    async def _heartbeat_monitor(self):
+    async def _heartbeat_monitor(self) -> Any:
         """Monitor agent heartbeats"""
         while True:
             try:
@@ -456,7 +456,7 @@ class AgentRegistry:
                 logger.error(f"Error in heartbeat monitor: {e}")
                 await asyncio.sleep(5)
 
-    async def _cleanup_inactive_agents(self):
+    async def _cleanup_inactive_agents(self) -> Any:
         """Clean up inactive agents"""
         while True:
             try:
@@ -480,11 +480,11 @@ class AgentRegistry:
 class AgentDiscoveryService:
     """Service for agent discovery and registration"""
 
-    def __init__(self, registry: AgentRegistry):
+    def __init__(self, registry: AgentRegistry) -> None:
         self.registry = registry
         self.discovery_handlers: dict[str, Callable] = {}
 
-    def register_discovery_handler(self, handler_name: str, handler: Callable):
+    def register_discovery_handler(self, handler_name: str, handler: Callable) -> Any:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info(f"Registered discovery handler: {handler_name}")
@@ -573,7 +573,7 @@ class AgentDiscoveryService:
         """Get all endpoints for a specific service"""
         try:
             agents = await self.registry.get_agents_by_service(service)
-            endpoints = {}
+            endpoints: dict[str, list[str]] = {}
 
             for agent in agents:
                 for service_name, endpoint in agent.endpoints.items():
@@ -603,7 +603,7 @@ def create_agent_info(agent_id: str, agent_type: str, capabilities: list[str], s
     )
 
 # Example usage
-async def example_usage():
+async def example_usage() -> Any:
     """Example of how to use the agent discovery system"""
 
     # Create registry
