@@ -34,7 +34,7 @@ on:
         type: string
 
 concurrency:
-  group: multi-chain-island-${{ gitea.ref }}
+  group: multi-chain-island-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,19 +43,17 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/multi-chain-island
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Check Redis connectivity
@@ -73,7 +71,7 @@ jobs:
 
       - name: Run multi-chain island architecture test
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           TEST_DURATION="${{ inputs.test_duration || '120' }}"
           SKIP_WAIT="${{ inputs.skip_wait || 'false' }}"
@@ -150,6 +148,3 @@ jobs:
           echo "Run the test script locally on aitbc for full validation:"
           echo "  bash scripts/workflow/46_multi_chain_island_test.sh"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
