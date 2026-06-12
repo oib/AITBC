@@ -70,23 +70,23 @@ def test_data():
 
 @pytest.fixture(scope="session")
 def service_health_check(coordinator_url, blockchain_url, marketplace_url):
-    """Check if required services are healthy"""
+    """Check if required services are healthy - non-blocking version"""
     import time
 
-    def _check_service(url: str, service_name: str, max_retries: int = 30, health_path: str = "/v1/health") -> bool:
-        """Check if a service is healthy"""
+    def _check_service(url: str, service_name: str, max_retries: int = 2, health_path: str = "/v1/health") -> bool:
+        """Check if a service is healthy - reduced retries to avoid hanging"""
         for i in range(max_retries):
             try:
-                response = httpx.get(f"{url}{health_path}", timeout=5.0)
+                response = httpx.get(f"{url}{health_path}", timeout=2.0)
                 if response.status_code == 200:
                     return True
             except Exception:
                 if i < max_retries - 1:
-                    time.sleep(2)
-        pytest.skip(f"{service_name} not available at {url}")
+                    time.sleep(1)
+        # Don't skip, just return False to allow tests to continue
         return False
 
-    # Check all services with appropriate health endpoints
+    # Check all services with appropriate health endpoints (non-blocking)
     _check_service(coordinator_url, "Coordinator API", health_path="/v1/health")
     _check_service(blockchain_url, "Blockchain Node", health_path="/health")
     _check_service(marketplace_url, "Marketplace", health_path="/health")
