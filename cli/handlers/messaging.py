@@ -15,7 +15,7 @@ def handle_messaging_deploy(args, default_rpc_url, render_mapping):
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
 
-    logger.info(f"Deploying messaging contract to {rpc_url}...")
+    logger.info("Deploying messaging contract to %s...", rpc_url)
     try:
         params = {}
         if chain_id:
@@ -27,11 +27,11 @@ def handle_messaging_deploy(args, default_rpc_url, render_mapping):
             logger.info("Messaging contract deployed successfully")
             render_mapping("Deployment result:", result)
         else:
-            logger.error(f"Deployment failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Deployment failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error deploying messaging contract: {e}")
+        logger.error("Error deploying messaging contract: %s", e)
         sys.exit(1)
 
 
@@ -40,7 +40,7 @@ def handle_messaging_state(args, default_rpc_url, output_format, render_mapping)
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
 
-    logger.info(f"Getting messaging contract state from {rpc_url}...")
+    logger.info("Getting messaging contract state from %s...", rpc_url)
     try:
         params = {}
         if chain_id:
@@ -54,11 +54,11 @@ def handle_messaging_state(args, default_rpc_url, output_format, render_mapping)
             else:
                 render_mapping("Messaging contract state:", state)
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error getting contract state: {e}")
+        logger.error("Error getting contract state: %s", e)
         sys.exit(1)
 
 
@@ -67,7 +67,7 @@ def handle_messaging_topics(args, default_rpc_url, output_format, render_mapping
     rpc_url = args.rpc_url or default_rpc_url
     chain_id = getattr(args, "chain_id", None)
 
-    logger.info(f"Getting forum topics from {rpc_url}...")
+    logger.info("Getting forum topics from %s...", rpc_url)
     try:
         params = {}
         if chain_id:
@@ -82,15 +82,15 @@ def handle_messaging_topics(args, default_rpc_url, output_format, render_mapping
                 logger.info("Forum topics:")
                 if isinstance(topics, list):
                     for topic in topics:
-                        logger.info(f"  ID: {topic.get('topic_id', 'N/A')}, Title: {topic.get('title', 'N/A')}")
+                        logger.info("  ID: %s, Title: %s", topic.get('topic_id', 'N/A'), topic.get('title', 'N/A'))
                 else:
                     render_mapping("Topics:", topics)
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error getting topics: {e}")
+        logger.error("Error getting topics: %s", e)
         sys.exit(1)
 
 
@@ -117,7 +117,7 @@ def handle_messaging_create_topic(args, default_rpc_url, read_password, render_m
     if chain_id:
         topic_data["chain_id"] = chain_id
 
-    logger.info(f"Creating forum topic on {rpc_url}...")
+    logger.info("Creating forum topic on %s...", rpc_url)
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/topics/create", json=topic_data, headers=headers, timeout=30)
         if response.status_code == 200:
@@ -125,11 +125,11 @@ def handle_messaging_create_topic(args, default_rpc_url, read_password, render_m
             logger.info("Topic created successfully")
             render_mapping("Topic:", result)
         else:
-            logger.error(f"Creation failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Creation failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error creating topic: {e}")
+        logger.error("Error creating topic: %s", e)
         sys.exit(1)
 
 
@@ -142,7 +142,7 @@ def handle_messaging_messages(args, default_rpc_url, output_format, render_mappi
         logger.error("Error: --topic-id is required")
         sys.exit(1)
 
-    logger.info(f"Getting messages for topic {args.topic_id} from {rpc_url}...")
+    logger.info("Getting messages for topic %s from %s...", args.topic_id, rpc_url)
     try:
         params = {"topic_id": args.topic_id}
         if chain_id:
@@ -154,18 +154,18 @@ def handle_messaging_messages(args, default_rpc_url, output_format, render_mappi
             if output_format(args) == "json":
                 logger.info(json.dumps(messages, indent=2))
             else:
-                logger.info(f"Messages for topic {args.topic_id}:")
+                logger.info("Messages for topic %s:", args.topic_id)
                 if isinstance(messages, list):
                     for msg in messages:
-                        logger.info(f"  Message ID: {msg.get('message_id', 'N/A')}, Author: {msg.get('author', 'N/A')}")
+                        logger.info("  Message ID: %s, Author: %s", msg.get('message_id', 'N/A'), msg.get('author', 'N/A'))
                 else:
                     render_mapping("Messages:", messages)
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error getting messages: {e}")
+        logger.error("Error getting messages: %s", e)
         sys.exit(1)
 
 
@@ -192,7 +192,7 @@ def handle_messaging_post(args, default_rpc_url, read_password, render_mapping):
     if chain_id:
         message_data["chain_id"] = chain_id
 
-    logger.info(f"Posting message to topic {args.topic_id} on {rpc_url}...")
+    logger.info("Posting message to topic %s on %s...", args.topic_id, rpc_url)
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/messages/post", json=message_data, headers=headers, timeout=30)
         if response.status_code == 200:
@@ -200,11 +200,11 @@ def handle_messaging_post(args, default_rpc_url, read_password, render_mapping):
             logger.info("Message posted successfully")
             render_mapping("Message:", result)
         else:
-            logger.error(f"Post failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Post failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error posting message: {e}")
+        logger.error("Error posting message: %s", e)
         sys.exit(1)
 
 
@@ -231,7 +231,7 @@ def handle_messaging_vote(args, default_rpc_url, read_password, render_mapping):
     if chain_id:
         vote_data["chain_id"] = chain_id
 
-    logger.info(f"Voting on message {args.message_id} on {rpc_url}...")
+    logger.info("Voting on message %s on %s...", args.message_id, rpc_url)
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/vote", json=vote_data, headers=headers, timeout=30)
         if response.status_code == 200:
@@ -239,11 +239,11 @@ def handle_messaging_vote(args, default_rpc_url, read_password, render_mapping):
             logger.info("Vote recorded successfully")
             render_mapping("Vote result:", result)
         else:
-            logger.error(f"Vote failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Vote failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error voting on message: {e}")
+        logger.error("Error voting on message: %s", e)
         sys.exit(1)
 
 
@@ -256,7 +256,7 @@ def handle_messaging_search(args, default_rpc_url, output_format, render_mapping
         logger.error("Error: --query is required")
         sys.exit(1)
 
-    logger.info(f"Searching messages for '{args.query}' on {rpc_url}...")
+    logger.info("Searching messages for '%s' on %s...", args.query, rpc_url)
     try:
         params = {"query": args.query}
         if chain_id:
@@ -268,18 +268,18 @@ def handle_messaging_search(args, default_rpc_url, output_format, render_mapping
             if output_format(args) == "json":
                 logger.info(json.dumps(results, indent=2))
             else:
-                logger.info(f"Search results for '{args.query}':")
+                logger.info("Search results for '%s':", args.query)
                 if isinstance(results, list):
                     for msg in results:
-                        logger.info(f"  Message ID: {msg.get('message_id', 'N/A')}, Topic: {msg.get('topic_id', 'N/A')}")
+                        logger.info("  Message ID: %s, Topic: %s", msg.get('message_id', 'N/A'), msg.get('topic_id', 'N/A'))
                 else:
                     render_mapping("Search results:", results)
         else:
-            logger.error(f"Search failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Search failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error searching messages: {e}")
+        logger.error("Error searching messages: %s", e)
         sys.exit(1)
 
 
@@ -292,7 +292,7 @@ def handle_messaging_reputation(args, default_rpc_url, output_format, render_map
         logger.error("Error: --agent-id is required")
         sys.exit(1)
 
-    logger.info(f"Getting reputation for agent {args.agent_id} from {rpc_url}...")
+    logger.info("Getting reputation for agent %s from %s...", args.agent_id, rpc_url)
     try:
         params = {}
         if chain_id:
@@ -304,13 +304,13 @@ def handle_messaging_reputation(args, default_rpc_url, output_format, render_map
             if output_format(args) == "json":
                 logger.info(json.dumps(reputation, indent=2))
             else:
-                render_mapping(f"Agent {args.agent_id} reputation:", reputation)
+                render_mapping("Agent %s reputation:" % args.agent_id, reputation)
         else:
-            logger.error(f"Query failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Query failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error getting reputation: {e}")
+        logger.error("Error getting reputation: %s", e)
         sys.exit(1)
 
 
@@ -337,7 +337,7 @@ def handle_messaging_moderate(args, default_rpc_url, read_password, render_mappi
     if chain_id:
         moderation_data["chain_id"] = chain_id
 
-    logger.info(f"Moderating message {args.message_id} on {rpc_url}...")
+    logger.info("Moderating message %s on %s...", args.message_id, rpc_url)
     try:
         response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/moderate", json=moderation_data, headers=headers, timeout=30)
         if response.status_code == 200:
@@ -345,9 +345,9 @@ def handle_messaging_moderate(args, default_rpc_url, read_password, render_mappi
             logger.info("Moderation action completed successfully")
             render_mapping("Moderation result:", result)
         else:
-            logger.error(f"Moderation failed: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Moderation failed: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error moderating message: {e}")
+        logger.error("Error moderating message: %s", e)
         sys.exit(1)

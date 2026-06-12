@@ -20,7 +20,7 @@ def handle_wallet_create(args, create_wallet, read_password, first):
         logger.error("Error: Wallet name and password are required")
         sys.exit(1)
     address = create_wallet(wallet_name, password)
-    logger.info(f"Wallet address: {address}")
+    logger.info("Wallet address: %s", address)
 def handle_wallet_list(args, list_wallets, output_format):
     """Handle wallet list command."""
     wallets = list_wallets()
@@ -31,7 +31,7 @@ def handle_wallet_list(args, list_wallets, output_format):
     for wallet in wallets:
         name = wallet.get('name') or wallet.get('wallet_name') or wallet.get('wallet_id', 'unknown')
         address = wallet.get('address', 'N/A')
-        print(f"  {name}: {address}")
+        print("  %s: %s", name, address)
 def handle_wallet_balance(args, default_rpc_url, list_wallets, get_balance, first):
     """Handle wallet balance command."""
     rpc_url = getattr(args, "rpc_url", default_rpc_url)
@@ -40,9 +40,9 @@ def handle_wallet_balance(args, default_rpc_url, list_wallets, get_balance, firs
         for wallet in list_wallets():
             balance_info = get_balance(wallet["name"], rpc_url=rpc_url)
             if balance_info:
-                logger.info(f"  {wallet['name']}: {balance_info['balance']} AIT")
+                logger.info("  %s: %s AIT", wallet['name'], balance_info['balance'])
             else:
-                logger.info(f"  {wallet['name']}: unavailable")
+                logger.info("  %s: unavailable", wallet['name'])
         return
     wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
     if not wallet_name:
@@ -51,10 +51,10 @@ def handle_wallet_balance(args, default_rpc_url, list_wallets, get_balance, firs
     balance_info = get_balance(wallet_name, rpc_url=rpc_url)
     if not balance_info:
         sys.exit(1)
-    logger.info(f"Wallet: {balance_info['wallet_name']}")
-    logger.info(f"Address: {balance_info['address']}")
-    logger.info(f"Balance: {balance_info['balance']} AIT")
-    logger.info(f"Nonce: {balance_info['nonce']}")
+    logger.info("Wallet: %s", balance_info['wallet_name'])
+    logger.info("Address: %s", balance_info['address'])
+    logger.info("Balance: %s AIT", balance_info['balance'])
+    logger.info("Nonce: %s", balance_info['nonce'])
 def handle_wallet_transactions(args, get_transactions, output_format, first):
     """Handle wallet transactions command."""
     wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
@@ -65,12 +65,12 @@ def handle_wallet_transactions(args, get_transactions, output_format, first):
     if output_format(args) == "json":
         logger.info(json.dumps(transactions, indent=2))
         return
-    logger.info(f"Transactions for {wallet_name}:")
+    logger.info("Transactions for %s:", wallet_name)
     for index, tx in enumerate(transactions, 1):
-        logger.info(f"  {index}. Hash: {tx.get('hash', 'N/A')}")
-        logger.info(f"     Amount: {tx.get('value', 0)} AIT")
-        logger.info(f"     Fee: {tx.get('fee', 0)} AIT")
-        logger.info(f"     Type: {tx.get('type', 'N/A')}")
+        logger.info("  %s. Hash: %s", index, tx.get('hash', 'N/A'))
+        logger.info("     Amount: %s AIT", tx.get('value', 0))
+        logger.info("     Fee: %s AIT", tx.get('fee', 0))
+        logger.info("     Type: %s", tx.get('type', 'N/A'))
         logger.info("")
 
 
@@ -106,7 +106,7 @@ def handle_wallet_send(args, send_transaction, read_password, first):
     sender_keystore = keystore_dir / f"{from_wallet}.json"
 
     if not sender_keystore.exists():
-        logger.error(f"Error: Wallet '{from_wallet}' not found")
+        logger.error("Error: Wallet '%s' not found", from_wallet)
         sys.exit(1)
 
     with open(sender_keystore) as f:
@@ -124,7 +124,7 @@ def handle_wallet_send(args, send_transaction, read_password, first):
         private_key_hex = aitbc_cli_module.decrypt_private_key(sender_keystore, password)
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
-        logger.error(f"Error decrypting wallet: {e}")
+        logger.error("Error decrypting wallet: %s", e)
         sys.exit(1)
 
     # Get RPC URL
@@ -177,16 +177,16 @@ def handle_wallet_send(args, send_transaction, read_password, first):
             result = response.json()
             if result.get("success"):
                 logger.info("Transaction sent successfully")
-                logger.info(f"Transaction hash: {result.get('transaction_hash')}")
+                logger.info("Transaction hash: %s", result.get('transaction_hash'))
             else:
-                logger.error(f"Transaction failed: {result.get('message', 'Unknown error')}")
+                logger.error("Transaction failed: %s", result.get('message', 'Unknown error'))
                 sys.exit(1)
         else:
-            logger.error(f"Error submitting transaction: {response.status_code}")
-            logger.error(f"Error: {response.text}")
+            logger.error("Error submitting transaction: %s", response.status_code)
+            logger.error("Error: %s", response.text)
             sys.exit(1)
     except Exception as e:
-        logger.error(f"Error submitting transaction: {e}")
+        logger.error("Error submitting transaction: %s", e)
         sys.exit(1)
 
 
@@ -201,7 +201,7 @@ def handle_wallet_import(args, import_wallet, read_password, first):
     address = import_wallet(wallet_name, private_key, password)
     if not address:
         sys.exit(1)
-    logger.info(f"Wallet address: {address}")
+    logger.info("Wallet address: %s", address)
 def handle_wallet_export(args, export_wallet, read_password, first):
     """Handle wallet export command."""
     wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
@@ -240,9 +240,9 @@ def handle_wallet_backup(args, first):
     if not wallet_name:
         logger.error("Error: Wallet name is required")
         sys.exit(1)
-    logger.info(f"Wallet backup: {wallet_name}")
+    logger.info("Wallet backup: %s", wallet_name)
     backup_path = get_data_path("backups")
-    logger.info(f"  Backup created: {backup_path}/{wallet_name}_$(date +%Y%m%d).json")
+    logger.info("  Backup created: %s/%s_$(date +%%Y%%m%%d).json", backup_path, wallet_name)
     logger.info("  Status: completed")
 def handle_wallet_sync(args, first):
     """Handle wallet sync command."""
@@ -250,7 +250,7 @@ def handle_wallet_sync(args, first):
     if args.all:
         logger.info("Wallet sync: All wallets")
     elif wallet_name:
-        logger.info(f"Wallet sync: {wallet_name}")
+        logger.info("Wallet sync: %s", wallet_name)
     else:
         logger.error("Error: Wallet name or --all is required")
         sys.exit(1)
