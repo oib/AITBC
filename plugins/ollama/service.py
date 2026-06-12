@@ -32,7 +32,7 @@ class OllamaPlugin:
                 return data.get("models", [])
             return []
         except Exception as e:
-            logger.error(f"Failed to get models: {e}")
+            logger.error("Failed to get models: %s", e)
             return []
 
     async def generate(
@@ -61,7 +61,7 @@ class OllamaPlugin:
             request_data["options"]["num_predict"] = max_tokens
 
         try:
-            logger.info(f"Generating with model: {model}")
+            logger.info("Generating with model: %s", model)
             start_time = datetime.now()
 
             response = await self.client.post(
@@ -92,7 +92,7 @@ class OllamaPlugin:
                 }
 
         except Exception as e:
-            logger.error(f"Generation failed: {e}")
+            logger.error("Generation failed: %s", e)
             return {
                 "success": False,
                 "error": str(e)
@@ -120,7 +120,7 @@ class OllamaPlugin:
             request_data["options"]["num_predict"] = max_tokens
 
         try:
-            logger.info(f"Chat with model: {model}")
+            logger.info("Chat with model: %s", model)
             start_time = datetime.now()
 
             response = await self.client.post(
@@ -151,7 +151,7 @@ class OllamaPlugin:
                 }
 
         except Exception as e:
-            logger.error(f"Chat failed: {e}")
+            logger.error("Chat failed: %s", e)
             return {
                 "success": False,
                 "error": str(e)
@@ -169,7 +169,7 @@ class OllamaPlugin:
                 return response.json()
             return {}
         except Exception as e:
-            logger.error(f"Failed to get model info: {e}")
+            logger.error("Failed to get model info: %s", e)
             return {}
 
     def calculate_cost(self, model: str, tokens: int) -> float:
