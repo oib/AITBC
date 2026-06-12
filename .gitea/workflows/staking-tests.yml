@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: staking-tests-${{ gitea.ref }}
+  group: staking-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,24 +24,22 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/staking-tests
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -55,7 +53,7 @@ jobs:
 
       - name: Run staking service tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
 
           echo "🧪 Running staking service tests..."
@@ -64,15 +62,11 @@ jobs:
 
       - name: Generate test data
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           echo "🔧 Generating test data..."
           venv/bin/python scripts/testing/generate_staking_test_data.py
           echo "✅ Test data generated"
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
 
   test-staking-integration:
     runs-on: debian
@@ -80,24 +74,22 @@ jobs:
     needs: test-staking-service
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/staking-integration
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           rm -rf venv
           
           bash scripts/ci/setup-python-venv.sh \
@@ -109,16 +101,12 @@ jobs:
 
       - name: Run staking integration tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
 
           echo "🧪 Running staking integration tests..."
           venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/integration/test_staking_lifecycle.py -v --tb=short
           echo "✅ Integration tests completed"
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
 
   test-staking-contract:
     runs-on: debian
@@ -126,24 +114,22 @@ jobs:
     needs: test-staking-service
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/staking-contract
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
@@ -155,16 +141,12 @@ jobs:
 
       - name: Run staking contract tests
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           echo "🧪 Running staking contract tests..."
           pnpm hardhat compile
           pnpm hardhat test test/AgentStaking.test.js
           echo "✅ Contract tests completed"
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
 
   run-staking-test-runner:
     runs-on: debian
@@ -172,24 +154,22 @@ jobs:
     needs: [test-staking-service, test-staking-integration, test-staking-contract]
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/staking-runner
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           rm -rf venv
           
           bash scripts/ci/setup-python-venv.sh \
@@ -199,7 +179,7 @@ jobs:
 
       - name: Run staking test runner
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           chmod +x scripts/testing/run_staking_tests.sh
           bash scripts/testing/run_staking_tests.sh
           echo "✅ Staking test runner completed"
@@ -209,6 +189,3 @@ jobs:
         run: |
           echo "📊 Test reports available in /var/log/aitbc/tests/staking/"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"

@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: coverage-phase-1-${{ gitea.ref }}
+  group: coverage-phase-1-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,24 +24,22 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/coverage-phase-1
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           rm -rf venv
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -55,14 +53,14 @@ jobs:
 
       - name: Install packages
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           venv/bin/python -m pip install -e packages/py/aitbc-crypto/
           venv/bin/python -m pip install -e packages/py/aitbc-sdk/
           venv/bin/python -m pip install -e packages/py/aitbc-agent-sdk/
 
       - name: Run tests with 70% coverage gate
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
 
           export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD/packages/py/aitbc-agent-sdk/src:$PWD:$PYTHONPATH"
 
@@ -77,22 +75,22 @@ jobs:
 
       - name: Upload coverage artifact
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           mkdir -p coverage-artifacts
           cp coverage.json coverage-artifacts/
-          cp tests/htmlcov/index.html coverage-artifacts/coverage-summary.html
+          cp htmlcov/index.html coverage-artifacts/coverage-summary.html
           echo "Coverage report uploaded to artifacts"
 
       - name: Count TODOs
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           TODO_COUNT=$(rg -c "TODO|FIXME" apps/ packages/py/ cli/ --type py 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}')
           echo "TODO_COUNT=${TODO_COUNT}" >> $GITHUB_ENV
           echo "Found ${TODO_COUNT} TODO/FIXME comments"
 
       - name: Publish coverage metrics
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           COVERAGE=$(python -c "import json; print(json.load(open('coverage.json')).get('totals', {}).get('percent_covered', 0))")
           echo "Coverage: ${COVERAGE}%"
           echo "TODOs: ${TODO_COUNT}"

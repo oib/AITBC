@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: smart-contract-tests-${{ gitea.ref }}
+  group: smart-contract-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,24 +30,22 @@ jobs:
             path: "contracts"
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup and test
         run: |
-          cd "${{ env.WORKSPACE }}/repo/${{ matrix.project.path }}"
+          cd "/opt/aitbc/${{ matrix.project.path }}"
           echo "=== Testing ${{ matrix.project.name }} ==="
           
           # Ensure standard directories exist
@@ -67,11 +65,6 @@ jobs:
 
           # Install
           pnpm install
-
-          # Approve build scripts if needed
-          if pnpm list keccak secp256k1 2>/dev/null | grep -q "keccak\|secp256k1"; then
-            pnpm approve-builds keccak secp256k1 || true
-          fi
 
           # Compile
           if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
@@ -112,19 +105,17 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/foundry
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Install Foundry
@@ -140,7 +131,7 @@ jobs:
       - name: Test contracts with Foundry
         run: |
           export PATH="$HOME/.foundry/bin:$PATH"
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -164,33 +155,27 @@ jobs:
           forge test --match-path "test/fuzz/**/*.t.sol"
           echo "✅ Foundry fuzz tests passed"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   lint-solidity:
     runs-on: debian
     timeout-minutes: 10
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/solidity-lint
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Lint contracts
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -212,40 +197,34 @@ jobs:
               else
                 echo "⚠️ No lint script for $project, skipping"
               fi
-              cd "${{ env.WORKSPACE }}/repo"
+              cd /opt/aitbc
             fi
           done
 
           echo "✅ Solidity linting completed"
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
-
   deploy-contracts:
     runs-on: debian
     timeout-minutes: 15
-    if: gitea.ref == 'refs/heads/main' || gitea.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     env:
-      WORKSPACE: /var/lib/aitbc-workspaces/deployment
+      WORKSPACE: /opt/aitbc
 
     steps:
-      - name: Clone repository
+      - name: Update repository
         run: |
-          rm -rf "${{ env.WORKSPACE }}"
-          mkdir -p "${{ env.WORKSPACE }}"
-          cd "${{ env.WORKSPACE }}"
-          git clone --depth 1 --single-branch --branch ${GITEA_REF_NAME:-main} http://gitea.bubuit.net:3000/oib/aitbc.git repo
-
+          cd /opt/aitbc
+          git fetch origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize job logging
         run: |
-          cd "${{ env.WORKSPACE }}/repo"
+          cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
       - name: Deploy contracts to localhost
         run: |
-          cd "${{ env.WORKSPACE }}/repo/contracts"
+          cd "/opt/aitbc/contracts"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -279,6 +258,3 @@ jobs:
           # Cleanup
           kill $NODE_PID 2>/dev/null || true
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ env.WORKSPACE }}"
