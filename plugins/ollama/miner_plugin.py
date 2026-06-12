@@ -67,14 +67,14 @@ class OllamaMiner:
             )
 
             if response.status_code == 200:
-                logger.info(f"✅ Registered Ollama miner with {len(model_list)} models")
+                logger.info("✅ Registered Ollama miner with %s models", len(model_list))
                 return True
             else:
-                logger.error(f"❌ Registration failed: {response.status_code}")
+                logger.error("❌ Registration failed: %s", response.status_code)
                 return False
 
         except Exception as e:
-            logger.error(f"❌ Registration error: {e}")
+            logger.error("❌ Registration error: %s", e)
             return False
 
     async def process_job(self, job: dict[str, Any]) -> dict[str, Any]:
@@ -84,7 +84,7 @@ class OllamaMiner:
         job_type = payload.get("type", "generate")
         model = payload.get("model", "llama3.2:latest")
 
-        logger.info(f"Processing {job_type} job with model: {model}")
+        logger.info("Processing %s job with model: %s", job_type, model)
 
         try:
             if job_type == "generate":
@@ -119,12 +119,12 @@ class OllamaMiner:
                 earnings = cost * 1.5  # 50% markup
                 result["aitbc_earned"] = earnings
 
-                logger.info(f"✅ Job completed - Earned: {earnings} AITBC")
+                logger.info("✅ Job completed - Earned: %s AITBC", earnings)
 
             return result
 
         except Exception as e:
-            logger.error(f"❌ Job processing failed: {e}")
+            logger.error("❌ Job processing failed: %s", e)
             return {
                 "success": False,
                 "error": str(e),
@@ -164,7 +164,7 @@ class OllamaMiner:
             return response.status_code == 200
 
         except Exception as e:
-            logger.error(f"❌ Failed to submit result: {e}")
+            logger.error("❌ Failed to submit result: %s", e)
             return False
 
     async def send_heartbeat(self):
@@ -197,7 +197,7 @@ class OllamaMiner:
             return response.status_code == 200
 
         except Exception as e:
-            logger.error(f"❌ Heartbeat failed: {e}")
+            logger.error("❌ Heartbeat failed: %s", e)
             return False
 
     async def mine(self, max_jobs: int | None = None):
@@ -234,7 +234,7 @@ class OllamaMiner:
 
                 if response.status_code == 200:
                     job = response.json()
-                    logger.info(f"📋 Got job: {job['job_id']}")
+                    logger.info("📋 Got job: %s", job['job_id'])
 
                     # Process job
                     result = await self.process_job(job)
@@ -243,13 +243,13 @@ class OllamaMiner:
                     if await self.submit_result(job['job_id'], result):
                         jobs_completed += 1
                         total_earned = sum(r.get("aitbc_earned", 0) for r in [result])
-                        logger.info(f"💰 Total earned: {total_earned} AITBC")
+                        logger.info("💰 Total earned: %s AITBC", total_earned)
 
                 elif response.status_code == 204:
                     logger.debug("💤 No jobs available")
                     await asyncio.sleep(3)
                 else:
-                    logger.error(f"❌ Poll failed: {response.status_code}")
+                    logger.error("❌ Poll failed: %s", response.status_code)
                     await asyncio.sleep(5)
 
         except KeyboardInterrupt:
@@ -257,7 +257,7 @@ class OllamaMiner:
 
         finally:
             self.running = False
-            logger.info(f"✅ Mining complete - Jobs processed: {jobs_completed}")
+            logger.info("✅ Mining complete - Jobs processed: %s", jobs_completed)
 
 # Main execution
 if __name__ == "__main__":
