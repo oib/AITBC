@@ -229,7 +229,7 @@ def render(data: Any, format_type: str = "table", title: str = None):
             else:
                 # Simple list
                 for item in data:
-                    console.logger.info(f"• {item}")
+                    console.logger.info("• %s", item)
         else:
             console.logger.info(data)
     else:
