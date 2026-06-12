@@ -80,7 +80,7 @@ class ContractClient:
         if not self.w3.is_connected():
             raise NetworkError("Failed to connect to blockchain")
 
-        logger.info(f"Connected to {self.config.network} at {self.config.rpc_url}")
+        logger.info("Connected to %s at %s", self.config.network, self.config.rpc_url)
 
         # Load contract ABIs and initialize contracts
         self._load_contracts()
@@ -118,7 +118,7 @@ class ContractClient:
                 abi=atomic_swap_abi
             )
 
-        logger.info(f"Loaded {len(self.contracts)} contracts")
+        logger.info("Loaded %s contracts", len(self.contracts))
 
     def _load_abi(self, contract_name: str) -> list[dict]:
         """Load contract ABI from artifacts"""
@@ -144,7 +144,7 @@ class ContractClient:
             balance = contract.functions.getBalance(address).call()
             return balance
         except Exception as e:
-            logger.error(f"Error getting balance from {contract_name}: {e}")
+            logger.error("Error getting balance from %s: %s", contract_name, e)
             raise
 
     async def send_transaction(
@@ -182,11 +182,11 @@ class ContractClient:
             # Send transaction
             tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
 
-            logger.info(f"Transaction sent: {tx_hash.hex()}")
+            logger.info("Transaction sent: %s", tx_hash.hex())
             return tx_hash.hex()
 
         except Exception as e:
-            logger.error(f"Error sending transaction to {contract_name}.{method_name}: {e}")
+            logger.error("Error sending transaction to %s.%s: %s", contract_name, method_name, e)
             raise
 
     async def wait_for_transaction(self, tx_hash: str, timeout: int = 120) -> dict:
@@ -200,7 +200,7 @@ class ContractClient:
                 "transaction_hash": receipt["transactionHash"].hex(),
             }
         except Exception as e:
-            logger.error(f"Error waiting for transaction {tx_hash}: {e}")
+            logger.error("Error waiting for transaction %s: %s", tx_hash, e)
             raise
 
 
@@ -214,7 +214,7 @@ class AgentContractIntegration:
     def set_agent_address(self, address: str) -> None:
         """Set the agent's blockchain address"""
         self.agent_address = address
-        logger.info(f"Agent address set to {address}")
+        logger.info("Agent address set to %s", address)
 
     async def register_on_marketplace(
         self,
@@ -239,13 +239,13 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info(f"Agent registered on marketplace: {tx_hash}")
+                logger.info("Agent registered on marketplace: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to register on marketplace: {e}")
+            logger.error("Failed to register on marketplace: %s", e)
             raise
 
     async def stake_tokens(self, amount: int, lock_period: int) -> str:
@@ -275,13 +275,13 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(stake_tx)
 
             if receipt["status"] == "success":
-                logger.info(f"Tokens staked: {stake_tx}")
+                logger.info("Tokens staked: %s", stake_tx)
                 return stake_tx
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to stake tokens: {e}")
+            logger.error("Failed to stake tokens: %s", e)
             raise
 
     async def unstake_tokens(self) -> str:
@@ -298,13 +298,13 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info(f"Tokens unstaked: {tx_hash}")
+                logger.info("Tokens unstaked: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to unstake tokens: {e}")
+            logger.error("Failed to unstake tokens: %s", e)
             raise
 
     async def get_stake_info(self) -> dict[str, Any]:
@@ -324,7 +324,7 @@ class AgentContractIntegration:
                 "unlock_time": 0,  # Would be fetched from contract
             }
         except Exception as e:
-            logger.error(f"Failed to get stake info: {e}")
+            logger.error("Failed to get stake info: %s", e)
             raise
 
     async def submit_job_completion(
@@ -349,13 +349,13 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info(f"Job completion submitted: {tx_hash}")
+                logger.info("Job completion submitted: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to submit job completion: {e}")
+            logger.error("Failed to submit job completion: %s", e)
             raise
 
     async def claim_rewards(self) -> str:
@@ -372,13 +372,13 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info(f"Rewards claimed: {tx_hash}")
+                logger.info("Rewards claimed: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to claim rewards: {e}")
+            logger.error("Failed to claim rewards: %s", e)
             raise
 
     async def listen_to_contract_events(
@@ -404,7 +404,7 @@ class AgentContractIntegration:
                 await asyncio.sleep(2)
 
         except Exception as e:
-            logger.error(f"Error listening to events: {e}")
+            logger.error("Error listening to events: %s", e)
             raise
 
     async def initiate_atomic_swap(
@@ -439,7 +439,7 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info(f"Atomic swap initiated: {swap_id}")
+                logger.info("Atomic swap initiated: %s", swap_id)
                 return {
                     "swap_id": swap_id,
                     "tx_hash": tx_hash,
@@ -447,10 +447,10 @@ class AgentContractIntegration:
                     "block_number": receipt.get("block_number", 0)
                 }
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to initiate atomic swap: {e}")
+            logger.error("Failed to initiate atomic swap: %s", e)
             raise
 
     async def complete_atomic_swap(
@@ -474,7 +474,7 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info(f"Atomic swap completed: {swap_id}")
+                logger.info("Atomic swap completed: %s", swap_id)
                 return {
                     "swap_id": swap_id,
                     "tx_hash": tx_hash,
@@ -482,10 +482,10 @@ class AgentContractIntegration:
                     "block_number": receipt.get("block_number", 0)
                 }
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to complete atomic swap: {e}")
+            logger.error("Failed to complete atomic swap: %s", e)
             raise
 
     async def get_swap_status(
@@ -513,7 +513,7 @@ class AgentContractIntegration:
             }
 
         except Exception as e:
-            logger.error(f"Failed to get swap status: {e}")
+            logger.error("Failed to get swap status: %s", e)
             raise
 
     async def refund_atomic_swap(
@@ -534,17 +534,17 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info(f"Atomic swap refunded: {swap_id}")
+                logger.info("Atomic swap refunded: %s", swap_id)
                 return {
                     "swap_id": swap_id,
                     "tx_hash": tx_hash,
                     "status": "REFUNDED"
                 }
             else:
-                raise Exception(f"Transaction failed: {receipt}")
+                raise Exception("Transaction failed: %s" % receipt)
 
         except Exception as e:
-            logger.error(f"Failed to refund atomic swap: {e}")
+            logger.error("Failed to refund atomic swap: %s", e)
             raise
 
 
