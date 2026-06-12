@@ -1,32 +1,13 @@
 """Tests for governance CLI commands"""
 
 import json
-from unittest.mock import MagicMock, patch
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 from aitbc_cli.commands.operations import operations
 from click.testing import CliRunner
-
-
-def extract_json_from_output(output_text):
-    """Extract JSON from output that may contain Rich panels"""
-    lines = output_text.strip().split('\n')
-    json_lines = []
-    in_json = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith('{') or stripped.startswith('['):
-            in_json = True
-        if in_json:
-            json_lines.append(stripped)
-        if in_json and (stripped.endswith('}') or stripped.endswith(']')):
-            try:
-                return json.loads('\n'.join(json_lines))
-            except json.JSONDecodeError:
-                continue
-    if json_lines:
-        return json.loads('\n'.join(json_lines))
-    return json.loads(output_text)
 
 
 @pytest.fixture
@@ -36,228 +17,149 @@ def runner():
 
 @pytest.fixture
 def mock_config():
-    config = MagicMock()
+    config = Mock()
     config.coordinator_url = "http://localhost:8000"
     config.api_key = "test_key"
+    config.blockchain_rpc_url = "http://localhost:8006"
+    config.hub_discovery_url = "hub.aitbc.bubuit.net"
+    config.governance_service_url = "http://localhost:8105"
     return config
 
 
 @pytest.fixture
-def governance_dir(tmp_path):
-    gov_dir = tmp_path / "governance"
-    gov_dir.mkdir()
-    with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', gov_dir):
-        yield gov_dir
+def temp_wallet_dir():
+    """Create a temporary wallet directory with a test wallet"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        wallet_dir = Path(tmpdir) / "wallets"
+        wallet_dir.mkdir(parents=True, exist_ok=True)
+        wallet_file = wallet_dir / "test_wallet.json"
+        wallet_data = {
+            "address": "aitbc1test",
+            "balance": 1000.0,
+            "private_key": "a" * 64
+        }
+        wallet_file.write_text(json.dumps(wallet_data))
+        with patch("aitbc_cli.commands.operations.DEFAULT_WALLET_DIR", wallet_dir):
+            yield wallet_dir
 
 
 class TestGovernanceCommands:
 
-    def test_propose_general(self, runner, mock_config, governance_dir):
-        """Test creating a general proposal"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Test Proposal',
-                '--description', 'A test proposal',
-                '--duration', '7'
-            ], obj={'config': mock_config, 'output': 'json'})
+    @pytest.fixture(autouse=True)
+    def mock_http(self):
+        """Mock AITBCHTTPClient for blockchain RPC calls"""
+        with patch("aitbc_cli.commands.operations.AITBCHTTPClient") as mock_http_class:
+            mock_instance = Mock()
+            mock_http_class.return_value = mock_instance
+            mock_instance.post.return_value = {
+                "proposal_id": "prop_123",
+                "status": "active",
+                "tx_hash": "0xabc123"
+            }
+            mock_instance.get.return_value = {
+                "proposal_id": "prop_123",
+                "title": "Test Proposal",
+                "status": "active",
+                "votes_for": 10.0,
+                "votes_against": 2.0,
+                "total_votes": 12.0,
+                "voter_count": 3
+            }
+            yield mock_http_class
 
-            assert result.exit_code == 0
-            data = extract_json_from_output(result.output)
-            assert data['title'] == 'Test Proposal'
-            assert data['type'] == 'general'
-            assert data['status'] == 'active'
-            assert 'proposal_id' in data
+    def test_proposal_command(self, runner, mock_config, mock_http, temp_wallet_dir):
+        """Test creating a governance proposal"""
+        result = runner.invoke(operations, [
+            "governance", "proposal",
+            "--proposal-id", "prop_123",
+            "--title", "Test Proposal",
+            "--description", "Test description",
+            "--category", "general",
+            "--wallet", "test_wallet",
+            "--voting-days", "7"
+        ], obj={"config": mock_config, "output": "json"})
 
-    def test_propose_parameter_change(self, runner, mock_config, governance_dir):
-        """Test creating a parameter change proposal"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Change Block Size',
-                '--description', 'Increase block size to 2MB',
-                '--type', 'parameter_change',
-                '--parameter', 'block_size',
-                '--value', '2000000'
-            ], obj={'config': mock_config, 'output': 'json'})
+        assert result.exit_code == 0
+        mock_http.return_value.post.assert_called_once()
+        call_args = mock_http.return_value.post.call_args
+        assert "/rpc/governance/proposal" in call_args[0][0]
 
-            assert result.exit_code == 0
-            data = extract_json_from_output(result.output)
-            assert data['type'] == 'parameter_change'
+    def test_vote_command(self, runner, mock_config, mock_http, temp_wallet_dir):
+        """Test voting on a governance proposal"""
+        result = runner.invoke(operations, [
+            "governance", "vote",
+            "prop_123",
+            "--vote", "for",
+            "--wallet", "test_wallet",
+            "--voting-power", "10"
+        ], obj={"config": mock_config, "output": "json"})
 
-    def test_propose_funding(self, runner, mock_config, governance_dir):
-        """Test creating a funding proposal"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Dev Fund',
-                '--description', 'Fund development',
-                '--type', 'funding',
-                '--amount', '10000'
-            ], obj={'config': mock_config, 'output': 'json'})
+        assert result.exit_code == 0
+        mock_http.return_value.post.assert_called_once()
+        call_args = mock_http.return_value.post.call_args
+        assert "/rpc/governance/vote" in call_args[0][0]
+        assert call_args[1]["json"]["vote_type"] == "for"
 
-            assert result.exit_code == 0
-            data = extract_json_from_output(result.output)
-            assert data['type'] == 'funding'
+    def test_get_proposal_command(self, runner, mock_config, mock_http, temp_wallet_dir):
+        """Test getting a governance proposal"""
+        result = runner.invoke(operations, [
+            "governance", "get-proposal",
+            "prop_123"
+        ], obj={"config": mock_config, "output": "json"})
 
-    def test_vote_for(self, runner, mock_config, governance_dir):
-        """Test voting for a proposal"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            # Create proposal
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Vote Test',
-                '--description', 'Test voting'
-            ], obj={'config': mock_config, 'output': 'json'})
-            proposal_id = extract_json_from_output(result.output)['proposal_id']
+        assert result.exit_code == 0
+        mock_http.return_value.get.assert_called_once()
+        call_args = mock_http.return_value.get.call_args
+        assert "/rpc/governance/proposal/prop_123" in call_args[0][0]
 
-            # Vote
-            result = runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'for',
-                '--voter', 'alice'
-            ], obj={'config': mock_config, 'output': 'json'})
+    def test_stake_command(self, runner, mock_config, mock_http, temp_wallet_dir):
+        """Test governance staking command"""
+        result = runner.invoke(operations, [
+            "governance", "stake",
+            "--address", "aitbc1test",
+            "--amount", "1000",
+            "--lock-days", "30"
+        ], obj={"config": mock_config, "output": "json"})
 
-            assert result.exit_code == 0
-            data = extract_json_from_output(result.output)
-            assert data['choice'] == 'for'
-            assert data['voter'] == 'alice'
-            assert data['current_tally']['for'] == 1.0
+        assert result.exit_code == 0
+        mock_http.return_value.post.assert_called_once()
+        call_args = mock_http.return_value.post.call_args
+        assert "/v1/governance/stake" in call_args[0][0]
 
-    def test_vote_against(self, runner, mock_config, governance_dir):
-        """Test voting against a proposal"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Against Test',
-                '--description', 'Test against'
-            ], obj={'config': mock_config, 'output': 'json'})
-            proposal_id = extract_json_from_output(result.output)['proposal_id']
+    def test_delegate_command(self, runner, mock_config, mock_http, temp_wallet_dir):
+        """Test governance delegation command"""
+        result = runner.invoke(operations, [
+            "governance", "delegate",
+            "--delegator", "aitbc1alice",
+            "--delegate", "aitbc1bob",
+            "--amount", "500"
+        ], obj={"config": mock_config, "output": "json"})
 
-            result = runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'against',
-                '--voter', 'bob'
-            ], obj={'config': mock_config, 'output': 'json'})
+        assert result.exit_code == 0
+        mock_http.return_value.post.assert_called_once()
+        call_args = mock_http.return_value.post.call_args
+        assert "/v1/governance/delegate" in call_args[0][0]
 
-            assert result.exit_code == 0
-            data = extract_json_from_output(result.output)
-            assert data['choice'] == 'against'
+    def test_execute_command(self, runner, mock_config, mock_http, temp_wallet_dir):
+        """Test proposal execution command"""
+        result = runner.invoke(operations, [
+            "governance", "execute",
+            "prop_123"
+        ], obj={"config": mock_config, "output": "json"})
 
-    def test_vote_weighted(self, runner, mock_config, governance_dir):
-        """Test weighted voting"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Weight Test',
-                '--description', 'Test weights'
-            ], obj={'config': mock_config, 'output': 'json'})
-            proposal_id = extract_json_from_output(result.output)['proposal_id']
+        assert result.exit_code == 0
+        mock_http.return_value.post.assert_called_once()
+        call_args = mock_http.return_value.post.call_args
+        assert "/v1/governance/proposals/prop_123/execute" in call_args[0][0]
 
-            result = runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'for',
-                '--voter', 'whale', '--weight', '10.0'
-            ], obj={'config': mock_config, 'output': 'json'})
+    def test_voting_power_command(self, runner, mock_config, mock_http, temp_wallet_dir):
+        """Test voting power query command"""
+        result = runner.invoke(operations, [
+            "governance", "voting-power",
+            "aitbc1test"
+        ], obj={"config": mock_config, "output": "json"})
 
-            assert result.exit_code == 0
-            data = extract_json_from_output(result.output)
-            assert data['weight'] == 10.0
-            assert data['current_tally']['for'] == 10.0
-
-    def test_vote_duplicate_rejected(self, runner, mock_config, governance_dir):
-        """Test that duplicate votes are rejected"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Dup Test',
-                '--description', 'Test duplicate'
-            ], obj={'config': mock_config, 'output': 'json'})
-            proposal_id = extract_json_from_output(result.output)['proposal_id']
-
-            runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'for', '--voter', 'alice'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            result = runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'for', '--voter', 'alice'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            assert result.exit_code != 0
-            assert 'already voted' in result.output
-
-    def test_vote_invalid_proposal(self, runner, mock_config, governance_dir):
-        """Test voting on nonexistent proposal"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'vote', 'nonexistent', 'for'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            assert result.exit_code != 0
-            assert 'not found' in result.output
-
-    def test_list_proposals(self, runner, mock_config, governance_dir):
-        """Test listing proposals"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            # Create two proposals
-            runner.invoke(operations, ['governance',
-                'propose', 'Prop A', '--description', 'First'
-            ], obj={'config': mock_config, 'output': 'json'})
-            runner.invoke(operations, ['governance',
-                'propose', 'Prop B', '--description', 'Second'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            result = runner.invoke(operations, ['governance',
-                'list'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            assert result.exit_code == 0
-            data = json.loads(result.output)
-            assert len(data) == 2
-
-    def test_list_filter_by_status(self, runner, mock_config, governance_dir):
-        """Test listing proposals filtered by status"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            runner.invoke(operations, ['governance',
-                'propose', 'Active Prop', '--description', 'Active'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            result = runner.invoke(operations, ['governance',
-                'list', '--status', 'active'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            assert result.exit_code == 0
-            data = json.loads(result.output)
-            assert len(data) == 1
-            assert data[0]['status'] == 'active'
-
-    def test_result_command(self, runner, mock_config, governance_dir):
-        """Test viewing proposal results"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'propose', 'Result Test',
-                '--description', 'Test results'
-            ], obj={'config': mock_config, 'output': 'json'})
-            proposal_id = extract_json_from_output(result.output)['proposal_id']
-
-            # Cast votes
-            runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'for', '--voter', 'alice'
-            ], obj={'config': mock_config, 'output': 'json'})
-            runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'against', '--voter', 'bob'
-            ], obj={'config': mock_config, 'output': 'json'})
-            runner.invoke(operations, ['governance',
-                'vote', proposal_id, 'for', '--voter', 'charlie'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            result = runner.invoke(operations, ['governance',
-                'result', proposal_id
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            assert result.exit_code == 0
-            data = extract_json_from_output(result.output)
-            assert data['votes_for'] == 2.0
-            assert data['votes_against'] == 1.0
-            assert data['total_votes'] == 3.0
-            assert data['voter_count'] == 3
-
-    def test_result_invalid_proposal(self, runner, mock_config, governance_dir):
-        """Test result for nonexistent proposal"""
-        with patch('aitbc_cli.commands.operations.GOVERNANCE_DIR', governance_dir):
-            result = runner.invoke(operations, ['governance',
-                'result', 'nonexistent'
-            ], obj={'config': mock_config, 'output': 'json'})
-
-            assert result.exit_code != 0
-            assert 'not found' in result.output
+        assert result.exit_code == 0
+        mock_http.return_value.get.assert_called_once()
+        call_args = mock_http.return_value.get.call_args
+        assert "/v1/governance/voting-power/aitbc1test" in call_args[0][0]
