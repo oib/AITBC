@@ -1,6 +1,4 @@
-"""
-pytestmark = pytest.mark.skip('Skipping broken test file')
-Negative authentication tests for dispute endpoints.
+"""Negative authentication tests for dispute endpoints.
 Tests for missing authentication, unauthorized access, and invalid tokens.
 """
 
@@ -87,8 +85,9 @@ class TestDisputeAuthentication:
             "/rpc/disputes/evidence",
             json={
                 "dispute_id": 1,
+                "evidence_hash": "0xabcdef",
                 "evidence_type": "transaction_proof",
-                "evidence_data": "test_evidence_data"
+                "description": "Test evidence"
             }
         )
 
@@ -102,8 +101,7 @@ class TestDisputeAuthentication:
             json={
                 "dispute_id": 1,
                 "evidence_id": 1,
-                "is_valid": True,
-                "verification_score": 95
+                "verified": True
             }
         )
 
@@ -115,8 +113,8 @@ class TestDisputeAuthentication:
         response = await client.post(
             "/rpc/disputes/arbitrators/authorize",
             json={
-                "arbitrator": "0x1234567890123456789012345678901234567890",
-                "reputation_score": 85
+                "arbitrator_address": "0x1234567890123456789012345678901234567890",
+                "authorized": True
             }
         )
 
@@ -129,8 +127,7 @@ class TestDisputeAuthentication:
             "/rpc/disputes/vote",
             json={
                 "dispute_id": 1,
-                "vote_in_favor_of_initiator": True,
-                "confidence": 90,
+                "vote": "plaintiff",
                 "reasoning": "Test reasoning"
             }
         )
@@ -244,8 +241,7 @@ class TestDisputeAuthDevMode:
             "/rpc/disputes/vote",
             json={
                 "dispute_id": 1,
-                "vote_in_favor_of_initiator": True,
-                "confidence": 90,
+                "vote": "plaintiff",
                 "reasoning": "Test reasoning"
             },
             headers={"X-Wallet-Address": "0x0000000000000000000000000000000000000000"}
