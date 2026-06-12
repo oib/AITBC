@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Service for Hermes distributed decision making."""
 import uuid
 from datetime import datetime

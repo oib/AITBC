@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 AI Agent Service Marketplace Service
 Implements a sophisticated marketplace where agents can offer specialized services

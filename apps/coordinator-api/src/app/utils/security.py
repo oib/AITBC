@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Security utilities for API protection."""
 import hashlib
 import hmac

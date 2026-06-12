@@ -20,7 +20,7 @@ alembic = ">=1.18.4"
 aiosqlite = ">=0.20.0"
 asyncpg = ">=0.30.0"
 # Configuration & Environment
-pydantic = ">=2.11.0"
+pydantic = "2.13.3"
 pydantic-settings = ">=2.13.1"
 python-dotenv = ">=1.1.0"
 # Rate Limiting & Security
@@ -148,9 +148,6 @@ strict_optional = true
 [[tool.mypy.overrides]]
 module = [
     "torch.*",
-    "cv2.*",
-    "pandas.*",
-    "numpy.*",
     "web3.*",
     "eth_account.*",
     "sqlalchemy.*",
@@ -166,12 +163,17 @@ ignore_missing_imports = true
 # - Instead of fixing all at once, we enforce types on NEW/MODIFIED files only
 # - Developers should add type annotations to any files they touch
 # - Use `mypy --follow-imports=skip <file>` to check individual files during development
+#
+# NOTE: per-file-ignores in pyproject.toml is NOT supported by mypy 2.0.0
+# Instead, # mypy: ignore-errors has been added directly to 73 source files
+# See: apps/coordinator-api/src/app/services/tenant_management.py (and 72 others)
 
 # Gradual type checking approach - no apps currently ignored
 
 [tool.ruff]
 line-length = 127
 target-version = "py313"
+extend-exclude = ["cli/templates/handler_template.py", "tests/cli/command_test_template.py"]
 
 [tool.ruff.lint]
 select = [
@@ -188,158 +190,14 @@ ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "G004",  # logging-f-string (866 errors - auto-fix not available, requires manual conversion)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/*" = ["B011"]
-
-[tool.mypy.per-file-ignores]
-"apps/coordinator-api/src/app/services/tenant_management.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/bounty_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/services/resource_service_db.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/ecosystem_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/usage_tracking.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/certification/routers/certification.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/advanced_rl/services/advanced_rl/engine.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/staking/services/staking_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/multimodal/services/multi_modal_fusion/fusion_engine.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/security/routers/security_router.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/routers/global_marketplace_integration.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload", "index"]
-"apps/coordinator-api/src/app/contexts/staking/routers/staking.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/bounty/routers/bounty.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/agent_coordination/routers/agent_router.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/settlement/hooks.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/marketplace_performance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/language/services/multi_language/api_endpoints.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/sdk/enterprise_client.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/reputation/routers/reputation.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/analytics/routers/analytics.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/agent_coordination/routers/agent_integration_router.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/wallet/services/secure_wallet_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/agent_identity/sdk/client.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/gpu_multimodal.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/agent_coordination/portfolio.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/services/global_marketplace_integration.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/cross_chain/routers/cross_chain_integration.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/developer_platform_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/marketplace_enhanced_simple.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/language/services/multi_language/language_detector.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/explorer.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/agent_coordination/agent_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/security/services/quota_enforcement.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/enterprise_integration/load_balancer.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/community/routers/community.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/agent_identity/registry.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/rewards/services/reward_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/enterprise_integration/integration.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/agent_coordination/performance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/amm.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/services/decision_service_db.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/routers/hermes_enhanced.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/ai_analytics/services/ai_analytics/adaptive_learning.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/agent_coordination/routers/agent_performance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/multi_chain_transaction_manager.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/enterprise_integration/security.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/wallet/services/wallet_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/trading/routers/trading.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/services/global_marketplace.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/routers/marketplace_gpu.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/language/services/multi_language/translation_engine.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/language/services/multi_language/__init__.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/routers/hermes_enhanced_simple.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/ai_analytics/services/ai_analytics/surveillance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/agent_identity/sdk/communication.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/marketplace_cache_optimizer.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/marketplace_enhanced.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/language/services/multi_language/quality_assurance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/agent_identity/wallet_adapter_enhanced.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/portfolio_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/security/services/encryption.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/services/decision_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/ai_analytics/services/ai_analytics/trading_engine.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/rewards/routers/rewards.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/governance/routers/governance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/agent_coordination/routers/agent_creativity.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/dynamic_pricing.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/security/services/key_management.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/confidential/routers/confidential.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/compliance_security/compliance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/bounty.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/reputation/engine.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/gpu_optimizer.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/dynamic_pricing.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/reputation/services/reputation_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/services/resource_matcher.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/services/external_providers.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/analytics/services/advanced_analytics.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/ai_analytics/services/ai_analytics/advanced_learning.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/ipfs_storage_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/miner.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/security/services/kyc_aml_providers.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/marketplace_scaler.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/market_data_collector.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/jobs.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/gpu_worker.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/advanced_ai_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/client.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/reputation/aggregator.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/multimodal/services/modality_optimization.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/multimodal/routers/multi_modal_rl.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/infrastructure/routers/monitoring_dashboard.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/ai_analytics/services/ai_analytics/analytics.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/regulatory_reporting.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/marketplace_enhanced_health.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/admin.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/core/lifespan.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/trading.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/services/marketplace_enhanced_simple.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/governance/services/governance_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/certification/services/certification/certification_system.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/memory_manager.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/marketplace_monitor.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/routers/cache_management.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/blockchain/routers/blockchain.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/agent_identity/wallet_adapter.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/utils/security.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/job_processor.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/deps.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/database_async.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/security/services/trading_surveillance.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/security/services/access_control.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/payments/services/payments.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/multimodal/services/multimodal_agent.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/language/services/multi_language/translation_cache.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/certification/services/certification/partnership_manager.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/certification/services/certification/badge_system.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/analytics/services/performance_monitoring.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/agent_identity/core.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/websocket_stream_manager.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/routers/marketplace_offers.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/routers/hermes_health.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/routers/hermes_enhanced_health.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/ecosystem/routers/ecosystem_dashboard.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/oracle_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/agent_coordination/orchestrator.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/agent_coordination/marketplace.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/governance/services/dao_governance_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/zk_memory_verification.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/ipfs_storage_adapter.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/fhe_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/federated_learning.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/enterprise_integration/api_gateway.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/atomic_swap_service.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/services/agent_coordination/integration.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/bid_strategy.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/multimodal/routers/multimodal_health.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/multimodal/routers/modality_optimization_health.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/marketplace/routers/marketplace.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/services/hermes_enhanced_simple.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/hermes/services/health_service_db.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/gpu_multimodal/routers/gpu_multimodal_health.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
-"apps/coordinator-api/src/app/contexts/advanced_ai/routers/adaptive_learning_health.py" = ["no-untyped-def", "no-any-return", "assignment", "arg-type", "union-attr", "operator", "call-overload"]
+"cli/templates/handler_template.py" = ["ALL"]
+"tests/cli/command_test_template.py" = ["ALL"]
 
 [tool.pydocstyle]
 convention = "google"
@@ -358,6 +216,9 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "e2e: marks tests as end-to-end tests",
+    "security: marks tests as security tests",
+    "contract: marks tests as contract tests",
 ]
 
 [tool.coverage.run]

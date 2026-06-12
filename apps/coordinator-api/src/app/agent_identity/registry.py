@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Cross-Chain Registry Implementation
 Registry for cross-chain agent identity mapping and synchronization

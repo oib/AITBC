@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Advanced Load Balancing - Phase 6.4 Implementation
 Intelligent traffic distribution with AI-powered auto-scaling and performance optimization

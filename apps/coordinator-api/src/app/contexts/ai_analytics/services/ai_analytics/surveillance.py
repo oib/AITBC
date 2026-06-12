@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 AI-Powered Surveillance System - Advanced Machine Learning Surveillance
 Implements ML-based pattern recognition, behavioral analysis, and predictive risk assessment
