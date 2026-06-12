@@ -34,7 +34,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.agent_id == "agent_001"
         assert agent.agent_type == AgentType.WORKER
         assert len(agent.capabilities) == 2
@@ -54,14 +54,14 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         # Initially inactive
         assert agent.status == AgentStatus.INACTIVE
-        
+
         # Transition to active
         agent.status = AgentStatus.ACTIVE
         assert agent.status == AgentStatus.ACTIVE
-        
+
         # Transition to busy
         agent.status = AgentStatus.BUSY
         assert agent.status == AgentStatus.BUSY
@@ -80,11 +80,11 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         # Initially has heartbeat
         assert agent.last_heartbeat is not None
         assert isinstance(agent.last_heartbeat, datetime)
-        
+
         # Update heartbeat
         agent.last_heartbeat = datetime.now(UTC)
         assert agent.last_heartbeat > now
@@ -104,7 +104,7 @@ class TestAgentPresence:
             registration_time=now,
             health_score=1.0
         )
-        
+
         # Health score should be high for active agent
         assert agent.health_score == 1.0
         assert agent.status == AgentStatus.ACTIVE
@@ -147,11 +147,11 @@ class TestAgentPresence:
                 registration_time=now
             )
         ]
-        
+
         # Filter by GPU capability
         gpu_agents = [a for a in agents if "gpu" in a.capabilities]
         assert len(gpu_agents) == 2
-        
+
         # Filter by storage capability
         storage_agents = [a for a in agents if "storage" in a.capabilities]
         assert len(storage_agents) == 1
@@ -170,7 +170,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.services) == 3
         assert "inference" in agent.services
         assert "training" in agent.services
@@ -194,7 +194,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.endpoints) == 3
         assert agent.endpoints["http"] == "http://localhost:8080"
         assert agent.endpoints["grpc"] == "localhost:9090"
@@ -218,7 +218,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.metadata["region"] == "us-east"
         assert agent.metadata["gpu_model"] == "NVIDIA A100"
         assert agent.metadata["memory_gb"] == 80
@@ -232,7 +232,7 @@ class TestAgentPresence:
             AgentStatus.MAINTENANCE,
             AgentStatus.ERROR
         ]
-        
+
         for status in statuses:
             assert isinstance(status.value, str)
 
@@ -246,7 +246,7 @@ class TestAgentPresence:
             AgentType.GATEWAY,
             AgentType.ORCHESTRATOR
         ]
-        
+
         for agent_type in types:
             assert isinstance(agent_type.value, str)
 
@@ -269,7 +269,7 @@ class TestAgentPresence:
                 "gpu": 0.8
             }
         )
-        
+
         assert len(agent.load_metrics) == 3
         assert agent.load_metrics["cpu"] == 0.5
         assert agent.load_metrics["gpu"] == 0.8
@@ -289,7 +289,7 @@ class TestAgentPresence:
             registration_time=now,
             tags={"gpu", "inference", "production"}
         )
-        
+
         assert len(agent.tags) == 3
         assert "gpu" in agent.tags
         assert "inference" in agent.tags
@@ -310,12 +310,12 @@ class TestAgentPresence:
             registration_time=now,
             tags={"gpu"}
         )
-        
+
         # Add tag
         agent.tags.add("inference")
         assert "inference" in agent.tags
         assert len(agent.tags) == 2
-        
+
         # Remove tag
         agent.tags.remove("gpu")
         assert "gpu" not in agent.tags
@@ -349,7 +349,7 @@ class TestAgentPresence:
             },
             tags={"production", "high-performance", "gpu-cluster"}
         )
-        
+
         assert len(agent.capabilities) == 3
         assert len(agent.services) == 3
         assert len(agent.endpoints) == 3
@@ -371,11 +371,11 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         # Change status to active
         agent.status = AgentStatus.ACTIVE
         assert agent.status == AgentStatus.ACTIVE
-        
+
         # Change status to inactive
         agent.status = AgentStatus.INACTIVE
         assert agent.status == AgentStatus.INACTIVE
@@ -384,7 +384,7 @@ class TestAgentPresence:
         """Test agent info timestamp comparison"""
         now = datetime.now(UTC)
         later = now + timedelta(hours=1)
-        
+
         agent1 = AgentInfo(
             agent_id="agent_time1",
             agent_type=AgentType.WORKER,
@@ -396,7 +396,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         agent2 = AgentInfo(
             agent_id="agent_time2",
             agent_type=AgentType.WORKER,
@@ -408,7 +408,7 @@ class TestAgentPresence:
             last_heartbeat=later,
             registration_time=now
         )
-        
+
         assert agent2.last_heartbeat > agent1.last_heartbeat
 
     def test_agent_info_endpoint_manipulation(self):
@@ -425,11 +425,11 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         # Add endpoint
         agent.endpoints["grpc"] = "grpc://localhost:9095"
         assert len(agent.endpoints) == 2
-        
+
         # Remove endpoint
         del agent.endpoints["http"]
         assert "http" not in agent.endpoints
@@ -449,7 +449,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.status == AgentStatus.INACTIVE
 
     def test_agent_info_with_maintenance_status(self):
@@ -466,7 +466,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.status == AgentStatus.MAINTENANCE
 
     def test_agent_info_with_busy_status(self):
@@ -483,7 +483,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.status == AgentStatus.BUSY
 
     def test_agent_info_with_error_status(self):
@@ -500,7 +500,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.status == AgentStatus.ERROR
 
     def test_agent_info_with_coordinator_type(self):
@@ -517,7 +517,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.agent_type == AgentType.COORDINATOR
 
     def test_agent_info_with_specialist_type(self):
@@ -534,7 +534,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.agent_type == AgentType.SPECIALIST
 
     def test_agent_info_with_numeric_agent_id(self):
@@ -551,7 +551,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "12345" in agent.agent_id
 
     def test_agent_info_with_special_characters_in_agent_id(self):
@@ -568,7 +568,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "-" in agent.agent_id
         assert "_" in agent.agent_id
         assert "@" in agent.agent_id
@@ -587,7 +587,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.services) == 0
 
     def test_agent_info_with_single_service(self):
@@ -604,7 +604,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.services) == 1
 
     def test_agent_info_with_multiple_capabilities(self):
@@ -621,7 +621,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.capabilities) == 3
 
     def test_agent_info_with_empty_capabilities(self):
@@ -638,7 +638,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.capabilities) == 0
 
     def test_agent_info_with_multiple_endpoints(self):
@@ -655,7 +655,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.endpoints) == 2
 
     def test_agent_info_with_numeric_agent_id(self):
@@ -672,7 +672,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "12345" in agent.agent_id
 
     def test_agent_info_with_very_long_agent_id(self):
@@ -689,7 +689,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.agent_id) == 100
 
     def test_agent_info_with_very_short_agent_id(self):
@@ -706,7 +706,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.agent_id) == 1
 
     def test_agent_info_with_single_capability(self):
@@ -723,7 +723,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.capabilities) == 1
 
     def test_agent_info_with_empty_services(self):
@@ -740,7 +740,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.services) == 0
 
     def test_agent_info_with_empty_capabilities(self):
@@ -757,7 +757,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.capabilities) == 0
 
     def test_agent_info_with_empty_metadata(self):
@@ -774,7 +774,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.metadata) == 0
 
     def test_agent_info_with_multiple_endpoints(self):
@@ -791,7 +791,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.endpoints) == 2
 
     def test_agent_info_with_empty_endpoints(self):
@@ -808,7 +808,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.endpoints) == 0
 
     def test_agent_info_with_single_capability(self):
@@ -825,7 +825,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.capabilities) == 1
 
     def test_agent_info_with_single_service(self):
@@ -842,7 +842,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.services) == 1
 
     def test_agent_info_with_numeric_agent_id(self):
@@ -859,7 +859,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "123" in agent.agent_id
 
     def test_agent_info_with_hyphen_in_agent_id(self):
@@ -876,7 +876,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "-" in agent.agent_id
 
     def test_agent_info_with_special_characters_in_agent_id(self):
@@ -893,7 +893,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "@" in agent.agent_id
         assert "#" in agent.agent_id
         assert "$" in agent.agent_id
@@ -912,7 +912,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "_" in agent.agent_id
 
     def test_agent_info_with_empty_agent_id(self):
@@ -929,7 +929,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.agent_id == ""
 
     def test_agent_info_with_single_character_agent_id(self):
@@ -946,7 +946,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert len(agent.agent_id) == 1
 
     def test_agent_info_with_mixed_case_agent_id(self):
@@ -963,7 +963,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "Agent" in agent.agent_id
         assert "ID" in agent.agent_id
 
@@ -981,7 +981,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert agent.agent_id == "123"
 
     def test_agent_info_with_hyphen_in_agent_id(self):
@@ -998,7 +998,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "-" in agent.agent_id
 
     def test_agent_info_with_dot_in_agent_id(self):
@@ -1015,7 +1015,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "." in agent.agent_id
 
     def test_agent_info_with_special_characters_in_agent_id(self):
@@ -1032,7 +1032,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "@" in agent.agent_id
         assert "#" in agent.agent_id
         assert "$" in agent.agent_id
@@ -1051,7 +1051,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert " " in agent.agent_id
 
     def test_agent_info_with_underscore_in_agent_id(self):
@@ -1068,7 +1068,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "_" in agent.agent_id
 
     def test_agent_info_with_pipe_in_agent_id(self):
@@ -1085,7 +1085,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "|" in agent.agent_id
 
     def test_agent_info_with_colon_in_agent_id(self):
@@ -1102,7 +1102,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert ":" in agent.agent_id
 
     def test_agent_info_with_semicolon_in_agent_id(self):
@@ -1119,7 +1119,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert ";" in agent.agent_id
 
     def test_agent_info_with_equals_in_agent_id(self):
@@ -1136,7 +1136,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "=" in agent.agent_id
 
     def test_agent_info_with_plus_in_agent_id(self):
@@ -1153,7 +1153,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "+" in agent.agent_id
 
     def test_agent_info_with_slash_in_agent_id(self):
@@ -1170,7 +1170,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "/" in agent.agent_id
 
     def test_agent_info_with_backslash_in_agent_id(self):
@@ -1187,7 +1187,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "\\" in agent.agent_id
 
     def test_agent_info_with_bracket_in_agent_id(self):
@@ -1204,7 +1204,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "[" in agent.agent_id
         assert "]" in agent.agent_id
 
@@ -1222,7 +1222,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "(" in agent.agent_id
         assert ")" in agent.agent_id
 
@@ -1240,7 +1240,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "{" in agent.agent_id
         assert "}" in agent.agent_id
 
@@ -1258,7 +1258,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "<" in agent.agent_id
         assert ">" in agent.agent_id
 
@@ -1276,7 +1276,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "$" in agent.agent_id
 
     def test_agent_info_with_at_in_agent_id(self):
@@ -1293,7 +1293,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "@" in agent.agent_id
 
     def test_agent_info_with_percent_in_agent_id(self):
@@ -1310,7 +1310,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "%" in agent.agent_id
 
     def test_agent_info_with_ampersand_in_agent_id(self):
@@ -1327,7 +1327,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "&" in agent.agent_id
 
     def test_agent_info_with_hash_in_agent_id(self):
@@ -1344,7 +1344,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "#" in agent.agent_id
 
     def test_agent_info_with_exclamation_in_agent_id(self):
@@ -1361,7 +1361,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "!" in agent.agent_id
 
     def test_agent_info_with_asterisk_in_agent_id(self):
@@ -1378,7 +1378,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "*" in agent.agent_id
 
     def test_agent_info_with_plus_in_agent_id(self):
@@ -1395,7 +1395,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "+" in agent.agent_id
 
     def test_agent_info_with_equals_in_agent_id(self):
@@ -1412,7 +1412,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "=" in agent.agent_id
 
     def test_agent_info_with_bracket_in_agent_id(self):
@@ -1429,7 +1429,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "[" in agent.agent_id
 
     def test_agent_info_with_curly_brace_in_agent_id(self):
@@ -1446,7 +1446,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "{" in agent.agent_id
 
     def test_agent_info_with_pipe_in_agent_id(self):
@@ -1463,7 +1463,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert "|" in agent.agent_id
 
     def test_agent_info_with_colon_in_agent_id(self):
@@ -1480,7 +1480,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert ":" in agent.agent_id
 
     def test_agent_info_with_semicolon_in_agent_id(self):
@@ -1497,7 +1497,7 @@ class TestAgentPresence:
             last_heartbeat=now,
             registration_time=now
         )
-        
+
         assert ";" in agent.agent_id
 
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 import datetime as dt
 import json
 from collections.abc import Sequence
-from datetime import timezone
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -36,7 +35,7 @@ class MatchRepository:
             requirements=requirements,
             hints=hints or {},
             top_k=top_k,
-            created_at=dt.datetime.now(timezone.utc),
+            created_at=dt.datetime.now(dt.UTC),
         )
         self._session.add(request)
         await self._session.flush()
@@ -60,7 +59,7 @@ class MatchRepository:
         publish: bool = True,
     ) -> list[MatchResult]:
         results: list[MatchResult] = []
-        created_at = dt.datetime.now(timezone.utc)
+        created_at = dt.datetime.now(dt.UTC)
         for candidate in candidates:
             result = MatchResult(
                 request_id=request_id,

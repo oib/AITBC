@@ -8,7 +8,6 @@ import json
 import time
 from unittest.mock import MagicMock, Mock, patch
 
-import httpx
 import pytest
 from aitbc_cli.commands.workflow import workflow
 from click.testing import CliRunner

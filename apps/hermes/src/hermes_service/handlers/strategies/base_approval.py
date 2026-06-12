@@ -1,9 +1,7 @@
 """Base approval strategy class."""
-
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
-
 
 class ApprovalStrategy(ABC):
     """Abstract base class for approval strategies."""
@@ -33,11 +31,5 @@ class ApprovalStrategy(ABC):
 
     def log_decision(self, request: dict[str, Any], approved: bool, reason: str) -> None:
         """Log approval decision for audit trail."""
-        decision = "APPROVED" if approved else "REJECTED"
-        self.logger.info(
-            f"Approval decision: {decision} | "
-            f"Mode: {self.__class__.__name__} | "
-            f"Sender: {request.get('sender')} | "
-            f"Amount: {request.get('amount')} | "
-            f"Reason: {reason}"
-        )
+        decision = 'APPROVED' if approved else 'REJECTED'
+        self.logger.info('Approval decision: %s | Mode: %s | Sender: %s | Amount: %s | Reason: %s', decision, self.__class__.__name__, request.get('sender'), request.get('amount'), reason)

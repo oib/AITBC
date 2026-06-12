@@ -41,5 +41,5 @@ class MarketplaceBid(SQLModel, table=True):
     notes: str | None = Field(default=None)
     status: str = Field(default="pending", nullable=False)
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
-    
-    
+
+

@@ -7,8 +7,8 @@ import uuid
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 

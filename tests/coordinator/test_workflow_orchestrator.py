@@ -10,9 +10,8 @@ Or enable with: AITBC_RUN_WORKFLOW_TESTS=1 pytest tests/coordinator/test_workflo
 
 import os
 import sys
-from pathlib import Path
-
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -61,7 +60,7 @@ class TestWorkflowStep:
             timeout=300,
             max_retries=3
         )
-        
+
         assert step.step_id == "step_001"
         assert step.agent_id == "agent_001"
         assert step.action == "process_data"
@@ -77,14 +76,14 @@ class TestWorkflowStep:
             parameters={"model": "gpt-4"},
             timeout=600
         )
-        
+
         # Convert to dict
         step_dict = step.to_dict()
         assert "step_id" in step_dict
         assert "agent_id" in step_dict
         assert "action" in step_dict
         assert "status" in step_dict
-        
+
         # Convert from dict
         restored_step = WorkflowStep.from_dict(step_dict)
         assert restored_step.step_id == step.step_id
@@ -98,13 +97,13 @@ class TestWorkflowStep:
             agent_id="agent_003",
             action="compute"
         )
-        
+
         # Transition to running
         step.status = StepStatus.RUNNING
         step.started_at = datetime.now(UTC)
         assert step.status == StepStatus.RUNNING
         assert step.started_at is not None
-        
+
         # Transition to completed
         step.status = StepStatus.COMPLETED
         step.completed_at = datetime.now(UTC)
@@ -130,7 +129,7 @@ class TestWorkflowDefinition:
                 dependencies=["step_001"]
             )
         ]
-        
+
         workflow = WorkflowDefinition(
             workflow_id="wf_001",
             name="Data Processing Workflow",
@@ -138,7 +137,7 @@ class TestWorkflowDefinition:
             steps=steps,
             created_by="user_001"
         )
-        
+
         assert workflow.workflow_id == "wf_001"
         assert workflow.name == "Data Processing Workflow"
         assert len(workflow.steps) == 2
@@ -153,20 +152,20 @@ class TestWorkflowDefinition:
                 action="process"
             )
         ]
-        
+
         workflow = WorkflowDefinition(
             workflow_id="wf_002",
             name="Test Workflow",
             steps=steps,
             created_by="user_002"
         )
-        
+
         # Convert to dict
         workflow_dict = workflow.to_dict()
         assert "workflow_id" in workflow_dict
         assert "name" in workflow_dict
         assert "steps" in workflow_dict
-        
+
         # Convert from dict
         restored_workflow = WorkflowDefinition.from_dict(workflow_dict)
         assert restored_workflow.workflow_id == workflow.workflow_id
@@ -194,13 +193,13 @@ class TestWorkflowDefinition:
                 dependencies=["step_002"]
             )
         ]
-        
+
         workflow = WorkflowDefinition(
             workflow_id="wf_003",
             name="Dependent Workflow",
             steps=steps
         )
-        
+
         # Verify dependency chain
         assert len(workflow.steps[1].dependencies) == 1
         assert "step_001" in workflow.steps[1].dependencies
@@ -216,11 +215,11 @@ class TestWorkflowDefinition:
             max_retries=5,
             timeout=600
         )
-        
+
         assert step.max_retries == 5
         assert step.timeout == 600
         assert step.retry_count == 0
-        
+
         # Simulate retry
         step.retry_count = 1
         assert step.retry_count == 1
@@ -239,7 +238,7 @@ class TestWorkflowExecution:
                 action="process"
             )
         ]
-        
+
         execution = WorkflowExecution(
             execution_id="exec_001",
             workflow_id="wf_001",
@@ -247,7 +246,7 @@ class TestWorkflowExecution:
             steps=steps,
             input_parameters={"data": "test_input"}
         )
-        
+
         assert execution.execution_id == "exec_001"
         assert execution.workflow_id == "wf_001"
         assert execution.status == WorkflowStatus.PENDING
@@ -263,19 +262,19 @@ class TestWorkflowExecution:
                 action="process"
             )
         ]
-        
+
         execution = WorkflowExecution(
             execution_id="exec_002",
             workflow_id="wf_002",
             steps=steps
         )
-        
+
         # Convert to dict
         exec_dict = execution.to_dict()
         assert "execution_id" in exec_dict
         assert "workflow_id" in exec_dict
         assert "status" in exec_dict
-        
+
         # Convert from dict
         restored_exec = WorkflowExecution.from_dict(exec_dict)
         assert restored_exec.execution_id == execution.execution_id
@@ -287,17 +286,17 @@ class TestWorkflowExecution:
             execution_id="exec_003",
             workflow_id="wf_003"
         )
-        
+
         # Start execution
         execution.status = WorkflowStatus.RUNNING
         assert execution.status == WorkflowStatus.RUNNING
-        
+
         # Complete execution
         execution.status = WorkflowStatus.COMPLETED
         execution.completed_at = datetime.now(UTC)
         assert execution.status == WorkflowStatus.COMPLETED
         assert execution.completed_at is not None
-        
+
         # Cancel execution
         execution.status = WorkflowStatus.CANCELLED
         assert execution.status == WorkflowStatus.CANCELLED
@@ -330,7 +329,7 @@ class TestWorkflowOrchestrator:
     def test_orchestrator_initialization(self):
         """Test orchestrator initialization"""
         orchestrator = WorkflowOrchestrator()
-        
+
         assert orchestrator.redis_url == "redis://localhost:6379/1"
         assert len(orchestrator.active_executions) == 0
         assert orchestrator.redis_client is None
@@ -338,22 +337,22 @@ class TestWorkflowOrchestrator:
     def test_orchestrator_custom_redis_url(self):
         """Test orchestrator with custom Redis URL"""
         orchestrator = WorkflowOrchestrator(redis_url="redis://localhost:6380/2")
-        
+
         assert orchestrator.redis_url == "redis://localhost:6380/2"
 
     def test_orchestrator_active_executions_tracking(self):
         """Test orchestrator tracks active executions"""
         orchestrator = WorkflowOrchestrator()
-        
+
         # Initially empty
         assert len(orchestrator.active_executions) == 0
-        
+
         # Simulate adding an execution (would normally be done via execute_workflow)
         orchestrator.active_executions["exec_001"] = WorkflowExecution(
             execution_id="exec_001",
             workflow_id="wf_001"
         )
-        
+
         assert len(orchestrator.active_executions) == 1
         assert "exec_001" in orchestrator.active_executions
 
@@ -364,10 +363,10 @@ class TestWorkflowOrchestrator:
             execution_id="exec_001",
             workflow_id="wf_001"
         )
-        
+
         # Remove execution
         del orchestrator.active_executions["exec_001"]
-        
+
         assert len(orchestrator.active_executions) == 0
         assert "exec_001" not in orchestrator.active_executions
 
@@ -382,7 +381,7 @@ class TestWorkflowOrchestrator:
                 "step3": {"name": "Save", "order": 3, "depends_on": "step2"}
             }
         )
-        
+
         assert len(definition.steps) == 3
         assert "step2" in definition.steps
 
@@ -392,11 +391,11 @@ class TestWorkflowOrchestrator:
             execution_id="exec_progress",
             workflow_id="wf_001"
         )
-        
+
         # Mark steps as completed
         execution.completed_steps = 2
         execution.current_step = 2
-        
+
         assert execution.completed_steps == 2
         assert execution.current_step == 2
 
@@ -407,14 +406,14 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         # Initial status
         assert step.status == StepStatus.PENDING
-        
+
         # Mark as running
         step.status = StepStatus.RUNNING
         assert step.status == StepStatus.RUNNING
-        
+
         # Mark as completed
         step.status = StepStatus.COMPLETED
         assert step.status == StepStatus.COMPLETED
@@ -425,14 +424,14 @@ class TestWorkflowOrchestrator:
             execution_id="exec_transitions",
             workflow_id="wf_001"
         )
-        
+
         # Initial status
         assert execution.status == WorkflowStatus.PENDING
-        
+
         # Mark as running
         execution.status = WorkflowStatus.RUNNING
         assert execution.status == WorkflowStatus.RUNNING
-        
+
         # Mark as completed
         execution.status = WorkflowStatus.COMPLETED
         assert execution.status == WorkflowStatus.COMPLETED
@@ -444,7 +443,7 @@ class TestWorkflowOrchestrator:
             name="Minimal Workflow",
             steps={"step1": {"name": "Task 1"}}
         )
-        
+
         assert definition.workflow_id == "wf_minimal"
         assert definition.name == "Minimal Workflow"
         assert len(definition.steps) == 1
@@ -455,7 +454,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec_minimal",
             workflow_id="wf_001"
         )
-        
+
         assert execution.execution_id == "exec_minimal"
         assert execution.workflow_id == "wf_001"
         assert execution.status == WorkflowStatus.PENDING
@@ -467,7 +466,7 @@ class TestWorkflowOrchestrator:
             name="Empty Workflow",
             steps={}
         )
-        
+
         assert len(definition.steps) == 0
         assert definition.workflow_id == "wf_empty"
 
@@ -478,13 +477,13 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="train"
         )
-        
+
         definition = WorkflowDefinition(
             workflow_id="wf_single",
             name="Single Step Workflow",
             steps={"step_001": step}
         )
-        
+
         assert len(definition.steps) == 1
         assert "step_001" in definition.steps
 
@@ -495,7 +494,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="inference"
         )
-        
+
         assert step.action == "inference"
         assert step.step_id == "step_action"
 
@@ -505,12 +504,12 @@ class TestWorkflowOrchestrator:
             execution_id="exec_001",
             workflow_id="wf_001"
         )
-        
+
         execution2 = WorkflowExecution(
             execution_id="exec_002",
             workflow_id="wf_001"
         )
-        
+
         assert execution1.workflow_id == execution2.workflow_id
         assert execution1.execution_id != execution2.execution_id
 
@@ -521,7 +520,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_worker",
             action="train"
         )
-        
+
         assert step.agent_id == "agent_worker"
         assert step.action == "train"
 
@@ -532,7 +531,7 @@ class TestWorkflowOrchestrator:
             name="Test Workflow Name",
             steps={}
         )
-        
+
         assert definition.name == "Test Workflow Name"
         assert len(definition.name) > 0
 
@@ -543,7 +542,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="validate"
         )
-        
+
         assert step.step_id == "step_default"
         assert step.agent_id == "agent_001"
 
@@ -553,14 +552,14 @@ class TestWorkflowOrchestrator:
             execution_id="exec_003",
             workflow_id="wf_validation_test"
         )
-        
+
         assert execution.workflow_id == "wf_validation_test"
         assert len(execution.workflow_id) > 0
 
     def test_workflow_step_action_variations(self):
         """Test workflow step with different actions"""
         actions = ["train", "validate", "deploy", "monitor"]
-        
+
         for action in actions:
             step = WorkflowStep(
                 step_id=f"step_{action}",
@@ -576,7 +575,7 @@ class TestWorkflowOrchestrator:
             name="",
             steps={}
         )
-        
+
         assert definition.name == ""
         assert len(definition.name) == 0
 
@@ -586,7 +585,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec_empty_wf",
             workflow_id=""
         )
-        
+
         assert execution.workflow_id == ""
         assert len(execution.workflow_id) == 0
 
@@ -597,7 +596,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_002",
             action=""
         )
-        
+
         assert step.action == ""
         assert len(step.action) == 0
 
@@ -608,7 +607,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_very_long_identifier_for_testing_purposes_12345",
             action="process"
         )
-        
+
         assert len(step.agent_id) > 20
 
     def test_workflow_definition_with_long_workflow_id(self):
@@ -618,7 +617,7 @@ class TestWorkflowOrchestrator:
             name="Test Workflow",
             steps={}
         )
-        
+
         assert len(definition.workflow_id) > 20
 
     def test_workflow_execution_with_long_execution_id(self):
@@ -627,7 +626,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec_very_long_identifier_for_testing_purposes_12345",
             workflow_id="wf_test"
         )
-        
+
         assert len(execution.execution_id) > 20
 
     def test_workflow_definition_with_special_characters_in_name(self):
@@ -637,7 +636,7 @@ class TestWorkflowOrchestrator:
             name="Test-Workflow_Special@123",
             steps={}
         )
-        
+
         assert "-" in definition.name
         assert "_" in definition.name
         assert "@" in definition.name
@@ -649,7 +648,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "-" in step.step_id
         assert "_" in step.step_id
         assert "@" in step.step_id
@@ -661,7 +660,7 @@ class TestWorkflowOrchestrator:
             name="Numeric Workflow",
             steps={}
         )
-        
+
         assert "12345" in definition.workflow_id
 
     def test_workflow_execution_with_numeric_execution_id(self):
@@ -670,7 +669,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec_12345",
             workflow_id="wf_test"
         )
-        
+
         assert "12345" in execution.execution_id
 
     def test_workflow_definition_with_empty_name(self):
@@ -680,7 +679,7 @@ class TestWorkflowOrchestrator:
             name="",
             steps={}
         )
-        
+
         assert definition.name == ""
 
     def test_workflow_step_with_empty_agent_id(self):
@@ -690,7 +689,7 @@ class TestWorkflowOrchestrator:
             agent_id="",
             action="process"
         )
-        
+
         assert step.agent_id == ""
 
     def test_workflow_step_with_empty_action(self):
@@ -700,7 +699,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action=""
         )
-        
+
         assert step.action == ""
 
     def test_workflow_definition_with_empty_workflow_id(self):
@@ -710,7 +709,7 @@ class TestWorkflowOrchestrator:
             name="Empty ID Workflow",
             steps={}
         )
-        
+
         assert definition.workflow_id == ""
 
     def test_workflow_step_with_numeric_step_id(self):
@@ -720,7 +719,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "12345" in step.step_id
 
     def test_workflow_execution_with_numeric_workflow_id(self):
@@ -729,7 +728,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec_test",
             workflow_id="wf_12345"
         )
-        
+
         assert "12345" in execution.workflow_id
 
     def test_workflow_step_with_special_characters_in_agent_id(self):
@@ -739,7 +738,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent-001_special@",
             action="process"
         )
-        
+
         assert "-" in step.agent_id
         assert "@" in step.agent_id
 
@@ -750,7 +749,7 @@ class TestWorkflowOrchestrator:
             name="Workflow123",
             steps={}
         )
-        
+
         assert "123" in definition.name
 
     def test_workflow_step_with_underscore_in_step_id(self):
@@ -760,7 +759,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "_" in step.step_id
 
     def test_workflow_execution_with_special_characters_in_execution_id(self):
@@ -769,7 +768,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec-123_special@",
             workflow_id="wf_test"
         )
-        
+
         assert "-" in execution.execution_id
         assert "@" in execution.execution_id
 
@@ -780,7 +779,7 @@ class TestWorkflowOrchestrator:
             name="Empty Steps",
             steps={}
         )
-        
+
         assert len(definition.steps) == 0
 
     def test_workflow_step_with_empty_action(self):
@@ -790,7 +789,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action=""
         )
-        
+
         assert step.action == ""
 
     def test_workflow_execution_with_empty_workflow_id(self):
@@ -799,7 +798,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec_empty_wf",
             workflow_id=""
         )
-        
+
         assert execution.workflow_id == ""
 
     def test_workflow_definition_with_mixed_case_name(self):
@@ -809,7 +808,7 @@ class TestWorkflowOrchestrator:
             name="MixedCaseName",
             steps={}
         )
-        
+
         assert "Mixed" in definition.name
         assert "Case" in definition.name
 
@@ -820,7 +819,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_123_456",
             action="process"
         )
-        
+
         assert "_" in step.agent_id
 
     def test_workflow_execution_with_numeric_execution_id(self):
@@ -829,7 +828,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec123456",
             workflow_id="wf_test"
         )
-        
+
         assert "123456" in execution.execution_id
 
     def test_workflow_definition_with_underscore_in_workflow_id(self):
@@ -839,7 +838,7 @@ class TestWorkflowOrchestrator:
             name="Underscore Workflow",
             steps={}
         )
-        
+
         assert "_" in definition.workflow_id
 
     def test_workflow_step_with_special_characters_in_step_id(self):
@@ -849,7 +848,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "-" in step.step_id
         assert "@" in step.step_id
 
@@ -860,7 +859,7 @@ class TestWorkflowOrchestrator:
             name="",
             steps={}
         )
-        
+
         assert definition.name == ""
 
     def test_workflow_step_with_empty_agent_id(self):
@@ -870,7 +869,7 @@ class TestWorkflowOrchestrator:
             agent_id="",
             action="process"
         )
-        
+
         assert step.agent_id == ""
 
     def test_workflow_execution_with_empty_execution_id(self):
@@ -879,7 +878,7 @@ class TestWorkflowOrchestrator:
             execution_id="",
             workflow_id="wf_test"
         )
-        
+
         assert execution.execution_id == ""
 
     def test_workflow_definition_with_numeric_workflow_id(self):
@@ -889,7 +888,7 @@ class TestWorkflowOrchestrator:
             name="Numeric Workflow",
             steps={}
         )
-        
+
         assert "123" in definition.workflow_id
 
     def test_workflow_execution_with_numeric_workflow_id(self):
@@ -898,7 +897,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec",
             workflow_id="wf123"
         )
-        
+
         assert "123" in execution.workflow_id
 
     def test_workflow_step_with_numeric_step_id(self):
@@ -908,7 +907,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "123" in step.step_id
 
     def test_workflow_definition_with_empty_workflow_id(self):
@@ -918,7 +917,7 @@ class TestWorkflowOrchestrator:
             name="Empty Workflow ID",
             steps={}
         )
-        
+
         assert definition.workflow_id == ""
 
     def test_workflow_execution_with_empty_workflow_id(self):
@@ -927,7 +926,7 @@ class TestWorkflowOrchestrator:
             execution_id="exec",
             workflow_id=""
         )
-        
+
         assert execution.workflow_id == ""
 
     def test_workflow_step_with_empty_step_id(self):
@@ -937,7 +936,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert step.step_id == ""
 
     def test_workflow_step_with_empty_action(self):
@@ -947,7 +946,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action=""
         )
-        
+
         assert step.action == ""
 
     def test_workflow_step_with_numeric_step_id(self):
@@ -957,7 +956,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert step.step_id == "123"
 
     def test_workflow_step_with_numeric_action(self):
@@ -967,7 +966,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="123"
         )
-        
+
         assert step.action == "123"
 
     def test_workflow_step_with_special_characters_step_id(self):
@@ -977,7 +976,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "@" in step.step_id
         assert "#" in step.step_id
         assert "$" in step.step_id
@@ -989,7 +988,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action@#$"
         )
-        
+
         assert "@" in step.action
         assert "#" in step.action
         assert "$" in step.action
@@ -1001,7 +1000,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "_" in step.step_id
 
     def test_workflow_step_with_underscore_action(self):
@@ -1011,7 +1010,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action_123"
         )
-        
+
         assert "_" in step.action
 
     def test_workflow_step_with_colon_step_id(self):
@@ -1021,7 +1020,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert ":" in step.step_id
 
     def test_workflow_step_with_colon_action(self):
@@ -1031,7 +1030,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action:123"
         )
-        
+
         assert ":" in step.action
 
     def test_workflow_step_with_equals_step_id(self):
@@ -1041,7 +1040,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "=" in step.step_id
 
     def test_workflow_step_with_equals_action(self):
@@ -1051,7 +1050,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action=123"
         )
-        
+
         assert "=" in step.action
 
     def test_workflow_step_with_slash_step_id(self):
@@ -1061,7 +1060,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "/" in step.step_id
 
     def test_workflow_step_with_slash_action(self):
@@ -1071,7 +1070,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action/123"
         )
-        
+
         assert "/" in step.action
 
     def test_workflow_step_with_bracket_step_id(self):
@@ -1081,7 +1080,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "[" in step.step_id
         assert "]" in step.step_id
 
@@ -1092,7 +1091,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action[123]"
         )
-        
+
         assert "[" in step.action
         assert "]" in step.action
 
@@ -1103,7 +1102,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "{" in step.step_id
         assert "}" in step.step_id
 
@@ -1114,7 +1113,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action{123}"
         )
-        
+
         assert "{" in step.action
         assert "}" in step.action
 
@@ -1125,7 +1124,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="process"
         )
-        
+
         assert "$" in step.step_id
 
     def test_workflow_step_with_dollar_action(self):
@@ -1135,7 +1134,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action$123"
         )
-        
+
         assert "$" in step.action
 
     def test_workflow_step_with_hash_step_id(self):
@@ -1145,7 +1144,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "#" in step.step_id
 
     def test_workflow_step_with_hash_action(self):
@@ -1155,7 +1154,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action#123"
         )
-        
+
         assert "#" in step.action
 
     def test_workflow_step_with_exclamation_step_id(self):
@@ -1165,7 +1164,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "!" in step.step_id
 
     def test_workflow_step_with_exclamation_action(self):
@@ -1175,7 +1174,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action!123"
         )
-        
+
         assert "!" in step.action
 
     def test_workflow_step_with_percent_step_id(self):
@@ -1185,7 +1184,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "%" in step.step_id
 
     def test_workflow_step_with_ampersand_step_id(self):
@@ -1195,7 +1194,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "&" in step.step_id
 
     def test_workflow_step_with_asterisk_step_id(self):
@@ -1205,7 +1204,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "*" in step.step_id
 
     def test_workflow_step_with_asterisk_action(self):
@@ -1215,7 +1214,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action*123"
         )
-        
+
         assert "*" in step.action
 
     def test_workflow_step_with_plus_step_id(self):
@@ -1225,7 +1224,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "+" in step.step_id
 
     def test_workflow_step_with_plus_action(self):
@@ -1235,7 +1234,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action+123"
         )
-        
+
         assert "+" in step.action
 
     def test_workflow_step_with_equals_step_id(self):
@@ -1245,7 +1244,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "=" in step.step_id
 
     def test_workflow_step_with_equals_action(self):
@@ -1255,7 +1254,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action=123"
         )
-        
+
         assert "=" in step.action
 
     def test_workflow_step_with_bracket_step_id(self):
@@ -1265,7 +1264,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "[" in step.step_id
 
     def test_workflow_step_with_bracket_action(self):
@@ -1275,7 +1274,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action[123]"
         )
-        
+
         assert "[" in step.action
 
     def test_workflow_step_with_curly_brace_step_id(self):
@@ -1285,7 +1284,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "{" in step.step_id
 
     def test_workflow_step_with_curly_brace_action(self):
@@ -1295,7 +1294,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action{123}"
         )
-        
+
         assert "{" in step.action
 
     def test_workflow_step_with_pipe_step_id(self):
@@ -1305,7 +1304,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action"
         )
-        
+
         assert "|" in step.step_id
 
     def test_workflow_step_with_pipe_action(self):
@@ -1315,7 +1314,7 @@ class TestWorkflowOrchestrator:
             agent_id="agent_001",
             action="action|123"
         )
-        
+
         assert "|" in step.action
 
 

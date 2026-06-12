@@ -3,14 +3,12 @@ Tests for AITBC Ethereum RPC module (ethereum_rpc.py)
 This module has 0% coverage and 124 statements.
 """
 
-import os
 from unittest.mock import Mock, patch
 
 import pytest
 
 # Import the module normally
 from aitbc import ethereum_rpc
-
 
 # ============================================================================
 # EthereumConfig Tests
@@ -134,7 +132,7 @@ class TestEthereumRPCClient:
         mock_w3 = Mock()
         mock_w3.is_connected.return_value = True
         client._w3 = mock_w3
-        
+
         assert client.is_connected is True
 
     def test_is_connected_false(self):
@@ -142,7 +140,7 @@ class TestEthereumRPCClient:
         mock_w3 = Mock()
         mock_w3.is_connected.return_value = False
         client._w3 = mock_w3
-        
+
         assert client.is_connected is False
 
     def test_is_connected_exception(self):
@@ -150,7 +148,7 @@ class TestEthereumRPCClient:
         mock_w3 = Mock()
         mock_w3.is_connected.side_effect = Exception("Test error")
         client._w3 = mock_w3
-        
+
         assert client.is_connected is False
 
     def test_connected_url(self):
@@ -167,7 +165,7 @@ class TestEthereumRPCClient:
         mock_w3 = Mock()
         mock_w3.eth.block_number = 12345
         client._w3 = mock_w3
-        
+
         result = client.get_block_number()
         assert result == 12345
 
@@ -183,7 +181,7 @@ class TestEthereumRPCClient:
         mock_block.gasLimit = 10000
         mock_w3.eth.get_block.return_value = mock_block
         client._w3 = mock_w3
-        
+
         result = client.get_block(100)
         assert result["number"] == 100
         assert result["hash"] == "0xhash123"
@@ -194,7 +192,7 @@ class TestEthereumRPCClient:
         mock_w3 = Mock()
         mock_w3.eth.get_transaction.side_effect = Exception("Not found")
         client._w3 = mock_w3
-        
+
         result = client.get_transaction("0xtxhash")
         assert result is None
 
@@ -209,7 +207,7 @@ class TestEthereumRPCClient:
         mock_receipt.logs = [Mock(), Mock()]
         mock_w3.eth.get_transaction_receipt.return_value = mock_receipt
         client._w3 = mock_w3
-        
+
         result = client.get_transaction_receipt("0xtxhash")
         assert result["hash"] == "0xtxhash"
         assert result["block_number"] == 100
@@ -221,7 +219,7 @@ class TestEthereumRPCClient:
         mock_w3 = Mock()
         mock_w3.eth.get_transaction_receipt.return_value = None
         client._w3 = mock_w3
-        
+
         result = client.get_transaction_receipt("0xtxhash")
         assert result is None
 
@@ -230,7 +228,7 @@ class TestEthereumRPCClient:
         mock_w3 = Mock()
         mock_w3.eth.get_transaction_receipt.side_effect = Exception("Error")
         client._w3 = mock_w3
-        
+
         result = client.get_transaction_receipt("0xtxhash")
         assert result is None
 
@@ -238,14 +236,14 @@ class TestEthereumRPCClient:
         client = ethereum_rpc.EthereumRPCClient()
         mock_receipt = {"hash": "0xtxhash", "status": 1}
         client.get_transaction_receipt = Mock(return_value=mock_receipt)
-        
+
         result = client.wait_for_transaction("0xtxhash", timeout=1, poll_interval=0.1)
         assert result == mock_receipt
 
     def test_wait_for_transaction_timeout(self):
         client = ethereum_rpc.EthereumRPCClient()
         client.get_transaction_receipt = Mock(return_value=None)
-        
+
         result = client.wait_for_transaction("0xtxhash", timeout=0.2, poll_interval=0.1)
         assert result is None
 
@@ -254,7 +252,7 @@ class TestEthereumRPCClient:
         client.get_block_number = Mock(return_value=100)
         client.get_gas_price = Mock(return_value={"gwei": 5.0})
         client._connected_url = "https://test.rpc"
-        
+
         result = client.health_check()
         assert result["status"] == "connected"
         assert result["latest_block"] == 100
@@ -263,7 +261,7 @@ class TestEthereumRPCClient:
     def test_health_check_disconnected(self):
         client = ethereum_rpc.EthereumRPCClient()
         client.get_block_number = Mock(side_effect=Exception("Error"))
-        
+
         result = client.health_check()
         assert result["status"] == "disconnected"
         assert "error" in result

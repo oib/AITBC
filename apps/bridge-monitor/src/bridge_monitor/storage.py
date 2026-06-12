@@ -4,7 +4,6 @@ import os
 import sqlite3
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
 
 DATA_DIR = os.getenv("DATA_DIR", "/var/lib/aitbc")
 DB_PATH = os.path.join(DATA_DIR, "bridge_deposits.db")
@@ -20,10 +19,10 @@ class BridgeDepositStatus(str, Enum):
 def init_db() -> None:
     """Initialize bridge deposits database."""
     os.makedirs(DATA_DIR, exist_ok=True)
-    
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bridge_deposits (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,15 +40,15 @@ def init_db() -> None:
             error_message TEXT
         )
     """)
-    
+
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_eth_tx_hash ON bridge_deposits(eth_tx_hash)
     """)
-    
+
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_status ON bridge_deposits(status)
     """)
-    
+
     conn.commit()
     conn.close()
 
@@ -66,11 +65,11 @@ def create_deposit(
     eth_from_address: str,
     eth_amount: str,
     ait_recipient: str
-) -> Optional[int]:
+) -> int | None:
     """Create a new bridge deposit record."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute(
             """
@@ -91,20 +90,20 @@ def create_deposit(
 
 def update_deposit(
     eth_tx_hash: str,
-    ait_amount: Optional[str] = None,
-    eth_usd_price: Optional[str] = None,
-    ait_usd_price: Optional[str] = None,
-    ait_tx_hash: Optional[str] = None,
-    status: Optional[BridgeDepositStatus] = None,
-    error_message: Optional[str] = None
+    ait_amount: str | None = None,
+    eth_usd_price: str | None = None,
+    ait_usd_price: str | None = None,
+    ait_tx_hash: str | None = None,
+    status: BridgeDepositStatus | None = None,
+    error_message: str | None = None
 ) -> bool:
     """Update bridge deposit record."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     updates = []
     params = []
-    
+
     if ait_amount is not None:
         updates.append("ait_amount = ?")
         params.append(ait_amount)
@@ -123,47 +122,47 @@ def update_deposit(
     if error_message is not None:
         updates.append("error_message = ?")
         params.append(error_message)
-    
+
     if status is not None:
         updates.append("processed_at = ?")
         params.append(datetime.utcnow().isoformat())
-    
+
     params.append(eth_tx_hash)
-    
+
     if updates:
         query = f"UPDATE bridge_deposits SET {', '.join(updates)} WHERE eth_tx_hash = ?"
         cursor.execute(query, params)
         conn.commit()
         conn.close()
         return True
-    
+
     conn.close()
     return False
 
 
-def get_deposit(eth_tx_hash: str) -> Optional[Dict]:
+def get_deposit(eth_tx_hash: str) -> dict | None:
     """Get deposit by transaction hash."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     cursor.execute("SELECT * FROM bridge_deposits WHERE eth_tx_hash = ?", (eth_tx_hash,))
     row = cursor.fetchone()
     conn.close()
-    
+
     if row:
         return dict(row)
     return None
 
 
 def get_deposits(
-    status: Optional[BridgeDepositStatus] = None,
+    status: BridgeDepositStatus | None = None,
     limit: int = 50,
     offset: int = 0
-) -> List[Dict]:
+) -> list[dict]:
     """Get deposits with optional status filter."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     if status:
         cursor.execute(
             "SELECT * FROM bridge_deposits WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
@@ -174,24 +173,24 @@ def get_deposits(
             "SELECT * FROM bridge_deposits ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (limit, offset)
         )
-    
+
     rows = cursor.fetchall()
     conn.close()
-    
+
     return [dict(row) for row in rows]
 
 
-def count_deposits(status: Optional[BridgeDepositStatus] = None) -> int:
+def count_deposits(status: BridgeDepositStatus | None = None) -> int:
     """Count deposits with optional status filter."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     if status:
         cursor.execute("SELECT COUNT(*) FROM bridge_deposits WHERE status = ?", (status.value,))
     else:
         cursor.execute("SELECT COUNT(*) FROM bridge_deposits")
-    
+
     count: int = cursor.fetchone()[0]
     conn.close()
-    
+
     return count

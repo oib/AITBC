@@ -545,18 +545,18 @@ def transactions(ctx, name: str | None, limit: int):
         # Get wallet address from wallet service
         client = get_wallet_client()
         wallets_data = client.get("/v1/wallets")
-        
+
         # Find wallet by wallet_id
         wallet_info = None
         for item in wallets_data.get("items", []):
             if item.get("wallet_id") == wallet_name:
                 wallet_info = item
                 break
-        
+
         if not wallet_info:
             error(f"Wallet '{wallet_name}' not found")
             return
-        
+
         address = wallet_info.get("metadata", {}).get("address")
         if not address:
             error(f"Could not get address for wallet '{wallet_name}'")
@@ -566,10 +566,10 @@ def transactions(ctx, name: str | None, limit: int):
         config = get_config()
         rpc_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=30)
         transactions = rpc_client.get(f"/transactions?address={address}&limit={limit}")
-        
+
         if isinstance(transactions, dict):
             transactions = transactions.get("transactions", [])
-        
+
         # Format transactions
         formatted_txs = []
         for tx in transactions:

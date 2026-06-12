@@ -10,7 +10,6 @@ import pytest
 # Import the module normally
 from aitbc.crypto import crypto
 
-
 # ============================================================================
 # Ethereum Address Derivation Tests
 # ============================================================================
@@ -29,7 +28,7 @@ class TestDeriveEthereumAddress:
             mock_account_instance = Mock()
             mock_account_instance.address = "0xABC123"
             MockAccount.from_key.return_value = mock_account_instance
-            
+
             result = crypto.derive_ethereum_address("0xtest_key")
             assert result == "0xABC123"
 
@@ -39,7 +38,7 @@ class TestDeriveEthereumAddress:
             mock_account_instance = Mock()
             mock_account_instance.address = "0xABC123"
             MockAccount.from_key.return_value = mock_account_instance
-            
+
             result = crypto.derive_ethereum_address("test_key")
             assert result == "0xABC123"
 
@@ -47,7 +46,7 @@ class TestDeriveEthereumAddress:
         with patch.dict('sys.modules', {'eth_account': Mock()}):
             from eth_account import Account as MockAccount
             MockAccount.from_key.side_effect = Exception("Invalid key")
-            
+
             with pytest.raises(ValueError, match="Failed to derive address"):
                 crypto.derive_ethereum_address("invalid_key")
 
@@ -72,7 +71,7 @@ class TestSignTransactionHash:
             mock_signed.signature.hex.return_value = "0xsig123"
             mock_account_instance.sign_hash.return_value = mock_signed
             MockAccount.from_key.return_value = mock_account_instance
-            
+
             result = crypto.sign_transaction_hash("0x1234567890abcdef", "0x1234567890abcdef")
             assert result == "0xsig123"
 
@@ -84,7 +83,7 @@ class TestSignTransactionHash:
             mock_signed.signature.hex.return_value = "0xsig123"
             mock_account_instance.sign_hash.return_value = mock_signed
             MockAccount.from_key.return_value = mock_account_instance
-            
+
             result = crypto.sign_transaction_hash("1234567890abcdef", "1234567890abcdef")
             assert result == "0xsig123"
 
@@ -92,7 +91,7 @@ class TestSignTransactionHash:
         with patch.dict('sys.modules', {'eth_account': Mock()}):
             from eth_account import Account as MockAccount
             MockAccount.from_key.side_effect = Exception("Sign error")
-            
+
             with pytest.raises(ValueError, match="Failed to sign"):
                 crypto.sign_transaction_hash("1234567890abcdef", "1234567890abcdef")
 
@@ -115,7 +114,7 @@ class TestVerifySignature:
             from eth_utils import to_bytes
             MockAccount.recover_message.return_value = "abc123"  # Return without 0x prefix
             to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
-            
+
             result = crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
             assert result is True
 
@@ -125,7 +124,7 @@ class TestVerifySignature:
             from eth_utils import to_bytes
             MockAccount.recover_message.return_value = "def456"  # Return without 0x prefix
             to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
-            
+
             result = crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
             assert result is False
 
@@ -133,7 +132,7 @@ class TestVerifySignature:
         with patch.dict('sys.modules', {'eth_account': Mock(), 'eth_utils': Mock()}):
             from eth_account import Account as MockAccount
             MockAccount.recover_message.side_effect = Exception("Verify error")
-            
+
             with pytest.raises(ValueError, match="Failed to verify signature"):
                 crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
 
@@ -172,7 +171,7 @@ class TestDecryptPrivateKey:
         original_key = "my_secret_key"
         password = "password123"
         encrypted = crypto.encrypt_private_key(original_key, password)
-        
+
         decrypted = crypto.decrypt_private_key(encrypted, password)
         assert decrypted == original_key
 
@@ -180,7 +179,7 @@ class TestDecryptPrivateKey:
         original_key = "my_secret_key"
         password = "password123"
         encrypted = crypto.encrypt_private_key(original_key, password)
-        
+
         with pytest.raises(ValueError, match="Failed to decrypt"):
             crypto.decrypt_private_key(encrypted, "wrong_password")
 
@@ -281,7 +280,7 @@ class TestValidateEthereumAddress:
             from eth_utils import is_address, is_checksum_address
             is_address.return_value = True
             is_checksum_address.return_value = True
-            
+
             result = crypto.validate_ethereum_address("0xABC")
             assert result is True
 
@@ -290,7 +289,7 @@ class TestValidateEthereumAddress:
             from eth_utils import is_address, is_checksum_address
             is_address.return_value = False
             is_checksum_address.return_value = False
-            
+
             result = crypto.validate_ethereum_address("invalid")
             assert result is False
 
@@ -299,7 +298,7 @@ class TestValidateEthereumAddress:
             from eth_utils import is_address, is_checksum_address
             is_address.return_value = True
             is_checksum_address.return_value = False
-            
+
             result = crypto.validate_ethereum_address("0xABC")
             assert result is False
 
@@ -307,7 +306,7 @@ class TestValidateEthereumAddress:
         with patch.dict('sys.modules', {'eth_utils': Mock()}):
             from eth_utils import is_address
             is_address.side_effect = Exception("Validation error")
-            
+
             result = crypto.validate_ethereum_address("0xABC")
             assert result is False
 
@@ -330,7 +329,7 @@ class TestGenerateEthereumPrivateKey:
             mock_account_instance = Mock()
             mock_account_instance.key.hex.return_value = "0x1234567890abcdef"
             MockAccount.create.return_value = mock_account_instance
-            
+
             result = crypto.generate_ethereum_private_key()
             assert result == "0x1234567890abcdef"
 
@@ -338,6 +337,6 @@ class TestGenerateEthereumPrivateKey:
         with patch.dict('sys.modules', {'eth_account': Mock()}):
             from eth_account import Account as MockAccount
             MockAccount.create.side_effect = Exception("Generation error")
-            
+
             with pytest.raises(ValueError, match="Failed to generate private key"):
                 crypto.generate_ethereum_private_key()

@@ -57,7 +57,7 @@ class TestConsensusConfig:
             block_time=5,
             max_validators=100
         )
-        
+
         assert config.algorithm == ConsensusAlgorithm.POS
         assert config.block_time == 5
         assert config.max_validators == 100
@@ -67,7 +67,7 @@ class TestConsensusConfig:
         config = ConsensusConfig(
             algorithm=ConsensusAlgorithm.POW
         )
-        
+
         assert config.algorithm == ConsensusAlgorithm.POW
         assert config.block_time == 5  # default
         assert config.max_validators == 100  # default
@@ -85,7 +85,7 @@ class TestChainConfig:
             name="AITBC Mainnet",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.MAIN
         assert config.purpose == "Main production chain"
         assert config.name == "AITBC Mainnet"
@@ -101,7 +101,7 @@ class TestChainConfig:
             description="Private chain for testing",
             consensus=consensus
         )
-        
+
         assert config.description == "Private chain for testing"
         assert config.type == ChainType.PRIVATE
 
@@ -118,7 +118,7 @@ class TestChainConfig:
             name="AITBC Topic Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.TOPIC
         assert config.consensus.algorithm == ConsensusAlgorithm.HYBRID
         assert config.consensus.block_time == 10
@@ -137,7 +137,7 @@ class TestChainConfig:
             name="AITBC Task Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.TEMPORARY
         assert config.purpose == "Temporary task chain"
         assert len(config.consensus.authorities) == 2
@@ -155,7 +155,7 @@ class TestChainConfig:
             name="AITBC Topic Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.TOPIC
         assert config.consensus.algorithm == ConsensusAlgorithm.POS
         assert config.consensus.block_time == 5
@@ -169,7 +169,7 @@ class TestChainConfig:
             ChainStatus.ERROR,
             ChainStatus.MAINTENANCE
         ]
-        
+
         for status in statuses:
             assert isinstance(status.value, str)
 
@@ -181,7 +181,7 @@ class TestChainConfig:
             ConsensusAlgorithm.POA,
             ConsensusAlgorithm.HYBRID
         ]
-        
+
         for algo in algorithms:
             assert isinstance(algo.value, str)
 
@@ -193,7 +193,7 @@ class TestChainConfig:
             ChainType.PRIVATE,
             ChainType.TEMPORARY
         ]
-        
+
         for chain_type in types:
             assert isinstance(chain_type.value, str)
 
@@ -205,7 +205,7 @@ class TestChainConfig:
             max_validators=50,
             authorities=["validator1", "validator2", "validator3"]
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.POS
         assert consensus.block_time == 10
         assert consensus.max_validators == 50
@@ -217,7 +217,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POW,
             block_time=15
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.POW
         assert consensus.block_time == 15
         assert len(consensus.authorities) == 0
@@ -229,14 +229,14 @@ class TestChainConfig:
             block_time=5,
             max_validators=100
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Main chain with multi-step genesis",
             name="AITBC Main Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.MAIN
         assert config.consensus.algorithm == ConsensusAlgorithm.POS
         assert config.name == "AITBC Main Chain"
@@ -247,14 +247,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.TOPIC,
             purpose="Topic-specific chain for GPU marketplace",
             name="GPU Marketplace Chain",
             consensus=consensus
         )
-        
+
         assert "gpu marketplace" in config.purpose.lower()
         assert config.type == ChainType.TOPIC
 
@@ -265,7 +265,7 @@ class TestChainConfig:
             block_time=2,
             authorities=["validator_1"]
         )
-        
+
         assert len(consensus.authorities) == 1
         assert "validator_1" in consensus.authorities
 
@@ -275,14 +275,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POS,
             block_time=5
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Main blockchain network",
             name="AITBC Main Network",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.MAIN
         assert "main" in config.purpose.lower()
 
@@ -293,7 +293,7 @@ class TestChainConfig:
             block_time=10,
             authorities=["validator_1", "validator_2"]
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.HYBRID
         assert len(consensus.authorities) == 2
 
@@ -303,14 +303,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=3
         )
-        
+
         config = ChainConfig(
             type=ChainType.PRIVATE,
             purpose="Private chain for internal operations",
             name="Internal Operations Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.PRIVATE
         assert "internal" in config.purpose.lower()
 
@@ -320,7 +320,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POS,
             block_time=15
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.POS
         assert consensus.block_time == 15
 
@@ -330,14 +330,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.TOPIC,
             purpose="Topic-specific chain for AI models",
             name="AI Models Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.TOPIC
         assert "ai models" in config.purpose.lower()
 
@@ -347,7 +347,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POW,
             block_time=10
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.POW
         assert consensus.block_time == 10
 
@@ -357,14 +357,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Main blockchain network with extended name for testing",
             name="AITBC Main Network Extended Name For Testing Purposes",
             consensus=consensus
         )
-        
+
         assert len(config.name) > 20
         assert config.type == ChainType.MAIN
 
@@ -374,14 +374,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.TOPIC,
             purpose="AI",
             name="AI Chain",
             consensus=consensus
         )
-        
+
         assert len(config.purpose) == 2
         assert config.purpose == "AI"
 
@@ -391,7 +391,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=0
         )
-        
+
         assert consensus.block_time == 0
 
     def test_chain_config_with_private_type(self):
@@ -400,14 +400,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.PRIVATE,
             purpose="Private network for testing",
             name="Private Test Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.PRIVATE
 
     def test_consensus_config_with_large_block_time(self):
@@ -416,7 +416,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=3600  # 1 hour
         )
-        
+
         assert consensus.block_time == 3600
 
     def test_chain_config_with_topic_type(self):
@@ -425,14 +425,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.TOPIC,
             purpose="Topic-specific blockchain",
             name="Topic Chain",
             consensus=consensus
         )
-        
+
         assert config.type == ChainType.TOPIC
 
     def test_consensus_config_with_negative_block_time(self):
@@ -441,7 +441,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=-1
         )
-        
+
         assert consensus.block_time == -1
 
     def test_chain_config_with_hybrid_algorithm(self):
@@ -450,14 +450,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.HYBRID,
             block_time=5
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Hybrid consensus chain",
             name="Hybrid Chain",
             consensus=consensus
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.HYBRID
 
     def test_consensus_config_with_zero_block_time(self):
@@ -466,7 +466,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=0
         )
-        
+
         assert consensus.block_time == 0
 
     def test_chain_config_with_long_purpose(self):
@@ -475,14 +475,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="A very long purpose description that describes the blockchain network in detail",
             name="Long Purpose Chain",
             consensus=consensus
         )
-        
+
         assert len(config.purpose) > 50
 
     def test_consensus_config_with_large_block_time(self):
@@ -491,7 +491,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=86400  # 1 day
         )
-        
+
         assert consensus.block_time == 86400
 
     def test_chain_config_with_numeric_name(self):
@@ -500,14 +500,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Numeric name chain",
             name="Chain123",
             consensus=consensus
         )
-        
+
         assert "123" in config.name
 
     def test_consensus_config_with_negative_block_time(self):
@@ -516,7 +516,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=-1
         )
-        
+
         assert consensus.block_time == -1
 
     def test_chain_config_with_special_characters_in_name(self):
@@ -525,14 +525,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Special characters chain",
             name="Chain-Test_123@",
             consensus=consensus
         )
-        
+
         assert "-" in config.name
         assert "_" in config.name
         assert "@" in config.name
@@ -543,14 +543,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="",
             name="Empty Purpose Chain",
             consensus=consensus
         )
-        
+
         assert config.purpose == ""
 
     def test_chain_config_with_numeric_purpose(self):
@@ -559,14 +559,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Chain123",
             name="Numeric Purpose Chain",
             consensus=consensus
         )
-        
+
         assert "123" in config.purpose
 
     def test_consensus_config_with_zero_block_time(self):
@@ -575,7 +575,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=0
         )
-        
+
         assert consensus.block_time == 0
 
     def test_chain_config_with_very_long_name(self):
@@ -584,14 +584,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Very long name test",
             name="A" * 100,
             consensus=consensus
         )
-        
+
         assert len(config.name) == 100
 
     def test_consensus_config_with_large_block_time(self):
@@ -600,7 +600,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=1000
         )
-        
+
         assert consensus.block_time == 1000
 
     def test_chain_config_with_very_long_purpose(self):
@@ -609,14 +609,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="B" * 100,
             name="Long Purpose Chain",
             consensus=consensus
         )
-        
+
         assert len(config.purpose) == 100
 
     def test_consensus_config_with_negative_block_time(self):
@@ -625,7 +625,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=-1
         )
-        
+
         assert consensus.block_time == -1
 
     def test_chain_config_with_mixed_case_name(self):
@@ -634,14 +634,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Mixed Case",
             name="MixedCaseName",
             consensus=consensus
         )
-        
+
         assert "Mixed" in config.name
         assert "Case" in config.name
 
@@ -651,14 +651,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Empty Name",
             name="",
             consensus=consensus
         )
-        
+
         assert config.name == ""
 
     def test_consensus_config_with_zero_algorithm(self):
@@ -667,7 +667,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.POA
 
     def test_chain_config_with_empty_purpose(self):
@@ -676,14 +676,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="",
             name="Empty Purpose",
             consensus=consensus
         )
-        
+
         assert config.purpose == ""
 
     def test_consensus_config_with_positive_block_time(self):
@@ -692,7 +692,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=10
         )
-        
+
         assert consensus.block_time == 10
 
     def test_chain_config_with_numeric_name(self):
@@ -701,14 +701,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Numeric Name",
             name="Chain123",
             consensus=consensus
         )
-        
+
         assert "123" in config.name
 
     def test_consensus_config_with_algorithm_pos(self):
@@ -717,7 +717,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POS,
             block_time=2
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.POS
 
     def test_chain_config_with_underscore_in_name(self):
@@ -726,14 +726,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Underscore Name",
             name="chain_123",
             consensus=consensus
         )
-        
+
         assert "_" in config.name
 
     def test_consensus_config_with_algorithm_pow(self):
@@ -742,7 +742,7 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POW,
             block_time=2
         )
-        
+
         assert consensus.algorithm == ConsensusAlgorithm.POW
 
     def test_chain_config_with_hyphen_in_name(self):
@@ -751,14 +751,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Hyphen Name",
             name="chain-123",
             consensus=consensus
         )
-        
+
         assert "-" in config.name
 
     def test_chain_config_with_empty_name(self):
@@ -767,14 +767,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Empty Name",
             name="",
             consensus=consensus
         )
-        
+
         assert config.name == ""
 
     def test_chain_config_with_mixed_case_purpose(self):
@@ -783,14 +783,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Mixed Case",
             name="chain",
             consensus=consensus
         )
-        
+
         assert "Mixed" in config.purpose
 
     def test_chain_config_with_empty_purpose(self):
@@ -799,14 +799,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="",
             name="chain",
             consensus=consensus
         )
-        
+
         assert config.purpose == ""
 
     def test_chain_config_with_numeric_purpose(self):
@@ -815,14 +815,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="123",
             name="chain",
             consensus=consensus
         )
-        
+
         assert config.purpose == "123"
 
     def test_chain_config_with_hyphen_in_purpose(self):
@@ -831,14 +831,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="hyphen-purpose",
             name="chain",
             consensus=consensus
         )
-        
+
         assert "-" in config.purpose
 
     def test_chain_config_with_underscore_in_purpose(self):
@@ -847,14 +847,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="underscore_purpose",
             name="chain",
             consensus=consensus
         )
-        
+
         assert "_" in config.purpose
 
     def test_chain_config_with_special_characters_in_name(self):
@@ -863,14 +863,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Special",
             name="chain@#$",
             consensus=consensus
         )
-        
+
         assert "@" in config.name
         assert "#" in config.name
         assert "$" in config.name
@@ -881,14 +881,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Spaces",
             name="chain 123",
             consensus=consensus
         )
-        
+
         assert " " in config.name
 
     def test_chain_config_with_underscore_in_name(self):
@@ -897,14 +897,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Underscore",
             name="chain_123",
             consensus=consensus
         )
-        
+
         assert "_" in config.name
 
     def test_chain_config_with_pipe_in_name(self):
@@ -913,14 +913,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Pipe",
             name="chain|123",
             consensus=consensus
         )
-        
+
         assert "|" in config.name
 
     def test_chain_config_with_colon_in_name(self):
@@ -929,14 +929,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Colon",
             name="chain:123",
             consensus=consensus
         )
-        
+
         assert ":" in config.name
 
     def test_chain_config_with_semicolon_in_name(self):
@@ -945,14 +945,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Semicolon",
             name="chain;123",
             consensus=consensus
         )
-        
+
         assert ";" in config.name
 
     def test_chain_config_with_equals_in_name(self):
@@ -961,14 +961,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Equals",
             name="chain=123",
             consensus=consensus
         )
-        
+
         assert "=" in config.name
 
     def test_chain_config_with_plus_in_name(self):
@@ -977,14 +977,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Plus",
             name="chain+123",
             consensus=consensus
         )
-        
+
         assert "+" in config.name
 
     def test_chain_config_with_slash_in_name(self):
@@ -993,14 +993,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Slash",
             name="chain/123",
             consensus=consensus
         )
-        
+
         assert "/" in config.name
 
     def test_chain_config_with_backslash_in_name(self):
@@ -1009,14 +1009,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Backslash",
             name="chain\\123",
             consensus=consensus
         )
-        
+
         assert "\\" in config.name
 
     def test_chain_config_with_bracket_in_name(self):
@@ -1025,14 +1025,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Bracket",
             name="chain[123]",
             consensus=consensus
         )
-        
+
         assert "[" in config.name
         assert "]" in config.name
 
@@ -1042,14 +1042,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Parenthesis",
             name="chain(123)",
             consensus=consensus
         )
-        
+
         assert "(" in config.name
         assert ")" in config.name
 
@@ -1059,14 +1059,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="CurlyBracket",
             name="chain{123}",
             consensus=consensus
         )
-        
+
         assert "{" in config.name
         assert "}" in config.name
 
@@ -1076,14 +1076,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="AngleBracket",
             name="chain<123>",
             consensus=consensus
         )
-        
+
         assert "<" in config.name
         assert ">" in config.name
 
@@ -1093,14 +1093,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Dollar",
             name="chain$123",
             consensus=consensus
         )
-        
+
         assert "$" in config.name
 
     def test_chain_config_with_at_in_name(self):
@@ -1109,14 +1109,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="At",
             name="chain@123",
             consensus=consensus
         )
-        
+
         assert "@" in config.name
 
     def test_chain_config_with_hash_in_name(self):
@@ -1125,14 +1125,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Hash",
             name="chain#123",
             consensus=consensus
         )
-        
+
         assert "#" in config.name
 
     def test_chain_config_with_exclamation_in_name(self):
@@ -1141,14 +1141,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Exclamation",
             name="chain!123",
             consensus=consensus
         )
-        
+
         assert "!" in config.name
 
     def test_chain_config_with_asterisk_in_name(self):
@@ -1157,14 +1157,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Asterisk",
             name="chain*123",
             consensus=consensus
         )
-        
+
         assert "*" in config.name
 
     def test_chain_config_with_plus_in_name(self):
@@ -1173,14 +1173,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Plus",
             name="chain+123",
             consensus=consensus
         )
-        
+
         assert "+" in config.name
 
     def test_chain_config_with_equals_in_name(self):
@@ -1189,14 +1189,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Equals",
             name="chain=123",
             consensus=consensus
         )
-        
+
         assert "=" in config.name
 
     def test_chain_config_with_bracket_in_name(self):
@@ -1205,14 +1205,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Bracket",
             name="chain[123]",
             consensus=consensus
         )
-        
+
         assert "[" in config.name
 
     def test_chain_config_with_curly_brace_in_name(self):
@@ -1221,14 +1221,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="CurlyBrace",
             name="chain{123}",
             consensus=consensus
         )
-        
+
         assert "{" in config.name
 
     def test_chain_config_with_pipe_in_name(self):
@@ -1237,14 +1237,14 @@ class TestChainConfig:
             algorithm=ConsensusAlgorithm.POA,
             block_time=2
         )
-        
+
         config = ChainConfig(
             type=ChainType.MAIN,
             purpose="Pipe",
             name="chain|123",
             consensus=consensus
         )
-        
+
         assert "|" in config.name
 
 

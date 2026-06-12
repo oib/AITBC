@@ -66,12 +66,12 @@ class TestDependencySecurity:
         workflow_path = Path(".github/workflows/dependency-security.yml")
         with open(workflow_path) as f:
             content = f.read()
-        
+
         # Check for key security tools
         assert "safety" in content.lower()
         assert "pip-audit" in content.lower()
         assert "bandit" in content.lower()
-        
+
         # Check for scheduled runs
         assert "schedule:" in content
         assert "cron:" in content
@@ -86,7 +86,7 @@ class TestDependencySecurity:
         policy_path = Path(".github/SECURITY.md")
         with open(policy_path) as f:
             content = f.read()
-        
+
         # Check for key sections
         assert "Dependency Security" in content
         assert "Safety" in content
@@ -103,7 +103,7 @@ class TestDependencySecurity:
         workflow_path = Path(".gitea/workflows/security-scanning.yml")
         with open(workflow_path) as f:
             content = f.read()
-        
+
         assert "safety" in content.lower()
 
     def test_dependabot_config_exists(self):
@@ -116,7 +116,7 @@ class TestDependencySecurity:
         dependabot_path = Path(".github/dependabot.yml")
         with open(dependabot_path) as f:
             content = f.read()
-        
+
         assert "pip" in content.lower()
         assert "python" in content.lower()
 
@@ -137,11 +137,11 @@ class TestSecurityReportGeneration:
                 "advisory": "Security vulnerability in requests"
             }
         ]
-        
+
         # Test JSON serialization/deserialization
         json_str = json.dumps(mock_report)
         parsed = json.loads(json_str)
-        
+
         assert len(parsed) == 1
         assert parsed[0]["package_name"] == "requests"
         assert parsed[0]["vulnerability"] == "CVE-2021-12345"
@@ -164,11 +164,11 @@ class TestSecurityReportGeneration:
                 }
             ]
         }
-        
+
         # Test JSON serialization/deserialization
         json_str = json.dumps(mock_report)
         parsed = json.loads(json_str)
-        
+
         assert len(parsed["dependencies"]) == 1
         assert parsed["dependencies"][0]["name"] == "requests"
         assert len(parsed["dependencies"][0]["vulnerabilities"]) == 1
@@ -178,7 +178,7 @@ class TestSecurityReportGeneration:
         empty_report = []
         json_str = json.dumps(empty_report)
         parsed = json.loads(json_str)
-        
+
         assert len(parsed) == 0
 
 
@@ -193,7 +193,7 @@ class TestSecurityIntegration:
         """Test that safety is available in the virtual environment"""
         if not os.path.exists("./venv/bin/safety"):
             pytest.skip("safety not installed in venv")
-        
+
         result = subprocess.run(
             ["./venv/bin/safety", "--version"],
             capture_output=True,
@@ -211,7 +211,7 @@ class TestSecurityIntegration:
         """Test that pip-audit is available in the virtual environment"""
         if not os.path.exists("./venv/bin/pip-audit"):
             pytest.skip("pip-audit not installed in venv")
-        
+
         result = subprocess.run(
             ["./venv/bin/pip-audit", "--version"],
             capture_output=True,
@@ -233,7 +233,7 @@ class TestVulnerabilityScenarios:
             "package": "requests",
             "version": "2.24.0"
         }
-        
+
         # Critical vulnerabilities should trigger immediate action
         assert mock_vuln["cvss_score"] >= 9.0
         assert mock_vuln["severity"] == "critical"
@@ -246,7 +246,7 @@ class TestVulnerabilityScenarios:
             "package": "flask",
             "version": "1.0.0"
         }
-        
+
         # High vulnerabilities should trigger action within 72 hours
         assert 7.0 <= mock_vuln["cvss_score"] < 9.0
         assert mock_vuln["severity"] == "high"
@@ -259,7 +259,7 @@ class TestVulnerabilityScenarios:
             "package": "jinja2",
             "version": "2.0.0"
         }
-        
+
         # Medium vulnerabilities can be scheduled
         assert 4.0 <= mock_vuln["cvss_score"] < 7.0
         assert mock_vuln["severity"] == "medium"
@@ -273,7 +273,7 @@ class TestSecurityWorkflowTriggers:
         workflow_path = Path(".github/workflows/dependency-security.yml")
         with open(workflow_path) as f:
             content = f.read()
-        
+
         # Should trigger on push, PR, schedule, and manual dispatch
         assert "push:" in content
         assert "pull_request:" in content
@@ -285,7 +285,7 @@ class TestSecurityWorkflowTriggers:
         workflow_path = Path(".gitea/workflows/security-scanning.yml")
         with open(workflow_path) as f:
             content = f.read()
-        
+
         # Should trigger on push, PR, and manual dispatch
         assert "push:" in content
         assert "pull_request:" in content
@@ -300,7 +300,7 @@ class TestSecurityBestPractices:
         workflow_path = Path(".github/workflows/dependency-security.yml")
         with open(workflow_path) as f:
             content = f.read()
-        
+
         # Check for common secret patterns
         assert "api_key" not in content.lower()
         assert "secret" not in content.lower() or "secret-key" in content.lower()
@@ -311,7 +311,7 @@ class TestSecurityBestPractices:
         workflow_path = Path(".github/workflows/dependency-security.yml")
         with open(workflow_path) as f:
             content = f.read()
-        
+
         # Should have artifact upload with retention
         assert "upload-artifact" in content
         assert "retention-days" in content

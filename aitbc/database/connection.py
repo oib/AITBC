@@ -141,7 +141,7 @@ class DatabaseConnection:
                     cursor.execute(query, params)
                 else:
                     cursor.execute(query)
-                
+
                 if self.monitor:
                     execution_time_ms = (time.time() - start_time) * 1000
                     self.monitor.record_query(
@@ -150,7 +150,7 @@ class DatabaseConnection:
                         success=True,
                         row_count=cursor.rowcount if hasattr(cursor, 'rowcount') else 0
                     )
-                
+
                 return cursor
         except sqlite3.Error as e:
             if self.monitor:
@@ -228,7 +228,7 @@ class DatabaseConnection:
         try:
             with self.cursor() as cursor:
                 cursor.executemany(query, params_list)
-                
+
                 if self.monitor:
                     execution_time_ms = (time.time() - start_time) * 1000
                     self.monitor.record_query(

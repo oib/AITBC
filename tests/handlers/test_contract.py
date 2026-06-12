@@ -38,12 +38,12 @@ class TestHandleContractList:
             ]
         }
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         handle_contract_list(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
         mock_logger.info.assert_called()
 
@@ -58,12 +58,12 @@ class TestHandleContractList:
             "contracts": []
         }
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         handle_contract_list(args, "http://localhost:8006")
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.contract.requests.get')
@@ -76,12 +76,12 @@ class TestHandleContractList:
             "contracts": [{"address": "0x123", "type": "zk-verifier"}]
         }
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = None
-        
+
         handle_contract_list(args, "http://default:8006")
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.contract.requests.get')
@@ -91,12 +91,12 @@ class TestHandleContractList:
         mock_response = Mock()
         mock_response.status_code = 500
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         handle_contract_list(args, "http://localhost:8006")
-        
+
         mock_logger.error.assert_called()
 
     @patch('handlers.contract.requests.get')
@@ -104,12 +104,12 @@ class TestHandleContractList:
     def test_handle_contract_list_exception(self, mock_logger, mock_get):
         """Test contract list with exception"""
         mock_get.side_effect = Exception("Connection error")
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
-        
+
         handle_contract_list(args, "http://localhost:8006")
-        
+
         mock_logger.error.assert_called()
 
 
@@ -124,21 +124,21 @@ class TestHandleContractDeploy:
         mock_response.status_code = 200
         mock_response.json.return_value = {"success": True, "address": "0x123"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.name = "test-contract"
         args.type = "zk-verifier"
         args.password = "testpass"
-        
+
         def read_password(args):
             return "testpass"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.contract.logger')
@@ -148,15 +148,15 @@ class TestHandleContractDeploy:
         args.rpc_url = "http://localhost:8006"
         args.name = None
         args.type = "zk-verifier"
-        
+
         def read_password(args):
             return "testpass"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
     @patch('handlers.contract.logger')
@@ -166,15 +166,15 @@ class TestHandleContractDeploy:
         args.rpc_url = "http://localhost:8006"
         args.name = "test-contract"
         args.type = "zk-verifier"
-        
+
         def read_password(args):
             return None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
     @patch('handlers.contract.requests.post')
@@ -184,21 +184,21 @@ class TestHandleContractDeploy:
         mock_response = Mock()
         mock_response.status_code = 500
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.name = "test-contract"
         args.type = "zk-verifier"
         args.password = "testpass"
-        
+
         def read_password(args):
             return "testpass"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
 
@@ -213,19 +213,19 @@ class TestHandleContractCall:
         mock_response.status_code = 200
         mock_response.json.return_value = {"success": True, "result": "0xabc"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.address = "0x123"
         args.method = "verify"
         args.password = "testpass"
         args.params = None
-        
+
         def read_password(args):
             return "testpass"
-        
+
         handle_contract_call(args, "http://localhost:8006", read_password)
-        
+
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
 
@@ -236,12 +236,12 @@ class TestHandleContractCall:
         args.rpc_url = "http://localhost:8006"
         args.address = None
         args.method = "verify"
-        
+
         def read_password(args):
             return "testpass"
-        
+
         handle_contract_call(args, "http://localhost:8006", read_password)
-        
+
         mock_logger.error.assert_called()
 
     @patch('handlers.contract.logger')
@@ -251,12 +251,12 @@ class TestHandleContractCall:
         args.rpc_url = "http://localhost:8006"
         args.address = "0x123"
         args.method = None
-        
+
         def read_password(args):
             return "testpass"
-        
+
         handle_contract_call(args, "http://localhost:8006", read_password)
-        
+
         mock_logger.error.assert_called()
 
     @patch('handlers.contract.requests.post')
@@ -267,19 +267,19 @@ class TestHandleContractCall:
         mock_response.status_code = 200
         mock_response.json.return_value = {"success": True, "result": "0xabc"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.address = "0x123"
         args.method = "verify"
         args.password = "testpass"
         args.params = {"arg1": "value1"}
-        
+
         def read_password(args):
             return "testpass"
-        
+
         handle_contract_call(args, "http://localhost:8006", read_password)
-        
+
         mock_post.assert_called_once()
 
 
@@ -297,18 +297,18 @@ class TestHandleContractVerify:
             "result": {"valid": True, "receipt_hash": "0xxyz"}
         }
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.address = "0x123"
         args.password = "testpass"
         args.proof_file = None
-        
+
         def read_password(args):
             return "testpass"
-        
+
         handle_contract_verify(args, "http://localhost:8006", read_password)
-        
+
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
 
@@ -318,12 +318,12 @@ class TestHandleContractVerify:
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.address = None
-        
+
         def read_password(args):
             return "testpass"
-        
+
         handle_contract_verify(args, "http://localhost:8006", read_password)
-        
+
         mock_logger.error.assert_called()
 
 

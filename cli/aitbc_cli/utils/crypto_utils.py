@@ -247,7 +247,7 @@ def bech32_to_hex(bech32_address: str) -> str:
     """
     if not bech32_address:
         raise ValueError("Address cannot be empty")
-    
+
     # Remove aitbc1 prefix
     if bech32_address.startswith("aitbc1"):
         hex_part = bech32_address[6:]  # Remove "aitbc1"
@@ -256,11 +256,11 @@ def bech32_to_hex(bech32_address: str) -> str:
     else:
         # Assume it's already hex or doesn't have the prefix
         hex_part = bech32_address
-    
+
     # Add 0x prefix if not present
     if not hex_part.startswith("0x"):
         hex_part = "0x" + hex_part
-    
+
     return hex_part
 
 
@@ -276,13 +276,13 @@ def hex_to_bech32(hex_address: str) -> str:
     """
     if not hex_address:
         raise ValueError("Address cannot be empty")
-    
+
     # Remove 0x prefix if present
     if hex_address.startswith("0x"):
         hex_part = hex_address[2:]
     else:
         hex_part = hex_address
-    
+
     # Add aitbc1 prefix
     return f"aitbc1{hex_part}"
 

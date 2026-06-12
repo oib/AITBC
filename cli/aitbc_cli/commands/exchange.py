@@ -1036,7 +1036,7 @@ def deposit(ctx, amount: float, ait_address: str, dry_run: bool):
             success(f"Net deposit: {amount * 0.995:.6f} ETH")
             return
 
-        bridge_url = f"http://localhost:8106/v1/bridge/deposit"
+        bridge_url = "http://localhost:8106/v1/bridge/deposit"
         import json
         import urllib.request
         payload = json.dumps({
@@ -1163,7 +1163,7 @@ def bridge_deposits(status, limit):
     import sys
     sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
     from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
-    
+
     status_filter = None
     if status:
         try:
@@ -1171,14 +1171,14 @@ def bridge_deposits(status, limit):
         except ValueError:
             error(f"Invalid status: {status}")
             return
-    
+
     deposits = get_deposits(status=status_filter, limit=limit)
     total = count_deposits(status=status_filter)
-    
+
     if not deposits:
         info("No deposits found")
         return
-    
+
     success(f"Showing {len(deposits)} of {total} deposits")
     for d in deposits:
         status_emoji = {
@@ -1195,17 +1195,17 @@ def bridge_deposits(status, limit):
 def bridge_estimate(eth_amount):
     """Estimate AIT amount for ETH deposit."""
     from aitbc.oracles.price_oracle import get_price_oracle
-    
+
     oracle = get_price_oracle()
     eth_usd = oracle.get_price('ETH', 'USD')
     ait_usd = oracle.get_price('AIT', 'USD')
-    
+
     if not eth_usd or not ait_usd or ait_usd == 0:
         error("Cannot get oracle prices")
         return
-    
+
     ait_amount = (eth_amount * eth_usd) / ait_usd
-    
+
     success(f"ETH Amount: {eth_amount} ETH")
     success(f"ETH/USD: ${eth_usd:.2f}")
     success(f"AIT/USD: ${ait_usd:.2f}")
@@ -1219,19 +1219,19 @@ def bridge_status():
     import sys
     sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
     from bridge_monitor.storage import BridgeDepositStatus, count_deposits
-    
+
     pending = count_deposits(BridgeDepositStatus.PENDING)
     processing = count_deposits(BridgeDepositStatus.PROCESSING)
     completed = count_deposits(BridgeDepositStatus.COMPLETED)
     failed = count_deposits(BridgeDepositStatus.FAILED)
-    
+
     success("Bridge Monitor Status:")
     success(f"  ⏳ Pending: {pending}")
     success(f"  🔄 Processing: {processing}")
     success(f"  ✅ Completed: {completed}")
     success(f"  ❌ Failed: {failed}")
     success(f"  📊 Total: {pending + processing + completed + failed}")
-    
+
     import os
     bridge_addr = os.getenv('BRIDGE_ETH_ADDRESS', '0x818018F30d8F5FB7AE7a64f25895F15110923748')
     success(f"  📍 Bridge Address: {bridge_addr}")

@@ -29,7 +29,7 @@ class TestGetDefaultChainId:
     def test_get_default_chain_id(self):
         """Test getting default chain ID"""
         result = get_default_chain_id()
-        
+
         assert result == "ait-mainnet"
 
 
@@ -63,13 +63,13 @@ class TestGetChainIdFromHealth:
         """Test successful chain ID detection"""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
-        
+
         mock_client.get.return_value = {
             "supported_chains": ["ait-mainnet", "ait-testnet"]
         }
-        
+
         result = get_chain_id_from_health("http://localhost:8006")
-        
+
         assert result == "ait-mainnet"
 
     @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
@@ -77,13 +77,13 @@ class TestGetChainIdFromHealth:
         """Test chain ID detection with empty chains list"""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
-        
+
         mock_client.get.return_value = {
             "supported_chains": []
         }
-        
+
         result = get_chain_id_from_health("http://localhost:8006")
-        
+
         assert result == "ait-mainnet"  # Fallback to default
 
     @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
@@ -91,29 +91,29 @@ class TestGetChainIdFromHealth:
         """Test chain ID detection with no chains field"""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
-        
+
         mock_client.get.return_value = {}
-        
+
         result = get_chain_id_from_health("http://localhost:8006")
-        
+
         assert result == "ait-mainnet"  # Fallback to default
 
     @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
     def test_get_chain_id_from_health_network_error(self, mock_client_class):
         """Test chain ID detection with network error"""
         mock_client_class.side_effect = NetworkError("Connection failed")
-        
+
         result = get_chain_id_from_health("http://localhost:8006")
-        
+
         assert result == "ait-mainnet"  # Fallback to default
 
     @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
     def test_get_chain_id_from_health_generic_error(self, mock_client_class):
         """Test chain ID detection with generic error"""
         mock_client_class.side_effect = Exception("Unexpected error")
-        
+
         result = get_chain_id_from_health("http://localhost:8006")
-        
+
         assert result == "ait-mainnet"  # Fallback to default
 
     @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
@@ -121,13 +121,13 @@ class TestGetChainIdFromHealth:
         """Test chain ID detection with custom timeout"""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
-        
+
         mock_client.get.return_value = {
             "supported_chains": ["ait-testnet"]
         }
-        
+
         result = get_chain_id_from_health("http://localhost:8006", timeout=10)
-        
+
         assert result == "ait-testnet"
         mock_client_class.assert_called_once_with(base_url="http://localhost:8006", timeout=10)
 
@@ -139,7 +139,7 @@ class TestGetChainId:
     def test_get_chain_id_with_override_known(self, mock_get_from_health):
         """Test getting chain ID with known override"""
         result = get_chain_id("http://localhost:8006", override="ait-testnet")
-        
+
         assert result == "ait-testnet"
         mock_get_from_health.assert_not_called()
 
@@ -147,7 +147,7 @@ class TestGetChainId:
     def test_get_chain_id_with_override_unknown(self, mock_get_from_health):
         """Test getting chain ID with unknown override (still used)"""
         result = get_chain_id("http://localhost:8006", override="new-chain")
-        
+
         assert result == "new-chain"
         mock_get_from_health.assert_not_called()
 
@@ -155,9 +155,9 @@ class TestGetChainId:
     def test_get_chain_id_without_override(self, mock_get_from_health):
         """Test getting chain ID without override (uses auto-detection)"""
         mock_get_from_health.return_value = "ait-mainnet"
-        
+
         result = get_chain_id("http://localhost:8006")
-        
+
         assert result == "ait-mainnet"
         mock_get_from_health.assert_called_once_with("http://localhost:8006", 5)
 
@@ -165,9 +165,9 @@ class TestGetChainId:
     def test_get_chain_id_with_custom_timeout(self, mock_get_from_health):
         """Test getting chain ID with custom timeout"""
         mock_get_from_health.return_value = "ait-testnet"
-        
+
         result = get_chain_id("http://localhost:8006", timeout=15)
-        
+
         assert result == "ait-testnet"
         mock_get_from_health.assert_called_once_with("http://localhost:8006", 15)
 
@@ -175,9 +175,9 @@ class TestGetChainId:
     def test_get_chain_id_override_none(self, mock_get_from_health):
         """Test getting chain ID with override=None"""
         mock_get_from_health.return_value = "ait-mainnet"
-        
+
         result = get_chain_id("http://localhost:8006", override=None)
-        
+
         assert result == "ait-mainnet"
         mock_get_from_health.assert_called_once()
 

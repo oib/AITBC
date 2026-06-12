@@ -19,13 +19,13 @@ def generate_eth_address():
     """Generate a new Ethereum address and private key."""
     # Enable mnemonic features
     Account.enable_unaudited_hdwallet_features()
-    
+
     # Create new account
     account = Account.create()
-    
+
     address = account.address
     private_key = account.key.hex()
-    
+
     print("\n=== Generated Ethereum Wallet Address ===")
     print(f"Address: {address}")
     print(f"Private Key: {private_key}")
@@ -34,7 +34,7 @@ def generate_eth_address():
     print("- Add the address to /etc/aitbc/exchange.env as ETH_WALLET_ADDRESS")
     print("- Fund this address with ETH to enable bridge operations")
     print("=" * 50)
-    
+
     return address, private_key
 
 
