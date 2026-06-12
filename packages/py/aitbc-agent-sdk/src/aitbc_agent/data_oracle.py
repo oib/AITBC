@@ -27,10 +27,10 @@ class DataOracleOperations:
             if result["success"]:
                 return result["data"].get("announcement_id", cid)
             else:
-                logger.error(f"Data oracle announce failed: {result.get('error')}")
+                logger.error("Data oracle announce failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"announce_data_availability failed: {e}")
+            logger.error("announce_data_availability failed: %s", e)
             raise
 
     def retrieve_data(self, cid: str) -> bytes:
@@ -41,7 +41,7 @@ class DataOracleOperations:
             ipfs = IPFSOperations(self.executor.cli_path)
             return ipfs.retrieve_ipfs(cid)
         except Exception as e:
-            logger.error(f"retrieve_data failed: {e}")
+            logger.error("retrieve_data failed: %s", e)
             raise
 
     async def listen_for_requests(self, callback: Callable):
@@ -58,7 +58,7 @@ class DataOracleOperations:
                         await callback(listing)
                 await asyncio.sleep(10)
         except Exception as e:
-            logger.error(f"listen_for_requests failed: {e}")
+            logger.error("listen_for_requests failed: %s", e)
             raise
 
     async def announce_data_availability_async(self, cid: str, price: float, description: str = "") -> str:
@@ -71,5 +71,5 @@ class DataOracleOperations:
         if result["success"]:
             return result["data"].get("announcement_id", cid)
         else:
-            logger.error(f"Data oracle announce async failed: {result.get('error')}")
+            logger.error("Data oracle announce async failed: %s", result.get('error'))
             raise Exception(result.get("error"))
