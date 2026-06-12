@@ -38,13 +38,13 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
     try:
         validate_address(to_address)
     except ValidationError as e:
-        logger.error(f"Invalid recipient address: {e}")
+        logger.error("Invalid recipient address: %s", e)
         error(f"Invalid recipient address: {e}")
         return None
 
     # Validate amount
     if amount <= 0:
-        logger.error(f"Invalid amount: {amount} must be positive")
+        logger.error("Invalid amount: %s must be positive", amount)
         error("Amount must be positive")
         return None
 
@@ -125,14 +125,14 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
         result = http_client.post("/rpc/transaction", json=transaction)
         tx_hash = result.get("transaction_hash")
         success(f"Transaction submitted: {tx_hash}")
-        logger.info(f"Transaction submitted: {tx_hash} from {from_wallet} to {to_address}")
+        logger.info("Transaction submitted: %s from %s to %s", tx_hash, from_wallet, to_address)
         return tx_hash
     except NetworkError as e:
-        logger.error(f"Network error submitting transaction: {e}")
+        logger.error("Network error submitting transaction: %s", e)
         error(f"Error submitting transaction: {e}")
         return None
     except Exception as e:
-        logger.error(f"Error submitting transaction: {e}")
+        logger.error("Error submitting transaction: %s", e)
         error(f"Error: {e}")
         return None
 
