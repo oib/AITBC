@@ -22,11 +22,11 @@ def handle_performance_benchmark(args, output_format, render_mapping):
         logger.info(json.dumps(benchmark_data, indent=2))
     else:
         logger.info("Performance Benchmark:")
-        logger.info(f"  TPS: {benchmark_data['tps']}")
-        logger.info(f"  Latency: {benchmark_data['latency_ms']}ms")
-        logger.info(f"  Throughput: {benchmark_data['throughput_mbps']}Mbps")
-        logger.info(f"  CPU Usage: {benchmark_data['cpu_usage']}%")
-        logger.info(f"  Memory Usage: {benchmark_data['memory_usage']}%")
+        logger.info("  TPS: %s", benchmark_data['tps'])
+        logger.info("  Latency: %sms", benchmark_data['latency_ms'])
+        logger.info("  Throughput: %sMbps", benchmark_data['throughput_mbps'])
+        logger.info("  CPU Usage: %s%%", benchmark_data['cpu_usage'])
+        logger.info("  Memory Usage: %s%%", benchmark_data['memory_usage'])
 def handle_performance_optimize(args, render_mapping):
     """Handle performance optimize command."""
     target = getattr(args, "target", "general")
@@ -38,7 +38,7 @@ def handle_performance_optimize(args, render_mapping):
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
 
-    logger.info(f"Performance optimization applied for {target}")
+    logger.info("Performance optimization applied for %s", target)
     render_mapping("Optimization:", optimization_data)
 
 

@@ -48,7 +48,7 @@ def handle_resource_status(args, output_format, render_mapping):
         else:
             render_mapping("Resource Status:", status_data)
     except Exception as e:
-        logger.error(f"Failed to get resource status: {e}")
+        logger.error("Failed to get resource status: %s", e)
         render_mapping("Error:", {"message": str(e)})
 
 
@@ -100,10 +100,10 @@ def handle_resource_allocate(args, render_mapping):
             "timestamp": datetime.now().isoformat()
         }
 
-        logger.info(f"Resources allocated to {agent_id}")
+        logger.info("Resources allocated to %s", agent_id)
         render_mapping("Allocation:", allocation_data)
     except Exception as e:
-        logger.error(f"Failed to allocate resources: {e}")
+        logger.error("Failed to allocate resources: %s", e)
         render_mapping("Error:", {"message": str(e)})
 
 
@@ -122,7 +122,7 @@ def handle_resource_monitor(args, render_mapping):
         "timestamp": datetime.now().isoformat()
     }
 
-    logger.info(f"Resource monitoring started (interval: {interval}s, duration: {duration}s)")
+    logger.info("Resource monitoring started (interval: %ss, duration: %ss)", interval, duration)
     render_mapping("Monitor:", monitor_data)
 
 
@@ -139,7 +139,7 @@ def handle_resource_optimize(args, render_mapping):
         "timestamp": datetime.now().isoformat()
     }
 
-    logger.info(f"Resource optimization applied for {target}")
+    logger.info("Resource optimization applied for %s", target)
     render_mapping("Optimization:", optimization_data)
 
 
@@ -177,8 +177,8 @@ def handle_resource_benchmark(args, render_mapping):
             "timestamp": datetime.now().isoformat()
         }
 
-        logger.info(f"Resource benchmark completed for {benchmark_type}")
+        logger.info("Resource benchmark completed for %s", benchmark_type)
         render_mapping("Benchmark:", benchmark_data)
     except Exception as e:
-        logger.error(f"Failed to run benchmark: {e}")
+        logger.error("Failed to run benchmark: %s", e)
         render_mapping("Error:", {"message": str(e)})
