@@ -25,10 +25,10 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("graph_id", "")
             else:
-                logger.error(f"Knowledge create failed: {result.get('error')}")
+                logger.error("Knowledge create failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"create_knowledge_graph failed: {e}")
+            logger.error("create_knowledge_graph failed: %s", e)
             raise
 
     def join_knowledge_graph(self, graph_id: str) -> bool:
@@ -39,10 +39,10 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("joined", False)
             else:
-                logger.error(f"Knowledge join failed: {result.get('error')}")
+                logger.error("Knowledge join failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"join_knowledge_graph failed: {e}")
+            logger.error("join_knowledge_graph failed: %s", e)
             raise
 
     def query_knowledge_graph(self, graph_id: str, query: str) -> list[dict]:
@@ -53,10 +53,10 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("results", [])
             else:
-                logger.error(f"Knowledge query failed: {result.get('error')}")
+                logger.error("Knowledge query failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"query_knowledge_graph failed: {e}")
+            logger.error("query_knowledge_graph failed: %s", e)
             raise
 
     def add_knowledge_node(self, graph_id: str, node_data: dict) -> str:
@@ -67,10 +67,10 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("node_id", "")
             else:
-                logger.error(f"Knowledge add-node failed: {result.get('error')}")
+                logger.error("Knowledge add-node failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"add_knowledge_node failed: {e}")
+            logger.error("add_knowledge_node failed: %s", e)
             raise
 
     def add_knowledge_edge(self, graph_id: str, from_node: str, to_node: str, edge_data: dict = None) -> str:
@@ -83,8 +83,8 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("edge_id", "")
             else:
-                logger.error(f"Knowledge add-edge failed: {result.get('error')}")
+                logger.error("Knowledge add-edge failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"add_knowledge_edge failed: {e}")
+            logger.error("add_knowledge_edge failed: %s", e)
             raise
