@@ -1,6 +1,6 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-06-07
+**Last Updated:** 2026-06-12
 
 Quick reference guide for AITBC setup and onboarding.
 
@@ -204,6 +204,46 @@ journalctl -u aitbc-blockchain-node -f | grep "Sync mode"
 - [Service Isolation](../operations/SERVICE_ISOLATION_2026-06-07.md) - Service user security configuration
 
 ### Open Island
+
+#### Join an Open Island as Follower
+
+To join an existing AITBC hub (e.g., `https://hub.aitbc.bubuit.net`) as a follower node:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/oib/AITBC.git /opt/aitbc
+cd /opt/aitbc
+
+# 2. Download hub configuration
+curl https://hub.aitbc.bubuit.net/agent/blockchain.env -o /etc/aitbc/blockchain.env
+curl https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env -o /etc/aitbc/blockchain-secrets.env
+
+# 3. Configure node identity
+cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
+# Edit NODE_ID in /etc/aitbc/node.env to a unique value for your node
+
+# 4. Run setup script (non-interactive mode)
+./scripts/deployment/setup.sh --open-island https://hub.aitbc.bubuit.net --node-id your-node-id
+
+# 5. Start blockchain node
+systemctl start aitbc-blockchain-node
+systemctl status aitbc-blockchain-node
+```
+
+The node will automatically:
+- Sync blocks from the hub via periodic pull sync
+- Attempt subscription-based push sync (if hub supports it)
+- Join the island with the configured `CHAIN_ID`
+
+#### Verify Sync Status
+
+```bash
+# Check sync status
+journalctl -u aitbc-blockchain-node -f | grep "Sync mode"
+
+# View imported blocks
+journalctl -u aitbc-blockchain-node | grep "Imported block"
+```
 - [Open Island Testing](open-island.md) - Join hub.aitbc.bubuit.net
 
 ## Common Commands
@@ -306,3 +346,67 @@ For comprehensive AITBC capabilities and use cases, see [Scenarios Documentation
 - [Firehol Configuration](../deployment/firehol-configuration.md) - Firewall configuration
 - [Nginx Setup](../deployment/nginx-setup.md) - Nginx reverse proxy configuration
 - [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration
+
+## Troubleshooting
+
+### Common Setup Issues
+
+#### ModuleNotFoundError: No module named 'pydantic-settings'
+
+The blockchain-node service requires `pydantic-settings` which may not be included in all dependency profiles.
+
+```bash
+# Install missing dependency
+/opt/aitbc/venv/bin/pip install pydantic-settings
+systemctl restart aitbc-blockchain-node
+```
+
+#### PermissionError: Permission denied on /var/lib/aitbc/data
+
+The blockchain-node service runs as `aitbc-blockchain` user and needs write access to data directories.
+
+```bash
+# Fix permissions
+chown -R aitbc-blockchain:aitbc-services /var/lib/aitbc/data
+systemctl restart aitbc-blockchain-node
+```
+
+#### Service fails to start: Unable to locate executable '/opt/aitbc/venv/bin/python'
+
+The virtual environment may not exist or was corrupted.
+
+```bash
+# Recreate virtual environment
+rm -rf /opt/aitbc/venv
+cd /opt/aitbc
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+systemctl restart aitbc-blockchain-node
+```
+
+#### Service user does not exist
+
+Service users are created by the setup script. If they're missing:
+
+```bash
+# Create service users manually
+groupadd aitbc-services
+useradd -r -s /bin/false -g aitbc-services aitbc-blockchain
+useradd -r -s /bin/false -g aitbc-services aitbc-public
+useradd -r -s /bin/false -g aitbc-services aitbc-internal
+useradd -r -s /bin/false -g aitbc-services aitbc-gpu
+useradd -r -s /bin/false -g aitbc-services aitbc-wallet
+```
+
+#### Sync mode: pull (periodic, WebSocket push unavailable)
+
+The node is using pull sync instead of push sync. This is normal for follower nodes and will work correctly.
+
+```bash
+# Verify sync is working
+journalctl -u aitbc-blockchain-node | grep "Imported block"
+```
+
+If you want to enable push sync, ensure the hub supports subscription endpoints and check your network connectivity to the hub.
+

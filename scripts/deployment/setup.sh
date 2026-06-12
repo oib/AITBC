@@ -5,6 +5,42 @@
 
 set -e
 
+# Parse command line arguments
+OPEN_ISLAND_HUB=""
+NODE_ID=""
+SKIP_INTERACTIVE=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --open-island)
+            OPEN_ISLAND_HUB="$2"
+            SKIP_INTERACTIVE=true
+            shift 2
+            ;;
+        --node-id)
+            NODE_ID="$2"
+            shift 2
+            ;;
+        --help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --open-island HUB_URL  Configure as follower to specified hub (non-interactive)"
+            echo "  --node-id NODE_ID      Set node identity (required with --open-island)"
+            echo "  --help                 Show this help message"
+            echo ""
+            echo "Example:"
+            echo "  $0 --open-island https://hub.aitbc.bubuit.net --node-id my-node"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_COMMON_PATH="$SCRIPT_DIR/utils/deploy_common.sh"
 DEPLOY_COMMON_TEMP=""
@@ -172,6 +208,8 @@ setup_runtime_directories() {
     chown root:root /var/lib/aitbc/keystore/config
     chown root:root /var/lib/aitbc/keystore/passwords
     chown root:root /var/lib/aitbc/data
+    # Fix data directory permissions for blockchain-node service
+    chown -R aitbc-blockchain:aitbc-services /var/lib/aitbc/data
     chown root:root /var/log/aitbc
     chown root:root /etc/aitbc
     chown root:root /etc/aitbc/credentials
@@ -350,11 +388,104 @@ generate_uuid() {
 # - HARDWARE_PROFILE: nogpu (no GPU) or gpu (GPU available)
 # These profiles are set in /etc/aitbc/blockchain.env (read by blockchain node)
 setup_node_profiles() {
+setup_node_profiles() {
     log "Setting up node profiles..."
+
+    # Skip interactive prompts if blockchain.env already exists or --open-island was used
+    if [ "$SKIP_INTERACTIVE" = true ] || [ -f "/etc/aitbc/blockchain.env" ]; then
+        log "Skipping interactive prompts (configuration already exists or --open-island mode)"
+        if [ -f "/etc/aitbc/blockchain.env" ]; then
+            log "Using existing /etc/aitbc/blockchain.env"
+        else
+            log "Using default follower configuration for open island"
+            BLOCKCHAIN_MODE="follower"
+            MARKET_ROLE="customer"
+            HARDWARE_PROFILE="nogpu"
+            
+            set_env_blockchain() {
+                local key="$1"
+                local value="$2"
+
+                if grep -q "^${key}=" /etc/aitbc/blockchain.env; then
+                    sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/blockchain.env
+                else
+                    echo "${key}=${value}" >> /etc/aitbc/blockchain.env
+                fi
+            }
+
+            set_env_blockchain "BLOCKCHAIN_MODE" "$BLOCKCHAIN_MODE"
+            set_env_blockchain "MARKET_ROLE" "$MARKET_ROLE"
+            set_env_blockchain "HARDWARE_PROFILE" "$HARDWARE_PROFILE"
+        fi
+        success "Node profiles configured (non-interactive)"
+        return 0
+    fi
 
     # Prompt for blockchain mode
     echo ""
     echo "=== Blockchain Mode Selection ==="
+    echo "Select the blockchain mode for this node:"
+    echo "  1) follower - Receives blocks from hub (default for open island)"
+    echo "  2) hub     - Produces and broadcasts blocks"
+    read -p "Enter choice [1-2] (default: 1): " blockchain_choice
+    blockchain_choice=${blockchain_choice:-1}
+
+    case "$blockchain_choice" in
+        1)
+            BLOCKCHAIN_MODE="follower"
+            ;;
+        2)
+            BLOCKCHAIN_MODE="hub"
+            ;;
+        *)
+            log "Invalid choice, defaulting to follower"
+            BLOCKCHAIN_MODE="follower"
+            ;;
+    esac
+
+    # Prompt for market role
+    echo ""
+    echo "=== Market Role Selection ==="
+    echo "Select the market role for this node:"
+    echo "  1) customer - Consumes GPU resources (default)"
+    echo "  2) shop     - Provides GPU resources"
+    read -p "Enter choice [1-2] (default: 1): " market_choice
+    market_choice=${market_choice:-1}
+
+    case "$market_choice" in
+        1)
+            MARKET_ROLE="customer"
+            ;;
+        2)
+            MARKET_ROLE="shop"
+            ;;
+        *)
+            log "Invalid choice, defaulting to customer"
+            MARKET_ROLE="customer"
+            ;;
+    esac
+
+    # Prompt for hardware profile
+    echo ""
+    echo "=== Hardware Profile Selection ==="
+    echo "Select the hardware profile for this node:"
+    echo "  1) nogpu - No GPU available (default)"
+    echo "  2) gpu   - GPU available for compute"
+    read -p "Enter choice [1-2] (default: 1): " hardware_choice
+    hardware_choice=${hardware_choice:-1}
+
+    case "$hardware_choice" in
+        1)
+            HARDWARE_PROFILE="nogpu"
+            ;;
+        2)
+            HARDWARE_PROFILE="gpu"
+            ;;
+        *)
+            log "Invalid choice, defaulting to nogpu"
+            HARDWARE_PROFILE="nogpu"
+            ;;
+    esac
     echo "Select the blockchain mode for this node:"
     echo "  1) follower - Receives blocks from hub (default for open island)"
     echo "  2) hub     - Produces and broadcasts blocks"
@@ -687,6 +818,9 @@ setup_venvs() {
         
         log "Installing profile: $PROFILE"
         /opt/aitbc/scripts/deployment/install-profiles.sh "$PROFILE" || warning "Failed to install profile $PROFILE"
+        
+        # Install pydantic-settings for blockchain-node (required dependency)
+        pip install pydantic-settings || warning "Failed to install pydantic-settings"
     else
         log "install-profiles.sh not found, using manual installation..."
         
@@ -893,6 +1027,9 @@ main() {
     echo "[STEP 11/11] ✓ Systemd services installed"
 
     echo "[PREPARING] Preparing health check..."
+    echo "[VALIDATING] Validating hub connection..."
+    validate_hub_connection
+    echo "[VALIDATING] ✓ Hub connection validated"
     prepare_health_check
     echo "[PREPARING] ✓ Health check prepared"
 

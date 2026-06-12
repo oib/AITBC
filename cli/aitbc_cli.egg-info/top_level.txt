@@ -1,3 +1,4 @@
+aitbc
 aitbc_cli
 auth
 config_data
