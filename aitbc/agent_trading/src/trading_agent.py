@@ -42,13 +42,13 @@ class TradingAgent:
 
             if success:
                 self.is_running = True
-                logger.info(f"Trading agent {self.agent_id} started successfully")
+                logger.info("Trading agent %s started successfully", self.agent_id)
                 return True
             else:
-                logger.warning(f"Failed to start trading agent {self.agent_id}")
+                logger.warning("Failed to start trading agent %s", self.agent_id)
                 return False
         except Exception as e:
-            logger.error(f"Error starting trading agent: {e}")
+            logger.error("Error starting trading agent: %s", e)
             return False
 
     async def stop(self) -> bool:
@@ -56,7 +56,7 @@ class TradingAgent:
         self.is_running = False
         success = await self.bridge.stop_agent(self.agent_id)
         if success:
-            logger.info(f"Trading agent {self.agent_id} stopped successfully")
+            logger.info("Trading agent %s stopped successfully", self.agent_id)
         return success
 
     async def run_trading_loop(self):
@@ -68,7 +68,7 @@ class TradingAgent:
 
                 await asyncio.sleep(self.trade_interval)
             except Exception as e:
-                logger.error(f"Error in trading loop: {e}")
+                logger.error("Error in trading loop: %s", e)
                 await asyncio.sleep(10)  # Wait before retrying
 
     async def _analyze_and_trade(self, symbol: str) -> None:
@@ -90,10 +90,10 @@ class TradingAgent:
                 if self._should_trade(analysis):
                     await self._execute_trade(symbol, analysis)
             else:
-                logger.warning(f"Market analysis failed for {symbol}: {analysis_result}")
+                logger.warning("Market analysis failed for %s: %s", symbol, analysis_result)
 
         except Exception as e:
-            logger.error(f"Error in analyze_and_trade for {symbol}: {e}")
+            logger.error("Error in analyze_and_trade for %s: %s", symbol, e)
 
     def _should_trade(self, analysis: dict[str, Any]) -> bool:
         """Determine if should execute trade"""
@@ -127,12 +127,12 @@ class TradingAgent:
             trade_result = await self.bridge.execute_agent_task(self.agent_id, trade_task)
 
             if trade_result.get("status") == "success":
-                logger.info(f"Trade executed successfully: {trade_result}")
+                logger.info("Trade executed successfully: %s", trade_result)
             else:
-                logger.warning(f"Trade execution failed: {trade_result}")
+                logger.warning("Trade execution failed: %s", trade_result)
 
         except Exception as e:
-            logger.error(f"Error executing trade: {e}")
+            logger.error("Error executing trade: %s", e)
 
     async def get_status(self) -> dict[str, Any]:
         """Get agent status"""

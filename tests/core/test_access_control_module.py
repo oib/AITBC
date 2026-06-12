@@ -4,11 +4,11 @@ This module has 0% coverage and 345 statements.
 """
 
 import importlib.util
-from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -86,7 +86,7 @@ class TestAccessController:
         # Mock JWT if not available
         if not access_control.JWT_AVAILABLE:
             pytest.skip("JWT not available")
-        
+
         controller = access_control.AccessController()
         token = controller.create_token("user123", ["user"])
         assert token is not None
@@ -95,7 +95,7 @@ class TestAccessController:
     def test_create_token_with_additional_claims(self):
         if not access_control.JWT_AVAILABLE:
             pytest.skip("JWT not available")
-        
+
         controller = access_control.AccessController()
         token = controller.create_token(
             "user123",
@@ -113,14 +113,14 @@ class TestAccessController:
     def test_verify_token_valid(self):
         if not access_control.JWT_AVAILABLE:
             pytest.skip("JWT not available")
-        
+
         # Skip due to JWT timezone/timing issues in test environment
         pytest.skip("JWT token verification skipped due to timing issues")
 
     def test_verify_token_invalid(self):
         if not access_control.JWT_AVAILABLE:
             pytest.skip("JWT not available")
-        
+
         controller = access_control.AccessController()
         with pytest.raises(access_control.AuthenticationError):
             controller.verify_token("invalid_token")
@@ -172,11 +172,11 @@ class TestAccessController:
 
     def test_require_role_decorator_no_token(self):
         controller = access_control.AccessController()
-        
+
         @controller.require_role("admin")
         def protected_function():
             return "success"
-        
+
         with pytest.raises(access_control.AuthorizationError):
             protected_function()
 
@@ -194,11 +194,11 @@ class TestAccessController:
 
     def test_require_permission_decorator_no_token(self):
         controller = access_control.AccessController()
-        
+
         @controller.require_permission("read")
         def protected_function():
             return "success"
-        
+
         with pytest.raises(access_control.AuthorizationError):
             protected_function()
 
@@ -254,41 +254,41 @@ class TestAPIKeyAuth:
 
     def test_require_api_key_decorator_no_key(self):
         auth = access_control.APIKeyAuth()
-        
+
         @auth.require_api_key()
         def protected_function():
             return "success"
-        
+
         with pytest.raises(access_control.AuthorizationError):
             protected_function()
 
     def test_require_api_key_decorator_with_valid_key(self):
         auth = access_control.APIKeyAuth(valid_keys=["valid_key"])
-        
+
         @auth.require_api_key()
         def protected_function(**kwargs):
             return "success"
-        
+
         result = protected_function(api_key="valid_key")
         assert result == "success"
 
     def test_require_api_key_decorator_with_invalid_key(self):
         auth = access_control.APIKeyAuth(valid_keys=["valid_key"])
-        
+
         @auth.require_api_key()
         def protected_function():
             return "success"
-        
+
         with pytest.raises(access_control.AuthorizationError):
             protected_function(api_key="invalid_key")
 
     def test_require_api_key_decorator_x_api_key(self):
         auth = access_control.APIKeyAuth(valid_keys=["valid_key"])
-        
+
         @auth.require_api_key()
         def protected_function(**kwargs):
             return "success"
-        
+
         result = protected_function(x_api_key="valid_key")
         assert result == "success"
 

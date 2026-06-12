@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class PricingStrategy(StrEnum):
@@ -63,7 +63,8 @@ class PricingStrategyRequest(BaseModel):
     resource_types: list[ResourceType] | None = Field(None, description="Applicable resource types")
     regions: list[str] | None = Field(None, description="Applicable regions")
 
-    @validator("constraints")
+    @field_validator("constraints")
+    @classmethod
     def validate_constraints(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is not None:
             # Validate constraint fields

@@ -3,7 +3,7 @@
 Database models for the AITBC Trade Exchange
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -22,7 +22,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     bitcoin_address = Column(String(100), unique=True, nullable=False)
     aitbc_address = Column(String(100), unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=datetime.now(UTC))
     is_active = Column(Boolean, default=True)
 
     # Relationships
@@ -46,8 +46,8 @@ class Order(Base):
     filled = Column(Float, default=0.0)  # Amount filled
     remaining = Column(Float, nullable=False)  # Amount remaining to fill
     status = Column(String(20), default='OPEN')  # OPEN, PARTIALLY_FILLED, FILLED, CANCELLED
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=datetime.now(UTC))
+    updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
     # Relationships
     user = relationship("User", back_populates="orders")
@@ -74,7 +74,7 @@ class Trade(Base):
     price = Column(Float, nullable=False)  # Trade price in BTC
     total = Column(Float, nullable=False)  # Total value in BTC
     trade_hash = Column(String(100), unique=True, nullable=False)  # Blockchain transaction hash
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=datetime.now(UTC))
 
     # Relationships
     buyer = relationship("User", back_populates="trades", foreign_keys=[buyer_id])
@@ -100,7 +100,7 @@ class Balance(Base):
     aitbc_balance = Column(Float, default=0.0)
     btc_locked = Column(Float, default=0.0)  # Locked in open orders
     aitbc_locked = Column(Float, default=0.0)  # Locked in open orders
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
     # Relationship
     user = relationship("User")

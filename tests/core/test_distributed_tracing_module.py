@@ -5,9 +5,10 @@ This module has 0% coverage and 134 statements.
 
 import importlib.util
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
+
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -162,7 +163,7 @@ class TestTracedDecorator:
             @distributed_tracing.traced(name="test_function")
             def test_func(x, y):
                 return x + y
-            
+
             result = test_func(1, 2)
             assert result == 3
 
@@ -171,7 +172,7 @@ class TestTracedDecorator:
             @distributed_tracing.traced()
             def test_func(x, y):
                 return x + y
-            
+
             result = test_func(1, 2)
             assert result == 3
 
@@ -180,7 +181,7 @@ class TestTracedDecorator:
             @distributed_tracing.traced(attributes={"key": "value"})
             def test_func(x):
                 return x
-            
+
             result = test_func(42)
             assert result == 42
 
@@ -189,7 +190,7 @@ class TestTracedDecorator:
             @distributed_tracing.traced()
             def test_func():
                 raise ValueError("Test error")
-            
+
             with pytest.raises(ValueError, match="Test error"):
                 test_func()
 

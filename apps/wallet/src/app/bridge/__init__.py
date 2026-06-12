@@ -10,7 +10,7 @@ from .price_api import calculate_ait_amount, get_eth_price_usd, get_exchange_rat
 
 __all__ = [
     "init_db",
-    "insert_deposit", 
+    "insert_deposit",
     "get_pending_deposits",
     "update_deposit_status",
     "get_eth_price_usd",

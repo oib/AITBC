@@ -4,13 +4,11 @@ Test script for AITBC blockchain nodes
 Tests both nodes for functionality and consistency
 """
 
-import os
 import sys
 import time
 from typing import Any
 
 import httpx
-import pytest
 
 # Configuration
 NODES = {

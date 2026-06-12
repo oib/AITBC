@@ -1,6 +1,6 @@
 """Simple HTTP client wrapper for AITBC CLI (replaces missing aitbc package)"""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -12,13 +12,13 @@ class NetworkError(Exception):
 
 class AITBCHTTPClient:
     """Simple HTTP client for AITBC blockchain RPC"""
-    
+
     def __init__(self, base_url: str = "http://localhost:8202", timeout: int = 30):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.client = httpx.Client(timeout=timeout)
-    
-    def get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+
+    def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """GET request to blockchain RPC"""
         try:
             response = self.client.get(f"{self.base_url}{path}", params=params)
@@ -26,8 +26,8 @@ class AITBCHTTPClient:
             return response.json()
         except httpx.HTTPError as e:
             raise NetworkError(f"HTTP error: {e}")
-    
-    def post(self, path: str, json_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+
+    def post(self, path: str, json_data: dict[str, Any] | None = None) -> dict[str, Any]:
         """POST request to blockchain RPC"""
         try:
             response = self.client.post(f"{self.base_url}{path}", json=json_data)
@@ -35,7 +35,7 @@ class AITBCHTTPClient:
             return response.json()
         except httpx.HTTPError as e:
             raise NetworkError(f"HTTP error: {e}")
-    
+
     def close(self):
         """Close the HTTP client"""
         self.client.close()

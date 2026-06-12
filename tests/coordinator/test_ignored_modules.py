@@ -305,7 +305,7 @@ class TestAlert:
 
 class TestAlertRule:
     def test_to_dict(self):
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
         rule = AlertRule(
             rule_id="r1",
             name="High CPU",
@@ -324,7 +324,7 @@ class TestAlertRule:
 
 class TestSLAMonitor:
     def test_add_rule_and_record(self):
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
         sla = SLAMonitor()
         sla.add_sla_rule("sla1", "Availability", 99.9, timedelta(hours=1), "availability")
         sla.record_metric("sla1", 99.95)
@@ -338,7 +338,7 @@ class TestSLAMonitor:
         assert SLAMonitor().get_sla_compliance("missing")["status"] == "error"
 
     def test_get_all_sla_status(self):
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
         sla = SLAMonitor()
         sla.add_sla_rule("sla1", "Availability", 99.9, timedelta(hours=1), "availability")
         result = sla.get_all_sla_status()
@@ -347,7 +347,7 @@ class TestSLAMonitor:
         assert result["overall_compliance"] == 100.0
 
     def test_record_metric_no_timestamp(self):
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
         sla = SLAMonitor()
         sla.add_sla_rule("sla1", "Availability", 99.9, timedelta(hours=1), "availability")
         sla.record_metric("sla1", 99.0)
@@ -386,7 +386,6 @@ class TestNotificationManager:
             severity=AlertSeverity.INFO, status=AlertStatus.ACTIVE,
             created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
         )
-        import logging
         nm._send_log(alert, "message")
 
     @pytest.mark.asyncio
@@ -421,7 +420,6 @@ class TestNotificationManager:
             severity=AlertSeverity.CRITICAL, status=AlertStatus.ACTIVE,
             created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
         )
-        import requests
         with patch("requests.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
             await nm._send_slack(alert, "msg")
@@ -437,7 +435,6 @@ class TestNotificationManager:
             severity=AlertSeverity.INFO, status=AlertStatus.ACTIVE,
             created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
         )
-        import requests
         with patch("requests.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
             await nm._send_webhook(alert, "msg")
@@ -451,7 +448,7 @@ class TestAlertManager:
         assert "high_error_rate" in am.rules
 
     def test_add_remove_rule(self):
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
         am = AlertManager()
         rule = AlertRule(
             rule_id="custom", name="Custom", description="Desc",
@@ -565,7 +562,6 @@ class TestMessageStorage:
     @pytest.mark.asyncio
     async def test_start_stop(self, mock_redis):
         storage = MessageStorage("redis://localhost:6379/0")
-        import redis.asyncio
         with patch("redis.asyncio.from_url", AsyncMock(return_value=mock_redis)):
             await storage.start()
             assert storage.redis is not None
@@ -665,7 +661,6 @@ class TestPeerStorage:
     @pytest.mark.asyncio
     async def test_start_stop(self, mock_redis):
         storage = PeerStorage("redis://localhost:6379/0")
-        import redis.asyncio
         with patch("redis.asyncio.from_url", AsyncMock(return_value=mock_redis)):
             await storage.start()
             assert storage.redis is not None

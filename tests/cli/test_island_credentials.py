@@ -42,9 +42,9 @@ class TestLoadIslandCredentials:
             'credentials': {'rpc_endpoint': 'http://localhost:8006'}
         }
         mock_file.return_value.read.return_value = json.dumps(credentials_data)
-        
+
         result = load_island_credentials()
-        
+
         assert result['island_id'] == 'island123'
         assert result['island_name'] == 'Test Island'
 
@@ -52,10 +52,10 @@ class TestLoadIslandCredentials:
     def test_load_credentials_file_not_found(self, mock_path):
         """Test loading credentials when file doesn't exist"""
         mock_path.return_value.exists.return_value = False
-        
+
         with pytest.raises(FileNotFoundError) as exc_info:
             load_island_credentials()
-        
+
         assert "Island credentials not found" in str(exc_info.value)
 
     @patch('builtins.open', new_callable=mock_open)
@@ -64,7 +64,7 @@ class TestLoadIslandCredentials:
         """Test loading credentials with invalid JSON"""
         mock_path.return_value.exists.return_value = True
         mock_file.return_value.read.return_value = "invalid json"
-        
+
         with pytest.raises(json.JSONDecodeError):
             load_island_credentials()
 
@@ -79,10 +79,10 @@ class TestLoadIslandCredentials:
             # Missing island_chain_id and credentials
         }
         mock_file.return_value.read.return_value = json.dumps(credentials_data)
-        
+
         with pytest.raises(ValueError) as exc_info:
             load_island_credentials()
-        
+
         assert "missing required field" in str(exc_info.value)
 
 
@@ -95,9 +95,9 @@ class TestGetRpcEndpoint:
         mock_load.return_value = {
             'credentials': {'rpc_endpoint': 'http://localhost:8006'}
         }
-        
+
         result = get_rpc_endpoint()
-        
+
         assert result == 'http://localhost:8006'
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
@@ -106,10 +106,10 @@ class TestGetRpcEndpoint:
         mock_load.return_value = {
             'credentials': {}
         }
-        
+
         with pytest.raises(ValueError) as exc_info:
             get_rpc_endpoint()
-        
+
         assert "RPC endpoint not found" in str(exc_info.value)
 
 
@@ -122,19 +122,19 @@ class TestGetChainId:
         mock_load.return_value = {
             'island_chain_id': 'ait-mainnet'
         }
-        
+
         result = get_chain_id()
-        
+
         assert result == 'ait-mainnet'
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_get_chain_id_missing(self, mock_load):
         """Test getting chain ID when missing"""
         mock_load.return_value = {}
-        
+
         with pytest.raises(ValueError) as exc_info:
             get_chain_id()
-        
+
         assert "Chain ID not found" in str(exc_info.value)
 
 
@@ -147,19 +147,19 @@ class TestGetIslandId:
         mock_load.return_value = {
             'island_id': 'island123'
         }
-        
+
         result = get_island_id()
-        
+
         assert result == 'island123'
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_get_island_id_missing(self, mock_load):
         """Test getting island ID when missing"""
         mock_load.return_value = {}
-        
+
         with pytest.raises(ValueError) as exc_info:
             get_island_id()
-        
+
         assert "Island ID not found" in str(exc_info.value)
 
 
@@ -172,19 +172,19 @@ class TestGetIslandName:
         mock_load.return_value = {
             'island_name': 'Test Island'
         }
-        
+
         result = get_island_name()
-        
+
         assert result == 'Test Island'
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_get_island_name_missing(self, mock_load):
         """Test getting island name when missing"""
         mock_load.return_value = {}
-        
+
         with pytest.raises(ValueError) as exc_info:
             get_island_name()
-        
+
         assert "Island name not found" in str(exc_info.value)
 
 
@@ -197,9 +197,9 @@ class TestGetGenesisBlockHash:
         mock_load.return_value = {
             'credentials': {'genesis_block_hash': '0xabc123'}
         }
-        
+
         result = get_genesis_block_hash()
-        
+
         assert result == '0xabc123'
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
@@ -208,18 +208,18 @@ class TestGetGenesisBlockHash:
         mock_load.return_value = {
             'credentials': {}
         }
-        
+
         result = get_genesis_block_hash()
-        
+
         assert result is None
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_get_genesis_block_hash_error(self, mock_load):
         """Test getting genesis block hash on error"""
         mock_load.side_effect = FileNotFoundError("File not found")
-        
+
         result = get_genesis_block_hash()
-        
+
         assert result is None
 
 
@@ -232,9 +232,9 @@ class TestGetGenesisAddress:
         mock_load.return_value = {
             'credentials': {'genesis_address': 'ait123'}
         }
-        
+
         result = get_genesis_address()
-        
+
         assert result == 'ait123'
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
@@ -243,18 +243,18 @@ class TestGetGenesisAddress:
         mock_load.return_value = {
             'credentials': {}
         }
-        
+
         result = get_genesis_address()
-        
+
         assert result is None
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_get_genesis_address_error(self, mock_load):
         """Test getting genesis address on error"""
         mock_load.side_effect = ValueError("Invalid credentials")
-        
+
         result = get_genesis_address()
-        
+
         assert result is None
 
 
@@ -270,9 +270,9 @@ class TestValidateCredentials:
             'island_chain_id': 'ait-mainnet',
             'credentials': {}
         }
-        
+
         result = validate_credentials()
-        
+
         assert result is True
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
@@ -283,27 +283,27 @@ class TestValidateCredentials:
             'island_name': 'Test Island'
             # Missing island_chain_id and credentials
         }
-        
+
         result = validate_credentials()
-        
+
         assert result is False
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_validate_credentials_file_not_found(self, mock_load):
         """Test validation when file not found"""
         mock_load.side_effect = FileNotFoundError("File not found")
-        
+
         result = validate_credentials()
-        
+
         assert result is False
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_validate_credentials_invalid_json(self, mock_load):
         """Test validation with invalid JSON"""
         mock_load.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-        
+
         result = validate_credentials()
-        
+
         assert result is False
 
 
@@ -316,9 +316,9 @@ class TestGetP2PPort:
         mock_load.return_value = {
             'credentials': {'p2p_port': 30333}
         }
-        
+
         result = get_p2p_port()
-        
+
         assert result == 30333
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
@@ -327,18 +327,18 @@ class TestGetP2PPort:
         mock_load.return_value = {
             'credentials': {}
         }
-        
+
         result = get_p2p_port()
-        
+
         assert result is None
 
     @patch('aitbc_cli.utils.island_credentials.load_island_credentials')
     def test_get_p2p_port_error(self, mock_load):
         """Test getting P2P port on error"""
         mock_load.side_effect = ValueError("Invalid credentials")
-        
+
         result = get_p2p_port()
-        
+
         assert result is None
 
 

@@ -38,19 +38,19 @@ class TestHandleMarketListings:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"id": 1, "model": "RTX 4090", "price_per_hour": 100}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.chain_id = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_listings(args, "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.market.requests.get')
@@ -61,19 +61,19 @@ class TestHandleMarketListings:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"id": 1, "model": "RTX 4090", "price_per_hour": 100}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_listings(args, "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 
@@ -88,7 +88,7 @@ class TestHandleMarketCreate:
         mock_response.status_code = 200
         mock_response.json.return_value = {"id": 1, "status": "active"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.chain_id = None
@@ -98,15 +98,15 @@ class TestHandleMarketCreate:
         args.price = 100
         args.description = "Test service"
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_create(args, "http://localhost:8203", read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.market.logger')
@@ -119,15 +119,15 @@ class TestHandleMarketCreate:
         args.item = None
         args.item_type = None
         args.price = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_create(args, "http://localhost:8203", read_password, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
 
@@ -142,14 +142,14 @@ class TestHandleMarketGet:
         mock_response.status_code = 200
         mock_response.json.return_value = {"id": 1, "model": "RTX 4090"}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.chain_id = None
         args.listing_id = 1
-        
+
         handle_market_get(args, "http://localhost:8006")
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.market.logger')
@@ -159,9 +159,9 @@ class TestHandleMarketGet:
         args.marketplace_url = None
         args.chain_id = None
         args.listing_id = None
-        
+
         handle_market_get(args, "http://localhost:8006")
-        
+
         mock_logger.error.assert_called()
 
 
@@ -176,22 +176,22 @@ class TestHandleMarketDelete:
         mock_response.status_code = 200
         mock_response.json.return_value = {"success": True}
         mock_delete.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.listing_id = 1
         args.order = None
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_delete(args, "http://localhost:8203", read_password, render_mapping)
-        
+
         mock_delete.assert_called_once()
 
     @patch('handlers.market.logger')
@@ -201,15 +201,15 @@ class TestHandleMarketDelete:
         args.marketplace_url = None
         args.listing_id = None
         args.order = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_delete(args, "http://localhost:8203", read_password, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
 
@@ -226,12 +226,12 @@ class TestHandleMarketGpuRegister:
         mock_subprocess_result.returncode = 0
         mock_subprocess_result.stdout = "NVIDIA GeForce RTX 4060 Ti, 16380 MiB, 8.9"
         mock_subprocess.return_value = mock_subprocess_result
-        
+
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"blockchain_registered": True, "transaction_id": "tx_123"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.gpu_url = "http://localhost:8101"
         args.price_per_hour = 100
@@ -241,9 +241,9 @@ class TestHandleMarketGpuRegister:
         args.wallet = "wallet1"
         args.signature = None
         args.region = None
-        
+
         handle_market_gpu_register(args, "http://localhost:8203")
-        
+
         mock_post.assert_called_once()
 
     @patch('subprocess.run')
@@ -253,13 +253,13 @@ class TestHandleMarketGpuRegister:
         mock_subprocess_result = Mock()
         mock_subprocess_result.returncode = 1
         mock_subprocess.return_value = mock_subprocess_result
-        
+
         args = Mock()
         args.gpu_url = "http://localhost:8101"
         args.price_per_hour = 100
-        
+
         handle_market_gpu_register(args, "http://localhost:8203")
-        
+
         mock_logger.error.assert_called()
 
     @patch('handlers.market.logger')
@@ -268,9 +268,9 @@ class TestHandleMarketGpuRegister:
         args = Mock()
         args.gpu_url = "http://localhost:8101"
         args.price_per_hour = None
-        
+
         handle_market_gpu_register(args, "http://localhost:8203")
-        
+
         mock_logger.error.assert_called()
 
 
@@ -285,7 +285,7 @@ class TestHandleMarketGpuList:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"id": 1, "model": "RTX 4090", "memory_gb": 24}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.gpu_url = "http://localhost:8101"
         args.available = None
@@ -293,12 +293,12 @@ class TestHandleMarketGpuList:
         args.region = None
         args.model = None
         args.limit = None
-        
+
         def output_format(args):
             return "json"
-        
+
         handle_market_gpu_list(args, "http://localhost:8203", output_format)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.market.requests.get')
@@ -309,7 +309,7 @@ class TestHandleMarketGpuList:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"id": 1, "model": "RTX 4090", "memory_gb": 24}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.gpu_url = "http://localhost:8101"
         args.available = True
@@ -317,12 +317,12 @@ class TestHandleMarketGpuList:
         args.region = None
         args.model = None
         args.limit = None
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_market_gpu_list(args, "http://localhost:8203", output_format)
-        
+
         mock_get.assert_called_once()
 
 
@@ -337,22 +337,22 @@ class TestHandleMarketBuy:
         mock_response.status_code = 200
         mock_response.json.return_value = {"order_id": "order_123", "status": "pending"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.item = "item1"
         args.wallet = "wallet1"
         args.price = 100
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_buy(args, "http://localhost:8203", read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.market.logger')
@@ -362,15 +362,15 @@ class TestHandleMarketBuy:
         args.marketplace_url = None
         args.item = None
         args.wallet = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_buy(args, "http://localhost:8203", read_password, render_mapping)
-        
+
         mock_logger.error.assert_called()
 
 
@@ -381,15 +381,15 @@ class TestHandleMarketSell:
     def test_handle_market_sell(self, mock_create):
         """Test marketplace sell (delegates to create)"""
         args = Mock()
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_sell(args, "http://localhost:8203", read_password, render_mapping)
-        
+
         mock_create.assert_called_once()
 
 
@@ -404,19 +404,19 @@ class TestHandleMarketOrders:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"id": 1, "order_type": "buy", "status": "pending"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.wallet = "wallet1"
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_orders(args, "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.market.requests.get')
@@ -427,19 +427,19 @@ class TestHandleMarketOrders:
         mock_response.status_code = 200
         mock_response.json.return_value = {"orders": [{"id": 1, "order_type": "buy", "status": "pending"}]}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
         args.wallet = None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_orders(args, "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 
@@ -454,18 +454,18 @@ class TestHandleMarketListPlugins:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"id": 1, "name": "plugin1", "type": "inference"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_list_plugins(args, "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.market.requests.get')
@@ -476,18 +476,18 @@ class TestHandleMarketListPlugins:
         mock_response.status_code = 200
         mock_response.json.return_value = {"plugins": [{"id": 1, "name": "plugin1", "type": "inference"}]}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.marketplace_url = None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_market_list_plugins(args, "http://localhost:8203", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 

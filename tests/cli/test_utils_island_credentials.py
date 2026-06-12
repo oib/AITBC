@@ -23,7 +23,7 @@ class TestLoadIslandCredentials:
     def test_load_island_credentials_success(self):
         """Test successful credentials loading"""
         from aitbc_cli.utils.island_credentials import load_island_credentials
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -34,13 +34,13 @@ class TestLoadIslandCredentials:
                     "rpc_endpoint": "http://localhost:8202"
                 }
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = load_island_credentials()
-                
+
                 assert result['island_id'] == "island123"
                 assert result['island_name'] == "Test Island"
                 assert result['island_chain_id'] == "ait-devnet"
@@ -48,7 +48,7 @@ class TestLoadIslandCredentials:
     def test_load_island_credentials_file_not_found(self):
         """Test loading credentials when file doesn't exist"""
         from aitbc_cli.utils.island_credentials import load_island_credentials
-        
+
         with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', '/nonexistent/path.json'):
             with pytest.raises(FileNotFoundError):
                 load_island_credentials()
@@ -56,7 +56,7 @@ class TestLoadIslandCredentials:
     def test_load_island_credentials_missing_field(self):
         """Test loading credentials with missing required field"""
         from aitbc_cli.utils.island_credentials import load_island_credentials
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -64,10 +64,10 @@ class TestLoadIslandCredentials:
                 "island_name": "Test Island",
                 # Missing island_chain_id and credentials
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 with pytest.raises(ValueError, match="missing required field"):
                     load_island_credentials()
@@ -79,7 +79,7 @@ class TestGetRpcEndpoint:
     def test_get_rpc_endpoint_success(self):
         """Test successful RPC endpoint retrieval"""
         from aitbc_cli.utils.island_credentials import get_rpc_endpoint
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -90,19 +90,19 @@ class TestGetRpcEndpoint:
                     "rpc_endpoint": "http://localhost:8202"
                 }
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_rpc_endpoint()
-                
+
                 assert result == "http://localhost:8202"
 
     def test_get_rpc_endpoint_missing(self):
         """Test RPC endpoint when missing from credentials"""
         from aitbc_cli.utils.island_credentials import get_rpc_endpoint
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -111,10 +111,10 @@ class TestGetRpcEndpoint:
                 "island_chain_id": "ait-devnet",
                 "credentials": {}
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 with pytest.raises(ValueError, match="RPC endpoint not found"):
                     get_rpc_endpoint()
@@ -126,7 +126,7 @@ class TestGetChainId:
     def test_get_chain_id_success(self):
         """Test successful chain ID retrieval"""
         from aitbc_cli.utils.island_credentials import get_chain_id
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -135,13 +135,13 @@ class TestGetChainId:
                 "island_chain_id": "ait-devnet",
                 "credentials": {}
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_chain_id()
-                
+
                 assert result == "ait-devnet"
 
 
@@ -151,7 +151,7 @@ class TestGetIslandId:
     def test_get_island_id_success(self):
         """Test successful island ID retrieval"""
         from aitbc_cli.utils.island_credentials import get_island_id
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -160,13 +160,13 @@ class TestGetIslandId:
                 "island_chain_id": "ait-devnet",
                 "credentials": {}
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_island_id()
-                
+
                 assert result == "island123"
 
 
@@ -176,7 +176,7 @@ class TestGetIslandName:
     def test_get_island_name_success(self):
         """Test successful island name retrieval"""
         from aitbc_cli.utils.island_credentials import get_island_name
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -185,13 +185,13 @@ class TestGetIslandName:
                 "island_chain_id": "ait-devnet",
                 "credentials": {}
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_island_name()
-                
+
                 assert result == "Test Island"
 
 
@@ -201,7 +201,7 @@ class TestGetGenesisBlockHash:
     def test_get_genesis_block_hash_success(self):
         """Test successful genesis block hash retrieval"""
         from aitbc_cli.utils.island_credentials import get_genesis_block_hash
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -212,19 +212,19 @@ class TestGetGenesisBlockHash:
                     "genesis_block_hash": "0xabc123"
                 }
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_genesis_block_hash()
-                
+
                 assert result == "0xabc123"
 
     def test_get_genesis_block_hash_missing(self):
         """Test genesis block hash when missing"""
         from aitbc_cli.utils.island_credentials import get_genesis_block_hash
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -233,13 +233,13 @@ class TestGetGenesisBlockHash:
                 "island_chain_id": "ait-devnet",
                 "credentials": {}
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_genesis_block_hash()
-                
+
                 assert result is None
 
 
@@ -249,7 +249,7 @@ class TestValidateCredentials:
     def test_validate_credentials_valid(self):
         """Test validating valid credentials"""
         from aitbc_cli.utils.island_credentials import validate_credentials
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -258,22 +258,22 @@ class TestValidateCredentials:
                 "island_chain_id": "ait-devnet",
                 "credentials": {}
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = validate_credentials()
-                
+
                 assert result is True
 
     def test_validate_credentials_invalid(self):
         """Test validating invalid credentials"""
         from aitbc_cli.utils.island_credentials import validate_credentials
-        
+
         with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', '/nonexistent/path.json'):
             result = validate_credentials()
-            
+
             assert result is False
 
 
@@ -283,7 +283,7 @@ class TestGetP2PPort:
     def test_get_p2p_port_success(self):
         """Test successful P2P port retrieval"""
         from aitbc_cli.utils.island_credentials import get_p2p_port
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -294,19 +294,19 @@ class TestGetP2PPort:
                     "p2p_port": 8100
                 }
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_p2p_port()
-                
+
                 assert result == 8100
 
     def test_get_p2p_port_missing(self):
         """Test P2P port when missing"""
         from aitbc_cli.utils.island_credentials import get_p2p_port
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             credentials_path = Path(tmpdir) / "island_credentials.json"
             credentials_data = {
@@ -315,13 +315,13 @@ class TestGetP2PPort:
                 "island_chain_id": "ait-devnet",
                 "credentials": {}
             }
-            
+
             with open(credentials_path, 'w') as f:
                 json.dump(credentials_data, f)
-            
+
             with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
                 result = get_p2p_port()
-                
+
                 assert result is None
 
 

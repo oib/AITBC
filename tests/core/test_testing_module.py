@@ -5,10 +5,10 @@ This module has 0% coverage and 222 statements.
 
 import asyncio
 import importlib.util
-import tempfile
 from pathlib import Path
 
 import pytest
+
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -447,7 +447,7 @@ class TestModuleFunctions:
         @testing.mock_async_call(return_value="test", delay=0)
         async def test_func():
             return "original"
-        
+
         result = asyncio.run(test_func())
         assert result == "test"
 
@@ -455,7 +455,7 @@ class TestModuleFunctions:
         @testing.mock_async_call(return_value="test", delay=0.01)
         async def test_func():
             return "original"
-        
+
         result = asyncio.run(test_func())
         assert result == "test"
 
@@ -485,7 +485,7 @@ class TestModuleFunctions:
     def test_create_test_scenario_with_failure(self):
         def failing_step():
             raise ValueError("test error")
-        
+
         steps = [
             lambda: "step1",
             failing_step

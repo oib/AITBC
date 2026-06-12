@@ -26,11 +26,11 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
     """Run a workflow"""
     try:
         import httpx
-        
+
         config_obj = get_config()
         coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
         api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-        
+
         if dry_run:
             success(f"Dry run for workflow {workflow_name}")
             click.echo("Would execute workflow without making changes")
@@ -46,33 +46,33 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         headers = {}
         if api_key:
             headers["X-API-Key"] = api_key
-        
+
         execution_payload = {
             "workflow_name": workflow_name,
             "config": workflow_config,
             "dry_run": False
         }
-        
+
         response = httpx.post(
             f"{coordinator_url}/v1/workflows/execute",
             json=execution_payload,
             headers=headers
         )
-        
+
         if response.status_code != 200:
             error(f"Failed to start workflow: {response.text}")
             return
-        
+
         result = response.json()
         execution_id = result.get("execution_id")
-        
+
         success(f"Run workflow {workflow_name}")
         if config:
             click.echo(f"Using config: {config}")
-        
+
         click.echo(f"Execution ID: {execution_id}")
         click.echo("Status: Running")
-        
+
     except FileNotFoundError:
         error(f"Config file not found: {config}")
         return
@@ -105,32 +105,32 @@ def status(workflow_name: str):
     """Get workflow status"""
     try:
         import httpx
-        
+
         config_obj = get_config()
         coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
         api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-        
+
         headers = {}
         if api_key:
             headers["X-API-Key"] = api_key
-        
+
         response = httpx.get(
             f"{coordinator_url}/v1/workflows/{workflow_name}/status",
             headers=headers
         )
-        
+
         if response.status_code != 200:
             error(f"Failed to get workflow status: {response.text}")
             return
-        
+
         result = response.json()
-        
+
         success(f"Get status for workflow {workflow_name}")
         click.echo(f"Status: {result.get('status', 'Unknown')}")
         click.echo(f"Last execution: {result.get('last_execution', 'Never')}")
         if result.get('execution_id'):
             click.echo(f"Execution ID: {result['execution_id']}")
-        
+
     except Exception as e:
         error(f"Error getting workflow status: {e}")
 
@@ -141,26 +141,26 @@ def stop(workflow_name: str):
     """Stop a running workflow"""
     try:
         import httpx
-        
+
         config_obj = get_config()
         coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
         api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-        
+
         headers = {}
         if api_key:
             headers["X-API-Key"] = api_key
-        
+
         response = httpx.post(
             f"{coordinator_url}/v1/workflows/{workflow_name}/stop",
             headers=headers
         )
-        
+
         if response.status_code != 200:
             error(f"Failed to stop workflow: {response.text}")
             return
-        
+
         success(f"Stop workflow {workflow_name}")
         click.echo("Status: Stopped")
-        
+
     except Exception as e:
         error(f"Error stopping workflow: {e}")

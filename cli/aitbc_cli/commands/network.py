@@ -144,13 +144,13 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
         if not node_id:
             error("node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
             raise click.Abort()
-    
+
     if not chain_id:
         chain_id = get_default_chain_id()
         if not chain_id:
             error("chain-id is required. Set SUPPORTED_CHAINS in /etc/aitbc/node.env or use --chain-id option")
             raise click.Abort()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         subscription_data = {
@@ -181,7 +181,7 @@ def heartbeat(ctx, node_id, duration, rpc_url):
         if not node_id:
             error("node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
             raise click.Abort()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         heartbeat_data = {
@@ -209,7 +209,7 @@ def lease_status(ctx, node_id, rpc_url):
         if not node_id:
             error("node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
             raise click.Abort()
-    
+
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.get(f"/rpc/subscription/lease-status?node_id={node_id}")

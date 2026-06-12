@@ -27,12 +27,12 @@ class TestHandlePerformanceBenchmark:
     def test_handle_performance_benchmark_json(self, mock_logger):
         """Test benchmark with JSON output format"""
         args = Mock()
-        
+
         def output_format(args):
             return "json"
-        
+
         handle_performance_benchmark(args, output_format, None)
-        
+
         mock_logger.info.assert_called()
         # Check that JSON was logged
         logged_calls = [str(call) for call in mock_logger.info.call_args_list]
@@ -42,12 +42,12 @@ class TestHandlePerformanceBenchmark:
     def test_handle_performance_benchmark_text(self, mock_logger):
         """Test benchmark with text output format"""
         args = Mock()
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_performance_benchmark(args, output_format, None)
-        
+
         mock_logger.info.assert_called()
         # Check that text format was used
         logged_calls = [str(call) for call in mock_logger.info.call_args_list]
@@ -62,12 +62,12 @@ class TestHandlePerformanceOptimize:
         """Test optimization with default target"""
         args = Mock()
         args.target = "general"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_performance_optimize(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
         logged_msg = mock_logger.info.call_args[0][0]
         assert "general" in logged_msg
@@ -77,12 +77,12 @@ class TestHandlePerformanceOptimize:
         """Test optimization with custom target"""
         args = Mock()
         args.target = "database"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_performance_optimize(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
         logged_msg = mock_logger.info.call_args[0][0]
         assert "database" in logged_msg
@@ -92,11 +92,11 @@ class TestHandlePerformanceOptimize:
         """Test that render_mapping is called"""
         args = Mock()
         args.target = "general"
-        
+
         mock_render = Mock()
-        
+
         handle_performance_optimize(args, mock_render)
-        
+
         mock_render.assert_called_once()
         call_args = mock_render.call_args
         assert "Optimization:" in call_args[0][0]
@@ -111,12 +111,12 @@ class TestHandlePerformanceTune:
         args = Mock()
         args.parameters = False
         args.aggressive = False
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_performance_tune(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
         logged_msg = mock_logger.info.call_args[0][0]
         assert "Performance tuning applied" in logged_msg
@@ -127,12 +127,12 @@ class TestHandlePerformanceTune:
         args = Mock()
         args.parameters = True
         args.aggressive = False
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_performance_tune(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.performance.logger')
@@ -141,12 +141,12 @@ class TestHandlePerformanceTune:
         args = Mock()
         args.parameters = False
         args.aggressive = True
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_performance_tune(args, render_mapping)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.performance.logger')
@@ -155,11 +155,11 @@ class TestHandlePerformanceTune:
         args = Mock()
         args.parameters = True
         args.aggressive = True
-        
+
         mock_render = Mock()
-        
+
         handle_performance_tune(args, mock_render)
-        
+
         mock_render.assert_called_once()
         call_args = mock_render.call_args
         assert "Tuning:" in call_args[0][0]

@@ -31,7 +31,7 @@ class LayerZeroAdapter(BridgeAdapter):
     """
 
     # LayerZero chain IDs - ETH and AIT only
-    # Note: AIT uses string chain IDs (ait-mainnet, ait-devnet). 
+    # Note: AIT uses string chain IDs (ait-mainnet, ait-devnet).
     # When AIT is deployed to LayerZero, add numeric mapping here.
     # Example: {1: 101, <ait_numeric_id>: <layerzero_id>}
     CHAIN_IDS = {

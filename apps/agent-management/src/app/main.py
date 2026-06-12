@@ -35,6 +35,7 @@ def on_startup() -> None:
 
 from collections.abc import Generator
 
+
 # Dependency
 def get_db() -> Generator:
     db = SessionLocal()

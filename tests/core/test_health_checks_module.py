@@ -4,13 +4,12 @@ This module has 0% coverage and 83 statements.
 """
 
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 # Import the module normally
 from aitbc import health_checks
-
 
 # ============================================================================
 # HealthStatus Enum Tests
@@ -70,10 +69,10 @@ class TestHealthChecker:
 
     def test_register_check(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def mock_check():
             return health_checks.HealthStatus.HEALTHY, "OK", {}
-        
+
         checker.register_check("test_check", mock_check)
         assert "test_check" in checker._checks
         assert checker._checks["test_check"] == mock_check
@@ -81,7 +80,7 @@ class TestHealthChecker:
     def test_run_checks_empty(self):
         checker = health_checks.HealthChecker("test-service")
         result = checker.run_checks()
-        
+
         assert result.service == "test-service"
         assert result.status == health_checks.HealthStatus.HEALTHY
         assert result.message == "All health checks passed"
@@ -89,13 +88,13 @@ class TestHealthChecker:
 
     def test_run_checks_all_healthy(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def mock_check():
             return health_checks.HealthStatus.HEALTHY, "OK", {"key": "value"}
-        
+
         checker.register_check("check1", mock_check)
         checker.register_check("check2", mock_check)
-        
+
         result = checker.run_checks()
         assert result.status == health_checks.HealthStatus.HEALTHY
         assert result.message == "All health checks passed"
@@ -104,16 +103,16 @@ class TestHealthChecker:
 
     def test_run_checks_one_degraded(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def healthy_check():
             return health_checks.HealthStatus.HEALTHY, "OK", {}
-        
+
         def degraded_check():
             return health_checks.HealthStatus.DEGRADED, "Warning", {}
-        
+
         checker.register_check("healthy", healthy_check)
         checker.register_check("degraded", degraded_check)
-        
+
         result = checker.run_checks()
         assert result.status == health_checks.HealthStatus.DEGRADED
         assert "Degraded" in result.message
@@ -121,16 +120,16 @@ class TestHealthChecker:
 
     def test_run_checks_one_unhealthy(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def healthy_check():
             return health_checks.HealthStatus.HEALTHY, "OK", {}
-        
+
         def unhealthy_check():
             return health_checks.HealthStatus.UNHEALTHY, "Error", {}
-        
+
         checker.register_check("healthy", healthy_check)
         checker.register_check("unhealthy", unhealthy_check)
-        
+
         result = checker.run_checks()
         assert result.status == health_checks.HealthStatus.UNHEALTHY
         assert "Unhealthy" in result.message
@@ -138,12 +137,12 @@ class TestHealthChecker:
 
     def test_run_checks_exception_handling(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def failing_check():
             raise Exception("Check failed")
-        
+
         checker.register_check("failing", failing_check)
-        
+
         result = checker.run_checks()
         assert result.status == health_checks.HealthStatus.UNHEALTHY
         assert "failing" in result.details
@@ -151,20 +150,20 @@ class TestHealthChecker:
 
     def test_run_checks_mixed_status(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def healthy_check():
             return health_checks.HealthStatus.HEALTHY, "OK", {}
-        
+
         def degraded_check():
             return health_checks.HealthStatus.DEGRADED, "Warning", {}
-        
+
         def unhealthy_check():
             return health_checks.HealthStatus.UNHEALTHY, "Error", {}
-        
+
         checker.register_check("healthy", healthy_check)
         checker.register_check("degraded", degraded_check)
         checker.register_check("unhealthy", unhealthy_check)
-        
+
         result = checker.run_checks()
         assert result.status == health_checks.HealthStatus.UNHEALTHY  # Unhealthy takes precedence
 
@@ -174,25 +173,25 @@ class TestHealthChecker:
 
     def test_get_last_check_exists(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def mock_check():
             return health_checks.HealthStatus.HEALTHY, "OK", {}
-        
+
         checker.register_check("test", mock_check)
         checker.run_checks()
-        
+
         last_check = checker.get_last_check()
         assert last_check is not None
         assert last_check.service == "test-service"
 
     def test_get_health_dict(self):
         checker = health_checks.HealthChecker("test-service")
-        
+
         def mock_check():
             return health_checks.HealthStatus.HEALTHY, "OK", {"key": "value"}
-        
+
         checker.register_check("test", mock_check)
-        
+
         result = checker.get_health_dict()
         assert isinstance(result, dict)
         assert "service" in result

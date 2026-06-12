@@ -23,7 +23,7 @@ def get_db_path():
     data_dir = Path("/var/lib/aitbc/data")
     if not data_dir.exists():
         data_dir = Path.home() / ".aitbc" / "data"
-    
+
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir / "coordinator.db"
 
@@ -46,16 +46,16 @@ def verify_tables(db_path):
         "plugins",
         "plugin_configs",
     ]
-    
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     existing_tables = {row[0] for row in cursor.fetchall()}
-    
+
     missing_tables = set(expected_tables) - existing_tables
     conn.close()
-    
+
     if missing_tables:
         print(f"✗ Missing tables: {', '.join(missing_tables)}")
         return False
@@ -67,14 +67,14 @@ def verify_tables(db_path):
 def create_tables(reset=False):
     """Create all advanced marketplace database tables using SQLite."""
     print("Creating advanced marketplace database tables...")
-    
+
     db_path = get_db_path()
     print(f"Using SQLite database: {db_path}")
-    
+
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
+
         if reset:
             print("⚠️  WARNING: Dropping existing tables (data will be lost)")
             cursor.execute("DROP TABLE IF EXISTS price_forecast;")
@@ -92,7 +92,7 @@ def create_tables(reset=False):
             cursor.execute("DROP TABLE IF EXISTS plugin_configs;")
             cursor.execute("DROP TABLE IF EXISTS plugins;")
             print("✓ Dropped existing tables")
-        
+
         # Create price history table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS price_history (
@@ -107,7 +107,7 @@ def create_tables(reset=False):
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create price forecast table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS price_forecast (
@@ -122,7 +122,7 @@ def create_tables(reset=False):
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create auction config table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS auction_config (
@@ -143,7 +143,7 @@ def create_tables(reset=False):
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create search history table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS search_history (
@@ -156,7 +156,7 @@ def create_tables(reset=False):
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create resource embeddings table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS resource_embeddings (
@@ -167,7 +167,7 @@ def create_tables(reset=False):
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create user profiles table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_profiles (
@@ -183,7 +183,7 @@ def create_tables(reset=False):
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create market metrics table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS market_metrics (
@@ -199,7 +199,7 @@ def create_tables(reset=False):
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create trend data table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS trend_data (
@@ -213,7 +213,7 @@ def create_tables(reset=False):
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create analytics events table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS analytics_events (
@@ -225,7 +225,7 @@ def create_tables(reset=False):
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create external providers table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS external_providers (
@@ -242,7 +242,7 @@ def create_tables(reset=False):
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create provider mappings table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS provider_mappings (
@@ -254,7 +254,7 @@ def create_tables(reset=False):
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create sync status table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS sync_status (
@@ -268,7 +268,7 @@ def create_tables(reset=False):
                 completed_at TEXT
             );
         """)
-        
+
         # Create plugins table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS plugins (
@@ -284,7 +284,7 @@ def create_tables(reset=False):
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create plugin configs table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS plugin_configs (
@@ -297,7 +297,7 @@ def create_tables(reset=False):
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_price_history_resource ON price_history(resource_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_price_history_timestamp ON price_history(timestamp);")
@@ -327,11 +327,11 @@ def create_tables(reset=False):
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_plugins_type ON plugins(plugin_type);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_plugin_configs_plugin ON plugin_configs(plugin_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_plugin_configs_key ON plugin_configs(config_key);")
-        
+
         conn.commit()
         cursor.close()
         conn.close()
-        
+
         print("✓ All advanced marketplace tables created successfully")
         print("\nCreated tables:")
         print("  - price_history")
@@ -349,9 +349,9 @@ def create_tables(reset=False):
         print("  - plugins")
         print("  - plugin_configs")
         print("\nCreated indexes for performance optimization")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Error creating tables: {e}")
         return False
@@ -370,12 +370,12 @@ Examples:
     )
     parser.add_argument("--verify", action="store_true", help="Verify tables exist without creating")
     parser.add_argument("--reset", action="store_true", help="Drop and recreate tables (WARNING: data loss)")
-    
+
     args = parser.parse_args()
-    
+
     db_path = get_db_path()
     print(f"Database path: {db_path}\n")
-    
+
     if args.verify:
         verify_tables(db_path)
     else:

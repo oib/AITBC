@@ -1,52 +1,45 @@
-# mypy: ignore-errors
 """
 Enterprise Integration Framework - Phase 6.1 Implementation
 ERP, CRM, and business system connectors for enterprise clients
 """
-
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
-
 import aiohttp
 from pydantic import BaseModel, Field
-
 from aitbc import get_logger
-
 logger = get_logger(__name__)
-
-
 
 class IntegrationType(str, Enum):
     """Enterprise integration types"""
-    ERP = "erp"
-    CRM = "crm"
-    BI = "bi"
-    HR = "hr"
-    FINANCE = "finance"
-    CUSTOM = "custom"
+    ERP = 'erp'
+    CRM = 'crm'
+    BI = 'bi'
+    HR = 'hr'
+    FINANCE = 'finance'
+    CUSTOM = 'custom'
 
 class IntegrationProvider(str, Enum):
     """Supported integration providers"""
-    SAP = "sap"
-    ORACLE = "oracle"
-    MICROSOFT = "microsoft"
-    SALESFORCE = "salesforce"
-    HUBSPOT = "hubspot"
-    TABLEAU = "tableau"
-    POWERBI = "powerbi"
-    WORKDAY = "workday"
+    SAP = 'sap'
+    ORACLE = 'oracle'
+    MICROSOFT = 'microsoft'
+    SALESFORCE = 'salesforce'
+    HUBSPOT = 'hubspot'
+    TABLEAU = 'tableau'
+    POWERBI = 'powerbi'
+    WORKDAY = 'workday'
 
 class DataFormat(str, Enum):
     """Data exchange formats"""
-    JSON = "json"
-    XML = "xml"
-    CSV = "csv"
-    ODATA = "odata"
-    SOAP = "soap"
-    REST = "rest"
+    JSON = 'json'
+    XML = 'xml'
+    CSV = 'csv'
+    ODATA = 'odata'
+    SOAP = 'soap'
+    REST = 'rest'
 
 @dataclass
 class IntegrationConfig:
@@ -64,21 +57,21 @@ class IntegrationConfig:
     webhook_config: dict[str, Any] | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     last_sync: datetime | None = None
-    status: str = "active"
+    status: str = 'active'
 
 class IntegrationRequest(BaseModel):
     """Integration request model"""
-    integration_id: str = Field(..., description="Integration identifier")
-    operation: str = Field(..., description="Operation to perform")
-    data: dict[str, Any] = Field(..., description="Request data")
-    parameters: dict[str, Any] | None = Field(default=None, description="Additional parameters")
+    integration_id: str = Field(..., description='Integration identifier')
+    operation: str = Field(..., description='Operation to perform')
+    data: dict[str, Any] = Field(..., description='Request data')
+    parameters: dict[str, Any] | None = Field(default=None, description='Additional parameters')
 
 class IntegrationResponse(BaseModel):
     """Integration response model"""
-    success: bool = Field(..., description="Operation success status")
-    data: dict[str, Any] | None = Field(None, description="Response data")
-    error: str | None = Field(None, description="Error message")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="Response metadata")
+    success: bool = Field(..., description='Operation success status')
+    data: dict[str, Any] | None = Field(None, description='Response data')
+    error: str | None = Field(None, description='Error message')
+    metadata: dict[str, Any] = Field(default_factory=dict, description='Response metadata')
 
 class ERPIntegration:
     """Base ERP integration class"""
@@ -86,68 +79,43 @@ class ERPIntegration:
     def __init__(self, config: IntegrationConfig) -> None:
         self.config = config
         self.session: aiohttp.ClientSession | None = None
-        self.logger = get_logger(f"erp.{config.provider.value}")
+        self.logger = get_logger(f'erp.{config.provider.value}')
 
     async def initialize(self) -> bool | None:
         """Initialize ERP connection (generic mock implementation)"""
         try:
-            # Create generic HTTP session
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
-            self.logger.info(f"Generic ERP connection initialized for {self.config.integration_id}")
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
+            self.logger.info('Generic ERP connection initialized for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"ERP initialization failed: {e}")
+            self.logger.error('ERP initialization failed: %s', e)
             raise
 
     async def test_connection(self) -> bool:
         """Test ERP connection (generic mock implementation)"""
         try:
-            # Generic connection test - always returns True for mock
-            self.logger.info(f"Generic ERP connection test passed for {self.config.integration_id}")
+            self.logger.info('Generic ERP connection test passed for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"ERP connection test failed: {e}")
+            self.logger.error('ERP connection test failed: %s', e)
             return False
 
-    async def sync_data(self, data_type: str, filters: dict | None = None) -> IntegrationResponse:
+    async def sync_data(self, data_type: str, filters: dict | None=None) -> IntegrationResponse:
         """Sync data from ERP (generic mock implementation)"""
         try:
-            # Generic sync - returns mock data
-            mock_data = {
-                "data_type": data_type,
-                "records": [],
-                "count": 0,
-                "timestamp": datetime.now(UTC).isoformat()
-            }
-            return IntegrationResponse(
-                success=True,
-                data=mock_data,
-                metadata={"sync_type": "generic_mock"}
-            )
+            mock_data = {'data_type': data_type, 'records': [], 'count': 0, 'timestamp': datetime.now(UTC).isoformat()}
+            return IntegrationResponse(success=True, data=mock_data, metadata={'sync_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"ERP data sync failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('ERP data sync failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def push_data(self, data_type: str, data: dict[str, Any]) -> IntegrationResponse:
         """Push data to ERP (generic mock implementation)"""
         try:
-            # Generic push - returns success
-            return IntegrationResponse(
-                success=True,
-                data={"data_type": data_type, "pushed": True},
-                metadata={"push_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'data_type': data_type, 'pushed': True}, metadata={'push_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"ERP data push failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('ERP data push failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def close(self) -> None:
         """Close ERP connection"""
@@ -159,237 +127,136 @@ class SAPIntegration(ERPIntegration):
 
     def __init__(self, config: IntegrationConfig) -> None:
         super().__init__(config)
-        self.system_id = config.authentication.get("system_id")
-        self.client = config.authentication.get("client")
-        self.username = config.authentication.get("username")
-        self.password = config.authentication.get("password")
-        self.language = config.authentication.get("language", "EN")
+        self.system_id = config.authentication.get('system_id')
+        self.client = config.authentication.get('client')
+        self.username = config.authentication.get('username')
+        self.password = config.authentication.get('password')
+        self.language = config.authentication.get('language', 'EN')
 
     async def initialize(self) -> bool | None:
         """Initialize SAP connection"""
         try:
-            # Create HTTP session for SAP web services
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30),
-                auth=aiohttp.BasicAuth(self.username or "", self.password or "")
-            )
-
-            # Test connection
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30), auth=aiohttp.BasicAuth(self.username or '', self.password or ''))
             if await self.test_connection():
-                self.logger.info(f"SAP connection established for {self.config.integration_id}")
+                self.logger.info('SAP connection established for %s', self.config.integration_id)
                 return True
             else:
-                raise Exception("SAP connection test failed")
-
+                raise Exception('SAP connection test failed')
         except Exception as e:
-            self.logger.error(f"SAP initialization failed: {e}")
+            self.logger.error('SAP initialization failed: %s', e)
             raise
 
     async def test_connection(self) -> bool:
         """Test SAP connection"""
         try:
-            # SAP system info endpoint
-            url = f"{self.config.endpoint_url}/sap/bc/ping"
-
+            url = f'{self.config.endpoint_url}/sap/bc/ping'
             assert self.session is not None
             async with self.session.get(url) as response:
                 if response.status == 200:
                     return True
                 else:
-                    self.logger.error(f"SAP ping failed: {response.status}")
+                    self.logger.error('SAP ping failed: %s', response.status)
                     return False
-
         except Exception as e:
-            self.logger.error(f"SAP connection test failed: {e}")
+            self.logger.error('SAP connection test failed: %s', e)
             return False
 
-    async def sync_data(self, data_type: str, filters: dict | None = None) -> IntegrationResponse:
+    async def sync_data(self, data_type: str, filters: dict | None=None) -> IntegrationResponse:
         """Sync data from SAP"""
-
         try:
-            if data_type == "customers":
+            if data_type == 'customers':
                 return await self._sync_customers(filters)
-            elif data_type == "orders":
+            elif data_type == 'orders':
                 return await self._sync_orders(filters)
-            elif data_type == "products":
+            elif data_type == 'products':
                 return await self._sync_products(filters)
             else:
-                return IntegrationResponse(
-                    success=False,
-                    error=f"Unsupported data type: {data_type}"
-                )
-
+                return IntegrationResponse(success=False, error=f'Unsupported data type: {data_type}')
         except Exception as e:
-            self.logger.error(f"SAP data sync failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('SAP data sync failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
-    async def _sync_customers(self, filters: dict | None = None) -> IntegrationResponse:
+    async def _sync_customers(self, filters: dict | None=None) -> IntegrationResponse:
         """Sync customer data from SAP"""
-
         try:
-            # SAP BAPI customer list endpoint
-            url = f"{self.config.endpoint_url}/sap/bc/sap/rfc/customer_list"
-
-            params: dict[str, str] = {
-                k: v for k, v in {"client": self.client, "language": self.language}.items() if v is not None
-            }
-
+            url = f'{self.config.endpoint_url}/sap/bc/sap/rfc/customer_list'
+            params: dict[str, str] = {k: v for k, v in {'client': self.client, 'language': self.language}.items() if v is not None}
             if filters:
                 params.update({k: str(v) for k, v in filters.items() if v is not None})
-
             assert self.session is not None
             async with self.session.get(url, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
-
-                    # Apply mapping rules
-                    mapped_data = self._apply_mapping_rules(data, "customers")
-
-                    return IntegrationResponse(
-                        success=True,
-                        data=mapped_data,
-                        metadata={
-                            "records_count": len(mapped_data.get("customers", [])),
-                            "sync_time": datetime.now(UTC).isoformat()
-                        }
-                    )
+                    mapped_data = self._apply_mapping_rules(data, 'customers')
+                    return IntegrationResponse(success=True, data=mapped_data, metadata={'records_count': len(mapped_data.get('customers', [])), 'sync_time': datetime.now(UTC).isoformat()})
                 else:
                     error_text = await response.text()
-                    return IntegrationResponse(
-                        success=False,
-                        error=f"SAP API error: {response.status} - {error_text}"
-                    )
-
+                    return IntegrationResponse(success=False, error=f'SAP API error: {response.status} - {error_text}')
         except Exception as e:
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            return IntegrationResponse(success=False, error=str(e))
 
-    async def _sync_orders(self, filters: dict | None = None) -> IntegrationResponse:
+    async def _sync_orders(self, filters: dict | None=None) -> IntegrationResponse:
         """Sync order data from SAP"""
-
         try:
-            # SAP sales order endpoint
-            url = f"{self.config.endpoint_url}/sap/bc/sap/rfc/sales_orders"
-
-            params: dict[str, str] = {
-                k: v for k, v in {"client": self.client, "language": self.language}.items() if v is not None
-            }
-
+            url = f'{self.config.endpoint_url}/sap/bc/sap/rfc/sales_orders'
+            params: dict[str, str] = {k: v for k, v in {'client': self.client, 'language': self.language}.items() if v is not None}
             if filters:
                 params.update({k: str(v) for k, v in filters.items() if v is not None})
-
             assert self.session is not None
             async with self.session.get(url, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
-
-                    # Apply mapping rules
-                    mapped_data = self._apply_mapping_rules(data, "orders")
-
-                    return IntegrationResponse(
-                        success=True,
-                        data=mapped_data,
-                        metadata={
-                            "records_count": len(mapped_data.get("orders", [])),
-                            "sync_time": datetime.now(UTC).isoformat()
-                        }
-                    )
+                    mapped_data = self._apply_mapping_rules(data, 'orders')
+                    return IntegrationResponse(success=True, data=mapped_data, metadata={'records_count': len(mapped_data.get('orders', [])), 'sync_time': datetime.now(UTC).isoformat()})
                 else:
                     error_text = await response.text()
-                    return IntegrationResponse(
-                        success=False,
-                        error=f"SAP API error: {response.status} - {error_text}"
-                    )
-
+                    return IntegrationResponse(success=False, error=f'SAP API error: {response.status} - {error_text}')
         except Exception as e:
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            return IntegrationResponse(success=False, error=str(e))
 
-    async def _sync_products(self, filters: dict | None = None) -> IntegrationResponse:
+    async def _sync_products(self, filters: dict | None=None) -> IntegrationResponse:
         """Sync product data from SAP"""
-
         try:
-            # SAP material master endpoint
-            url = f"{self.config.endpoint_url}/sap/bc/sap/rfc/material_master"
-
-            params: dict[str, str] = {
-                k: v for k, v in {"client": self.client, "language": self.language}.items() if v is not None
-            }
-
+            url = f'{self.config.endpoint_url}/sap/bc/sap/rfc/material_master'
+            params: dict[str, str] = {k: v for k, v in {'client': self.client, 'language': self.language}.items() if v is not None}
             if filters:
                 params.update({k: str(v) for k, v in filters.items() if v is not None})
-
             assert self.session is not None
             async with self.session.get(url, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
-
-                    # Apply mapping rules
-                    mapped_data = self._apply_mapping_rules(data, "products")
-
-                    return IntegrationResponse(
-                        success=True,
-                        data=mapped_data,
-                        metadata={
-                            "records_count": len(mapped_data.get("products", [])),
-                            "sync_time": datetime.now(UTC).isoformat()
-                        }
-                    )
+                    mapped_data = self._apply_mapping_rules(data, 'products')
+                    return IntegrationResponse(success=True, data=mapped_data, metadata={'records_count': len(mapped_data.get('products', [])), 'sync_time': datetime.now(UTC).isoformat()})
                 else:
                     error_text = await response.text()
-                    return IntegrationResponse(
-                        success=False,
-                        error=f"SAP API error: {response.status} - {error_text}"
-                    )
-
+                    return IntegrationResponse(success=False, error=f'SAP API error: {response.status} - {error_text}')
         except Exception as e:
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            return IntegrationResponse(success=False, error=str(e))
 
     def _apply_mapping_rules(self, data: dict[str, Any], data_type: str) -> dict[str, Any]:
         """Apply mapping rules to transform data"""
-
         mapping_rules = self.config.mapping_rules.get(data_type, {})
         mapped_data = {}
-
-        # Apply field mappings
-        for sap_field, aitbc_field in mapping_rules.get("field_mappings", {}).items():
+        for sap_field, aitbc_field in mapping_rules.get('field_mappings', {}).items():
             if sap_field in data:
                 mapped_data[aitbc_field] = data[sap_field]
-
-        # Apply transformations
-        transformations = mapping_rules.get("transformations", {})
+        transformations = mapping_rules.get('transformations', {})
         for field, transform in transformations.items():
             if field in mapped_data:
-                # Apply transformation logic
-                if transform["type"] == "date_format":
-                    # Date format transformation
-                    mapped_data[field] = self._transform_date(mapped_data[field], transform["format"])
-                elif transform["type"] == "numeric":
-                    # Numeric transformation
+                if transform['type'] == 'date_format':
+                    mapped_data[field] = self._transform_date(mapped_data[field], transform['format'])
+                elif transform['type'] == 'numeric':
                     mapped_data[field] = self._transform_numeric(mapped_data[field], transform)
-
         return {data_type: mapped_data}
 
     def _transform_date(self, date_value: str, format_str: str) -> str:
         """Transform date format"""
         try:
-            # Parse SAP date format and convert to target format
-            # SAP typically uses YYYYMMDD format
             if len(date_value) == 8 and date_value.isdigit():
                 year = date_value[:4]
                 month = date_value[4:6]
                 day = date_value[6:8]
-                return f"{year}-{month}-{day}"
+                return f'{year}-{month}-{day}'
             return date_value
         except (ValueError, IndexError, AttributeError, TypeError):
             return date_value
@@ -397,9 +264,9 @@ class SAPIntegration(ERPIntegration):
     def _transform_numeric(self, value: str, transform: dict[str, Any]) -> str | int | float:
         """Transform numeric values"""
         try:
-            if transform.get("type") == "decimal":
-                return float(value) / (10 ** int(transform.get("scale") or 2))  # type: ignore[no-any-return]
-            elif transform.get("type") == "integer":
+            if transform.get('type') == 'decimal':
+                return float(value) / 10 ** int(transform.get('scale') or 2)
+            elif transform.get('type') == 'integer':
                 return int(float(value))
             return str(value)
         except Exception:
@@ -410,122 +277,79 @@ class OracleIntegration(ERPIntegration):
 
     def __init__(self, config: IntegrationConfig) -> None:
         super().__init__(config)
-        self.service_name = config.authentication.get("service_name")
-        self.username = config.authentication.get("username")
-        self.password = config.authentication.get("password")
+        self.service_name = config.authentication.get('service_name')
+        self.username = config.authentication.get('username')
+        self.password = config.authentication.get('password')
 
     async def initialize(self) -> bool | None:
         """Initialize Oracle connection"""
         try:
-            # Create HTTP session for Oracle REST APIs
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30),
-                auth=aiohttp.BasicAuth(self.username or "", self.password or "")
-            )
-
-            # Test connection
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30), auth=aiohttp.BasicAuth(self.username or '', self.password or ''))
             if await self.test_connection():
-                self.logger.info(f"Oracle connection established for {self.config.integration_id}")
+                self.logger.info('Oracle connection established for %s', self.config.integration_id)
                 return True
             else:
-                raise Exception("Oracle connection test failed")
-
+                raise Exception('Oracle connection test failed')
         except Exception as e:
-            self.logger.error(f"Oracle initialization failed: {e}")
+            self.logger.error('Oracle initialization failed: %s', e)
             raise
 
     async def test_connection(self) -> bool:
         """Test Oracle connection"""
         try:
-            # Oracle Fusion Cloud REST API endpoint
-            url = f"{self.config.endpoint_url}/fscmRestApi/resources/latest/version"
-
+            url = f'{self.config.endpoint_url}/fscmRestApi/resources/latest/version'
             assert self.session is not None
             async with self.session.get(url) as response:
                 if response.status == 200:
                     return True
                 else:
-                    self.logger.error(f"Oracle version check failed: {response.status}")
+                    self.logger.error('Oracle version check failed: %s', response.status)
                     return False
-
         except Exception as e:
-            self.logger.error(f"Oracle connection test failed: {e}")
+            self.logger.error('Oracle connection test failed: %s', e)
             return False
 
-    async def sync_data(self, data_type: str, filters: dict | None = None) -> IntegrationResponse:
+    async def sync_data(self, data_type: str, filters: dict | None=None) -> IntegrationResponse:
         """Sync data from Oracle"""
-
         try:
-            if data_type == "customers":
+            if data_type == 'customers':
                 return await self._sync_customers(filters)
-            elif data_type == "orders":
-                return await self._sync_orders(filters)  # type: ignore[attr-defined,no-any-return]
-            elif data_type == "products":
-                return await self._sync_products(filters)  # type: ignore[attr-defined,no-any-return]
+            elif data_type == 'orders':
+                return await self._sync_orders(filters)
+            elif data_type == 'products':
+                return await self._sync_products(filters)
             else:
-                return IntegrationResponse(
-                    success=False,
-                    error=f"Unsupported data type: {data_type}"
-                )
-
+                return IntegrationResponse(success=False, error=f'Unsupported data type: {data_type}')
         except Exception as e:
-            self.logger.error(f"Oracle data sync failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Oracle data sync failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
-    async def _sync_customers(self, filters: dict | None = None) -> IntegrationResponse:
+    async def _sync_customers(self, filters: dict | None=None) -> IntegrationResponse:
         """Sync customer data from Oracle"""
-
         try:
-            # Oracle Fusion Cloud Customer endpoint
-            url = f"{self.config.endpoint_url}/fscmRestApi/resources/latest/customerAccounts"
-
+            url = f'{self.config.endpoint_url}/fscmRestApi/resources/latest/customerAccounts'
             params = {}
             if filters:
                 params.update(filters)
-
             assert self.session is not None
             async with self.session.get(url, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
-
-                    # Apply mapping rules
-                    mapped_data = self._apply_mapping_rules(data, "customers")
-
-                    return IntegrationResponse(
-                        success=True,
-                        data=mapped_data,
-                        metadata={
-                            "records_count": len(mapped_data.get("customers", [])),
-                            "sync_time": datetime.now(UTC).isoformat()
-                        }
-                    )
+                    mapped_data = self._apply_mapping_rules(data, 'customers')
+                    return IntegrationResponse(success=True, data=mapped_data, metadata={'records_count': len(mapped_data.get('customers', [])), 'sync_time': datetime.now(UTC).isoformat()})
                 else:
                     error_text = await response.text()
-                    return IntegrationResponse(
-                        success=False,
-                        error=f"Oracle API error: {response.status} - {error_text}"
-                    )
-
+                    return IntegrationResponse(success=False, error=f'Oracle API error: {response.status} - {error_text}')
         except Exception as e:
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            return IntegrationResponse(success=False, error=str(e))
 
     def _apply_mapping_rules(self, data: dict[str, Any], data_type: str) -> dict[str, Any]:
         """Apply mapping rules to transform data"""
-
         mapping_rules = self.config.mapping_rules.get(data_type, {})
         mapped_data = {}
-
-        # Apply field mappings
-        for oracle_field, aitbc_field in mapping_rules.get("field_mappings", {}).items():
+        for oracle_field, aitbc_field in mapping_rules.get('field_mappings', {}).items():
             if oracle_field in data:
                 mapped_data[aitbc_field] = data[oracle_field]
-
         return {data_type: mapped_data}
 
 class CRMIntegration:
@@ -534,85 +358,52 @@ class CRMIntegration:
     def __init__(self, config: IntegrationConfig) -> None:
         self.config = config
         self.session: aiohttp.ClientSession | None = None
-        self.logger = get_logger(f"crm.{config.provider.value}")
+        self.logger = get_logger(f'crm.{config.provider.value}')
 
     async def initialize(self) -> bool | None:
         """Initialize CRM connection (generic mock implementation)"""
         try:
-            # Create generic HTTP session
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
-            self.logger.info(f"Generic CRM connection initialized for {self.config.integration_id}")
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
+            self.logger.info('Generic CRM connection initialized for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"CRM initialization failed: {e}")
+            self.logger.error('CRM initialization failed: %s', e)
             raise
 
     async def test_connection(self) -> bool:
         """Test CRM connection (generic mock implementation)"""
         try:
-            # Generic connection test - always returns True for mock
-            self.logger.info(f"Generic CRM connection test passed for {self.config.integration_id}")
+            self.logger.info('Generic CRM connection test passed for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"CRM connection test failed: {e}")
+            self.logger.error('CRM connection test failed: %s', e)
             return False
 
-    async def sync_contacts(self, filters: dict | None = None) -> IntegrationResponse:
+    async def sync_contacts(self, filters: dict | None=None) -> IntegrationResponse:
         """Sync contacts from CRM (generic mock implementation)"""
         try:
-            mock_data = {
-                "contacts": [],
-                "count": 0,
-                "timestamp": datetime.now(UTC).isoformat()
-            }
-            return IntegrationResponse(
-                success=True,
-                data=mock_data,
-                metadata={"sync_type": "generic_mock"}
-            )
+            mock_data = {'contacts': [], 'count': 0, 'timestamp': datetime.now(UTC).isoformat()}
+            return IntegrationResponse(success=True, data=mock_data, metadata={'sync_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"CRM contact sync failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('CRM contact sync failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
-    async def sync_opportunities(self, filters: dict | None = None) -> IntegrationResponse:
+    async def sync_opportunities(self, filters: dict | None=None) -> IntegrationResponse:
         """Sync opportunities from CRM (generic mock implementation)"""
         try:
-            mock_data = {
-                "opportunities": [],
-                "count": 0,
-                "timestamp": datetime.now(UTC).isoformat()
-            }
-            return IntegrationResponse(
-                success=True,
-                data=mock_data,
-                metadata={"sync_type": "generic_mock"}
-            )
+            mock_data = {'opportunities': [], 'count': 0, 'timestamp': datetime.now(UTC).isoformat()}
+            return IntegrationResponse(success=True, data=mock_data, metadata={'sync_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"CRM opportunity sync failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('CRM opportunity sync failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def create_lead(self, lead_data: dict[str, Any]) -> IntegrationResponse:
         """Create lead in CRM (generic mock implementation)"""
         try:
-            return IntegrationResponse(
-                success=True,
-                data={"lead_id": str(uuid4()), "created": True},
-                metadata={"create_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'lead_id': str(uuid4()), 'created': True}, metadata={'create_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"CRM lead creation failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('CRM lead creation failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def close(self) -> None:
         """Close CRM connection"""
@@ -624,147 +415,89 @@ class SalesforceIntegration(CRMIntegration):
 
     def __init__(self, config: IntegrationConfig) -> None:
         super().__init__(config)
-        self.client_id = config.authentication.get("client_id")
-        self.client_secret = config.authentication.get("client_secret")
-        self.username = config.authentication.get("username")
-        self.password = config.authentication.get("password")
-        self.security_token = config.authentication.get("security_token")
+        self.client_id = config.authentication.get('client_id')
+        self.client_secret = config.authentication.get('client_secret')
+        self.username = config.authentication.get('username')
+        self.password = config.authentication.get('password')
+        self.security_token = config.authentication.get('security_token')
         self.access_token: str | None = None
 
     async def initialize(self) -> bool | None:
         """Initialize Salesforce connection"""
         try:
-            # Create HTTP session
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
-
-            # Authenticate with Salesforce
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
             if await self._authenticate():
-                self.logger.info(f"Salesforce connection established for {self.config.integration_id}")
+                self.logger.info('Salesforce connection established for %s', self.config.integration_id)
                 return True
             else:
-                raise Exception("Salesforce authentication failed")
-
+                raise Exception('Salesforce authentication failed')
         except Exception as e:
-            self.logger.error(f"Salesforce initialization failed: {e}")
+            self.logger.error('Salesforce initialization failed: %s', e)
             raise
 
     async def _authenticate(self) -> bool:
         """Authenticate with Salesforce"""
-
         try:
-            # Salesforce OAuth2 endpoint
-            url = f"{self.config.endpoint_url}/services/oauth2/token"
-
-            data = {
-                "grant_type": "password",
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "username": self.username,
-                "password": f"{self.password}{self.security_token}"
-            }
-
+            url = f'{self.config.endpoint_url}/services/oauth2/token'
+            data = {'grant_type': 'password', 'client_id': self.client_id, 'client_secret': self.client_secret, 'username': self.username, 'password': f'{self.password}{self.security_token}'}
             assert self.session is not None
             async with self.session.post(url, data=data) as response:
                 if response.status == 200:
                     token_data = await response.json()
-                    self.access_token = token_data["access_token"]
+                    self.access_token = token_data['access_token']
                     return True
                 else:
                     error_text = await response.text()
-                    self.logger.error(f"Salesforce authentication failed: {error_text}")
+                    self.logger.error('Salesforce authentication failed: %s', error_text)
                     return False
-
         except Exception as e:
-            self.logger.error(f"Salesforce authentication error: {e}")
+            self.logger.error('Salesforce authentication error: %s', e)
             return False
 
     async def test_connection(self) -> bool:
         """Test Salesforce connection"""
-
         try:
             if not self.access_token:
                 return False
-
-            # Salesforce identity endpoint
-            url = f"{self.config.endpoint_url}/services/oauth2/userinfo"
-
-            headers = {
-                "Authorization": f"Bearer {self.access_token}"
-            }
-
+            url = f'{self.config.endpoint_url}/services/oauth2/userinfo'
+            headers = {'Authorization': f'Bearer {self.access_token}'}
             assert self.session is not None
             async with self.session.get(url, headers=headers) as response:
                 return response.status == 200
-
         except Exception as e:
-            self.logger.error(f"Salesforce connection test failed: {e}")
+            self.logger.error('Salesforce connection test failed: %s', e)
             return False
 
-    async def sync_contacts(self, filters: dict | None = None) -> IntegrationResponse:
+    async def sync_contacts(self, filters: dict | None=None) -> IntegrationResponse:
         """Sync contacts from Salesforce"""
-
         try:
             if not self.access_token:
-                return IntegrationResponse(
-                    success=False,
-                    error="Not authenticated"
-                )
-
-            # Salesforce contacts endpoint
-            url = f"{self.config.endpoint_url}/services/data/v52.0/sobjects/Contact"
-
-            headers = {
-                "Authorization": f"Bearer {self.access_token}",
-                "Content-Type": "application/json"
-            }
-
+                return IntegrationResponse(success=False, error='Not authenticated')
+            url = f'{self.config.endpoint_url}/services/data/v52.0/sobjects/Contact'
+            headers = {'Authorization': f'Bearer {self.access_token}', 'Content-Type': 'application/json'}
             params = {}
             if filters:
                 params.update(filters)
-
             assert self.session is not None
             async with self.session.get(url, headers=headers, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
-
-                    # Apply mapping rules
-                    mapped_data = self._apply_mapping_rules(data, "contacts")
-
-                    return IntegrationResponse(
-                        success=True,
-                        data=mapped_data,
-                        metadata={
-                            "records_count": len(data.get("records", [])),
-                            "sync_time": datetime.now(UTC).isoformat()
-                        }
-                    )
+                    mapped_data = self._apply_mapping_rules(data, 'contacts')
+                    return IntegrationResponse(success=True, data=mapped_data, metadata={'records_count': len(data.get('records', [])), 'sync_time': datetime.now(UTC).isoformat()})
                 else:
                     error_text = await response.text()
-                    return IntegrationResponse(
-                        success=False,
-                        error=f"Salesforce API error: {response.status} - {error_text}"
-                    )
-
+                    return IntegrationResponse(success=False, error=f'Salesforce API error: {response.status} - {error_text}')
         except Exception as e:
-            self.logger.error(f"Salesforce contacts sync failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Salesforce contacts sync failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     def _apply_mapping_rules(self, data: dict[str, Any], data_type: str) -> dict[str, Any]:
         """Apply mapping rules to transform data"""
-
         mapping_rules = self.config.mapping_rules.get(data_type, {})
         mapped_data = {}
-
-        # Apply field mappings
-        for salesforce_field, aitbc_field in mapping_rules.get("field_mappings", {}).items():
+        for salesforce_field, aitbc_field in mapping_rules.get('field_mappings', {}).items():
             if salesforce_field in data:
                 mapped_data[aitbc_field] = data[salesforce_field]
-
         return {data_type: mapped_data}
 
 class BillingIntegration:
@@ -773,75 +506,50 @@ class BillingIntegration:
     def __init__(self, config: IntegrationConfig) -> None:
         self.config = config
         self.session: aiohttp.ClientSession | None = None
-        self.logger = get_logger(f"billing.{config.provider.value}")
+        self.logger = get_logger(f'billing.{config.provider.value}')
 
     async def initialize(self) -> bool | None:
         """Initialize billing connection (generic mock implementation)"""
         try:
-            # Create generic HTTP session
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
-            self.logger.info(f"Generic billing connection initialized for {self.config.integration_id}")
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
+            self.logger.info('Generic billing connection initialized for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"Billing initialization failed: {e}")
+            self.logger.error('Billing initialization failed: %s', e)
             raise
 
     async def test_connection(self) -> bool:
         """Test billing connection (generic mock implementation)"""
         try:
-            # Generic connection test - always returns True for mock
-            self.logger.info(f"Generic billing connection test passed for {self.config.integration_id}")
+            self.logger.info('Generic billing connection test passed for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"Billing connection test failed: {e}")
+            self.logger.error('Billing connection test failed: %s', e)
             return False
 
     async def generate_invoice(self, billing_data: dict[str, Any]) -> IntegrationResponse:
         """Generate invoice (generic mock implementation)"""
         try:
-            return IntegrationResponse(
-                success=True,
-                data={"invoice_id": str(uuid4()), "status": "generated"},
-                metadata={"billing_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'invoice_id': str(uuid4()), 'status': 'generated'}, metadata={'billing_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"Invoice generation failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Invoice generation failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def process_payment(self, payment_data: dict[str, Any]) -> IntegrationResponse:
         """Process payment (generic mock implementation)"""
         try:
-            return IntegrationResponse(
-                success=True,
-                data={"payment_id": str(uuid4()), "status": "processed"},
-                metadata={"payment_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'payment_id': str(uuid4()), 'status': 'processed'}, metadata={'payment_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"Payment processing failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Payment processing failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def track_usage(self, usage_data: dict[str, Any]) -> IntegrationResponse:
         """Track usage (generic mock implementation)"""
         try:
-            return IntegrationResponse(
-                success=True,
-                data={"usage_id": str(uuid4()), "tracked": True},
-                metadata={"tracking_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'usage_id': str(uuid4()), 'tracked': True}, metadata={'tracking_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"Usage tracking failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Usage tracking failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def close(self) -> None:
         """Close billing connection"""
@@ -854,75 +562,50 @@ class ComplianceIntegration:
     def __init__(self, config: IntegrationConfig) -> None:
         self.config = config
         self.session: aiohttp.ClientSession | None = None
-        self.logger = get_logger(f"compliance.{config.provider.value}")
+        self.logger = get_logger(f'compliance.{config.provider.value}')
 
     async def initialize(self) -> bool | None:
         """Initialize compliance connection (generic mock implementation)"""
         try:
-            # Create generic HTTP session
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
-            self.logger.info(f"Generic compliance connection initialized for {self.config.integration_id}")
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
+            self.logger.info('Generic compliance connection initialized for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"Compliance initialization failed: {e}")
+            self.logger.error('Compliance initialization failed: %s', e)
             raise
 
     async def test_connection(self) -> bool:
         """Test compliance connection (generic mock implementation)"""
         try:
-            # Generic connection test - always returns True for mock
-            self.logger.info(f"Generic compliance connection test passed for {self.config.integration_id}")
+            self.logger.info('Generic compliance connection test passed for %s', self.config.integration_id)
             return True
         except Exception as e:
-            self.logger.error(f"Compliance connection test failed: {e}")
+            self.logger.error('Compliance connection test failed: %s', e)
             return False
 
     async def log_audit(self, audit_data: dict[str, Any]) -> IntegrationResponse:
         """Log audit event (generic mock implementation)"""
         try:
-            return IntegrationResponse(
-                success=True,
-                data={"audit_id": str(uuid4()), "logged": True},
-                metadata={"audit_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'audit_id': str(uuid4()), 'logged': True}, metadata={'audit_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"Audit logging failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Audit logging failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def enforce_policy(self, policy_data: dict[str, Any]) -> IntegrationResponse:
         """Enforce compliance policy (generic mock implementation)"""
         try:
-            return IntegrationResponse(
-                success=True,
-                data={"policy_id": str(uuid4()), "enforced": True},
-                metadata={"policy_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'policy_id': str(uuid4()), 'enforced': True}, metadata={'policy_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"Policy enforcement failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Policy enforcement failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def generate_report(self, report_data: dict[str, Any]) -> IntegrationResponse:
         """Generate compliance report (generic mock implementation)"""
         try:
-            return IntegrationResponse(
-                success=True,
-                data={"report_id": str(uuid4()), "generated": True},
-                metadata={"report_type": "generic_mock"}
-            )
+            return IntegrationResponse(success=True, data={'report_id': str(uuid4()), 'generated': True}, metadata={'report_type': 'generic_mock'})
         except Exception as e:
-            self.logger.error(f"Report generation failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Report generation failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def close(self) -> None:
         """Close compliance connection"""
@@ -933,216 +616,140 @@ class EnterpriseIntegrationFramework:
     """Enterprise integration framework manager"""
 
     def __init__(self) -> None:
-        self.integrations: dict[str, Any] = {}  # Active integrations
+        self.integrations: dict[str, Any] = {}
         self.logger = logger
 
     async def create_integration(self, config: IntegrationConfig) -> bool:
         """Create and initialize enterprise integration"""
-
         try:
-            # Create integration instance based on type and provider
             integration = await self._create_integration_instance(config)
-
-            # Initialize integration
             await integration.initialize()
-
-            # Store integration
             self.integrations[config.integration_id] = integration
-
-            self.logger.info(f"Enterprise integration created: {config.integration_id}")
+            self.logger.info('Enterprise integration created: %s', config.integration_id)
             return True
-
         except Exception as e:
-            self.logger.error(f"Failed to create integration {config.integration_id}: {e}")
+            self.logger.error('Failed to create integration %s: %s', config.integration_id, e)
             return False
 
     async def _create_integration_instance(self, config: IntegrationConfig) -> Any:
         """Create integration instance based on configuration"""
-
         if config.integration_type == IntegrationType.ERP:
             if config.provider == IntegrationProvider.SAP:
                 return SAPIntegration(config)
             elif config.provider == IntegrationProvider.ORACLE:
                 return OracleIntegration(config)
             else:
-                raise ValueError(f"Unsupported ERP provider: {config.provider}")
-
+                raise ValueError(f'Unsupported ERP provider: {config.provider}')
         elif config.integration_type == IntegrationType.CRM:
             if config.provider == IntegrationProvider.SALESFORCE:
                 return SalesforceIntegration(config)
             else:
-                raise ValueError(f"Unsupported CRM provider: {config.provider}")
-
+                raise ValueError(f'Unsupported CRM provider: {config.provider}')
         else:
-            raise ValueError(f"Unsupported integration type: {config.integration_type}")
+            raise ValueError(f'Unsupported integration type: {config.integration_type}')
 
     async def execute_integration_request(self, request: IntegrationRequest) -> IntegrationResponse:
         """Execute integration request"""
-
         try:
             integration = self.integrations.get(request.integration_id)
             if not integration:
-                return IntegrationResponse(
-                    success=False,
-                    error=f"Integration not found: {request.integration_id}"
-                )
-
-            # Execute operation based on integration type
+                return IntegrationResponse(success=False, error=f'Integration not found: {request.integration_id}')
             if isinstance(integration, ERPIntegration):
-                if request.operation == "sync_data":
+                if request.operation == 'sync_data':
                     assert request.parameters is not None
-                    data_type = request.parameters.get("data_type", "customers")
-                    filters = (request.parameters or {}).get("filters")
+                    data_type = request.parameters.get('data_type', 'customers')
+                    filters = (request.parameters or {}).get('filters')
                     return await integration.sync_data(data_type, filters)
-                elif request.operation == "push_data":
-                    data_type = (request.parameters or {}).get("data_type", "customers")
+                elif request.operation == 'push_data':
+                    data_type = (request.parameters or {}).get('data_type', 'customers')
                     return await integration.push_data(data_type, request.data)
-
             elif isinstance(integration, CRMIntegration):
-                if request.operation == "sync_contacts":
-                    filters = (request.parameters or {}).get("filters")
+                if request.operation == 'sync_contacts':
+                    filters = (request.parameters or {}).get('filters')
                     return await integration.sync_contacts(filters)
-                elif request.operation == "sync_opportunities":
-                    filters = (request.parameters or {}).get("filters")
+                elif request.operation == 'sync_opportunities':
+                    filters = (request.parameters or {}).get('filters')
                     return await integration.sync_opportunities(filters)
-                elif request.operation == "create_lead":
+                elif request.operation == 'create_lead':
                     return await integration.create_lead(request.data)
-
-            return IntegrationResponse(
-                success=False,
-                error=f"Unsupported operation: {request.operation}"
-            )
-
+            return IntegrationResponse(success=False, error=f'Unsupported operation: {request.operation}')
         except Exception as e:
-            self.logger.error(f"Integration request failed: {e}")
-            return IntegrationResponse(
-                success=False,
-                error=str(e)
-            )
+            self.logger.error('Integration request failed: %s', e)
+            return IntegrationResponse(success=False, error=str(e))
 
     async def test_integration(self, integration_id: str) -> bool:
         """Test integration connection"""
-
         integration = self.integrations.get(integration_id)
         if not integration:
             return False
-
         return bool(await integration.test_connection())
 
     async def get_integration_status(self, integration_id: str) -> dict[str, Any]:
         """Get integration status"""
-
         integration = self.integrations.get(integration_id)
         if not integration:
-            return {"status": "not_found"}
-
-        return {
-            "integration_id": integration_id,
-            "integration_type": integration.config.integration_type.value,
-            "provider": integration.config.provider.value,
-            "endpoint_url": integration.config.endpoint_url,
-            "status": "active",
-            "last_test": datetime.now(UTC).isoformat()
-        }
+            return {'status': 'not_found'}
+        return {'integration_id': integration_id, 'integration_type': integration.config.integration_type.value, 'provider': integration.config.provider.value, 'endpoint_url': integration.config.endpoint_url, 'status': 'active', 'last_test': datetime.now(UTC).isoformat()}
 
     async def close_integration(self, integration_id: str) -> None:
         """Close integration connection"""
-
         integration = self.integrations.get(integration_id)
         if integration:
             await integration.close()
             del self.integrations[integration_id]
-            self.logger.info(f"Integration closed: {integration_id}")
+            self.logger.info('Integration closed: %s', integration_id)
 
     async def close_all_integrations(self) -> None:
         """Close all integration connections"""
-
         for integration_id in list(self.integrations.keys()):
             await self.close_integration(integration_id)
-
-# Global integration framework instance
 integration_framework = EnterpriseIntegrationFramework()
 
-# Placeholder instances for API gateway and security manager
-# These should be properly injected via dependency injection in production
 class MockAPIGateway:
+
     def create_tenant(self, name, domain):
         return uuid4()
+
     def get_tenant(self, tenant_id):
         return None
 
 class MockSecurityManager:
-    def generate_api_key(self, tenant_id):
-        return f"key_{uuid4().hex}"
 
+    def generate_api_key(self, tenant_id):
+        return f'key_{uuid4().hex}'
 api_gateway = MockAPIGateway()
 security_manager = MockSecurityManager()
 
-# CLI Interface Functions
 def create_tenant(name: str, domain: str) -> str:
     """Create a new tenant"""
-    return str(api_gateway.create_tenant(name, domain))  # type: ignore[name-defined]
+    return str(api_gateway.create_tenant(name, domain))
 
 def get_tenant_info(tenant_id: str) -> dict[str, Any] | None:
     """Get tenant information"""
-    tenant = api_gateway.get_tenant(tenant_id)  # type: ignore[name-defined]
+    tenant = api_gateway.get_tenant(tenant_id)
     if tenant:
-        return {
-            "tenant_id": tenant.tenant_id,
-            "name": tenant.name,
-            "domain": tenant.domain,
-            "status": tenant.status.value,
-            "created_at": tenant.created_at.isoformat(),
-            "features": tenant.features
-        }
+        return {'tenant_id': tenant.tenant_id, 'name': tenant.name, 'domain': tenant.domain, 'status': tenant.status.value, 'created_at': tenant.created_at.isoformat(), 'features': tenant.features}
     return None
 
 def generate_api_key(tenant_id: str) -> str:
     """Generate API key for tenant"""
-    return str(security_manager.generate_api_key(tenant_id))  # type: ignore[name-defined]
+    return str(security_manager.generate_api_key(tenant_id))
 
 def register_integration(tenant_id: str, name: str, integration_type: str, config: dict[str, Any]) -> str:
     """Register third-party integration"""
-    return str(integration_framework.register_integration(  # type: ignore[attr-defined]
-        tenant_id, name, IntegrationType(integration_type), config
-    ))
+    return str(integration_framework.register_integration(tenant_id, name, IntegrationType(integration_type), config))
 
 def get_system_status() -> dict[str, Any]:
     """Get enterprise integration system status"""
-    return {
-        "tenants": len(api_gateway.tenants),  # type: ignore[name-defined]
-        "endpoints": len(api_gateway.endpoints),  # type: ignore[name-defined]
-        "integrations": len(api_gateway.integrations),  # type: ignore[name-defined]
-        "security_events": len(api_gateway.security_events),  # type: ignore[name-defined]
-        "system_health": "operational"
-    }
+    return {'tenants': len(api_gateway.tenants), 'endpoints': len(api_gateway.endpoints), 'integrations': len(api_gateway.integrations), 'security_events': len(api_gateway.security_events), 'system_health': 'operational'}
 
 def list_tenants() -> list[dict[str, Any]]:
     """List all tenants"""
-    return [
-        {
-            "tenant_id": tenant.tenant_id,
-            "name": tenant.name,
-            "domain": tenant.domain,
-            "status": tenant.status.value,
-            "features": tenant.features
-        }
-        for tenant in api_gateway.tenants.values()  # type: ignore[name-defined]
-    ]
+    return [{'tenant_id': tenant.tenant_id, 'name': tenant.name, 'domain': tenant.domain, 'status': tenant.status.value, 'features': tenant.features} for tenant in api_gateway.tenants.values()]
 
-def list_integrations(tenant_id: str | None = None) -> list[dict[str, Any]]:
+def list_integrations(tenant_id: str | None=None) -> list[dict[str, Any]]:
     """List integrations"""
-    integrations = api_gateway.integrations.values()  # type: ignore[name-defined]
+    integrations = api_gateway.integrations.values()
     if tenant_id:
         integrations = [i for i in integrations if i.tenant_id == tenant_id]
-
-    return [
-        {
-            "integration_id": i.integration_id,
-            "tenant_id": i.tenant_id,
-            "integration_type": i.integration_type.value if hasattr(i.integration_type, 'value') else str(i.integration_type),
-            "provider": i.provider.value if hasattr(i.provider, 'value') else str(i.provider),
-            "status": i.status.value if hasattr(i.status, 'value') else str(i.status),
-        }
-        for i in integrations
-    ]
+    return [{'integration_id': i.integration_id, 'tenant_id': i.tenant_id, 'integration_type': i.integration_type.value if hasattr(i.integration_type, 'value') else str(i.integration_type), 'provider': i.provider.value if hasattr(i.provider, 'value') else str(i.provider), 'status': i.status.value if hasattr(i.status, 'value') else str(i.status)} for i in integrations]

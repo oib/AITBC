@@ -22,7 +22,7 @@ class TestChainType:
     def test_chain_type_values(self):
         """Test ChainType enum values"""
         from aitbc_cli.core.marketplace import ChainType
-        
+
         assert ChainType.TOPIC.value == "topic"
         assert ChainType.PRIVATE.value == "private"
         assert ChainType.RESEARCH.value == "research"
@@ -36,7 +36,7 @@ class TestMarketplaceStatus:
     def test_marketplace_status_values(self):
         """Test MarketplaceStatus enum values"""
         from aitbc_cli.core.marketplace import MarketplaceStatus
-        
+
         assert MarketplaceStatus.ACTIVE.value == "active"
         assert MarketplaceStatus.PENDING.value == "pending"
         assert MarketplaceStatus.SOLD.value == "sold"
@@ -50,7 +50,7 @@ class TestTransactionStatus:
     def test_transaction_status_values(self):
         """Test TransactionStatus enum values"""
         from aitbc_cli.core.marketplace import TransactionStatus
-        
+
         assert TransactionStatus.PENDING.value == "pending"
         assert TransactionStatus.CONFIRMED.value == "confirmed"
         assert TransactionStatus.COMPLETED.value == "completed"
@@ -64,7 +64,7 @@ class TestChainListing:
     def test_chain_listing_creation(self):
         """Test creating ChainListing"""
         from aitbc_cli.core.marketplace import ChainListing, ChainType, MarketplaceStatus
-        
+
         listing = ChainListing(
             listing_id="list123",
             chain_id="chain123",
@@ -83,7 +83,7 @@ class TestChainListing:
             reputation_requirements={},
             governance_rules={}
         )
-        
+
         assert listing.listing_id == "list123"
         assert listing.chain_id == "chain123"
         assert listing.price == Decimal("100.50")
@@ -95,7 +95,7 @@ class TestMarketplaceTransaction:
     def test_marketplace_transaction_creation(self):
         """Test creating MarketplaceTransaction"""
         from aitbc_cli.core.marketplace import MarketplaceTransaction, TransactionStatus
-        
+
         transaction = MarketplaceTransaction(
             transaction_id="tx123",
             listing_id="list123",
@@ -112,7 +112,7 @@ class TestMarketplaceTransaction:
             transaction_hash=None,
             metadata={}
         )
-        
+
         assert transaction.transaction_id == "tx123"
         assert transaction.status == TransactionStatus.PENDING
         assert transaction.completed_at is None
@@ -124,7 +124,7 @@ class TestChainEconomy:
     def test_chain_economy_creation(self):
         """Test creating ChainEconomy"""
         from aitbc_cli.core.marketplace import ChainEconomy
-        
+
         economy = ChainEconomy(
             chain_id="chain123",
             total_value_locked=Decimal("1000000"),
@@ -138,7 +138,7 @@ class TestChainEconomy:
             staking_rewards=Decimal("5000"),
             last_updated=datetime.now()
         )
-        
+
         assert economy.chain_id == "chain123"
         assert economy.total_value_locked == Decimal("1000000")
         assert economy.active_users == 500
@@ -150,7 +150,7 @@ class TestMarketplaceMetrics:
     def test_marketplace_metrics_creation(self):
         """Test creating MarketplaceMetrics"""
         from aitbc_cli.core.marketplace import MarketplaceMetrics
-        
+
         metrics = MarketplaceMetrics(
             total_listings=100,
             active_listings=50,
@@ -163,7 +163,7 @@ class TestMarketplaceMetrics:
             market_sentiment=0.75,
             last_updated=datetime.now()
         )
-        
+
         assert metrics.total_listings == 100
         assert metrics.active_listings == 50
         assert metrics.total_transactions == 75

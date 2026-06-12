@@ -22,7 +22,7 @@ class TestMessageType:
     def test_message_type_values(self):
         """Test MessageType enum values"""
         from aitbc_cli.core.agent_communication import MessageType
-        
+
         assert MessageType.DISCOVERY.value == "discovery"
         assert MessageType.ROUTING.value == "routing"
         assert MessageType.COMMUNICATION.value == "communication"
@@ -38,7 +38,7 @@ class TestAgentStatus:
     def test_agent_status_values(self):
         """Test AgentStatus enum values"""
         from aitbc_cli.core.agent_communication import AgentStatus
-        
+
         assert AgentStatus.ACTIVE.value == "active"
         assert AgentStatus.INACTIVE.value == "inactive"
         assert AgentStatus.BUSY.value == "busy"
@@ -51,7 +51,7 @@ class TestAgentInfo:
     def test_agent_info_creation(self):
         """Test creating AgentInfo"""
         from aitbc_cli.core.agent_communication import AgentInfo, AgentStatus
-        
+
         agent = AgentInfo(
             agent_id="agent123",
             name="Test Agent",
@@ -64,7 +64,7 @@ class TestAgentInfo:
             endpoint="http://localhost:8080",
             version="1.0.0"
         )
-        
+
         assert agent.agent_id == "agent123"
         assert agent.name == "Test Agent"
         assert agent.status == AgentStatus.ACTIVE
@@ -77,7 +77,7 @@ class TestAgentMessage:
     def test_agent_message_creation(self):
         """Test creating AgentMessage"""
         from aitbc_cli.core.agent_communication import AgentMessage, MessageType
-        
+
         message = AgentMessage(
             message_id="msg123",
             sender_id="agent1",
@@ -91,7 +91,7 @@ class TestAgentMessage:
             priority=1,
             ttl_seconds=3600
         )
-        
+
         assert message.message_id == "msg123"
         assert message.sender_id == "agent1"
         assert message.message_type == MessageType.COMMUNICATION
@@ -104,7 +104,7 @@ class TestAgentCollaboration:
     def test_agent_collaboration_creation(self):
         """Test creating AgentCollaboration"""
         from aitbc_cli.core.agent_communication import AgentCollaboration
-        
+
         collab = AgentCollaboration(
             collaboration_id="collab123",
             agent_ids=["agent1", "agent2"],
@@ -116,7 +116,7 @@ class TestAgentCollaboration:
             shared_resources={"cpu": 4},
             governance_rules={"consensus": "majority"}
         )
-        
+
         assert collab.collaboration_id == "collab123"
         assert len(collab.agent_ids) == 2
         assert collab.collaboration_type == "compute"
@@ -128,7 +128,7 @@ class TestAgentReputation:
     def test_agent_reputation_creation(self):
         """Test creating AgentReputation"""
         from aitbc_cli.core.agent_communication import AgentReputation
-        
+
         reputation = AgentReputation(
             agent_id="agent123",
             chain_id="aitbc-main",
@@ -139,7 +139,7 @@ class TestAgentReputation:
             last_updated=datetime.now(),
             feedback_scores=[5.0, 4.5, 5.0]
         )
-        
+
         assert reputation.agent_id == "agent123"
         assert reputation.reputation_score == 0.95
         assert reputation.total_interactions == 105
@@ -152,10 +152,10 @@ class TestCrossChainAgentCommunication:
     def test_init(self, mock_node_client):
         """Test CrossChainAgentCommunication initialization"""
         from aitbc_cli.core.agent_communication import CrossChainAgentCommunication, MultiChainConfig
-        
+
         config = Mock(spec=MultiChainConfig)
         comm = CrossChainAgentCommunication(config)
-        
+
         assert comm.config == config
         assert comm.agents == {}
         assert comm.messages == {}
@@ -169,10 +169,10 @@ class TestCrossChainAgentCommunication:
     def test_validate_agent_info(self, mock_node_client):
         """Test agent info validation"""
         from aitbc_cli.core.agent_communication import AgentInfo, AgentStatus, CrossChainAgentCommunication, MultiChainConfig
-        
+
         config = Mock(spec=MultiChainConfig)
         comm = CrossChainAgentCommunication(config)
-        
+
         agent = AgentInfo(
             agent_id="agent123",
             name="Test Agent",
@@ -185,7 +185,7 @@ class TestCrossChainAgentCommunication:
             endpoint="http://localhost:8080",
             version="1.0.0"
         )
-        
+
         # Test validation
         result = comm._validate_agent_info(agent)
         assert result is True
@@ -194,10 +194,10 @@ class TestCrossChainAgentCommunication:
     def test_validate_agent_info_invalid(self, mock_node_client):
         """Test agent info validation with invalid data"""
         from aitbc_cli.core.agent_communication import AgentInfo, AgentStatus, CrossChainAgentCommunication, MultiChainConfig
-        
+
         config = Mock(spec=MultiChainConfig)
         comm = CrossChainAgentCommunication(config)
-        
+
         # Invalid reputation score
         agent = AgentInfo(
             agent_id="agent123",
@@ -211,7 +211,7 @@ class TestCrossChainAgentCommunication:
             endpoint="http://localhost:8080",
             version="1.0.0"
         )
-        
+
         result = comm._validate_agent_info(agent)
         assert result is False
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from datetime import timezone
 
 from aitbc.logging import get_logger
 from redis.asyncio import Redis
@@ -40,7 +39,7 @@ class FeedbackRepository:
             latency_ms=latency_ms,
             fail_code=fail_code,
             tokens_spent=tokens_spent,
-            created_at=dt.datetime.now(timezone.utc),
+            created_at=dt.datetime.now(dt.UTC),
         )
         self._session.add(feedback)
         await self._session.flush()

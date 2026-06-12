@@ -59,7 +59,7 @@ class TestCryptoFunctions:
         """Test encrypt_private_key function"""
         private_key = "test_private_key_12345"
         password = "test_password"
-        
+
         encrypted = encrypt_private_key(private_key, password)
         assert encrypted is not None
         assert encrypted != private_key
@@ -69,19 +69,19 @@ class TestCryptoFunctions:
         """Test decrypt_private_key function"""
         private_key = "test_private_key_12345"
         password = "test_password"
-        
+
         encrypted = encrypt_private_key(private_key, password)
         decrypted = decrypt_private_key(encrypted, password)
-        
+
         assert decrypted == private_key
 
     def test_decrypt_private_key_wrong_password(self):
         """Test decrypt_private_key with wrong password"""
         private_key = "test_private_key_12345"
         password = "test_password"
-        
+
         encrypted = encrypt_private_key(private_key, password)
-        
+
         with pytest.raises(ValueError):
             decrypt_private_key(encrypted, "wrong_password")
 
@@ -89,10 +89,10 @@ class TestCryptoFunctions:
         """Test encrypt/decrypt roundtrip"""
         private_key = "0x" + "a" * 64
         password = "secure_password_123"
-        
+
         encrypted = encrypt_private_key(private_key, password)
         decrypted = decrypt_private_key(encrypted, password)
-        
+
         assert decrypted == private_key
 
     def test_generate_secure_random_bytes(self):

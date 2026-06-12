@@ -62,7 +62,7 @@ class TestMainCLI:
     def test_main_path_setup(self):
         """Test that CLI directory is added to sys.path"""
         from aitbc_cli.core.main import CLI_DIR
-        
+
         assert CLI_DIR.exists()
         assert str(CLI_DIR) in sys.path
 

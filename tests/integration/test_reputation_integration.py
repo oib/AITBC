@@ -25,10 +25,10 @@ class TestReputationSystem:
         # This would test the reputation service's create_reputation_profile method
         # For now, we'll create a mock test
         agent_id = "test_agent_001"
-        
+
         # In a real implementation, this would call the reputation service
         # reputation = await reputation_service.create_reputation_profile(agent_id)
-        
+
         # Mock assertion
         assert agent_id is not None
         assert len(agent_id) > 0
@@ -37,15 +37,15 @@ class TestReputationSystem:
     async def test_trust_score_calculation(self):
         """Test trust score calculation for an agent"""
         agent_id = "test_agent_002"
-        
+
         # Mock trust score calculation
         # In real implementation, this would use the TrustScoreCalculator
         base_score = 500.0
         performance_factor = 1.0
         reliability_factor = 1.0
-        
+
         calculated_score = base_score * performance_factor * reliability_factor
-        
+
         assert calculated_score >= 0
         assert calculated_score <= 1000
 
@@ -54,7 +54,7 @@ class TestReputationSystem:
         """Test submitting community feedback for an agent"""
         agent_id = "test_agent_003"
         reviewer_id = "reviewer_001"
-        
+
         ratings = {
             "overall": 5.0,
             "performance": 5.0,
@@ -62,7 +62,7 @@ class TestReputationSystem:
             "reliability": 5.0,
             "value": 5.0
         }
-        
+
         # Mock feedback submission
         assert all(1.0 <= rating <= 5.0 for rating in ratings.values())
         assert agent_id is not None
@@ -77,7 +77,7 @@ class TestReputationSystem:
             {"rank": 2, "agent_id": "agent_002", "trust_score": 900.0},
             {"rank": 3, "agent_id": "agent_003", "trust_score": 850.0}
         ]
-        
+
         assert len(leaderboard) == 3
         assert leaderboard[0]["trust_score"] >= leaderboard[1]["trust_score"]
         assert leaderboard[1]["trust_score"] >= leaderboard[2]["trust_score"]
@@ -88,9 +88,9 @@ class TestReputationSystem:
         initial_score = 800.0
         decay_factor = 0.9  # 10% decay per month
         months_passed = 2
-        
+
         decayed_score = initial_score * (decay_factor ** months_passed)
-        
+
         assert decayed_score < initial_score
         assert decayed_score >= 0
 
@@ -105,7 +105,7 @@ class TestReputationSystem:
             (450, "INTERMEDIATE"),
             (200, "BEGINNER")
         ]
-        
+
         for score, expected_level in test_cases:
             if score >= 900:
                 level = "MASTER"
@@ -117,7 +117,7 @@ class TestReputationSystem:
                 level = "INTERMEDIATE"
             else:
                 level = "BEGINNER"
-            
+
             assert level == expected_level
 
     @pytest.mark.asyncio
@@ -128,12 +128,12 @@ class TestReputationSystem:
             {"rating": 4.0, "weight": 1.0},
             {"rating": 5.0, "weight": 1.5}
         ]
-        
+
         total_weight = sum(r["weight"] for r in ratings)
         weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
-        
+
         weighted_average = weighted_sum / total_weight
-        
+
         assert weighted_average >= 1.0
         assert weighted_average <= 5.0
         assert weighted_average == (5.0*2.0 + 4.0*1.0 + 5.0*1.5) / (2.0 + 1.0 + 1.5)
@@ -146,7 +146,7 @@ class TestReputationSystem:
         impact_score = 10.0
         trust_score_before = 500.0
         trust_score_after = 510.0
-        
+
         # Mock event recording
         event = {
             "agent_id": agent_id,
@@ -156,7 +156,7 @@ class TestReputationSystem:
             "trust_score_after": trust_score_after,
             "occurred_at": datetime.now(UTC).isoformat()
         }
-        
+
         assert event["impact_score"] == trust_score_after - trust_score_before
         assert event["agent_id"] == agent_id
         assert event["event_type"] == event_type
@@ -169,10 +169,10 @@ class TestReputationAPI:
         """Test GET /reputation/profile/{agent_id} endpoint"""
         # Mock API endpoint test
         agent_id = "test_agent_005"
-        
+
         # In real implementation, this would make an HTTP request
         # response = requests.get(f"{api_url}/reputation/profile/{agent_id}")
-        
+
         # Mock assertion
         assert agent_id is not None
 
@@ -180,7 +180,7 @@ class TestReputationAPI:
         """Test POST /reputation/feedback/{agent_id} endpoint"""
         agent_id = "test_agent_006"
         reviewer_id = "reviewer_002"
-        
+
         payload = {
             "reviewer_id": reviewer_id,
             "ratings": {
@@ -193,7 +193,7 @@ class TestReputationAPI:
             "feedback_text": "Good service overall",
             "tags": ["professional", "timely"]
         }
-        
+
         # Mock API call
         assert "ratings" in payload
         assert "reviewer_id" in payload
@@ -205,7 +205,7 @@ class TestReputationAPI:
             "category": "trust_score",
             "limit": 10
         }
-        
+
         # Mock API call
         assert params["category"] == "trust_score"
         assert params["limit"] == 10
@@ -221,7 +221,7 @@ class TestReputationAPI:
             "top_regions",
             "recent_activity"
         ]
-        
+
         assert len(expected_metrics) == 5
 
 

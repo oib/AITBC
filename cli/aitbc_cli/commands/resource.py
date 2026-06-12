@@ -3,7 +3,6 @@ Resource management commands for AITBC CLI
 """
 
 import json
-import os
 import time
 
 import click

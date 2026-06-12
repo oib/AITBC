@@ -20,7 +20,7 @@ class TestModelsInit:
     def test_models_module_exists(self):
         """Test that models module can be imported"""
         from models import chain
-        
+
         assert chain is not None
 
     def test_models_chain_module(self):
@@ -38,7 +38,7 @@ class TestModelsInit:
             GenesisContract,
             PrivacyConfig,
         )
-        
+
         assert ChainType is not None
         assert ChainStatus is not None
         assert ConsensusAlgorithm is not None

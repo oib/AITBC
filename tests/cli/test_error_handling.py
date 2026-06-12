@@ -99,7 +99,7 @@ class TestHandleCLIError:
         @handle_cli_error
         def successful_func():
             return "success"
-        
+
         result = successful_func()
         assert result == "success"
 
@@ -108,7 +108,7 @@ class TestHandleCLIError:
         @handle_cli_error
         def failing_func():
             raise CLIError("Test error")
-        
+
         with pytest.raises(SystemExit) as exc_info:
             failing_func()
         assert exc_info.value.code == 1
@@ -118,7 +118,7 @@ class TestHandleCLIError:
         @handle_cli_error
         def interrupt_func():
             raise KeyboardInterrupt()
-        
+
         with pytest.raises(SystemExit) as exc_info:
             interrupt_func()
         assert exc_info.value.code == 130
@@ -128,7 +128,7 @@ class TestHandleCLIError:
         @handle_cli_error
         def error_func():
             raise ValueError("Generic error")
-        
+
         with pytest.raises(SystemExit) as exc_info:
             error_func()
         assert exc_info.value.code == 1
@@ -143,7 +143,7 @@ class TestHandleAsyncCLIError:
         @handle_async_cli_error
         async def successful_func():
             return "success"
-        
+
         result = await successful_func()
         assert result == "success"
 
@@ -153,7 +153,7 @@ class TestHandleAsyncCLIError:
         @handle_async_cli_error
         async def failing_func():
             raise CLIError("Test error")
-        
+
         with pytest.raises(SystemExit) as exc_info:
             await failing_func()
         assert exc_info.value.code == 1
@@ -164,7 +164,7 @@ class TestHandleAsyncCLIError:
         @handle_async_cli_error
         async def interrupt_func():
             raise KeyboardInterrupt()
-        
+
         with pytest.raises(SystemExit) as exc_info:
             await interrupt_func()
         assert exc_info.value.code == 130

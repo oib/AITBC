@@ -42,15 +42,15 @@ class TestComplianceCommands:
         try:
             from aitbc_cli.commands.compliance import check
             from click.testing import CliRunner
-            
+
             runner = CliRunner()
             ctx = Mock()
             ctx.obj = {'output_format': 'json'}
-            
+
             # Call the check command with context
             with runner.make_context('compliance', [], obj=ctx.obj) as ctx:
                 check(ctx, standard='GDPR')
-            
+
             # Verify output was called
             assert mock_output.called
         except Exception as e:

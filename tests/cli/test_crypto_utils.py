@@ -33,9 +33,9 @@ class TestCreateSignatureChallenge:
             "timestamp": 1234567890
         }
         nonce = "abc123"
-        
+
         challenge = create_signature_challenge(tx_data, nonce)
-        
+
         assert "AITBC_MULTISIG_CHALLENGE:" in challenge
         assert len(challenge) > len("AITBC_MULTISIG_CHALLENGE:")
 
@@ -45,9 +45,9 @@ class TestCreateSignatureChallenge:
             "tx_id": "tx123"
         }
         nonce = "abc123"
-        
+
         challenge = create_signature_challenge(tx_data, nonce)
-        
+
         assert "AITBC_MULTISIG_CHALLENGE:" in challenge
 
     def test_create_challenge_deterministic(self):
@@ -59,10 +59,10 @@ class TestCreateSignatureChallenge:
             "timestamp": 1234567890
         }
         nonce = "abc123"
-        
+
         challenge1 = create_signature_challenge(tx_data, nonce)
         challenge2 = create_signature_challenge(tx_data, nonce)
-        
+
         assert challenge1 == challenge2
 
 
@@ -72,7 +72,7 @@ class TestGenerateNonce:
     def test_generate_nonce_length(self):
         """Test nonce has correct length"""
         nonce = generate_nonce()
-        
+
         # token_hex(16) produces 32 hex characters
         assert len(nonce) == 32
 
@@ -80,13 +80,13 @@ class TestGenerateNonce:
         """Test that nonces are unique"""
         nonce1 = generate_nonce()
         nonce2 = generate_nonce()
-        
+
         assert nonce1 != nonce2
 
     def test_generate_nonce_hex_format(self):
         """Test nonce is valid hex"""
         nonce = generate_nonce()
-        
+
         try:
             int(nonce, 16)
         except ValueError:
@@ -105,9 +105,9 @@ class TestValidateMultisigTransaction:
             "timestamp": 1234567890,
             "nonce": "abc123"
         }
-        
+
         is_valid, error = validate_multisig_transaction(tx_data)
-        
+
         assert is_valid is True
         assert error == ""
 
@@ -119,9 +119,9 @@ class TestValidateMultisigTransaction:
             "timestamp": 1234567890,
             "nonce": "abc123"
         }
-        
+
         is_valid, error = validate_multisig_transaction(tx_data)
-        
+
         assert is_valid is False
         assert "Missing required field" in error
 
@@ -134,9 +134,9 @@ class TestValidateMultisigTransaction:
             "timestamp": 1234567890,
             "nonce": "abc123"
         }
-        
+
         is_valid, error = validate_multisig_transaction(tx_data)
-        
+
         assert is_valid is False
         assert "must start with 'ait'" in error
 
@@ -149,9 +149,9 @@ class TestValidateMultisigTransaction:
             "timestamp": 1234567890,
             "nonce": "abc123"
         }
-        
+
         is_valid, error = validate_multisig_transaction(tx_data)
-        
+
         assert is_valid is False
         assert "invalid length" in error
 
@@ -164,9 +164,9 @@ class TestValidateMultisigTransaction:
             "timestamp": 1234567890,
             "nonce": "abc123"
         }
-        
+
         is_valid, error = validate_multisig_transaction(tx_data)
-        
+
         assert is_valid is False
         assert "invalid characters" in error
 
@@ -179,9 +179,9 @@ class TestValidateMultisigTransaction:
             "timestamp": 1234567890,
             "nonce": "abc123"
         }
-        
+
         is_valid, error = validate_multisig_transaction(tx_data)
-        
+
         assert is_valid is False
         assert "positive" in error
 
@@ -194,9 +194,9 @@ class TestValidateMultisigTransaction:
             "timestamp": 1234567890,
             "nonce": "abc123"
         }
-        
+
         is_valid, error = validate_multisig_transaction(tx_data)
-        
+
         assert is_valid is False
         assert "Invalid amount format" in error
 
@@ -207,40 +207,40 @@ class TestBech32ToHex:
     def test_bech32_to_hex_aitbc1_prefix(self):
         """Test conversion with aitbc1 prefix"""
         bech32 = "aitbc1c10f0e4f"
-        
+
         result = bech32_to_hex(bech32)
-        
+
         assert result == "0xc10f0e4f"
 
     def test_bech32_to_hex_ait1_prefix(self):
         """Test conversion with ait1 prefix"""
         bech32 = "ait1c10f0e4f"
-        
+
         result = bech32_to_hex(bech32)
-        
+
         assert result == "0xc10f0e4f"
 
     def test_bech32_to_hex_already_hex(self):
         """Test conversion with already hex address"""
         hex_addr = "c10f0e4f"
-        
+
         result = bech32_to_hex(hex_addr)
-        
+
         assert result == "0xc10f0e4f"
 
     def test_bech32_to_hex_with_0x_prefix(self):
         """Test conversion with 0x prefix"""
         hex_addr = "0xc10f0e4f"
-        
+
         result = bech32_to_hex(hex_addr)
-        
+
         assert result == "0xc10f0e4f"
 
     def test_bech32_to_hex_empty(self):
         """Test conversion with empty string"""
         with pytest.raises(ValueError) as exc_info:
             bech32_to_hex("")
-        
+
         assert "cannot be empty" in str(exc_info.value)
 
 
@@ -250,24 +250,24 @@ class TestHexToBech32:
     def test_hex_to_bech32_without_prefix(self):
         """Test conversion without 0x prefix"""
         hex_addr = "c10f0e4f"
-        
+
         result = hex_to_bech32(hex_addr)
-        
+
         assert result == "aitbc1c10f0e4f"
 
     def test_hex_to_bech32_with_prefix(self):
         """Test conversion with 0x prefix"""
         hex_addr = "0xc10f0e4f"
-        
+
         result = hex_to_bech32(hex_addr)
-        
+
         assert result == "aitbc1c10f0e4f"
 
     def test_hex_to_bech32_empty(self):
         """Test conversion with empty string"""
         with pytest.raises(ValueError) as exc_info:
             hex_to_bech32("")
-        
+
         assert "cannot be empty" in str(exc_info.value)
 
 
@@ -285,9 +285,9 @@ class TestMultisigSecurityManager:
             "nonce": "abc123",
             "required_signers": ["addr1", "addr2"]
         }
-        
+
         result = manager.create_signing_request(tx_data, "wallet123")
-        
+
         assert result["tx_id"] == "tx123"
         assert "challenge" in result
         assert "nonce" in result
@@ -300,10 +300,10 @@ class TestMultisigSecurityManager:
             "to": "ait123",
             "amount": 100
         }
-        
+
         with pytest.raises(ValueError) as exc_info:
             manager.create_signing_request(tx_data, "wallet123")
-        
+
         assert "Invalid transaction" in str(exc_info.value)
 
     def test_verify_and_add_signature_valid(self):
@@ -317,12 +317,12 @@ class TestMultisigSecurityManager:
             "nonce": "abc123",
             "required_signers": ["addr1", "addr2"]
         }
-        
+
         manager.create_signing_request(tx_data, "wallet123")
-        
+
         # Mock signature verification (would need real signing in production)
         success, message = manager.verify_and_add_signature("tx123", "0x123", "addr1")
-        
+
         # Will fail signature verification but test the flow
         assert success is False
         assert "Invalid signature" in message
@@ -330,9 +330,9 @@ class TestMultisigSecurityManager:
     def test_verify_and_add_signature_not_found(self):
         """Test verifying signature for non-existent transaction"""
         manager = MultisigSecurityManager()
-        
+
         success, message = manager.verify_and_add_signature("nonexistent", "0x123", "addr1")
-        
+
         assert success is False
         assert "not found" in message
 
@@ -347,17 +347,17 @@ class TestMultisigSecurityManager:
             "nonce": "abc123",
             "required_signers": []
         }
-        
+
         manager.create_signing_request(tx_data, "wallet123")
         assert "tx123" in manager.pending_challenges
-        
+
         manager.cleanup_challenge("tx123")
         assert "tx123" not in manager.pending_challenges
 
     def test_cleanup_nonexistent_challenge(self):
         """Test cleaning up non-existent challenge"""
         manager = MultisigSecurityManager()
-        
+
         # Should not raise error
         manager.cleanup_challenge("nonexistent")
 
