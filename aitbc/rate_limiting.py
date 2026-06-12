@@ -69,7 +69,7 @@ def rate_limit(rate: int=100, per: int=60, key_func: Callable[[Request], str] | 
             else:
                 key = request.client.host if request.client else 'unknown'
             if not limiter.is_allowed(key):
-                logger.warning('Rate limit exceeded for %s on %s', key, request.url.path)
+                logger.warning('Rate limit exceeded for %s on %s', key, request.url.path, stacklevel=2)
                 raise HTTPException(status_code=429, detail=error_message, headers={'Retry-After': str(per)})
             if is_async:
                 return await func(*args, **kwargs)
@@ -119,7 +119,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         else:
             key = request.client.host if request.client else 'unknown'
         if not self._limiter.is_allowed(key):
-            logger.warning('Rate limit exceeded for %s on %s', key, request.url.path)
+            logger.warning('Rate limit exceeded for %s on %s', key, request.url.path, stacklevel=2)
             return Response(content=f'{{"detail": "{self.error_message}"}}', status_code=429, media_type='application/json', headers={'Retry-After': str(self.per)})
         return await call_next(request)
 

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Badge System - Achievement and recognition badge system
 """

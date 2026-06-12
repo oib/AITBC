@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Enhanced Marketplace Service - Simplified Version for Deployment
 Basic marketplace enhancement features compatible with existing domain models

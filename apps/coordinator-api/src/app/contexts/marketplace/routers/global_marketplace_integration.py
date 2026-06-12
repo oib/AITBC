@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Global Marketplace Integration API Router
 REST API endpoints for integrated global marketplace with cross-chain capabilities

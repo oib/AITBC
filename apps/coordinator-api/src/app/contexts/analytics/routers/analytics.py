@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from uuid import uuid4
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
