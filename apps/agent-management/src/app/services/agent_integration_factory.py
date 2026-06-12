@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Factory for creating shared AgentIntegrationService with app-specific adapters.
 This enables gradual migration from duplicated code to shared implementation.

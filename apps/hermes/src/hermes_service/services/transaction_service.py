@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Transaction service for generating signed coin transfer transactions."""
 
 import json

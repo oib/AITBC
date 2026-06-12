@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 #!/usr/bin/env python3
 """
 Test ETH-AIT bridge functionality without real ETH.

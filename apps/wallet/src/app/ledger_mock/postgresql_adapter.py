@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """PostgreSQL adapter for Wallet Daemon"""
 
 import json

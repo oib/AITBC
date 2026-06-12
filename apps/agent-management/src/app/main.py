@@ -29,12 +29,14 @@ SessionLocal = get_sessionmaker(engine)
 
 # Create tables on startup
 @app.on_event("startup")
-def on_startup():
+def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
     logger.info("Agent Management service started")
 
+from collections.abc import Generator
+
 # Dependency
-def get_db():
+def get_db() -> Generator:
     db = SessionLocal()
     try:
         yield db
@@ -42,23 +44,29 @@ def get_db():
         db.close()
 
 # Include routers
-from .routers import agent_creativity, agent_integration_router, agent_performance, agent_router, agent_security_router
-from .routers import services as agent_services_router
+from .routers import (
+    agent_creativity_router,
+    agent_integration_router,
+    agent_performance_router,
+    agent_router,
+    agent_security_router,
+    services_router,
+)
 
 # Mount routers with prefix
-app.include_router(agent_router.router, prefix=f"{settings.api_prefix}/agents")
-app.include_router(agent_integration_router.router, prefix=f"{settings.api_prefix}/agents/integration")
-app.include_router(agent_performance.router, prefix=f"{settings.api_prefix}/agents/performance")
-app.include_router(agent_creativity.router, prefix=f"{settings.api_prefix}/agents/creativity")
-app.include_router(agent_security_router.router, prefix=f"{settings.api_prefix}/agents/security")
-app.include_router(agent_services_router.router, prefix=f"{settings.api_prefix}/services")
+app.include_router(agent_router, prefix=f"{settings.api_prefix}/agents")
+app.include_router(agent_integration_router, prefix=f"{settings.api_prefix}/agents/integration")
+app.include_router(agent_performance_router, prefix=f"{settings.api_prefix}/agents/performance")
+app.include_router(agent_creativity_router, prefix=f"{settings.api_prefix}/agents/creativity")
+app.include_router(agent_security_router, prefix=f"{settings.api_prefix}/agents/security")
+app.include_router(services_router, prefix=f"{settings.api_prefix}/services")
 
 @app.get("/health")
-def health_check():
+def health_check() -> dict[str, str]:
     return {"status": "healthy", "service": settings.service_name}
 
 @app.get("/")
-def root():
+def root() -> dict[str, str]:
     return {"message": "Welcome to AITBC Agent Management Service"}
 
 if __name__ == "__main__":

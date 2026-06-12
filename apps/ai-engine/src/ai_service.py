@@ -26,7 +26,7 @@ class AnalysisRequest(BaseModel):
 class SimpleAITradingEngine:
     """Simplified AI trading engine"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.models_loaded = True
 
     async def analyze_market(self, symbol: str) -> dict[str, Any]:
@@ -96,7 +96,7 @@ class SimpleAITradingEngine:
 ai_engine = SimpleAITradingEngine()
 
 @app.post("/api/ai/analyze")
-async def analyze_market(request: AnalysisRequest):
+async def analyze_market(request: AnalysisRequest) -> dict[str, Any]:
     """AI market analysis"""
     try:
         analysis = await ai_engine.analyze_market(request.symbol)
@@ -109,7 +109,7 @@ async def analyze_market(request: AnalysisRequest):
         return {"status": "error", "message": "Analysis failed"}
 
 @app.post("/api/ai/trade")
-async def execute_ai_trade(request: TradingRequest):
+async def execute_ai_trade(request: TradingRequest) -> dict[str, Any]:
     """Execute AI-powered trade"""
     try:
         decision = await ai_engine.make_trading_decision(request.symbol)
@@ -123,7 +123,7 @@ async def execute_ai_trade(request: TradingRequest):
         return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/predict/{symbol}")
-async def predict_market(symbol: str):
+async def predict_market(symbol: str) -> dict[str, Any]:
     """AI market prediction"""
     try:
         analysis = await ai_engine.analyze_market(symbol)
@@ -141,7 +141,7 @@ async def predict_market(symbol: str):
         return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/dashboard")
-async def get_ai_dashboard():
+async def get_ai_dashboard() -> dict[str, Any]:
     """AI dashboard overview"""
     try:
         # Generate dashboard data
@@ -174,7 +174,7 @@ async def get_ai_dashboard():
         return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/status")
-async def get_ai_status():
+async def get_ai_status() -> dict[str, Any]:
     """Get AI service status"""
     return {
         "status": "active",
@@ -195,7 +195,7 @@ async def get_ai_status():
     }
 
 @app.get("/api/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Health check endpoint"""
     return {"status": "ok", "timestamp": datetime.now(UTC)}
 

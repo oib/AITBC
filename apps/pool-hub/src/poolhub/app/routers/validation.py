@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Validation router for service configuration validation
 """

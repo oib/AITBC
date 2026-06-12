@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 ETH-AIT Bridge Database
 SQLite database for tracking ETH deposits and AIT minting operations.

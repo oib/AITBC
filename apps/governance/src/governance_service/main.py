@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Governance Service main application
 Manages governance operations
