@@ -26,7 +26,7 @@ class CommandExecutor:
         """Execute CLI command and return result"""
         try:
             cmd = [self.cli_path] + command.split() + args
-            logger.debug(f"Executing command: {' '.join(cmd)}")
+            logger.debug("Executing command: %s", ' '.join(cmd))
 
             result = subprocess.run(
                 cmd,
@@ -47,7 +47,7 @@ class CommandExecutor:
                     "data": data
                 }
             else:
-                logger.error(f"Command failed: {result.stderr}")
+                logger.error("Command failed: %s", result.stderr)
                 return {
                     "success": False,
                     "error": result.stderr
@@ -56,7 +56,7 @@ class CommandExecutor:
             logger.error("Command timeout")
             return {"success": False, "error": "Command timeout"}
         except Exception as e:
-            logger.error(f"Command execution failed: {e}")
+            logger.error("Command execution failed: %s", e)
             return {"success": False, "error": str(e)}
 
     async def execute_command_async(self, command: str, args: list[str]) -> dict[str, Any]:
