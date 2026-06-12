@@ -45,10 +45,10 @@ try:
     AVAILABLE_BACKENDS = get_available_backends()
     BEST_BACKEND = auto_detect_best_backend()
     logger.info("GPU Acceleration Module loaded")
-    logger.info(f"Available backends: {AVAILABLE_BACKENDS}")
-    logger.info(f"Best backend: {BEST_BACKEND}")
+    logger.info("Available backends: %s", AVAILABLE_BACKENDS)
+    logger.info("Best backend: %s", BEST_BACKEND)
 except Exception as e:
-    logger.warning(f"GPU backend auto-detection failed: {e}")
+    logger.warning("GPU backend auto-detection failed: %s", e)
     AVAILABLE_BACKENDS = ["cpu"]
     BEST_BACKEND = "cpu"
 
@@ -122,4 +122,4 @@ def get_system_info():
     }
 
 # Initialize module with system info
-logger.info(f"GPU Acceleration System Info: {get_system_info()}")
+logger.info("GPU Acceleration System Info: %s", get_system_info())
