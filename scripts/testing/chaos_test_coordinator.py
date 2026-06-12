@@ -59,7 +59,7 @@ class ChaosTestCoordinator:
             pods = result.stdout.strip().split()
             return pods
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to get coordinator pods: {e}")
+            logger.error("Failed to get coordinator pods: %s", e)
             return []
 
     def delete_coordinator_pods(self) -> bool:
@@ -75,7 +75,7 @@ class ChaosTestCoordinator:
             logger.info("Coordinator pods deleted successfully")
             return True
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to delete coordinator pods: {e}")
+            logger.error("Failed to delete coordinator pods: %s", e)
             return False
 
     async def wait_for_pods_termination(self, timeout: int = 60) -> bool:
@@ -117,11 +117,11 @@ class ChaosTestCoordinator:
                     if self.test_health_endpoint():
                         recovery_time = time.time() - start_time
                         self.metrics["recovery_time"] = recovery_time
-                        logger.info(f"Service recovered in {recovery_time:.2f} seconds")
+                        logger.info("Service recovered in %.2f seconds", recovery_time)
                         return True
 
             except Exception as e:
-                logger.debug(f"Recovery check failed: {e}")
+                logger.debug("Recovery check failed: %s", e)
 
             await asyncio.sleep(5)
 
@@ -152,7 +152,7 @@ class ChaosTestCoordinator:
 
     async def generate_load(self, duration: int, concurrent: int = 10):
         """Generate synthetic load on coordinator API"""
-        logger.info(f"Generating load for {duration} seconds with {concurrent} concurrent requests")
+        logger.info("Generating load for %s seconds with %s concurrent requests", duration, concurrent)
 
         # Get service URL
         cmd = [
@@ -187,7 +187,7 @@ class ChaosTestCoordinator:
             # Brief pause
             await asyncio.sleep(1)
 
-        logger.info(f"Load generation completed. Success: {self.metrics['success_count']}, Errors: {self.metrics['error_count']}")
+        logger.info("Load generation completed. Success: %s, Errors: %s", self.metrics['success_count'], self.metrics['error_count'])
 
     async def run_test(self, outage_duration: int = 60, load_duration: int = 120):
         """Run the complete chaos test"""
@@ -211,7 +211,7 @@ class ChaosTestCoordinator:
             return False
 
         # Wait for specified outage duration
-        logger.info(f"Waiting for {outage_duration} seconds outage duration")
+        logger.info("Waiting for %s seconds outage duration", outage_duration)
         await asyncio.sleep(outage_duration)
 
         # Phase 3: Monitor recovery
@@ -244,7 +244,7 @@ class ChaosTestCoordinator:
         with open(filename, "w") as f:
             json.dump(self.metrics, f, indent=2)
 
-        logger.info(f"Test results saved to: {filename}")
+        logger.info("Test results saved to: %s", filename)
 
         # Print summary
         print("\n=== Chaos Test Summary ===")
