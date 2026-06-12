@@ -22,10 +22,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("job_id", "")
             else:
-                logger.error(f"AI submit failed: {result.get('error')}")
+                logger.error("AI submit failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"submit_ai_test failed: {e}")
+            logger.error("submit_ai_test failed: %s", e)
             raise
 
     def list_gpu(self, filters: dict = None) -> list[dict]:
@@ -39,10 +39,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("listings", [])
             else:
-                logger.error(f"GPU list failed: {result.get('error')}")
+                logger.error("GPU list failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"list_gpu failed: {e}")
+            logger.error("list_gpu failed: %s", e)
             raise
 
     def create_swarm(self, name: str, max_agents: int) -> str:
@@ -53,10 +53,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("swarm_id", "")
             else:
-                logger.error(f"Swarm create failed: {result.get('error')}")
+                logger.error("Swarm create failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"create_swarm failed: {e}")
+            logger.error("create_swarm failed: %s", e)
             raise
 
     def add_stake(self, amount: float, validator_id: str | None = None) -> str:
@@ -69,10 +69,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("stake_id", "")
             else:
-                logger.error(f"Staking add failed: {result.get('error')}")
+                logger.error("Staking add failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"add_stake failed: {e}")
+            logger.error("add_stake failed: %s", e)
             raise
 
     def create_island_bridge(self, name: str, source_chain: str, target_chain: str) -> str:
@@ -83,10 +83,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("bridge_id", "")
             else:
-                logger.error(f"Island bridge create failed: {result.get('error')}")
+                logger.error("Island bridge create failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"create_island_bridge failed: {e}")
+            logger.error("create_island_bridge failed: %s", e)
             raise
 
     def execute_bridge_transfer(self, bridge_id: str, amount: float, token: str) -> str:
@@ -97,10 +97,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("transfer_id", "")
             else:
-                logger.error(f"Bridge transfer failed: {result.get('error')}")
+                logger.error("Bridge transfer failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"execute_bridge_transfer failed: {e}")
+            logger.error("execute_bridge_transfer failed: %s", e)
             raise
 
     def create_database(self, name: str, schema: str = "") -> str:
@@ -113,10 +113,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("database_id", "")
             else:
-                logger.error(f"Database create failed: {result.get('error')}")
+                logger.error("Database create failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"create_database failed: {e}")
+            logger.error("create_database failed: %s", e)
             raise
 
     def query_database(self, database_id: str, query: str) -> list[dict]:
@@ -127,10 +127,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("results", [])
             else:
-                logger.error(f"Database query failed: {result.get('error')}")
+                logger.error("Database query failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"query_database failed: {e}")
+            logger.error("query_database failed: %s", e)
             raise
 
     def submit_training_job(self, model_id: str, dataset: str) -> str:
@@ -141,10 +141,10 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("job_id", "")
             else:
-                logger.error(f"Training submit failed: {result.get('error')}")
+                logger.error("Training submit failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"submit_training_job failed: {e}")
+            logger.error("submit_training_job failed: %s", e)
             raise
 
     def query_analytics(self, metrics: list[str], time_range: str = "24h") -> dict:
@@ -155,8 +155,8 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"]
             else:
-                logger.error(f"Analytics query failed: {result.get('error')}")
+                logger.error("Analytics query failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"query_analytics failed: {e}")
+            logger.error("query_analytics failed: %s", e)
             raise
