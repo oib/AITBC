@@ -145,10 +145,19 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - `apps/blockchain-node/src/aitbc_chain/sync.py` - Added # mypy: ignore-errors
 - `apps/blockchain-node/src/aitbc_chain/subscription_client.py` - Added # mypy: ignore-errors
 
-**Ruff G004 Logging Fixes (Automated)**
+**Ruff G004 Logging Fixes (Automated + Manual)**
 - Created `fix_logging_fstrings.py` - AST transformer for automated f-string to % formatting conversion
 - Fixed 3,481 errors across 361 files (200 in aitbc/, 3,280 in apps/)
 - 1 manual fix in `apps/agent-coordinator/src/app/monitoring/alerting.py`
+- Additional manual fixes in v0.4.17:
+  - CLI handlers (7 files): blockchain, contract, market, messaging, pool_hub, system, wallet
+  - CLI core (3 files): agent_communication, chain_manager, marketplace
+  - GPU miner host (1 file): dev/gpu/gpu_miner_host.py
+  - Agent SDK (6 files): contract_integration, swarm_coordinator, agent, compute_provider, extended, knowledge
+  - Agent SDK additional (3 files): dispute, ipfs, zk
+  - Ollama plugin (1 file): plugins/ollama/miner_plugin.py
+  - GPU providers (3 files): apple_silicon_provider, cpu_provider, cuda_provider
+  - Oracle agent example (1 file): docs/agent-sdk/examples/oracle_agent.py
 
 ### Configuration Changes
 
