@@ -22,10 +22,10 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("proof", "")
             else:
-                logger.error(f"ZK generate_proof failed: {result.get('error')}")
+                logger.error("ZK generate_proof failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"generate_proof failed: {e}")
+            logger.error("generate_proof failed: %s", e)
             raise
 
     def verify_proof(self, proof: str, public_inputs: str) -> bool:
@@ -36,10 +36,10 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("valid", False)
             else:
-                logger.error(f"ZK verify_proof failed: {result.get('error')}")
+                logger.error("ZK verify_proof failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"verify_proof failed: {e}")
+            logger.error("verify_proof failed: %s", e)
             raise
 
     def create_receipt(self, proof: str, metadata: dict = None) -> str:
@@ -53,10 +53,10 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("receipt_id", "")
             else:
-                logger.error(f"ZK create_receipt failed: {result.get('error')}")
+                logger.error("ZK create_receipt failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"create_receipt failed: {e}")
+            logger.error("create_receipt failed: %s", e)
             raise
 
     def submit_performance_proof(self, receipt: str, metrics: dict = None) -> str:
@@ -70,8 +70,8 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("submission_id", "")
             else:
-                logger.error(f"ZK submit_performance_proof failed: {result.get('error')}")
+                logger.error("ZK submit_performance_proof failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"submit_performance_proof failed: {e}")
+            logger.error("submit_performance_proof failed: %s", e)
             raise
