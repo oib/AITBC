@@ -40,7 +40,7 @@ class ChaosOrchestrator:
     async def run_scenario(self, script: str, args: list[str]) -> dict | None:
         """Run a single chaos test scenario"""
         scenario_name = Path(script).stem.replace("chaos_test_", "")
-        logger.info(f"Running scenario: {scenario_name}")
+        logger.info("Running scenario: %s", scenario_name)
 
         cmd = ["python3", script] + args
         start_time = time.time()
@@ -56,14 +56,14 @@ class ChaosOrchestrator:
             stdout, stderr = await process.communicate()
 
             if process.returncode != 0:
-                logger.error(f"Scenario {scenario_name} failed with exit code {process.returncode}")
-                logger.error(f"Error: {stderr.decode()}")
+                logger.error("Scenario %s failed with exit code %s", scenario_name, process.returncode)
+                logger.error("Error: %s", stderr.decode())
                 return None
 
             # Find the results file
             result_files = list(Path(".").glob(f"chaos_test_{scenario_name}_*.json"))
             if not result_files:
-                logger.error(f"No results file found for scenario {scenario_name}")
+                logger.error("No results file found for scenario %s", scenario_name)
                 return None
 
             # Load the most recent result file
@@ -75,11 +75,11 @@ class ChaosOrchestrator:
             results["execution_time"] = time.time() - start_time
             results["scenario_name"] = scenario_name
 
-            logger.info(f"Scenario {scenario_name} completed successfully")
+            logger.info("Scenario %s completed successfully", scenario_name)
             return results
 
         except Exception as e:
-            logger.error(f"Failed to run scenario {scenario_name}: {e}")
+            logger.error("Failed to run scenario %s: %s", scenario_name, e)
             return None
 
     def calculate_summary_metrics(self):
@@ -153,7 +153,7 @@ class ChaosOrchestrator:
         if output_file:
             with open(output_file, 'w') as f:
                 json.dump(report, f, indent=2)
-            logger.info(f"Chaos test report saved to: {output_file}")
+            logger.info("Chaos test report saved to: %s", output_file)
 
         # Print summary
         self.print_summary()
@@ -228,7 +228,7 @@ class ChaosOrchestrator:
 
     async def run_continuous_chaos(self, duration_hours: int = 24, interval_minutes: int = 60):
         """Run chaos tests continuously over time"""
-        logger.info(f"Starting continuous chaos testing for {duration_hours} hours")
+        logger.info("Starting continuous chaos testing for %s hours", duration_hours)
 
         end_time = datetime.now() + timedelta(hours=duration_hours)
         interval_seconds = interval_minutes * 60
@@ -237,7 +237,7 @@ class ChaosOrchestrator:
 
         while datetime.now() < end_time:
             cycle_start = datetime.now()
-            logger.info(f"Starting chaos test cycle at {cycle_start}")
+            logger.info("Starting chaos test cycle at %s", cycle_start)
 
             # Run a random scenario
             scenarios = [
@@ -267,7 +267,7 @@ class ChaosOrchestrator:
             elapsed = (datetime.now() - cycle_start).total_seconds()
             if elapsed < interval_seconds:
                 wait_time = interval_seconds - elapsed
-                logger.info(f"Waiting {wait_time:.0f}s for next cycle")
+                logger.info("Waiting %.0fs for next cycle", wait_time)
                 await asyncio.sleep(wait_time)
 
         # Generate continuous testing report
@@ -284,7 +284,7 @@ class ChaosOrchestrator:
         with open(report_file, 'w') as f:
             json.dump(continuous_report, f, indent=2)
 
-        logger.info(f"Continuous chaos testing completed. Report saved to: {report_file}")
+        logger.info("Continuous chaos testing completed. Report saved to: %s", report_file)
 
 
 async def main():
@@ -311,7 +311,7 @@ async def main():
     orchestrator = ChaosOrchestrator(args.namespace)
 
     if args.dry_run:
-        logger.info(f"DRY RUN: Would run scenarios: {', '.join(args.scenarios)}")
+        logger.info("DRY RUN: Would run scenarios: %s", ', '.join(args.scenarios))
         return
 
     if args.continuous:
