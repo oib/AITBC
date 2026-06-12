@@ -113,7 +113,7 @@ class ComputeConsumer(Agent):
             max_price_per_hour=max_price,
         )
         self.pending_jobs.append(job)
-        logger.info(f"Job submitted: {job_type} by {self.identity.id}")
+        logger.info("Job submitted: %s by %s", job_type, self.identity.id)
 
         # Submit to coordinator for matching
         try:
@@ -134,10 +134,10 @@ class ComputeConsumer(Agent):
                     result = response.json()
                     return result.get("job_id", f"job_{self.identity.id}_{len(self.pending_jobs)}")
                 else:
-                    logger.error(f"Failed to submit job to coordinator: {response.status_code}")
+                    logger.error("Failed to submit job to coordinator: %s", response.status_code)
                     return f"job_{self.identity.id}_{len(self.pending_jobs)}"
         except Exception as e:
-            logger.error(f"Error submitting job to coordinator: {e}")
+            logger.error("Error submitting job to coordinator: %s", e)
             return f"job_{self.identity.id}_{len(self.pending_jobs)}"
 
     async def get_job_status(self, job_id: str) -> dict[str, Any]:
@@ -151,14 +151,14 @@ class ComputeConsumer(Agent):
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    return {"job_id": job_id, "status": "error", "error": f"HTTP {response.status_code}"}
+                    return {"job_id": job_id, "status": "error", "error": "HTTP %s" % response.status_code}
         except Exception as e:
-            logger.error(f"Error querying job status: {e}")
+            logger.error("Error querying job status: %s", e)
             return {"job_id": job_id, "status": "error", "error": str(e)}
 
     async def cancel_job(self, job_id: str) -> bool:
         """Cancel a pending job"""
-        logger.info(f"Job cancelled: {job_id}")
+        logger.info("Job cancelled: %s", job_id)
         return True
 
     def get_spending_summary(self) -> dict[str, Any]:
@@ -181,6 +181,6 @@ class ComputeConsumer(Agent):
             await self.cancel_job(job.job_id if hasattr(job, 'job_id') else str(job))
 
         if exc_type is not None:
-            logger.error(f"Consumer {self.identity.id} exiting with exception: {exc_val}")
+            logger.error("Consumer %s exiting with exception: %s", self.identity.id, exc_val)
         else:
-            logger.info(f"Consumer {self.identity.id} exiting normally. Total spent: {self.total_spent} AITBC")
+            logger.info("Consumer %s exiting normally. Total spent: %s AITBC", self.identity.id, self.total_spent)
