@@ -30,7 +30,7 @@ class TestPriorityEnum:
         # Priority values can be compared
         priorities = [Priority.LOW, Priority.NORMAL, Priority.HIGH, Priority.CRITICAL]
         values = [p.value for p in priorities]
-        
+
         # Verify ordering
         assert values == ["low", "normal", "high", "critical"]
 
@@ -113,7 +113,7 @@ class TestPriorityEnum:
     def test_priority_value_with_special_characters(self):
         """Test priority value with special characters"""
         priority_value = "priority@#$"
-        
+
         assert "@" in priority_value
         assert "#" in priority_value
         assert "$" in priority_value
@@ -121,50 +121,50 @@ class TestPriorityEnum:
     def test_priority_value_with_underscore(self):
         """Test priority value with underscore"""
         priority_value = "priority_value"
-        
+
         assert "_" in priority_value
 
     def test_priority_value_with_empty_string(self):
         """Test priority value with empty string (edge case)"""
         priority_value = ""
-        
+
         assert priority_value == ""
 
     def test_priority_value_with_single_character(self):
         """Test priority value with single character"""
         priority_value = "H"
-        
+
         assert len(priority_value) == 1
 
     def test_priority_value_with_hyphen(self):
         """Test priority value with hyphen"""
         priority_value = "high-priority"
-        
+
         assert "-" in priority_value
 
     def test_priority_value_with_dot(self):
         """Test priority value with dot"""
         priority_value = "priority.value"
-        
+
         assert "." in priority_value
 
     def test_priority_value_with_numbers(self):
         """Test priority value with numbers"""
         priority_value = "priority123"
-        
+
         assert "123" in priority_value
 
     def test_priority_value_with_mixed_case(self):
         """Test priority value with mixed case"""
         priority_value = "HighPriority"
-        
+
         assert "High" in priority_value
         assert "Priority" in priority_value
 
     def test_priority_value_with_special_characters(self):
         """Test priority value with various special characters"""
         priority_value = "p@#$%^&*"
-        
+
         assert "@" in priority_value
         assert "#" in priority_value
         assert "$" in priority_value
@@ -176,155 +176,155 @@ class TestPriorityEnum:
     def test_priority_value_with_spaces(self):
         """Test priority value with spaces (edge case)"""
         priority_value = "high priority"
-        
+
         assert " " in priority_value
 
     def test_priority_value_with_underscore(self):
         """Test priority value with underscore"""
         priority_value = "high_priority"
-        
+
         assert "_" in priority_value
 
     def test_priority_value_with_pipe(self):
         """Test priority value with pipe character"""
         priority_value = "high|priority"
-        
+
         assert "|" in priority_value
 
     def test_priority_value_with_colon(self):
         """Test priority value with colon"""
         priority_value = "high:priority"
-        
+
         assert ":" in priority_value
 
     def test_priority_value_with_semicolon(self):
         """Test priority value with semicolon"""
         priority_value = "high;priority"
-        
+
         assert ";" in priority_value
 
     def test_priority_value_with_equals(self):
         """Test priority value with equals sign"""
         priority_value = "high=priority"
-        
+
         assert "=" in priority_value
 
     def test_priority_value_with_plus(self):
         """Test priority value with plus sign"""
         priority_value = "high+priority"
-        
+
         assert "+" in priority_value
 
     def test_priority_value_with_slash(self):
         """Test priority value with slash"""
         priority_value = "high/priority"
-        
+
         assert "/" in priority_value
 
     def test_priority_value_with_backslash(self):
         """Test priority value with backslash"""
         priority_value = "high\\priority"
-        
+
         assert "\\" in priority_value
 
     def test_priority_value_with_bracket(self):
         """Test priority value with bracket"""
         priority_value = "high[priority]"
-        
+
         assert "[" in priority_value
         assert "]" in priority_value
 
     def test_priority_value_with_parenthesis(self):
         """Test priority value with parenthesis"""
         priority_value = "high(priority)"
-        
+
         assert "(" in priority_value
         assert ")" in priority_value
 
     def test_priority_value_with_curly_bracket(self):
         """Test priority value with curly bracket"""
         priority_value = "high{priority}"
-        
+
         assert "{" in priority_value
         assert "}" in priority_value
 
     def test_priority_value_with_angle_bracket(self):
         """Test priority value with angle bracket"""
         priority_value = "high<priority>"
-        
+
         assert "<" in priority_value
         assert ">" in priority_value
 
     def test_priority_value_with_dollar(self):
         """Test priority value with dollar sign"""
         priority_value = "high$priority"
-        
+
         assert "$" in priority_value
 
     def test_priority_value_with_at(self):
         """Test priority value with at sign"""
         priority_value = "high@priority"
-        
+
         assert "@" in priority_value
 
     def test_priority_value_with_percent(self):
         """Test priority value with percent"""
         priority_value = "high%priority"
-        
+
         assert "%" in priority_value
 
     def test_priority_value_with_ampersand(self):
         """Test priority value with ampersand"""
         priority_value = "high&priority"
-        
+
         assert "&" in priority_value
 
     def test_priority_value_with_hash(self):
         """Test priority value with hash"""
         priority_value = "high#priority"
-        
+
         assert "#" in priority_value
 
     def test_priority_value_with_exclamation(self):
         """Test priority value with exclamation"""
         priority_value = "high!priority"
-        
+
         assert "!" in priority_value
 
     def test_priority_value_with_asterisk(self):
         """Test priority value with asterisk"""
         priority_value = "high*priority"
-        
+
         assert "*" in priority_value
 
     def test_priority_value_with_plus(self):
         """Test priority value with plus"""
         priority_value = "high+priority"
-        
+
         assert "+" in priority_value
 
     def test_priority_value_with_equals(self):
         """Test priority value with equals"""
         priority_value = "high=priority"
-        
+
         assert "=" in priority_value
 
     def test_priority_value_with_bracket(self):
         """Test priority value with bracket"""
         priority_value = "high[priority]"
-        
+
         assert "[" in priority_value
 
     def test_priority_value_with_curly_brace(self):
         """Test priority value with curly brace"""
         priority_value = "high{priority}"
-        
+
         assert "{" in priority_value
 
     def test_priority_value_with_pipe(self):
         """Test priority value with pipe"""
         priority_value = "high|priority"
-        
+
         assert "|" in priority_value
 
 

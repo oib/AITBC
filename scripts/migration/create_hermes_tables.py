@@ -23,7 +23,7 @@ def get_db_path():
     data_dir = Path("/var/lib/aitbc/data")
     if not data_dir.exists():
         data_dir = Path.home() / ".aitbc" / "data"
-    
+
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir / "coordinator.db"
 
@@ -40,16 +40,16 @@ def verify_tables(db_path):
         "hermes_resource_allocations",
         "hermes_pricing_adjustments",
     ]
-    
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     existing_tables = {row[0] for row in cursor.fetchall()}
-    
+
     missing_tables = set(expected_tables) - existing_tables
     conn.close()
-    
+
     if missing_tables:
         print(f"✗ Missing tables: {', '.join(missing_tables)}")
         return False
@@ -61,14 +61,14 @@ def verify_tables(db_path):
 def create_tables(reset=False):
     """Create all Hermes database tables using SQLite."""
     print("Creating Hermes database tables...")
-    
+
     db_path = get_db_path()
     print(f"Using SQLite database: {db_path}")
-    
+
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
+
         if reset:
             print("⚠️  WARNING: Dropping existing tables (data will be lost)")
             cursor.execute("DROP TABLE IF EXISTS hermes_pricing_adjustments;")
@@ -80,7 +80,7 @@ def create_tables(reset=False):
             cursor.execute("DROP TABLE IF EXISTS hermes_votes;")
             cursor.execute("DROP TABLE IF EXISTS hermes_decisions;")
             print("✓ Dropped existing tables")
-        
+
         # Create decisions table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_decisions (
@@ -98,7 +98,7 @@ def create_tables(reset=False):
                 concluded_at TEXT
             );
         """)
-        
+
         # Create votes table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_votes (
@@ -111,7 +111,7 @@ def create_tables(reset=False):
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create health checks table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_health_checks (
@@ -125,7 +125,7 @@ def create_tables(reset=False):
                 meta_data TEXT DEFAULT '{}'
             );
         """)
-        
+
         # Create error reports table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_error_reports (
@@ -139,7 +139,7 @@ def create_tables(reset=False):
                 context TEXT DEFAULT '{}'
             );
         """)
-        
+
         # Create recovery results table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_recovery_results (
@@ -151,7 +151,7 @@ def create_tables(reset=False):
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create resources table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_resources (
@@ -168,7 +168,7 @@ def create_tables(reset=False):
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create resource allocations table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_resource_allocations (
@@ -183,7 +183,7 @@ def create_tables(reset=False):
                 expires_at TEXT
             );
         """)
-        
+
         # Create pricing adjustments table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hermes_pricing_adjustments (
@@ -196,7 +196,7 @@ def create_tables(reset=False):
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_decisions_type ON hermes_decisions(decision_type);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_decisions_status ON hermes_decisions(status);")
@@ -212,11 +212,11 @@ def create_tables(reset=False):
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_allocations_resource ON hermes_resource_allocations(resource_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_allocations_agent ON hermes_resource_allocations(agent_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_pricing_resource ON hermes_pricing_adjustments(resource_id);")
-        
+
         conn.commit()
         cursor.close()
         conn.close()
-        
+
         print("✓ All Hermes tables created successfully")
         print("\nCreated tables:")
         print("  - hermes_decisions")
@@ -228,9 +228,9 @@ def create_tables(reset=False):
         print("  - hermes_resource_allocations")
         print("  - hermes_pricing_adjustments")
         print("\nCreated indexes for performance optimization")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Error creating tables: {e}")
         return False
@@ -249,12 +249,12 @@ Examples:
     )
     parser.add_argument("--verify", action="store_true", help="Verify tables exist without creating")
     parser.add_argument("--reset", action="store_true", help="Drop and recreate tables (WARNING: data loss)")
-    
+
     args = parser.parse_args()
-    
+
     db_path = get_db_path()
     print(f"Database path: {db_path}\n")
-    
+
     if args.verify:
         verify_tables(db_path)
     else:

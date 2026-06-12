@@ -3,13 +3,11 @@ High-priority tests for staking service functionality
 """
 
 import os
-
-import pytest
-
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -21,9 +19,8 @@ for mod_name in list(sys.modules.keys()):
     if mod_name == "app" or mod_name.startswith("app."):
         del sys.modules[mod_name]
 
-from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 from app.contexts.staking.services.staking_service import StakingService
-
+from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
 # Skip staking tests in full suite due to SQLite index conflicts with coordinator tests
 # Run separately with: pytest tests/services/test_staking_service.py

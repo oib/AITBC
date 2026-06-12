@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
     spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -213,12 +214,12 @@ class TestWebhookAlertChannel:
             import httpx
         except ImportError:
             pytest.skip("httpx not available")
-        
+
         with patch('httpx.AsyncClient') as mock_client:
             mock_response = AsyncMock()
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-            
+
             channel = alerting.WebhookAlertChannel("https://example.com/webhook")
             alert = alerting.Alert(
                 id="test-1",
@@ -236,10 +237,10 @@ class TestWebhookAlertChannel:
             import httpx
         except ImportError:
             pytest.skip("httpx not available")
-        
+
         with patch('httpx.AsyncClient') as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(side_effect=Exception("Network error"))
-            
+
             channel = alerting.WebhookAlertChannel("https://example.com/webhook")
             alert = alerting.Alert(
                 id="test-1",
@@ -431,7 +432,7 @@ class TestAlertManager:
         manager = alerting.AlertManager()
         channel = alerting.LogAlertChannel()
         manager.add_channel(channel)
-        
+
         alert = alerting.Alert(
             id="test-1",
             severity=alerting.AlertSeverity.INFO,
@@ -440,7 +441,7 @@ class TestAlertManager:
             source="test"
         )
         asyncio.run(manager.send_alert(alert))
-        
+
         assert "test-1" in manager.active_alerts
         assert len(manager.alert_history) == 1
 
@@ -448,7 +449,7 @@ class TestAlertManager:
         manager = alerting.AlertManager()
         channel = alerting.LogAlertChannel()
         manager.add_channel(channel)
-        
+
         # Add more than 1000 alerts
         for i in range(1005):
             alert = alerting.Alert(
@@ -459,7 +460,7 @@ class TestAlertManager:
                 source="test"
             )
             asyncio.run(manager.send_alert(alert))
-        
+
         # History should be limited to 1000
         assert len(manager.alert_history) == 1000
 
@@ -473,7 +474,7 @@ class TestAlertManager:
             source="test"
         )
         manager.active_alerts["test-1"] = alert
-        
+
         result = asyncio.run(manager.acknowledge_alert("test-1", "user1"))
         assert result is True
         assert alert.status == alerting.AlertStatus.ACKNOWLEDGED
@@ -495,7 +496,7 @@ class TestAlertManager:
             source="test"
         )
         manager.active_alerts["test-1"] = alert
-        
+
         result = asyncio.run(manager.resolve_alert("test-1"))
         assert result is True
         assert alert.status == alerting.AlertStatus.RESOLVED
@@ -525,7 +526,7 @@ class TestAlertManager:
         )
         manager.active_alerts["test-1"] = alert1
         manager.active_alerts["test-2"] = alert2
-        
+
         alerts = manager.get_active_alerts()
         assert len(alerts) == 2
         assert alert1 in alerts
@@ -542,7 +543,7 @@ class TestAlertManager:
                 source="test"
             )
             manager.alert_history.append(alert)
-        
+
         history = manager.get_alert_history(limit=5)
         assert len(history) == 5
 
@@ -557,7 +558,7 @@ class TestAlertManager:
                 source="test"
             )
             manager.alert_history.append(alert)
-        
+
         history = manager.get_alert_history()
         assert len(history) == 10
 
@@ -566,7 +567,7 @@ class TestAlertManager:
         asyncio.run(manager.start())
         assert manager._running is True
         assert manager._task is not None
-        
+
         asyncio.run(manager.stop())
         assert manager._running is False
 
@@ -586,7 +587,7 @@ class TestAlertManager:
         manager = alerting.AlertManager()
         channel = alerting.LogAlertChannel()
         manager.add_channel(channel)
-        
+
         rule = alerting.AlertRule(
             name="test-rule",
             condition=lambda: True,
@@ -596,7 +597,7 @@ class TestAlertManager:
             source="test"
         )
         manager.add_rule(rule)
-        
+
         asyncio.run(manager.check_rules())
         # Should have fired and sent alert
         assert len(manager.alert_history) > 0

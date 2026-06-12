@@ -42,15 +42,15 @@ class TestClusterCommands:
         try:
             from aitbc_cli.commands.cluster import status
             from click.testing import CliRunner
-            
+
             runner = CliRunner()
             ctx = Mock()
             ctx.obj = {'output_format': 'json'}
-            
+
             # Call the status command with context
             with runner.make_context('cluster', [], obj=ctx.obj) as ctx:
                 status(ctx)
-            
+
             # Verify output was called
             assert mock_output.called
         except Exception as e:

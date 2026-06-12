@@ -13,13 +13,13 @@ def list_marketplace():
         response = requests.get(f"{RPC_URL}/rpc/marketplace/listings", timeout=10)
         response.raise_for_status()
         data = response.json()
-        
+
         listings = data.get("listings", [])
         total = data.get("total", 0)
-        
+
         print(f"📦 Marketplace Listings ({total} total)")
         print("=" * 60)
-        
+
         for listing in listings:
             print(f"\nID: {listing['listing_id']}")
             print(f"  Seller: {listing['seller_address']}")
@@ -29,7 +29,7 @@ def list_marketplace():
             if listing.get('description'):
                 print(f"  Description: {listing['description'][:80]}...")
             print(f"  Created: {listing['created_at']}")
-        
+
         return 0
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)

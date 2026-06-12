@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import pytest
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -242,7 +241,7 @@ class TestBlueGreenDeployer:
             rollback_on_failure=True
         )
         deployer = bg_deployment.BlueGreenDeployer(config)
-        
+
         # Mock _switch_traffic to fail
         original_switch = deployer._switch_traffic
         def failing_switch():
@@ -254,7 +253,7 @@ class TestBlueGreenDeployer:
                 error="Switch error"
             )
         deployer._switch_traffic = failing_switch
-        
+
         result = deployer.deploy()
         assert result.status == bg_deployment.DeploymentStatus.ROLLED_BACK
 
@@ -361,7 +360,7 @@ class TestBlueGreenDeployer:
             health_check_url="http://localhost:8080/health"
         )
         deployer = bg_deployment.BlueGreenDeployer(config)
-        
+
         result = bg_deployment.DeploymentResult(
             status=bg_deployment.DeploymentStatus.COMPLETED,
             version="v2.0.0",
@@ -369,7 +368,7 @@ class TestBlueGreenDeployer:
             start_time=time.time()
         )
         deployer._deployment_history.append(result)
-        
+
         history = deployer.get_deployment_history()
         assert len(history) == 1
         assert history[0] == result

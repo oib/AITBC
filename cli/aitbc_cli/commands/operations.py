@@ -87,58 +87,58 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
     """Purchase from marketplace listing"""
     try:
         import httpx
-        
+
         if not wallet:
             error("Wallet name required for payment")
             raise click.Abort()
-        
+
         # Get wallet configuration
         config = get_config()
         keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
         if not keystore_path.exists():
             error(f"Wallet '{wallet}' not found")
             raise click.Abort()
-        
+
         # Load wallet
         with open(keystore_path) as f:
             wallet_data = json.load(f)
-        
+
         wallet_address = wallet_data.get("address")
         if not wallet_address:
             error("Invalid wallet data")
             raise click.Abort()
-        
+
         # Get wallet password
         password = os.environ.get("AITBC_WALLET_PASSWORD") or click.prompt("Wallet password", hide_input=True)
-        
+
         # Get listing details from marketplace
         marketplace_url = config.get("marketplace_url", "http://localhost:8101")
         listing_response = httpx.get(f"{marketplace_url}/v1/marketplace/listings/{listing_id}")
-        
+
         if listing_response.status_code != 200:
             error(f"Failed to get listing: {listing_response.text}")
             raise click.Abort()
-        
+
         listing = listing_response.json()
         price = listing.get("price", 0) * quantity
-        
+
         success(f"Purchase {quantity} of listing {listing_id} for {price} AIT")
-        
+
         if not click.confirm("Confirm purchase?"):
             info("Cancelled")
             return
-        
+
         # Unlock wallet via wallet daemon
         wallet_daemon_url = config.get("wallet_daemon_url", "http://localhost:8105")
         unlock_response = httpx.post(
             f"{wallet_daemon_url}/v1/chains/ait-hub/wallets/{wallet}/unlock",
             json={"password": password}
         )
-        
+
         if unlock_response.status_code != 200:
             error("Failed to unlock wallet")
             raise click.Abort()
-        
+
         # Sign transaction
         tx_payload = {
             "from": wallet_address,
@@ -147,32 +147,32 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
             "data": json.dumps({"listing_id": listing_id, "quantity": quantity}),
             "type": "PURCHASE"
         }
-        
+
         sign_response = httpx.post(
             f"{wallet_daemon_url}/v1/chains/ait-hub/wallets/{wallet}/sign",
             json=tx_payload
         )
-        
+
         if sign_response.status_code != 200:
             error(f"Failed to sign transaction: {sign_response.text}")
             raise click.Abort()
-        
+
         signed_tx = sign_response.json()
         tx_hash = signed_tx.get("transaction_hash")
-        
+
         # Submit transaction to blockchain
         blockchain_rpc_url = config.get("blockchain_rpc_url", "http://localhost:8202")
         submit_response = httpx.post(
             f"{blockchain_rpc_url}/rpc/transactions/marketplace",
             json=signed_tx
         )
-        
+
         if submit_response.status_code != 200:
             error(f"Failed to submit transaction: {submit_response.text}")
             raise click.Abort()
-        
+
         success(f"Purchase successful (tx: {tx_hash[:16]}...)")
-        
+
     except Exception as e:
         error(f"Error purchasing: {e}")
         raise click.Abort()

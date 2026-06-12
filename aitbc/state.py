@@ -2,7 +2,6 @@
 State management utilities for AITBC
 Provides state machine base classes, state persistence, and state transition helpers
 """
-
 import asyncio
 import json
 import os
@@ -11,24 +10,17 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, TypeVar
-
 from .aitbc_logging import get_logger
-
 logger = get_logger(__name__)
-
-
 T = TypeVar('T')
-
 
 class StateTransitionError(Exception):
     """Raised when invalid state transition is attempted"""
     pass
 
-
 class StatePersistenceError(Exception):
     """Raised when state persistence fails"""
     pass
-
 
 @dataclass
 class StateTransition:
@@ -37,7 +29,6 @@ class StateTransition:
     to_state: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     data: dict[str, Any] = field(default_factory=dict)
-
 
 class StateMachine(ABC):
     """Base class for state machines"""
@@ -57,41 +48,30 @@ class StateMachine(ABC):
         """Check if transition is valid"""
         return to_state in self.get_valid_transitions(self.current_state)
 
-    def transition(self, to_state: str, data: dict[str, Any] | None = None) -> None:
+    def transition(self, to_state: str, data: dict[str, Any] | None=None) -> None:
         """Transition to a new state"""
         if not self.can_transition(to_state):
-            raise StateTransitionError(
-                f"Invalid transition from {self.current_state} to {to_state}"
-            )
-
+            raise StateTransitionError(f'Invalid transition from {self.current_state} to {to_state}')
         from_state = self.current_state
         self.current_state = to_state
-
-        # Record transition
-        transition = StateTransition(
-            from_state=from_state,
-            to_state=to_state,
-            data=data or {}
-        )
+        transition = StateTransition(from_state=from_state, to_state=to_state, data=data or {})
         self.transitions.append(transition)
-
-        # Initialize state data if needed
         if to_state not in self.state_data:
             self.state_data[to_state] = {}
 
-    def get_state_data(self, state: str | None = None) -> dict[str, Any]:
+    def get_state_data(self, state: str | None=None) -> dict[str, Any]:
         """Get data for a state"""
         state = state or self.current_state
         return self.state_data.get(state, {}).copy()
 
-    def set_state_data(self, data: dict[str, Any], state: str | None = None) -> None:
+    def set_state_data(self, data: dict[str, Any], state: str | None=None) -> None:
         """Set data for a state"""
         state = state or self.current_state
         if state not in self.state_data:
             self.state_data[state] = {}
         self.state_data[state].update(data)
 
-    def get_transition_history(self, limit: int | None = None) -> list[StateTransition]:
+    def get_transition_history(self, limit: int | None=None) -> list[StateTransition]:
         """Get transition history"""
         if limit:
             return self.transitions[-limit:]
@@ -102,7 +82,6 @@ class StateMachine(ABC):
         self.current_state = initial_state
         self.transitions.clear()
         self.state_data = {initial_state: {}}
-
 
 class ConfigurableStateMachine(StateMachine):
     """State machine with configurable transitions"""
@@ -123,7 +102,6 @@ class ConfigurableStateMachine(StateMachine):
         if to_state not in self.transitions_config[from_state]:
             self.transitions_config[from_state].append(to_state)
 
-
 class StatePersistence:
     """State persistence to file"""
 
@@ -139,35 +117,21 @@ class StatePersistence:
     def save_state(self, state_machine: StateMachine) -> None:
         """Save state machine to file"""
         try:
-            state_data = {
-                "current_state": state_machine.current_state,
-                "state_data": state_machine.state_data,
-                "transitions": [
-                    {
-                        "from_state": t.from_state,
-                        "to_state": t.to_state,
-                        "timestamp": t.timestamp.isoformat(),
-                        "data": t.data
-                    }
-                    for t in state_machine.transitions
-                ]
-            }
-
+            state_data = {'current_state': state_machine.current_state, 'state_data': state_machine.state_data, 'transitions': [{'from_state': t.from_state, 'to_state': t.to_state, 'timestamp': t.timestamp.isoformat(), 'data': t.data} for t in state_machine.transitions]}
             with open(self.storage_path, 'w') as f:
                 json.dump(state_data, f, indent=2)
         except Exception as e:
-            raise StatePersistenceError(f"Failed to save state: {e}") from e
+            raise StatePersistenceError(f'Failed to save state: {e}') from e
 
     def load_state(self) -> dict[str, Any] | None:
         """Load state from file"""
         try:
             if not os.path.exists(self.storage_path):
                 return None
-
             with open(self.storage_path) as f:
                 return json.load(f)
         except Exception as e:
-            raise StatePersistenceError(f"Failed to load state: {e}") from e
+            raise StatePersistenceError(f'Failed to load state: {e}') from e
 
     def delete_state(self) -> None:
         """Delete persisted state"""
@@ -175,8 +139,7 @@ class StatePersistence:
             if os.path.exists(self.storage_path):
                 os.remove(self.storage_path)
         except Exception as e:
-            raise StatePersistenceError(f"Failed to delete state: {e}") from e
-
+            raise StatePersistenceError(f'Failed to delete state: {e}') from e
 
 class AsyncStateMachine(StateMachine):
     """Async state machine with async transition handlers"""
@@ -190,36 +153,22 @@ class AsyncStateMachine(StateMachine):
         """Register a handler for transition to a state"""
         self.transition_handlers[to_state] = handler
 
-    async def transition_async(self, to_state: str, data: dict[str, Any] | None = None) -> None:
+    async def transition_async(self, to_state: str, data: dict[str, Any] | None=None) -> None:
         """Async transition to a new state"""
         if not self.can_transition(to_state):
-            raise StateTransitionError(
-                f"Invalid transition from {self.current_state} to {to_state}"
-            )
-
+            raise StateTransitionError(f'Invalid transition from {self.current_state} to {to_state}')
         from_state = self.current_state
         self.current_state = to_state
-
-        # Record transition
-        transition = StateTransition(
-            from_state=from_state,
-            to_state=to_state,
-            data=data or {}
-        )
+        transition = StateTransition(from_state=from_state, to_state=to_state, data=data or {})
         self.transitions.append(transition)
-
-        # Initialize state data if needed
         if to_state not in self.state_data:
             self.state_data[to_state] = {}
-
-        # Call transition handler if exists
         if to_state in self.transition_handlers:
             handler = self.transition_handlers[to_state]
             if asyncio.iscoroutinefunction(handler):
                 await handler(transition)
             else:
                 handler(transition)
-
 
 class StateMonitor:
     """Monitor state machine state and transitions"""
@@ -247,18 +196,17 @@ class StateMonitor:
             try:
                 observer(transition)
             except Exception as e:
-                logger.error(f"Error in state observer: {e}")
+                logger.error('Error in state observer: %s', e)
 
     def wrap_transition(self, original_transition: Callable) -> Callable:
         """Wrap transition method to notify observers"""
+
         def wrapper(*args, **kwargs):
             result = original_transition(*args, **kwargs)
-            # Get last transition
             if self.state_machine.transitions:
                 self.notify_observers(self.state_machine.transitions[-1])
             return result
         return wrapper
-
 
 class StateValidator:
     """Validate state machine configurations"""
@@ -267,12 +215,10 @@ class StateValidator:
     def validate_transitions(transitions: dict[str, list[str]]) -> bool:
         """Validate that all target states exist as source states"""
         valid_states = set(transitions.keys())
-
         for _from_state, to_states in transitions.items():
             for to_state in to_states:
                 if to_state not in valid_states:
                     return False
-
         return True
 
     @staticmethod
@@ -290,14 +236,11 @@ class StateValidator:
         incoming = set()
         for to_states in transitions.values():
             incoming.update(to_states)
-
         orphans = []
         for state in transitions.keys():
             if state not in incoming:
                 orphans.append(state)
-
         return orphans
-
 
 class StateSnapshot:
     """Snapshot of state machine state"""
@@ -317,35 +260,14 @@ class StateSnapshot:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert snapshot to dict"""
-        return {
-            "current_state": self.current_state,
-            "state_data": self.state_data,
-            "transitions": [
-                {
-                    "from_state": t.from_state,
-                    "to_state": t.to_state,
-                    "timestamp": t.timestamp.isoformat(),
-                    "data": t.data
-                }
-                for t in self.transitions
-            ],
-            "timestamp": self.timestamp.isoformat()
-        }
+        return {'current_state': self.current_state, 'state_data': self.state_data, 'transitions': [{'from_state': t.from_state, 'to_state': t.to_state, 'timestamp': t.timestamp.isoformat(), 'data': t.data} for t in self.transitions], 'timestamp': self.timestamp.isoformat()}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> 'StateSnapshot':
         """Create snapshot from dict"""
         snapshot = cls.__new__(cls)
-        snapshot.current_state = data["current_state"]
-        snapshot.state_data = data["state_data"]
-        snapshot.transitions = [
-            StateTransition(
-                from_state=t["from_state"],
-                to_state=t["to_state"],
-                timestamp=datetime.fromisoformat(t["timestamp"]),
-                data=t["data"]
-            )
-            for t in data["transitions"]
-        ]
-        snapshot.timestamp = datetime.fromisoformat(data["timestamp"])
+        snapshot.current_state = data['current_state']
+        snapshot.state_data = data['state_data']
+        snapshot.transitions = [StateTransition(from_state=t['from_state'], to_state=t['to_state'], timestamp=datetime.fromisoformat(t['timestamp']), data=t['data']) for t in data['transitions']]
+        snapshot.timestamp = datetime.fromisoformat(data['timestamp'])
         return snapshot

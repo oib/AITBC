@@ -940,7 +940,7 @@ try:
         """Create workflow"""
         try:
             import requests
-            with open(steps_file, 'r') as f:
+            with open(steps_file) as f:
                 steps = json.load(f)
 
             data = {
@@ -980,7 +980,7 @@ try:
             import requests
             input_params = {}
             if input_file:
-                with open(input_file, 'r') as f:
+                with open(input_file) as f:
                     input_params = json.load(f)
 
             data = {"input_parameters": input_params}

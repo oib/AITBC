@@ -42,10 +42,10 @@ class TestWorkflowCommands:
         try:
             from aitbc_cli.commands.workflow import run
             from click.testing import CliRunner
-            
+
             runner = CliRunner()
             result = runner.invoke(run, ['test-workflow', '--dry-run'])
-            
+
             assert result.exit_code == 0
             assert mock_success.called
         except Exception as e:
@@ -58,10 +58,10 @@ class TestWorkflowCommands:
         try:
             from aitbc_cli.commands.workflow import run
             from click.testing import CliRunner
-            
+
             runner = CliRunner()
             result = runner.invoke(run, ['test-workflow'])
-            
+
             assert result.exit_code == 0
             assert mock_success.called
         except Exception as e:

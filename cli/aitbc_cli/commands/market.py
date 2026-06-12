@@ -76,7 +76,7 @@ def get_island_id() -> str:
 def get_wallet_address() -> str:
     """Get address from wallet service - use my-agent-wallet which exists on blockchain"""
     config = get_config()
-    
+
     # Try wallet service API first
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5)
@@ -97,7 +97,7 @@ def get_wallet_address() -> str:
                 return address
     except Exception as e:
         logger.warning(f"Failed to get wallet from service: {e}")
-    
+
     # Fallback to local wallet file
     wallet_path = '/root/.aitbc/wallets/genesis.json'
     if os.path.exists(wallet_path):
@@ -107,7 +107,7 @@ def get_wallet_address() -> str:
                 return wallet.get('address')
         except Exception as e:
             logger.warning(f"Failed to load local wallet: {e}")
-    
+
     # No wallet available
     error("No wallet address available. Ensure wallet service is running or wallet file exists.")
     raise click.Abort()
@@ -166,7 +166,7 @@ def list(ctx, provider: str | None, status: str | None):
                     and tx['payload'].get('action') in ('offer', 'bid', 'cancel', 'accept', 'software_offer')
                 ]
                 logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions from hub")
-            
+
             # Also check hub mempool for pending transactions
             if not transactions:
                 mempool = http_client.get("/rpc/mempool")
@@ -206,9 +206,9 @@ def list(ctx, provider: str | None, status: str | None):
                     payload = tx
                 else:
                     continue
-            
+
             action = payload.get('action')
-            
+
             # Only show hardware+software bundle offers
             if action != 'software_offer':
                 continue
@@ -221,7 +221,7 @@ def list(ctx, provider: str | None, status: str | None):
             deployment_type = payload.get('deployment_type', 'local')
             gpu_device = payload.get('gpu_device', '0')
             gpu_name_display = f"{gpu_name} [GPU {gpu_device}]" if deployment_type == 'local' else "N/A (cloud)"
-            
+
             # Get rating info from marketplace service if available
             rating_display = "N/A"
             try:
@@ -237,7 +237,7 @@ def list(ctx, provider: str | None, status: str | None):
                             rating_display = f"⭐ {avg_rating:.1f} ({rating_count})"
             except:
                 pass  # Marketplace service not available, skip ratings
-            
+
             market_data.append({
                 "Offer ID": payload.get('offer_id', ''),
                 "Type": payload.get('service_type', '').upper(),
@@ -520,13 +520,13 @@ def match(ctx):
         try:
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
             result = http_client.get("/rpc/transactions/marketplace/match")
-            
+
             if not result:
                 # Try hub
                 hub_url = config.blockchain_rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.get("/rpc/transactions/marketplace/match")
-            
+
             output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
         except NetworkError as e:
             error(f"Network error: {e}")
@@ -605,7 +605,7 @@ def offer(ctx, service_type: str, model_or_variant: str, price: float,
                             device_part = parts[0].strip()  # "GPU 0"
                             gpu_name = parts[1].split('(')[0].strip()  # "NVIDIA GeForce RTX 4060 Ti "
                             uuid_part = parts[1].split('UUID:')[1].rstrip(')') if 'UUID:' in parts[1] else None
-                            
+
                             # Use specified device or default to first GPU
                             if gpu_device is None:
                                 gpu_device = device_part.split()[1]  # Extract "0" from "GPU 0"
@@ -659,7 +659,7 @@ def offer(ctx, service_type: str, model_or_variant: str, price: float,
                 if health.get('status') != 'ok':
                     error("PeerTube transcoder service is not ready at localhost:8220")
                     raise click.Abort()
-                info(f"Verified PeerTube transcoder service")
+                info("Verified PeerTube transcoder service")
             except NetworkError as e:
                 error(f"PeerTube transcoder service not reachable at localhost:8220: {e}")
                 error("Start it with: systemctl start aitbc-peertube-transcoder")
@@ -671,7 +671,7 @@ def offer(ctx, service_type: str, model_or_variant: str, price: float,
                 if health.get('status') != 'ok':
                     error("FFmpeg service is not ready at localhost:8230")
                     raise click.Abort()
-                info(f"Verified FFmpeg service")
+                info("Verified FFmpeg service")
             except NetworkError as e:
                 error(f"FFmpeg service not reachable at localhost:8230: {e}")
                 error("Start it with: systemctl start aitbc-ffmpeg")
@@ -730,7 +730,7 @@ def offer(ctx, service_type: str, model_or_variant: str, price: float,
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
-        success(f"Software offer listed on marketplace!")
+        success("Software offer listed on marketplace!")
         output(result, ctx.obj.get("output_format", "table"))
 
         # Auto-register in marketplace service so agents can discover it
@@ -857,7 +857,7 @@ def run_job(ctx, offer_id: str, prompt: str, max_tokens: int, stream: bool):
             if release_result and release_result.get('tx_hash'):
                 success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
             else:
-                warning(f"Escrow release submitted but no tx_hash returned")
+                warning("Escrow release submitted but no tx_hash returned")
         else:
             warning("No escrow contract — payment not released")
 
@@ -1320,16 +1320,16 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
     """Rate a marketplace service offer (1-5 scale)"""
     try:
         config = get_config()
-        
+
         # Validate rating scale
         if not (1.0 <= rating <= 5.0):
             error("Rating must be between 1.0 and 5.0")
             raise click.Abort()
-        
+
         # Default reviewer_id to wallet address
         if not reviewer_id:
             reviewer_id = get_wallet_address()
-        
+
         # Call marketplace service API
         client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
         response = client.post(f"/v1/marketplace/offer/{service_id}/rate", json={
@@ -1337,10 +1337,10 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
             'reviewer_id': reviewer_id,
             'comment': comment or ''
         })
-        
+
         if response.get('status') == 'success':
             rating_data = response.get('rating', {})
-            success(f"Service rated successfully!")
+            success("Service rated successfully!")
             output({
                 'service_id': rating_data.get('service_id'),
                 'rating': rating_data.get('rating'),
@@ -1352,7 +1352,7 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
             error(f"Failed to rate service: {response.get('message', 'Unknown error')}")
             output(response)
             raise click.Abort()
-            
+
     except NetworkError as e:
         error(f"Marketplace service not reachable: {e}")
         error("Ensure marketplace-service is running at http://localhost:8102")
@@ -1458,15 +1458,15 @@ def exchange_price(ctx):
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
-        
+
         response = client.get("/v1/exchange/price")
-        
-        info(f"ETH-AIT Exchange Rate:")
+
+        info("ETH-AIT Exchange Rate:")
         info(f"  ETH Price: ${response['eth_usd']:.2f} USD")
         info(f"  AIT Price: ${response['ait_usd']:.2f} USD")
         info(f"  Exchange Rate: 1 ETH = {response['exchange_rate']:.2f} AIT")
         info(f"  Timestamp: {response['timestamp']}")
-        
+
     except NetworkError as e:
         error(f"Network error: {e}")
         raise click.Abort()
@@ -1484,14 +1484,14 @@ def list_deposits(ctx, status: str, limit: int):
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
-        
+
         response = client.get("/v1/exchange/deposits", params={'status': status, 'limit': limit})
         deposits = response.get('deposits', [])
-        
+
         if not deposits:
             info(f"No deposits found with status '{status}'")
             return
-        
+
         info(f"ETH Deposits (status: {status}):")
         for deposit in deposits:
             info(f"  ID: {deposit['id']}")
@@ -1501,7 +1501,7 @@ def list_deposits(ctx, status: str, limit: int):
             info(f"    Status: {deposit['status']}")
             info(f"    Created: {deposit['created_at']}")
             info("")
-        
+
     except NetworkError as e:
         error(f"Network error: {e}")
         raise click.Abort()
@@ -1518,39 +1518,39 @@ def mint_ait(ctx, deposit_id: str):
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
-        
+
         # Get deposit details
         deposit_response = client.get(f"/v1/exchange/deposits/{deposit_id}")
         deposit = deposit_response
-        
+
         if deposit['status'] != 'pending':
             error(f"Deposit is not pending (current status: {deposit['status']})")
             raise click.Abort()
-        
+
         info(f"Deposit: {deposit['amount_eth']:.6f} ETH → {deposit['amount_ait']:.2f} AIT")
         info(f"From: {deposit['from_address']}")
-        
+
         if not click.confirm("Verify this deposit and mint AIT tokens?"):
             info("Cancelled")
             return
-        
+
         # Verify deposit
         verify_response = client.post(f"/v1/exchange/deposits/{deposit_id}/verify")
-        
+
         if not verify_response.get('success'):
             error(f"Failed to verify deposit: {verify_response}")
             raise click.Abort()
-        
+
         success(f"Deposit verified: {deposit_id}")
-        
+
         # Transfer AIT tokens from genesis wallet (fixed supply, no minting)
         wallet_address = config.wallet_address
         chain_id = config.chain_id
         genesis_wallet_address = config.get('genesis_wallet_address', 'ait1db5247d03ca2e40f3995a583b2c097ab703efd4d')
-        
+
         try:
             import httpx
-            
+
             # Resolve sender address to get nonce
             sender_response = httpx.get(
                 f"{config.get('blockchain_rpc_url', 'http://localhost:8202')}/rpc/accounts/{genesis_wallet_address}"
@@ -1558,10 +1558,10 @@ def mint_ait(ctx, deposit_id: str):
             if sender_response.status_code != 200:
                 error(f"Failed to get genesis wallet account: {sender_response.text}")
                 raise click.Abort()
-            
+
             sender_data = sender_response.json()
             nonce = sender_data.get("nonce", 0)
-            
+
             # Build transaction payload for AIT transfer
             tx_payload = {
                 "from": genesis_wallet_address,
@@ -1573,42 +1573,42 @@ def mint_ait(ctx, deposit_id: str):
                 "type": "TRANSFER",
                 "chain_id": chain_id
             }
-            
+
             # Submit transaction to blockchain
             blockchain_response = httpx.post(
                 f"{config.get('blockchain_rpc_url', 'http://localhost:8202')}/rpc/transactions/marketplace",
                 json=tx_payload
             )
-            
+
             if blockchain_response.status_code != 200:
                 error(f"Failed to submit transfer transaction: {blockchain_response.text}")
                 raise click.Abort()
-            
+
             tx_result = blockchain_response.json()
             tx_hash = tx_result.get("transaction_hash")
-            
+
             if not tx_hash:
                 error(f"Transaction submitted but no hash returned: {tx_result}")
                 raise click.Abort()
-            
+
             # Mark deposit as completed
             complete_response = client.post(f"/v1/exchange/deposits/{deposit_id}/complete", json={
                 "tx_hash": tx_hash
             })
-            
+
             if complete_response.get('success'):
                 success(f"Transferred {deposit['amount_ait']:.2f} AIT to {wallet_address} (tx: {tx_hash[:16]}...)")
             else:
                 error(f"Failed to complete deposit: {complete_response}")
                 raise click.Abort()
-                
+
         except httpx.RequestError as e:
             error(f"Network error contacting blockchain: {e}")
             raise click.Abort()
         except Exception as e:
             error(f"Error transferring AIT: {e}")
             raise click.Abort()
-        
+
     except NetworkError as e:
         error(f"Network error: {e}")
         raise click.Abort()
@@ -1625,51 +1625,51 @@ def withdraw_eth(ctx, amount: float, address: str):
     """Withdraw ETH from bridge wallet (admin only)"""
     try:
         config = get_config()
-        
+
         if amount <= 0:
             error("Amount must be positive")
             raise click.Abort()
-        
+
         info(f"Withdrawing {amount} ETH to {address}")
-        
+
         if not click.confirm("Confirm withdrawal?"):
             info("Cancelled")
             return
-        
+
         # Implement ETH withdrawal via web3.py
         try:
             import os
 
             import httpx
             from web3 import Web3
-            
+
             # Get bridge configuration
             bridge_address = config.get('bridge_contract_address', '0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA')
             eth_rpc_url = config.get('eth_rpc_url', os.environ.get('ETH_RPC_URL'))
             bridge_private_key = config.get('bridge_private_key', os.environ.get('BRIDGE_PRIVATE_KEY'))
-            
+
             if not eth_rpc_url:
                 error("ETH_RPC_URL not configured")
                 raise click.Abort()
-            
+
             if not bridge_private_key:
                 error("Bridge private key not configured")
                 raise click.Abort()
-            
+
             # Initialize web3
             w3 = Web3(Web3.HTTPProvider(eth_rpc_url))
-            
+
             if not w3.is_connected():
                 error("Failed to connect to Ethereum RPC")
                 raise click.Abort()
-            
+
             # Convert ETH amount to wei
             amount_wei = w3.to_wei(amount, 'ether')
-            
+
             # Get current nonce
             bridge_account = w3.eth.account.from_key(bridge_private_key)
             nonce = w3.eth.get_transaction_count(bridge_account.address)
-            
+
             # Build transaction
             tx = {
                 'nonce': nonce,
@@ -1679,20 +1679,20 @@ def withdraw_eth(ctx, amount: float, address: str):
                 'gasPrice': w3.eth.gas_price,
                 'chainId': 11155111  # Sepolia testnet
             }
-            
+
             # Sign transaction
             signed_tx = w3.eth.account.sign_transaction(tx, bridge_private_key)
-            
+
             # Send transaction
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            
+
             # Wait for confirmation
             receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
-            
+
             if receipt.status == 1:
                 success(f"Withdrew {amount} ETH to {address}")
                 info(f"Transaction hash: {tx_hash.hex()}")
-                
+
                 # Record withdrawal in exchange service
                 try:
                     record_response = httpx.post(
@@ -1711,14 +1711,14 @@ def withdraw_eth(ctx, amount: float, address: str):
             else:
                 error("Transaction failed")
                 raise click.Abort()
-                
+
         except ImportError:
             error("web3.py not installed. Install with: pip install web3")
             raise click.Abort()
         except Exception as e:
             error(f"Error withdrawing ETH: {e}")
             raise click.Abort()
-        
+
     except Exception as e:
         error(f"Error withdrawing ETH: {e}")
         raise click.Abort()
@@ -1731,15 +1731,15 @@ def exchange_status(ctx):
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
-        
+
         response = client.get("/v1/exchange/status")
-        
-        info(f"Bridge Service Status:")
+
+        info("Bridge Service Status:")
         info(f"  Enabled: {response['enabled']}")
         info(f"  Wallet Address: {response['wallet_address']}")
         info(f"  RPC URL: {response['rpc_url']}")
         info(f"  Poll Interval: {response['poll_interval']}s")
-        
+
     except NetworkError as e:
         error(f"Network error: {e}")
         raise click.Abort()

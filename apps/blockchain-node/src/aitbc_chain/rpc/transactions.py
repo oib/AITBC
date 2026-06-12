@@ -152,7 +152,7 @@ async def submit_marketplace_transaction(
 
         # Normalize transaction data
         tx_data_dict = normalize_transaction_data(tx_data, chain_id)
-        
+
         # For GPU registration, use GPU_REGISTER transaction type
         if tx_data_dict.get("type") == "GPU_REGISTER":
             tx_data_dict["type"] = "GPU_REGISTER"

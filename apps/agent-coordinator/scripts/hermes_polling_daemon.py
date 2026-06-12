@@ -47,23 +47,23 @@ class HermesWebSocketDaemon:
                 "content": content
             }
         }
-        
+
         # This would be sent through the active WebSocket connection
         # For now, we'll implement it as a separate function
-        self.logger.info(f"Message prepared for {recipient}: {content}")
+        self.logger.info("Message prepared for %s: %s", recipient, content)
         return True
 
     async def connect_and_listen(self):
         """Connect to WebSocket and listen for messages"""
         uri = f"{self.ws_url}/api/v1/agent/messages/stream?agent_id={self.agent_id}"
-        
-        self.logger.info(f"Connecting to WebSocket: {uri}")
-        
+
+        self.logger.info("Connecting to WebSocket: %s", uri)
+
         while self.running:
             try:
                 async with websockets.connect(uri) as websocket:
-                    self.logger.info(f"WebSocket connected for agent: {self.agent_id}")
-                    
+                    self.logger.info("WebSocket connected for agent: %s", self.agent_id)
+
                     # Listen for messages
                     while self.running:
                         try:
@@ -74,11 +74,11 @@ class HermesWebSocketDaemon:
                             self.logger.warning("WebSocket connection closed, reconnecting...")
                             break
                         except Exception as e:
-                            self.logger.error(f"Error receiving message: {e}")
+                            self.logger.error("Error receiving message: %s", e)
                             break
-                            
+
             except Exception as e:
-                self.logger.error(f"WebSocket connection error: {e}")
+                self.logger.error("WebSocket connection error: %s", e)
                 if self.running:
                     self.logger.info("Reconnecting in 5 seconds...")
                     await asyncio.sleep(5)
@@ -86,29 +86,29 @@ class HermesWebSocketDaemon:
     async def handle_message(self, data: dict):
         """Handle incoming WebSocket message"""
         message_type = data.get("type", "unknown")
-        
+
         if message_type == "connection_established":
-            self.logger.info(f"WebSocket connection established: {data.get('message')}")
-            
+            self.logger.info("WebSocket connection established: %s", data.get('message'))
+
         elif message_type == "PONG":
-            self.logger.info(f"Received PONG: {data.get('content')}")
-            
+            self.logger.info("Received PONG: %s", data.get('content'))
+
         elif message_type == "handler_acknowledgment":
-            self.logger.info(f"Handler triggered: {data.get('handler_results')}")
-            
+            self.logger.info("Handler triggered: %s", data.get('handler_results'))
+
         elif message_type == "message":
             sender = data.get("sender_id", "unknown")
             content = data.get("content", "")
-            self.logger.info(f"Received message from {sender}: {content}")
-            
+            self.logger.info("Received message from %s: %s", sender, content)
+
         else:
-            self.logger.info(f"Received message type: {message_type}")
+            self.logger.info("Received message type: %s", message_type)
 
     def run(self):
         """Main WebSocket loop"""
-        self.logger.info(f"Hermes WebSocket daemon started for agent: {self.agent_id}")
-        self.logger.info(f"WebSocket URL: {self.ws_url}/api/v1/agent/messages/stream")
-        
+        self.logger.info("Hermes WebSocket daemon started for agent: %s", self.agent_id)
+        self.logger.info("WebSocket URL: %s/api/v1/agent/messages/stream", self.ws_url)
+
         try:
             asyncio.run(self.connect_and_listen())
         except KeyboardInterrupt:

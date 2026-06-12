@@ -148,7 +148,7 @@ class TestTracedDecorator:
         @traced(name="test_function")
         def test_func(x, y):
             return x + y
-        
+
         result = test_func(1, 2)
         assert result == 3
 
@@ -157,7 +157,7 @@ class TestTracedDecorator:
         @traced(name="test_function")
         def test_func():
             raise ValueError("test error")
-        
+
         with pytest.raises(ValueError):
             test_func()
 
@@ -166,7 +166,7 @@ class TestTracedDecorator:
         @traced()
         def test_func():
             return 42
-        
+
         result = test_func()
         assert result == 42
 
@@ -175,7 +175,7 @@ class TestTracedDecorator:
         @traced(attributes={"custom": "value"})
         def test_func():
             return 42
-        
+
         result = test_func()
         assert result == 42
 
@@ -221,7 +221,7 @@ class TestTracingFunctions:
         initialize_tracing(service_name="test-service", enabled=False)
         # Should not raise
         shutdown_tracing()
-        
+
         # Manager should be None after shutdown
         manager = get_tracing_manager()
         assert manager is None

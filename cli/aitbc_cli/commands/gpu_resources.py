@@ -31,8 +31,8 @@ def gpu():
 @click.option('--wallet', required=True, help='Wallet name for signing')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 @click.pass_context
-def register_onchain(ctx, gpu_id: str, miner_id: str, model: str, memory_gb: int, 
-                     cuda_version: str, region: str, capabilities: tuple, 
+def register_onchain(ctx, gpu_id: str, miner_id: str, model: str, memory_gb: int,
+                     cuda_version: str, region: str, capabilities: tuple,
                      price_per_hour: float, wallet: str, format: str):
     """Register GPU with immutable specs on blockchain"""
     config = get_config()
@@ -53,14 +53,14 @@ def register_onchain(ctx, gpu_id: str, miner_id: str, model: str, memory_gb: int
         # Load wallet to get address
         wallet_dir = Path.home() / ".aitbc" / "wallets"
         wallet_path = wallet_dir / f"{wallet}.json"
-        
+
         if not wallet_path.exists():
             error(f"Wallet '{wallet}' not found at {wallet_path}")
             return
 
         with open(wallet_path) as f:
             wallet_data = json.load(f)
-        
+
         registered_by = wallet_data['address']
         hex_address = bech32_to_hex(registered_by)
 
@@ -127,7 +127,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
 @click.option('--wallet', required=True, help='Wallet name for signing')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 @click.pass_context
-def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, 
+def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float,
                  total_cost: float, wallet: str, format: str):
     """Record GPU allocation on blockchain"""
     config = get_config()
@@ -148,14 +148,14 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float,
         # Load wallet to get address
         wallet_dir = Path.home() / ".aitbc" / "wallets"
         wallet_path = wallet_dir / f"{wallet}.json"
-        
+
         if not wallet_path.exists():
             error(f"Wallet '{wallet}' not found at {wallet_path}")
             return
 
         with open(wallet_path) as f:
             wallet_data = json.load(f)
-        
+
         allocated_by = wallet_data['address']
         hex_allocated_by = bech32_to_hex(allocated_by)
         hex_client_id = bech32_to_hex(client_id)
@@ -234,11 +234,11 @@ def list_gpus(ctx, status: str | None, format: str):
 
         # Query GPU list from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        
+
         params = {"chain_id": chain_id}
         if status:
             params["status"] = status
-            
+
         result = http_client.get("/rpc/gpus", params=params)
 
         output(result, ctx.obj.get("output_format", format))

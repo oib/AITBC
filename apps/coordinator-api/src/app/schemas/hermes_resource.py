@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -42,7 +41,7 @@ class Resource(BaseModel):
     capacity: float
     allocated: float = Field(default=0.0, ge=0.0)
     utilization: float = Field(default=0.0, ge=0.0, le=1.0)
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
 
 class ResourceAllocationRequest(BaseModel):
@@ -52,8 +51,8 @@ class ResourceAllocationRequest(BaseModel):
     required_capacity: float = Field(gt=0.0)
     strategy: AllocationStrategy = AllocationStrategy.DEMAND_BASED
     priority: int = Field(default=5, ge=1, le=10)
-    duration_hours: Optional[float] = None
-    metadata: Optional[dict] = None
+    duration_hours: float | None = None
+    metadata: dict | None = None
 
 
 class ResourceAllocationResponse(BaseModel):
@@ -63,7 +62,7 @@ class ResourceAllocationResponse(BaseModel):
     allocated_capacity: float
     status: str
     message: str
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
 
 class ResourceReleaseRequest(BaseModel):
@@ -98,4 +97,4 @@ class ResourcePool(BaseModel):
     available_capacity: float
     allocated_capacity: float
     average_utilization: float
-    pricing: Optional[float] = None
+    pricing: float | None = None

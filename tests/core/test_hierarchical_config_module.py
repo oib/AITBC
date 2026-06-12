@@ -58,7 +58,7 @@ class TestHierarchicalConfig:
             with open(config_file, 'w') as f:
                 import yaml
                 yaml.dump(config_data, f)
-            
+
             loader = hierarchical_config.HierarchicalConfig()
             result = loader._load_file_config(config_file)
             assert result == config_data
@@ -69,7 +69,7 @@ class TestHierarchicalConfig:
             config_data = {"app_name": "Test App", "port": 9000}
             with open(config_file, 'w') as f:
                 json.dump(config_data, f)
-            
+
             loader = hierarchical_config.HierarchicalConfig()
             result = loader._load_file_config(config_file)
             assert result == config_data
@@ -78,7 +78,7 @@ class TestHierarchicalConfig:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.txt"
             config_file.write_text("test")
-            
+
             loader = hierarchical_config.HierarchicalConfig()
             with pytest.raises(ValueError, match="Unsupported configuration file format"):
                 loader._load_file_config(config_file)
@@ -87,7 +87,7 @@ class TestHierarchicalConfig:
         with TemporaryDirectory() as tmpdir:
             env_file = Path(tmpdir) / ".env"
             env_file.write_text("APP_NAME=Test App\nPORT=9000\nDEBUG=true\n")
-            
+
             loader = hierarchical_config.HierarchicalConfig()
             result = loader._load_env_file(env_file)
             assert result["APP_NAME"] == "Test App"
@@ -98,7 +98,7 @@ class TestHierarchicalConfig:
         with TemporaryDirectory() as tmpdir:
             env_file = Path(tmpdir) / ".env"
             env_file.write_text("# Comment\nAPP_NAME=Test\nPORT=8000\n")
-            
+
             loader = hierarchical_config.HierarchicalConfig()
             result = loader._load_env_file(env_file)
             assert "APP_NAME" in result
@@ -161,7 +161,7 @@ class TestHierarchicalConfig:
             with open(config_file, 'w') as f:
                 import yaml
                 yaml.dump(config_data, f)
-            
+
             loader = hierarchical_config.HierarchicalConfig(config_file)
             result = loader.load_config()
             assert result["app_name"] == "Custom App"
@@ -171,7 +171,7 @@ class TestHierarchicalConfig:
         with TemporaryDirectory() as tmpdir:
             env_file = Path(tmpdir) / ".env"
             env_file.write_text("APP_NAME=Env App\nPORT=8888\n")
-            
+
             loader = hierarchical_config.HierarchicalConfig(env_file=env_file)
             result = loader.load_config()
             assert result["APP_NAME"] == "Env App"
@@ -318,7 +318,7 @@ class TestModuleFunctions:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.yaml"
             env_file = Path(tmpdir) / ".env"
-            
+
             config = hierarchical_config.load_config(config_file, env_file)
             assert config is not None
             assert isinstance(config, hierarchical_config.ValidatedAITBCConfig)

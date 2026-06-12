@@ -5,7 +5,7 @@ import sys
 class TextFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         message = record.getMessage()
-        
+
         # Add any extra arguments passed to the logger
         extra_fields = []
         if hasattr(record, "chain_id"):
@@ -20,10 +20,10 @@ class TextFormatter(logging.Formatter):
             extra_fields.append(f"proposer={record.proposer}")
         if hasattr(record, "error"):
             extra_fields.append(f"error={record.error}")
-        
+
         if extra_fields:
             message = f"{message} [{', '.join(extra_fields)}]"
-        
+
         return f"{record.levelname} {record.name} {message}"
 
 def get_logger(name: str) -> logging.Logger:

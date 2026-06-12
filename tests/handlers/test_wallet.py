@@ -37,18 +37,18 @@ class TestHandleWalletCreate:
         args = Mock()
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return "password"
-        
+
         def create_wallet(name, password):
             return "0x1234567890abcdef"
-        
+
         handle_wallet_create(args, create_wallet, read_password, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -58,18 +58,18 @@ class TestHandleWalletCreate:
         args = Mock()
         args.wallet_name = None
         args.wallet_name_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return None
-        
+
         def create_wallet(name, password):
             return "0x1234567890abcdef"
-        
+
         handle_wallet_create(args, create_wallet, read_password, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -80,30 +80,30 @@ class TestHandleWalletList:
     def test_handle_wallet_list_json(self, mock_print):
         """Test wallet list with JSON output"""
         args = Mock()
-        
+
         def list_wallets():
             return [{"name": "wallet1", "address": "0x123"}]
-        
+
         def output_format(args):
             return "json"
-        
+
         handle_wallet_list(args, list_wallets, output_format)
-        
+
         mock_print.assert_called()
 
     @patch('builtins.print')
     def test_handle_wallet_list_text(self, mock_print):
         """Test wallet list with text output"""
         args = Mock()
-        
+
         def list_wallets():
             return [{"name": "wallet1", "address": "0x123"}]
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_wallet_list(args, list_wallets, output_format)
-        
+
         mock_print.assert_called()
 
 
@@ -117,18 +117,18 @@ class TestHandleWalletBalance:
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.all = True
-        
+
         def list_wallets():
             return [{"name": "wallet1"}]
-        
+
         def get_balance(name, rpc_url):
             return {"wallet_name": name, "balance": 100, "nonce": 0}
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_balance(args, "http://localhost:8006", list_wallets, get_balance, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -140,18 +140,18 @@ class TestHandleWalletBalance:
         args.all = False
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
-        
+
         def list_wallets():
             return [{"name": "wallet1"}]
-        
+
         def get_balance(name, rpc_url):
             return {"wallet_name": name, "balance": 100, "nonce": 0, "address": "0x123"}
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_balance(args, "http://localhost:8006", list_wallets, get_balance, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -163,18 +163,18 @@ class TestHandleWalletBalance:
         args.all = False
         args.wallet_name = None
         args.wallet_name_opt = None
-        
+
         def list_wallets():
             return [{"name": "wallet1"}]
-        
+
         def get_balance(name, rpc_url):
             return {"wallet_name": name, "balance": 100, "address": "0x123", "nonce": 0}
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_balance(args, "http://localhost:8006", list_wallets, get_balance, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -190,18 +190,18 @@ class TestHandleWalletTransactions:
         args.wallet_name_opt = None
         args.rpc_url = "http://localhost:8006"
         args.limit = 10
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def get_transactions(name, limit, rpc_url):
             return [{"hash": "0xabc", "value": 100, "fee": 1, "type": "transfer"}]
-        
+
         def output_format(args):
             return "json"
-        
+
         handle_wallet_transactions(args, get_transactions, output_format, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -213,18 +213,18 @@ class TestHandleWalletTransactions:
         args.wallet_name_opt = None
         args.rpc_url = "http://localhost:8006"
         args.limit = 10
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def get_transactions(name, limit, rpc_url):
             return [{"hash": "0xabc", "value": 100, "fee": 1, "type": "transfer"}]
-        
+
         def output_format(args):
             return "text"
-        
+
         handle_wallet_transactions(args, get_transactions, output_format, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -236,18 +236,18 @@ class TestHandleWalletTransactions:
         args.wallet_name_opt = None
         args.rpc_url = "http://localhost:8006"
         args.limit = 10
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def get_transactions(name, limit, rpc_url):
             return []
-        
+
         def output_format(args):
             return "json"
-        
+
         handle_wallet_transactions(args, get_transactions, output_format, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -263,18 +263,18 @@ class TestHandleWalletImport:
         args.wallet_name_opt = None
         args.private_key_arg = "0x123"
         args.private_key_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return "password"
-        
+
         def import_wallet(name, key, password):
             return "0xabcdef"
-        
+
         handle_wallet_import(args, import_wallet, read_password, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -286,18 +286,18 @@ class TestHandleWalletImport:
         args.wallet_name_opt = None
         args.private_key_arg = None
         args.private_key_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return "password"
-        
+
         def import_wallet(name, key, password):
             return "0xabcdef"
-        
+
         handle_wallet_import(args, import_wallet, read_password, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -311,18 +311,18 @@ class TestHandleWalletExport:
         args = Mock()
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return "password"
-        
+
         def export_wallet(name, password):
             return "0xabcdef"
-        
+
         handle_wallet_export(args, export_wallet, read_password, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -332,18 +332,18 @@ class TestHandleWalletExport:
         args = Mock()
         args.wallet_name = None
         args.wallet_name_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def read_password(args, field):
             return "password"
-        
+
         def export_wallet(name, password):
             return "0xabcdef"
-        
+
         handle_wallet_export(args, export_wallet, read_password, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -358,15 +358,15 @@ class TestHandleWalletDelete:
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
         args.confirm = True
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def delete_wallet(name):
             return True
-        
+
         handle_wallet_delete(args, delete_wallet, first)
-        
+
         mock_exit.assert_not_called()
 
     @patch('handlers.wallet.logger')
@@ -377,15 +377,15 @@ class TestHandleWalletDelete:
         args.wallet_name = None
         args.wallet_name_opt = None
         args.confirm = True
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def delete_wallet(name):
             return True
-        
+
         handle_wallet_delete(args, delete_wallet, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -401,15 +401,15 @@ class TestHandleWalletRename:
         args.old_name = None
         args.new_name_arg = "wallet2"
         args.new_name = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def rename_wallet(old, new):
             return True
-        
+
         handle_wallet_rename(args, rename_wallet, first)
-        
+
         mock_exit.assert_not_called()
 
     @patch('handlers.wallet.logger')
@@ -421,15 +421,15 @@ class TestHandleWalletRename:
         args.old_name = None
         args.new_name_arg = None
         args.new_name = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         def rename_wallet(old, new):
             return True
-        
+
         handle_wallet_rename(args, rename_wallet, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -443,12 +443,12 @@ class TestHandleWalletBackup:
         args = Mock()
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_backup(args, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -458,12 +458,12 @@ class TestHandleWalletBackup:
         args = Mock()
         args.wallet_name = None
         args.wallet_name_opt = None
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_backup(args, first)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -478,12 +478,12 @@ class TestHandleWalletSync:
         args.wallet_name = None
         args.wallet_name_opt = None
         args.all = True
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_sync(args, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -494,12 +494,12 @@ class TestHandleWalletSync:
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
         args.all = False
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_sync(args, first)
-        
+
         mock_logger.info.assert_called()
 
     @patch('handlers.wallet.logger')
@@ -510,12 +510,12 @@ class TestHandleWalletSync:
         args.wallet_name = None
         args.wallet_name_opt = None
         args.all = False
-        
+
         def first(*args):
             return args[0] if args else None
-        
+
         handle_wallet_sync(args, first)
-        
+
         mock_exit.assert_called_with(1)
 
 

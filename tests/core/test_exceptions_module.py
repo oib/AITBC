@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
     spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -172,7 +173,7 @@ class TestExceptionHierarchy:
             exceptions.CircuitBreakerOpenError,
             exceptions.RateLimitError
         ]
-        
+
         for exc_class in exception_classes:
             assert issubclass(exc_class, exceptions.AITBCError)
 

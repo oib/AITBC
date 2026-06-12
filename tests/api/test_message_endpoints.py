@@ -30,7 +30,7 @@ class TestSendMessageRequest:
             priority="normal",
             ttl=300
         )
-        
+
         assert request.sender == "agent_001"
         assert request.recipient == "agent_002"
         assert request.content == {"message": "Hello"}
@@ -45,7 +45,7 @@ class TestSendMessageRequest:
             recipient="agent_002",
             content={"message": "Hello"}
         )
-        
+
         assert request.message_type == "direct"
         assert request.encrypt is True
         assert request.priority == "normal"
@@ -59,7 +59,7 @@ class TestSendMessageRequest:
             content={"message": "Hello"},
             encrypt=False
         )
-        
+
         assert request.encrypt is False
 
 
@@ -73,7 +73,7 @@ class TestSubscribeRequest:
             topic="notifications",
             filter={"type": "alert"}
         )
-        
+
         assert request.agent_id == "agent_001"
         assert request.topic == "notifications"
         assert request.filter == {"type": "alert"}
@@ -84,7 +84,7 @@ class TestSubscribeRequest:
             agent_id="agent_001",
             topic="notifications"
         )
-        
+
         assert request.filter == {}
 
     def test_subscribe_request_complex_filter(self):
@@ -98,7 +98,7 @@ class TestSubscribeRequest:
                 "types": ["offer", "bid", "ask"]
             }
         )
-        
+
         assert len(request.filter) == 3
         assert "priority" in request.filter
         assert "types" in request.filter
@@ -114,7 +114,7 @@ class TestSubscribeRequest:
             priority="high",
             ttl=3600
         )
-        
+
         assert request.sender == "sender_all"
         assert request.recipient == "recipient_all"
         assert request.message_type == "task_assignment"
@@ -128,7 +128,7 @@ class TestSubscribeRequest:
             topic="notifications",
             filter={}
         )
-        
+
         assert request.filter == {}
         assert request.topic == "notifications"
 
@@ -139,7 +139,7 @@ class TestSubscribeRequest:
             recipient="recipient_minimal",
             content={"data": "test"}
         )
-        
+
         assert request.sender == "sender_minimal"
         assert request.recipient == "recipient_minimal"
         assert request.content == {"data": "test"}
@@ -151,7 +151,7 @@ class TestSubscribeRequest:
             agent_id="agent_topic",
             topic="alerts"
         )
-        
+
         assert request.agent_id == "agent_topic"
         assert request.topic == "alerts"
         assert request.filter == {}  # default
@@ -164,7 +164,7 @@ class TestSubscribeRequest:
             content={"data": "broadcast message"},
             message_type="broadcast"
         )
-        
+
         assert request.message_type == "broadcast"
         assert request.recipient == "*"
 
@@ -178,7 +178,7 @@ class TestSubscribeRequest:
                 "priority": "high"
             }
         )
-        
+
         assert len(request.filter["topics"]) == 3
         assert "training" in request.filter["topics"]
 
@@ -190,7 +190,7 @@ class TestSubscribeRequest:
             content={"data": "immediate message"},
             ttl=0
         )
-        
+
         assert request.ttl == 0
 
     def test_subscribe_request_with_numeric_filter(self):
@@ -204,7 +204,7 @@ class TestSubscribeRequest:
                 "timeout": 300
             }
         )
-        
+
         assert request.filter["min_priority"] == 1
         assert request.filter["timeout"] == 300
 
@@ -217,7 +217,7 @@ class TestSubscribeRequest:
             content={"data": long_content},
             ttl=3600
         )
-        
+
         assert len(request.content["data"]) == 10000
 
     def test_subscribe_request_with_boolean_filter(self):
@@ -230,7 +230,7 @@ class TestSubscribeRequest:
                 "urgent": False
             }
         )
-        
+
         assert request.filter["enabled"] is True
         assert request.filter["urgent"] is False
 
@@ -242,7 +242,7 @@ class TestSubscribeRequest:
             content={"data": "persistent message"},
             ttl=86400  # 24 hours
         )
-        
+
         assert request.ttl == 86400
 
     def test_subscribe_request_with_nested_filter(self):
@@ -258,7 +258,7 @@ class TestSubscribeRequest:
                 "type": "urgent"
             }
         )
-        
+
         assert "priority" in request.filter
         assert request.filter["type"] == "urgent"
 
@@ -270,7 +270,7 @@ class TestSubscribeRequest:
             content={"data": "Hello! @#$%^&*()_+-=[]{}|;':\",./<>?"},
             ttl=3600
         )
-        
+
         assert "@" in request.content["data"]
 
     def test_subscribe_request_with_array_filter(self):
@@ -283,7 +283,7 @@ class TestSubscribeRequest:
                 "blocked_agents": ["agent_1", "agent_2"]
             }
         )
-        
+
         assert isinstance(request.filter["allowed_priorities"], list)
         assert len(request.filter["blocked_agents"]) == 2
 
@@ -295,7 +295,7 @@ class TestSubscribeRequest:
             content={"data": "Hello 世界 🌍"},
             ttl=3600
         )
-        
+
         assert "世界" in request.content["data"]
 
     def test_subscribe_request_with_empty_filter(self):
@@ -305,7 +305,7 @@ class TestSubscribeRequest:
             topic="general",
             filter={}
         )
-        
+
         assert len(request.filter) == 0
 
     def test_send_message_request_with_numeric_content(self):
@@ -316,7 +316,7 @@ class TestSubscribeRequest:
             content={"value": 12345, "count": 42},
             ttl=3600
         )
-        
+
         assert request.content["value"] == 12345
         assert request.content["count"] == 42
 
@@ -327,7 +327,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"level": "high"}
         )
-        
+
         assert request.topic == "alerts"
         assert len(request.topic) > 0
 
@@ -339,7 +339,7 @@ class TestSubscribeRequest:
             content={"data": "test"},
             ttl=0
         )
-        
+
         assert request.ttl == 0
 
     def test_subscribe_request_with_numeric_agent_id(self):
@@ -349,7 +349,7 @@ class TestSubscribeRequest:
             topic="notifications",
             filter={"type": "info"}
         )
-        
+
         assert "12345" in request.agent_id
 
     def test_send_message_request_with_empty_content(self):
@@ -360,7 +360,7 @@ class TestSubscribeRequest:
             content={},
             ttl=3600
         )
-        
+
         assert len(request.content) == 0
 
     def test_subscribe_request_with_special_topic(self):
@@ -370,7 +370,7 @@ class TestSubscribeRequest:
             topic="special-topic_@123",
             filter={"type": "alert"}
         )
-        
+
         assert "-" in request.topic
         assert "_" in request.topic
         assert "@" in request.topic
@@ -383,7 +383,7 @@ class TestSubscribeRequest:
             content={"data": {"nested": {"deep": "value"}}},
             ttl=3600
         )
-        
+
         assert "nested" in request.content["data"]
 
     def test_subscribe_request_with_empty_filter(self):
@@ -393,7 +393,7 @@ class TestSubscribeRequest:
             topic="general",
             filter={}
         )
-        
+
         assert len(request.filter) == 0
 
     def test_send_message_request_with_boolean_content(self):
@@ -404,7 +404,7 @@ class TestSubscribeRequest:
             content={"enabled": True, "active": False},
             ttl=3600
         )
-        
+
         assert request.content["enabled"] == True
         assert request.content["active"] == False
 
@@ -415,7 +415,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"level": 5, "priority": 10}
         )
-        
+
         assert request.filter["level"] == 5
         assert request.filter["priority"] == 10
 
@@ -427,7 +427,7 @@ class TestSubscribeRequest:
             content={"items": [1, 2, 3, 4, 5]},
             ttl=3600
         )
-        
+
         assert isinstance(request.content["items"], list)
         assert len(request.content["items"]) == 5
 
@@ -438,7 +438,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"type": "error", "level": "critical", "source": "system"}
         )
-        
+
         assert len(request.filter) == 3
 
     def test_send_message_request_with_null_content(self):
@@ -449,7 +449,7 @@ class TestSubscribeRequest:
             content={"value": None},
             ttl=3600
         )
-        
+
         assert request.content["value"] is None
 
     def test_subscribe_request_with_boolean_filter(self):
@@ -459,7 +459,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"enabled": True, "disabled": False}
         )
-        
+
         assert request.filter["enabled"] == True
         assert request.filter["disabled"] == False
 
@@ -471,7 +471,7 @@ class TestSubscribeRequest:
             content={"message": "Hello, world!"},
             ttl=3600
         )
-        
+
         assert isinstance(request.content["message"], str)
 
     def test_subscribe_request_with_string_filter_value(self):
@@ -481,7 +481,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"type": "error"}
         )
-        
+
         assert isinstance(request.filter["type"], str)
 
     def test_send_message_request_with_numeric_content(self):
@@ -492,7 +492,7 @@ class TestSubscribeRequest:
             content={"value": 12345},
             ttl=3600
         )
-        
+
         assert isinstance(request.content["value"], int)
 
     def test_subscribe_request_with_numeric_filter_value(self):
@@ -502,7 +502,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"priority": 1}
         )
-        
+
         assert isinstance(request.filter["priority"], int)
 
     def test_send_message_request_with_empty_recipient(self):
@@ -513,7 +513,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert request.recipient == ""
 
     def test_subscribe_request_with_empty_topic(self):
@@ -523,7 +523,7 @@ class TestSubscribeRequest:
             topic="",
             filter={"type": "error"}
         )
-        
+
         assert request.topic == ""
 
     def test_send_message_request_with_empty_sender(self):
@@ -534,7 +534,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert request.sender == ""
 
     def test_subscribe_request_with_empty_filter(self):
@@ -544,7 +544,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={}
         )
-        
+
         assert len(request.filter) == 0
 
     def test_send_message_request_with_empty_content(self):
@@ -555,7 +555,7 @@ class TestSubscribeRequest:
             content={},
             ttl=3600
         )
-        
+
         assert len(request.content) == 0
 
     def test_subscribe_request_with_empty_agent_id(self):
@@ -565,7 +565,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"type": "error"}
         )
-        
+
         assert request.agent_id == ""
 
     def test_send_message_request_with_zero_ttl(self):
@@ -576,7 +576,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=0
         )
-        
+
         assert request.ttl == 0
 
     def test_subscribe_request_with_numeric_agent_id(self):
@@ -586,7 +586,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"type": "error"}
         )
-        
+
         assert "123" in request.agent_id
 
     def test_send_message_request_with_numeric_sender(self):
@@ -597,7 +597,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "123" in request.sender
 
     def test_subscribe_request_with_mixed_case_topic(self):
@@ -607,7 +607,7 @@ class TestSubscribeRequest:
             topic="Alerts",
             filter={"type": "error"}
         )
-        
+
         assert "Alerts" == request.topic
 
     def test_send_message_request_with_numeric_recipient(self):
@@ -618,7 +618,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "123" in request.recipient
 
     def test_subscribe_request_with_numeric_filter_value(self):
@@ -628,7 +628,7 @@ class TestSubscribeRequest:
             topic="alerts",
             filter={"type": "error123"}
         )
-        
+
         assert "123" in request.filter["type"]
 
     def test_send_message_request_with_empty_sender(self):
@@ -639,7 +639,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert request.sender == ""
 
     def test_subscribe_request_with_empty_topic(self):
@@ -649,7 +649,7 @@ class TestSubscribeRequest:
             topic="",
             filter={"type": "error"}
         )
-        
+
         assert request.topic == ""
 
     def test_send_message_request_with_single_character_sender(self):
@@ -660,7 +660,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert len(request.sender) == 1
 
     def test_subscribe_request_with_single_character_topic(self):
@@ -670,7 +670,7 @@ class TestSubscribeRequest:
             topic="A",
             filter={"type": "error"}
         )
-        
+
         assert len(request.topic) == 1
 
     def test_send_message_request_with_numeric_sender(self):
@@ -681,7 +681,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert request.sender == "123"
 
     def test_subscribe_request_with_numeric_topic(self):
@@ -691,7 +691,7 @@ class TestSubscribeRequest:
             topic="123",
             filter={"type": "error"}
         )
-        
+
         assert request.topic == "123"
 
     def test_send_message_request_with_special_characters_sender(self):
@@ -702,7 +702,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "@" in request.sender
         assert "#" in request.sender
         assert "$" in request.sender
@@ -714,7 +714,7 @@ class TestSubscribeRequest:
             topic="topic@#$",
             filter={"type": "error"}
         )
-        
+
         assert "@" in request.topic
         assert "#" in request.topic
         assert "$" in request.topic
@@ -727,7 +727,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert " " in request.sender
 
     def test_subscribe_request_with_spaces_topic(self):
@@ -737,7 +737,7 @@ class TestSubscribeRequest:
             topic="topic 123",
             filter={"type": "error"}
         )
-        
+
         assert " " in request.topic
 
     def test_send_message_request_with_underscore_sender(self):
@@ -748,7 +748,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "_" in request.sender
 
     def test_subscribe_request_with_underscore_topic(self):
@@ -758,7 +758,7 @@ class TestSubscribeRequest:
             topic="topic_123",
             filter={"type": "error"}
         )
-        
+
         assert "_" in request.topic
 
     def test_send_message_request_with_colon_sender(self):
@@ -769,7 +769,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert ":" in request.sender
 
     def test_subscribe_request_with_colon_topic(self):
@@ -779,7 +779,7 @@ class TestSubscribeRequest:
             topic="topic:123",
             filter={"type": "error"}
         )
-        
+
         assert ":" in request.topic
 
     def test_send_message_request_with_equals_sender(self):
@@ -790,7 +790,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "=" in request.sender
 
     def test_subscribe_request_with_equals_topic(self):
@@ -800,7 +800,7 @@ class TestSubscribeRequest:
             topic="topic=123",
             filter={"type": "error"}
         )
-        
+
         assert "=" in request.topic
 
     def test_send_message_request_with_bracket_sender(self):
@@ -811,7 +811,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "[" in request.sender
         assert "]" in request.sender
 
@@ -822,7 +822,7 @@ class TestSubscribeRequest:
             topic="topic[123]",
             filter={"type": "error"}
         )
-        
+
         assert "[" in request.topic
         assert "]" in request.topic
 
@@ -834,7 +834,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "{" in request.sender
         assert "}" in request.sender
 
@@ -845,7 +845,7 @@ class TestSubscribeRequest:
             topic="topic{123}",
             filter={"type": "error"}
         )
-        
+
         assert "{" in request.topic
         assert "}" in request.topic
 
@@ -857,7 +857,7 @@ class TestSubscribeRequest:
             content={"message": "Hello"},
             ttl=3600
         )
-        
+
         assert "$" in request.sender
 
     def test_subscribe_request_with_dollar_topic(self):
@@ -867,7 +867,7 @@ class TestSubscribeRequest:
             topic="topic$123",
             filter={"type": "error"}
         )
-        
+
         assert "$" in request.topic
 
     def test_subscribe_request_with_hash_topic(self):
@@ -877,7 +877,7 @@ class TestSubscribeRequest:
             topic="topic#123",
             filter={"type": "error"}
         )
-        
+
         assert "#" in request.topic
 
     def test_subscribe_request_with_exclamation_topic(self):
@@ -887,7 +887,7 @@ class TestSubscribeRequest:
             topic="topic!123",
             filter={"type": "error"}
         )
-        
+
         assert "!" in request.topic
 
     def test_subscribe_request_with_asterisk_topic(self):
@@ -897,7 +897,7 @@ class TestSubscribeRequest:
             topic="topic*123",
             filter={"type": "error"}
         )
-        
+
         assert "*" in request.topic
 
     def test_subscribe_request_with_equals_topic(self):
@@ -907,7 +907,7 @@ class TestSubscribeRequest:
             topic="topic=123",
             filter={"type": "error"}
         )
-        
+
         assert "=" in request.topic
 
     def test_subscribe_request_with_bracket_topic(self):
@@ -917,7 +917,7 @@ class TestSubscribeRequest:
             topic="topic[123]",
             filter={"type": "error"}
         )
-        
+
         assert "[" in request.topic
 
     def test_subscribe_request_with_curly_brace_topic(self):
@@ -927,7 +927,7 @@ class TestSubscribeRequest:
             topic="topic{123}",
             filter={"type": "error"}
         )
-        
+
         assert "{" in request.topic
 
     def test_subscribe_request_with_pipe_topic(self):
@@ -937,7 +937,7 @@ class TestSubscribeRequest:
             topic="topic|123",
             filter={"type": "error"}
         )
-        
+
         assert "|" in request.topic
 
 

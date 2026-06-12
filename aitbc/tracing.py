@@ -2,41 +2,29 @@
 AITBC Distributed Tracing Module
 OpenTelemetry-based distributed tracing for AITBC applications
 """
-
 import logging
 import os
 from collections.abc import Callable
 from contextlib import contextmanager
 from functools import wraps
-from typing import TYPE_CHECKING, Any
-
+from typing import Any
 logger = logging.getLogger(__name__)
-
-# OpenTelemetry imports (optional - gracefully handle if not installed)
 try:
-    from opentelemetry import trace  # type: ignore
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # type: ignore
-    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # type: ignore
-    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor  # type: ignore
-    from opentelemetry.sdk.resources import SERVICE_NAME, Resource  # type: ignore
-    from opentelemetry.sdk.trace import TracerProvider  # type: ignore
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter  # type: ignore
-    from opentelemetry.trace import Status, StatusCode  # type: ignore
+    from opentelemetry import trace
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    from opentelemetry.trace import Status, StatusCode
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
-
-# Global tracer instance
 _tracer: object | None = None
 _tracer_provider: object | None = None
 
-
-def setup_tracing(
-    service_name: str,
-    service_version: str = "1.0.0",
-    exporter: str = "console",
-    sample_rate: float = 1.0
-) -> None:
+def setup_tracing(service_name: str, service_version: str='1.0.0', exporter: str='console', sample_rate: float=1.0) -> None:
     """
     Setup OpenTelemetry tracing for the service
 
@@ -47,47 +35,30 @@ def setup_tracing(
         sample_rate: Sampling rate (0.0 to 1.0)
     """
     global _tracer, _tracer_provider
-
     if not OPENTELEMETRY_AVAILABLE:
-        logger.warning("OpenTelemetry not available, tracing disabled")
+        logger.warning('OpenTelemetry not available, tracing disabled')
         return
-
-    # Create resource with service information
-    resource = Resource.create({
-        SERVICE_NAME: service_name,
-        "service.version": service_version,
-        "deployment.environment": os.getenv("APP_ENV", "development")
-    })
-
-    # Create tracer provider
+    resource = Resource.create({SERVICE_NAME: service_name, 'service.version': service_version, 'deployment.environment': os.getenv('APP_ENV', 'development')})
     _tracer_provider = TracerProvider(resource=resource)
-
-    # Configure exporter based on type
-    if exporter == "console":
+    if exporter == 'console':
         span_processor = BatchSpanProcessor(ConsoleSpanExporter())
         if _tracer_provider:
-            _tracer_provider.add_span_processor(span_processor)  # type: ignore
-    elif exporter == "otlp":
+            _tracer_provider.add_span_processor(span_processor)
+    elif exporter == 'otlp':
         try:
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # type: ignore
-            otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            otlp_endpoint = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
             span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint))
             if _tracer_provider:
-                _tracer_provider.add_span_processor(span_processor)  # type: ignore
+                _tracer_provider.add_span_processor(span_processor)
         except ImportError:
-            logger.warning("OTLP exporter not available, falling back to console")
+            logger.warning('OTLP exporter not available, falling back to console')
             span_processor = BatchSpanProcessor(ConsoleSpanExporter())
             if _tracer_provider:
-                _tracer_provider.add_span_processor(span_processor)  # type: ignore
-
-    # Set global tracer provider
+                _tracer_provider.add_span_processor(span_processor)
     trace.set_tracer_provider(_tracer_provider)
-
-    # Get tracer
     _tracer = trace.get_tracer(__name__)
-
-    logger.info(f"Tracing enabled for {service_name} with {exporter} exporter")
-
+    logger.info('Tracing enabled for %s with %s exporter', service_name, exporter)
 
 def get_tracer() -> object | None:
     """
@@ -98,7 +69,6 @@ def get_tracer() -> object | None:
     """
     return _tracer
 
-
 def instrument_fastapi(app: Any) -> None:
     """
     Instrument FastAPI application with tracing
@@ -107,28 +77,24 @@ def instrument_fastapi(app: Any) -> None:
         app: FastAPI application instance
     """
     if not OPENTELEMETRY_AVAILABLE:
-        logger.warning("OpenTelemetry not available, FastAPI instrumentation disabled")
+        logger.warning('OpenTelemetry not available, FastAPI instrumentation disabled')
         return
-
     try:
         FastAPIInstrumentor.instrument_app(app)
-        logger.info("FastAPI instrumentation enabled")
+        logger.info('FastAPI instrumentation enabled')
     except Exception as e:
-        logger.error(f"Failed to instrument FastAPI: {e}")
-
+        logger.error('Failed to instrument FastAPI: %s', e)
 
 def instrument_httpx() -> None:
     """Instrument HTTPX client with tracing"""
     if not OPENTELEMETRY_AVAILABLE:
-        logger.warning("OpenTelemetry not available, HTTPX instrumentation disabled")
+        logger.warning('OpenTelemetry not available, HTTPX instrumentation disabled')
         return
-
     try:
         HTTPXClientInstrumentor().instrument()
-        logger.info("HTTPX instrumentation enabled")
+        logger.info('HTTPX instrumentation enabled')
     except Exception as e:
-        logger.error(f"Failed to instrument HTTPX: {e}")
-
+        logger.error('Failed to instrument HTTPX: %s', e)
 
 def instrument_sqlalchemy(engine: Any) -> None:
     """
@@ -138,21 +104,16 @@ def instrument_sqlalchemy(engine: Any) -> None:
         engine: SQLAlchemy engine instance
     """
     if not OPENTELEMETRY_AVAILABLE:
-        logger.warning("OpenTelemetry not available, SQLAlchemy instrumentation disabled")
+        logger.warning('OpenTelemetry not available, SQLAlchemy instrumentation disabled')
         return
-
     try:
         SQLAlchemyInstrumentor().instrument(engine=engine)
-        logger.info("SQLAlchemy instrumentation enabled")
+        logger.info('SQLAlchemy instrumentation enabled')
     except Exception as e:
-        logger.error(f"Failed to instrument SQLAlchemy: {e}")
-
+        logger.error('Failed to instrument SQLAlchemy: %s', e)
 
 @contextmanager
-def trace_span(
-    name: str,
-    attributes: dict[str, Any] | None = None
-) -> Any:
+def trace_span(name: str, attributes: dict[str, Any] | None=None) -> Any:
     """
     Context manager for creating a trace span
 
@@ -166,12 +127,10 @@ def trace_span(
     if not OPENTELEMETRY_AVAILABLE or _tracer is None:
         yield None
         return
-
-    with _tracer.start_as_current_span(name, attributes=attributes or {}) as span:  # type: ignore
+    with _tracer.start_as_current_span(name, attributes=attributes or {}) as span:
         yield span
 
-
-def trace_function(name: str | None = None) -> Any:
+def trace_function(name: str | None=None) -> Any:
     """
     Decorator for tracing function execution
 
@@ -181,24 +140,22 @@ def trace_function(name: str | None = None) -> Any:
     Returns:
         Decorated function
     """
+
     def decorator(func: Callable) -> Callable:
         if not OPENTELEMETRY_AVAILABLE or _tracer is None:
             return func
-
-        span_name = name or f"{func.__module__}.{func.__name__}"
+        span_name = name or f'{func.__module__}.{func.__name__}'
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             with _tracer.start_as_current_span(span_name) as span:
-                # Add function arguments as attributes (if small)
                 try:
                     if args and len(args) < 3:
-                        span.set_attribute("args", str(args))
+                        span.set_attribute('args', str(args))
                     if kwargs and len(kwargs) < 3:
-                        span.set_attribute("kwargs", str(kwargs))
+                        span.set_attribute('kwargs', str(kwargs))
                 except Exception:
                     pass
-
                 try:
                     result = func(*args, **kwargs)
                     span.set_status(Status(StatusCode.OK))
@@ -207,12 +164,10 @@ def trace_function(name: str | None = None) -> Any:
                     span.set_status(Status(StatusCode.ERROR, str(e)))
                     span.record_exception(e)
                     raise
-
         return wrapper
     return decorator
 
-
-def trace_async_function(name: str | None = None) -> Any:
+def trace_async_function(name: str | None=None) -> Any:
     """
     Decorator for tracing async function execution
 
@@ -222,24 +177,22 @@ def trace_async_function(name: str | None = None) -> Any:
     Returns:
         Decorated async function
     """
+
     def decorator(func: Callable) -> Callable:
         if not OPENTELEMETRY_AVAILABLE or _tracer is None:
             return func
-
-        span_name = name or f"{func.__module__}.{func.__name__}"
+        span_name = name or f'{func.__module__}.{func.__name__}'
 
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             with _tracer.start_as_current_span(span_name) as span:
-                # Add function arguments as attributes (if small)
                 try:
                     if args and len(args) < 3:
-                        span.set_attribute("args", str(args))
+                        span.set_attribute('args', str(args))
                     if kwargs and len(kwargs) < 3:
-                        span.set_attribute("kwargs", str(kwargs))
+                        span.set_attribute('kwargs', str(kwargs))
                 except Exception:
                     pass
-
                 try:
                     result = await func(*args, **kwargs)
                     span.set_status(Status(StatusCode.OK))
@@ -248,10 +201,8 @@ def trace_async_function(name: str | None = None) -> Any:
                     span.set_status(Status(StatusCode.ERROR, str(e)))
                     span.record_exception(e)
                     raise
-
         return wrapper
     return decorator
-
 
 def set_span_attribute(key: str, value: Any) -> None:
     """
@@ -263,11 +214,9 @@ def set_span_attribute(key: str, value: Any) -> None:
     """
     if not OPENTELEMETRY_AVAILABLE:
         return
-
     current_span = trace.get_current_span()
     if current_span:
         current_span.set_attribute(key, str(value))
-
 
 def set_span_error(exception: Exception) -> None:
     """
@@ -278,14 +227,12 @@ def set_span_error(exception: Exception) -> None:
     """
     if not OPENTELEMETRY_AVAILABLE:
         return
-
     current_span = trace.get_current_span()
     if current_span:
         current_span.set_status(Status(StatusCode.ERROR, str(exception)))
         current_span.record_exception(exception)
 
-
-def add_span_event(name: str, attributes: dict[str, Any] | None = None) -> None:
+def add_span_event(name: str, attributes: dict[str, Any] | None=None) -> None:
     """
     Add an event to the current span
 
@@ -295,7 +242,6 @@ def add_span_event(name: str, attributes: dict[str, Any] | None = None) -> None:
     """
     if not OPENTELEMETRY_AVAILABLE:
         return
-
     current_span = trace.get_current_span()
     if current_span:
         current_span.add_event(name, attributes or {})

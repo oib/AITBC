@@ -39,16 +39,16 @@ class TestHandleMessagingDeploy:
         mock_response.status_code = 200
         mock_response.json.return_value = {"contract_address": "0x123", "status": "deployed"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_deploy(args, "http://localhost:8006", render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.messaging.requests.post')
@@ -59,16 +59,16 @@ class TestHandleMessagingDeploy:
         mock_response = Mock()
         mock_response.status_code = 500
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_deploy(args, "http://localhost:8006", render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -84,19 +84,19 @@ class TestHandleMessagingState:
         mock_response.status_code = 200
         mock_response.json.return_value = {"topics": 10, "messages": 100}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_state(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.messaging.requests.get')
@@ -108,19 +108,19 @@ class TestHandleMessagingState:
         mock_response.status_code = 200
         mock_response.json.return_value = {"topics": 10, "messages": 100}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_state(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 
@@ -136,19 +136,19 @@ class TestHandleMessagingTopics:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"topic_id": 1, "title": "Topic 1"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_topics(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.messaging.requests.get')
@@ -160,19 +160,19 @@ class TestHandleMessagingTopics:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"topic_id": 1, "title": "Topic 1"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
-        
+
         def output_format(args):
             return "text"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_topics(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
 
@@ -188,7 +188,7 @@ class TestHandleMessagingCreateTopic:
         mock_response.status_code = 200
         mock_response.json.return_value = {"topic_id": 1, "title": "New Topic"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
@@ -196,15 +196,15 @@ class TestHandleMessagingCreateTopic:
         args.content = "Topic content"
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_create_topic(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.messaging.logger')
@@ -218,15 +218,15 @@ class TestHandleMessagingCreateTopic:
         args.content = None
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_create_topic(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -242,20 +242,20 @@ class TestHandleMessagingMessages:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"message_id": 1, "author": "user1"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.topic_id = 1
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_messages(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.messaging.logger')
@@ -266,15 +266,15 @@ class TestHandleMessagingMessages:
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.topic_id = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_messages(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -290,7 +290,7 @@ class TestHandleMessagingPost:
         mock_response.status_code = 200
         mock_response.json.return_value = {"message_id": 1, "content": "Posted"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
@@ -298,15 +298,15 @@ class TestHandleMessagingPost:
         args.content = "Message content"
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_post(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.messaging.logger')
@@ -320,15 +320,15 @@ class TestHandleMessagingPost:
         args.content = None
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_post(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -344,7 +344,7 @@ class TestHandleMessagingVote:
         mock_response.status_code = 200
         mock_response.json.return_value = {"message_id": 1, "vote": "up"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
@@ -352,15 +352,15 @@ class TestHandleMessagingVote:
         args.vote = "up"
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_vote(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.messaging.logger')
@@ -374,15 +374,15 @@ class TestHandleMessagingVote:
         args.vote = None
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_vote(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -398,20 +398,20 @@ class TestHandleMessagingSearch:
         mock_response.status_code = 200
         mock_response.json.return_value = [{"message_id": 1, "content": "match"}]
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.query = "search term"
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_search(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.messaging.logger')
@@ -422,15 +422,15 @@ class TestHandleMessagingSearch:
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.query = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_search(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -446,20 +446,20 @@ class TestHandleMessagingReputation:
         mock_response.status_code = 200
         mock_response.json.return_value = {"agent_id": "agent1", "score": 100}
         mock_get.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.agent_id = "agent1"
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_reputation(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_get.assert_called_once()
 
     @patch('handlers.messaging.logger')
@@ -470,15 +470,15 @@ class TestHandleMessagingReputation:
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
         args.agent_id = None
-        
+
         def output_format(args):
             return "json"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_reputation(args, "http://localhost:8006", output_format, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 
@@ -494,7 +494,7 @@ class TestHandleMessagingModerate:
         mock_response.status_code = 200
         mock_response.json.return_value = {"message_id": 1, "action": "approve"}
         mock_post.return_value = mock_response
-        
+
         args = Mock()
         args.rpc_url = "http://localhost:8006"
         args.chain_id = None
@@ -502,15 +502,15 @@ class TestHandleMessagingModerate:
         args.action = "approve"
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_moderate(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_post.assert_called_once()
 
     @patch('handlers.messaging.logger')
@@ -524,15 +524,15 @@ class TestHandleMessagingModerate:
         args.action = None
         args.wallet = None
         args.password_file = None
-        
+
         def read_password(args):
             return "password"
-        
+
         def render_mapping(title, data):
             pass
-        
+
         handle_messaging_moderate(args, "http://localhost:8006", read_password, render_mapping)
-        
+
         mock_exit.assert_called_with(1)
 
 

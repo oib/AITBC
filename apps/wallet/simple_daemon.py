@@ -130,15 +130,15 @@ async def create_chain(request: dict[str, Any]):
     coordinator_url = request.get("coordinator_url")
     coordinator_api_key = request.get("coordinator_api_key")
     metadata = request.get("metadata", {})
-    
+
     if not chain_id or not name:
         raise HTTPException(status_code=400, detail="chain_id and name are required")
-    
+
     # Check if chain already exists
     for chain in chains_data["chains"]:
         if chain["chain_id"] == chain_id:
             raise HTTPException(status_code=409, detail=f"Chain {chain_id} already exists")
-    
+
     # Create new chain
     new_chain = {
         "chain_id": chain_id,
@@ -150,9 +150,9 @@ async def create_chain(request: dict[str, Any]):
         "updated_at": datetime.now().isoformat(),
         "metadata": metadata
     }
-    
+
     chains_data["chains"].append(new_chain)
-    
+
     return JSONResponse({
         "success": True,
         "chain": new_chain

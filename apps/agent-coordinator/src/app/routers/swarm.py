@@ -1,11 +1,12 @@
 """Swarm coordination router for AITBC Agent Coordinator."""
 
 
+from typing import Any
+
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
-from typing import Any
 
 router = APIRouter(prefix="/swarm", tags=["Swarm"])
 
@@ -189,4 +190,13 @@ async def get_history_dashboard(
     request: Request
 ) -> list[Any]:
     """Get historical dashboard data."""
+    return []
+
+
+@router.get("/jobs", response_model=list)
+@rate_limit(rate=500, per=60)
+async def get_jobs(
+    request: Request
+) -> list[Any]:
+    """Get jobs list."""
     return []

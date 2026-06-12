@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -41,7 +40,7 @@ class DecisionProposal(BaseModel):
     voting_deadline: datetime
     min_participation: float = Field(default=0.5, ge=0.0, le=1.0)
     required_approval: float = Field(default=0.6, ge=0.0, le=1.0)
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
 
 class DecisionProposalResponse(BaseModel):
@@ -59,7 +58,7 @@ class Vote(BaseModel):
     agent_id: str
     vote: VoteOption
     weight: float = Field(default=1.0, ge=0.0)
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class VoteResponse(BaseModel):
@@ -83,11 +82,11 @@ class DecisionResult(BaseModel):
     weighted_abstain: float
     participation_rate: float
     approval_rate: float
-    final_decision: Optional[VoteOption] = None
-    concluded_at: Optional[datetime] = None
+    final_decision: VoteOption | None = None
+    concluded_at: datetime | None = None
 
 
 class DecisionListResponse(BaseModel):
     """Response listing decisions."""
-    decisions: List[DecisionResult]
+    decisions: list[DecisionResult]
     total: int

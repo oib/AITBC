@@ -6,10 +6,9 @@ This module has 0% coverage and 220 statements.
 import importlib.util
 import tempfile
 import time
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import pytest
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -255,7 +254,7 @@ class TestAPIKeyManager:
         try:
             manager1 = security.APIKeyManager(str(storage_path))
             api_key = manager1.create_api_key("user123")
-            
+
             manager2 = security.APIKeyManager(str(storage_path))
             assert api_key in manager2.keys
             assert manager2.keys[api_key]["user_id"] == "user123"

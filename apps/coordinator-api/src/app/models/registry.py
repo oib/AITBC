@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ServiceCategory(StrEnum):
@@ -112,7 +112,8 @@ class ServiceDefinition(BaseModel):
     documentation_url: str | None = Field(None, description="Documentation URL")
     example_usage: dict[str, Any] | None = Field(None, description="Example usage")
 
-    @validator("id")
+    @field_validator("id")
+    @classmethod
     def validate_id(cls, v: str) -> str:
         if not v or not v.replace("_", "").replace("-", "").isalnum():
             raise ValueError("Service ID must contain only alphanumeric characters, hyphens, and underscores")

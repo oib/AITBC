@@ -270,9 +270,9 @@ def handle_market_gpu_register(args, default_coordinator_url):
             # Handle both dict and list responses
             if isinstance(result, list) and len(result) > 0:
                 result = result[0]  # Take first element if it's a list
-            
+
             if isinstance(result, dict) and result.get("blockchain_registered"):
-                print(f"GPU registered successfully on blockchain")
+                print("GPU registered successfully on blockchain")
                 print(f"  GPU ID: {result.get('transaction_id', 'N/A')}")
                 print(f"  Blockchain TX: {result.get('blockchain_tx_hash', 'N/A')}")
             elif isinstance(result, dict):
