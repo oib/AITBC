@@ -120,7 +120,7 @@ class ChainAnalytics:
                 return metrics
 
         except Exception as e:
-            logger.error(f"Error collecting metrics for chain {chain_id}: {e}")
+            logger.error("Error collecting metrics for chain %s: %s", chain_id, e)
             raise
 
     async def collect_all_metrics(self) -> dict[str, list[ChainMetrics]]:
@@ -140,10 +140,10 @@ class ChainAnalytics:
                                 metrics = await self.collect_metrics(chain.id, nid)
                                 node_metrics.append(metrics)
                             except Exception as e:
-                                logger.error(f"Error getting metrics for chain {chain.id}: {e}")
+                                logger.error("Error getting metrics for chain %s: %s", chain.id, e)
                         return node_metrics
                 except Exception as e:
-                    logger.error(f"Error getting chains from node {nid}: {e}")
+                    logger.error("Error getting chains from node %s: %s", nid, e)
                     return []
 
             tasks.append(get_node_metrics(node_id))
