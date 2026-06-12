@@ -655,7 +655,7 @@ class TestEndToEndWorkflow:
             )
         if response.status_code != 200:
             # Skip AI learning if endpoint not available
-            logger.warning(f"AI learning experience returned {response.status_code}, skipping")
+            logger.warning("AI learning experience returned %s, skipping", response.status_code)
 
         # Create consensus proposal
         proposal = {
@@ -691,7 +691,7 @@ class TestEndToEndWorkflow:
         )
         # Handle case where SLA endpoints might not be fully implemented
         if response.status_code != 200:
-            logger.warning(f"SLA metric recording returned {response.status_code}, skipping")
+            logger.warning("SLA metric recording returned %s, skipping", response.status_code)
 
         # Check system status with monitoring
         response = requests.get(
@@ -705,7 +705,7 @@ class TestEndToEndWorkflow:
                 assert status["overall"] in ["healthy", "degraded", "unhealthy"]
         else:
             # Skip system status check if endpoint has issues
-            logger.warning(f"System status check returned {response.status_code}, skipping")
+            logger.warning("System status check returned %s, skipping", response.status_code)
 
         # Verify metrics were recorded
         response = requests.get(f"{self.BASE_URL}/metrics/summary")
