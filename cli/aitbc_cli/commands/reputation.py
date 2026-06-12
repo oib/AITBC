@@ -58,7 +58,7 @@ def get_profile(agent_id: str, format: str):
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
     except Exception as e:
-        logger.error(f"Error getting reputation profile: {e}")
+        logger.error("Error getting reputation profile: %s", e)
         click.echo(f"Error: {str(e)}", err=True)
 
 
@@ -117,7 +117,7 @@ def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: f
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
     except Exception as e:
-        logger.error(f"Error adding feedback: {e}")
+        logger.error("Error adding feedback: %s", e)
         click.echo(f"Error: {str(e)}", err=True)
 
 
@@ -164,7 +164,7 @@ def leaderboard(category: str, limit: int, region: str, format: str):
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
     except Exception as e:
-        logger.error(f"Error getting leaderboard: {e}")
+        logger.error("Error getting leaderboard: %s", e)
         click.echo(f"Error: {str(e)}", err=True)
 
 
@@ -207,7 +207,7 @@ def trust_score(agent_id: str, format: str):
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
     except Exception as e:
-        logger.error(f"Error getting trust score: {e}")
+        logger.error("Error getting trust score: %s", e)
         click.echo(f"Error: {str(e)}", err=True)
 
 
@@ -251,7 +251,7 @@ def metrics(format: str):
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
     except Exception as e:
-        logger.error(f"Error getting metrics: {e}")
+        logger.error("Error getting metrics: %s", e)
         click.echo(f"Error: {str(e)}", err=True)
 
 
@@ -286,5 +286,5 @@ def create_profile(agent_id: str):
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
     except Exception as e:
-        logger.error(f"Error creating profile: {e}")
+        logger.error("Error creating profile: %s", e)
         click.echo(f"Error: {str(e)}", err=True)
