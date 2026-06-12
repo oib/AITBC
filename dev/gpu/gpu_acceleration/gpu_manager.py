@@ -66,12 +66,12 @@ class GPUAccelerationManager:
             if success:
                 self.initialized = True
                 self.backend_info = self.compute_manager.get_backend_info()
-                logger.info(f"GPU Acceleration Manager initialized with {self.backend_info['backend']} backend")
+                logger.info("GPU Acceleration Manager initialized with %s backend", self.backend_info['backend'])
 
                 # Log device information
                 devices = self.compute_manager.get_provider().get_available_devices()
                 for device in devices:
-                    logger.info(f"  Device {device.device_id}: {device.name} ({device.backend.value})")
+                    logger.info("  Device %s: %s (%s)", device.device_id, device.name, device.backend.value)
 
                 return True
             else:
@@ -79,7 +79,7 @@ class GPUAccelerationManager:
                 return False
 
         except Exception as e:
-            logger.error(f"GPU acceleration manager initialization failed: {e}")
+            logger.error("GPU acceleration manager initialization failed: %s", e)
             return False
 
     def shutdown(self) -> None:
@@ -89,7 +89,7 @@ class GPUAccelerationManager:
             self.initialized = False
             logger.info("GPU Acceleration Manager shutdown complete")
         except Exception as e:
-            logger.error(f"GPU acceleration manager shutdown failed: {e}")
+            logger.error("GPU acceleration manager shutdown failed: %s", e)
 
     def get_backend_info(self) -> dict[str, Any]:
         """Get information about the current backend."""
@@ -151,7 +151,7 @@ class GPUAccelerationManager:
 
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
-            logger.error(f"Field addition failed: {e}")
+            logger.error("Field addition failed: %s", e)
             raise
 
     def field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
@@ -194,7 +194,7 @@ class GPUAccelerationManager:
 
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
-            logger.error(f"Field multiplication failed: {e}")
+            logger.error("Field multiplication failed: %s", e)
             raise
 
     def field_inverse(self, a: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
@@ -240,7 +240,7 @@ class GPUAccelerationManager:
 
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
-            logger.error(f"Field inversion failed: {e}")
+            logger.error("Field inversion failed: %s", e)
             raise
 
     def multi_scalar_mul(
@@ -294,7 +294,7 @@ class GPUAccelerationManager:
 
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
-            logger.error(f"Multi-scalar multiplication failed: {e}")
+            logger.error("Multi-scalar multiplication failed: %s", e)
             raise
 
     def pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
@@ -337,7 +337,7 @@ class GPUAccelerationManager:
 
         except Exception as e:
             self._update_stats(operation, time.time() - start_time, True)
-            logger.error(f"Pairing operation failed: {e}")
+            logger.error("Pairing operation failed: %s", e)
             raise
 
     # Batch operations
@@ -461,7 +461,7 @@ def create_gpu_manager(backend: str | None = None, **config_kwargs) -> GPUAccele
         try:
             backend_enum = ComputeBackend(backend)
         except ValueError:
-            logger.warning(f"Unknown backend '{backend}', using auto-detection")
+            logger.warning("Unknown backend '%s', using auto-detection", backend)
 
     config = ZKOperationConfig(**config_kwargs)
     manager = GPUAccelerationManager(backend_enum, config)
