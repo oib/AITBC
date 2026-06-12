@@ -1,10 +1,18 @@
 """
 Workflow Orchestration Tests
 Tests for workflow definition, execution, step management, and orchestration
+
+NOTE: This test file must be run separately from other coordinator tests due to
+import conflicts between agent-coordinator and coordinator-api apps (both use 'app' package).
+Run with: pytest tests/coordinator/test_workflow_orchestrator.py -v
 """
 
 import sys
 from pathlib import Path
+
+from datetime import UTC, datetime
+
+import pytest
 
 # Add coordinator path for imports
 coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
@@ -15,10 +23,6 @@ if str(coordinator_path) not in sys.path:
 for mod_name in list(sys.modules.keys()):
     if mod_name == "app" or mod_name.startswith("app."):
         del sys.modules[mod_name]
-
-from datetime import UTC, datetime
-
-import pytest
 
 try:
     from app.workflow.orchestrator import (
