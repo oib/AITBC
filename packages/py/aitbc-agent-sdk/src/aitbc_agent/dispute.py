@@ -21,10 +21,10 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("dispute_id", "")
             else:
-                logger.error(f"Dispute file failed: {result.get('error')}")
+                logger.error("Dispute file failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"file_dispute failed: {e}")
+            logger.error("file_dispute failed: %s", e)
             raise
 
     def register_arbitrator(self, arbitrator_id: str) -> bool:
@@ -35,10 +35,10 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("registered", False)
             else:
-                logger.error(f"Dispute register-arbitrator failed: {result.get('error')}")
+                logger.error("Dispute register-arbitrator failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"register_arbitrator failed: {e}")
+            logger.error("register_arbitrator failed: %s", e)
             raise
 
     def submit_dispute_evidence(self, dispute_id: str, evidence: str) -> bool:
@@ -49,10 +49,10 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("submitted", False)
             else:
-                logger.error(f"Dispute evidence failed: {result.get('error')}")
+                logger.error("Dispute evidence failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"submit_dispute_evidence failed: {e}")
+            logger.error("submit_dispute_evidence failed: %s", e)
             raise
 
     def vote_dispute(self, dispute_id: str, vote: bool, reason: str = "") -> bool:
@@ -65,8 +65,8 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("accepted", False)
             else:
-                logger.error(f"Dispute vote failed: {result.get('error')}")
+                logger.error("Dispute vote failed: %s", result.get('error'))
                 raise Exception(result.get("error"))
         except Exception as e:
-            logger.error(f"vote_dispute failed: {e}")
+            logger.error("vote_dispute failed: %s", e)
             raise
