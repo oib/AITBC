@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 WebSocket streaming for real-time agent messaging
 Provides real-time message delivery and presence tracking
@@ -20,14 +19,14 @@ logger = get_logger(__name__)
 class ConnectionManager:
     """Manages WebSocket connections for agents"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.active_connections: dict[str, WebSocket] = {}
         self.topic_subscriptions: dict[str, set[str]] = {}  # topic -> agent_ids
         self.agent_topics: dict[str, set[str]] = {}  # agent_id -> topics
         self.message_handlers: dict[str, list[Callable]] = {}  # message_type -> handlers
         self.agent_inboxes: dict[str, list[dict[str, Any]]] = {}  # agent_id -> queued messages
 
-    async def connect(self, websocket: WebSocket, agent_id: str):
+    async def connect(self, websocket: WebSocket, agent_id: str) -> Any:
         """Accept a WebSocket connection from an agent"""
         await websocket.accept()
         self.active_connections[agent_id] = websocket
@@ -43,7 +42,7 @@ class ConnectionManager:
             "message": "WebSocket listener active - handlers will be triggered in real-time"
         })
 
-    def disconnect(self, agent_id: str):
+    def disconnect(self, agent_id: str) -> Any:
         """Remove agent connection"""
         if agent_id in self.active_connections:
             del self.active_connections[agent_id]
@@ -57,7 +56,7 @@ class ConnectionManager:
 
         logger.info(f"Agent {agent_id} disconnected from WebSocket")
 
-    async def send_personal_message(self, message: dict[str, Any], agent_id: str):
+    async def send_personal_message(self, message: dict[str, Any], agent_id: str) -> Any:
         """Send a message to a specific agent"""
         if agent_id in self.active_connections:
             try:
@@ -70,7 +69,7 @@ class ConnectionManager:
                 return False
         return False
 
-    async def broadcast(self, message: dict[str, Any], topic: str | None = None):
+    async def broadcast(self, message: dict[str, Any], topic: str | None = None) -> Any:
         """Broadcast message to all agents or topic subscribers"""
         if topic:
             # Send to topic subscribers
@@ -85,7 +84,7 @@ class ConnectionManager:
 
         logger.info(f"Broadcast message to {len(recipients)} agents (topic: {topic})")
 
-    async def subscribe(self, agent_id: str, topic: str):
+    async def subscribe(self, agent_id: str, topic: str) -> Any:
         """Subscribe agent to topic"""
         if agent_id not in self.agent_topics:
             self.agent_topics[agent_id] = set()
@@ -98,7 +97,7 @@ class ConnectionManager:
 
         logger.info(f"Agent {agent_id} subscribed to topic {topic}")
 
-    async def unsubscribe(self, agent_id: str, topic: str):
+    async def unsubscribe(self, agent_id: str, topic: str) -> Any:
         """Unsubscribe agent from topic"""
         if agent_id in self.agent_topics:
             self.agent_topics[agent_id].discard(topic)
@@ -116,7 +115,7 @@ class ConnectionManager:
         """Get subscribers for a topic"""
         return self.topic_subscriptions.get(topic, set())
 
-    def register_handler(self, message_type: str, handler: Callable):
+    def register_handler(self, message_type: str, handler: Callable) -> Any:
         """Register a message handler for specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
@@ -162,7 +161,7 @@ class ConnectionManager:
             "results": results
         }
 
-    async def deliver_queued_messages(self, agent_id: str):
+    async def deliver_queued_messages(self, agent_id: str) -> Any:
         """Deliver queued messages when agent connects"""
         if agent_id in self.agent_inboxes and self.agent_inboxes[agent_id]:
             queued_messages = self.agent_inboxes[agent_id].copy()
@@ -177,10 +176,10 @@ class ConnectionManager:
 class AgentStreamHandler:
     """WebSocket handler for agent message streaming"""
 
-    def __init__(self, connection_manager: ConnectionManager):
+    def __init__(self, connection_manager: ConnectionManager) -> None:
         self.connection_manager = connection_manager
 
-    async def handle_message_stream(self, websocket: WebSocket, agent_id: str):
+    async def handle_message_stream(self, websocket: WebSocket, agent_id: str) -> Any:
         """Handle WebSocket message stream for an agent"""
         await self.connection_manager.connect(websocket, agent_id)
         
@@ -278,7 +277,7 @@ class AgentStreamHandler:
             logger.error(f"Error in message stream for {agent_id}: {e}")
             self.connection_manager.disconnect(agent_id)
 
-    async def handle_presence_stream(self, websocket: WebSocket, agent_id: str):
+    async def handle_presence_stream(self, websocket: WebSocket, agent_id: str) -> Any:
         """Handle WebSocket presence stream for an agent"""
         await self.connection_manager.connect(websocket, agent_id)
 
@@ -423,7 +422,7 @@ async def request_coins_handler(message: dict[str, Any], connection_manager: Con
         }
 
 
-def _register_builtin_handlers(connection_manager: ConnectionManager):
+def _register_builtin_handlers(connection_manager: ConnectionManager) -> Any:
     """Register built-in message handlers"""
     connection_manager.register_handler("PING", ping_handler)
     connection_manager.register_handler("HELLO", hello_handler)

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,7 +22,7 @@ async def get_alerts(
     request: Request,
     status: str | None = None,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get alerts with optional status filter"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -52,7 +51,7 @@ async def resolve_alert(
     request: Request,
     alert_id: str,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Resolve an alert"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
@@ -72,7 +71,7 @@ async def resolve_alert(
 @rate_limit(rate=200, per=60)
 async def get_alert_stats(
     request: Request, current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get alert statistics"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -95,7 +94,7 @@ async def get_alert_stats(
 @rate_limit(rate=200, per=60)
 async def get_alert_rules(
     request: Request, current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get alert rules"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -122,7 +121,7 @@ async def get_sla_status(
     request: Request,
     sla_id: str | None = None,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get SLA status"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -151,7 +150,7 @@ async def record_sla_metric(
     sla_id: str,
     value: float,
     current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Record SLA metric"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
@@ -177,7 +176,7 @@ async def record_sla_metric(
 @rate_limit(rate=200, per=60)
 async def get_system_status(
     request: Request, current_user: dict[str, Any] = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     """Get comprehensive system status"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SYSTEM_HEALTH):
@@ -189,7 +188,7 @@ async def get_system_status(
         sla_status = alert_manager.sla_monitor.get_all_sla_status()
 
         # Get system health
-        import psutil
+        import psutil  # type: ignore[import-untyped]
         memory = psutil.virtual_memory()
         cpu = psutil.cpu_percent(interval=1)
 

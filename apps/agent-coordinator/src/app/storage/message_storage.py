@@ -15,19 +15,19 @@ logger = get_logger(__name__)
 class MessageStorage:
     """Redis-based message storage for agent communication history"""
 
-    def __init__(self, redis_url: str):
+    def __init__(self, redis_url: str) -> None:
         """Initialize message storage with Redis connection"""
         import redis.asyncio as redis
         self.redis_url = redis_url
         self.redis: redis.Redis | None = None
 
-    async def start(self):
+    async def start(self) -> Any:
         """Connect to Redis"""
         import redis.asyncio as redis
         self.redis = await redis.from_url(self.redis_url, decode_responses=True)
         logger.info("Message storage connected to Redis")
 
-    async def stop(self):
+    async def stop(self) -> Any:
         """Close Redis connection"""
         if self.redis:
             await self.redis.close()
@@ -204,19 +204,19 @@ class MessageStorage:
 class PeerStorage:
     """Redis-based peer storage for persisting peer connections across restarts"""
 
-    def __init__(self, redis_url: str):
+    def __init__(self, redis_url: str) -> None:
         """Initialize peer storage with Redis connection"""
         import redis.asyncio as redis
         self.redis_url = redis_url
         self.redis: redis.Redis | None = None
 
-    async def start(self):
+    async def start(self) -> Any:
         """Connect to Redis"""
         import redis.asyncio as redis
         self.redis = await redis.from_url(self.redis_url, decode_responses=True)
         logger.info("Peer storage connected to Redis")
 
-    async def stop(self):
+    async def stop(self) -> Any:
         """Close Redis connection"""
         if self.redis:
             await self.redis.close()

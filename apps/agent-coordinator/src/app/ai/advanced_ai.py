@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Advanced AI/ML Integration for AITBC Agent Coordinator
 Implements machine learning models, neural networks, and intelligent decision making
@@ -6,10 +5,11 @@ Implements machine learning models, neural networks, and intelligent decision ma
 
 from __future__ import annotations
 
+np: Any = None
 try:
     import numpy as np
 except ImportError:  # pragma: no cover - optional dependency for runtime AI features
-    np = None
+    pass
 import statistics
 import uuid
 from collections import defaultdict
@@ -46,7 +46,7 @@ class NeuralNetwork:
 class AdvancedAIIntegration:
     """Advanced AI/ML integration system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.models: dict[str, MLModel] = {}
         self.neural_networks: dict[str, NeuralNetwork] = {}
         self.training_data: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -366,7 +366,7 @@ class AdvancedAIIntegration:
 
             # Calculate accuracy
             predictions = (predictions > 0.5).astype(int)
-            accuracy = np.mean(predictions == y)
+            accuracy = float(np.mean(predictions == y))
 
             return accuracy
 

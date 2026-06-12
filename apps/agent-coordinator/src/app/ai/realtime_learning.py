@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Real-time Learning System for AITBC Agent Coordinator
 Implements adaptive learning, predictive analytics, and intelligent optimization
@@ -41,7 +40,7 @@ class PredictiveModel:
 class RealTimeLearningSystem:
     """Real-time learning system with adaptive capabilities"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.experiences: list[LearningExperience] = []
         self.models: dict[str, PredictiveModel] = {}
         self.performance_history: deque = deque(maxlen=1000)
@@ -83,7 +82,7 @@ class RealTimeLearningSystem:
             logger.error(f"Error recording experience: {e}")
             return {'status': 'error', 'message': str(e)}
 
-    async def _adaptive_learning_check(self):
+    async def _adaptive_learning_check(self) -> Any:
         """Check if adaptive learning should be triggered"""
         if len(self.performance_history) < 10:
             return
@@ -99,7 +98,7 @@ class RealTimeLearningSystem:
             if older_avg_reward - avg_reward > self.adaptation_threshold:
                 await self._trigger_adaptation()
 
-    async def _trigger_adaptation(self):
+    async def _trigger_adaptation(self) -> Any:
         """Trigger system adaptation based on learning"""
         try:
             # Analyze recent experiences
@@ -121,7 +120,7 @@ class RealTimeLearningSystem:
 
     async def _analyze_patterns(self, experiences: list[LearningExperience]) -> dict[str, Any]:
         """Analyze patterns in recent experiences"""
-        patterns = {
+        patterns: dict[str, Any] = {
             'successful_actions': defaultdict(int),
             'failure_contexts': defaultdict(list),
             'performance_trends': {},
@@ -147,7 +146,7 @@ class RealTimeLearningSystem:
 
         return patterns
 
-    async def _update_predictive_models(self, patterns: dict[str, Any]):
+    async def _update_predictive_models(self, patterns: dict[str, Any]) -> Any:
         """Update predictive models based on patterns"""
         # Performance prediction model
         performance_model = PredictiveModel(
@@ -173,7 +172,7 @@ class RealTimeLearningSystem:
 
         self.models['success'] = success_model
 
-    async def _optimize_system_parameters(self, patterns: dict[str, Any]):
+    async def _optimize_system_parameters(self, patterns: dict[str, Any]) -> Any:
         """Optimize system parameters based on patterns"""
         # Update learning rate based on performance
         recent_rewards = [p['reward'] for p in list(self.performance_history)[-10:]]

@@ -1,6 +1,6 @@
-# mypy: ignore-errors
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
@@ -19,7 +19,7 @@ router = APIRouter()
 @rate_limit(rate=50, per=60)
 async def submit_task(
     request_http: Request, request: TaskSubmission, background_tasks: BackgroundTasks
-):
+) -> dict[str, Any]:
     """Submit a task for distribution"""
     try:
         if not state.task_distributor:
@@ -57,7 +57,7 @@ async def submit_task(
 @rate_limit(rate=200, per=60)
 async def get_task_status(
     request: Request
-):
+) -> dict[str, Any]:
     """Get task distribution statistics"""
     try:
         if not state.task_distributor:
@@ -80,7 +80,7 @@ async def get_task_status(
 @rate_limit(rate=200, per=60)
 async def get_queue_sizes(
     request: Request
-):
+) -> dict[str, Any]:
     """Get task queue sizes"""
     try:
         if not state.task_distributor:
@@ -104,7 +104,7 @@ async def get_queue_sizes(
 @rate_limit(rate=50, per=60)
 async def clear_queue(
     request: Request, priority: str
-):
+) -> dict[str, Any]:
     """Clear a priority queue"""
     try:
         if not state.task_distributor:
@@ -137,7 +137,7 @@ async def clear_queue(
 @rate_limit(rate=200, per=60)
 async def get_queue_stats(
     request: Request
-):
+) -> dict[str, Any]:
     """Get detailed queue statistics"""
     try:
         if not state.task_distributor:

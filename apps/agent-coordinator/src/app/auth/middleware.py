@@ -1,12 +1,12 @@
-# mypy: ignore-errors
 """
 Authentication Middleware for AITBC Agent Coordinator
 Implements JWT and API key authentication middleware
 """
 
 import os
+from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, TypeVar, cast
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -16,6 +16,8 @@ from aitbc import get_logger
 from .jwt_handler import api_key_manager, jwt_handler
 
 logger = get_logger(__name__)
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 # Security schemes
 security = HTTPBearer(auto_error=False)
@@ -27,9 +29,12 @@ class AuthenticationError(Exception):
 class RateLimiter:
     """Distributed rate limiter using Redis"""
 
-    def __init__(self, redis_url: str = None):
+    def __init__(self, redis_url: str | None = None):
         import redis
-        self.redis_url = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        from collections import deque
+        self.redis_url: str = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0") or "redis://localhost:6379/0"
+        self.redis_client: Any | None = None
+        self.memory_requests: dict[str, deque[float]] = {}
         self.limits = {
             "default": {"requests": 100, "window": 3600},  # 100 requests per hour
             "admin": {"requests": 1000, "window": 3600},   # 1000 requests per hour
@@ -85,7 +90,7 @@ class RateLimiter:
                 # Get oldest request timestamp
                 oldest = self.redis_client.zrange(key, 0, 0, withscores=True)
                 if oldest:
-                    reset_time = oldest[0][1] + window_seconds
+                    reset_time = float(oldest[0][1]) + window_seconds
                 else:
                     reset_time = current_time + window_seconds
 
@@ -101,9 +106,6 @@ class RateLimiter:
     def _is_allowed_memory(self, user_id: str, user_role: str, current_time: float, max_requests: int, window_seconds: int) -> dict[str, Any]:
         """Fallback in-memory rate limiting"""
         from collections import deque
-
-        if not hasattr(self, 'memory_requests'):
-            self.memory_requests = {}
 
         if user_id not in self.memory_requests:
             self.memory_requests[user_id] = deque()
@@ -157,7 +159,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(
                             "error": "Rate limit exceeded",
                             "reset_time": rate_check["reset_time"]
                         },
-                        headers={"Retry-After": str(int(rate_check["reset_time"] - rate_limiter.requests[user_id][0]))}
+                        headers={"Retry-After": str(int(rate_check["reset_time"] - rate_limiter.requests[user_id][0]))}  # type: ignore[attr-defined]
                     )
 
                 return {
@@ -219,11 +221,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(
             detail="Authentication failed"
         )
 
-def require_permissions(required_permissions: list[str]):
+def require_permissions(required_permissions: list[str]) -> Callable[[F], F]:
     """Decorator to require specific permissions"""
-    def decorator(func):
+    def decorator(func: F) -> F:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Get current user from dependency injection
             current_user = kwargs.get('current_user')
             if not current_user:
@@ -250,14 +252,14 @@ def require_permissions(required_permissions: list[str]):
                 )
 
             return await func(*args, **kwargs)
-        return wrapper
+        return cast(F, wrapper)
     return decorator
 
-def require_role(required_roles: list[str]):
+def require_role(required_roles: list[str] | list[Any]) -> Callable[[F], F]:
     """Decorator to require specific role"""
-    def decorator(func):
+    def decorator(func: F) -> F:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             current_user = kwargs.get('current_user')
             if not current_user:
                 raise HTTPException(
@@ -292,7 +294,7 @@ def require_role(required_roles: list[str]):
                 )
 
             return await func(*args, **kwargs)
-        return wrapper
+        return cast(F, wrapper)
     return decorator
 
 class SecurityHeaders:

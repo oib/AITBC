@@ -6,7 +6,7 @@ Provides decorators and middleware for API rate limiting
 import asyncio
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, TypeVar, cast
 
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -16,6 +16,8 @@ from .aitbc_logging import get_logger
 from .security_hardening import RateLimiter
 
 logger = get_logger(__name__)
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 # Global rate limiters for different endpoints
@@ -44,7 +46,7 @@ def rate_limit(
     per: int = 60,
     key_func: Callable[[Request], str] | None = None,
     error_message: str = "Rate limit exceeded"
-) -> Callable:
+) -> Callable[[F], F]:
     """
     Decorator for rate limiting FastAPI endpoints
 
@@ -57,7 +59,7 @@ def rate_limit(
     Returns:
         Decorated function with rate limiting
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: F) -> F:
         limiter = RateLimiter(rate=rate, per=per)
         is_async = asyncio.iscoroutinefunction(func)
 
@@ -98,7 +100,7 @@ def rate_limit(
             else:
                 return func(*args, **kwargs)
 
-        return wrapper
+        return cast(F, wrapper)
     return decorator
 
 
