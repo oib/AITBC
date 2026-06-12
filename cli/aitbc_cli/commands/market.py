@@ -96,7 +96,7 @@ def get_wallet_address() -> str:
             if address:
                 return address
     except Exception as e:
-        logger.warning(f"Failed to get wallet from service: {e}")
+        logger.warning("Failed to get wallet from service: %s", e)
 
     # Fallback to local wallet file
     wallet_path = '/root/.aitbc/wallets/genesis.json'
@@ -106,7 +106,7 @@ def get_wallet_address() -> str:
                 wallet = json.load(f)
                 return wallet.get('address')
         except Exception as e:
-            logger.warning(f"Failed to load local wallet: {e}")
+            logger.warning("Failed to load local wallet: %s", e)
 
     # No wallet available
     error("No wallet address available. Ensure wallet service is running or wallet file exists.")
@@ -165,16 +165,16 @@ def list(ctx, provider: str | None, status: str | None):
                     if isinstance(tx.get('payload'), dict)
                     and tx['payload'].get('action') in ('offer', 'bid', 'cancel', 'accept', 'software_offer')
                 ]
-                logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions from hub")
+                logger.debug("Found %s GPU_MARKETPLACE transactions from hub", len(transactions))
 
             # Also check hub mempool for pending transactions
             if not transactions:
                 mempool = http_client.get("/rpc/mempool")
                 if mempool and isinstance(mempool, dict) and 'transactions' in mempool:
                     transactions = [tx for tx in mempool['transactions'] if tx.get('type') == 'GPU_MARKETPLACE']
-                    logger.debug(f"Found {len(transactions)} GPU_MARKETPLACE transactions in hub mempool")
+                    logger.debug("Found %s GPU_MARKETPLACE transactions in hub mempool", len(transactions))
         except NetworkError as e:
-            logger.error(f"Network error querying hub: {e}")
+            logger.error("Network error querying hub: %s", e)
             # Fallback to local blockchain RPC
             try:
                 http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
