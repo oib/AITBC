@@ -1,7 +1,6 @@
-# mypy: ignore-errors
 """Blockchain RPC client for Edge API Service"""
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -11,11 +10,11 @@ from ..config import settings
 class BlockchainRPCClient:
     """Client for blockchain node RPC communication"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
         self.client = httpx.AsyncClient(timeout=30.0)
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP client"""
         await self.client.aclose()
 
@@ -32,7 +31,7 @@ class BlockchainRPCClient:
             }
         )
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     async def leave_island(self, island_id: str) -> dict[str, Any]:
         """Leave island via blockchain RPC"""
@@ -41,7 +40,7 @@ class BlockchainRPCClient:
             json={"island_id": island_id}
         )
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     async def get_island_info(self, island_id: str) -> dict[str, Any] | None:
         """Get island info via blockchain RPC"""
@@ -49,13 +48,13 @@ class BlockchainRPCClient:
         if response.status_code == 404:
             return None
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     async def list_islands(self) -> dict[str, Any]:
         """List all islands via blockchain RPC"""
         response = await self.client.get(f"{self.base_url}/rpc/islands")
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     async def request_bridge(self, target_island_id: str) -> dict[str, Any]:
         """Request bridge via blockchain RPC"""
@@ -64,4 +63,4 @@ class BlockchainRPCClient:
             json={"target_island_id": target_island_id}
         )
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
