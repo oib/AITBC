@@ -57,10 +57,10 @@ def handle_workflow_create(args, render_mapping):
             "estimated_duration": "1-2 minutes"
         }
 
-        logger.info(f"Workflow created: {workflow_data['workflow_id']}")
+        logger.info("Workflow created: %s", workflow_data['workflow_id'])
         render_mapping("Workflow:", workflow_data)
     except Exception as e:
-        logger.error(f"Failed to create workflow: {e}")
+        logger.error("Failed to create workflow: %s", e)
         render_mapping("Error:", {"message": str(e)})
 
 
@@ -81,7 +81,7 @@ def handle_workflow_schedule(args, render_mapping):
         "note": "Scheduler service integration required for actual execution"
     }
 
-    logger.info(f"Workflow scheduled: {schedule_data['schedule_id']}")
+    logger.info("Workflow scheduled: %s", schedule_data['schedule_id'])
     render_mapping("Schedule:", schedule_data)
 
 
@@ -122,7 +122,7 @@ def handle_workflow_monitor(args, output_format, render_mapping):
         else:
             render_mapping("Workflow Monitor:", monitor_data)
     except Exception as e:
-        logger.error(f"Failed to monitor workflows: {e}")
+        logger.error("Failed to monitor workflows: %s", e)
         monitor_data = {
             "status": "error",
             "message": str(e),
