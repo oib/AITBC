@@ -134,7 +134,7 @@ class Agent:
                 self.contract_integration.set_agent_address(identity.address)
                 logger.info("Contract integration initialized for agent")
             except Exception as e:
-                logger.warning(f"Failed to initialize contract integration: {e}")
+                logger.warning("Failed to initialize contract integration: %s", e)
 
     @classmethod
     def create(
@@ -206,20 +206,20 @@ class Agent:
                 if response.status_code == 201:
                     result = response.json()
                     self.registered = True
-                    logger.info(f"Agent {self.identity.id} registered successfully")
+                    logger.info("Agent %s registered successfully", self.identity.id)
                     return True
                 else:
-                    logger.error(f"Registration failed: {response.status_code}")
+                    logger.error("Registration failed: %s", response.status_code)
                     return False
             except NetworkError as e:
-                logger.error(f"Network error during registration: {e}")
+                logger.error("Network error during registration: %s", e)
                 return False
             except Exception as e:
-                logger.error(f"Registration error: {e}")
+                logger.error("Registration error: %s", e)
                 return False
 
         except Exception as e:
-            logger.error(f"Registration failed: {e}")
+            logger.error("Registration failed: %s", e)
             return False
 
     async def get_reputation(self) -> dict[str, float]:
@@ -234,7 +234,7 @@ class Agent:
                 self.reputation_score = result.get("overall_score", self.reputation_score)
                 return result
             else:
-                logger.warning(f"Failed to fetch reputation: {response.status_code}, using local score")
+                logger.warning("Failed to fetch reputation: %s, using local score", response.status_code)
                 return {
                     "overall_score": self.reputation_score,
                     "job_success_rate": 0.95,
@@ -250,7 +250,7 @@ class Agent:
                 "client_satisfaction": 4.7,
             }
         except Exception as e:
-            logger.error(f"Error fetching reputation: {e}")
+            logger.error("Error fetching reputation: %s", e)
             return {
                 "overall_score": self.reputation_score,
                 "job_success_rate": 0.95,
@@ -261,7 +261,7 @@ class Agent:
     async def update_reputation(self, new_score: float) -> None:
         """Update agent reputation score"""
         self.reputation_score = new_score
-        logger.info(f"Reputation updated to {new_score}")
+        logger.info("Reputation updated to %s", new_score)
 
     async def get_earnings(self, period: str = "30d") -> dict[str, Any]:
         """Get agent earnings information"""
@@ -276,7 +276,7 @@ class Agent:
                 self.earnings = result.get("total", self.earnings)
                 return result
             else:
-                logger.warning(f"Failed to fetch earnings: {response.status_code}, using local earnings")
+                logger.warning("Failed to fetch earnings: %s, using local earnings", response.status_code)
                 return {
                     "total": self.earnings,
                     "daily_average": self.earnings / 30,
@@ -292,7 +292,7 @@ class Agent:
                 "currency": "AITBC",
             }
         except Exception as e:
-            logger.error(f"Error fetching earnings: {e}")
+            logger.error("Error fetching earnings: %s", e)
             return {
                 "total": self.earnings,
                 "daily_average": self.earnings / 30,
@@ -324,16 +324,16 @@ class Agent:
             )
 
             if response.status_code == 200:
-                logger.info(f"Message sent to {recipient_id}: {message_type}")
+                logger.info("Message sent to %s: %s", recipient_id, message_type)
                 return True
             else:
-                logger.error(f"Failed to send message: {response.status_code}")
+                logger.error("Failed to send message: %s", response.status_code)
                 return False
         except NetworkError as e:
-            logger.error(f"Network error sending message: {e}")
+            logger.error("Network error sending message: %s", e)
             return False
         except Exception as e:
-            logger.error(f"Error sending message: {e}")
+            logger.error("Error sending message: %s", e)
             return False
 
     async def _fetch_sender_public_key(self, sender_id: str) -> str | None:
@@ -347,13 +347,13 @@ class Agent:
             if response and "public_key" in response:
                 return response["public_key"]
             else:
-                logger.warning(f"No public key found for agent {sender_id}")
+                logger.warning("No public key found for agent %s", sender_id)
                 return None
         except NetworkError as e:
-            logger.error(f"Failed to fetch public key for {sender_id}: {e}")
+            logger.error("Failed to fetch public key for %s: %s", sender_id, e)
             return None
         except Exception as e:
-            logger.error(f"Error fetching public key: {e}")
+            logger.error("Error fetching public key: %s", e)
             return None
 
     async def receive_message(self, message: dict[str, Any]) -> bool:
@@ -374,7 +374,7 @@ class Agent:
         # Fetch sender's public key from coordinator API
         public_key_hex = await self._fetch_sender_public_key(sender_id)
         if not public_key_hex:
-            logger.error(f"Failed to fetch public key for {sender_id}, rejecting message")
+            logger.error("Failed to fetch public key for %s, rejecting message", sender_id)
             return False
 
         # Verify signature using ed25519
@@ -386,11 +386,12 @@ class Agent:
             public_key.verify(signature, message_bytes)
 
             logger.info(
-                f"Received message from {sender_id}: {message.get('type')} (signature verified)"
+                "Received message from %s: %s (signature verified)",
+                sender_id, message.get('type')
             )
             return True
         except Exception as e:
-            logger.error(f"Signature verification failed for {sender_id}: {e}")
+            logger.error("Signature verification failed for %s: %s", sender_id, e)
             return False
 
     def to_dict(self) -> dict[str, Any]:
@@ -422,9 +423,9 @@ class Agent:
         # In a real implementation, this would unregister the agent
         # and clean up any resources
         if exc_type is not None:
-            logger.error(f"Agent {self.identity.id} exiting with exception: {exc_val}")
+            logger.error("Agent %s exiting with exception: %s", self.identity.id, exc_val)
         else:
-            logger.info(f"Agent {self.identity.id} exiting normally")
+            logger.info("Agent %s exiting normally", self.identity.id)
 
     async def initiate_atomic_swap(
         self,
