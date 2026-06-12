@@ -4,7 +4,9 @@ Provides timestamp helpers, duration helpers, timezone handling, and deadline ca
 """
 
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 
 def get_utc_now() -> datetime:
@@ -188,7 +190,7 @@ def format_time_in(dt: datetime) -> str:
 def to_timezone(dt: datetime, tz_name: str) -> datetime:
     """Convert datetime to specific timezone"""
     try:
-        import pytz
+        import pytz  # type: ignore
         tz = pytz.timezone(tz_name)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
@@ -279,7 +281,7 @@ def sleep_until(dt: datetime) -> None:
         time.sleep(sleep_seconds)
 
 
-def retry_until_deadline(func, deadline: datetime, interval: float = 1.0) -> bool:
+def retry_until_deadline(func: Callable[[], bool], deadline: datetime, interval: float = 1.0) -> bool:
     """Retry a function until deadline is reached"""
     while not is_deadline_passed(deadline):
         try:
@@ -295,21 +297,22 @@ def retry_until_deadline(func, deadline: datetime, interval: float = 1.0) -> boo
 class Timer:
     """Simple timer context manager for measuring execution time"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize timer"""
-        self.start_time = None
-        self.end_time = None
-        self.elapsed = None
+        self.start_time: float | None = None
+        self.end_time: float | None = None
+        self.elapsed: float | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "Timer":
         """Start timer"""
         self.start_time = time.time()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Stop timer"""
         self.end_time = time.time()
-        self.elapsed = self.end_time - self.start_time
+        if self.start_time is not None:
+            self.elapsed = self.end_time - self.start_time
 
     def get_elapsed(self) -> float | None:
         """Get elapsed time in seconds"""

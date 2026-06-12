@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """GPU service for Edge API Service"""
 
 

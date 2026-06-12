@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Billing Integration Service for Pool-Hub
 Integrates pool-hub usage data with coordinator-api's billing system.

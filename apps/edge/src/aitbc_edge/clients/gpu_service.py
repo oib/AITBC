@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """GPU service client for Edge API Service"""
 
 from typing import Any

@@ -17,7 +17,7 @@ class BridgeDepositStatus(str, Enum):
     FAILED = "failed"
 
 
-def init_db():
+def init_db() -> None:
     """Initialize bridge deposits database."""
     os.makedirs(DATA_DIR, exist_ok=True)
     
@@ -54,7 +54,7 @@ def init_db():
     conn.close()
 
 
-def get_db_connection():
+def get_db_connection() -> sqlite3.Connection:
     """Get database connection."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -66,7 +66,7 @@ def create_deposit(
     eth_from_address: str,
     eth_amount: str,
     ait_recipient: str
-) -> int:
+) -> Optional[int]:
     """Create a new bridge deposit record."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -191,7 +191,7 @@ def count_deposits(status: Optional[BridgeDepositStatus] = None) -> int:
     else:
         cursor.execute("SELECT COUNT(*) FROM bridge_deposits")
     
-    count = cursor.fetchone()[0]
+    count: int = cursor.fetchone()[0]
     conn.close()
     
     return count

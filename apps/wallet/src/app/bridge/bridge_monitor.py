@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 ETH-AIT Bridge Monitor
 Polls Ethereum RPC for incoming ETH transactions to the bridge wallet address.

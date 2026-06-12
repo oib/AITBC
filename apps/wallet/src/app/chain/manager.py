@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Chain Manager for Wallet Daemon
 

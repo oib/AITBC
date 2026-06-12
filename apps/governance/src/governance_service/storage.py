@@ -6,7 +6,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 from aitbc import get_logger
@@ -26,11 +26,11 @@ def _build_database_url() -> str:
     return os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/governance_service.db")
 
 
-def _create_engine():
+def _create_engine() -> AsyncEngine:
     """Create async engine based on current environment."""
     db_type = os.getenv("DB_TYPE", "sqlite")
     url = _build_database_url()
-    kwargs = {
+    kwargs: dict[str, int | bool] = {
         "echo": False,
         "pool_pre_ping": True,
     }

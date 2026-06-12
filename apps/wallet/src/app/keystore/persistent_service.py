@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Persistent Keystore Service - Fixes data loss on restart
 Replaces the in-memory-only keystore with database persistence

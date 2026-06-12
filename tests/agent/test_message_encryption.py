@@ -1,5 +1,4 @@
 """
-pytestmark = pytest.mark.skip('Skipping broken test file')
 Message Encryption Module Tests
 Tests for RSA/AES-GCM encryption, key exchange, and digital signatures
 """

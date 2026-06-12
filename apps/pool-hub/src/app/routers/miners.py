@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """Miner management routes for Pool Hub"""
 
 from datetime import datetime

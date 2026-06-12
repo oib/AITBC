@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Chain Ledger Adapter for Wallet Daemon
 

@@ -8,6 +8,7 @@ import logging
 import sys
 from contextlib import contextmanager
 from datetime import datetime
+from typing import Any
 
 
 class StructuredFormatter(logging.Formatter):
@@ -49,7 +50,7 @@ def setup_logger(
         handler = logging.StreamHandler(sys.stdout)
 
         if structured:
-            formatter = StructuredFormatter()
+            formatter: logging.Formatter = StructuredFormatter()
         else:
             if format_string is None:
                 format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -80,12 +81,12 @@ def configure_logging(level: str = "INFO", structured: bool = False) -> None:
         root_logger.addHandler(handler)
 
 @contextmanager
-def log_context(**kwargs):
+def log_context(**kwargs: Any) -> Any:
     """Context manager for adding contextual information to logs"""
     logger = logging.getLogger()
 
     class ContextFilter(logging.Filter):
-        def filter(self, record):
+        def filter(self, record: logging.LogRecord) -> bool:
             for key, value in kwargs.items():
                 setattr(record, key, value)
             return True
@@ -100,11 +101,11 @@ def log_context(**kwargs):
 class LogContext:
     """Class for adding contextual information to logs across multiple calls"""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         self.context = kwargs
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         return log_context(**self.context).__enter__()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         pass

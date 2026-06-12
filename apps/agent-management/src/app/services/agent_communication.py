@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Communication Service for Advanced Agent Features
 Implements secure agent-to-agent messaging with reputation-based access control

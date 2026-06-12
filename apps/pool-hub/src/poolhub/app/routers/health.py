@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from poolhub.repositories.miner_repository import MinerRepository
@@ -24,7 +25,7 @@ async def health_endpoint(
     redis_error: str | None = None
 
     try:
-        await session.execute("SELECT 1")
+        await session.execute(text("SELECT 1"))
     except Exception as exc:  # pragma: no cover
         db_ok = False
         db_error = str(exc)

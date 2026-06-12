@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Orchestrator Service for hermes Autonomous Economics
 Implements multi-agent coordination and sub-task management

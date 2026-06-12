@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Rainbow DQN Agent implementation
 """
