@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,7 +18,7 @@ router = APIRouter()
 @rate_limit(rate=50, per=60)
 async def register_consensus_node(
     request: Request, node_data: dict[str, Any]
-):
+) -> dict[str, Any]:
     """Register a node in the consensus network"""
     try:
         result = await distributed_consensus.register_node(node_data)
@@ -32,7 +31,7 @@ async def register_consensus_node(
 @rate_limit(rate=50, per=60)
 async def create_consensus_proposal(
     request: Request, proposal_data: dict[str, Any]
-):
+) -> dict[str, Any]:
     """Create a new consensus proposal"""
     try:
         result = await distributed_consensus.create_proposal(proposal_data)
@@ -45,7 +44,7 @@ async def create_consensus_proposal(
 @rate_limit(rate=50, per=60)
 async def cast_consensus_vote(
     request: Request, proposal_id: str, node_id: str, vote: bool
-):
+) -> dict[str, Any]:
     """Cast a vote for a proposal"""
     try:
         result = await distributed_consensus.cast_vote(proposal_id, node_id, vote)
@@ -58,7 +57,7 @@ async def cast_consensus_vote(
 @rate_limit(rate=200, per=60)
 async def get_proposal_status(
     request: Request, proposal_id: str
-):
+) -> dict[str, Any]:
     """Get proposal status"""
     try:
         result = await distributed_consensus.get_proposal_status(proposal_id)
@@ -71,7 +70,7 @@ async def get_proposal_status(
 @rate_limit(rate=50, per=60)
 async def set_consensus_algorithm(
     request: Request, algorithm: str = Query(..., description="Consensus algorithm")
-):
+) -> dict[str, Any]:
     """Set the consensus algorithm"""
     try:
         result = await distributed_consensus.set_consensus_algorithm(algorithm)
@@ -84,7 +83,7 @@ async def set_consensus_algorithm(
 @rate_limit(rate=200, per=60)
 async def get_consensus_statistics(
     request: Request
-):
+) -> dict[str, Any]:
     """Get consensus statistics"""
     try:
         result = await distributed_consensus.get_consensus_statistics()
@@ -97,7 +96,7 @@ async def get_consensus_statistics(
 @rate_limit(rate=50, per=60)
 async def update_node_status(
     request: Request, node_id: str, is_active: bool
-):
+) -> dict[str, Any]:
     """Update node status"""
     try:
         result = await distributed_consensus.update_node_status(node_id, is_active)
@@ -111,7 +110,7 @@ async def update_node_status(
 @rate_limit(rate=200, per=60)
 async def get_advanced_features_status(
     request: Request
-):
+) -> dict[str, Any]:
     """Get status of all advanced features"""
     try:
         learning_stats = await learning_system.get_learning_statistics()

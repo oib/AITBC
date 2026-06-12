@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 JWT Authentication Handler for AITBC Agent Coordinator
 Implements JWT token generation, validation, and management
@@ -15,13 +14,13 @@ logger = get_logger(__name__)
 class JWTHandler:
     """JWT token management and validation"""
 
-    def __init__(self, secret_key: str = None):
+    def __init__(self, secret_key: str | None = None) -> None:
         self.secret_key = secret_key or secrets.token_urlsafe(32)
         self.algorithm = "HS256"
         self.token_expiry = timedelta(hours=24)
         self.refresh_expiry = timedelta(days=7)
 
-    def generate_token(self, payload: dict[str, Any], expires_delta: timedelta = None) -> dict[str, Any]:
+    def generate_token(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -175,7 +174,7 @@ class PasswordManager:
     @staticmethod
     def hash_password(password: str) -> dict[str, Any]:
         """Hash password using bcrypt"""
-        import bcrypt
+        import bcrypt  # type: ignore[import-not-found]
 
         try:
             # Generate salt and hash password
@@ -215,8 +214,8 @@ class PasswordManager:
 class APIKeyManager:
     """API key generation and management with persistent storage"""
 
-    def __init__(self, storage_path: str = None):
-        self.storage_path = storage_path or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json")
+    def __init__(self, storage_path: str | None = None) -> None:
+        self.storage_path: str = storage_path or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json") or "/var/lib/aitbc/api_keys.json"
         self.api_keys = self._load_keys()
 
     def _load_keys(self) -> dict[str, Any]:
@@ -225,7 +224,8 @@ class APIKeyManager:
             if os.path.exists(self.storage_path):
                 with open(self.storage_path) as f:
                     import json
-                    return json.load(f)
+                    data: dict[str, Any] = json.load(f)
+                    return data
             return {}
         except Exception as e:
             logger.error(f"Error loading API keys: {e}")
@@ -243,7 +243,7 @@ class APIKeyManager:
         except Exception as e:
             logger.error(f"Error saving API keys: {e}")
 
-    def generate_api_key(self, user_id: str, permissions: list[str] = None) -> dict[str, Any]:
+    def generate_api_key(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             # Generate secure API key
