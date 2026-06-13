@@ -57,7 +57,7 @@ class RealTimeLearningSystem:
             logger.error('Error recording experience: %s', e)
             return {'status': 'error', 'message': str(e)}
 
-    async def _adaptive_learning_check(self) -> Any:
+    async def _adaptive_learning_check(self) -> None:
         """Check if adaptive learning should be triggered"""
         if len(self.performance_history) < 10:
             return
@@ -69,7 +69,7 @@ class RealTimeLearningSystem:
             if older_avg_reward - avg_reward > self.adaptation_threshold:
                 await self._trigger_adaptation()
 
-    async def _trigger_adaptation(self) -> Any:
+    async def _trigger_adaptation(self) -> None:
         """Trigger system adaptation based on learning"""
         try:
             recent_experiences = self.experiences[-50:]
@@ -97,14 +97,14 @@ class RealTimeLearningSystem:
                 patterns['optimal_conditions'][key] = statistics.mean(values)
         return patterns
 
-    async def _update_predictive_models(self, patterns: dict[str, Any]) -> Any:
+    async def _update_predictive_models(self, patterns: dict[str, Any]) -> None:
         """Update predictive models based on patterns"""
         performance_model = PredictiveModel(model_id='performance_predictor', model_type='linear_regression', features=['action', 'context_load', 'context_agents'], target='performance_score', accuracy=0.85, last_updated=datetime.now(UTC))
         self.models['performance'] = performance_model
         success_model = PredictiveModel(model_id='success_predictor', model_type='logistic_regression', features=['action', 'context_time', 'context_resources'], target='success_probability', accuracy=0.82, last_updated=datetime.now(UTC))
         self.models['success'] = success_model
 
-    async def _optimize_system_parameters(self, patterns: dict[str, Any]) -> Any:
+    async def _optimize_system_parameters(self, patterns: dict[str, Any]) -> None:
         """Optimize system parameters based on patterns"""
         recent_rewards = [p['reward'] for p in list(self.performance_history)[-10:]]
         avg_reward = statistics.mean(recent_rewards)
