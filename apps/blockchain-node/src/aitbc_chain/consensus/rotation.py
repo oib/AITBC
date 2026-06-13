@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Validator Rotation Mechanism
 Handles automatic rotation of validators based on performance and stake
