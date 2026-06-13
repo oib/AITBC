@@ -1,15 +1,19 @@
 import json
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from .. import state
 from ..encryption import get_encryptor
 from ..models import BroadcastRequest
 from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
+
 logger = get_logger(__name__)
 router = APIRouter(prefix='/api/v1/agent/messages', tags=['agent-messaging'])
 
@@ -54,7 +58,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
         raise
     except Exception as e:
         logger.error('Error sending encrypted message: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/inbox')
 @rate_limit(rate=200, per=60)
@@ -69,7 +73,7 @@ async def get_inbox(request: Request, agent_id: str = Query(..., description='Ag
         return {'agent_id': agent_id, 'messages': messages, 'count': len(messages), 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting inbox: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/history')
 @rate_limit(rate=200, per=60)
@@ -92,7 +96,7 @@ async def get_message_history(request: Request, sender_id: str | None = Query(No
         raise
     except Exception as e:
         logger.error('Error retrieving message history: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/{agent_id}')
 @rate_limit(rate=200, per=60)
@@ -108,7 +112,7 @@ async def get_messages_for_agent(request: Request, agent_id: str) -> dict[str, A
         return {'agent_id': agent_id, 'count': len(messages), 'messages': messages, 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting messages for agent %s: %s', agent_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/discover')
 @rate_limit(rate=200, per=60)
@@ -132,7 +136,7 @@ async def discover_agents(request: Request, capability: str | None = Query(None,
         raise
     except Exception as e:
         logger.error('Error discovering agents: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/subscribe')
 @rate_limit(rate=50, per=60)
@@ -146,7 +150,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> dict[st
         return {'status': 'success', 'agent_id': req.agent_id, 'topic': req.topic, 'subscribed_at': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error subscribing to topic: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/broadcast')
 @rate_limit(rate=50, per=60)
@@ -161,11 +165,11 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest) ->
         try:
             message_type = MessageType(request.message_type)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f'Invalid message type: {request.message_type}')
+            raise HTTPException(status_code=400, detail=f'Invalid message type: {request.message_type}') from None
         try:
             priority = Priority(request.priority.lower())
         except ValueError:
-            raise HTTPException(status_code=400, detail=f'Invalid priority: {request.priority}')
+            raise HTTPException(status_code=400, detail=f'Invalid priority: {request.priority}') from None
         query: dict[str, Any] = {}
         if request.agent_type:
             query['agent_type'] = request.agent_type
@@ -191,7 +195,7 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest) ->
         raise
     except Exception as e:
         logger.error('Error broadcasting message: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/id/{message_id}')
 @rate_limit(rate=200, per=60)
@@ -208,7 +212,7 @@ async def get_message(request: Request, message_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error('Error retrieving message %s: %s', message_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/load-balancer/stats')
 @rate_limit(rate=200, per=60)
@@ -221,7 +225,7 @@ async def get_load_balancer_stats(request: Request) -> dict[str, Any]:
         return {'status': 'success', 'stats': stats, 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting load balancer stats: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/registry/stats')
 @rate_limit(rate=200, per=60)
@@ -234,7 +238,7 @@ async def get_registry_stats(request: Request) -> dict[str, Any]:
         return {'status': 'success', 'stats': stats, 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting registry stats: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/agents/service/{service}')
 @rate_limit(rate=200, per=60)
@@ -247,7 +251,7 @@ async def get_agents_by_service(request: Request, service: str) -> dict[str, Any
         return {'status': 'success', 'service': service, 'agents': [agent.to_dict() for agent in agents], 'count': len(agents), 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting agents by service: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/agents/capability/{capability}')
 @rate_limit(rate=200, per=60)
@@ -260,7 +264,7 @@ async def get_agents_by_capability(request: Request, capability: str) -> dict[st
         return {'status': 'success', 'capability': capability, 'agents': [agent.to_dict() for agent in agents], 'count': len(agents), 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting agents by capability: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.put('/load-balancer/strategy')
 @rate_limit(rate=50, per=60)
@@ -272,14 +276,14 @@ async def set_load_balancing_strategy(request: Request, strategy: str = Query(..
         try:
             load_balancing_strategy = LoadBalancingStrategy(strategy.lower())
         except ValueError:
-            raise HTTPException(status_code=400, detail=f'Invalid strategy: {strategy}')
+            raise HTTPException(status_code=400, detail=f'Invalid strategy: {strategy}') from None
         state.load_balancer.set_strategy(load_balancing_strategy)
         return {'status': 'success', 'message': f'Load balancing strategy set to {strategy}', 'strategy': strategy, 'updated_at': datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
     except Exception as e:
         logger.error('Error setting load balancing strategy: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/peers/add')
 @rate_limit(rate=50, per=60)
@@ -297,7 +301,7 @@ async def add_peer(request: Request, agent_id: str = Query(..., description='Age
         raise
     except Exception as e:
         logger.error('Error adding peer: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/peers/remove')
 @rate_limit(rate=50, per=60)
@@ -315,7 +319,7 @@ async def remove_peer(request: Request, agent_id: str = Query(..., description='
         raise
     except Exception as e:
         logger.error('Error removing peer: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/peers/{agent_id}')
 @rate_limit(rate=200, per=60)
@@ -330,7 +334,7 @@ async def get_agent_peers(request: Request, agent_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error('Error retrieving peers for agent %s: %s', agent_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/peers')
 @rate_limit(rate=200, per=60)
@@ -340,10 +344,10 @@ async def get_all_peers(request: Request) -> dict[str, Any]:
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail='Peer storage not available')
         connections = await state.peer_storage.get_all_peer_connections()
-        total_peers = sum((len(peers) for peers in connections.values()))
+        total_peers = sum(len(peers) for peers in connections.values())
         return {'status': 'success', 'connections': connections, 'total_agents': len(connections), 'total_peers': total_peers, 'timestamp': datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
     except Exception as e:
         logger.error('Error retrieving all peer connections: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
