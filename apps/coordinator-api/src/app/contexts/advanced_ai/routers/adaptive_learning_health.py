@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 '\nAdaptive Learning Service Health Check Router\nProvides health monitoring for reinforcement learning frameworks\n'
 import sys
