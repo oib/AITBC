@@ -222,7 +222,7 @@ class AgentRegistry:
             type_counts[agent_type] = type_counts.get(agent_type, 0) + 1
         return {'total_agents': total_agents, 'status_counts': status_counts, 'type_counts': type_counts, 'service_count': len(self.service_index), 'capability_count': len(self.capability_index), 'last_cleanup': datetime.now(UTC).isoformat()}
 
-    def _update_indexes(self, agent_info: AgentInfo) -> Any:
+    def _update_indexes(self, agent_info: AgentInfo) -> None:
         """Update search indexes"""
         for service in agent_info.services:
             if service not in self.service_index:
@@ -236,7 +236,7 @@ class AgentRegistry:
             self.type_index[agent_info.agent_type] = set()
         self.type_index[agent_info.agent_type].add(agent_info.agent_id)
 
-    def _remove_from_indexes(self, agent_info: AgentInfo) -> Any:
+    def _remove_from_indexes(self, agent_info: AgentInfo) -> None:
         """Remove agent from search indexes"""
         for service in agent_info.services:
             if service in self.service_index:
@@ -275,21 +275,21 @@ class AgentRegistry:
             base_score -= 0.2
         return max(0.0, min(1.0, base_score))
 
-    async def _save_agent_to_redis(self, agent_info: AgentInfo) -> Any:
+    async def _save_agent_to_redis(self, agent_info: AgentInfo) -> None:
         """Save agent information to Redis"""
         if not self.redis_client:
             return
         key = f'agent:{agent_info.agent_id}'
         await self.redis_client.set(key, json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
 
-    async def _remove_agent_from_redis(self, agent_id: str) -> Any:
+    async def _remove_agent_from_redis(self, agent_id: str) -> None:
         """Remove agent from Redis"""
         if not self.redis_client:
             return
         key = f'agent:{agent_id}'
         await self.redis_client.delete(key)
 
-    async def _load_agents_from_redis(self) -> Any:
+    async def _load_agents_from_redis(self) -> None:
         """Load agents from Redis"""
         if not self.redis_client:
             return
@@ -305,14 +305,14 @@ class AgentRegistry:
         except Exception as e:
             logger.error('Error loading agents from Redis: %s', e)
 
-    async def _publish_agent_event(self, event_type: str, agent_info: AgentInfo) -> Any:
+    async def _publish_agent_event(self, event_type: str, agent_info: AgentInfo) -> None:
         """Publish agent event to Redis"""
         if not self.redis_client:
             return
         event = {'event_type': event_type, 'timestamp': datetime.now(UTC).isoformat(), 'agent_info': agent_info.to_dict()}
         await self.redis_client.publish('agent_events', json.dumps(event))
 
-    async def _heartbeat_monitor(self) -> Any:
+    async def _heartbeat_monitor(self) -> None:
         """Monitor agent heartbeats"""
         while True:
             try:
@@ -328,7 +328,7 @@ class AgentRegistry:
                 logger.error('Error in heartbeat monitor: %s', e)
                 await asyncio.sleep(5)
 
-    async def _cleanup_inactive_agents(self) -> Any:
+    async def _cleanup_inactive_agents(self) -> None:
         """Clean up inactive agents"""
         while True:
             try:
@@ -352,7 +352,7 @@ class AgentDiscoveryService:
         self.registry = registry
         self.discovery_handlers: dict[str, Callable] = {}
 
-    def register_discovery_handler(self, handler_name: str, handler: Callable) -> Any:
+    def register_discovery_handler(self, handler_name: str, handler: Callable) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info('Registered discovery handler: %s', handler_name)
@@ -413,7 +413,7 @@ def create_agent_info(agent_id: str, agent_type: str, capabilities: list[str], s
     """Create agent information"""
     return AgentInfo(agent_id=agent_id, agent_type=AgentType(agent_type), status=AgentStatus.ACTIVE, capabilities=capabilities, services=services, endpoints=endpoints, metadata={}, last_heartbeat=datetime.now(UTC), registration_time=datetime.now(UTC))
 
-async def example_usage() -> Any:
+async def example_usage() -> None:
     """Example of how to use the agent discovery system"""
     registry = AgentRegistry()
     await registry.start()
