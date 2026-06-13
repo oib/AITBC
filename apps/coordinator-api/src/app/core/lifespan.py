@@ -1,18 +1,18 @@
-# mypy: ignore-errors
 """
 Lifecycle events for Coordinator API.
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, AsyncIterator
 from aitbc.aitbc_logging import get_logger
 logger = get_logger(__name__)
 
 @asynccontextmanager
-async def lifespan(app):
+async def lifespan(app: Any) -> AsyncIterator[None]:
     """Lifecycle events for the Coordinator API."""
-    from .config import settings
-    from .database_async import close_async_db, init_async_db
-    from .storage.db import init_db
+    from .config import settings  # type: ignore[import-not-found]
+    from .database_async import close_async_db, init_async_db  # type: ignore[import-not-found]
+    from .storage.db import init_db  # type: ignore[import-not-found]
     logger.info('Starting Coordinator API')
     try:
         try:
@@ -28,8 +28,8 @@ async def lifespan(app):
         logger.info('Warming up database connections...')
         try:
             from sqlmodel import select
-            from .domain import Job
-            from .storage import get_session
+            from .domain import Job  # type: ignore[import-not-found]
+            from .storage import get_session  # type: ignore[import-not-found]
             session_gen = get_session()
             session = next(session_gen)
             try:
