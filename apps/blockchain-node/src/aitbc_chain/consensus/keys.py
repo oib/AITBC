@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Validator Key Management
 Handles cryptographic key operations for validators

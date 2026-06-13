@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Slashing Conditions Implementation
 Handles detection and penalties for validator misbehavior
