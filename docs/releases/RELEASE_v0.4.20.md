@@ -168,7 +168,7 @@ AITBC v0.4.20 is the **final Phase 2 release** of the three-phase type safety gr
 - [x] All apps verified for per-file ignore status
 - [x] Documentation updated
 
-### Deferred to v0.5.0 (Phase 3)
+### Next Steps (Future Work)
 - [ ] blockchain-node per-file ignores (11 files - cross-file dependency issues)
 - [ ] wallet per-file ignore (1 file - untyped psycopg2 library)
 - [ ] agent-management per-file ignore (1 file - migration-in-progress)
