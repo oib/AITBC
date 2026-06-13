@@ -60,7 +60,7 @@ class AgentKeyPair:
 class MessageEncryptor:
     """Message encryption and decryption handler"""
 
-    def __init__(self, keys_dir: str='/var/lib/aitbc/agent_keys'):
+    def __init__(self, keys_dir: str = '/var/lib/aitbc/agent_keys') -> None:
         self.keys_dir = keys_dir
         self.key_pairs: dict[str, AgentKeyPair] = {}
         os.makedirs(keys_dir, mode=448, exist_ok=True)
@@ -171,14 +171,14 @@ class MessageEncryptor:
             return new_key
         return None
 
-    def _save_key_pair(self, key_pair: AgentKeyPair):
+    def _save_key_pair(self, key_pair: AgentKeyPair) -> None:
         """Save key pair to disk"""
         key_path = os.path.join(self.keys_dir, f'{key_pair.agent_id}.json')
         with open(key_path, 'w') as f:
             json.dump(key_pair.to_dict(), f, indent=2)
         os.chmod(key_path, 384)
 
-    def _load_keys(self):
+    def _load_keys(self) -> None:
         """Load key pairs from disk"""
         try:
             for filename in os.listdir(self.keys_dir):
