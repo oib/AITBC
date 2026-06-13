@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 AMM Service
 
