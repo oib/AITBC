@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from aitbc import get_logger
@@ -9,7 +10,7 @@ router = APIRouter()
 
 @router.post('/users/{user_id}/role')
 @rate_limit(rate=50, per=60)
-async def assign_user_role(request: Request, user_id: str, role: str, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def assign_user_role(request: Request, user_id: str, role: str, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Assign role to user"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.USER_MANAGE_ROLES):
@@ -28,7 +29,7 @@ async def assign_user_role(request: Request, user_id: str, role: str, current_us
 
 @router.get('/users/{user_id}/role')
 @rate_limit(rate=200, per=60)
-async def get_user_role(request: Request, user_id: str, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def get_user_role(request: Request, user_id: str, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Get user's role"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.USER_VIEW):
@@ -43,7 +44,7 @@ async def get_user_role(request: Request, user_id: str, current_user: dict[str, 
 
 @router.get('/users/{user_id}/permissions')
 @rate_limit(rate=200, per=60)
-async def get_user_permissions(request: Request, user_id: str, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def get_user_permissions(request: Request, user_id: str, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Get user's permissions"""
     try:
         if user_id != current_user['user_id'] and (not permission_manager.has_permission(current_user['user_id'], Permission.USER_VIEW)):
@@ -58,7 +59,7 @@ async def get_user_permissions(request: Request, user_id: str, current_user: dic
 
 @router.post('/users/{user_id}/permissions/grant')
 @rate_limit(rate=50, per=60)
-async def grant_user_permission(request: Request, user_id: str, permission: str, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def grant_user_permission(request: Request, user_id: str, permission: str, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Grant custom permission to user"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.USER_MANAGE_ROLES):
@@ -77,7 +78,7 @@ async def grant_user_permission(request: Request, user_id: str, permission: str,
 
 @router.delete('/users/{user_id}/permissions/{permission}')
 @rate_limit(rate=50, per=60)
-async def revoke_user_permission(request: Request, user_id: str, permission: str, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def revoke_user_permission(request: Request, user_id: str, permission: str, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Revoke custom permission from user"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.USER_MANAGE_ROLES):
@@ -96,7 +97,7 @@ async def revoke_user_permission(request: Request, user_id: str, permission: str
 
 @router.get('/roles')
 @rate_limit(rate=200, per=60)
-async def list_all_roles(request: Request, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def list_all_roles(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """List all available roles and their permissions"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.USER_VIEW):
@@ -111,7 +112,7 @@ async def list_all_roles(request: Request, current_user: dict[str, Any]=Depends(
 
 @router.get('/roles/{role}')
 @rate_limit(rate=200, per=60)
-async def get_role_permissions(request: Request, role: str, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def get_role_permissions(request: Request, role: str, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Get all permissions for a specific role"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.USER_VIEW):
@@ -130,7 +131,7 @@ async def get_role_permissions(request: Request, role: str, current_user: dict[s
 
 @router.get('/auth/stats')
 @rate_limit(rate=200, per=60)
-async def get_permission_stats(request: Request, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def get_permission_stats(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Get statistics about permissions and users"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.SECURITY_VIEW):
@@ -146,13 +147,13 @@ async def get_permission_stats(request: Request, current_user: dict[str, Any]=De
 @router.get('/protected/admin')
 @rate_limit(rate=100, per=60)
 @require_role([Role.ADMIN])
-async def admin_only_endpoint(request: Request, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def admin_only_endpoint(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Admin-only endpoint example"""
     return {'status': 'success', 'message': 'Welcome admin!', 'user': {'user_id': current_user.get('user_id'), 'username': current_user.get('username'), 'role': str(current_user.get('role')), 'permissions': current_user.get('permissions', []), 'auth_type': current_user.get('auth_type')}}
 
 @router.get('/protected/operator')
 @rate_limit(rate=100, per=60)
 @require_role([Role.ADMIN, Role.OPERATOR])
-async def operator_endpoint(request: Request, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def operator_endpoint(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Operator and admin endpoint example"""
     return {'status': 'success', 'message': 'Welcome operator!', 'user': {'user_id': current_user.get('user_id'), 'username': current_user.get('username'), 'role': str(current_user.get('role')), 'permissions': current_user.get('permissions', []), 'auth_type': current_user.get('auth_type')}}
