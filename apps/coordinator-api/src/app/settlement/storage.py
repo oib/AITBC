@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Storage layer for cross-chain settlements
 """
@@ -14,7 +13,7 @@ from .bridges.base import BridgeStatus, SettlementMessage
 class SettlementStorage:
     """Storage interface for settlement data"""
 
-    def __init__(self, db_connection):
+    def __init__(self, db_connection: Any) -> None:
         self.db = db_connection
 
     async def store_settlement(
@@ -84,14 +83,14 @@ class SettlementStorage:
 
         if completed_at is not None:
             updates.append(f"completed_at = ${param_count}")
-            params.append(completed_at)
+            params.append(str(completed_at))
             param_count += 1
 
         if not updates:
             return
 
         updates.append(f"updated_at = ${param_count}")
-        params.append(datetime.now(UTC))
+        params.append(str(datetime.now(UTC)))
         param_count += 1
 
         params.append(message_id)
@@ -185,7 +184,7 @@ class SettlementStorage:
 
         if time_range:
             conditions.append(f"created_at > NOW() - INTERVAL '${param_count} hours'")
-            params.append(time_range)
+            params.append(str(time_range))
             param_count += 1
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
@@ -204,7 +203,7 @@ class SettlementStorage:
 
         results = await self.db.fetch(query, *params)
 
-        stats = {}
+        stats: dict[str, dict[str, Any]] = {}
         for result in results:
             bridge = result["bridge_name"]
             if bridge not in stats:
@@ -227,14 +226,14 @@ class SettlementStorage:
         """
 
         result = await self.db.execute(query, days)
-        return result.split()[-1]  # Return number of deleted rows
+        return int(result.split()[-1])  # Return number of deleted rows
 
 
 # In-memory implementation for testing
 class InMemorySettlementStorage(SettlementStorage):
     """In-memory storage implementation for testing"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settlements: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
@@ -309,7 +308,7 @@ class InMemorySettlementStorage(SettlementStorage):
         self, bridge_name: str | None = None, time_range: int | None = None
     ) -> dict[str, Any]:
         async with self._lock:
-            stats = {}
+            stats: dict[str, dict[str, Any]] = {}
 
             for settlement in self.settlements.values():
                 if bridge_name and settlement["bridge_name"] != bridge_name:
