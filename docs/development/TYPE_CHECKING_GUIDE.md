@@ -13,18 +13,19 @@ This project uses a **gradual type checking approach** to improve code quality w
 - ✅ 163 files with per-file ignores across apps
 
 **v0.4.19 Progress:**
-- ✅ edge: 0 MyPy errors (25 source files) - FIXED
-- ⚠️ pool-hub: 29 errors (deferred to v0.4.20)
-- ⚠️ agent-management: 82 errors (deferred to v0.4.20)
+- ✅ hermes: 0 MyPy errors (1 file fixed, removed per-file ignore)
+- ✅ edge: 0 MyPy errors (6 files fixed, removed all per-file ignores)
+- ✅ pool-hub: 3/16 files fixed (health.py, miner_registry.py, jobs.py), 13 files retain per-file ignores
+- ⚠️ agent-management: 6 files deferred to v0.4.20 (requires systemic refactoring)
 - ⚠️ blockchain-node: ~477 errors (excluded from MyPy checks)
 
 **Remaining per-file ignores by app:**
 - coordinator-api: 81 files (0 MyPy errors with current config)
 - blockchain-node: 31 files (excluded from MyPy checks)
-- pool-hub: 17 files (29 errors, deferred)
+- pool-hub: 13 files (reduced from 16, 3 files fixed)
 - wallet: 10 files (pending investigation)
-- agent-management: 6 files (82 errors, deferred)
-- hermes: 1 file (pending investigation)
+- agent-management: 6 files (deferred to v0.4.20)
+- hermes: 0 files ✅ MyPy clean
 - edge: 0 files ✅ MyPy clean
 
 ## How It Works
@@ -143,8 +144,8 @@ Mypy may report errors on valid code. Use explicit `# type: ignore` with error c
 1. **Phase 1** (v0.4.17): Complex files suppressed with per-file ignores ✅ Complete
 2. **Phase 2** (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues ⚠️ In Progress
    - v0.4.18: coordinator-api and agent-coordinator MyPy clean ✅
-   - v0.4.19: edge MyPy clean ✅, pool-hub and agent-management deferred
-   - v0.4.20: Fix pool-hub, agent-management, wallet, hermes
+   - v0.4.19: hermes and edge MyPy clean ✅, pool-hub partially fixed (3/16 files), agent-management deferred
+   - v0.4.20: Fix remaining pool-hub files (13), agent-management (6), wallet (10)
 3. **Phase 3** (v0.5.0): Remove all per-file ignores and enforce strict type checking 📅 Planned
 
 ## Related Documentation
