@@ -1,10 +1,9 @@
-# mypy: ignore-errors
 """External Provider Service for AWS/GCP/Azure integrations."""
 from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
-from sqlmodel import Session, select
+from sqlmodel import Session, select, desc
 from aitbc import get_logger
 from ..domain.gpu_marketplace import ExternalProvider, GPURegistry, ProviderMapping, SyncStatus
 logger = get_logger(__name__)
@@ -26,7 +25,7 @@ class ExternalProviderService:
     def sync_resources(self, provider_id: str) -> SyncStatus:
         """Fetch external resources from provider."""
         try:
-            provider = self.session.execute(select(ExternalProvider).where(ExternalProvider.id == provider_id)).first()
+            provider = self.session.scalars(select(ExternalProvider).where(ExternalProvider.id == provider_id)).first()
             if not provider:
                 raise ValueError(f'Provider {provider_id} not found')
             sync_status = SyncStatus(provider_id=provider_id, status='in_progress')
@@ -67,13 +66,14 @@ class ExternalProviderService:
 
     def map_to_internal(self, provider_id: str, external_resource_id: str) -> GPURegistry:
         """Map external resource to internal GPU registry."""
-        provider = self.session.execute(select(ExternalProvider).where(ExternalProvider.id == provider_id)).first()
+        provider = self.session.scalars(select(ExternalProvider).where(ExternalProvider.id == provider_id)).first()
         if not provider:
             raise ValueError(f'Provider {provider_id} not found')
-        existing_mapping = self.session.execute(select(ProviderMapping).where(ProviderMapping.provider_id == provider_id, ProviderMapping.external_resource_id == external_resource_id)).first()
+        existing_mapping = self.session.scalars(select(ProviderMapping).where(ProviderMapping.provider_id == provider_id, ProviderMapping.external_resource_id == external_resource_id)).first()
         if existing_mapping:
-            internal_gpu = self.session.execute(select(GPURegistry).where(GPURegistry.id == existing_mapping.internal_resource_id)).first()
-            return internal_gpu
+            internal_gpu = self.session.scalars(select(GPURegistry).where(GPURegistry.id == existing_mapping.internal_resource_id)).first()
+            if internal_gpu:
+                return internal_gpu
         internal_gpu = GPURegistry(id=f'gpu_{uuid4().hex[:8]}', miner_id=f'external_{provider.provider_name}', model='External GPU', memory_gb=40, cuda_version='11.8', region=provider.region, price_per_hour=0.5, status='available', capabilities=['inference', 'training'])
         self.session.add(internal_gpu)
         self.session.commit()
@@ -85,7 +85,7 @@ class ExternalProviderService:
 
     def get_sync_status(self, provider_id: str) -> SyncStatus | None:
         """Check sync status for a provider."""
-        sync_status = self.session.execute(select(SyncStatus).where(SyncStatus.provider_id == provider_id).order_by(SyncStatus.started_at.desc())).first()
+        sync_status = self.session.scalars(select(SyncStatus).where(SyncStatus.provider_id == provider_id).order_by(desc(SyncStatus.started_at))).first()
         return sync_status
 
     def _fetch_aws_resources(self, provider: ExternalProvider) -> list[dict[str, Any]]:
