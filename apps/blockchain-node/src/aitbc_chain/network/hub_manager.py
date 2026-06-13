@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Hub Manager
 Manages hub operations, peer list sharing, and hub registration for federated mesh
@@ -10,6 +9,7 @@ import socket
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
+from typing import Any, cast
 from aitbc import DATA_DIR, KEYSTORE_DIR, get_logger
 from ..config import settings
 logger = get_logger(__name__)
@@ -64,7 +64,7 @@ class HubManager:
         self.peer_registry: dict[str, PeerInfo] = {}
         self.island_peers: dict[str, set[str]] = {}
         self.running = False
-        self._redis = None
+        self._redis: Any = None
         self.island_peers[self.island_id] = set()
 
     async def _connect_redis(self) -> bool:
@@ -83,13 +83,13 @@ class HubManager:
         """Persist hub registration to Redis"""
         try:
             if not self._redis:
-                await self._connect_redis()
-            if not self._redis:
-                logger.warning('Redis not available, skipping persistence')
-                return False
+                connected = await self._connect_redis()
+                if not connected:
+                    logger.warning('Redis not available, skipping persistence')
+                    return False
             key = f'hub:{hub_info.node_id}'
             value = json.dumps(asdict(hub_info), default=str)
-            await self._redis.setex(key, 3600, value)
+            await cast(Any, self._redis).setex(key, 3600, value)
             logger.info('Persisted hub registration to Redis: %s', key)
             return True
         except Exception as e:
@@ -100,12 +100,12 @@ class HubManager:
         """Remove hub registration from Redis"""
         try:
             if not self._redis:
-                await self._connect_redis()
-            if not self._redis:
-                logger.warning('Redis not available, skipping removal')
-                return False
+                connected = await self._connect_redis()
+                if not connected:
+                    logger.warning('Redis not available, skipping removal')
+                    return False
             key = f'hub:{node_id}'
-            await self._redis.delete(key)
+            await cast(Any, self._redis).delete(key)
             logger.info('Removed hub registration from Redis: %s', key)
             return True
         except Exception as e:
@@ -116,11 +116,11 @@ class HubManager:
         """Load hub registration from Redis"""
         try:
             if not self._redis:
-                await self._connect_redis()
-            if not self._redis:
-                return None
+                connected = await self._connect_redis()
+                if not connected:
+                    return None
             key = f'hub:{self.local_node_id}'
-            value = await self._redis.get(key)
+            value = await cast(Any, self._redis).get(key)
             if value:
                 data = json.loads(value)
                 return HubInfo(**data)
@@ -129,7 +129,7 @@ class HubManager:
             logger.error('Failed to load hub registration: %s', e)
             return None
 
-    def _get_blockchain_credentials(self) -> dict:
+    def _get_blockchain_credentials(self) -> dict[str, object]:
         """Get blockchain credentials from keystore"""
         try:
             credentials = {}
@@ -244,7 +244,7 @@ class HubManager:
         logger.debug('Unregistered peer %s', node_id)
         return True
 
-    def add_known_hub(self, hub_info: HubInfo):
+    def add_known_hub(self, hub_info: HubInfo) -> None:
         """Add a known hub to the registry"""
         self.known_hubs[hub_info.node_id] = hub_info
         logger.info('Added known hub %s for island %s', hub_info.node_id, hub_info.island_id)
