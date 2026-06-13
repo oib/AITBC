@@ -1,10 +1,14 @@
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ..auth.jwt_handler import api_key_manager, jwt_handler
 from ..auth.middleware import get_current_user
 from ..auth.permissions import Permission, Role, permission_manager
+
 logger = get_logger(__name__)
 router = APIRouter(prefix='/api/v1/auth', tags=['authentication'])
 
@@ -15,15 +19,15 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
     try:
         username = login_data.get('username')
         password = login_data.get('password')
-        
+
         # Validate input
         if not username or not password:
             raise HTTPException(status_code=422, detail='Username and password are required')
-        
+
         # Reject empty strings
         if username == '' or password == '':
             raise HTTPException(status_code=422, detail='Username and password cannot be empty')
-        
+
         import os
         # Get passwords with fallback defaults for testing
         demo_users = {
@@ -31,7 +35,7 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
             'operator': os.getenv('TEST_OPERATOR_PASSWORD') or os.getenv('DEMO_OPERATOR_PASSWORD') or 'operator123',
             'user': os.getenv('TEST_USER_PASSWORD') or os.getenv('DEMO_USER_PASSWORD') or 'user123'
         }
-        
+
         # Validate credentials
         if username == 'admin' and password == demo_users['admin']:
             user_id = 'admin_001'
@@ -44,7 +48,7 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
             role = Role.USER
         else:
             raise HTTPException(status_code=401, detail='Invalid credentials')
-        
+
         permission_manager.assign_role(user_id, role)
         token_result = jwt_handler.generate_token({'user_id': user_id, 'username': username, 'role': role.value, 'permissions': [perm.value for perm in permission_manager.user_permissions.get(user_id, set())]})
         refresh_result = jwt_handler.generate_refresh_token({'user_id': user_id, 'username': username, 'role': role.value})
@@ -53,7 +57,7 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error('Error during login: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/refresh')
 @rate_limit(rate=100, per=60)
@@ -71,7 +75,7 @@ async def refresh_token(request: Request, refresh_data: dict[str, str]) -> dict[
         raise
     except Exception as e:
         logger.error('Error refreshing token: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/validate')
 @rate_limit(rate=200, per=60)
@@ -89,7 +93,7 @@ async def validate_token(request: Request, validate_data: dict[str, str]) -> dic
         raise
     except Exception as e:
         logger.error('Error validating token: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/api-key/generate')
 @rate_limit(rate=50, per=60)
@@ -104,7 +108,7 @@ async def generate_api_key(request: Request, user_id: str, permissions: list[str
         raise
     except Exception as e:
         logger.error('Error generating API key: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/api-key/validate')
 @rate_limit(rate=200, per=60)
@@ -119,7 +123,7 @@ async def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error('Error validating API key: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.delete('/api-key/{api_key}')
 @rate_limit(rate=50, per=60)
@@ -134,4 +138,4 @@ async def revoke_api_key(request: Request, api_key: str, current_user: dict[str,
         raise
     except Exception as e:
         logger.error('Error revoking API key: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
