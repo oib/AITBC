@@ -1,12 +1,16 @@
 # mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from .. import state
 from ..auth.middleware import get_current_user
 from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
+
 logger = get_logger(__name__)
 router = APIRouter()
 
@@ -40,7 +44,7 @@ async def get_prometheus_metrics(request: Request) -> Response:
         return Response(content='\n'.join(prometheus_output), media_type='text/plain')
     except Exception as e:
         logger.error('Error getting metrics: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/metrics/summary')
 @rate_limit(rate=500, per=60)
@@ -52,7 +56,7 @@ async def get_metrics_summary(request: Request) -> dict[str, Any]:
         return {'status': 'success', 'performance': summary, 'system': system_metrics, 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error getting metrics summary: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/metrics/health')
 @rate_limit(rate=500, per=60)
@@ -67,7 +71,7 @@ async def get_health_metrics(request: Request) -> dict[str, Any]:
         return {'status': 'success', 'health': health_metrics}
     except Exception as e:
         logger.error('Error getting health metrics: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/system/status')
 @rate_limit(rate=200, per=60)
@@ -78,7 +82,7 @@ async def get_system_status(request: Request, current_user: dict[str, Any] = Dep
         return {'status': 'success', 'system': system_metrics}
     except Exception as e:
         logger.error('Error getting system status: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/protected/admin')
 @rate_limit(rate=200, per=60)
@@ -92,7 +96,7 @@ async def protected_admin(request: Request, current_user: dict[str, Any] = Depen
         raise
     except Exception as e:
         logger.error('Error accessing protected admin endpoint: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/protected/operator')
 @rate_limit(rate=200, per=60)
@@ -106,4 +110,4 @@ async def protected_operator(request: Request, current_user: dict[str, Any] = De
         raise
     except Exception as e:
         logger.error('Error accessing protected operator endpoint: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
