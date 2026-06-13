@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Scoring Engine Implementation for Pool Hub"""
 
 import math
@@ -30,17 +29,17 @@ class ScoringEngine:
     MIN_JOBS_FOR_RANKING = 10
     DECAY_HALF_LIFE_DAYS = 7
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._score_cache: dict[str, float] = {}
         self._rank_cache: dict[str, int] = {}
-        self._history: dict[str, list[dict]] = {}
+        self._history: dict[str, list[dict[str, Any]]] = {}
 
-    async def calculate_score(self, miner) -> float:
+    async def calculate_score(self, miner: Any) -> float:
         """Calculate overall score for a miner."""
         components = await self.get_score_breakdown(miner)
         return components.total
 
-    async def get_score_breakdown(self, miner) -> ScoreComponents:
+    async def get_score_breakdown(self, miner: Any) -> ScoreComponents:
         """Get detailed score breakdown for a miner."""
         reliability = self._calculate_reliability(miner)
         performance = self._calculate_performance(miner)
@@ -62,7 +61,7 @@ class ScoringEngine:
             total=total
         )
 
-    def _calculate_reliability(self, miner) -> float:
+    def _calculate_reliability(self, miner: Any) -> float:
         """Calculate reliability score (0-100)."""
         # Uptime component (50%)
         uptime_score = miner.uptime_percent
@@ -82,9 +81,9 @@ class ScoringEngine:
             freshness_penalty = 0
 
         score = (uptime_score * 0.5 + success_rate * 0.5) - freshness_penalty
-        return max(0, min(100, score))
+        return max(0, min(100, score))  # type: ignore[no-any-return]
 
-    def _calculate_performance(self, miner) -> float:
+    def _calculate_performance(self, miner: Any) -> float:
         """Calculate performance score (0-100)."""
         # Base score from GPU utilization efficiency
         if miner.gpu_utilization > 0:
@@ -101,9 +100,9 @@ class ScoringEngine:
         # Jobs per hour (if we had timing data)
         throughput_score = min(100, miner.jobs_completed / max(1, self._get_hours_active(miner)) * 10)
 
-        return (utilization_score * 0.6 + throughput_score * 0.4)
+        return (utilization_score * 0.6 + throughput_score * 0.4)  # type: ignore[no-any-return]
 
-    def _calculate_capacity(self, miner) -> float:
+    def _calculate_capacity(self, miner: Any) -> float:
         """Calculate capacity score (0-100)."""
         gpu_info = miner.gpu_info or {}
 
@@ -121,9 +120,9 @@ class ScoringEngine:
         else:
             availability = 0
 
-        return (memory_score * 0.4 + capacity_score * 0.3 + availability * 0.3)
+        return (memory_score * 0.4 + capacity_score * 0.3 + availability * 0.3)  # type: ignore[no-any-return]
 
-    def _calculate_reputation(self, miner) -> float:
+    def _calculate_reputation(self, miner: Any) -> float:
         """Calculate reputation score (0-100)."""
         # New miners start at 70
         if miner.jobs_completed < self.MIN_JOBS_FOR_RANKING:
@@ -132,7 +131,7 @@ class ScoringEngine:
         # Historical success with time decay
         history = self._history.get(miner.miner_id, [])
         if not history:
-            return miner.score  # Use stored score
+            return miner.score  # type: ignore[no-any-return]
 
         weighted_sum = 0
         weight_total = 0
@@ -142,26 +141,24 @@ class ScoringEngine:
             weight = math.exp(-age_days / self.DECAY_HALF_LIFE_DAYS)
 
             if record["success"]:
-                weighted_sum += 100 * weight
+                weighted_sum += int(100 * weight)
             else:
-                weighted_sum += 0 * weight
+                weighted_sum += int(0 * weight)
 
-            weight_total += weight
+            weight_total += int(weight)
 
         if weight_total > 0:
             return weighted_sum / weight_total
         return 70.0
 
-    def _get_hours_active(self, miner) -> float:
+    def _get_hours_active(self, miner: Any) -> float:
         """Get hours since miner registered."""
         delta = datetime.now(UTC) - miner.registered_at
-        return max(1, delta.total_seconds() / 3600)
+        return max(1, delta.total_seconds() / 3600)  # type: ignore[no-any-return]
 
     def _parse_memory(self, memory_str: str) -> float:
         """Parse memory string to GB."""
         try:
-            if isinstance(memory_str, (int, float)):
-                return float(memory_str)
             memory_str = str(memory_str).upper()
             if "GB" in memory_str:
                 return float(memory_str.replace("GB", "").strip())
@@ -171,7 +168,7 @@ class ScoringEngine:
         except (ValueError, TypeError):
             return 0.0
 
-    async def rank_miners(self, miners: list, job: Any = None) -> list:
+    async def rank_miners(self, miners: list[Any], job: Any = None) -> list[Any]:
         """Rank miners by score, optionally considering job requirements."""
         scored = []
 
@@ -199,7 +196,7 @@ class ScoringEngine:
         """Get miner's current rank."""
         return self._rank_cache.get(miner_id, 0)
 
-    async def record_success(self, miner_id: str, metrics: dict[str, Any] = None):
+    async def record_success(self, miner_id: str, metrics: dict[str, Any] | None = None) -> None:
         """Record a successful job completion."""
         if miner_id not in self._history:
             self._history[miner_id] = []
@@ -214,7 +211,7 @@ class ScoringEngine:
         if len(self._history[miner_id]) > 1000:
             self._history[miner_id] = self._history[miner_id][-1000:]
 
-    async def record_failure(self, miner_id: str, error: str | None = None):
+    async def record_failure(self, miner_id: str, error: str | None = None) -> None:
         """Record a job failure."""
         if miner_id not in self._history:
             self._history[miner_id] = []
@@ -225,7 +222,7 @@ class ScoringEngine:
             "error": error
         })
 
-    async def update_rankings(self, miners: list):
+    async def update_rankings(self, miners: list[Any]) -> None:
         """Update global rankings for all miners."""
         scored = []
 
