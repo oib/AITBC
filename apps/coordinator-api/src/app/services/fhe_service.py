@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -100,7 +99,7 @@ class TenSEALProvider(FHEProvider):
         self.available = False
         self.ts: Any = None
         try:
-            import tenseal as ts
+            import tenseal as ts  # type: ignore[import-untyped]
             self.ts = ts
             self.available = True
             logger.info('TenSEAL provider initialized')
