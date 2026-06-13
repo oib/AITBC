@@ -73,7 +73,7 @@ class TaskMessage(BaseModel):
 
     @field_validator('deadline')
     @classmethod
-    def validate_deadline(cls, v: Any) -> Any:
+    def validate_deadline(cls, v: Any) -> datetime | None:
         if v and v < datetime.now(UTC):
             raise ValueError('Deadline cannot be in the past')
         return v
@@ -135,13 +135,13 @@ class MessageRouter:
         self.active_routes: dict[str, str] = {}
         self.load_balancer_index = 0
 
-    def add_routing_rule(self, rule: RoutingRule) -> Any:
+    def add_routing_rule(self, rule: RoutingRule) -> None:
         """Add a routing rule"""
         self.routing_rules.append(rule)
         self.routing_rules.sort(key=lambda r: r.priority, reverse=True)
         logger.info('Added routing rule: %s', rule.name)
 
-    def remove_routing_rule(self, rule_id: str) -> Any:
+    def remove_routing_rule(self, rule_id: str) -> None:
         """Remove a routing rule"""
         self.routing_rules = [r for r in self.routing_rules if r.rule_id != rule_id]
         logger.info('Removed routing rule: %s', rule_id)
@@ -415,11 +415,11 @@ def create_consensus_message(sender_id: str, proposal: dict[str, Any], voting_op
     consensus_msg = ConsensusMessage(consensus_id=str(uuid.uuid4()), proposal=proposal, voting_options=voting_options, voting_deadline=deadline)
     return AgentMessage(sender_id=sender_id, message_type=MessageType.CONSENSUS, payload=consensus_msg.dict())
 
-async def example_usage() -> Any:
+async def example_usage() -> None:
     """Example of how to use the message routing system"""
     processor = MessageProcessor('agent-001')
 
-    async def process_task(message: AgentMessage) -> Any:
+    async def process_task(message: AgentMessage) -> None:
         task_data = TaskMessage(**message.payload)
         logger.info('Processing task: %s', task_data.task_id)
     processor.register_processor(MessageType.TASK_ASSIGNMENT, process_task)
