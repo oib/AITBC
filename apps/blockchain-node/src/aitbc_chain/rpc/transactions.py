@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Transaction-related RPC endpoints.
 """
@@ -88,7 +87,7 @@ async def submit_transaction(
 
     try:
         mempool = get_mempool()
-        chain_id = get_chain_id(None)
+        chain_id = get_chain_id("")
 
         # Convert TransactionRequest to dict for normalization
         # Use validated top-level fields instead of reading from payload
@@ -120,14 +119,15 @@ async def submit_transaction(
 
 @rate_limit(rate=200, per=60)
 async def get_mempool(
-    request: Request, chain_id: str = None, limit: int = 100
+    request: Request, chain_id: str | None = None, limit: int = 100
 ) -> dict[str, Any]:
     """Get pending transactions from mempool"""
     from ..mempool import get_mempool
 
     try:
         mempool = get_mempool()
-        pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
+        chain_id_arg = chain_id if chain_id else ""
+        pending_txs = mempool.get_pending_transactions(chain_id=chain_id_arg, limit=limit)
 
         return {
             "success": True,
@@ -148,7 +148,8 @@ async def submit_marketplace_transaction(
 
     try:
         mempool = get_mempool()
-        chain_id = get_chain_id(tx_data.get("chain_id"))
+        chain_id_arg = tx_data.get("chain_id") or ""
+        chain_id = get_chain_id(chain_id_arg)
 
         # Normalize transaction data
         tx_data_dict = normalize_transaction_data(tx_data, chain_id)
@@ -182,10 +183,11 @@ async def query_transactions(
     status: str | None = None,
     order_id: str | None = None,
     limit: int | None = 100,
-    chain_id: str = None
+    chain_id: str | None = None
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
-    chain_id = get_chain_id(chain_id)
+    chain_id_arg = chain_id if chain_id else ""
+    chain_id = get_chain_id(chain_id_arg)
 
     with session_scope() as session:
         query = select(Transaction).where(Transaction.chain_id == chain_id)
