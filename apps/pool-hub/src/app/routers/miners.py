@@ -1,15 +1,15 @@
-# mypy: ignore-errors
 """Miner management routes for Pool Hub"""
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..registry import MinerRegistry
-from ..scoring import ScoringEngine
+from ..registry import MinerRegistry  # type: ignore[import-not-found]
+from ..scoring import ScoringEngine  # type: ignore[import-not-found]
 
 router = APIRouter(prefix="/miners", tags=["miners"])
 
@@ -19,7 +19,7 @@ class MinerRegistration(BaseModel):
     miner_id: str
     pool_id: str
     capabilities: list[str]
-    gpu_info: dict
+    gpu_info: dict[str, Any]
     endpoint: str | None = None
     max_concurrent_jobs: int = 1
 
@@ -61,7 +61,7 @@ async def register_miner(
     request: Request,
     registration: MinerRegistration,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> MinerInfo:
     """Register a new miner with the pool hub."""
     try:
         miner = await registry.register(
@@ -72,7 +72,7 @@ async def register_miner(
             endpoint=registration.endpoint,
             max_concurrent_jobs=registration.max_concurrent_jobs
         )
-        return miner
+        return miner  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -84,7 +84,7 @@ async def miner_heartbeat(
     miner_id: str,
     status: MinerStatus,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> dict[str, str]:
     """Update miner heartbeat and status."""
     miner = await registry.get(miner_id)
     if not miner:
@@ -106,12 +106,12 @@ async def get_miner(
     request: Request,
     miner_id: str,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> MinerInfo:
     """Get miner information."""
     miner = await registry.get(miner_id)
     if not miner:
         raise HTTPException(status_code=404, detail="Miner not found")
-    return miner
+    return miner  # type: ignore[no-any-return]
 
 
 @router.get("/", response_model=list[MinerInfo])
@@ -123,9 +123,9 @@ async def list_miners(
     capability: str | None = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> list[MinerInfo]:
     """List miners with optional filters."""
-    return await registry.list(
+    return await registry.list(  # type: ignore[no-any-return]
         pool_id=pool_id,
         status=status,
         capability=capability,
@@ -139,7 +139,7 @@ async def unregister_miner(
     request: Request,
     miner_id: str,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> dict[str, str]:
     """Unregister a miner from the pool hub."""
     miner = await registry.get(miner_id)
     if not miner:
@@ -156,7 +156,7 @@ async def get_miner_score(
     miner_id: str,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)
-):
+) -> dict[str, Any]:
     """Get miner's current score and ranking."""
     miner = await registry.get(miner_id)
     if not miner:
@@ -180,7 +180,7 @@ async def update_capabilities(
     miner_id: str,
     capabilities: list[str],
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> dict[str, Any]:
     """Update miner capabilities."""
     miner = await registry.get(miner_id)
     if not miner:
