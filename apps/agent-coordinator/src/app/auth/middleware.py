@@ -21,7 +21,7 @@ class AuthenticationError(Exception):
 class RateLimiter:
     """Distributed rate limiter using Redis"""
 
-    def __init__(self, redis_url: str | None=None):
+    def __init__(self, redis_url: str | None = None):
         from collections import deque
         import redis
         self.redis_url: str = redis_url or os.getenv('REDIS_URL', 'redis://localhost:6379/0') or 'redis://localhost:6379/0'
@@ -81,7 +81,7 @@ class RateLimiter:
             return {'allowed': False, 'remaining': 0, 'reset_time': reset_time}
 rate_limiter = RateLimiter()
 
-def get_current_user(credentials: HTTPAuthorizationCredentials | None=Depends(security)) -> dict[str, Any]:
+def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> dict[str, Any]:
     """Get current user from JWT token or API key"""
     try:
         if credentials and credentials.scheme == 'Bearer':
@@ -132,7 +132,7 @@ def require_permissions(required_permissions: list[str]) -> Callable[[F], F]:
         return cast(F, wrapper)
     return decorator
 
-def require_role(required_roles: list[str] | list[Any]) -> Callable[[F], F]:
+def require_role(required_roles: list[str]) -> Callable[[F], F]:
     """Decorator to require specific role"""
 
     def decorator(func: F) -> F:
