@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Marketplace GPU Resource Optimizer
 Optimizes GPU acceleration and resource utilization specifically for marketplace AI power trading
@@ -11,10 +10,10 @@ from typing import Any
 from uuid import uuid4
 from aitbc import get_logger
 try:
-    import pycuda.driver as cuda
+    import pycuda.driver as cuda  # type: ignore[import-not-found]
     cuda.init()
-    import pycuda.autoinit
-    from pycuda.compiler import SourceModule
+    import pycuda.autoinit  # type: ignore[import-not-found]
+    from pycuda.compiler import SourceModule  # type: ignore[import-not-found]
     CUDA_AVAILABLE = True
 except (ImportError, Exception) as e:
     CUDA_AVAILABLE = False
@@ -27,9 +26,9 @@ class MarketplaceGPUOptimizer:
 
     def __init__(self, simulation_mode: bool=not CUDA_AVAILABLE):
         self.simulation_mode = simulation_mode
-        self.gpu_devices = []
-        self.gpu_memory_pools = {}
-        self.active_jobs = {}
+        self.gpu_devices: list[dict[str, Any]] = []
+        self.gpu_memory_pools: dict[int, dict[str, Any]] = {}
+        self.active_jobs: dict[str, dict[str, Any]] = {}
         self.resource_metrics = {'total_utilization': 0.0, 'memory_utilization': 0.0, 'compute_utilization': 0.0, 'energy_efficiency': 0.0, 'jobs_processed': 0, 'failed_jobs': 0}
         self.config = {'memory_fragmentation_threshold': 0.15, 'dynamic_batching_enabled': True, 'max_batch_size': 128, 'idle_power_state': 'P8', 'active_power_state': 'P0', 'thermal_throttle_threshold': 85.0}
         self.lock = threading.Lock()
@@ -229,9 +228,10 @@ class MarketplaceGPUOptimizer:
         job_data = {'job_id': job_id, 'priority': priority, 'memory_required': memory_required, 'computation_complexity': computation_complexity, 'status': 'queued', 'submitted_at': datetime.now(UTC).isoformat()}
         best_gpu = -1
         best_score = -float('inf')
-        for gpu_id, status in self.gpu_status.items():
+        for gpu in self.gpu_devices:
+            gpu_id = gpu['id']
             pool = self.gpu_memory_pools[gpu_id]
-            available_mem = pool['total_memory'] - pool['allocated_memory']
+            available_mem = gpu['free_memory']
             if available_mem >= memory_required:
                 score = available_mem / pool['total_memory'] * 100
                 if score > best_score:
@@ -313,7 +313,7 @@ class MarketplaceGPUOptimizer:
                 devices_info.append({'id': gpu['id'], 'name': gpu['name'], 'utilization': round(gpu['utilization'] * 100, 2), 'memory_used_gb': round((gpu['total_memory'] - gpu['free_memory']) / 1024 ** 3, 2), 'memory_total_gb': round(gpu['total_memory'] / 1024 ** 3, 2), 'temperature_c': round(gpu['temperature'], 1), 'power_draw_w': round(gpu['power_draw'], 1), 'status': gpu['status'], 'fragmentation': round(pool['fragmentation'] * 100, 2)})
             return {'timestamp': datetime.now(UTC).isoformat(), 'active_jobs': len(self.active_jobs), 'metrics': {'overall_utilization_pct': round(self.resource_metrics['total_utilization'] * 100, 2), 'compute_utilization_pct': round(self.resource_metrics['compute_utilization'] * 100, 2), 'memory_utilization_pct': round(self.resource_metrics['memory_utilization'] * 100, 2), 'energy_efficiency_score': round(self.resource_metrics['energy_efficiency'], 4), 'jobs_processed_total': self.resource_metrics['jobs_processed']}, 'devices': devices_info}
 
-async def optimize_marketplace_batch(jobs: list[dict[str, Any]]) -> None:
+async def optimize_marketplace_batch(jobs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Process a batch of marketplace jobs through the optimizer"""
     optimizer = MarketplaceGPUOptimizer()
     results = []
