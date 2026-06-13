@@ -1,12 +1,11 @@
-# mypy: ignore-errors
 """PostgreSQL database module for Coordinator API"""
 
 import json
 from collections.abc import Generator
 from typing import Any
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg2  # type: ignore[import-untyped]
+from psycopg2.extras import RealDictCursor  # type: ignore[import-untyped]
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
@@ -16,7 +15,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 from datetime import UTC, datetime
 
-from .config_pg import settings
+from .config_pg import settings  # type: ignore[import-not-found]
 
 # SQLAlchemy setup for complex queries
 engine = create_engine(
@@ -227,7 +226,7 @@ def get_db_adapter() -> PostgreSQLAdapter:
 def init_db() -> None:
     """Initialize database tables"""
     # Import models here to avoid circular imports
-    from .models import Base
+    from .models import Base  # type: ignore[import-not-found]
 
     # Create all tables
     Base.metadata.create_all(bind=engine)
