@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Merkle Patricia Trie implementation for AITBC state root verification.
 
@@ -47,7 +46,7 @@ class MerklePatriciaTrie:
     - Compact representation of sparse data
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._root: TrieNode | None = None
 
     def get(self, key: bytes) -> bytes | None:
@@ -192,8 +191,8 @@ class MerklePatriciaTrie:
             branch = self._attach_to_branch(branch, new_suffix, value)
             normalized = self._normalize_branch(branch)
             if common_len == 0:
-                return normalized
-            return self._normalize_extension(ExtensionNode(path[:common_len], normalized))
+                return normalized  # type: ignore
+            return self._normalize_extension(ExtensionNode(path[:common_len], normalized))  # type: ignore
 
         if isinstance(node, ExtensionNode):
             common_len = self._common_prefix_len(path, node.path)
@@ -208,13 +207,13 @@ class MerklePatriciaTrie:
             branch = self._attach_to_branch(branch, new_suffix, value)
             normalized = self._normalize_branch(branch)
             if common_len == 0:
-                return normalized
-            return self._normalize_extension(ExtensionNode(path[:common_len], normalized))
+                return normalized  # type: ignore
+            return self._normalize_extension(ExtensionNode(path[:common_len], normalized))  # type: ignore
 
         if not path:
             return BranchNode(node.children, value)
         child = self._insert(node.children[path[0]], path[1:], value)
-        return self._normalize_branch(BranchNode(self._set_child(node.children, path[0], child), node.value))
+        return self._normalize_branch(BranchNode(self._set_child(node.children, path[0], child), node.value))  # type: ignore
 
     def _delete(self, node: TrieNode | None, path: tuple[int, ...]) -> TrieNode | None:
         if node is None:
@@ -384,7 +383,7 @@ class StateManager:
     from account balances and other state data.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._trie = MerklePatriciaTrie()
 
     def update_account(self, address: str, balance: int, nonce: int) -> None:
