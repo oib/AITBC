@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 P2P Network Service using Direct TCP connections
 Handles decentralized peer-to-peer mesh communication between blockchain nodes
@@ -7,7 +6,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 from aitbc import get_logger
 from .config import settings
 from .mempool import compute_tx_hash, get_mempool
@@ -20,18 +19,18 @@ if os.getenv('INVOCATION_ID'):
         handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
 _p2p_service_instance = None
 
-def get_p2p_network():
+def get_p2p_network() -> Any:
     """Get the global P2P network service instance"""
     return _p2p_service_instance
 
-def set_p2p_network(service) -> None:
+def set_p2p_network(service: Any) -> None:
     """Set the global P2P network service instance"""
     global _p2p_service_instance
     _p2p_service_instance = service
 
 class P2PNetworkService:
 
-    def __init__(self, host: str, port: int, node_id: str, peers: str='', stun_servers: list[str]=None, island_id: str='', island_name: str='default', is_hub: bool=False, island_chain_id: str='', chain_id: str=''):
+    def __init__(self, host: str, port: int, node_id: str, peers: str='', stun_servers: Optional[list[str]]=None, island_id: str='', island_name: str='default', is_hub: bool=False, island_chain_id: str='', chain_id: str='') -> None:
         self.host = host
         self.port = port
         self.node_id = node_id
@@ -48,7 +47,7 @@ class P2PNetworkService:
                     parts = p.split(':')
                     if len(parts) == 2:
                         self.initial_peers.append((parts[0], int(parts[1])))
-        self._server = None
+        self._server: Any = None
         self._stop_event = asyncio.Event()
         self.active_connections: dict[str, asyncio.StreamWriter] = {}
         self.connected_endpoints: set[tuple[str, int]] = set()
@@ -58,9 +57,9 @@ class P2PNetworkService:
             self.nat_traversal = NATTraversalService(stun_servers)
         self.island_manager: IslandManager | None = None
         self.hub_manager: HubManager | None = None
-        self._background_tasks = []
+        self._background_tasks: list[asyncio.Task] = []
 
-    async def start(self):
+    async def start(self) -> None:
         """Start P2P network service"""
         logger.info('Starting P2P network mesh service on %s:%s', self.host, self.port)
         logger.info('Node ID: %s', self.node_id)
@@ -99,7 +98,7 @@ class P2PNetworkService:
         finally:
             await self.stop()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop P2P network service"""
         logger.info('Stopping P2P network service')
         for task in self._background_tasks:
@@ -116,13 +115,13 @@ class P2PNetworkService:
             self._server.close()
             await self._server.wait_closed()
 
-    async def _send_message(self, writer: asyncio.StreamWriter, message: dict[str, Any]):
+    async def _send_message(self, writer: asyncio.StreamWriter, message: dict[str, Any]) -> None:
         """Serialize and send a newline-delimited JSON message"""
         payload = json.dumps(message).encode() + b'\n'
         writer.write(payload)
         await writer.drain()
 
-    async def broadcast_to_peers(self, message: dict[str, Any]):
+    async def broadcast_to_peers(self, message: dict[str, Any]) -> None:
         """Broadcast a message to all connected peers"""
         writers = list(self.active_connections.values())
         for writer in writers:
@@ -131,7 +130,7 @@ class P2PNetworkService:
             except Exception as e:
                 logger.debug('Failed to broadcast to peer: %s', e)
 
-    async def _ping_peers_loop(self):
+    async def _ping_peers_loop(self) -> None:
         """Periodically ping active peers to keep connections healthy"""
         while not self._stop_event.is_set():
             try:
@@ -145,9 +144,9 @@ class P2PNetworkService:
                 logger.error('Error in ping loop: %s', e)
             await asyncio.sleep(10)
 
-    async def _mempool_sync_loop(self):
+    async def _mempool_sync_loop(self) -> None:
         """Periodically check local mempool and broadcast new transactions to peers"""
-        self.seen_txs = set()
+        self.seen_txs: set[tuple[str, str]] = set()
         while not self._stop_event.is_set():
             try:
                 mempool = get_mempool()
@@ -181,7 +180,7 @@ class P2PNetworkService:
                 logger.error('Error in mempool sync loop: %s', e)
             await asyncio.sleep(1)
 
-    async def _dial_peers_loop(self):
+    async def _dial_peers_loop(self) -> None:
         """Background loop to continually try connecting to disconnected initial peers"""
         while not self._stop_event.is_set():
             for host, port in self.initial_peers:
@@ -213,7 +212,7 @@ class P2PNetworkService:
                 asyncio.create_task(self._dial_peer(host, port))
             await asyncio.sleep(10)
 
-    async def _dial_peer(self, host: str, port: int):
+    async def _dial_peer(self, host: str, port: int) -> None:
         """Attempt to establish an outbound TCP connection to a peer"""
         endpoint = (host, port)
         try:
@@ -228,7 +227,7 @@ class P2PNetworkService:
         except Exception as e:
             logger.debug('Failed to dial peer %s:%s: %s', host, port, e)
 
-    async def _handle_inbound_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    async def _handle_inbound_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Handle incoming P2P TCP connections from other nodes"""
         addr = writer.get_extra_info('peername')
         logger.info('Incoming P2P connection from %s', addr)
@@ -299,7 +298,7 @@ class P2PNetworkService:
             logger.error('Error handling inbound connection from %s: %s', addr, e)
             writer.close()
 
-    async def _listen_to_stream(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int], outbound: bool, peer_id: str=None):
+    async def _listen_to_stream(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int], outbound: bool, peer_id: Optional[str]=None) -> None:
         """Read loop for an established TCP stream (both inbound and outbound)"""
         addr = endpoint
         try:
@@ -416,7 +415,7 @@ class P2PNetworkService:
             if os.path.exists(gpu_config_path):
                 with open(gpu_config_path) as f:
                     config = json.load(f)
-                    return config.get('gpu_count', 0)
+                    return config.get('gpu_count', 0)  # type: ignore[no-any-return]
             return 0
         except Exception as e:
             logger.error('Error getting GPU count: %s', e)
@@ -430,7 +429,7 @@ class P2PNetworkService:
             if os.path.exists(gpu_config_path):
                 with open(gpu_config_path) as f:
                     config = json.load(f)
-                    return config.get('specs', {})
+                    return config.get('specs', {})  # type: ignore[no-any-return]
             return {}
         except Exception as e:
             logger.error('Error getting GPU specs: %s', e)
@@ -480,7 +479,7 @@ class P2PNetworkService:
                         logger.info('Received join_response from hub')
                         writer.close()
                         await writer.wait_closed()
-                        return response
+                        return response  # type: ignore[no-any-return]
                     else:
                         logger.warning('Unexpected response type: %s', response.get('type'))
                 else:
@@ -497,14 +496,14 @@ class P2PNetworkService:
             logger.error('Failed to send join request: %s', e)
             return None
 
-async def run_p2p_service(host: str, port: int, node_id: str, peers: str):
+async def run_p2p_service(host: str, port: int, node_id: str, peers: str) -> None:
     """Run P2P service"""
     stun_servers = [server.strip() for server in settings.stun_servers.split(',') if server.strip()]
     service = P2PNetworkService(host, port, node_id, peers, stun_servers=stun_servers or None, island_id=settings.island_id, island_name=settings.island_name, is_hub=settings.is_hub, island_chain_id=settings.island_chain_id or settings.chain_id)
     set_p2p_network(service)
     await service.start()
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description='AITBC Direct TCP P2P Mesh Network')
     parser.add_argument('--host', default=settings.p2p_bind_host, help='Bind host')
