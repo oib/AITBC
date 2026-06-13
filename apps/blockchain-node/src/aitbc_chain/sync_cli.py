@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 #!/usr/bin/env python3
 """
 Standalone bulk sync utility for fast catch-up.
@@ -14,10 +13,10 @@ from pathlib import Path
 # Add src to path for standalone execution
 sys.path.insert(0, str(Path(__file__).parent))
 
-from aitbc_chain.config import settings
-from aitbc_chain.database import session_scope
-from aitbc_chain.logger import get_logger
-from aitbc_chain.sync import ChainSync
+from aitbc_chain.config import settings  # type: ignore
+from aitbc_chain.database import session_scope  # type: ignore
+from aitbc_chain.logger import get_logger  # type: ignore
+from aitbc_chain.sync import ChainSync  # type: ignore
 
 logger = get_logger(__name__)
 
