@@ -60,7 +60,7 @@ class Counter:
         with self.lock:
             self.values.clear()
 
-    def _make_key(self, label_values: dict[str, str]) -> str:
+    def _make_key(self, **label_values: str) -> str:
         """Create key from label values"""
         if not self.labels:
             return "_default"
@@ -116,7 +116,7 @@ class Gauge:
         with self.lock:
             self.values.clear()
 
-    def _make_key(self, label_values: dict[str, str]) -> str:
+    def _make_key(self, **label_values: str) -> str:
         """Create key from label values"""
         if not self.labels:
             return "_default"
@@ -177,7 +177,7 @@ class Histogram:
             key = self._make_key(label_values)
             return self.sums.get(key, 0.0)
 
-    def _make_key(self, label_values: dict[str, str]) -> str:
+    def _make_key(self, **label_values: str) -> str:
         """Create key from label values"""
         if not self.labels:
             return "_default"

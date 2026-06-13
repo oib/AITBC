@@ -82,7 +82,7 @@ class Settings(BaseSettings):
 
     # Security settings
     secret_key: str = "default_secret_key_change_in_production"
-    allowed_hosts: list = ["*"]
+    allowed_hosts: list[str] = ["*"]
     cors_origins: list[str] = [
         "http://localhost:8001",
         "http://localhost:8011",
