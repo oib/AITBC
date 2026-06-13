@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Validator Rotation Mechanism
 Handles automatic rotation of validators based on performance and stake
@@ -119,10 +118,10 @@ class ValidatorRotation:
 
         # Calculate hybrid score
         for validator in validators:
-            validator.hybrid_score = validator.stake * validator.reputation  # type: ignore[attr-defined]
+            validator.hybrid_score = validator.stake * validator.reputation
 
         # Sort by hybrid score
-        validators.sort(key=lambda v: v.hybrid_score, reverse=True)  # type: ignore[attr-defined]
+        validators.sort(key=lambda v: v.hybrid_score, reverse=True)
 
         for i, validator in enumerate(validators[:self.config.max_validators]):
             if i == 0:

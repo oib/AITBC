@@ -1,5 +1,4 @@
 # mypy: ignore-errors
-import asyncio
 import hashlib
 import json
 import re

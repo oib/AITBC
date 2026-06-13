@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, AbstractAsyncContextManager
 from pathlib import Path
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
@@ -314,7 +314,7 @@ class BlockchainNode:
         await lease_tracker.stop()
 
 @asynccontextmanager
-async def node_app() -> asyncio.AbstractAsyncContextManager[BlockchainNode]:
+async def node_app() -> AbstractAsyncContextManager[BlockchainNode]:
     node = BlockchainNode()
     try:
         yield node

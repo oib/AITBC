@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Enterprise Integration Framework - Phase 6.1 Implementation
 ERP, CRM, and business system connectors for enterprise clients

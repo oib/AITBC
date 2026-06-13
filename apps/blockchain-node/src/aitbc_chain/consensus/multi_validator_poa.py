@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Multi-Validator Proof of Authority Consensus Implementation
 Extends single validator PoA to support multiple validators with rotation
@@ -127,7 +126,7 @@ class MultiValidatorPoA:
         self.partitioned_validators.add(address)
         return True
 
-    async def validate_transaction_async(self, transaction) -> bool:
+    async def validate_transaction_async(self, transaction: object) -> bool:
         """Asynchronously validate a transaction"""
         # Simulate async validation
         await asyncio.sleep(0.001)
@@ -242,18 +241,18 @@ class MultiValidatorPoA:
             'hash': hashlib.sha256(str(time.time()).encode()).hexdigest()
         }
 
-    def add_transaction(self, transaction) -> bool:
+    def add_transaction(self, transaction: object) -> bool:
         """Add a transaction to the block"""
         return hasattr(transaction, 'tx_id')
 
-    def simulate_crash(self):
+    def simulate_crash(self) -> None:
         """Simulate a crash (for testing)"""
         self._crashed_state = self.get_state_snapshot()
 
-    def recover_from_crash(self):
+    def recover_from_crash(self) -> None:
         """Recover from a crash (for testing)"""
         if hasattr(self, '_crashed_state'):
-            self._crashed_state = None
+            self._crashed_state = None  # type: ignore[assignment]
 
     def recover_state(self, state: dict) -> bool:
         """Recover state from snapshot (for testing)"""
