@@ -1,11 +1,12 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 import os
 import stat
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Generator, Optional
 
-from sqlalchemy import event
+from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
 # Import all models to ensure they are registered with SQLModel.metadata
@@ -18,24 +19,24 @@ _DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_chan
 # Registry of chain-specific database engines
 _db_temp_paths: dict[str, object] = {}
 
-def get_encryption_key(key_path):
+def get_encryption_key(key_path: Optional[os.PathLike]) -> Optional[bytes]:
     """Get encryption key from file"""
-    if not key_path or not key_path.exists():
+    if not key_path or not os.path.exists(key_path):
         return None
     with open(key_path, 'rb') as f:
         return f.read()
 
-def encrypt_database(db_path, key):
+def encrypt_database(db_path: Path, key: bytes) -> None:
     """Encrypt database file"""
     # Real implementation is in database_encryption.py
     # Import and call the actual implementation
     from .database_encryption import encrypt_database as real_encrypt
-    return real_encrypt(db_path, key)
-_engines: dict[str, object] = {}
+    real_encrypt(db_path, key)
+_engines: dict[str, Engine] = {}
 _default_chain_id: str = ""
 
 
-def get_engine(chain_id: str = "") -> object:
+def get_engine(chain_id: str = "") -> Engine:
     """Get database engine for a specific chain.
     
     Uses SQLCipher for encryption when enabled (ait-mainnet only).
@@ -62,7 +63,7 @@ def get_engine(chain_id: str = "") -> object:
         if encryption_enabled:
             # Use SQLCipher with encryption key
             try:
-                import sqlcipher3 as sqlite3
+                import sqlcipher3 as sqlite3  # type: ignore[import-not-found]
             except ImportError:
                 raise RuntimeError(
                     "SQLCipher encryption enabled but sqlcipher3-binary not installed. "
@@ -83,7 +84,7 @@ def get_engine(chain_id: str = "") -> object:
 
             # Set encryption key via connection event
             @event.listens_for(engine, "connect")
-            def set_encryption_key(dbapi_connection, connection_record):
+            def set_encryption_key(dbapi_connection: Any, connection_record: Any) -> None:
                 dbapi_connection.execute(f"PRAGMA key = '{key_hex}'")
                 dbapi_connection.execute("PRAGMA journal_mode=WAL")
                 dbapi_connection.execute("PRAGMA synchronous=NORMAL")
@@ -92,7 +93,7 @@ def get_engine(chain_id: str = "") -> object:
             engine = create_engine(f"sqlite:///{db_path}", echo=False)
 
             @event.listens_for(engine, "connect")
-            def set_wal_mode(dbapi_connection, connection_record):
+            def set_wal_mode(dbapi_connection: Any, connection_record: Any) -> None:
                 dbapi_connection.execute("PRAGMA journal_mode=WAL")
                 dbapi_connection.execute("PRAGMA synchronous=NORMAL")
 
@@ -105,7 +106,7 @@ _db_path = settings.db_path
 _engine = create_engine(f"sqlite:///{settings.db_path}", echo=False)
 
 @event.listens_for(_engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
+def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
@@ -119,7 +120,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 class DatabaseOperationValidator:
     """Validates database operations to prevent unauthorized access"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._allowed_operations = {
             'select', 'insert', 'update', 'delete'
         }
@@ -145,14 +146,14 @@ _validator = DatabaseOperationValidator()
 
 # Secure session scope with validation
 @contextmanager
-def _secure_session_scope() -> Session:
+def _secure_session_scope() -> Generator[Session, None, None]:
     """Internal secure session scope with validation"""
     with Session(_engine) as session:
         yield session
 
 # Public session scope wrapper with validation
 @contextmanager
-def session_scope(chain_id: str = "") -> Session:
+def session_scope(chain_id: str = "") -> Generator[Session, None, None]:
     """Public session scope with application-layer validation
     
     Args:
@@ -230,19 +231,19 @@ def shutdown_db(chain_id: str = "") -> None:
             resolved_chain_id == "ait-mainnet"
         )
 
-        if encryption_enabled and temp_path.exists():
+        if encryption_enabled and isinstance(temp_path, os.PathLike) and os.path.exists(temp_path):
             # Encrypt the temporary file back to the original location
             key = get_encryption_key(settings.db_encryption_key_path)
             if key is None:
                 raise RuntimeError(f"Database encryption enabled but key not found at {settings.db_encryption_key_path}")
 
             try:
-                encrypt_database(temp_path, key)
+                encrypt_database(Path(temp_path), key)
                 # Move encrypted file to original location
-                encrypted_path = temp_path.with_suffix('.db.encrypted')
+                encrypted_path = Path(temp_path).with_suffix('.db.encrypted')
                 encrypted_path.replace(db_path)
                 # Clean up temporary file
-                temp_path.unlink(missing_ok=True)
+                Path(temp_path).unlink(missing_ok=True)
                 del _db_temp_paths[resolved_chain_id]
             except Exception as e:
                 raise RuntimeError(f"Failed to encrypt database for chain {resolved_chain_id}: {e}")
