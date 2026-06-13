@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
+
 from aitbc import get_logger
+
 try:
     from email.mime.multipart import MimeMultipart
     from email.mime.text import MimeText
@@ -21,6 +23,7 @@ except ImportError:
     MimeText = None
     MimeMultipart = None
 import requests
+
 logger = get_logger(__name__)
 
 class AlertSeverity(Enum):
@@ -118,7 +121,7 @@ class SLAMonitor:
         if not metrics:
             return {'status': 'success', 'sla_id': sla_id, 'name': rule['name'], 'target': rule['target'], 'compliance_percentage': 100.0, 'total_measurements': 0, 'violations_count': 0, 'recent_violations': []}
         total_measurements = len(metrics)
-        violations_count = sum((1 for m in metrics if m['violation']))
+        violations_count = sum(1 for m in metrics if m['violation'])
         compliance_percentage = (total_measurements - violations_count) / total_measurements * 100
         recent_violations = [v for v in self.violations[sla_id] if v['timestamp'] > datetime.now(UTC) - timedelta(hours=24)]
         return {'status': 'success', 'sla_id': sla_id, 'name': rule['name'], 'target': rule['target'], 'compliance_percentage': compliance_percentage, 'total_measurements': total_measurements, 'violations_count': violations_count, 'recent_violations': recent_violations}
@@ -138,7 +141,7 @@ class SLAMonitor:
         total_violations = 0
         for sla_id, metrics in self.sla_metrics.items():
             total_measurements += len(metrics)
-            total_violations += sum((1 for m in metrics if m['violation']))
+            total_violations += sum(1 for m in metrics if m['violation'])
         if total_measurements == 0:
             return 100.0
         return (total_measurements - total_violations) / total_measurements * 100

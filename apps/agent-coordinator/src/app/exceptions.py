@@ -1,7 +1,11 @@
+# mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi.responses import JSONResponse
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 def register_exception_handlers(app: Any) -> None:

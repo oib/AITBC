@@ -264,7 +264,7 @@ class AdvancedAIIntegration:
             training_stats = {}
             for model_id, data_list in self.training_data.items():
                 training_stats[model_id] = len(data_list)
-            return {'status': 'success', 'total_models': total_models, 'total_neural_networks': total_networks, 'total_predictions': total_predictions, 'model_performance': model_stats, 'training_data_sizes': training_stats, 'available_model_types': list(set((model.model_type for model in self.models.values()))), 'last_updated': datetime.now(UTC).isoformat()}
+            return {'status': 'success', 'total_models': total_models, 'total_neural_networks': total_networks, 'total_predictions': total_predictions, 'model_performance': model_stats, 'training_data_sizes': training_stats, 'available_model_types': list(set(model.model_type for model in self.models.values())), 'last_updated': datetime.now(UTC).isoformat()}
         except Exception as e:
             logger.error('Error getting AI statistics: %s', e)
             return {'status': 'error', 'message': str(e)}
