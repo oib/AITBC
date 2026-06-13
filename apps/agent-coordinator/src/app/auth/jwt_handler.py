@@ -2,22 +2,28 @@
 JWT Authentication Handler for AITBC Agent Coordinator
 Implements JWT token generation, validation, and management
 """
+import os
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+from dotenv import load_dotenv
+
 from aitbc import get_logger
+
+load_dotenv()
 logger = get_logger(__name__)
 
 class JWTHandler:
     """JWT token management and validation"""
 
-    def __init__(self, secret_key: str | None=None) -> None:
+    def __init__(self, secret_key: str | None = None) -> None:
         self.secret_key = secret_key or secrets.token_urlsafe(32)
         self.algorithm = 'HS256'
         self.token_expiry = timedelta(hours=24)
         self.refresh_expiry = timedelta(days=7)
 
-    def generate_token(self, payload: dict[str, Any], expires_delta: timedelta | None=None) -> dict[str, Any]:
+    def generate_token(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
         try:
@@ -111,7 +117,7 @@ class PasswordManager:
 class APIKeyManager:
     """API key generation and management with persistent storage"""
 
-    def __init__(self, storage_path: str | None=None) -> None:
+    def __init__(self, storage_path: str | None = None) -> None:
         self.storage_path: str = storage_path or os.getenv('API_KEY_STORAGE_PATH', '/var/lib/aitbc/api_keys.json') or '/var/lib/aitbc/api_keys.json'
         self.api_keys = self._load_keys()
 
@@ -139,7 +145,7 @@ class APIKeyManager:
         except Exception as e:
             logger.error('Error saving API keys: %s', e)
 
-    def generate_api_key(self, user_id: str, permissions: list[str] | None=None) -> dict[str, Any]:
+    def generate_api_key(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -177,9 +183,9 @@ class APIKeyManager:
         except Exception as e:
             logger.error('Error revoking API key: %s', e)
             return {'status': 'error', 'message': str(e)}
-import os
-from dotenv import load_dotenv
-load_dotenv()
+
+
+# Global instances
 jwt_secret = os.getenv('JWT_SECRET')
 if not jwt_secret:
     jwt_secret = 'test_secret_key_for_development_only_change_in_production'
