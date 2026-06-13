@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 
 from sqlalchemy.orm import Session
@@ -14,8 +13,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from aitbc.rate_limiting import rate_limit
 
 from ..deps import require_client_key
-from ..models.registry import service_registry
-from ..models.services import (
+from ..models.registry import service_registry  # type: ignore[import-not-found]
+from ..models.services import (  # type: ignore[import-not-found]
     BlenderRequest,
     FFmpegRequest,
     LLMRequest,
@@ -25,8 +24,8 @@ from ..models.services import (
     StableDiffusionRequest,
     WhisperRequest,
 )
-from ..schemas import JobCreate
-from ..services import JobService
+from ..schemas import JobCreate  # type: ignore[import-not-found]
+from ..services import JobService  # type: ignore[attr-defined]
 from ..storage import get_session
 
 router = APIRouter(tags=["services"])
@@ -141,8 +140,8 @@ async def whisper_transcribe(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Translate audio using Whisper",
-)
-@rate_limit(rate=50, per=60)
+)  # type: ignore
+@rate_limit(rate=50, per=60)  # type: ignore
 async def whisper_translate(
     request_http: Request,
     request: WhisperRequest,
@@ -177,8 +176,8 @@ async def whisper_translate(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Generate images using Stable Diffusion",
-)
-@rate_limit(rate=50, per=60)
+)  # type: ignore
+@rate_limit(rate=50, per=60)  # type: ignore
 async def stable_diffusion_generate(
     request_http: Request,
     request: StableDiffusionRequest,
@@ -212,8 +211,8 @@ async def stable_diffusion_generate(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Image-to-image generation",
-)
-@rate_limit(rate=50, per=60)
+)  # type: ignore
+@rate_limit(rate=50, per=60)  # type: ignore
 async def stable_diffusion_img2img(
     request_http: Request,
     request: StableDiffusionRequest,
@@ -246,8 +245,8 @@ async def stable_diffusion_img2img(
 # LLM Inference endpoints
 @router.post(
     "/services/llm/inference", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED, summary="Run LLM inference"
-)
-@rate_limit(rate=50, per=60)
+)  # type: ignore
+@rate_limit(rate=50, per=60)  # type: ignore
 async def llm_inference(
     request_http: Request,
     request: LLMRequest,
@@ -276,8 +275,8 @@ async def llm_inference(
     )
 
 
-@router.post("/services/llm/stream", summary="Stream LLM inference")
-@rate_limit(rate=50, per=60)
+@router.post("/services/llm/stream", summary="Stream LLM inference")  # type: ignore
+@rate_limit(rate=50, per=60)  # type: ignore
 async def llm_stream(
     request_http: Request,
     request: LLMRequest,
@@ -314,8 +313,8 @@ async def llm_stream(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Transcode video using FFmpeg",
-)
-@rate_limit(rate=50, per=60)
+)  # type: ignore
+@rate_limit(rate=50, per=60)  # type: ignore
 async def ffmpeg_transcode(
     request_http: Request,
     request: FFmpegRequest,
@@ -351,8 +350,8 @@ async def ffmpeg_transcode(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Render using Blender",
-)
-@rate_limit(rate=50, per=60)
+)  # type: ignore
+@rate_limit(rate=50, per=60)  # type: ignore
 async def blender_render(
     request_http: Request,
     request: BlenderRequest,
@@ -385,8 +384,8 @@ async def blender_render(
 
 
 # Utility endpoints
-@router.get("/services", summary="List available services")
-@rate_limit(rate=200, per=60)
+@router.get("/services", summary="List available services")  # type: ignore
+@rate_limit(rate=200, per=60)  # type: ignore
 async def list_services(
     request: Request
 ) -> dict[str, Any]:
@@ -447,8 +446,8 @@ async def list_services(
     }
 
 
-@router.get("/services/{service_type}/schema", summary="Get service request schema", deprecated=True)
-@rate_limit(rate=200, per=60)
+@router.get("/services/{service_type}/schema", summary="Get service request schema", deprecated=True)  # type: ignore
+@rate_limit(rate=200, per=60)  # type: ignore
 async def get_service_schema(
     request: Request, service_type: ServiceType
 ) -> dict[str, Any]:
@@ -495,7 +494,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
     if not service:
         return {"valid": False, "errors": [f"Service {service_id} not found"]}
 
-    validation_result = {"valid": True, "errors": [], "warnings": []}
+    validation_result: dict[str, Any] = {"valid": True, "errors": [], "warnings": []}
 
     # Check required parameters
     provided_params = set(request_data.keys())
