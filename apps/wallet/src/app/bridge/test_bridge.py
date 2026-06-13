@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 #!/usr/bin/env python3
 """
 Test ETH-AIT bridge functionality without real ETH.
@@ -14,7 +13,7 @@ from app.bridge.bridge_db import get_deposit_by_tx_hash, get_pending_deposits, i
 from app.bridge.price_api import calculate_ait_amount, get_exchange_rate
 
 
-def test_database():
+def test_database() -> bool:
     """Test database operations."""
     print("\n=== Testing Database ===")
 
@@ -61,7 +60,7 @@ def test_database():
     return True
 
 
-def test_price_api():
+def test_price_api() -> bool:
     """Test price API."""
     print("\n=== Testing Price API ===")
 
@@ -88,7 +87,7 @@ def test_price_api():
     return True
 
 
-def test_mock_deposit():
+def test_mock_deposit() -> bool:
     """Test mock deposit flow."""
     print("\n=== Testing Mock Deposit Flow ===")
 
@@ -134,7 +133,7 @@ def test_mock_deposit():
     return True
 
 
-def test_api_endpoints():
+def test_api_endpoints() -> bool:
     """Test API endpoints (requires running wallet service)."""
     print("\n=== Testing API Endpoints ===")
 
@@ -179,7 +178,7 @@ def test_api_endpoints():
     return True
 
 
-def main():
+def main() -> int:
     """Run all tests."""
     print("=" * 50)
     print("ETH-AIT Bridge Test Suite")

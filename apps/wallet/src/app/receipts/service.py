@@ -1,9 +1,8 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from aitbc_sdk.receipts import (
+from aitbc_sdk.receipts import (  # type: ignore[import-not-found]
     CoordinatorReceiptClient,
     ReceiptVerification,
     SignatureValidation,
@@ -22,7 +21,7 @@ class ReceiptValidationResult:
 
     @property
     def miner_valid(self) -> bool:
-        return self.miner_signature.valid
+        return self.miner_signature.valid  # type: ignore[no-any-return]
 
     @property
     def all_valid(self) -> bool:
