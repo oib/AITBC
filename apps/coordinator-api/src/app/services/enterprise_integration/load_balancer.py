@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Advanced Load Balancing - Phase 6.4 Implementation
 Intelligent traffic distribution with AI-powered auto-scaling and performance optimization
@@ -79,10 +78,10 @@ class PredictiveScaler:
     """AI-powered predictive auto-scaling"""
 
     def __init__(self) -> None:
-        self.traffic_history = []
-        self.scaling_predictions = {}
-        self.traffic_patterns = {}
-        self.model_weights = {}
+        self.traffic_history: list[dict[str, Any]] = []
+        self.scaling_predictions: dict[str, Any] = {}
+        self.traffic_patterns: dict[str, TrafficPattern] = {}
+        self.model_weights: dict[str, float] = {}
         self.logger = get_logger('predictive_scaler')
 
     async def record_traffic(self, timestamp: datetime, request_count: int, response_time_ms: float, error_rate: float) -> None:
@@ -97,7 +96,7 @@ class PredictiveScaler:
         """Update traffic patterns based on historical data"""
         if len(self.traffic_history) < 168:
             return
-        patterns = {}
+        patterns: dict[str, dict[str, list[float]]] = {}
         for record in self.traffic_history:
             key = f"{record['day_of_week']}_{record['hour']}"
             if key not in patterns:
@@ -122,10 +121,10 @@ class PredictiveScaler:
             similar_patterns = [pattern for pattern in self.traffic_patterns.values() if pattern.day_of_week == current_time.weekday() and abs(pattern.time_windows[0]['hour'] - current_time.hour) <= 2]
             if not similar_patterns:
                 return await self._simple_prediction(prediction_window)
-            total_weight = 0
-            weighted_requests = 0
-            weighted_response_time = 0
-            weighted_error_rate = 0
+            total_weight = 0.0
+            weighted_requests = 0.0
+            weighted_response_time = 0.0
+            weighted_error_rate = 0.0
             for pattern in similar_patterns:
                 weight = pattern.confidence_score
                 window_data = pattern.time_windows[0]
@@ -188,13 +187,13 @@ class AdvancedLoadBalancer:
     """Advanced load balancer with multiple algorithms and AI optimization"""
 
     def __init__(self) -> None:
-        self.backends = {}
+        self.backends: dict[str, BackendServer] = {}
         self.algorithm = LoadBalancingAlgorithm.ADAPTIVE
         self.current_index = 0
-        self.request_history = []
-        self.performance_metrics = {}
+        self.request_history: list[dict[str, Any]] = []
+        self.performance_metrics: dict[str, dict[str, Any]] = {}
         self.predictive_scaler = PredictiveScaler()
-        self.scaling_metrics = {}
+        self.scaling_metrics: dict[str, Any] = {}
         self.logger = get_logger('advanced_load_balancer')
 
     async def add_backend(self, server: BackendServer) -> bool:
@@ -237,13 +236,11 @@ class AdvancedLoadBalancer:
                 return await self._select_predictive_ai(healthy_backends, request_context)
             elif self.algorithm == LoadBalancingAlgorithm.ADAPTIVE:
                 return await self._select_adaptive(healthy_backends, request_context)
-            else:
-                return await self._select_round_robin(healthy_backends)
         except Exception as e:
             self.logger.error('Backend selection failed: %s', e)
             return None
 
-    async def _select_round_robin(self, backends: dict[str, BackendServer]) -> str:
+    async def _select_round_robin(self, backends: dict[str, BackendServer]) -> str | None:
         """Round robin selection"""
         backend_ids = list(backends.keys())
         if not backend_ids:
@@ -252,44 +249,44 @@ class AdvancedLoadBalancer:
         self.current_index += 1
         return selected
 
-    async def _select_weighted_round_robin(self, backends: dict[str, BackendServer]) -> str:
+    async def _select_weighted_round_robin(self, backends: dict[str, BackendServer]) -> str | None:
         """Weighted round robin selection"""
         total_weight = sum((server.weight for server in backends.values()))
         if total_weight <= 0:
             return await self._select_round_robin(backends)
         import random
         rand_value = random.uniform(0, total_weight)
-        current_weight = 0
+        current_weight = 0.0
         for server_id, server in backends.items():
             current_weight += server.weight
             if rand_value <= current_weight:
                 return server_id
         return list(backends.keys())[0]
 
-    async def _select_least_connections(self, backends: dict[str, BackendServer]) -> str:
+    async def _select_least_connections(self, backends: dict[str, BackendServer]) -> str | None:
         """Select backend with least connections"""
         min_connections = float('inf')
-        selected_backend = None
+        selected_backend: str | None = None
         for server_id, server in backends.items():
             if server.current_connections < min_connections:
                 min_connections = server.current_connections
                 selected_backend = server_id
         return selected_backend
 
-    async def _select_least_response_time(self, backends: dict[str, BackendServer]) -> str:
+    async def _select_least_response_time(self, backends: dict[str, BackendServer]) -> str | None:
         """Select backend with least response time"""
         min_response_time = float('inf')
-        selected_backend = None
+        selected_backend: str | None = None
         for server_id, server in backends.items():
             if server.response_time_ms < min_response_time:
                 min_response_time = server.response_time_ms
                 selected_backend = server_id
         return selected_backend
 
-    async def _select_resource_based(self, backends: dict[str, BackendServer]) -> str:
+    async def _select_resource_based(self, backends: dict[str, BackendServer]) -> str | None:
         """Select backend based on resource utilization"""
-        best_score = -1
-        selected_backend = None
+        best_score = -1.0
+        selected_backend: str | None = None
         for server_id, server in backends.items():
             cpu_score = 1.0 - server.cpu_usage / 100.0
             memory_score = 1.0 - server.memory_usage / 100.0
@@ -300,7 +297,7 @@ class AdvancedLoadBalancer:
                 selected_backend = server_id
         return selected_backend
 
-    async def _select_predictive_ai(self, backends: dict[str, BackendServer], request_context: dict[str, Any] | None) -> str:
+    async def _select_predictive_ai(self, backends: dict[str, BackendServer], request_context: dict[str, Any] | None) -> str | None:
         """AI-powered predictive selection"""
         backend_scores = {}
         for server_id, server in backends.items():
@@ -312,10 +309,10 @@ class AdvancedLoadBalancer:
                 score *= context_multiplier
             backend_scores[server_id] = score
         if backend_scores:
-            return max(backend_scores, key=backend_scores.get)
+            return max(backend_scores, key=lambda k: backend_scores[k])
         return await self._select_least_connections(backends)
 
-    async def _select_adaptive(self, backends: dict[str, BackendServer], request_context: dict[str, Any] | None) -> str:
+    async def _select_adaptive(self, backends: dict[str, BackendServer], request_context: dict[str, Any] | None) -> str | None:
         """Adaptive selection based on current conditions"""
         total_connections = sum((server.current_connections for server in backends.values()))
         avg_response_time = statistics.mean([server.response_time_ms for server in backends.values()])
