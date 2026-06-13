@@ -1,23 +1,23 @@
-# mypy: ignore-errors
 """
 Combined blockchain node and P2P service launcher
 Runs both the main blockchain node, P2P placeholder service, and HTTP RPC server
 """
 import asyncio
+from typing import Any
 import uvicorn
-from aitbc_chain.app import create_app
-from aitbc_chain.config import settings
-from aitbc_chain.main import _run as run_node
+from aitbc_chain.app import create_app  # type: ignore
+from aitbc_chain.config import settings  # type: ignore
+from aitbc_chain.main import _run as run_node  # type: ignore
 from aitbc import get_logger
 logger = get_logger(__name__)
 
 class CombinedService:
 
-    def __init__(self):
-        self._tasks = []
-        self._http_server = None
+    def __init__(self) -> None:
+        self._tasks: list[asyncio.Task] = []
+        self._http_server: Any = None
 
-    async def start(self):
+    async def start(self) -> None:
         """Start both blockchain node and HTTP RPC server"""
         logger.info('Starting combined blockchain service')
         node_task = asyncio.create_task(run_node())
@@ -35,11 +35,9 @@ class CombinedService:
         finally:
             await self.stop()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop all services"""
         logger.info('Stopping combined blockchain service')
-        if self._http_server:
-            self._http_server.should_exit = True
         for task in self._tasks:
             if not task.done():
                 task.cancel()
@@ -48,7 +46,7 @@ class CombinedService:
         self._tasks.clear()
         logger.info('Combined service stopped')
 
-async def main():
+async def main() -> None:
     """Main entry point"""
     service = CombinedService()
     try:
