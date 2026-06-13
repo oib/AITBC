@@ -52,14 +52,14 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Server settings
-    host: str = "0.0.0.0"
-    port: int = 9001
-    workers: int = 1
+    host: str = os.getenv("HOST", "0.0.0.0")
+    port: int = int(os.getenv("PORT", "9001"))
+    workers: int = int(os.getenv("WORKERS", "1"))
 
     # Redis settings
-    redis_url: str = "redis://localhost:6379/1"
-    redis_max_connections: int = 10
-    redis_timeout: int = 5
+    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/1")
+    redis_max_connections: int = int(os.getenv("REDIS_MAX_CONNECTIONS", "10"))
+    redis_timeout: int = int(os.getenv("REDIS_TIMEOUT", "5"))
 
     # Database settings (if needed)
     database_url: str | None = None
@@ -81,9 +81,9 @@ class Settings(BaseSettings):
     connection_timeout: int = 30
 
     # Security settings
-    secret_key: str = "default_secret_key_change_in_production"
-    allowed_hosts: list[str] = ["*"]
-    cors_origins: list[str] = [
+    secret_key: str = os.getenv("SECRET_KEY", "default_secret_key_change_in_production")
+    allowed_hosts: list[str] = os.getenv("ALLOWED_HOSTS", "*").split(",") if os.getenv("ALLOWED_HOSTS") else ["*"]
+    cors_origins: list[str] = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
         "http://localhost:8001",
         "http://localhost:8011",
         "http://localhost:8016",
