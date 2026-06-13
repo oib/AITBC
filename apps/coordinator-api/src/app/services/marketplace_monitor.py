@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Marketplace Real-time Performance Monitor
 Implements comprehensive real-time monitoring and analytics for the AITBC marketplace.
@@ -7,7 +6,7 @@ import asyncio
 import collections
 import time
 from datetime import UTC, datetime
-from typing import Any, collections
+from typing import Any
 from aitbc import get_logger
 logger = get_logger(__name__)
 
@@ -16,10 +15,10 @@ class TimeSeriesData:
 
     def __init__(self, max_points: int=3600):
         self.max_points = max_points
-        self.timestamps = collections.deque(maxlen=max_points)
-        self.values = collections.deque(maxlen=max_points)
+        self.timestamps: collections.deque[float] = collections.deque(maxlen=max_points)
+        self.values: collections.deque[float] = collections.deque(maxlen=max_points)
 
-    def add(self, value: float, timestamp: float=None) -> None:
+    def add(self, value: float, timestamp: float | None=None) -> None:
         self.timestamps.append(timestamp or time.time())
         self.values.append(value)
 
