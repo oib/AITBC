@@ -2,9 +2,13 @@ import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
 from aitbc import get_logger
+
 from . import state
+
 logger = get_logger(__name__)
 
 @asynccontextmanager
