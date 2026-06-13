@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Base interfaces for cross-chain settlement bridges
 """
@@ -48,9 +47,9 @@ class SettlementMessage:
     nonce: int
     signature: str
     gas_limit: int | None = None
-    created_at: datetime = None
+    created_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at is None:
             self.created_at = datetime.now(UTC)
 
@@ -65,10 +64,10 @@ class SettlementResult:
     error_message: str | None = None
     gas_used: int | None = None
     fee_paid: int | None = None
-    created_at: datetime = None
+    created_at: datetime | None = None
     completed_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at is None:
             self.created_at = datetime.now(UTC)
 
@@ -192,7 +191,7 @@ class EthereumBridge(BridgeAdapter):
     def __init__(self, config: BridgeConfig, rpc_url: str = "http://localhost:8006"):
         super().__init__(config)
         self.rpc_url = rpc_url
-        self._web3_client = None
+        self._web3_client: Any = None
         self._chain_id = 1  # Ethereum mainnet chain ID
 
     async def initialize(self) -> None:
