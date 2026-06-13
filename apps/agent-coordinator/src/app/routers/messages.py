@@ -31,7 +31,7 @@ class SubscribeRequest(BaseModel):
 
 @router.post('/send')
 @rate_limit(rate=50, per=60)
-async def send_encrypted_message(request: Request, req: SendMessageRequest) -> Any:
+async def send_encrypted_message(request: Request, req: SendMessageRequest) -> dict[str, Any]:
     """Send encrypted message to agent"""
     try:
         encryptor = get_encryptor()
@@ -58,7 +58,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> A
 
 @router.get('/inbox')
 @rate_limit(rate=200, per=60)
-async def get_inbox(request: Request, agent_id: str=Query(..., description='Agent ID'), limit: int=Query(100, description='Maximum messages'), unread_only: bool=Query(False, description='Only unread messages')) -> Any:
+async def get_inbox(request: Request, agent_id: str = Query(..., description='Agent ID'), limit: int = Query(100, description='Maximum messages'), unread_only: bool = Query(False, description='Only unread messages')) -> dict[str, Any]:
     """Get agent's inbox"""
     try:
         if not state.message_storage:
@@ -73,7 +73,7 @@ async def get_inbox(request: Request, agent_id: str=Query(..., description='Agen
 
 @router.get('/history')
 @rate_limit(rate=200, per=60)
-async def get_message_history(request: Request, sender_id: str | None=Query(None, description='Filter by sender ID'), receiver_id: str | None=Query(None, description='Filter by receiver ID'), limit: int=Query(100, description='Maximum number of messages'), offset: int=Query(0, description='Offset for pagination')) -> Any:
+async def get_message_history(request: Request, sender_id: str | None = Query(None, description='Filter by sender ID'), receiver_id: str | None = Query(None, description='Filter by receiver ID'), limit: int = Query(100, description='Maximum number of messages'), offset: int = Query(0, description='Offset for pagination')) -> dict[str, Any]:
     """Get message history with optional filters"""
     try:
         if not state.message_storage:
@@ -96,11 +96,11 @@ async def get_message_history(request: Request, sender_id: str | None=Query(None
 
 @router.get('/{agent_id}')
 @rate_limit(rate=200, per=60)
-async def get_messages_for_agent_compatibility(request: Request, agent_id: str) -> Any:
+async def get_messages_for_agent_compatibility(request: Request, agent_id: str) -> dict[str, Any]:
     """Get messages for agent - AgentDaemon compatibility route"""
     return await get_messages_for_agent(request, agent_id)
 
-async def get_messages_for_agent(request: Request, agent_id: str) -> Any:
+async def get_messages_for_agent(request: Request, agent_id: str) -> dict[str, Any]:
     try:
         if not state.message_storage:
             return {'agent_id': agent_id, 'count': 0, 'messages': [], 'timestamp': datetime.now(UTC).isoformat()}
@@ -112,7 +112,7 @@ async def get_messages_for_agent(request: Request, agent_id: str) -> Any:
 
 @router.get('/discover')
 @rate_limit(rate=200, per=60)
-async def discover_agents(request: Request, capability: str | None=Query(None, description='Filter by capability'), agent_type: str | None=Query(None, description='Filter by agent type'), min_health_score: float=Query(0.0, description='Minimum health score'), limit: int=Query(50, description='Maximum results')) -> Any:
+async def discover_agents(request: Request, capability: str | None = Query(None, description='Filter by capability'), agent_type: str | None = Query(None, description='Filter by agent type'), min_health_score: float = Query(0.0, description='Minimum health score'), limit: int = Query(50, description='Maximum results')) -> dict[str, Any]:
     """Discover agents by criteria"""
     try:
         if not state.agent_registry:
@@ -136,7 +136,7 @@ async def discover_agents(request: Request, capability: str | None=Query(None, d
 
 @router.post('/subscribe')
 @rate_limit(rate=50, per=60)
-async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> Any:
+async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> dict[str, Any]:
     """Subscribe agent to topic"""
     try:
         if state.message_storage:
@@ -150,7 +150,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> Any:
 
 @router.post('/broadcast')
 @rate_limit(rate=50, per=60)
-async def broadcast_message(request_http: Request, request: BroadcastRequest) -> Any:
+async def broadcast_message(request_http: Request, request: BroadcastRequest) -> dict[str, Any]:
     """Broadcast message to multiple agents"""
     try:
         if not state.communication_manager:
@@ -195,7 +195,7 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest) ->
 
 @router.get('/id/{message_id}')
 @rate_limit(rate=200, per=60)
-async def get_message(request: Request, message_id: str) -> Any:
+async def get_message(request: Request, message_id: str) -> dict[str, Any]:
     """Get a specific message by ID"""
     try:
         if not state.message_storage:
@@ -212,7 +212,7 @@ async def get_message(request: Request, message_id: str) -> Any:
 
 @router.get('/load-balancer/stats')
 @rate_limit(rate=200, per=60)
-async def get_load_balancer_stats(request: Request) -> Any:
+async def get_load_balancer_stats(request: Request) -> dict[str, Any]:
     """Get load balancer statistics"""
     try:
         if not state.load_balancer:
@@ -225,7 +225,7 @@ async def get_load_balancer_stats(request: Request) -> Any:
 
 @router.get('/registry/stats')
 @rate_limit(rate=200, per=60)
-async def get_registry_stats(request: Request) -> Any:
+async def get_registry_stats(request: Request) -> dict[str, Any]:
     """Get agent registry statistics"""
     try:
         if not state.agent_registry:
@@ -238,7 +238,7 @@ async def get_registry_stats(request: Request) -> Any:
 
 @router.get('/agents/service/{service}')
 @rate_limit(rate=200, per=60)
-async def get_agents_by_service(request: Request, service: str) -> Any:
+async def get_agents_by_service(request: Request, service: str) -> dict[str, Any]:
     """Get agents that provide a specific service"""
     try:
         if not state.agent_registry:
@@ -251,7 +251,7 @@ async def get_agents_by_service(request: Request, service: str) -> Any:
 
 @router.get('/agents/capability/{capability}')
 @rate_limit(rate=200, per=60)
-async def get_agents_by_capability(request: Request, capability: str) -> Any:
+async def get_agents_by_capability(request: Request, capability: str) -> dict[str, Any]:
     """Get agents that have a specific capability"""
     try:
         if not state.agent_registry:
@@ -264,7 +264,7 @@ async def get_agents_by_capability(request: Request, capability: str) -> Any:
 
 @router.put('/load-balancer/strategy')
 @rate_limit(rate=50, per=60)
-async def set_load_balancing_strategy(request: Request, strategy: str=Query(..., description='Load balancing strategy')) -> Any:
+async def set_load_balancing_strategy(request: Request, strategy: str = Query(..., description='Load balancing strategy')) -> dict[str, Any]:
     """Set load balancing strategy"""
     try:
         if not state.load_balancer:
@@ -283,7 +283,7 @@ async def set_load_balancing_strategy(request: Request, strategy: str=Query(...,
 
 @router.post('/peers/add')
 @rate_limit(rate=50, per=60)
-async def add_peer(request: Request, agent_id: str=Query(..., description='Agent ID'), peer_id: str=Query(..., description='Peer agent ID')) -> Any:
+async def add_peer(request: Request, agent_id: str = Query(..., description='Agent ID'), peer_id: str = Query(..., description='Peer agent ID')) -> dict[str, Any]:
     """Add a peer connection for an agent"""
     try:
         if not state.peer_storage:
@@ -301,7 +301,7 @@ async def add_peer(request: Request, agent_id: str=Query(..., description='Agent
 
 @router.post('/peers/remove')
 @rate_limit(rate=50, per=60)
-async def remove_peer(request: Request, agent_id: str=Query(..., description='Agent ID'), peer_id: str=Query(..., description='Peer agent ID')) -> Any:
+async def remove_peer(request: Request, agent_id: str = Query(..., description='Agent ID'), peer_id: str = Query(..., description='Peer agent ID')) -> dict[str, Any]:
     """Remove a peer connection for an agent"""
     try:
         if not state.peer_storage:
@@ -319,7 +319,7 @@ async def remove_peer(request: Request, agent_id: str=Query(..., description='Ag
 
 @router.get('/peers/{agent_id}')
 @rate_limit(rate=200, per=60)
-async def get_agent_peers(request: Request, agent_id: str) -> Any:
+async def get_agent_peers(request: Request, agent_id: str) -> dict[str, Any]:
     """Get all peers for a specific agent"""
     try:
         if not state.peer_storage:
@@ -334,7 +334,7 @@ async def get_agent_peers(request: Request, agent_id: str) -> Any:
 
 @router.get('/peers')
 @rate_limit(rate=200, per=60)
-async def get_all_peers(request: Request) -> Any:
+async def get_all_peers(request: Request) -> dict[str, Any]:
     """Get all peer connections in the system"""
     try:
         if not state.peer_storage:
