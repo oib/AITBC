@@ -11,10 +11,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
 from aitbc import get_logger
+
 from ..protocols.communication import AgentMessage
 from ..protocols.message_types import create_task_message
 from .agent_discovery import AgentRegistry, AgentStatus
+
 logger = get_logger(__name__)
 
 class LoadBalancingStrategy(str, Enum):
@@ -369,7 +372,7 @@ class LoadBalancer:
         base_score = (weight.performance_score + weight.reliability_score) / 2
         recent_assignments = [a for a in self.assignment_history if a.agent_id == agent_id][-10:]
         if recent_assignments:
-            success_rate = sum((1 for a in recent_assignments if a.success)) / len(recent_assignments)
+            success_rate = sum(1 for a in recent_assignments if a.success) / len(recent_assignments)
             base_score = base_score * 0.7 + success_rate * 0.3
         return base_score
 
@@ -548,3 +551,4 @@ async def example_usage() -> None:
     await registry.stop()
 if __name__ == '__main__':
     asyncio.run(example_usage())
+
