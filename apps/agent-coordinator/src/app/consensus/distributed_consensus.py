@@ -76,7 +76,7 @@ class DistributedConsensus:
             logger.error('Error creating proposal: %s', e)
             return {'status': 'error', 'message': str(e)}
 
-    async def _initiate_voting(self, proposal: ConsensusProposal) -> Any:
+    async def _initiate_voting(self, proposal: ConsensusProposal) -> None:
         """Initiate voting for a proposal"""
         try:
             active_nodes = [node for node in self.nodes.values() if node.is_active]
@@ -86,7 +86,7 @@ class DistributedConsensus:
         except Exception as e:
             logger.error('Error initiating voting: %s', e)
 
-    async def _simulate_node_vote(self, proposal: ConsensusProposal, node_id: str) -> Any:
+    async def _simulate_node_vote(self, proposal: ConsensusProposal, node_id: str) -> None:
         """Simulate a node's voting decision"""
         try:
             node = self.nodes.get(node_id)
@@ -121,7 +121,7 @@ class DistributedConsensus:
             logger.error('Error casting vote: %s', e)
             return {'status': 'error', 'message': str(e)}
 
-    async def _check_consensus(self, proposal: ConsensusProposal) -> Any:
+    async def _check_consensus(self, proposal: ConsensusProposal) -> None:
         """Check if consensus is reached for a proposal"""
         try:
             if proposal.status != 'pending':
@@ -160,7 +160,7 @@ class DistributedConsensus:
         except Exception as e:
             logger.error('Error checking consensus: %s', e)
 
-    async def _finalize_proposal(self, proposal: ConsensusProposal, approved: bool, reason: str) -> Any:
+    async def _finalize_proposal(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {'proposal_id': proposal.proposal_id, 'proposer_id': proposal.proposer_id, 'proposal_data': proposal.proposal_data, 'approved': approved, 'reason': reason, 'votes': dict(proposal.current_votes), 'required_votes': proposal.required_votes, 'finalized_at': datetime.now(UTC).isoformat(), 'algorithm': self.current_algorithm}
@@ -170,7 +170,7 @@ class DistributedConsensus:
         except Exception as e:
             logger.error('Error finalizing proposal: %s', e)
 
-    async def _cleanup_old_proposals(self) -> Any:
+    async def _cleanup_old_proposals(self) -> None:
         """Clean up old and expired proposals"""
         try:
             current_time = datetime.now(UTC)
