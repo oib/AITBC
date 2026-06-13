@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Gossip-related RPC endpoints.
 """
@@ -60,9 +59,9 @@ async def get_logs(
 
         # Filter by block range
         if logs_request.from_block is not None:
-            query = query.where(Receipt.block_height >= logs_request.from_block)
+            query = query.where(Receipt.block_height >= logs_request.from_block)  # type: ignore[operator]
         if logs_request.to_block is not None:
-            query = query.where(Receipt.block_height <= logs_request.to_block)
+            query = query.where(Receipt.block_height <= logs_request.to_block)  # type: ignore[operator]
 
         # Execute query
         receipts = session.execute(query).scalars().all()
