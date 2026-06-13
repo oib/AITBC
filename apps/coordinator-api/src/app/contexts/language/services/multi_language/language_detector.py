@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Language Detection Service
 Automatic language detection for multi-language support

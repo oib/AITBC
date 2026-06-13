@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 
 from sqlalchemy.orm import Session
