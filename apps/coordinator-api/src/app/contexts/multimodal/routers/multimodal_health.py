@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 '\nMulti-Modal Agent Service Health Check Router\nProvides health monitoring for multi-modal processing capabilities\n'
 import sys
