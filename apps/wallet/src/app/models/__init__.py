@@ -1,9 +1,8 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from aitbc_sdk.receipts import SignatureValidation
+from aitbc_sdk.receipts import SignatureValidation  # type: ignore[import-not-found]
 from pydantic import BaseModel
 
 
@@ -31,7 +30,7 @@ def _signature_to_model(sig: SignatureValidation | SignatureValidationModel) -> 
     return SignatureValidationModel(key_id=sig.key_id, alg=sig.algorithm, valid=sig.valid)
 
 
-def from_validation_result(result) -> ReceiptVerificationModel:
+def from_validation_result(result: Any) -> ReceiptVerificationModel:
     return ReceiptVerificationModel(
         job_id=result.job_id,
         receipt_id=result.receipt_id,
