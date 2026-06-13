@@ -1,14 +1,14 @@
-# mypy: ignore-errors
 """Pool management routes for Pool Hub"""
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..registry import MinerRegistry
+from ..registry import MinerRegistry  # type: ignore[import-not-found]
 
 router = APIRouter(prefix="/pools", tags=["pools"])
 
@@ -63,7 +63,7 @@ async def create_pool(
     request: Request,
     pool: PoolCreate,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> PoolInfo:
     """Create a new mining pool."""
     try:
         created = await registry.create_pool(
@@ -75,7 +75,7 @@ async def create_pool(
             min_payout=pool.min_payout,
             payout_schedule=pool.payout_schedule
         )
-        return created
+        return created  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -86,12 +86,12 @@ async def get_pool(
     request: Request,
     pool_id: str,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> PoolInfo:
     """Get pool information."""
     pool = await registry.get_pool(pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
-    return pool
+    return pool  # type: ignore[no-any-return]
 
 
 @router.get("/", response_model=list[PoolInfo])
@@ -101,9 +101,9 @@ async def list_pools(
     limit: int = Query(50, le=100),
     offset: int = Query(0),
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> list:
     """List all pools."""
-    return await registry.list_pools(limit=limit, offset=offset)
+    return await registry.list_pools(limit=limit, offset=offset)  # type: ignore[no-any-return]
 
 
 @router.get("/{pool_id}/stats", response_model=PoolStats)
@@ -112,13 +112,13 @@ async def get_pool_stats(
     request: Request,
     pool_id: str,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> PoolStats:
     """Get pool statistics."""
     pool = await registry.get_pool(pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
 
-    return await registry.get_pool_stats(pool_id)
+    return await registry.get_pool_stats(pool_id)  # type: ignore[no-any-return]
 
 
 @router.get("/{pool_id}/miners")
@@ -129,13 +129,13 @@ async def get_pool_miners(
     status: str | None = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> list:
     """Get miners in a pool."""
     pool = await registry.get_pool(pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
 
-    return await registry.list(pool_id=pool_id, status=status, limit=limit)
+    return await registry.list(pool_id=pool_id, status=status, limit=limit)  # type: ignore[no-any-return]
 
 
 @router.put("/{pool_id}")
@@ -145,7 +145,7 @@ async def update_pool(
     pool_id: str,
     updates: dict,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> dict:
     """Update pool settings."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -164,7 +164,7 @@ async def delete_pool(
     request: Request,
     pool_id: str,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> dict:
     """Delete a pool (must have no miners)."""
     pool = await registry.get_pool(pool_id)
     if not pool:
