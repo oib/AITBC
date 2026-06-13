@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Subscription client for follower nodes to receive block pushes from hub."""
 import asyncio
 import time
@@ -129,8 +128,6 @@ class SubscriptionClient:
                     import json
                     await websocket.send(json.dumps({'node_id': self._node_id, 'chain_id': self._chain_id, 'transport': 'websocket'}))
                     async for message in websocket:
-                        if not self._running:
-                            break
                         try:
                             if isinstance(message, str):
                                 block_data = json.loads(message)
@@ -179,7 +176,7 @@ class SubscriptionClient:
     async def _import_block(self, block_data: dict[str, Any]) -> None:
         """Import a received block."""
         try:
-            sync = ChainSync(session_factory=lambda cid=self._chain_id: session_scope(cid), chain_id=self._chain_id)
+            sync = ChainSync(session_factory=lambda: session_scope(self._chain_id), chain_id=self._chain_id)  # type: ignore[arg-type, return-value]
             result = sync.import_block(block_data, transactions=block_data.get('transactions'))
             if result.accepted:
                 logger.info('Imported block %s via push', block_data.get('height'))
