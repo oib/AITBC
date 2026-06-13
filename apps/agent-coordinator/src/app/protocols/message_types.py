@@ -236,16 +236,16 @@ class LoadBalancer:
         self.agent_weights: dict[str, float] = {}
         self.last_updated = datetime.now(UTC)
 
-    def update_agent_load(self, agent_id: str, load: float) -> Any:
+    def update_agent_load(self, agent_id: str, load: float) -> None:
         """Update agent load information"""
         self.agent_loads[agent_id] = load
         self.last_updated = datetime.now(UTC)
 
-    def set_agent_weight(self, agent_id: str, weight: float) -> Any:
+    def set_agent_weight(self, agent_id: str, weight: float) -> None:
         """Set agent weight for load balancing"""
         self.agent_weights[agent_id] = weight
 
-    def select_agent(self, available_agents: list[str], strategy: RoutingStrategy=RoutingStrategy.LOAD_BALANCED) -> str | None:
+    def select_agent(self, available_agents: list[str], strategy: RoutingStrategy = RoutingStrategy.LOAD_BALANCED) -> str | None:
         """Select agent based on load balancing strategy"""
         if not available_agents:
             return None
@@ -292,7 +292,7 @@ class LoadBalancer:
 class MessageQueue:
     """Advanced message queue with priority and persistence"""
 
-    def __init__(self, max_size: int=10000) -> None:
+    def __init__(self, max_size: int = 10000) -> None:
         self.max_size = max_size
         self.queues: dict[Priority, asyncio.Queue] = {Priority.CRITICAL: asyncio.Queue(maxsize=max_size // 4), Priority.HIGH: asyncio.Queue(maxsize=max_size // 4), Priority.NORMAL: asyncio.Queue(maxsize=max_size // 2), Priority.LOW: asyncio.Queue(maxsize=max_size // 4)}
         self.message_store: dict[str, AgentMessage] = {}
@@ -322,7 +322,7 @@ class MessageQueue:
                 continue
         return None
 
-    async def confirm_delivery(self, message_id: str) -> Any:
+    async def confirm_delivery(self, message_id: str) -> None:
         """Confirm message delivery"""
         self.delivery_confirmations[message_id] = True
         if message_id in self.message_store:
@@ -343,7 +343,7 @@ class MessageProcessor:
         self.processors: dict[str, Callable] = {}
         self.processing_stats: dict[str, Any] = {'messages_processed': 0, 'processing_time_total': 0.0, 'errors': 0}
 
-    def register_processor(self, message_type: MessageType, processor: Callable) -> Any:
+    def register_processor(self, message_type: MessageType, processor: Callable) -> None:
         """Register message processor"""
         self.processors[message_type.value] = processor
         logger.info('Registered processor for %s', message_type.value)
@@ -371,7 +371,7 @@ class MessageProcessor:
             self.processing_stats['errors'] += 1
             return False
 
-    async def start_processing(self) -> Any:
+    async def start_processing(self) -> None:
         """Start message processing loop"""
         while True:
             try:
