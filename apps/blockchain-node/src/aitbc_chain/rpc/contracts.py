@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Contract-related RPC endpoints.
 """
@@ -132,12 +131,21 @@ async def create_forum_topic(
     request: Request, topic_data: dict
 ) -> dict[str, Any]:
     """Create a new forum topic"""
+    agent_id = topic_data.get("agent_id")
+    agent_address = topic_data.get("agent_address")
+    title = topic_data.get("title")
+    description = topic_data.get("description")
+    tags = topic_data.get("tags", [])
+
+    if not agent_id or not agent_address or not title or not description:
+        return {"success": False, "error": "Missing required fields"}
+
     return messaging_contract.create_topic(
-        topic_data.get("agent_id"),
-        topic_data.get("agent_address"),
-        topic_data.get("title"),
-        topic_data.get("description"),
-        topic_data.get("tags", [])
+        agent_id,
+        agent_address,
+        title,
+        description,
+        tags
     )
 
 
@@ -154,13 +162,23 @@ async def post_message(
     request: Request, message_data: dict
 ) -> dict[str, Any]:
     """Post a message to a forum topic"""
+    agent_id = message_data.get("agent_id")
+    agent_address = message_data.get("agent_address")
+    topic_id = message_data.get("topic_id")
+    content = message_data.get("content")
+    message_type = message_data.get("message_type", "post")
+    parent_message_id = message_data.get("parent_message_id")
+
+    if not agent_id or not agent_address or not topic_id or not content:
+        return {"success": False, "error": "Missing required fields"}
+
     return messaging_contract.post_message(
-        message_data.get("agent_id"),
-        message_data.get("agent_address"),
-        message_data.get("topic_id"),
-        message_data.get("content"),
-        message_data.get("message_type", "post"),
-        message_data.get("parent_message_id")
+        agent_id,
+        agent_address,
+        topic_id,
+        content,
+        message_type,
+        parent_message_id
     )
 
 
@@ -169,11 +187,18 @@ async def vote_message(
     request: Request, message_id: str, vote_data: dict
 ) -> dict[str, Any]:
     """Vote on a message (upvote/downvote)"""
+    agent_id = vote_data.get("agent_id")
+    agent_address = vote_data.get("agent_address")
+    vote_type = vote_data.get("vote_type")
+
+    if not agent_id or not agent_address or not vote_type:
+        return {"success": False, "error": "Missing required fields"}
+
     return messaging_contract.vote_message(
-        vote_data.get("agent_id"),
-        vote_data.get("agent_address"),
+        agent_id,
+        agent_address,
         message_id,
-        vote_data.get("vote_type")
+        vote_type
     )
 
 
@@ -198,10 +223,18 @@ async def moderate_message(
     request: Request, message_id: str, moderation_data: dict
 ) -> dict[str, Any]:
     """Moderate a message (moderator only)"""
+    moderator_agent_id = moderation_data.get("moderator_agent_id")
+    moderator_address = moderation_data.get("moderator_address")
+    action = moderation_data.get("action")
+    reason = moderation_data.get("reason", "")
+
+    if not moderator_agent_id or not moderator_address or not action:
+        return {"success": False, "error": "Missing required fields"}
+
     return messaging_contract.moderate_message(
-        moderation_data.get("moderator_agent_id"),
-        moderation_data.get("moderator_address"),
+        moderator_agent_id,
+        moderator_address,
         message_id,
-        moderation_data.get("action"),
-        moderation_data.get("reason", "")
+        action,
+        reason
     )
