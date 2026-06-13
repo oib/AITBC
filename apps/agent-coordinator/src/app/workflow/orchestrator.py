@@ -112,12 +112,12 @@ class WorkflowExecution:
 class WorkflowOrchestrator:
     """Workflow orchestration engine with Redis persistence"""
 
-    def __init__(self, redis_url: str='redis://localhost:6379/1') -> None:
+    def __init__(self, redis_url: str = 'redis://localhost:6379/1') -> None:
         self.redis_url = redis_url
         self.redis_client: redis.Redis | None = None
         self.active_executions: dict[str, WorkflowExecution] = {}
 
-    async def start(self) -> Any:
+    async def start(self) -> None:
         """Start the orchestrator"""
         if not redis:
             logger.warning('Redis not available, workflow orchestrator running in memory-only mode')
@@ -126,13 +126,13 @@ class WorkflowOrchestrator:
         await self._load_active_executions()
         logger.info('Workflow orchestrator started')
 
-    async def stop(self) -> Any:
+    async def stop(self) -> None:
         """Stop the orchestrator"""
         if self.redis_client:
             await self.redis_client.aclose()
         logger.info('Workflow orchestrator stopped')
 
-    async def create_workflow(self, name: str, steps: list[dict[str, Any]], created_by: str='', description: str='') -> WorkflowDefinition:
+    async def create_workflow(self, name: str, steps: list[dict[str, Any]], created_by: str = '', description: str = '') -> WorkflowDefinition:
         """Create a new workflow definition"""
         workflow_id = f"wf_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
         workflow_steps = []
@@ -144,7 +144,7 @@ class WorkflowOrchestrator:
         logger.info('Created workflow %s: %s', workflow_id, name)
         return workflow
 
-    async def execute_workflow(self, workflow_id: str, input_parameters: dict[str, Any] | None=None) -> WorkflowExecution:
+    async def execute_workflow(self, workflow_id: str, input_parameters: dict[str, Any] | None = None) -> WorkflowExecution:
         """Execute a workflow"""
         workflow = await self._load_workflow_definition(workflow_id)
         if not workflow:
@@ -192,7 +192,7 @@ class WorkflowOrchestrator:
             logger.error('Error listing workflows: %s', e)
             return []
 
-    async def list_executions(self, workflow_id: str | None=None) -> list[WorkflowExecution]:
+    async def list_executions(self, workflow_id: str | None = None) -> list[WorkflowExecution]:
         """List workflow executions"""
         if not self.redis_client:
             return []
@@ -209,7 +209,7 @@ class WorkflowOrchestrator:
             logger.error('Error listing executions: %s', e)
             return []
 
-    async def _execute_workflow_async(self, execution: WorkflowExecution) -> Any:
+    async def _execute_workflow_async(self, execution: WorkflowExecution) -> None:
         """Execute workflow steps asynchronously"""
         execution.status = WorkflowStatus.RUNNING
         await self._save_workflow_execution(execution)
@@ -261,13 +261,13 @@ class WorkflowOrchestrator:
             if execution.execution_id in self.active_executions:
                 del self.active_executions[execution.execution_id]
 
-    async def _execute_step(self, step: WorkflowStep, input_parameters: dict[str, Any]) -> Any:
+    async def _execute_step(self, step: WorkflowStep, input_parameters: dict[str, Any]) -> None:
         """Execute a single workflow step"""
         await asyncio.sleep(0.1)
         step.result = {'status': 'success', 'output': f'Executed {step.action} on agent {step.agent_id}', 'timestamp': datetime.now(UTC).isoformat()}
         logger.info('Executed step %s: %s on %s', step.step_id, step.action, step.agent_id)
 
-    async def _save_workflow_definition(self, workflow: WorkflowDefinition) -> Any:
+    async def _save_workflow_definition(self, workflow: WorkflowDefinition) -> None:
         """Save workflow definition to Redis"""
         if not self.redis_client:
             return
@@ -284,7 +284,7 @@ class WorkflowOrchestrator:
             return WorkflowDefinition.from_dict(json.loads(data))
         return None
 
-    async def _save_workflow_execution(self, execution: WorkflowExecution) -> Any:
+    async def _save_workflow_execution(self, execution: WorkflowExecution) -> None:
         """Save workflow execution to Redis"""
         if not self.redis_client:
             return
@@ -304,7 +304,7 @@ class WorkflowOrchestrator:
                     return WorkflowExecution.from_dict(json.loads(data))
         return None
 
-    async def _load_active_executions(self) -> Any:
+    async def _load_active_executions(self) -> None:
         """Load active executions from Redis"""
         if not self.redis_client:
             return
