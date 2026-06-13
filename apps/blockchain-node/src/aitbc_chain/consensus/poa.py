@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 import hashlib
 import json
 import re
