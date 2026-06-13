@@ -1,10 +1,10 @@
-# mypy: ignore-errors
 from __future__ import annotations
 import asyncio
 import os
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Optional
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -22,6 +22,7 @@ from .rpc.escrow_routes import router as escrow_router
 from .rpc.router import router as rpc_router
 from .rpc.utils import set_poa_proposer
 from .rpc.websocket import router as websocket_router
+marketplace_router: Optional[APIRouter]
 try:
     from .rpc.marketplace import router as marketplace_router
 except ImportError:
@@ -38,13 +39,13 @@ def _env_value(*names: str) -> str | None:
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limit requests by client IP."""
 
-    def __init__(self, app, max_requests: int=1000, window_seconds: int=60):
+    def __init__(self, app: Any, max_requests: int=1000, window_seconds: int=60) -> None:
         super().__init__(app)
         self._max_requests = max_requests
         self._window = window_seconds
         self._requests: dict[str, list[float]] = defaultdict(list)
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         client_ip = request.client.host if request.client else 'unknown'
         now = time.time()
         self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self._window]
@@ -57,7 +58,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Log all requests with timing and error details."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         start = time.perf_counter()
         method = request.method
         path = request.url.path
@@ -81,7 +82,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=503, content={'detail': 'Internal server error'})
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_db()
     from .contracts.escrow import create_escrow_manager
     create_escrow_manager()
