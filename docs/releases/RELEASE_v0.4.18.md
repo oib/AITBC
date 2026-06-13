@@ -1,81 +1,73 @@
 # AITBC v0.4.18 Release Notes
 
 **Date**: June 13, 2026
-**Status**: 📋 Ready to Begin
+**Status**: ⚠️ Documentation Correction Required
 **Scope**: MyPy Gradual Migration - Phase 2
 **Priority**: High
 **Chain**: ait-hub.aitbc.bubuit.net
 
 ## 🎯 Overview
 
-AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v0.4.20). This release begins the systematic removal of per-file ignores from files, fixing type issues in suppressed files, and improving type coverage across the codebase.
+AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v0.4.20). This release documents the planned systematic removal of per-file ignores from files, fixing type issues in suppressed files, and improving type coverage across the codebase.
+
+**⚠️ Important:** This document previously described a desired/planned state that has not been achieved. The actual codebase has significant MyPy errors and test coverage below the required gate. This document has been updated to reflect the actual current state.
 
 **Note:** This is part of the three-phase type safety graduation plan:
 - Phase 1 (v0.4.17): Complex files suppressed with per-file ignores ✅ Complete
-- Phase 2 (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues 📋 In Progress
+- Phase 2 (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues ⚠️ In Progress (Actual state differs from plan)
 - Phase 3 (v0.5.0): Remove all per-file ignores and enforce strict type checking 📅 Planned
 
 ## 📊 Implementation Status
 
 ### MyPy Gradual Migration Plan
 
-**Current State (v0.4.17)**
-- 162 files with `# mypy: ignore-errors` across apps
-- 0 MyPy errors (all suppressed via per-file ignores)
+**Current State (Actual)**
+- 152 files with `# mypy: ignore-errors` across apps
+- ~1,638 MyPy errors across apps (not suppressed)
 - 0 Ruff G004 errors (all logging f-strings converted to % formatting)
-- Distribution by app:
-  - coordinator-api: 83 files
+- Test coverage: 16.71% (FAILS 20% gate)
+- Distribution by app (per-file ignores):
+  - coordinator-api: 81 files
   - blockchain-node: 31 files
-  - pool-hub: 18 files
-  - edge: 11 files
+  - pool-hub: 17 files
+  - edge: 6 files
   - wallet: 10 files
   - agent-management: 6 files
-  - hermes: 2 files
-  - agent-coordinator: 1 file
+  - hermes: 1 file
+  - agent-coordinator: 0 files
+- MyPy error distribution:
+  - coordinator-api: 853 errors (94 files)
+  - blockchain-node: 477 errors (30 files)
+  - agent-coordinator: 308 errors (35 files)
 
-**v0.4.18 Target**
-- Remove per-file ignores from 20-30 files (starting with simplest)
-- Fix type issues in those files
-- Improve type coverage by 5-10%
-- Maintain 0 MyPy errors
-
-**Progress (Complete)**
-- ✅ agent-coordinator: prometheus_metrics.py (1 file) - 48 errors fixed
-- ✅ hermes: database.py (1 file) - 6 errors fixed
-- ⚠️ hermes: ai_approval.py (1 file) - module resolution issue, per-file ignore retained
-- ⚠️ wallet: 10 files - external dependencies (aitbc_sdk), per-file ignores retained
-- ✅ edge: clients (2 files) - 17 errors fixed
-- ✅ edge: routers (3 files) - 14 errors fixed
-- ⚠️ edge: routers (2 files) - service method signature mismatches, per-file ignores retained
-- ⚠️ edge: services (4 files) - schema attribute errors (GPUListing, ComputeResult), per-file ignores retained
-- ✅ pool-hub: deps.py (1 file) - 2 errors fixed
-- ⚠️ pool-hub: 17 files - complex dependency issues, per-file ignores retained
-- ⚠️ blockchain-node: 31 files - complex database model issues, per-file ignores retained
-- ⚠️ agent-management: 6 files - external dependencies (aitbc_agent_core), per-file ignores retained
-- ✅ coordinator-api: deps.py, utils/security.py (2 files) - 5 errors fixed
-- ⚠️ coordinator-api: 81 files - domain model attribute errors, service compatibility, module resolution, per-file ignores retained
-- 📅 Remaining: 148 files with per-file ignores
+**v0.4.18 Target (Revised)**
+- Address ~1,638 MyPy errors across apps
+- Improve test coverage from 16.71% to 20% gate
+- Fix type issues in files without per-file ignores first
+- Gradually remove per-file ignores from simplest files
+- Maintain backward compatibility
 
 **Priority Order for Migration**
-1. **agent-coordinator** (1 file) - prometheus_metrics.py
-2. **hermes** (2 files) - Simple service files
-3. **wallet** (10 files) - Focus on non-critical paths first
-4. **edge** (11 files) - Router and service files
-5. **pool-hub** (18 files) - Gradual migration
-6. **blockchain-node** (31 files) - Core blockchain files
-7. **coordinator-api** (83 files) - Most complex, last priority
+1. **agent-coordinator** (0 files with ignores, 308 errors) - Fix errors in 35 files
+2. **hermes** (1 file with ignore) - Simple service file
+3. **wallet** (10 files with ignores) - External dependencies (aitbc_sdk)
+4. **edge** (6 files with ignores) - Router and service files
+5. **pool-hub** (17 files with ignores) - Gradual migration
+6. **blockchain-node** (31 files with ignores) - Core blockchain files
+7. **coordinator-api** (81 files with ignores) - Most complex, last priority
 
 ### Planned Changes
 
 **MyPy Fixes**
-- Remove `# mypy: ignore-errors` from target files
-- Add proper type annotations
+- Fix ~1,638 MyPy errors across apps (not suppressed by ignores)
+- Add proper type annotations to functions without them
 - Fix missing return types
 - Resolve union-attr, assignment, arg-type errors
 - Add type hints for function parameters
+- Consider adding per-file ignores for complex files that cannot be easily fixed
 
 **Test Coverage**
-- Maintain current test coverage (29.81%)
+- Improve test coverage from 16.71% to 20% gate
 - Add type-specific tests where needed
 - Verify runtime behavior unchanged after type fixes
 
@@ -137,25 +129,25 @@ warn_unused_ignores = true
 
 ### Graduated Apps Status
 
-**Fully Type-Safe (0 errors)**
-- agent-coordinator (49 files, 1 with per-file ignore → target for v0.4.18)
-- blockchain-node (88 files, 31 with per-file ignores)
-- shared-domain (29 files)
-- bridge-monitor (13 errors → 0)
-- governance (30 errors → 0)
-- marketplace (already 0)
+**Apps with MyPy Errors (Actual State)**
+- agent-coordinator: 308 errors in 35 files (0 per-file ignores)
+- coordinator-api: 853 errors in 94 files (81 per-file ignores)
+- blockchain-node: 477 errors in 30 files (31 per-file ignores)
+- pool-hub: Errors present (17 per-file ignores)
+- edge: Errors present (6 per-file ignores)
+- wallet: Errors present (10 per-file ignores)
+- agent-management: Errors present (6 per-file ignores)
+- hermes: Errors present (1 per-file ignore)
 
-**Graduated with Per-File Ignores (0 errors)**
-- shared-core (3 errors → 0)
-- pool-hub (171 errors → 0, 18 with per-file ignores)
-- trading (30 errors → 0)
-- gpu (32 errors → 0)
-- coordinator-api (4 errors → 0, 83 with per-file ignores)
-- hermes (27 errors → 0, 2 with per-file ignores)
-- edge (92 errors → 0, 11 with per-file ignores)
-- wallet (117 errors → 0, 10 with per-file ignores)
-- api-gateway (25 errors → 0)
-- agent-management (383 errors → 0, 6 with per-file ignores)
+**Apps Without Per-File Ignores**
+- shared-domain (29 files)
+- bridge-monitor
+- governance
+- marketplace
+- shared-core
+- trading
+- gpu
+- api-gateway
 
 ## 🚀 Benefits Achieved
 
@@ -279,11 +271,11 @@ def handle_response(response: str | dict) -> str | dict:
 
 ## 🏆 Conclusion
 
-AITBC v0.4.18 represents the second phase of the type safety graduation plan, focusing on gradual migration of files with per-file ignores. By systematically removing ignores and fixing type issues, we're improving code quality and developer experience while maintaining full backward compatibility.
+AITBC v0.4.18 represents the second phase of the type safety graduation plan, focusing on addressing the ~1,638 MyPy errors across apps and improving test coverage to pass the 20% gate. The current state reflects v0.4.17 completion (Ruff G004 logging fixes only), with significant MyPy work remaining.
 
-**Status:** 📋 Planning
-**Risk:** Low (gradual migration, backward compatible)
-**Recommendation:** Proceed with gradual MyPy migration starting with simplest files
+**Status:** 📋 Ready to Begin (v0.4.17 completed with 26 commits, Ruff G004 fixes only)
+**Risk:** Medium (significant MyPy errors, test coverage below gate)
+**Recommendation:** Prioritize fixing MyPy errors in agent-coordinator (308 errors, 0 ignores) and improving test coverage to 20% gate
 
 ---
 
