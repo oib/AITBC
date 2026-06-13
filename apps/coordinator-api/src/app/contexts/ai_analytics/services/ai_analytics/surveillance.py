@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 AI-Powered Surveillance System - Advanced Machine Learning Surveillance
 Implements ML-based pattern recognition, behavioral analysis, and predictive risk assessment
@@ -11,7 +10,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 from aitbc import get_logger
 logger = get_logger(__name__)
 
@@ -78,7 +77,7 @@ class AISurveillanceSystem:
 
     def __init__(self) -> None:
         self.is_running = False
-        self.monitoring_task = None
+        self.monitoring_task: asyncio.Task[None] | None = None
         self.behavior_patterns: dict[str, list[BehaviorPattern]] = defaultdict(list)
         self.surveillance_alerts: dict[str, SurveillanceAlert] = {}
         self.risk_models: dict[str, PredictiveRiskModel] = {}
@@ -237,7 +236,7 @@ class AISurveillanceSystem:
             return {}
         risk_scores = [p.risk_score for p in patterns]
         confidences = [p.confidence for p in patterns]
-        return {'historical_risk': np.mean(risk_scores), 'risk_trend': risk_scores[-1] - risk_scores[0] if len(risk_scores) > 1 else 0, 'pattern_frequency': len(patterns), 'avg_confidence': np.mean(confidences), 'max_risk_score': max(risk_scores), 'risk_consistency': 1 - np.std(risk_scores)}
+        return {'historical_risk': float(np.mean(risk_scores)), 'risk_trend': float(risk_scores[-1] - risk_scores[0] if len(risk_scores) > 1 else 0), 'pattern_frequency': len(patterns), 'avg_confidence': float(np.mean(confidences)), 'max_risk_score': float(max(risk_scores)), 'risk_consistency': float(1 - np.std(risk_scores))}
 
     def _extract_integrity_features(self, data: pd.DataFrame) -> dict[str, float]:
         """Extract market integrity features"""
@@ -277,9 +276,9 @@ class AISurveillanceSystem:
         feature_score = np.mean(list(features.values())) if features else 0.5
         noise = random.uniform(-0.1, 0.1)
         prediction = feature_score * model.accuracy + noise
-        return max(0.0, min(1.0, prediction))
+        return float(max(0.0, min(1.0, prediction)))
 
-    async def _create_alert(self, surveillance_type: SurveillanceType, user_id: str, risk_level: RiskLevel, priority: AlertPriority, confidence: float, description: str, evidence: dict[str, Any]):
+    async def _create_alert(self, surveillance_type: SurveillanceType, user_id: str, risk_level: RiskLevel, priority: AlertPriority, confidence: float, description: str, evidence: dict[str, Any]) -> None:
         """Create surveillance alert"""
         alert_id = f"alert_{surveillance_type.value}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         alert = SurveillanceAlert(alert_id=alert_id, surveillance_type=surveillance_type, user_id=user_id, risk_level=risk_level, priority=priority, confidence=confidence, description=description, evidence=evidence, detected_at=datetime.now())
@@ -313,10 +312,10 @@ class AISurveillanceSystem:
         total_alerts = len(self.surveillance_alerts)
         resolved_alerts = len([a for a in self.surveillance_alerts.values() if a.resolved])
         false_positives = len([a for a in self.surveillance_alerts.values() if a.false_positive])
-        alerts_by_type = defaultdict(int)
+        alerts_by_type: dict[str, int] = defaultdict(int)
         for alert in self.surveillance_alerts.values():
             alerts_by_type[alert.surveillance_type.value] += 1
-        alerts_by_risk = defaultdict(int)
+        alerts_by_risk: dict[str, int] = defaultdict(int)
         for alert in self.surveillance_alerts.values():
             alerts_by_risk[alert.risk_level.value] += 1
         return {'monitoring_active': self.is_running, 'total_alerts': total_alerts, 'resolved_alerts': resolved_alerts, 'false_positives': false_positives, 'active_alerts': total_alerts - resolved_alerts, 'behavior_patterns': len(self.behavior_patterns), 'monitored_symbols': len(self.market_data), 'ml_models': len(self.risk_models), 'alerts_by_type': dict(alerts_by_type), 'alerts_by_risk': dict(alerts_by_risk), 'model_performance': {model_id: {'accuracy': model.accuracy, 'threshold': model.risk_threshold} for model_id, model in self.risk_models.items()}}
@@ -354,7 +353,7 @@ def list_active_alerts(limit: int=20) -> list[dict[str, Any]]:
     alerts.sort(key=lambda x: (x.detected_at, x.priority.value), reverse=True)
     return [{'alert_id': alert.alert_id, 'type': alert.surveillance_type.value, 'user_id': alert.user_id, 'risk_level': alert.risk_level.value, 'priority': alert.priority.value, 'confidence': alert.confidence, 'description': alert.description, 'detected_at': alert.detected_at.isoformat()} for alert in alerts[:limit]]
 
-def analyze_behavior_patterns(user_id: str=None) -> dict[str, Any]:
+def analyze_behavior_patterns(user_id: str | None=None) -> dict[str, Any]:
     """Analyze behavior patterns"""
     if user_id:
         patterns = ai_surveillance.behavior_patterns.get(user_id, [])
@@ -363,7 +362,7 @@ def analyze_behavior_patterns(user_id: str=None) -> dict[str, Any]:
         all_patterns = []
         for patterns in ai_surveillance.behavior_patterns.values():
             all_patterns.extend(patterns)
-        pattern_types = defaultdict(int)
+        pattern_types: dict[str, int] = defaultdict(int)
         for pattern in all_patterns:
             pattern_types[pattern.pattern_type] += 1
         return {'total_patterns': len(all_patterns), 'pattern_types': dict(pattern_types), 'avg_confidence': np.mean([p.confidence for p in all_patterns]) if all_patterns else 0, 'avg_risk_score': np.mean([p.risk_score for p in all_patterns]) if all_patterns else 0}
@@ -375,11 +374,11 @@ async def test_ai_surveillance() -> None:
     logger.info('AI surveillance started')
     await asyncio.sleep(5)
     summary = get_surveillance_summary()
-    logger.info('Surveillance summary', summary=summary)
+    logger.info('Surveillance summary: %s', summary)
     alerts = list_active_alerts()
-    logger.info('Active alerts', alert_count=len(alerts))
+    logger.info('Active alerts: %s', len(alerts))
     patterns = analyze_behavior_patterns()
-    logger.info('Behavior patterns', patterns=patterns)
+    logger.info('Behavior patterns: %s', patterns)
     await stop_ai_surveillance()
     logger.info('AI surveillance stopped')
     logger.info('AI Surveillance test complete')
