@@ -233,8 +233,8 @@ class TestHistogram:
         histogram.observe(2.0)
 
         bucket_counts = histogram.get_bucket_counts()
-        assert 0.01 in bucket_counts
-        assert 0.5 in bucket_counts
+        assert "0.01" in bucket_counts
+        assert "0.5" in bucket_counts
         assert "inf" in bucket_counts
 
     def test_histogram_infinity_bucket(self):
