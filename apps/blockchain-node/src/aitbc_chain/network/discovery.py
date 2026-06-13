@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 P2P Node Discovery Service
 Handles bootstrap nodes and peer discovery for mesh network
@@ -14,16 +13,16 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
 
-def log_warn(msg: str):
+def log_warn(msg: str) -> None:
     logger.warning(msg)
 
-def log_debug(msg: str):
+def log_debug(msg: str) -> None:
     logger.debug(msg)
 
 class NodeStatus(Enum):
@@ -84,7 +83,7 @@ class P2PDiscovery:
         self.max_peers = 50
         self.running = False
 
-    def add_bootstrap_node(self, address: str, port: int):
+    def add_bootstrap_node(self, address: str, port: int) -> None:
         """Add bootstrap node for initial connection"""
         self.bootstrap_nodes.append((address, port))
 
@@ -93,7 +92,7 @@ class P2PDiscovery:
         content = f"{hostname}:{address}:{port}:{public_key}"
         return hashlib.sha256(content.encode()).hexdigest()
 
-    async def start_discovery(self):
+    async def start_discovery(self) -> None:
         """Start the discovery service"""
         self.running = True
         log_info(f"Starting P2P discovery for node {self.local_node_id}")
@@ -112,12 +111,12 @@ class P2PDiscovery:
         finally:
             self.running = False
 
-    async def stop_discovery(self):
+    async def stop_discovery(self) -> None:
         """Stop the discovery service"""
         self.running = False
         log_info("Stopping P2P discovery service")
 
-    async def _discovery_loop(self):
+    async def _discovery_loop(self) -> None:
         """Main discovery loop"""
         while self.running:
             try:
@@ -135,7 +134,7 @@ class P2PDiscovery:
                 log_error(f"Discovery loop error: {e}")
                 await asyncio.sleep(5)
 
-    async def _connect_to_bootstrap_nodes(self):
+    async def _connect_to_bootstrap_nodes(self) -> None:
         """Connect to bootstrap nodes"""
         for address, port in self.bootstrap_nodes:
             if (address, port) != (self.local_address, self.local_port):
@@ -204,7 +203,7 @@ class P2PDiscovery:
             log_debug(f"Failed to send discovery message to {address}:{port}: {e}")
             return False
 
-    async def _handle_hello_response(self, response: dict):
+    async def _handle_hello_response(self, response: dict) -> None:
         """Handle hello response from peer"""
         try:
             peer_node_id = response["node_id"]
@@ -243,13 +242,13 @@ class P2PDiscovery:
         except Exception as e:
             log_error(f"Error handling hello response: {e}")
 
-    async def _discover_peers(self):
+    async def _discover_peers(self) -> None:
         """Discover new peers from existing connections"""
         for peer in list(self.peers.values()):
             if peer.status == NodeStatus.ONLINE:
                 await self._request_peer_list(peer)
 
-    async def _request_peer_list(self, peer: PeerNode):
+    async def _request_peer_list(self, peer: PeerNode) -> None:
         """Request peer list from connected peer"""
         try:
             message = DiscoveryMessage(
@@ -257,6 +256,9 @@ class P2PDiscovery:
                 node_id=self.local_node_id,
                 address=self.local_address,
                 port=self.local_port,
+                island_id=self.island_id,
+                island_chain_id=self.island_chain_id,
+                is_hub=self.is_hub,
                 timestamp=time.time(),
                 signature=""
             )
@@ -269,7 +271,7 @@ class P2PDiscovery:
         except Exception as e:
             log_error(f"Error requesting peer list from {peer.node_id}: {e}")
 
-    async def _peer_health_check(self):
+    async def _peer_health_check(self) -> None:
         """Check health of connected peers"""
         while self.running:
             try:
@@ -305,7 +307,7 @@ class P2PDiscovery:
                 log_error(f"Peer health check error: {e}")
                 await asyncio.sleep(30)
 
-    async def _listen_for_discovery(self):
+    async def _listen_for_discovery(self) -> None:
         """Listen for incoming discovery messages"""
         server = await asyncio.start_server(
             self._handle_discovery_connection,
@@ -318,7 +320,7 @@ class P2PDiscovery:
         async with server:
             await server.serve_forever()
 
-    async def _handle_discovery_connection(self, reader, writer):
+    async def _handle_discovery_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Handle incoming discovery connection"""
         try:
             # Read message
