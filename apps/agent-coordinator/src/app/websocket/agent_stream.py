@@ -7,8 +7,11 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import WebSocket, WebSocketDisconnect
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class ConnectionManager:
@@ -101,7 +104,6 @@ class ConnectionManager:
     async def trigger_handlers(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get('content', '')
-        sender_id = message.get('sender_id', 'unknown')
         message_type = 'unknown'
         if 'PING' in content.upper():
             message_type = 'PING'
@@ -248,3 +250,4 @@ def _register_builtin_handlers(connection_manager: ConnectionManager) -> None:
     connection_manager.register_handler('HELLO', hello_handler)
     connection_manager.register_handler('REQUEST_COINS', request_coins_handler)
     logger.info('Built-in handlers registered: PING, HELLO, REQUEST_COINS')
+
