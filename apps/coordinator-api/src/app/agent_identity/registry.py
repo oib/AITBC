@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Cross-Chain Registry Implementation
 Registry for cross-chain agent identity mapping and synchronization
@@ -56,7 +55,7 @@ class CrossChainRegistry:
         mapping = result.scalars().first()
         if not mapping:
             return None
-        return mapping.chain_address
+        return mapping.chain_address  # type: ignore[no-any-return]
 
     async def resolve_agent_identity_by_address(self, chain_address: str, chain_id: int) -> str | None:
         """Resolve chain address back to agent ID"""
@@ -65,7 +64,7 @@ class CrossChainRegistry:
         mapping = result.scalars().first()
         if not mapping:
             return None
-        return mapping.agent_id
+        return mapping.agent_id  # type: ignore[no-any-return]
 
     async def update_identity_mapping(self, agent_id: str, chain_id: int, new_address: str, verifier_address: str | None=None) -> bool:
         """Update identity mapping for a specific chain"""
@@ -117,11 +116,11 @@ class CrossChainRegistry:
         mapping.verified_at = None
         mapping.verification_proof = None
         mapping.updated_at = datetime.now(UTC)
-        if not mapping.chain_metadata:
-            mapping.chain_metadata = {}
-        mapping.chain_metadata['verification_revoked'] = True
-        mapping.chain_metadata['revocation_reason'] = reason
-        mapping.chain_metadata['revoked_at'] = datetime.now(UTC).isoformat()
+        if not mapping.chain_meta_data:
+            mapping.chain_meta_data = {}
+        mapping.chain_meta_data['verification_revoked'] = True
+        mapping.chain_meta_data['revocation_reason'] = reason
+        mapping.chain_meta_data['revoked_at'] = datetime.now(UTC).isoformat()
         self.session.commit()
         logger.warning('Revoked verification for identity %s on chain %s: %s', identity_id, chain_id, reason)
         return True
@@ -133,9 +132,9 @@ class CrossChainRegistry:
         identity = result.scalars().first()
         if not identity:
             raise ValueError(f'Agent identity not found: {agent_id}')
-        stmt = select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id)
-        result = self.session.execute(stmt)
-        mappings = list(result.scalars().all())
+        stmt_mappings = select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id)
+        result_mappings = self.session.execute(stmt_mappings)
+        mappings = list(result_mappings.scalars().all())
         reputation_scores = {}
         for mapping in mappings:
             reputation_scores[mapping.chain_id] = identity.reputation_score
@@ -195,7 +194,7 @@ class CrossChainRegistry:
                 await self.register_cross_chain_identity(agent_id, {to_chain: new_address}, verifier_address)
                 migration_result['action'] = 'created_new'
             if source_mapping.is_verified and verifier_address:
-                await self.verify_cross_chain_identity(await self._get_identity_id(agent_id), to_chain, verifier_address, self._generate_proof_hash(target_mapping or await self.get_cross_chain_mapping_by_agent_chain(agent_id, to_chain)), {'migration': True, 'source_chain': from_chain})
+                await self.verify_cross_chain_identity(await self._get_identity_id(agent_id), to_chain, verifier_address, self._generate_proof_hash(target_mapping or await self.get_cross_chain_mapping_by_agent_chain(agent_id, to_chain)), {'migration': True, 'source_chain': from_chain})  # type: ignore[arg-type]
                 migration_result['verification_copied'] = True
             else:
                 migration_result['verification_copied'] = False
@@ -223,7 +222,7 @@ class CrossChainRegistry:
         mapping_count = self.session.execute(select(CrossChainMapping)).scalar()
         verified_mapping_count = self.session.execute(select(CrossChainMapping).where(CrossChainMapping.is_verified)).scalar()
         verification_count = self.session.execute(select(IdentityVerification)).scalar()
-        chain_breakdown = {}
+        chain_breakdown: dict[str, dict[str, Any]] = {}
         result = self.session.execute(select(CrossChainMapping))
         mappings = list(result.scalars().all())
         for mapping in mappings:
@@ -236,12 +235,13 @@ class CrossChainRegistry:
             chain_breakdown[chain_name]['unique_agents'].add(mapping.agent_id)
         for chain_data in chain_breakdown.values():
             chain_data['unique_agents'] = len(chain_data['unique_agents'])
-        return {'total_identities': identity_count, 'total_mappings': mapping_count, 'verified_mappings': verified_mapping_count, 'verification_rate': verified_mapping_count / max(mapping_count, 1), 'total_verifications': verification_count, 'supported_chains': len(chain_breakdown), 'chain_breakdown': chain_breakdown}
+        verification_rate = verified_mapping_count / max(mapping_count, 1) if mapping_count else 0
+        return {'total_identities': identity_count, 'total_mappings': mapping_count, 'verified_mappings': verified_mapping_count, 'verification_rate': verification_rate, 'total_verifications': verification_count, 'supported_chains': len(chain_breakdown), 'chain_breakdown': chain_breakdown}
 
     async def cleanup_expired_verifications(self) -> int:
         """Clean up expired verification records"""
         current_time = datetime.now(UTC)
-        stmt = select(IdentityVerification).where(IdentityVerification.expires_at < current_time)
+        stmt = select(IdentityVerification).where(IdentityVerification.expires_at < current_time)  # type: ignore[operator]
         result = self.session.execute(stmt)
         expired_verifications = list(result.scalars().all())
         cleaned_count = 0
@@ -288,4 +288,4 @@ class CrossChainRegistry:
         identity = result.scalars().first()
         if not identity:
             raise ValueError(f'Identity not found for agent: {agent_id}')
-        return identity.id
+        return identity.id  # type: ignore[no-any-return]
