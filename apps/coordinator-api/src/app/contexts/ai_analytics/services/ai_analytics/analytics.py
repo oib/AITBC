@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Marketplace Analytics Service
 Implements comprehensive analytics, insights, and reporting for the marketplace

@@ -1,15 +1,14 @@
-# mypy: ignore-errors
 """
 Bridge-related RPC endpoints.
 """
-from typing import Any
+from typing import Any, cast
 from fastapi import HTTPException, Request
 from aitbc.rate_limiting import rate_limit
 from ..logger import get_logger
 from .utils import get_chain_id
 _logger = get_logger(__name__)
 
-@rate_limit(rate=20, per=60)
+@rate_limit(rate=20, per=60)  # type: ignore[untyped-decorator]
 async def bridge_lock(request: Request, lock_data: dict) -> dict[str, Any]:
     """
     Initiate a cross-chain bridge transfer by locking funds.
@@ -34,7 +33,7 @@ async def bridge_lock(request: Request, lock_data: dict) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail='Missing required fields: target_chain, sender, recipient')
         if amount <= 0:
             raise HTTPException(status_code=400, detail='Amount must be positive')
-        transfer = bridge.initiate_transfer(source_chain=source_chain, target_chain=target_chain, sender=sender.lower(), recipient=recipient.lower(), amount=amount, asset=asset)
+        transfer = bridge.initiate_transfer(source_chain=source_chain, target_chain=target_chain, sender=cast(str, sender).lower(), recipient=cast(str, recipient).lower(), amount=amount, asset=asset)
         return {'success': True, 'transfer_id': transfer.transfer_id, 'status': transfer.status.value, 'source_chain': source_chain, 'target_chain': target_chain, 'sender': sender, 'recipient': recipient, 'amount': amount, 'fee': amount * 10 // 10000, 'lock_time': transfer.lock_time.isoformat() if transfer.lock_time else None, 'message': 'Funds locked successfully. Use /bridge/confirm to complete.'}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -42,7 +41,7 @@ async def bridge_lock(request: Request, lock_data: dict) -> dict[str, Any]:
         _logger.error('Bridge lock failed: %s', e)
         raise HTTPException(status_code=500, detail=f'Bridge lock failed: {str(e)}')
 
-@rate_limit(rate=20, per=60)
+@rate_limit(rate=20, per=60)  # type: ignore[untyped-decorator]
 async def bridge_confirm(request: Request, confirm_data: dict) -> dict[str, Any]:
     """
     Confirm a cross-chain bridge transfer and release funds.
@@ -69,7 +68,7 @@ async def bridge_confirm(request: Request, confirm_data: dict) -> dict[str, Any]
         _logger.error('Bridge confirm failed: %s', e)
         raise HTTPException(status_code=500, detail=f'Bridge confirm failed: {str(e)}')
 
-@rate_limit(rate=100, per=60)
+@rate_limit(rate=100, per=60)  # type: ignore[untyped-decorator]
 async def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, Any]:
     """Get the status of a cross-chain transfer"""
     try:
@@ -87,8 +86,8 @@ async def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, A
         _logger.error('Get bridge transfer failed: %s', e)
         raise HTTPException(status_code=500, detail=f'Failed to get transfer: {str(e)}')
 
-@rate_limit(rate=50, per=60)
-async def list_pending_transfers(request: Request, chain_id: str=None) -> list[dict[str, Any]]:
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
+async def list_pending_transfers(request: Request, chain_id: str | None = None) -> list[dict[str, Any]]:
     """List all pending cross-chain transfers"""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge

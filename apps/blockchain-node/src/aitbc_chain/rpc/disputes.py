@@ -1,8 +1,7 @@
-# mypy: ignore-errors
 """
 Dispute-related RPC endpoints.
 """
-from typing import Any
+from typing import Any, cast
 from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from ..logger import get_logger
@@ -105,7 +104,7 @@ async def get_active_disputes() -> dict[str, Any]:
         result = dispute_resolution_service.get_active_disputes()
         if not result.get('success'):
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to get active disputes'))
-        return result
+        return cast(dict[str, Any], result)
     except HTTPException:
         raise
     except Exception as e:
@@ -121,7 +120,7 @@ async def get_authorized_arbitrators() -> dict[str, Any]:
         result = dispute_resolution_service.get_authorized_arbitrators()
         if not result.get('success'):
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to get authorized arbitrators'))
-        return result
+        return cast(dict[str, Any], result)
     except HTTPException:
         raise
     except Exception as e:
@@ -137,7 +136,7 @@ async def get_arbitrator_disputes(arbitrator_address: str) -> dict[str, Any]:
         result = dispute_resolution_service.get_arbitrator_disputes(arbitrator_address)
         if not result.get('success'):
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to get arbitrator disputes'))
-        return result
+        return cast(dict[str, Any], result)
     except HTTPException:
         raise
     except Exception as e:
@@ -153,7 +152,7 @@ async def get_user_disputes(user_address: str) -> dict[str, Any]:
         result = dispute_resolution_service.get_user_disputes(user_address)
         if not result.get('success'):
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to get user disputes'))
-        return result
+        return cast(dict[str, Any], result)
     except HTTPException:
         raise
     except Exception as e:
