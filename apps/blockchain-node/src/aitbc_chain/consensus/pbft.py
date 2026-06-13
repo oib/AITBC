@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Practical Byzantine Fault Tolerance (PBFT) Consensus Implementation
 Provides Byzantine fault tolerance for up to 1/3 faulty validators

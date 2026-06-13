@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Multi-Modal Fusion Engine - Main service for multi-modal fusion operations
 """

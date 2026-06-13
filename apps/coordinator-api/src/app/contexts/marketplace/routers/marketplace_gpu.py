@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 '\nGPU marketplace endpoints backed by persistent SQLModel tables.\n'
 import statistics

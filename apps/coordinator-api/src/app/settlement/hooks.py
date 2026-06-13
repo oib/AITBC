@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Settlement hooks for coordinator API integration
 """

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Block-related RPC endpoints.
 """
@@ -7,7 +6,7 @@ import json
 import re
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from fastapi import HTTPException, Request, status
 from sqlmodel import delete, select
 from aitbc.rate_limiting import rate_limit
@@ -17,11 +16,11 @@ from ..metrics import metrics_registry
 from ..models import Block, Transaction
 from .utils import get_chain_id
 _logger = get_logger(__name__)
-_last_import_time = 0
+_last_import_time = 0.0
 _import_lock = asyncio.Lock()
 
-@rate_limit(rate=200, per=60)
-async def get_genesis_allocations(request: Request, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+async def get_genesis_allocations(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
@@ -37,8 +36,8 @@ async def get_genesis_allocations(request: Request, chain_id: str=None) -> dict[
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=500, detail=f'Failed to parse genesis block metadata: {e}')
 
-@rate_limit(rate=200, per=60)
-async def get_head(request: Request, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+async def get_head(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get current chain head"""
     chain_id = get_chain_id(chain_id)
     metrics_registry.increment('rpc_get_head_total')
@@ -52,8 +51,8 @@ async def get_head(request: Request, chain_id: str=None) -> dict[str, Any]:
     metrics_registry.observe('rpc_get_head_duration_seconds', time.perf_counter() - start)
     return {'height': result.height, 'hash': result.hash, 'timestamp': result.timestamp.isoformat(), 'tx_count': result.tx_count}
 
-@rate_limit(rate=200, per=60)
-async def get_block(request: Request, height: int, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+async def get_block(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get block by height"""
     chain_id = get_chain_id(chain_id)
     metrics_registry.increment('rpc_get_block_total')
@@ -73,8 +72,8 @@ async def get_block(request: Request, height: int, chain_id: str=None) -> dict[s
     metrics_registry.observe('rpc_get_block_duration_seconds', time.perf_counter() - start)
     return {'chain_id': block.chain_id, 'height': block.height, 'hash': block.hash, 'parent_hash': block.parent_hash, 'proposer': block.proposer, 'timestamp': block.timestamp.isoformat(), 'tx_count': block.tx_count, 'state_root': block.state_root, 'transactions': tx_list}
 
-@rate_limit(rate=200, per=60)
-async def get_blocks_range(request: Request, start: int=0, end: int=10, include_tx: bool=True, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+async def get_blocks_range(request: Request, start: int = 0, end: int = 10, include_tx: bool = True, chain_id: str | None = None) -> dict[str, Any]:
     """Get blocks in a height range
     
     Args:
@@ -94,7 +93,7 @@ async def get_blocks_range(request: Request, start: int=0, end: int=10, include_
             result_blocks.append(block_data)
         return {'success': True, 'blocks': result_blocks, 'count': len(blocks)}
 
-@rate_limit(rate=50, per=60)
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
 async def import_block(request: Request, block_data: dict) -> dict[str, Any]:
     """Import a block into the blockchain"""
     global _last_import_time
