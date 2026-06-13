@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Marketplace Caching & Optimization Service
 Implements advanced caching, indexing, and data optimization for the AITBC marketplace.
@@ -18,9 +17,9 @@ class LFU_LRU_Cache:
 
     def __init__(self, capacity: int) -> None:
         self.capacity = capacity
-        self.cache = {}
-        self.frequencies = {}
-        self.frequency_lists = {}
+        self.cache: dict[str, Any] = {}
+        self.frequencies: dict[str, int] = {}
+        self.frequency_lists: dict[int, OrderedDict] = {}
         self.min_freq = 0
 
     def get(self, key: str) -> Any | None:
@@ -28,7 +27,8 @@ class LFU_LRU_Cache:
             return None
         freq = self.frequencies[key]
         val = self.cache[key]
-        self.frequency_lists[freq].remove(key)
+        if key in self.frequency_lists[freq]:
+            del self.frequency_lists[freq][key]
         if not self.frequency_lists[freq] and self.min_freq == freq:
             self.min_freq += 1
         new_freq = freq + 1
@@ -61,7 +61,7 @@ class MarketplaceDataOptimizer:
 
     def __init__(self, redis_url: str='redis://localhost:6379/0') -> None:
         self.redis_url = redis_url
-        self.redis_client = None
+        self.redis_client: redis.Redis | None = None
         self.l1_cache = LFU_LRU_Cache(capacity=1000)
         self.is_connected = False
         self.ttls = {'order_book': 5, 'provider_status': 15, 'market_stats': 60, 'historical_data': 3600}
@@ -70,7 +70,8 @@ class MarketplaceDataOptimizer:
         """Establish connection to Redis L2 cache"""
         try:
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
-            await self.redis_client.ping()
+            if self.redis_client:
+                await self.redis_client.ping()
             self.is_connected = True
             logger.info('Connected to Redis L2 cache')
         except Exception as e:
@@ -97,7 +98,7 @@ class MarketplaceDataOptimizer:
             if l1_result['expires_at'] > time.time():
                 logger.debug('L1 Cache hit for %s', key)
                 return l1_result['data']
-        if self.is_connected:
+        if self.is_connected and self.redis_client:
             try:
                 l2_result_str = await self.redis_client.get(key)
                 if l2_result_str:
@@ -110,12 +111,12 @@ class MarketplaceDataOptimizer:
                 logger.warning('Redis get failed: %s', e)
         return None
 
-    async def set_cached_data(self, namespace: str, params: dict[str, Any], data: Any, custom_ttl: int=None) -> None:
+    async def set_cached_data(self, namespace: str, params: dict[str, Any], data: Any, custom_ttl: int | None=None) -> None:
         """Store data in the multi-tier cache"""
         key = self._generate_cache_key(namespace, params)
         ttl = custom_ttl or self.ttls.get(namespace, 60)
         self.l1_cache.put(key, {'data': data, 'expires_at': time.time() + ttl})
-        if self.is_connected:
+        if self.is_connected and self.redis_client:
             try:
                 await self.redis_client.setex(key, ttl, json.dumps(data))
             except Exception as e:
@@ -123,7 +124,7 @@ class MarketplaceDataOptimizer:
 
     async def invalidate_namespace(self, namespace: str) -> None:
         """Invalidate all cached items for a specific namespace"""
-        if self.is_connected:
+        if self.is_connected and self.redis_client:
             try:
                 cursor = 0
                 pattern = f'mkpt:{namespace}:*'
@@ -137,7 +138,7 @@ class MarketplaceDataOptimizer:
             except Exception as e:
                 logger.error('Failed to invalidate namespace %s: %s', namespace, e)
 
-    async def precompute_market_stats(self, db_session) -> dict[str, Any]:
+    async def precompute_market_stats(self, db_session: Any) -> dict[str, Any]:
         """Background task to precompute expensive market statistics and cache them"""
         start_time = time.time()
         stats = {'24h_volume': 1250000.5, 'active_providers': 450, 'average_price_per_tflop': 0.005, 'network_utilization': 0.76, 'computed_at': datetime.now(UTC).isoformat(), 'computation_time_ms': int((time.time() - start_time) * 1000)}
@@ -165,4 +166,4 @@ class MarketplaceDataOptimizer:
             agg_sells[price] += order['amount']
         formatted_buys = [[p, q] for p, q in sorted(agg_buys.items(), reverse=True)[:depth]]
         formatted_sells = [[p, q] for p, q in sorted(agg_sells.items())[:depth]]
-        return {'bids': formatted_buys, 'asks': formatted_sells, 'timestamp': time.time()}
+        return {'bids': formatted_buys, 'asks': formatted_sells, 'timestamp': time.time()}  # type: ignore[dict-item]
