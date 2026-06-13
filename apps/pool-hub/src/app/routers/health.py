@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Health check routes for Pool Hub"""
 
 from datetime import UTC, datetime
@@ -12,7 +11,7 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
-async def health_check(request: Request):
+async def health_check(request: Request) -> dict[str, str]:
     """Basic health check."""
     return {
         "status": "ok",
@@ -23,7 +22,7 @@ async def health_check(request: Request):
 
 @router.get("/ready")
 @rate_limit(rate=1000, per=60)
-async def readiness_check(request: Request):
+async def readiness_check(request: Request) -> dict[str, bool | dict[str, bool] | str]:
     """Readiness check for Kubernetes."""
     # Check dependencies
     checks = {"database": await check_database(), "redis": await check_redis()}
@@ -39,7 +38,7 @@ async def readiness_check(request: Request):
 
 @router.get("/live")
 @rate_limit(rate=1000, per=60)
-async def liveness_check(request: Request):
+async def liveness_check(request: Request) -> dict[str, bool]:
     """Liveness check for Kubernetes."""
     return {"live": True}
 
@@ -49,7 +48,7 @@ async def check_database() -> bool:
     try:
         from sqlalchemy import text
 
-        from ..database import get_engine
+        from ..database import get_engine  # type: ignore[import-not-found]
 
         engine = get_engine()
         async with engine.connect() as conn:
@@ -62,7 +61,7 @@ async def check_database() -> bool:
 async def check_redis() -> bool:
     """Check Redis connectivity."""
     try:
-        from ..redis_cache import get_redis_client
+        from ..redis_cache import get_redis_client  # type: ignore[import-not-found]
 
         client = get_redis_client()
         await client.ping()
