@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 AITBC Guardian Contract - Spending Limit Protection for Agent Wallets
 
@@ -17,6 +16,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from eth_utils import keccak, to_checksum_address
 
@@ -52,7 +52,7 @@ class GuardianContract:
     Guardian contract implementation for agent wallet protection
     """
 
-    def __init__(self, agent_address: str, config: GuardianConfig, storage_path: str = None):
+    def __init__(self, agent_address: str, config: GuardianConfig, storage_path: Optional[str] = None):
         self.agent_address = to_checksum_address(agent_address)
         self.config = config
 
@@ -86,7 +86,7 @@ class GuardianContract:
         self._load_spending_history()
         self._load_pending_operations()
 
-    def _init_storage(self):
+    def _init_storage(self) -> None:
         """Initialize SQLite database for persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
@@ -128,7 +128,7 @@ class GuardianContract:
 
             conn.commit()
 
-    def _load_state(self):
+    def _load_state(self) -> None:
         """Load contract state from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
@@ -147,7 +147,7 @@ class GuardianContract:
                 )
                 conn.commit()
 
-    def _save_state(self):
+    def _save_state(self) -> None:
         """Save contract state to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -156,7 +156,7 @@ class GuardianContract:
             )
             conn.commit()
 
-    def _load_spending_history(self):
+    def _load_spending_history(self) -> None:
         """Load spending history from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
@@ -177,7 +177,7 @@ class GuardianContract:
                     "nonce": row[7]
                 })
 
-    def _save_spending_record(self, record: dict):
+    def _save_spending_record(self, record: dict) -> None:
         """Save spending record to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -198,7 +198,7 @@ class GuardianContract:
             )
             conn.commit()
 
-    def _load_pending_operations(self):
+    def _load_pending_operations(self) -> None:
         """Load pending operations from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
@@ -212,7 +212,7 @@ class GuardianContract:
                 operation_data["status"] = row[2]
                 self.pending_operations[row[0]] = operation_data
 
-    def _save_pending_operation(self, operation_id: str, operation: dict):
+    def _save_pending_operation(self, operation_id: str, operation: dict) -> None:
         """Save pending operation to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -223,7 +223,7 @@ class GuardianContract:
             )
             conn.commit()
 
-    def _remove_pending_operation(self, operation_id: str):
+    def _remove_pending_operation(self, operation_id: str) -> None:
         """Remove pending operation from persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -245,7 +245,7 @@ class GuardianContract:
         else:
             raise ValueError(f"Invalid period: {period}")
 
-    def _get_spent_in_period(self, period: str, timestamp: datetime = None) -> int:
+    def _get_spent_in_period(self, period: str, timestamp: Optional[datetime] = None) -> int:
         """Calculate total spent in given period"""
         if timestamp is None:
             timestamp = datetime.now(UTC)
@@ -262,7 +262,7 @@ class GuardianContract:
 
         return total
 
-    def _check_spending_limits(self, amount: int, timestamp: datetime = None) -> tuple[bool, str]:
+    def _check_spending_limits(self, amount: int, timestamp: Optional[datetime] = None) -> tuple[bool, str]:
         """Check if amount exceeds spending limits"""
         if timestamp is None:
             timestamp = datetime.now(UTC)
@@ -586,7 +586,7 @@ def create_guardian_contract(
     per_week: int = 100000,
     time_lock_threshold: int = 10000,
     time_lock_delay: int = 24,
-    guardians: list[str] = None
+    guardians: Optional[list[str]] = None
 ) -> GuardianContract:
     """
     Create a guardian contract with default security parameters
