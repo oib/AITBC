@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Network Partition Detection and Recovery
 Handles network split detection and automatic recovery
@@ -12,16 +11,16 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
 
-def log_warn(msg: str):
+def log_warn(msg: str) -> None:
     logger.warning(msg)
 
-def log_debug(msg: str):
+def log_debug(msg: str) -> None:
     logger.debug(msg)
 
 from .discovery import NodeStatus, P2PDiscovery
@@ -51,7 +50,7 @@ class NetworkPartitionManager:
         self.health_monitor = health_monitor
         self.current_state = PartitionState.HEALTHY
         self.partitions: dict[str, PartitionInfo] = {}
-        self.local_partition_id = None
+        self.local_partition_id: str | None = None
         self.detection_interval = 30  # seconds
         self.recovery_timeout = 300  # 5 minutes
         self.max_partition_size = 0.4  # Max 40% of network in one partition
@@ -61,7 +60,7 @@ class NetworkPartitionManager:
         self.min_connected_nodes = 3
         self.partition_detection_threshold = 0.3  # 30% of network unreachable
 
-    async def start_partition_monitoring(self):
+    async def start_partition_monitoring(self) -> None:
         """Start partition monitoring service"""
         self.running = True
         log_info("Starting network partition monitoring")
@@ -75,12 +74,12 @@ class NetworkPartitionManager:
                 log_error(f"Partition monitoring error: {e}")
                 await asyncio.sleep(10)
 
-    async def stop_partition_monitoring(self):
+    async def stop_partition_monitoring(self) -> None:
         """Stop partition monitoring service"""
         self.running = False
         log_info("Stopping network partition monitoring")
 
-    async def _detect_partitions(self):
+    async def _detect_partitions(self) -> None:
         """Detect network partitions"""
         current_peers = self.discovery.get_peer_list()
         total_nodes = len(current_peers) + 1  # +1 for local node
@@ -107,7 +106,7 @@ class NetworkPartitionManager:
         else:
             await self._handle_partition_healed()
 
-    async def _handle_partition_detected(self, reachable_nodes: set[str], unreachable_nodes: set[str]):
+    async def _handle_partition_detected(self, reachable_nodes: set[str], unreachable_nodes: set[str]) -> None:
         """Handle detected network partition"""
         if self.current_state == PartitionState.HEALTHY:
             log_warn(f"Network partition detected! Reachable: {len(reachable_nodes)}, Unreachable: {len(unreachable_nodes)}")
@@ -129,7 +128,7 @@ class NetworkPartitionManager:
             # Start recovery procedures
             asyncio.create_task(self._start_partition_recovery())
 
-    async def _handle_partition_healed(self):
+    async def _handle_partition_healed(self) -> None:
         """Handle healed network partition"""
         if self.current_state in [PartitionState.PARTITIONED, PartitionState.RECOVERING]:
             log_info("Network partition healed!")
@@ -139,14 +138,14 @@ class NetworkPartitionManager:
             self.partitions.clear()
             self.local_partition_id = None
 
-    async def _handle_partitions(self):
+    async def _handle_partitions(self) -> None:
         """Handle active partitions"""
         if self.current_state == PartitionState.PARTITIONED:
             await self._maintain_partition()
         elif self.current_state == PartitionState.RECOVERING:
             await self._monitor_recovery()
 
-    async def _maintain_partition(self):
+    async def _maintain_partition(self) -> None:
         """Maintain operations during partition"""
         if not self.local_partition_id:
             return
@@ -166,7 +165,7 @@ class NetworkPartitionManager:
             partition.leader = self._select_partition_leader(current_peers)
             log_info(f"Selected partition leader: {partition.leader}")
 
-    async def _start_partition_recovery(self):
+    async def _start_partition_recovery(self) -> None:
         """Start partition recovery procedures"""
         log_info("Starting partition recovery procedures")
 
@@ -181,7 +180,7 @@ class NetworkPartitionManager:
         except Exception as e:
             log_error(f"Partition recovery error: {e}")
 
-    async def _attempt_reconnection(self):
+    async def _attempt_reconnection(self) -> None:
         """Attempt to reconnect to unreachable nodes"""
         if not self.local_partition_id:
             return
@@ -199,7 +198,7 @@ class NetworkPartitionManager:
                 if success:
                     log_info(f"Reconnected to node {node_id} during partition recovery")
 
-    async def _bootstrap_from_known_nodes(self):
+    async def _bootstrap_from_known_nodes(self) -> None:
         """Bootstrap network from known good nodes"""
         # Try to connect to bootstrap nodes
         for address, port in self.discovery.bootstrap_nodes:
@@ -211,13 +210,13 @@ class NetworkPartitionManager:
             except Exception as e:
                 log_debug(f"Bootstrap failed to {address}:{port}: {e}")
 
-    async def _coordinate_with_other_partitions(self):
+    async def _coordinate_with_other_partitions(self) -> None:
         """Coordinate with other partitions (if detectable)"""
         # In a real implementation, this would use partition detection protocols
         # For now, just log the attempt
         log_info("Attempting to coordinate with other partitions")
 
-    async def _monitor_recovery(self):
+    async def _monitor_recovery(self) -> None:
         """Monitor partition recovery progress"""
         if not self.local_partition_id:
             return
@@ -229,7 +228,7 @@ class NetworkPartitionManager:
             log_warn("Partition recovery timeout, considering extended recovery strategies")
             await self._extended_recovery_strategies()
 
-    async def _extended_recovery_strategies(self):
+    async def _extended_recovery_strategies(self) -> None:
         """Implement extended recovery strategies"""
         # Try alternative discovery methods
         await self._alternative_discovery()
@@ -237,7 +236,7 @@ class NetworkPartitionManager:
         # Consider network reconfiguration
         await self._network_reconfiguration()
 
-    async def _alternative_discovery(self):
+    async def _alternative_discovery(self) -> None:
         """Try alternative peer discovery methods"""
         log_info("Trying alternative discovery methods")
 
@@ -247,17 +246,17 @@ class NetworkPartitionManager:
         # Try multicast discovery
         await self._multicast_discovery()
 
-    async def _dns_discovery(self):
+    async def _dns_discovery(self) -> None:
         """DNS-based peer discovery"""
         # In a real implementation, this would query DNS records
         log_debug("Attempting DNS-based discovery")
 
-    async def _multicast_discovery(self):
+    async def _multicast_discovery(self) -> None:
         """Multicast-based peer discovery"""
         # In a real implementation, this would use multicast packets
         log_debug("Attempting multicast discovery")
 
-    async def _network_reconfiguration(self):
+    async def _network_reconfiguration(self) -> None:
         """Reconfigure network for partition resilience"""
         log_info("Reconfiguring network for partition resilience")
 
@@ -285,7 +284,7 @@ class NetworkPartitionManager:
         for node_id in nodes:
             peer = self.discovery.peers.get(node_id)
             if peer and peer.reputation > best_reputation:
-                best_reputation = peer.reputation
+                best_reputation = int(peer.reputation)
                 best_node = node_id
 
         return best_node
