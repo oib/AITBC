@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Contract Upgrade System
 Handles safe contract versioning and upgrade mechanisms
@@ -10,13 +9,13 @@ import time
 
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
 
-def log_warn(msg: str):
+def log_warn(msg: str) -> None:
     logger.warning(msg)
 from dataclasses import dataclass
 from decimal import Decimal
@@ -73,7 +72,7 @@ class UpgradeProposal:
 class ContractUpgradeManager:
     """Manages contract upgrades and versioning"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.contract_versions: dict[str, list[ContractVersion]] = {}  # contract_type -> versions
         self.active_versions: dict[str, str] = {}  # contract_type -> active version
         self.upgrade_proposals: dict[str, UpgradeProposal] = {}
@@ -94,7 +93,7 @@ class ContractUpgradeManager:
         # Initialize governance
         self._initialize_governance()
 
-    def _initialize_governance(self):
+    def _initialize_governance(self) -> None:
         """Initialize governance addresses"""
         # In real implementation, this would load from blockchain state
         # For now, use default governance addresses
@@ -202,7 +201,7 @@ class ContractUpgradeManager:
         content = f"{contract_type}:{new_version}:{time.time()}"
         return hashlib.sha256(content.encode()).hexdigest()[:12]
 
-    async def _manage_voting_process(self, proposal_id: str):
+    async def _manage_voting_process(self, proposal_id: str) -> None:
         """Manage voting process for proposal"""
         proposal = self.upgrade_proposals.get(proposal_id)
         if not proposal:
@@ -219,7 +218,7 @@ class ContractUpgradeManager:
             log_error(f"Error in voting process for {proposal_id}: {e}")
             proposal.status = UpgradeStatus.FAILED
 
-    async def _finalize_voting(self, proposal_id: str):
+    async def _finalize_voting(self, proposal_id: str) -> None:
         """Finalize voting and determine outcome"""
         proposal = self.upgrade_proposals[proposal_id]
 
@@ -279,7 +278,7 @@ class ContractUpgradeManager:
         log_info(f"Vote cast on proposal {proposal_id} by {voter_address}: {'YES' if vote else 'NO'}")
         return True, "Vote cast successfully"
 
-    async def _execute_upgrade(self, proposal_id: str):
+    async def _execute_upgrade(self, proposal_id: str) -> None:
         """Execute approved upgrade"""
         proposal = self.upgrade_proposals[proposal_id]
 
@@ -382,7 +381,7 @@ class ContractUpgradeManager:
             log_error(f"Upgrade execution error: {e}")
             return False
 
-    async def _manage_rollback_window(self, proposal_id: str):
+    async def _manage_rollback_window(self, proposal_id: str) -> None:
         """Manage rollback window after upgrade"""
         proposal = self.upgrade_proposals[proposal_id]
 
@@ -398,7 +397,7 @@ class ContractUpgradeManager:
         except Exception as e:
             log_error(f"Error in rollback window for {proposal_id}: {e}")
 
-    async def _finalize_upgrade(self, proposal_id: str):
+    async def _finalize_upgrade(self, proposal_id: str) -> None:
         """Finalize upgrade after rollback window"""
         proposal = self.upgrade_proposals[proposal_id]
 
@@ -420,7 +419,7 @@ class ContractUpgradeManager:
             return False, "Rollback data not available"
 
         # Check rollback window
-        if time.time() - proposal.executed_at > self.rollback_timeout:
+        if proposal.executed_at and time.time() - proposal.executed_at > self.rollback_timeout:
             return False, "Rollback window has expired"
 
         try:
@@ -499,13 +498,13 @@ class ContractUpgradeManager:
             }
 
         # Status distribution
-        status_counts = {}
+        status_counts: dict[str, int] = {}
         for proposal in self.upgrade_proposals.values():
             status = proposal.status.value
             status_counts[status] = status_counts.get(status, 0) + 1
 
         # Upgrade type distribution
-        type_counts = {}
+        type_counts: dict[str, int] = {}
         for proposal in self.upgrade_proposals.values():
             up_type = proposal.upgrade_type.value
             type_counts[up_type] = type_counts.get(up_type, 0) + 1
