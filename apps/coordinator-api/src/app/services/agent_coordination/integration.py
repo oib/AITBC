@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Agent Integration and Deployment Framework for Verifiable AI Agent Orchestration
 Integrates agent orchestration with existing ML ZK proof system and provides deployment tools
@@ -114,7 +113,7 @@ class AgentIntegrationManager:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.zk_service = ZKProofService(session)
-        self.orchestrator = AIAgentOrchestrator(session, None)
+        self.orchestrator = AIAgentOrchestrator(session, None)  # type: ignore[arg-type]
         self.security_manager = AgentSecurityManager(session)
         self.auditor = AgentAuditor(session)
 
