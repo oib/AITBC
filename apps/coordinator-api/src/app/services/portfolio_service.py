@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Portfolio Service - Cross-wallet and cross-chain holdings aggregation
 
@@ -49,7 +48,7 @@ class PortfolioService:
     - Active jobs/market positions
     """
 
-    def __init__(self, wallet_service_url: str='http://localhost:8012', blockchain_rpc_url: str='http://localhost:8006', oracle_url: str='http://localhost:8203', session=None) -> None:
+    def __init__(self, wallet_service_url: str='http://localhost:8012', blockchain_rpc_url: str='http://localhost:8006', oracle_url: str='http://localhost:8203', session: Any=None) -> None:
         self.wallet_service_url = wallet_service_url
         self.blockchain_rpc_url = blockchain_rpc_url
         self.oracle_url = oracle_url
@@ -105,17 +104,17 @@ class PortfolioService:
     async def get_wallet_breakdown(self, address: str, chain_id: str='ait-mainnet') -> dict[str, Any]:
         """Get detailed breakdown for a single wallet"""
         try:
-            response = await self._http_client.get(f'{self.blockchain_url}/rpc/accounts/{address}', params={'chain_id': chain_id})
+            response = await self._http_client.get(f'{self.blockchain_rpc_url}/rpc/accounts/{address}', params={'chain_id': chain_id})
             if response.status_code != 200:
                 return {'error': 'Failed to fetch wallet data'}
             account_data = response.json()
             balance = account_data.get('balance', 0)
-            staking_response = await self._http_client.get(f'{self.blockchain_url}/rpc/staking/{address}', params={'chain_id': chain_id})
+            staking_response = await self._http_client.get(f'{self.blockchain_rpc_url}/rpc/staking/{address}', params={'chain_id': chain_id})
             staked = 0
             if staking_response.status_code == 200:
                 staking_data = staking_response.json()
                 staked = staking_data.get('total_staked', 0)
-            breakdown_response = await self._http_client.get(f'{self.blockchain_url}/rpc/balance/{address}', params={'chain_id': chain_id})
+            breakdown_response = await self._http_client.get(f'{self.blockchain_rpc_url}/rpc/balance/{address}', params={'chain_id': chain_id})
             bridge_locked = 0
             if breakdown_response.status_code == 200:
                 breakdown = breakdown_response.json()
@@ -130,9 +129,9 @@ class PortfolioService:
     async def _get_user_wallets(self, user_id: str) -> list[dict[str, Any]]:
         """Fetch all wallets for a user"""
         try:
-            response = await self._http_client.get(f'{self.wallet_url}/wallets', headers={'X-User-ID': user_id})
+            response = await self._http_client.get(f'{self.wallet_service_url}/wallets', headers={'X-User-ID': user_id})
             if response.status_code == 200:
-                return response.json().get('wallets', [])
+                return response.json().get('wallets', [])  # type: ignore[no-any-return]
             return []
         except Exception as e:
             logger.warning('Failed to fetch user wallets: %s', e)
@@ -147,9 +146,11 @@ class PortfolioService:
 
     async def _get_wallet_positions(self, wallet: dict[str, Any]) -> list[PortfolioPosition]:
         """Get all positions for a wallet"""
-        positions = []
+        positions: list[PortfolioPosition] = []
         try:
             address = wallet.get('address')
+            if not address:
+                return positions
             chain_id = wallet.get('chain_id', 'ait-mainnet')
             wallet_id = wallet.get('id', address)
             breakdown = await self.get_wallet_breakdown(address, chain_id)
@@ -157,11 +158,11 @@ class PortfolioService:
                 return positions
             token_price = breakdown.get('token_price_usd', 0)
             if breakdown.get('available_balance', 0) > 0:
-                positions.append(PortfolioPosition(asset_type='native', amount=breakdown['available_balance'], chain_id=chain_id, wallet_id=wallet_id, usd_value=breakdown['available_balance'] * token_price, details={'address': address}))
+                positions.append(PortfolioPosition(asset_type='native', amount=breakdown['available_balance'], chain_id=chain_id, wallet_id=wallet_id or address, usd_value=breakdown['available_balance'] * token_price, details={'address': address}))
             if breakdown.get('staked', 0) > 0:
-                positions.append(PortfolioPosition(asset_type='staked', amount=breakdown['staked'], chain_id=chain_id, wallet_id=wallet_id, usd_value=breakdown['staked'] * token_price, details={'address': address}))
+                positions.append(PortfolioPosition(asset_type='staked', amount=breakdown['staked'], chain_id=chain_id, wallet_id=wallet_id or address, usd_value=breakdown['staked'] * token_price, details={'address': address}))
             if breakdown.get('bridge_locked', 0) > 0:
-                positions.append(PortfolioPosition(asset_type='bridge_locked', amount=breakdown['bridge_locked'], chain_id=chain_id, wallet_id=wallet_id, usd_value=breakdown['bridge_locked'] * token_price, details={'address': address}))
+                positions.append(PortfolioPosition(asset_type='bridge_locked', amount=breakdown['bridge_locked'], chain_id=chain_id, wallet_id=wallet_id or address, usd_value=breakdown['bridge_locked'] * token_price, details={'address': address}))
         except Exception as e:
             logger.warning('Failed to get positions for wallet %s: %s', wallet.get('id'), e)
         return positions
@@ -172,7 +173,7 @@ class PortfolioService:
             response = await self._http_client.get(f'{self.oracle_url}/oracle/price/{pair}', timeout=5.0)
             if response.status_code == 200:
                 data = response.json()
-                return data.get('price', 1.0)
+                return data.get('price', 1.0)  # type: ignore[no-any-return]
             return 1.0
         except Exception as e:
             logger.warning('Failed to get token price: %s', e)
