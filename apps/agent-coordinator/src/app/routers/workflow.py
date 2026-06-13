@@ -3,11 +3,16 @@ Workflow Router for AITBC Agent Coordinator
 Provides API endpoints for workflow management and execution
 """
 from __future__ import annotations
+
 from typing import Any
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
+
 from ..workflow import get_orchestrator
+
 logger = get_logger(__name__)
 router = APIRouter(prefix='/api/v1/agent/workflows', tags=['workflows'])
 
@@ -52,7 +57,7 @@ async def create_workflow(request: Request, req: CreateWorkflowRequest) -> dict[
         return workflow.to_dict()
     except Exception as e:
         logger.error('Error creating workflow: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/{workflow_id}/execute', summary='Execute workflow', response_model=ExecutionResponse)
 async def execute_workflow(request: Request, workflow_id: str, req: ExecuteWorkflowRequest) -> dict[str, Any]:
@@ -63,10 +68,10 @@ async def execute_workflow(request: Request, workflow_id: str, req: ExecuteWorkf
         return execution.to_dict()
     except ValueError as e:
         logger.error('Workflow not found: %s', e)
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error('Error executing workflow: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/{workflow_id}/status', summary='Get workflow status')
 async def get_workflow_status(request: Request, workflow_id: str) -> dict[str, Any]:
@@ -82,7 +87,7 @@ async def get_workflow_status(request: Request, workflow_id: str) -> dict[str, A
         raise
     except Exception as e:
         logger.error('Error getting workflow status: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('', summary='List workflows')
 async def list_workflows(request: Request) -> dict[str, Any]:
@@ -93,7 +98,7 @@ async def list_workflows(request: Request) -> dict[str, Any]:
         return {'workflows': [wf.to_dict() for wf in workflows], 'count': len(workflows)}
     except Exception as e:
         logger.error('Error listing workflows: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/executions', summary='List executions')
 async def list_executions(request: Request, workflow_id: str | None = None) -> dict[str, Any]:
@@ -104,7 +109,7 @@ async def list_executions(request: Request, workflow_id: str | None = None) -> d
         return {'executions': [exec.to_dict() for exec in executions], 'count': len(executions)}
     except Exception as e:
         logger.error('Error listing executions: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/executions/{execution_id}/cancel', summary='Cancel execution')
 async def cancel_execution(request: Request, execution_id: str) -> dict[str, Any]:
@@ -119,4 +124,4 @@ async def cancel_execution(request: Request, execution_id: str) -> dict[str, Any
         raise
     except Exception as e:
         logger.error('Error cancelling execution: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
