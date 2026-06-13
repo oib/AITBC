@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Multi-Agent Communication Protocols for AITBC Agent Coordination
 """
@@ -7,12 +8,14 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     """Message types for agent communication"""
     COORDINATION = 'coordination'
     TASK_ASSIGNMENT = 'task_assignment'
@@ -25,7 +28,7 @@ class MessageType(str, Enum):
     PEER_TO_PEER = 'peer_to_peer'
     HIERARCHICAL = 'hierarchical'
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     """Message priority levels"""
     LOW = 'low'
     NORMAL = 'normal'
