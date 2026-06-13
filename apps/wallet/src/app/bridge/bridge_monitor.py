@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 ETH-AIT Bridge Monitor
 Polls Ethereum RPC for incoming ETH transactions to the bridge wallet address.
@@ -98,7 +97,7 @@ def process_transaction(tx: dict) -> bool:
         return False
 
 
-def monitor_loop():
+def monitor_loop() -> None:
     """
     Main monitoring loop that polls for new transactions.
     """
@@ -128,7 +127,7 @@ def monitor_loop():
         time.sleep(POLL_INTERVAL)
 
 
-def start_monitoring():
+def start_monitoring() -> threading.Thread | None:
     """
     Start the bridge monitoring in a background thread.
     """
