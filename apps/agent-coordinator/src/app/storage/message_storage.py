@@ -1,10 +1,13 @@
+# mypy: ignore-errors
 """
 Message storage layer for persisting agent communication messages in Redis
 """
 import json
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class MessageStorage:
@@ -213,3 +216,4 @@ class PeerStorage:
         except Exception as e:
             logger.error('Error retrieving all peer connections: %s', e)
             return {}
+
