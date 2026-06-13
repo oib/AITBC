@@ -9,7 +9,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 
 from aitbc import get_logger
@@ -20,7 +20,7 @@ from .agent_discovery import AgentRegistry, AgentStatus
 
 logger = get_logger(__name__)
 
-class LoadBalancingStrategy(str, Enum):
+class LoadBalancingStrategy(StrEnum):
     """Load balancing strategies"""
     ROUND_ROBIN = 'round_robin'
     LEAST_CONNECTIONS = 'least_connections'
@@ -31,7 +31,7 @@ class LoadBalancingStrategy(str, Enum):
     PREDICTIVE = 'predictive'
     CONSISTENT_HASH = 'consistent_hash'
 
-class TaskPriority(str, Enum):
+class TaskPriority(StrEnum):
     """Task priority levels"""
     LOW = 'low'
     NORMAL = 'normal'
