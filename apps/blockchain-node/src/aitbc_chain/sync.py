@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Chain synchronization with conflict resolution, signature validation, and metrics."""
 from __future__ import annotations
 import asyncio
@@ -6,8 +5,9 @@ import json
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Callable
 import httpx
+from sqlalchemy import desc
 from sqlmodel import Session, select
 from .base_models import Account, Block
 from .base_models import Transaction as ChainTransaction
@@ -77,7 +77,7 @@ class ProposerSignatureValidator:
 class ChainSync:
     """Handles block import with conflict resolution for divergent chains."""
 
-    def __init__(self, session_factory, *, chain_id: str='', max_reorg_depth: int=10, validator: ProposerSignatureValidator | None=None, validate_signatures: bool=True, batch_size: int=50, poll_interval: float=5.0) -> None:
+    def __init__(self, session_factory: Callable[[], Session], *, chain_id: str='', max_reorg_depth: int=10, validator: ProposerSignatureValidator | None=None, validate_signatures: bool=True, batch_size: int=50, poll_interval: float=5.0) -> None:
         self._session_factory = session_factory
         self._chain_id = chain_id
         self._logger = get_logger(__name__)
@@ -114,12 +114,12 @@ class ChainSync:
             if not allocations:
                 return (False, 'Genesis block metadata missing allocations')
             state_manager = StateManager()
-            temp_accounts = {}
+            temp_accounts: dict[str, Account] = {}
             for alloc in allocations:
                 address = alloc.get('address')
                 balance = alloc.get('balance', 0)
                 if address:
-                    temp_accounts[address] = {'balance': balance}
+                    temp_accounts[address] = Account(chain_id='', address=address, balance=balance, nonce=0)
             computed_root = state_manager.compute_state_root(temp_accounts)
             expected_root_hex = block_data.get('state_root', '')
             try:
@@ -258,7 +258,7 @@ class ChainSync:
             if isinstance(data, list):
                 return data
             elif isinstance(data, dict) and 'blocks' in data:
-                return data['blocks']
+                return data['blocks']  # type: ignore[no-any-return]
             else:
                 logger.error('Unexpected blocks-range response', extra={'data': data})
                 return []
@@ -276,7 +276,7 @@ class ChainSync:
             self._logger.error('Source URL is empty or None')
             return 0
         with self._session_factory() as session:
-            local_head = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)).first()
+            local_head = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height)).limit(1)).first()  # type: ignore[arg-type]
             local_height = local_head.height if local_head else -1
             logger.info('Bulk sync local head: chain_id=%s, height=%s, hash=%s', self._chain_id, local_height, local_head.hash if local_head else None)
         try:
@@ -328,7 +328,7 @@ class ChainSync:
             sync_rate = imported / sync_duration
             metrics_registry.observe('sync_blocks_per_second', sync_rate)
         metrics_registry.set_gauge('sync_chain_height', float(remote_height))
-        self._last_bulk_sync_time = current_time
+        self._last_bulk_sync_time = int(current_time)
         return imported
 
     def import_block(self, block_data: dict[str, Any], transactions: list[dict[str, Any]] | None=None, skip_state_root_validation: bool=False) -> ImportResult:
@@ -368,7 +368,7 @@ class ChainSync:
             if existing:
                 metrics_registry.increment('sync_blocks_duplicate_total')
                 return ImportResult(accepted=False, height=height, block_hash=block_hash, reason='Block already exists')
-            our_head = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)).first()
+            our_head = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height)).limit(1)).first()  # type: ignore[arg-type]
             our_height = our_head.height if our_head else -1
             logger.info('Import block check: height=%s, our_height=%s, parent_hash=%s, block_hash=%s', height, our_height, parent_hash, block_hash)
             if height == our_height + 1:
@@ -381,7 +381,8 @@ class ChainSync:
             if height <= our_height:
                 existing_at_height = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)).first()
                 if existing_at_height and existing_at_height.hash != block_hash:
-                    return self._resolve_fork(session, block_data, transactions, our_head)
+                    if our_head:
+                        return self._resolve_fork(session, block_data, transactions, our_head)
                 metrics_registry.increment('sync_blocks_stale_total')
                 return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=f'Stale block (our height: {our_height})')
             if height > our_height + 1:
@@ -480,8 +481,10 @@ class ChainSync:
         fork_height = block_data.get('height', -1)
         our_height = our_head.height
         fork_chain_id = block_data.get('chain_id', '')
+        fork_hash = block_data.get('hash', '')
+        our_hash = our_head.hash if our_head else ''
         metrics_registry.increment('sync_forks_detected_total')
-        logger.warning('Fork detected at height %s (our height: %s, fork hash: %s..., our hash: %s...)', fork_height, our_height, block_data.get('hash')[:16], our_head.hash[:16], extra={'fork_height': fork_height, 'our_height': our_height, 'fork_hash': block_data.get('hash'), 'our_hash': our_head.hash, 'fork_chain_id': fork_chain_id, 'our_chain_id': self._chain_id})
+        logger.warning('Fork detected at height %s (our height: %s, fork hash: %s..., our hash: %s...)', fork_height, our_height, fork_hash[:16], our_hash[:16], extra={'fork_height': fork_height, 'our_height': our_height, 'fork_hash': fork_hash, 'our_hash': our_hash, 'fork_chain_id': fork_chain_id, 'our_chain_id': self._chain_id})
         if fork_chain_id and fork_chain_id != self._chain_id:
             return ImportResult(accepted=False, height=fork_height, block_hash=block_data.get('hash', ''), reason=f"Incompatible chain: block from chain '{fork_chain_id}' does not match our chain '{self._chain_id}' (heights: {fork_height} vs {our_height})")
         if fork_height <= our_height:
@@ -490,7 +493,7 @@ class ChainSync:
         if reorg_depth > self._max_reorg_depth:
             metrics_registry.increment('sync_reorg_rejected_total')
             return ImportResult(accepted=False, height=fork_height, block_hash=block_data.get('hash', ''), reason=f'Reorg depth {reorg_depth} exceeds max {self._max_reorg_depth}')
-        blocks_to_remove = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height >= fork_height).order_by(Block.height.desc())).all()
+        blocks_to_remove = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height >= fork_height).order_by(desc(Block.height))).all()  # type: ignore[arg-type]
         removed_count = 0
         for old_block in blocks_to_remove:
             old_txs = session.exec(select(ChainTransaction).where(ChainTransaction.chain_id == self._chain_id).where(ChainTransaction.block_height == old_block.height)).all()
@@ -510,7 +513,7 @@ class ChainSync:
     def get_sync_status(self) -> dict[str, Any]:
         """Get current sync status and metrics."""
         with self._session_factory() as session:
-            head = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)).first()
+            head = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height)).limit(1)).first()  # type: ignore[arg-type]
             total_blocks = session.exec(select(Block).where(Block.chain_id == self._chain_id)).all()
             total_txs = session.exec(select(ChainTransaction).where(ChainTransaction.chain_id == self._chain_id)).all()
         return {'chain_id': self._chain_id, 'head_height': head.height if head else -1, 'head_hash': head.hash if head else None, 'head_proposer': head.proposer if head else None, 'head_timestamp': head.timestamp.isoformat() if head else None, 'total_blocks': len(total_blocks), 'total_transactions': len(total_txs), 'validate_signatures': self._validate_signatures, 'trusted_proposers': list(self._validator.trusted_proposers), 'max_reorg_depth': self._max_reorg_depth}
