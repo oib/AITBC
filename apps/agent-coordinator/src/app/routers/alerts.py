@@ -1,13 +1,17 @@
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from .. import state
 from ..auth.middleware import get_current_user
 from ..auth.permissions import Permission, permission_manager
 from ..monitoring.alerting import alert_manager
 from ..monitoring.prometheus_metrics import performance_monitor
+
 logger = get_logger(__name__)
 router = APIRouter()
 
@@ -27,7 +31,7 @@ async def get_alerts(request: Request, status: str | None = None, current_user: 
         raise
     except Exception as e:
         logger.error('Error getting alerts: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/alerts/{alert_id}/resolve')
 @rate_limit(rate=50, per=60)
@@ -42,7 +46,7 @@ async def resolve_alert(request: Request, alert_id: str, current_user: dict[str,
         raise
     except Exception as e:
         logger.error('Error resolving alert: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/alerts/stats')
 @rate_limit(rate=200, per=60)
@@ -57,7 +61,7 @@ async def get_alert_stats(request: Request, current_user: dict[str, Any] = Depen
         raise
     except Exception as e:
         logger.error('Error getting alert stats: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/alerts/rules')
 @rate_limit(rate=200, per=60)
@@ -72,7 +76,7 @@ async def get_alert_rules(request: Request, current_user: dict[str, Any] = Depen
         raise
     except Exception as e:
         logger.error('Error getting alert rules: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/sla')
 @rate_limit(rate=200, per=60)
@@ -90,7 +94,7 @@ async def get_sla_status(request: Request, sla_id: str | None = None, current_us
         raise
     except Exception as e:
         logger.error('Error getting SLA status: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/sla/{sla_id}/record')
 @rate_limit(rate=50, per=60)
@@ -105,7 +109,7 @@ async def record_sla_metric(request: Request, sla_id: str, value: float, current
         raise
     except Exception as e:
         logger.error('Error recording SLA metric: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/system/status')
 @rate_limit(rate=200, per=60)
@@ -126,4 +130,4 @@ async def get_system_status(request: Request, current_user: dict[str, Any] = Dep
         raise
     except Exception as e:
         logger.error('Error getting system status: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
