@@ -482,7 +482,7 @@ class TaskDistributor:
                 return False
             message_dict = task_message.to_dict()
 
-            def convert_datetime(obj: Any) -> Any:
+            def convert_datetime(obj: Any) -> str | dict[str, Any] | list[Any] | Any:
                 if isinstance(obj, datetime):
                     return obj.isoformat()
                 elif isinstance(obj, dict):
