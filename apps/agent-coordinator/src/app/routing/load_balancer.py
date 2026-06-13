@@ -93,23 +93,23 @@ class LoadBalancer:
         self.successful_assignments = 0
         self.failed_assignments = 0
 
-    def set_strategy(self, strategy: LoadBalancingStrategy) -> Any:
+    def set_strategy(self, strategy: LoadBalancingStrategy) -> None:
         """Set load balancing strategy"""
         self.strategy = strategy
         logger.info('Load balancing strategy changed to: %s', strategy.value)
 
-    def set_agent_weight(self, agent_id: str, weight: float, capacity: int=100) -> Any:
+    def set_agent_weight(self, agent_id: str, weight: float, capacity: int = 100) -> None:
         """Set agent weight and capacity"""
         self.agent_weights[agent_id] = AgentWeight(agent_id=agent_id, weight=weight, capacity=capacity)
         logger.info('Set weight for agent %s: %s, capacity: %s', agent_id, weight, capacity)
 
-    def update_agent_metrics(self, agent_id: str, metrics: LoadMetrics) -> Any:
+    def update_agent_metrics(self, agent_id: str, metrics: LoadMetrics) -> None:
         """Update agent load metrics"""
         self.agent_metrics[agent_id] = metrics
         self.agent_metrics[agent_id].last_updated = datetime.now(UTC)
         self._update_performance_score(agent_id, metrics)
 
-    def _update_performance_score(self, agent_id: str, metrics: LoadMetrics) -> Any:
+    def _update_performance_score(self, agent_id: str, metrics: LoadMetrics) -> None:
         """Update agent performance score based on metrics"""
         if agent_id not in self.agent_weights:
             self.agent_weights[agent_id] = AgentWeight(agent_id=agent_id)
@@ -131,7 +131,7 @@ class LoadBalancer:
         if total_tasks > 10:
             weight.reliability_score = success_rate
 
-    async def assign_task(self, task_data: dict[str, Any], requirements: dict[str, Any] | None=None) -> str | None:
+    async def assign_task(self, task_data: dict[str, Any], requirements: dict[str, Any] | None = None) -> str | None:
         """Assign task to best available agent"""
         try:
             eligible_agents = await self._find_eligible_agents(task_data, requirements)
@@ -157,7 +157,7 @@ class LoadBalancer:
             self.failed_assignments += 1
             return None
 
-    async def complete_task(self, task_id: str, success: bool, response_time: float | None=None, error_message: str | None=None) -> Any:
+    async def complete_task(self, task_id: str, success: bool, response_time: float | None = None, error_message: str | None = None) -> None:
         """Mark task as completed"""
         try:
             if task_id not in self.task_assignments:
