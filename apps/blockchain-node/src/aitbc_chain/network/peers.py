@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Dynamic Peer Management
 Handles peer join/leave operations and connection management
@@ -14,13 +13,13 @@ from .discovery import NodeStatus, P2PDiscovery, PeerNode
 
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
 
-def log_warn(msg: str):
+def log_warn(msg: str) -> None:
     logger.warning(msg)
 from .health import PeerHealthMonitor
 
@@ -58,7 +57,7 @@ class DynamicPeerManager:
         self.auto_ban_malicious = True
         self.load_balance = True
 
-    async def start_management(self):
+    async def start_management(self) -> None:
         """Start peer management service"""
         self.running = True
         log_info("Starting dynamic peer management")
@@ -73,12 +72,12 @@ class DynamicPeerManager:
                 log_error(f"Peer management error: {e}")
                 await asyncio.sleep(10)
 
-    async def stop_management(self):
+    async def stop_management(self) -> None:
         """Stop peer management service"""
         self.running = False
         log_info("Stopping dynamic peer management")
 
-    async def _manage_peer_connections(self):
+    async def _manage_peer_connections(self) -> None:
         """Manage peer connections based on current state"""
         current_peers = self.discovery.get_peer_count()
 
@@ -91,7 +90,7 @@ class DynamicPeerManager:
         if self.auto_reconnect:
             await self._reconnect_disconnected_peers()
 
-    async def _discover_new_peers(self):
+    async def _discover_new_peers(self) -> None:
         """Discover and connect to new peers"""
         log_info(f"Peer count ({self.discovery.get_peer_count()}) below minimum ({self.min_connections}), discovering new peers")
 
@@ -102,21 +101,19 @@ class DynamicPeerManager:
         # Try to connect to bootstrap nodes
         await self.discovery._connect_to_bootstrap_nodes()
 
-    async def _remove_excess_peers(self):
+    async def _remove_excess_peers(self) -> None:
         """Remove excess peers based on quality metrics"""
         log_info(f"Peer count ({self.discovery.get_peer_count()}) above maximum ({self.max_connections}), removing excess peers")
 
         peers = self.discovery.get_peer_list()
 
         # Sort peers by health score and reputation
-        sorted_peers = sorted(
-            peers,
-            key=lambda p: (
-                self.health_monitor.get_health_status(p.node_id).health_score if
-                self.health_monitor.get_health_status(p.node_id) else 0.0,
-                p.reputation
-            )
-        )
+        def get_peer_sort_key(peer: PeerNode) -> tuple[float, float]:
+            health = self.health_monitor.get_health_status(peer.node_id)
+            health_score = health.health_score if health else 0.0
+            return (health_score, peer.reputation)
+        
+        sorted_peers = sorted(peers, key=get_peer_sort_key)
 
         # Remove lowest quality peers
         excess_count = len(peers) - self.max_connections
@@ -124,7 +121,7 @@ class DynamicPeerManager:
             peer_to_remove = sorted_peers[i]
             await self._remove_peer(peer_to_remove.node_id, "Excess peer removed")
 
-    async def _reconnect_disconnected_peers(self):
+    async def _reconnect_disconnected_peers(self) -> None:
         """Reconnect to peers that went offline"""
         # Get recently disconnected peers
         all_health = self.health_monitor.get_all_health_status()
@@ -140,20 +137,20 @@ class DynamicPeerManager:
                     if success:
                         log_info(f"Reconnected to peer {node_id}")
 
-    async def _enforce_peer_policies(self):
+    async def _enforce_peer_policies(self) -> None:
         """Enforce peer management policies"""
         if self.auto_ban_malicious:
             await self._ban_malicious_peers()
 
         await self._update_peer_reputations()
 
-    async def _ban_malicious_peers(self):
+    async def _ban_malicious_peers(self) -> None:
         """Ban peers with malicious behavior"""
         for peer in self.discovery.get_peer_list():
             if peer.reputation < self.ban_threshold:
                 await self._ban_peer(peer.node_id, "Reputation below threshold")
 
-    async def _update_peer_reputations(self):
+    async def _update_peer_reputations(self) -> None:
         """Update peer reputations based on health metrics"""
         for peer in self.discovery.get_peer_list():
             health = self.health_monitor.get_health_status(peer.node_id)
@@ -163,7 +160,7 @@ class DynamicPeerManager:
                 reputation_delta = (health.health_score - 0.5) * 0.1  # Small adjustments
                 self.discovery.update_peer_reputation(peer.node_id, reputation_delta)
 
-    async def _optimize_topology(self):
+    async def _optimize_topology(self) -> None:
         """Optimize network topology for better performance"""
         if not self.load_balance:
             return
@@ -177,7 +174,7 @@ class DynamicPeerManager:
                 # Consider replacing unhealthy peer
                 await self._consider_peer_replacement(peer)
 
-    async def _consider_peer_replacement(self, unhealthy_peer: PeerNode):
+    async def _consider_peer_replacement(self, unhealthy_peer: PeerNode) -> None:
         """Consider replacing unhealthy peer with better alternative"""
         # This would implement logic to find and connect to better peers
         # For now, just log the consideration
@@ -295,7 +292,7 @@ class DynamicPeerManager:
             log_error(f"Error demoting peer {node_id}: {e}")
             return False
 
-    def _record_peer_event(self, action: PeerAction, node_id: str, reason: str, metadata: dict = None):
+    def _record_peer_event(self, action: PeerAction, node_id: str, reason: str, metadata: dict | None = None) -> None:
         """Record peer management event"""
         event = PeerEvent(
             action=action,
