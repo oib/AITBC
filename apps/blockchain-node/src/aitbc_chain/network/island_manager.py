@@ -51,13 +51,13 @@ class IslandManager:
         self.running = False
         self._initialize_default_island()
 
-    def _initialize_default_island(self):
+    def _initialize_default_island(self) -> None:
         """Initialize with default island membership"""
         self.islands[self.default_island_id] = IslandMembership(island_id=self.default_island_id, island_name='default', chain_id=self.default_chain_id, status=IslandStatus.ACTIVE, joined_at=time.time(), is_hub=False)
         self.island_peers[self.default_island_id] = set()
         logger.info('Initialized with default island: %s', self.default_island_id)
 
-    async def start(self):
+    async def start(self) -> None:
         """Start island manager"""
         self.running = True
         logger.info('Starting island manager for node %s', self.local_node_id)
@@ -69,7 +69,7 @@ class IslandManager:
         finally:
             self.running = False
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop island manager"""
         self.running = False
         logger.info('Stopping island manager')
@@ -137,7 +137,7 @@ class IslandManager:
         """Get peers in a specific island"""
         return self.island_peers.get(island_id, set()).copy()
 
-    def add_island_peer(self, island_id: str, node_id: str):
+    def add_island_peer(self, island_id: str, node_id: str) -> None:
         """Add a peer to an island"""
         if island_id not in self.island_peers:
             self.island_peers[island_id] = set()
@@ -145,7 +145,7 @@ class IslandManager:
         if island_id in self.islands:
             self.islands[island_id].peer_count = len(self.island_peers[island_id])
 
-    def remove_island_peer(self, island_id: str, node_id: str):
+    def remove_island_peer(self, island_id: str, node_id: str) -> None:
         """Remove a peer from an island"""
         if island_id in self.island_peers:
             self.island_peers[island_id].discard(node_id)
@@ -176,7 +176,7 @@ class IslandManager:
         """Check if node has active bridge to an island"""
         return island_id in self.active_bridges
 
-    async def _bridge_request_monitor(self):
+    async def _bridge_request_monitor(self) -> None:
         """Monitor bridge requests and handle timeouts"""
         while self.running:
             try:
@@ -190,7 +190,7 @@ class IslandManager:
                 logger.error('Bridge request monitor error: %s', e)
                 await asyncio.sleep(10)
 
-    async def _island_health_check(self):
+    async def _island_health_check(self) -> None:
         """Check health of island memberships"""
         while self.running:
             try:
