@@ -3,18 +3,22 @@ Advanced AI/ML Integration for AITBC Agent Coordinator
 Implements machine learning models, neural networks, and intelligent decision making
 """
 from __future__ import annotations
-np: Any = None
-try:
-    import numpy as np
-except ImportError:
-    pass
+
 import statistics
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+
+np: Any = None
+try:
+    import numpy as np
+except ImportError:
+    pass
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass
