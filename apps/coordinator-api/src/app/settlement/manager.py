@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Bridge manager for cross-chain settlements
 """
@@ -44,7 +43,7 @@ class BridgeManager:
         if self.default_adapter is None:
             self.default_adapter = name
 
-    async def settle_cross_chain(
+    async def settle_cross_chain(  # type: ignore[return]
         self, message: SettlementMessage, bridge_name: str | None = None, retry_on_failure: bool = True
     ) -> SettlementResult:
         """Settle message across chains"""
@@ -122,9 +121,9 @@ class BridgeManager:
 
         return result
 
-    async def estimate_settlement_cost(self, message: SettlementMessage, bridge_name: str | None = None) -> dict[str, Any]:
+    async def estimate_settlement_cost(self, message: SettlementMessage, bridge_name: str | None = None) -> dict[str, dict[str, Any]]:
         """Estimate cost for settlement across different bridges"""
-        results = {}
+        results: dict[str, dict[str, Any]] = {}
 
         if bridge_name:
             # Estimate for specific bridge
@@ -162,6 +161,8 @@ class BridgeManager:
         else:
             # Select fastest (based on historical data)
             # For now, return default
+            if self.default_adapter is None:
+                raise BridgeError("No default bridge configured")
             optimal = (self.default_adapter, valid_estimates[self.default_adapter])
 
         return optimal[0]
@@ -175,7 +176,7 @@ class BridgeManager:
         # Process in parallel with rate limiting
         semaphore = asyncio.Semaphore(5)  # Max 5 concurrent settlements
 
-        async def settle_single(message):
+        async def settle_single(message: SettlementMessage) -> SettlementResult:
             async with semaphore:
                 return await self.settle_cross_chain(message, bridge_name)
 
@@ -183,14 +184,14 @@ class BridgeManager:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Convert exceptions to failed results
-        processed_results = []
+        processed_results: list[SettlementResult] = []
         for result in results:
             if isinstance(result, Exception):
                 processed_results.append(
                     SettlementResult(message_id="", status=BridgeStatus.FAILED, error_message=str(result))
                 )
             else:
-                processed_results.append(result)
+                processed_results.append(result)  # type: ignore[arg-type]
 
         return processed_results
 
