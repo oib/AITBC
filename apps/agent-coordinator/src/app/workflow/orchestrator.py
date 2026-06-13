@@ -7,7 +7,7 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 
 redis: Any = None
@@ -19,7 +19,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-class WorkflowStatus(str, Enum):
+class WorkflowStatus(StrEnum):
     """Workflow execution status"""
     PENDING = 'pending'
     RUNNING = 'running'
@@ -28,7 +28,7 @@ class WorkflowStatus(str, Enum):
     CANCELLED = 'cancelled'
     PAUSED = 'paused'
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):
     """Workflow step status"""
     PENDING = 'pending'
     RUNNING = 'running'

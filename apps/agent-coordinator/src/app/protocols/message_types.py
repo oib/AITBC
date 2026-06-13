@@ -6,14 +6,18 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
+
 from aitbc import get_logger
+
 from .communication import AgentMessage, MessageType, Priority
+
 logger = get_logger(__name__)
 
-class MessageStatus(str, Enum):
+class MessageStatus(StrEnum):
     """Message processing status"""
     PENDING = 'pending'
     PROCESSING = 'processing'
@@ -22,7 +26,7 @@ class MessageStatus(str, Enum):
     EXPIRED = 'expired'
     CANCELLED = 'cancelled'
 
-class RoutingStrategy(str, Enum):
+class RoutingStrategy(StrEnum):
     """Message routing strategies"""
     ROUND_ROBIN = 'round_robin'
     LOAD_BALANCED = 'load_balanced'
@@ -31,7 +35,7 @@ class RoutingStrategy(str, Enum):
     DIRECT = 'direct'
     BROADCAST = 'broadcast'
 
-class DeliveryMode(str, Enum):
+class DeliveryMode(StrEnum):
     """Message delivery modes"""
     FIRE_AND_FORGET = 'fire_and_forget'
     AT_LEAST_ONCE = 'at_least_once'
