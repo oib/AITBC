@@ -1,13 +1,13 @@
-# mypy: ignore-errors
 """
 Multi-Chain Manager
 Manages parallel bilateral/micro-chains running alongside the default chain
 """
 import asyncio
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Any
 from aitbc import get_logger
 logger = get_logger(__name__)
 
@@ -37,11 +37,16 @@ class ChainInstance:
     started_at: float | None = None
     stopped_at: float | None = None
     error_message: str | None = None
+    # Dynamic attributes added at runtime
+    _rpc_server: Any = field(default=None, init=False, repr=False)
+    _p2p_service: Any = field(default=None, init=False, repr=False)
+    _consensus: Any = field(default=None, init=False, repr=False)
+    _chain_db: Any = field(default=None, init=False, repr=False)
 
 class MultiChainManager:
     """Manages parallel chain instances"""
 
-    def __init__(self, default_chain_id: str, base_db_path: Path, base_rpc_port: int=8006, base_p2p_port: int=7070):
+    def __init__(self, default_chain_id: str, base_db_path: Path, base_rpc_port: int=8006, base_p2p_port: int=7070) -> None:
         self.default_chain_id = default_chain_id
         self.base_db_path = base_db_path
         self.base_rpc_port = base_rpc_port
@@ -89,16 +94,16 @@ class MultiChainManager:
         self.chains[chain_id] = chain
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
-            from aitbc_chain.database import BlockchainDB
+            from aitbc_chain.database import BlockchainDB  # type: ignore[import-not-found]
             chain_db = BlockchainDB(str(db_path))
             chain_db.initialize()
-            from aitbc_chain.rpc import RPCServer
+            from aitbc_chain.rpc import RPCServer  # type: ignore[import-not-found]
             rpc_server = RPCServer(rpc_port, chain_db)
             await rpc_server.start()
-            from aitbc_chain.p2p import P2PService
+            from aitbc_chain.p2p import P2PService  # type: ignore[import-not-found]
             p2p_service = P2PService(p2p_port, chain_id)
             await p2p_service.start()
-            from aitbc_chain.consensus import EthereumConsensus
+            from aitbc_chain.consensus import EthereumConsensus  # type: ignore[import-not-found]
             consensus = EthereumConsensus(chain_db)
             await consensus.initialize()
             chain._rpc_server = rpc_server
@@ -176,7 +181,7 @@ class MultiChainManager:
                 if ch.status == ChainStatus.RUNNING and hasattr(ch, '_chain_db'):
                     chain_states[cid] = ch._chain_db.get_latest_block_number()
             if chain_states:
-                max_block_chain = max(chain_states, key=chain_states.get)
+                max_block_chain = max(chain_states, key=lambda k: chain_states[k])
                 target_block = chain_states[max_block_chain]
                 if chain_id != max_block_chain:
                     if hasattr(chain, '_chain_db'):
