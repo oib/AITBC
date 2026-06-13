@@ -55,7 +55,7 @@ async def get_proposal_status(request: Request, proposal_id: str) -> dict[str, A
 
 @router.put('/consensus/algorithm')
 @rate_limit(rate=50, per=60)
-async def set_consensus_algorithm(request: Request, algorithm: str=Query(..., description='Consensus algorithm')) -> dict[str, Any]:
+async def set_consensus_algorithm(request: Request, algorithm: str = Query(..., description='Consensus algorithm')) -> dict[str, Any]:
     """Set the consensus algorithm"""
     try:
         result = await distributed_consensus.set_consensus_algorithm(algorithm)
