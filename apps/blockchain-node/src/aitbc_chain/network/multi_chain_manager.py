@@ -52,7 +52,7 @@ class MultiChainManager:
         self.running = False
         self._initialize_default_chain()
 
-    def _initialize_default_chain(self):
+    def _initialize_default_chain(self) -> None:
         """Initialize the default chain instance"""
         self.chains[self.default_chain_id] = ChainInstance(chain_id=self.default_chain_id, chain_type=ChainType.DEFAULT, status=ChainStatus.RUNNING, db_path=self.base_db_path, rpc_port=self.base_rpc_port, p2p_port=self.base_p2p_port, started_at=time.time())
         logger.info('Initialized default chain: %s', self.default_chain_id)
@@ -190,7 +190,7 @@ class MultiChainManager:
             logger.error('Failed to sync chain %s: %s', chain_id, e)
             return False
 
-    async def start(self):
+    async def start(self) -> None:
         """Start multi-chain manager"""
         self.running = True
         logger.info('Starting multi-chain manager')
@@ -202,12 +202,12 @@ class MultiChainManager:
         finally:
             self.running = False
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop multi-chain manager"""
         self.running = False
         logger.info('Stopping multi-chain manager')
 
-    async def _chain_health_check(self):
+    async def _chain_health_check(self) -> None:
         """Check health of chain instances"""
         while self.running:
             try:
