@@ -63,10 +63,10 @@ class CommunicationProtocol:
 
     def __init__(self, agent_id: str) -> None:
         self.agent_id = agent_id
-        self.message_handlers: dict[MessageType, list[Callable]] = {}
+        self.message_handlers: dict[MessageType, list[Callable[[AgentMessage], Any]]] = {}
         self.active_connections: dict[str, Any] = {}
 
-    async def register_handler(self, message_type: MessageType, handler: Callable) -> Any:
+    async def register_handler(self, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
         """Register a message handler for a specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
@@ -119,13 +119,13 @@ class CommunicationProtocol:
 class HierarchicalProtocol(CommunicationProtocol):
     """Hierarchical communication protocol (master-agent → sub-agents)"""
 
-    def __init__(self, agent_id: str, is_master: bool=False) -> None:
+    def __init__(self, agent_id: str, is_master: bool = False) -> None:
         super().__init__(agent_id)
         self.is_master = is_master
         self.sub_agents: list[str] = []
         self.master_agent: str | None = None
 
-    async def add_sub_agent(self, agent_id: str) -> Any:
+    async def add_sub_agent(self, agent_id: str) -> None:
         """Add a sub-agent to this master agent"""
         if self.is_master:
             self.sub_agents.append(agent_id)
@@ -133,7 +133,7 @@ class HierarchicalProtocol(CommunicationProtocol):
         else:
             logger.warning('Agent %s is not a master, cannot add sub-agents', self.agent_id)
 
-    async def send_to_sub_agents(self, message: AgentMessage) -> Any:
+    async def send_to_sub_agents(self, message: AgentMessage) -> None:
         """Send message to all sub-agents"""
         if not self.is_master:
             logger.warning('Agent %s is not a master', self.agent_id)
@@ -143,7 +143,7 @@ class HierarchicalProtocol(CommunicationProtocol):
             message.receiver_id = sub_agent_id
             await self.send_message(message)
 
-    async def send_to_master(self, message: AgentMessage) -> Any:
+    async def send_to_master(self, message: AgentMessage) -> None:
         """Send message to master agent"""
         if self.is_master:
             logger.warning('Agent %s is a master, cannot send to master', self.agent_id)
@@ -162,18 +162,18 @@ class PeerToPeerProtocol(CommunicationProtocol):
         super().__init__(agent_id)
         self.peers: dict[str, dict[str, Any]] = {}
 
-    async def add_peer(self, peer_id: str, connection_info: dict[str, Any]) -> Any:
+    async def add_peer(self, peer_id: str, connection_info: dict[str, Any]) -> None:
         """Add a peer to the peer network"""
         self.peers[peer_id] = connection_info
         logger.info('Added peer %s to agent %s', peer_id, self.agent_id)
 
-    async def remove_peer(self, peer_id: str) -> Any:
+    async def remove_peer(self, peer_id: str) -> None:
         """Remove a peer from the peer network"""
         if peer_id in self.peers:
             del self.peers[peer_id]
             logger.info('Removed peer %s from agent %s', peer_id, self.agent_id)
 
-    async def send_to_peer(self, message: AgentMessage, peer_id: str) -> Any:
+    async def send_to_peer(self, message: AgentMessage, peer_id: str) -> bool:
         """Send message to specific peer"""
         if peer_id not in self.peers:
             logger.warning('Peer %s not found', peer_id)
@@ -182,7 +182,7 @@ class PeerToPeerProtocol(CommunicationProtocol):
         message.message_type = MessageType.PEER_TO_PEER
         return await self.send_message(message)
 
-    async def broadcast_to_peers(self, message: AgentMessage) -> Any:
+    async def broadcast_to_peers(self, message: AgentMessage) -> None:
         """Broadcast message to all peers"""
         message.message_type = MessageType.PEER_TO_PEER
         for peer_id in self.peers:
@@ -192,24 +192,24 @@ class PeerToPeerProtocol(CommunicationProtocol):
 class BroadcastProtocol(CommunicationProtocol):
     """Broadcast communication protocol (agent → all agents)"""
 
-    def __init__(self, agent_id: str, broadcast_channel: str='global') -> None:
+    def __init__(self, agent_id: str, broadcast_channel: str = 'global') -> None:
         super().__init__(agent_id)
         self.broadcast_channel = broadcast_channel
         self.subscribers: list[str] = []
 
-    async def subscribe(self, agent_id: str) -> Any:
+    async def subscribe(self, agent_id: str) -> None:
         """Subscribe to broadcast channel"""
         if agent_id not in self.subscribers:
             self.subscribers.append(agent_id)
             logger.info('Agent %s subscribed to %s', agent_id, self.broadcast_channel)
 
-    async def unsubscribe(self, agent_id: str) -> Any:
+    async def unsubscribe(self, agent_id: str) -> None:
         """Unsubscribe from broadcast channel"""
         if agent_id in self.subscribers:
             self.subscribers.remove(agent_id)
             logger.info('Agent %s unsubscribed from %s', agent_id, self.broadcast_channel)
 
-    async def broadcast(self, message: AgentMessage) -> Any:
+    async def broadcast(self, message: AgentMessage) -> None:
         """Broadcast message to all subscribers"""
         message.message_type = MessageType.BROADCAST
         message.receiver_id = None
@@ -226,7 +226,7 @@ class CommunicationManager:
         self.agent_id = agent_id
         self.protocols: dict[str, CommunicationProtocol] = {}
 
-    def add_protocol(self, name: str, protocol: CommunicationProtocol) -> Any:
+    def add_protocol(self, name: str, protocol: CommunicationProtocol) -> None:
         """Add a communication protocol"""
         self.protocols[name] = protocol
         logger.info('Added protocol %s to agent %s', name, self.agent_id)
@@ -242,7 +242,7 @@ class CommunicationManager:
             return await protocol.send_message(message)
         return False
 
-    async def register_handler(self, protocol_name: str, message_type: MessageType, handler: Callable) -> Any:
+    async def register_handler(self, protocol_name: str, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
         """Register message handler for specific protocol"""
         protocol = self.get_protocol(protocol_name)
         if protocol:
