@@ -96,7 +96,7 @@ async def list_workflows(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/executions', summary='List executions')
-async def list_executions(request: Request, workflow_id: str | None=None) -> dict[str, Any]:
+async def list_executions(request: Request, workflow_id: str | None = None) -> dict[str, Any]:
     """List workflow executions"""
     try:
         orchestrator = get_orchestrator()
