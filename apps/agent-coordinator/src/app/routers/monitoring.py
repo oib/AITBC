@@ -83,7 +83,7 @@ async def get_system_status(request: Request, current_user: dict[str, Any] = Dep
 
 @router.get('/protected/admin')
 @rate_limit(rate=200, per=60)
-async def protected_admin(request: Request, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def protected_admin(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Protected admin endpoint"""
     try:
         if current_user.get('role') != 'admin':
@@ -97,7 +97,7 @@ async def protected_admin(request: Request, current_user: dict[str, Any]=Depends
 
 @router.get('/protected/operator')
 @rate_limit(rate=200, per=60)
-async def protected_operator(request: Request, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def protected_operator(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Protected operator endpoint"""
     try:
         if current_user.get('role') not in ('admin', 'operator'):
