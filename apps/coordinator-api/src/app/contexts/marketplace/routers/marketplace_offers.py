@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 from sqlalchemy.orm import Session
 '\nRouter to create marketplace offers from registered miners\n'
@@ -35,12 +34,13 @@ async def sync_offers(session: Annotated[Session, Depends(get_session)], admin_k
 @router.get('/marketplace/miner-offers', summary='List all miner offers', response_model=list[MarketplaceOfferView])
 async def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -> list[MarketplaceOfferView]:
     """List all offers created from miners"""
-    offers = session.execute(select(MarketplaceOffer).where(MarketplaceOffer.provider.like('miner_%'))).all()
+    offers = session.execute(select(MarketplaceOffer)).scalars().all()
+    filtered_offers = [offer for offer in offers if offer.provider.startswith('miner_')]
     result = []
-    for offer in offers:
+    for offer in filtered_offers:
         miner = session.get(Miner, offer.provider)
         attrs = offer.attributes or {}
-        offer_view = MarketplaceOfferView(id=offer.id, provider_id=offer.provider, provider_name=f'Miner {offer.provider}' if miner else 'Unknown Miner', capacity=offer.capacity, price=offer.price, gpu_model=attrs.get('gpu_model', 'Unknown'), gpu_memory_gb=attrs.get('gpu_memory_gb', 0), cuda_version=attrs.get('cuda_version', 'Unknown'), supported_models=attrs.get('supported_models', []), region=attrs.get('region', 'unknown'), status=offer.status.value, created_at=offer.created_at)
+        offer_view = MarketplaceOfferView(id=offer.id, provider=offer.provider, provider_id=offer.provider, provider_name=f'Miner {offer.provider}' if miner else 'Unknown Miner', capacity=offer.capacity, price=offer.price, gpu_model=attrs.get('gpu_model', 'Unknown'), gpu_memory_gb=attrs.get('gpu_memory_gb', 0), cuda_version=attrs.get('cuda_version', 'Unknown'), supported_models=attrs.get('supported_models', []), region=attrs.get('region', 'unknown'), status=offer.status, created_at=offer.created_at, sla=attrs.get('sla', {}))
         result.append(offer_view)
     return result
 
