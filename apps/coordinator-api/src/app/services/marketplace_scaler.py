@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Marketplace Adaptive Resource Scaler
 Implements predictive and reactive auto-scaling of marketplace resources based on demand.
@@ -32,10 +31,10 @@ class ResourceScaler:
         self.active_gpu_nodes = 0
         self.active_cpu_nodes = self.policy.min_nodes
         self.last_scaling_action_time = 0
-        self.scaling_history = []
-        self.historical_demand = {}
+        self.scaling_history: list[dict[str, Any]] = []
+        self.historical_demand: dict[int, float] = {}
         self.is_running = False
-        self._scaler_task = None
+        self._scaler_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         if self.is_running:
@@ -123,7 +122,7 @@ class ResourceScaler:
             self.scaling_history.append(record)
             if len(self.scaling_history) > 1000:
                 self.scaling_history = self.scaling_history[-1000:]
-            self.last_scaling_action_time = now
+            self.last_scaling_action_time = int(now)
             self.current_nodes = target_nodes
             logger.info('Auto-scaler: %s to %s nodes. Reason: %s', action.upper(), target_nodes, reason)
             return record
