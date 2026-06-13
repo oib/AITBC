@@ -57,7 +57,7 @@ async def list_swarms(
     swarm_id: str | None = Query(None, description="Filter by swarm ID"),
     status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(20, description="Number of swarms to list")
-) -> list[Any]:
+) -> list[dict[str, Any]]:
     """List active swarms."""
     # Return empty list for now - backend not fully implemented
     return []
@@ -179,7 +179,7 @@ async def get_status(
 @rate_limit(rate=500, per=60)
 async def get_miners(
     request: Request
-) -> list[Any]:
+) -> list[dict[str, Any]]:
     """Get miners list."""
     return []
 
@@ -188,7 +188,7 @@ async def get_miners(
 @rate_limit(rate=500, per=60)
 async def get_history_dashboard(
     request: Request
-) -> list[Any]:
+) -> list[dict[str, Any]]:
     """Get historical dashboard data."""
     return []
 
@@ -197,6 +197,6 @@ async def get_history_dashboard(
 @rate_limit(rate=500, per=60)
 async def get_jobs(
     request: Request
-) -> list[Any]:
+) -> list[dict[str, Any]]:
     """Get jobs list."""
     return []
