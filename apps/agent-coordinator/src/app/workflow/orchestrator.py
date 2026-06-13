@@ -9,12 +9,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
 redis: Any = None
 try:
     import redis.asyncio as redis
 except ImportError:
     pass
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class WorkflowStatus(str, Enum):
@@ -217,7 +219,7 @@ class WorkflowOrchestrator:
             completed_steps = set()
             while execution.current_step_index < len(execution.steps):
                 step = execution.steps[execution.current_step_index]
-                if not all((dep in completed_steps for dep in step.dependencies)):
+                if not all(dep in completed_steps for dep in step.dependencies):
                     execution.current_step_index += 1
                     continue
                 step.status = StepStatus.RUNNING
@@ -311,7 +313,6 @@ class WorkflowOrchestrator:
         try:
             keys = await self.redis_client.keys('execution:*')
             for key in keys:
-                key_str = key.decode() if isinstance(key, bytes) else key
                 data = await self.redis_client.get(key)
                 if data:
                     execution = WorkflowExecution.from_dict(json.loads(data))
@@ -328,3 +329,4 @@ def get_orchestrator() -> WorkflowOrchestrator:
     if _orchestrator is None:
         _orchestrator = WorkflowOrchestrator()
     return _orchestrator
+
