@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Oracle Service - Real-time price feed aggregation
 
@@ -165,7 +164,7 @@ class AggregatedPriceFeed:
                 if price is None:
                     logger.warning('CoinGecko response missing price for %s', coin_id)
                     return None
-                return PriceData(pair=pair, price=price, source=PriceSource.coingecko, timestamp=datetime.now(UTC), confidence=0.9, metadata={'change_24h_percent': change_24h, 'coin_id': coin_id})
+                return PriceData(pair=pair, price=price, source=PriceSource.aggregated, timestamp=datetime.now(UTC), confidence=0.9)
             except httpx.TimeoutException:
                 logger.warning('CoinGecko API timeout for %s', pair)
                 return None
