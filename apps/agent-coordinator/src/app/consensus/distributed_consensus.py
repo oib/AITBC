@@ -7,7 +7,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass
@@ -126,14 +128,14 @@ class DistributedConsensus:
         try:
             if proposal.status != 'pending':
                 return
-            yes_votes = sum((1 for vote in proposal.current_votes.values() if vote))
+            yes_votes = sum(1 for vote in proposal.current_votes.values() if vote)
             no_votes = len(proposal.current_votes) - yes_votes
             total_votes = len(proposal.current_votes)
             if datetime.now(UTC) > proposal.deadline:
                 proposal.status = 'expired'
                 await self._finalize_proposal(proposal, False, 'Deadline expired')
                 return
-            active_nodes = sum((1 for node in self.nodes.values() if node.is_active))
+            active_nodes = sum(1 for node in self.nodes.values() if node.is_active)
             if total_votes < active_nodes * self.min_participation:
                 return
             if self.current_algorithm == 'majority_vote':
@@ -186,7 +188,7 @@ class DistributedConsensus:
             if proposal_id not in self.proposals:
                 return {'status': 'error', 'message': 'Proposal not found'}
             proposal = self.proposals[proposal_id]
-            yes_votes = sum((1 for vote in proposal.current_votes.values() if vote))
+            yes_votes = sum(1 for vote in proposal.current_votes.values() if vote)
             no_votes = len(proposal.current_votes) - yes_votes
             return {'status': 'success', 'proposal_id': proposal_id, 'status': proposal.status, 'proposer_id': proposal.proposer_id, 'created_at': proposal.timestamp.isoformat(), 'deadline': proposal.deadline.isoformat(), 'required_votes': proposal.required_votes, 'current_votes': {'yes': yes_votes, 'no': no_votes, 'total': len(proposal.current_votes), 'details': proposal.current_votes}, 'algorithm': self.current_algorithm}
         except Exception as e:
@@ -209,10 +211,10 @@ class DistributedConsensus:
         """Get comprehensive consensus statistics"""
         try:
             total_proposals = len(self.consensus_history)
-            active_nodes = sum((1 for node in self.nodes.values() if node.is_active))
+            active_nodes = sum(1 for node in self.nodes.values() if node.is_active)
             if total_proposals == 0:
                 return {'status': 'success', 'total_proposals': 0, 'active_nodes': active_nodes, 'current_algorithm': self.current_algorithm, 'message': 'No proposals processed yet'}
-            approved_proposals = sum((1 for record in self.consensus_history if record['approved']))
+            approved_proposals = sum(1 for record in self.consensus_history if record['approved'])
             rejected_proposals = total_proposals - approved_proposals
             algorithm_stats: defaultdict[str, dict[str, Any]] = defaultdict(lambda: {'approved': 0, 'total': 0})
             for record in self.consensus_history:
@@ -224,7 +226,7 @@ class DistributedConsensus:
                 stats['success_rate'] = stats['approved'] / stats['total'] if stats['total'] > 0 else 0
             node_participation = {}
             for node_id, node in self.nodes.items():
-                votes_cast = sum((1 for record in self.consensus_history if node_id in record['votes']))
+                votes_cast = sum(1 for record in self.consensus_history if node_id in record['votes'])
                 node_participation[node_id] = {'votes_cast': votes_cast, 'participation_rate': votes_cast / total_proposals if total_proposals > 0 else 0, 'reputation_score': node.reputation_score}
             return {'status': 'success', 'total_proposals': total_proposals, 'approved_proposals': approved_proposals, 'rejected_proposals': rejected_proposals, 'success_rate': approved_proposals / total_proposals, 'active_nodes': active_nodes, 'total_nodes': len(self.nodes), 'current_algorithm': self.current_algorithm, 'algorithm_performance': dict(algorithm_stats), 'node_participation': node_participation, 'active_proposals': len(self.proposals), 'last_updated': datetime.now(UTC).isoformat()}
         except Exception as e:

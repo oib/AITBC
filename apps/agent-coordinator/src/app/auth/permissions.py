@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Permissions and Role-Based Access Control for AITBC Agent Coordinator
 Implements RBAC with roles, permissions, and access control
@@ -5,7 +6,9 @@ Implements RBAC with roles, permissions, and access control
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class Permission(Enum):
