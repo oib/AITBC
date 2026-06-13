@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Enhanced Marketplace Service - Simplified Version for Deployment
 Basic marketplace enhancement features compatible with existing domain models
@@ -9,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from sqlmodel import Session, select
-from ..domain import MarketplaceOffer
+from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 
 class RoyaltyTier(StrEnum):
     """Royalty distribution tiers"""
@@ -95,7 +94,7 @@ class EnhancedMarketplaceService:
             offer = self.session.get(MarketplaceOffer, offer_id)
             if not offer:
                 raise ValueError(f'Offer not found: {offer_id}')
-            verification_result = {'offer_id': offer_id, 'verification_type': verification_type.value, 'status': 'verified', 'checks': {}, 'created_at': datetime.now(UTC).isoformat()}
+            verification_result: dict[str, Any] = {'offer_id': offer_id, 'verification_type': verification_type.value, 'status': 'verified', 'checks': {}, 'created_at': datetime.now(UTC).isoformat()}
             if verification_type == VerificationType.COMPREHENSIVE:
                 verification_result['checks'] = {'quality': {'score': 0.85, 'status': 'pass'}, 'performance': {'score': 0.9, 'status': 'pass'}, 'security': {'score': 0.88, 'status': 'pass'}, 'compliance': {'score': 0.92, 'status': 'pass'}}
             elif verification_type == VerificationType.PERFORMANCE:
@@ -121,7 +120,7 @@ class EnhancedMarketplaceService:
             offers_query = select(MarketplaceOffer).where(MarketplaceOffer.created_at >= start_date)
             offers = self.session.execute(offers_query).scalars().all()
             bids: list[Any] = []
-            analytics = {'period_days': period_days, 'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(), 'metrics': {}}
+            analytics: dict[str, Any] = {'period_days': period_days, 'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(), 'metrics': {}}
             if 'volume' in metrics:
                 analytics['metrics']['volume'] = {'total_offers': len(offers), 'total_capacity': sum((offer.capacity or 0 for offer in offers)), 'average_capacity': sum((offer.capacity or 0 for offer in offers)) / len(offers) if offers else 0, 'daily_average': len(offers) / period_days}
             if 'trends' in metrics:
