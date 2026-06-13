@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Marketplace RPC endpoints for AITBC blockchain"""
 
 import json
@@ -13,6 +12,9 @@ from aitbc.security_hardening import SecurityValidator, log_security_event
 from ..metrics import metrics_registry
 
 router = APIRouter()
+
+# In-memory storage for marketplace listings
+_marketplace_listings: list[dict[str, Any]] = []
 
 
 class MarketplaceListing(BaseModel):
