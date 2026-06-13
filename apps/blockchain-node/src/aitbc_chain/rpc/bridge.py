@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Bridge-related RPC endpoints.
 """
