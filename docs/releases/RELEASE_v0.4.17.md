@@ -149,15 +149,18 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - Created `fix_logging_fstrings.py` - AST transformer for automated f-string to % formatting conversion
 - Fixed 3,481 errors across 361 files (200 in aitbc/, 3,280 in apps/)
 - 1 manual fix in `apps/agent-coordinator/src/app/monitoring/alerting.py`
-- Additional manual fixes in v0.4.17:
-  - CLI handlers (7 files): blockchain, contract, market, messaging, pool_hub, system, wallet
-  - CLI core (3 files): agent_communication, chain_manager, marketplace
-  - GPU miner host (1 file): dev/gpu/gpu_miner_host.py
-  - Agent SDK (6 files): contract_integration, swarm_coordinator, agent, compute_provider, extended, knowledge
-  - Agent SDK additional (3 files): dispute, ipfs, zk
-  - Ollama plugin (1 file): plugins/ollama/miner_plugin.py
-  - GPU providers (3 files): apple_silicon_provider, cpu_provider, cuda_provider
-  - Oracle agent example (1 file): docs/agent-sdk/examples/oracle_agent.py
+- Additional manual fixes in v0.4.17 (24 commits, 45+ files):
+  - CLI handlers (14 files): blockchain, contract, market, messaging, pool_hub, system, wallet, bridge, network, performance, resource, workflow, analytics, account
+  - CLI core (5 files): agent_communication, chain_manager, marketplace, analytics, node_client
+  - CLI commands (3 files): reputation, transactions, market
+  - CLI utils (3 files): kyc_aml_providers, blockchain, __init__
+  - CLI security (1 file): translation_policy
+  - Agent SDK (14 files): contract_integration, swarm_coordinator, agent, compute_provider, extended, knowledge, dispute, ipfs, zk, compute_consumer, data_oracle, command_executor, platform_builder, cli_contract_client
+  - GPU acceleration (6 files): gpu_miner_host, apple_silicon_provider, cpu_provider, cuda_provider, gpu_manager, __init__
+  - Plugins (2 files): ollama/miner_plugin, ollama/service
+  - Docs/examples (2 files): oracle_agent, computing_agent
+  - Scripts (4 files): monitoring (2 files), security_audit, chaos testing (2 files)
+  - Tests (1 file): production integration test
 
 ### Configuration Changes
 
@@ -196,7 +199,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ Workflow orchestration - WorkflowOrchestrator with Redis persistence, multi-agent workflow execution
 
 ### Remaining Technical Debt
-- ⚠️ Ruff G004: 866 logging f-string errors (auto-fix not available, requires manual conversion)
+- ✅ Ruff G004: All logging f-string errors fixed (45+ files, 24 commits)
 - ⚠️ Integration tests: Limited to test_agent_coordinator.py for CI/CD (other integration tests have failures)
 
 ### Backward Compatibility
