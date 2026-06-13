@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Translation Cache Service
 Redis-based caching for translation results to improve performance

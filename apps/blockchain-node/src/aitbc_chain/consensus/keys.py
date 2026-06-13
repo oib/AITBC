@@ -7,6 +7,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from typing import cast
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -31,11 +32,11 @@ class KeyManager:
         self._ensure_keys_directory()
         self._load_existing_keys()
 
-    def _ensure_keys_directory(self):
+    def _ensure_keys_directory(self) -> None:
         """Ensure keys directory exists and has proper permissions"""
         os.makedirs(self.keys_dir, mode=448, exist_ok=True)
 
-    def _load_existing_keys(self):
+    def _load_existing_keys(self) -> None:
         """Load existing key pairs from disk"""
         keys_file = os.path.join(self.keys_dir, 'validator_keys.json')
         if os.path.exists(keys_file):
@@ -80,7 +81,7 @@ class KeyManager:
         key_pair = self.key_pairs[address]
         private_key = serialization.load_pem_private_key(key_pair.private_key_pem.encode(), password=None, backend=default_backend())
         signature = private_key.sign(message.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH), hashes.SHA256())
-        return signature.hex()
+        return cast(str, signature.hex())
 
     def verify_signature(self, address: str, message: str, signature: str) -> bool:
         """Verify a message signature"""
@@ -100,7 +101,7 @@ class KeyManager:
         key_pair = self.get_key_pair(address)
         return key_pair.public_key_pem if key_pair else None
 
-    def _save_keys(self):
+    def _save_keys(self) -> None:
         """Save key pairs to disk"""
         keys_file = os.path.join(self.keys_dir, 'validator_keys.json')
         keys_data = {}

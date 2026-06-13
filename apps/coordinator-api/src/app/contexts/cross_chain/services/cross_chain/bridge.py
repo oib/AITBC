@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Cross-Chain Bridge Service
 

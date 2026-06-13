@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Bounty Management API
 REST API for AI agent bounty system with ZK-proof verification

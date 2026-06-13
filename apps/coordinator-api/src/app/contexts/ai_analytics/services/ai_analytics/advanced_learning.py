@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Advanced Learning Service for AI-Powered Agent Features
 Implements meta-learning, federated learning, and continuous model improvement

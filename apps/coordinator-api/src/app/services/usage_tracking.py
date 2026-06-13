@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Usage tracking and billing metrics service for multi-tenant AITBC coordinator
 """
