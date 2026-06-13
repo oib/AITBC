@@ -93,7 +93,7 @@ async def validate_token(request: Request, validate_data: dict[str, str]) -> dic
 
 @router.post('/api-key/generate')
 @rate_limit(rate=50, per=60)
-async def generate_api_key(request: Request, user_id: str, permissions: list[str] | None=None, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def generate_api_key(request: Request, user_id: str, permissions: list[str] | None = None, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Generate API key for user"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.SECURITY_MANAGE):
@@ -123,7 +123,7 @@ async def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
 
 @router.delete('/api-key/{api_key}')
 @rate_limit(rate=50, per=60)
-async def revoke_api_key(request: Request, api_key: str, current_user: dict[str, Any]=Depends(get_current_user)) -> dict[str, Any]:
+async def revoke_api_key(request: Request, api_key: str, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Revoke API key"""
     try:
         if not permission_manager.has_permission(current_user['user_id'], Permission.SECURITY_MANAGE):
