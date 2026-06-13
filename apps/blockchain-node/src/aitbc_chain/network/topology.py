@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Network Topology Optimization
 Optimizes peer connection strategies for network performance
@@ -12,12 +11,12 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
-import networkx as nx
+import networkx as nx  # type: ignore
 
 from .discovery import P2PDiscovery, PeerNode
 from .health import PeerHealthMonitor
@@ -52,11 +51,11 @@ class NetworkTopology:
         self.running = False
 
         # Topology metrics
-        self.avg_path_length = 0
-        self.clustering_coefficient = 0
-        self.network_efficiency = 0
+        self.avg_path_length: float = 0
+        self.clustering_coefficient: float = 0
+        self.network_efficiency: float = 0
 
-    async def start_optimization(self):
+    async def start_optimization(self) -> None:
         """Start topology optimization service"""
         self.running = True
         log_info("Starting network topology optimization")
@@ -67,18 +66,18 @@ class NetworkTopology:
         while self.running:
             try:
                 await self._optimize_topology()
-                await self._calculate_metrics()
+                await self._analyze_topology()
                 await asyncio.sleep(self.optimization_interval)
             except Exception as e:
                 log_error(f"Topology optimization error: {e}")
                 await asyncio.sleep(30)
 
-    async def stop_optimization(self):
+    async def stop_optimization(self) -> None:
         """Stop topology optimization service"""
         self.running = False
         log_info("Stopping network topology optimization")
 
-    async def _build_initial_graph(self):
+    async def _build_initial_graph(self) -> None:
         """Build initial network graph from current peers"""
         self.graph.clear()
 
@@ -94,7 +93,7 @@ class NetworkTopology:
         # Add edges based on current connections
         await self._add_connection_edges()
 
-    async def _add_connection_edges(self):
+    async def _add_connection_edges(self) -> None:
         """Add edges for current peer connections"""
         peers = self.discovery.get_peer_list()
 
@@ -123,8 +122,6 @@ class NetworkTopology:
         elif self.strategy == TopologyStrategy.HYBRID:
             return self._hybrid_should_connect(peer1, peer2)
 
-        return False
-
     def _small_world_should_connect(self, peer1: PeerNode, peer2: PeerNode) -> bool:
         """Small world topology connection logic"""
         # Connect to nearby peers and some random long-range connections
@@ -144,7 +141,7 @@ class NetworkTopology:
 
         # Higher probability for nodes with higher degree
         connection_probability = (degree1 + degree2) / (2 * self.max_degree)
-        return random.random() < connection_probability
+        return random.random() < connection_probability  # type: ignore[no-any-return]
 
     def _mesh_should_connect(self, peer1: PeerNode, peer2: PeerNode) -> bool:
         """Full mesh topology connection logic"""
@@ -188,7 +185,7 @@ class NetworkTopology:
 
         return max(0.1, weight)  # Minimum weight of 0.1
 
-    async def _optimize_topology(self):
+    async def _optimize_topology(self) -> None:
         """Optimize network topology"""
         log_info("Optimizing network topology")
 
@@ -202,7 +199,7 @@ class NetworkTopology:
         for improvement in improvements:
             await self._apply_improvement(improvement)
 
-    async def _analyze_topology(self):
+    async def _analyze_topology(self) -> None:
         """Analyze current network topology"""
         if len(self.graph.nodes()) == 0:
             return
@@ -256,12 +253,12 @@ class NetworkTopology:
         if self.avg_path_length > 6:  # Too many hops
             improvements.append({
                 'type': 'add_shortcuts',
-                'target_path_length': 4
+                'target_path_length': [4.0]
             })
 
         return improvements
 
-    async def _apply_improvement(self, improvement: dict):
+    async def _apply_improvement(self, improvement: dict) -> None:
         """Apply topology improvement"""
         improvement_type = improvement['type']
 
@@ -274,7 +271,7 @@ class NetworkTopology:
         elif improvement_type == 'add_shortcuts':
             await self._add_shortcuts(improvement['target_path_length'])
 
-    async def _connect_components(self, components: list[set[str]]):
+    async def _connect_components(self, components: list[set[str]]) -> None:
         """Connect disconnected components"""
         log_info(f"Connecting {len(components)} disconnected components")
 
@@ -295,7 +292,7 @@ class NetworkTopology:
                 if peer1 and peer2:
                     await self._establish_connection(peer1, peer2)
 
-    async def _increase_node_degree(self, nodes: list[str]):
+    async def _increase_node_degree(self, nodes: list[str]) -> None:
         """Increase degree of low-degree nodes"""
         for node_id in nodes:
             peer = self.discovery.peers.get(node_id)
@@ -308,7 +305,7 @@ class NetworkTopology:
             for candidate_peer in candidates:
                 await self._establish_connection(peer, candidate_peer)
 
-    async def _decrease_node_degree(self, nodes: list[str]):
+    async def _decrease_node_degree(self, nodes: list[str]) -> None:
         """Decrease degree of high-degree nodes"""
         for node_id in nodes:
             # Remove lowest quality connections
@@ -323,7 +320,7 @@ class NetworkTopology:
                 edge = edges[i]
                 await self._remove_connection(edge[0], edge[1])
 
-    async def _add_shortcuts(self, target_path_length: float):
+    async def _add_shortcuts(self, target_path_length: float) -> None:
         """Add shortcut connections to reduce path length"""
         # Find pairs of nodes with long shortest paths
         all_pairs = dict(nx.all_pairs_shortest_path_length(self.graph))
@@ -348,7 +345,7 @@ class NetworkTopology:
     def _select_best_connection_node(self, nodes: list[str]) -> str | None:
         """Select best node for inter-component connection"""
         best_node = None
-        best_score = 0
+        best_score: float = 0.0
 
         for node_id in nodes:
             peer = self.discovery.peers.get(node_id)
@@ -363,7 +360,7 @@ class NetworkTopology:
                 score *= health.health_score
 
             if score > best_score:
-                best_score = score
+                best_score = float(score)
                 best_node = node_id
 
         return best_node
@@ -385,7 +382,7 @@ class NetworkTopology:
         candidates.sort(key=lambda x: x[1], reverse=True)
         return [candidate for candidate, _ in candidates[:max_connections]]
 
-    async def _establish_connection(self, peer1: PeerNode, peer2: PeerNode):
+    async def _establish_connection(self, peer1: PeerNode, peer2: PeerNode) -> None:
         """Establish connection between two peers"""
         try:
             # In a real implementation, this would establish actual network connection
@@ -398,7 +395,7 @@ class NetworkTopology:
         except Exception as e:
             log_error(f"Failed to establish connection between {peer1.node_id} and {peer2.node_id}: {e}")
 
-    async def _remove_connection(self, node1_id: str, node2_id: str):
+    async def _remove_connection(self, node1_id: str, node2_id: str) -> None:
         """Remove connection between two nodes"""
         try:
             if self.graph.has_edge(node1_id, node2_id):
