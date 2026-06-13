@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 API endpoints for confidential transactions
 """
@@ -28,7 +27,7 @@ def get_encryption_service() -> EncryptionService:
         from ....contexts.security.services.key_management import FileKeyStorage
         key_storage = FileKeyStorage(tempfile.gettempdir() + '/aitbc_keys')
         key_manager = KeyManager(key_storage)
-        encryption_service = EncryptionService(key_manager)
+        encryption_service = EncryptionService(key_manager)  # type: ignore[arg-type]
     return encryption_service
 
 def get_key_manager() -> KeyManager:
@@ -92,7 +91,7 @@ async def get_confidential_transaction(request: Request, transaction_id: str, ap
 async def access_confidential_data(request: Request, request_data: ConfidentialAccessRequest, transaction_id: str, api_key: str=Depends(get_api_key)) -> ConfidentialAccessResponse:
     """Request access to decrypt confidential transaction data"""
     try:
-        if request.transaction_id != transaction_id:
+        if request_data.transaction_id != transaction_id:
             raise HTTPException(status_code=400, detail='Transaction ID mismatch')
         transaction = ConfidentialTransaction(transaction_id=transaction_id, job_id='test-job', timestamp=datetime.now(UTC), status='completed', confidential=True, participants=['client-456', 'miner-789'])
         transaction.encrypted_data = 'mock-ciphertext'
@@ -100,7 +99,7 @@ async def access_confidential_data(request: Request, request_data: ConfidentialA
         if not transaction.confidential:
             raise HTTPException(status_code=400, detail='Transaction is not confidential')
         acc_controller = get_access_controller()
-        if not acc_controller.verify_access(request):
+        if not acc_controller.verify_access(request_data):
             raise HTTPException(status_code=403, detail='Access denied')
         if transaction.encrypted_data == 'mock-ciphertext':
             return ConfidentialAccessResponse(success=True, data={'amount': '1000', 'pricing': {'rate': '0.1'}}, access_id=f'access-{datetime.now(UTC).timestamp()}')
@@ -109,7 +108,7 @@ async def access_confidential_data(request: Request, request_data: ConfidentialA
             raise HTTPException(status_code=404, detail='No encrypted data found')
         encrypted_data = EncryptedData.from_dict({'ciphertext': transaction.encrypted_data, 'encrypted_keys': transaction.encrypted_keys, 'algorithm': transaction.algorithm or 'AES-256-GCM+X25519'})
         try:
-            decrypted_data = enc_service.decrypt(encrypted_data=encrypted_data, participant_id=request.requester, purpose=request.purpose)
+            decrypted_data = enc_service.decrypt(encrypted_data=encrypted_data, participant_id=request_data.requester, purpose=request_data.purpose)
             return ConfidentialAccessResponse(success=True, data=decrypted_data, access_id=f'access-{datetime.now(UTC).timestamp()}')
         except Exception as e:
             logger.error('Decryption failed: %s', e)
@@ -151,16 +150,16 @@ async def register_encryption_key(request: Request, request_data: KeyRegistratio
     try:
         km = get_key_manager()
         try:
-            existing_key = km.get_public_key(request.participant_id)
+            existing_key = km.get_public_key(request_data.participant_id)
             if existing_key:
-                return KeyRegistrationResponse(success=True, participant_id=request.participant_id, key_version=1, registered_at=datetime.now(UTC), error=None)
+                return KeyRegistrationResponse(success=True, participant_id=request_data.participant_id, key_version=1, registered_at=datetime.now(UTC), error=None)
         except Exception:
             pass
-        key_pair = await km.generate_key_pair(request.participant_id)
-        return KeyRegistrationResponse(success=True, participant_id=request.participant_id, key_version=key_pair.version, registered_at=key_pair.created_at, error=None)
+        key_pair = await km.generate_key_pair(request_data.participant_id)
+        return KeyRegistrationResponse(success=True, participant_id=request_data.participant_id, key_version=key_pair.version, registered_at=key_pair.created_at, error=None)
     except KeyManagementError as e:
         logger.error('Key registration failed: %s', e)
-        return KeyRegistrationResponse(success=False, participant_id=request.participant_id, key_version=0, registered_at=datetime.now(UTC), error=str(e))
+        return KeyRegistrationResponse(success=False, participant_id=request_data.participant_id, key_version=0, registered_at=datetime.now(UTC), error=str(e))
     except Exception as e:
         logger.error('Failed to register key: %s', e)
         raise HTTPException(status_code=500, detail=str(e))
