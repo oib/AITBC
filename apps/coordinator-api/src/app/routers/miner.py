@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -36,14 +35,14 @@ async def poll(request: Request, req: PollRequest, session: Annotated[Session, D
     job = MinerService(session).poll(miner_id, req.max_wait_seconds)
     if job is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    return job
+    return job  # type: ignore[no-any-return]
 
 @router.post('/miners/{job_id}/result', summary='Submit job result')
 @rate_limit(rate=50, per=60)
 async def submit_result(request: Request, job_id: str, req: JobResultSubmit, session: Annotated[Session, Depends(get_session)], miner_id: str=Depends(get_miner_id())) -> dict[str, Any]:
     job_service = JobService(session)
     miner_service = MinerService(session)
-    receipt_service = ReceiptService(session)
+    receipt_service = ReceiptService(session)  # type: ignore[arg-type]
     try:
         job = job_service.get_job(job_id)
     except KeyError:
@@ -88,7 +87,7 @@ async def submit_failure(request: Request, job_id: str, req: JobFailSubmit, sess
 
 @router.post('/miners/{miner_id}/jobs', summary='List jobs for a miner')
 @rate_limit(rate=200, per=60)
-async def list_miner_jobs(request: Request, miner_id: str, limit: int=20, offset: int=0, job_type: str | None=None, min_reward: float | None=None, job_status: str | None=None, session: Annotated[Session, Depends(get_session)]=Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, Any]:
+async def list_miner_jobs(request: Request, miner_id: str, session: Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key()), limit: int=20, offset: int=0, job_type: str | None=None, min_reward: float | None=None, job_status: str | None=None) -> dict[str, Any]:
     """List jobs assigned to a specific miner"""
     try:
         service = JobService(session)
@@ -108,7 +107,7 @@ async def list_miner_jobs(request: Request, miner_id: str, limit: int=20, offset
 
 @router.post('/miners/{miner_id}/earnings', summary='Get miner earnings')
 @rate_limit(rate=200, per=60)
-async def get_miner_earnings(request: Request, miner_id: str, from_time: str | None=None, to_time: str | None=None, session: Annotated[Session, Depends(get_session)]=Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, Any]:
+async def get_miner_earnings(request: Request, miner_id: str, session: Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key()), from_time: str | None=None, to_time: str | None=None) -> dict[str, Any]:
     """Get earnings for a specific miner"""
     try:
         earnings_data = {'miner_id': miner_id, 'total_earnings': 0.0, 'pending_earnings': 0.0, 'completed_jobs': 0, 'currency': 'AITBC', 'from_time': from_time, 'to_time': to_time, 'earnings_history': []}
@@ -119,7 +118,7 @@ async def get_miner_earnings(request: Request, miner_id: str, from_time: str | N
 
 @router.put('/miners/{miner_id}/capabilities', summary='Update miner capabilities')
 @rate_limit(rate=50, per=60)
-async def update_miner_capabilities(request: Request, miner_id: str, req: MinerRegister, session: Annotated[Session, Depends(get_session)]=Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, Any]:
+async def update_miner_capabilities(request: Request, miner_id: str, req: MinerRegister, session: Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, Any]:
     """Update capabilities for a registered miner"""
     try:
         service = MinerService(session)
@@ -133,7 +132,7 @@ async def update_miner_capabilities(request: Request, miner_id: str, req: MinerR
 
 @router.delete('/miners/{miner_id}', summary='Deregister miner')
 @rate_limit(rate=50, per=60)
-async def deregister_miner(request: Request, miner_id: str, session: Annotated[Session, Depends(get_session)]=Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, str]:
+async def deregister_miner(request: Request, miner_id: str, session: Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, str]:
     """Deregister a miner from the coordinator"""
     try:
         service = MinerService(session)
@@ -147,7 +146,7 @@ async def deregister_miner(request: Request, miner_id: str, session: Annotated[S
 
 @router.post('/miners/{miner_id}/jobs/{job_id}/fail', summary='Report job failure')
 @rate_limit(rate=50, per=60)
-async def fail_job(request: Request, miner_id: str, job_id: str, fail_req: JobFailSubmit, session: Annotated[Session, Depends(get_session)]=Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, str]:
+async def fail_job(request: Request, miner_id: str, job_id: str, fail_req: JobFailSubmit, session: Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, str]:
     """Report job failure"""
     try:
         job_service = JobService(session)
@@ -168,7 +167,7 @@ class CompleteJobRequest(BaseModel):
 
 @router.post('/miners/{miner_id}/jobs/{job_id}/complete', summary='Complete job execution')
 @rate_limit(rate=50, per=60)
-async def complete_job(request: Request, miner_id: str, job_id: str, complete_req: CompleteJobRequest, session: Annotated[Session, Depends(get_session)]=Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, Any]:
+async def complete_job(request: Request, miner_id: str, job_id: str, complete_req: CompleteJobRequest, session: Annotated[Session, Depends(get_session)], api_key: str=Depends(require_miner_key())) -> dict[str, Any]:
     """
     Complete a job by submitting execution results.
     
