@@ -2,24 +2,28 @@
 Agent Discovery and Registration System for AITBC Agent Coordination
 """
 from __future__ import annotations
+
 import asyncio
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
+
 redis: Any = None
 try:
     import redis.asyncio as redis
 except ImportError:
     pass
 from aitbc import get_logger
+
 from ..protocols.communication import AgentMessage, MessageType
 from ..protocols.message_types import DiscoveryMessage
+
 logger = get_logger(__name__)
 
-class AgentStatus(str, Enum):
+class AgentStatus(StrEnum):
     """Agent status enumeration"""
     ACTIVE = 'active'
     INACTIVE = 'inactive'
@@ -27,7 +31,7 @@ class AgentStatus(str, Enum):
     MAINTENANCE = 'maintenance'
     ERROR = 'error'
 
-class AgentType(str, Enum):
+class AgentType(StrEnum):
     """Agent type enumeration"""
     COORDINATOR = 'coordinator'
     WORKER = 'worker'

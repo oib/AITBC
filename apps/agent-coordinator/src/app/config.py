@@ -10,7 +10,7 @@ try:
 except ImportError:
     from pydantic import BaseSettings  # type: ignore
     SettingsConfigDict = None  # type: ignore[misc,assignment]
-from enum import Enum
+from enum import Enum, StrEnum
 
 
 def validated_cors_origins(origins: list[str]) -> list[str]:
@@ -19,14 +19,14 @@ def validated_cors_origins(origins: list[str]) -> list[str]:
     return origins
 
 
-class Environment(str, Enum):
+class Environment(StrEnum):
     """Environment types"""
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
     PRODUCTION = "production"
 
-class LogLevel(str, Enum):
+class LogLevel(StrEnum):
     """Log levels"""
     DEBUG = "DEBUG"
     INFO = "INFO"
