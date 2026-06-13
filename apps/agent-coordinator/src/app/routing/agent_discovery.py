@@ -70,7 +70,7 @@ class AgentInfo:
 class AgentRegistry:
     """Central agent registry for discovery and management"""
 
-    def __init__(self, redis_url: str='redis://localhost:6379/1') -> None:
+    def __init__(self, redis_url: str = 'redis://localhost:6379/1') -> None:
         self.redis_url = redis_url
         self.redis_client: redis.Redis | None = None
         self.agents: dict[str, AgentInfo] = {}
@@ -81,7 +81,7 @@ class AgentRegistry:
         self.cleanup_interval = 60
         self.max_heartbeat_age = 120
 
-    async def start(self) -> Any:
+    async def start(self) -> None:
         """Start the registry service"""
         self.redis_client = redis.from_url(self.redis_url)
         await self._load_agents_from_redis()
@@ -89,7 +89,7 @@ class AgentRegistry:
         asyncio.create_task(self._cleanup_inactive_agents())
         logger.info('Agent registry started')
 
-    async def stop(self) -> Any:
+    async def stop(self) -> None:
         """Stop the registry service"""
         if self.redis_client:
             await self.redis_client.aclose()
@@ -125,7 +125,7 @@ class AgentRegistry:
             logger.error('Error unregistering agent %s: %s', agent_id, e)
             return False
 
-    async def update_agent_status(self, agent_id: str, status: AgentStatus, load_metrics: dict[str, float] | None=None) -> bool:
+    async def update_agent_status(self, agent_id: str, status: AgentStatus, load_metrics: dict[str, float] | None = None) -> bool:
         """Update agent status and metrics"""
         try:
             if agent_id not in self.agents:
