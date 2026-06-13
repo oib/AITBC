@@ -242,7 +242,7 @@ async def request_coins_handler(message: dict[str, Any], connection_manager: Con
         logger.error('Failed to parse coin request: %s', e)
         return {'action': 'coin_request_failed', 'error': str(e)}
 
-def _register_builtin_handlers(connection_manager: ConnectionManager) -> Any:
+def _register_builtin_handlers(connection_manager: ConnectionManager) -> None:
     """Register built-in message handlers"""
     connection_manager.register_handler('PING', ping_handler)
     connection_manager.register_handler('HELLO', hello_handler)
