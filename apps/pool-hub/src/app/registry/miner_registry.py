@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Miner Registry Implementation"""
 
 import asyncio
@@ -45,7 +44,7 @@ class PoolInfo:
     total_hashrate: float = 0.0
     jobs_completed_24h: int = 0
     earnings_24h: float = 0.0
-    created_at: datetime = field(default_factory=datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -57,7 +56,7 @@ class JobAssignment:
     pool_id: str
     model: str
     status: str = "assigned"
-    assigned_at: datetime = field(default_factory=datetime.now(UTC))
+    assigned_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     deadline: datetime | None = None
     completed_at: datetime | None = None
 
@@ -65,7 +64,7 @@ class JobAssignment:
 class MinerRegistry:
     """Registry for managing miners and pools"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._miners: dict[str, MinerInfo] = {}
         self._pools: dict[str, PoolInfo] = {}
         self._jobs: dict[str, JobAssignment] = {}
@@ -135,7 +134,7 @@ class MinerRegistry:
         current_jobs: int = 0,
         gpu_utilization: float = 0.0,
         memory_used_gb: float = 0.0,
-    ):
+    ) -> None:
         """Update miner status."""
         async with self._lock:
             if miner_id in self._miners:
@@ -146,13 +145,13 @@ class MinerRegistry:
                 miner.memory_used_gb = memory_used_gb
                 miner.last_heartbeat = datetime.now(UTC)
 
-    async def update_capabilities(self, miner_id: str, capabilities: builtins.list[str]):
+    async def update_capabilities(self, miner_id: str, capabilities: builtins.list[str]) -> None:
         """Update miner capabilities."""
         async with self._lock:
             if miner_id in self._miners:
                 self._miners[miner_id].capabilities = capabilities
 
-    async def unregister(self, miner_id: str):
+    async def unregister(self, miner_id: str) -> None:
         """Unregister a miner."""
         async with self._lock:
             if miner_id in self._miners:
@@ -224,7 +223,7 @@ class MinerRegistry:
             / max(len(miners), 1),
         }
 
-    async def update_pool(self, pool_id: str, updates: dict[str, Any]):
+    async def update_pool(self, pool_id: str, updates: dict[str, Any]) -> None:
         """Update pool settings."""
         async with self._lock:
             if pool_id in self._pools:
@@ -233,7 +232,7 @@ class MinerRegistry:
                     if hasattr(pool, key):
                         setattr(pool, key, value)
 
-    async def delete_pool(self, pool_id: str):
+    async def delete_pool(self, pool_id: str) -> None:
         """Delete a pool."""
         async with self._lock:
             if pool_id in self._pools:
@@ -266,8 +265,8 @@ class MinerRegistry:
             return assignment
 
     async def complete_job(
-        self, job_id: str, miner_id: str, status: str, metrics: dict[str, Any] = None
-    ):
+        self, job_id: str, miner_id: str, status: str, metrics: dict[str, Any] | None = None
+    ) -> None:
         """Mark a job as complete."""
         async with self._lock:
             if job_id in self._jobs:
@@ -300,7 +299,7 @@ class MinerRegistry:
             jobs = [j for j in jobs if j.pool_id == pool_id]
         return jobs[:limit]
 
-    async def reassign_job(self, job_id: str, new_miner_id: str):
+    async def reassign_job(self, job_id: str, new_miner_id: str) -> None:
         """Reassign a job to a new miner."""
         async with self._lock:
             if job_id not in self._jobs:
