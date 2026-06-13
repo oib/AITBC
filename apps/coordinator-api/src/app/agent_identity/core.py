@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Agent Identity Core Implementation
 Provides unified agent identification and cross-chain compatibility
@@ -74,7 +73,7 @@ class AgentIdentityCore:
         self.session.add(mapping)
         self.session.commit()
         self.session.refresh(mapping)
-        if chain_id not in identity.supported_chains:
+        if str(chain_id) not in identity.supported_chains:
             identity.supported_chains.append(str(chain_id))
             identity.updated_at = datetime.now(UTC)
             self.session.commit()
@@ -227,22 +226,22 @@ class AgentIdentityCore:
         stmt = select(IdentityVerification).where(IdentityVerification.agent_id == identity.agent_id)
         result = self.session.execute(stmt)
         verifications = list(result.scalars().all())
-        stmt = select(AgentWallet).where(AgentWallet.agent_id == identity.agent_id)
-        result = self.session.execute(stmt)
-        wallets = list(result.scalars().all())
+        stmt_wallets = select(AgentWallet).where(AgentWallet.agent_id == identity.agent_id)
+        result_wallets = self.session.execute(stmt_wallets)
+        wallets = list(result_wallets.scalars().all())
         return {'identity': {'id': identity.id, 'agent_id': identity.agent_id, 'status': identity.status, 'verification_level': identity.verification_level, 'reputation_score': identity.reputation_score, 'total_transactions': identity.total_transactions, 'successful_transactions': identity.successful_transactions, 'success_rate': identity.successful_transactions / max(identity.total_transactions, 1), 'created_at': identity.created_at, 'last_activity': identity.last_activity}, 'cross_chain': {'total_mappings': len(mappings), 'verified_mappings': len([m for m in mappings if m.is_verified]), 'supported_chains': [m.chain_id for m in mappings], 'primary_chain': identity.primary_chain}, 'verifications': {'total_verifications': len(verifications), 'pending_verifications': len([v for v in verifications if v.verification_result == 'pending']), 'approved_verifications': len([v for v in verifications if v.verification_result == 'approved']), 'rejected_verifications': len([v for v in verifications if v.verification_result == 'rejected'])}, 'wallets': {'total_wallets': len(wallets), 'active_wallets': len([w for w in wallets if w.is_active]), 'total_balance': sum((w.balance for w in wallets)), 'total_spent': sum((w.total_spent for w in wallets))}}
 
     async def search_identities(self, query: str='', status: IdentityStatus | None=None, verification_level: VerificationType | None=None, chain_id: int | None=None, limit: int=50, offset: int=0) -> list[AgentIdentity]:
         """Search identities with various filters"""
         stmt = select(AgentIdentity)
         if query:
-            stmt = stmt.where(AgentIdentity.display_name.ilike(f'%{query}%') | AgentIdentity.description.ilike(f'%{query}%') | AgentIdentity.agent_id.ilike(f'%{query}%'))
+            stmt = stmt.where(AgentIdentity.display_name.ilike(f'%{query}%') | AgentIdentity.description.ilike(f'%{query}%') | AgentIdentity.agent_id.ilike(f'%{query}%'))  # type: ignore[attr-defined]
         if status:
             stmt = stmt.where(AgentIdentity.status == status)
         if verification_level:
             stmt = stmt.where(AgentIdentity.verification_level == verification_level)
         if chain_id:
-            stmt = stmt.join(CrossChainMapping, AgentIdentity.agent_id == CrossChainMapping.agent_id).where(CrossChainMapping.chain_id == chain_id)
+            stmt = stmt.join(CrossChainMapping, AgentIdentity.agent_id == CrossChainMapping.agent_id).where(CrossChainMapping.chain_id == chain_id)  # type: ignore[arg-type]
         stmt = stmt.offset(offset).limit(limit)
         result = self.session.execute(stmt)
         return list(result.scalars().all())
