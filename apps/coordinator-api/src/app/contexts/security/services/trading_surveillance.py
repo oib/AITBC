@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Trading Surveillance System
 Detects market manipulation, unusual trading patterns, and suspicious activities
@@ -76,7 +75,7 @@ class TradingSurveillance:
         self.monitoring_symbols: dict[str, bool] = {}
         self.thresholds = {'volume_spike_multiplier': 3.0, 'price_change_threshold': 0.15, 'wash_trade_threshold': 0.8, 'spoofing_threshold': 0.9, 'concentration_threshold': 0.6}
         self.is_monitoring = False
-        self.monitoring_task = None
+        self.monitoring_task: asyncio.Task[None] | None = None
 
     async def start_monitoring(self, symbols: list[str]) -> None:
         """Start monitoring trading activities"""
@@ -292,9 +291,9 @@ async def test_trading_surveillance() -> None:
     logger.info('Surveillance started')
     await asyncio.sleep(5)
     alerts = get_alerts()
-    logger.info('Generated alerts', total=alerts['total'])
+    logger.info('Generated alerts: %s', alerts['total'])
     summary = get_surveillance_summary()
-    logger.info('Alert summary', summary=summary)
+    logger.info('Alert summary: %s', summary)
     await stop_surveillance()
     logger.info('Surveillance stopped')
     logger.info('Trading surveillance test complete')
