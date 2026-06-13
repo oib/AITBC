@@ -201,15 +201,14 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - [ ] Run full MyPy check on all apps to verify no regressions
 
 **Phase 3: Documentation (Week 3)**
-- [ ] Update TYPE_CHECKING_GUIDE.md with v0.4.19 progress
-- [ ] Update per-file ignore counts in documentation
-- [ ] Document any patterns discovered during fixes
+- [x] Update TYPE_CHECKING_GUIDE.md with v0.4.19 progress
+- [x] Update per-file ignore counts in documentation
+- [x] Document any patterns discovered during fixes
 - [x] Update RELEASE_v0.4.19.md with MyPy results
 
 **Success Criteria for Agent 2:**
-- ✅ MyPy investigation complete for pool-hub, edge, agent-management
-- ✅ MyPy clean for 2 additional apps (hermes, edge) - ACHIEVED
-- ✅ MyPy partially fixed for pool-hub (3/16 files) - PARTIAL ACHIEVEMENT
+- ✅ MyPy investigation complete for pool-hub, edge, agent-management, wallet
+- ✅ MyPy clean for 4 additional apps (hermes, edge, pool-hub, wallet) - ACHIEVED
 - ✅ Documentation updated with findings
 - ✅ No MyPy regressions in coordinator-api or agent-coordinator
 
@@ -267,6 +266,22 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 ### Documentation
 - `docs/development/TYPE_CHECKING_GUIDE.md` - Update with v0.4.19 progress
 - `docs/releases/RELEASE_v0.4.19.md` - This file
+
+### Patterns Discovered During MyPy Fixes
+
+**Common Type Issues:**
+1. **Missing return type annotations** - Most functions lacked explicit return type annotations
+2. **Relative import resolution** - Many internal relative imports require `type: ignore[import-not-found]`
+3. **FastAPI decorator typing** - FastAPI route handlers often need `type: ignore` for decorator interactions
+4. **External SDK imports** - External libraries without stubs require `type: ignore[import-not-found]`
+5. **Any returns from typed functions** - Functions returning `Any` from typed functions need `type: ignore[no-any-return]`
+
+**Fix Strategies:**
+1. **Return type annotations** - Add explicit return types (e.g., `-> dict`, `-> list`, `-> bool`)
+2. **Specific type ignores** - Use specific error codes instead of per-file ignores
+3. **Circular imports** - Use `Any` type hint to break circular dependencies
+4. **Assignment compatibility** - Cast to appropriate types when needed (e.g., `int()` for float-to-int)
+5. **Unreachable code** - Remove unreachable isinstance checks after type narrowing
 
 ## 📈 Impact Summary
 
