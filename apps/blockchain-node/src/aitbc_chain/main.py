@@ -1,10 +1,11 @@
-# mypy: ignore-errors
 from __future__ import annotations
 import asyncio
 import json
 import os
 from contextlib import asynccontextmanager, AbstractAsyncContextManager
+from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any, cast
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
@@ -27,7 +28,7 @@ def _load_keystore_password() -> str:
     """Load keystore password from file or environment."""
     pwd_file = settings.keystore_password_file
     if pwd_file.exists():
-        return pwd_file.read_text().strip()
+        return cast(str, pwd_file.read_text().strip())
     env_pwd = os.getenv('KEYSTORE_PASSWORD')
     if env_pwd:
         return env_pwd
@@ -123,7 +124,7 @@ class BlockchainNode:
             logger.error('Failed to subscribe to transactions: %s', e)
             return
 
-        async def process_txs():
+        async def process_txs() -> None:
             from .mempool import get_mempool
             from .rpc.utils import normalize_transaction_data
             mempool = get_mempool()
@@ -145,8 +146,8 @@ class BlockchainNode:
                 block_sub = await gossip_broker.subscribe(block_topic)
                 logger.info('Successfully subscribed to %s topic', block_topic)
 
-                async def process_blocks_for_chain(chain_id_param=chain_id, block_sub_param=block_sub):
-                    last_bulk_sync_time = 0
+                async def process_blocks_for_chain(chain_id_param: str = chain_id, block_sub_param: Any = block_sub) -> None:
+                    last_bulk_sync_time = 0.0
                     logger.info('Block processing task started for chain %s', chain_id_param)
                     while True:
                         try:
@@ -275,7 +276,7 @@ class BlockchainNode:
             self._proposers[chain_id] = proposer
             asyncio.create_task(proposer.start())
 
-    async def _periodic_sync_task(self, subscription_client=None) -> None:
+    async def _periodic_sync_task(self, subscription_client: SubscriptionClient | None = None) -> None:
         """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active."""
         chains = self._supported_chains()
         sync_interval = settings.periodic_sync_interval
@@ -314,8 +315,8 @@ class BlockchainNode:
         await lease_tracker.stop()
 
 @asynccontextmanager
-async def node_app() -> AbstractAsyncContextManager[BlockchainNode]:
-    node = BlockchainNode()
+async def node_app() -> AsyncIterator[BlockchainNode]:
+    node: BlockchainNode = BlockchainNode()
     try:
         yield node
     finally:
