@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Dynamic Pricing API Router
 Provides RESTful endpoints for dynamic pricing management
@@ -75,16 +74,16 @@ async def set_pricing_strategy(request: Request, provider_id: str, request_data:
     """Set pricing strategy for a provider"""
     try:
         try:
-            strategy_enum = PricingStrategy(request.strategy.lower())
+            strategy_enum = PricingStrategy(request_data.strategy.lower())
         except ValueError:
-            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f'Invalid strategy: {request.strategy}')
+            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f'Invalid strategy: {request_data.strategy}')
         constraints = None
-        if request.constraints:
-            constraints = PriceConstraints(min_price=request.constraints.get('min_price'), max_price=request.constraints.get('max_price'), max_change_percent=request.constraints.get('max_change_percent', 0.5), min_change_interval=request.constraints.get('min_change_interval', 300), strategy_lock_period=request.constraints.get('strategy_lock_period', 3600))
+        if request_data.constraints:
+            constraints = PriceConstraints(min_price=request_data.constraints.get('min_price'), max_price=request_data.constraints.get('max_price'), max_change_percent=request_data.constraints.get('max_change_percent', 0.5), min_change_interval=request_data.constraints.get('min_change_interval', 300), strategy_lock_period=request_data.constraints.get('strategy_lock_period', 3600))
         success = await engine.set_provider_strategy(provider_id, strategy_enum, constraints)
         if not success:
             raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to set pricing strategy')
-        return PricingStrategyResponse(provider_id=provider_id, strategy=request.strategy, constraints=request.constraints, set_at=datetime.now(UTC).isoformat(), status='active')
+        return PricingStrategyResponse(provider_id=provider_id, strategy=request_data.strategy, constraints=request_data.constraints, set_at=datetime.now(UTC).isoformat(), status='active')
     except HTTPException:
         raise
     except Exception as e:
@@ -132,8 +131,8 @@ async def get_market_analysis(request: Request, region: str=Query(default='globa
         market_data = await collector.get_aggregated_data(resource_type, region)
         if not market_data:
             raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f'No market data available for {resource_type} in {region}')
-        await collector.get_recent_data('gpu_metrics', 60)
-        recent_booking_data = await collector.get_recent_data('booking_data', 60)
+        await collector.get_recent_data('gpu_metrics', 60)  # type: ignore[arg-type]
+        recent_booking_data = await collector.get_recent_data('booking_data', 60)  # type: ignore[arg-type]
         demand_trend = 'stable'
         supply_trend = 'stable'
         price_trend = 'stable'
@@ -233,7 +232,7 @@ async def bulk_pricing_update(request: Request, request_data: BulkPricingUpdateR
         results = []
         success_count = 0
         error_count = 0
-        for update in request.updates:
+        for update in request_data.updates:
             try:
                 strategy_enum = PricingStrategy(update.strategy.lower())
                 constraints = None
@@ -249,7 +248,7 @@ async def bulk_pricing_update(request: Request, request_data: BulkPricingUpdateR
             except Exception as e:
                 error_count += 1
                 results.append({'provider_id': update.provider_id, 'status': 'error', 'message': str(e)})
-        return BulkPricingUpdateResponse(total_updates=len(request.updates), success_count=success_count, error_count=error_count, results=results, processed_at=datetime.now(UTC).isoformat())
+        return BulkPricingUpdateResponse(total_updates=len(request_data.updates), success_count=success_count, error_count=error_count, results=results, processed_at=datetime.now(UTC).isoformat())
     except Exception as e:
         raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Failed to process bulk update: {str(e)}')
 
