@@ -1,11 +1,15 @@
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from .. import state
 from ..models import AgentRegistrationRequest, AgentStatusUpdate
 from ..routing.agent_discovery import create_agent_info
+
 logger = get_logger(__name__)
 router = APIRouter()
 
@@ -20,7 +24,7 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
             agent_info = create_agent_info(agent_id=request.agent_id, agent_type=request.agent_type, capabilities=request.capabilities, services=request.services, endpoints=request.endpoints)
             agent_info.metadata = request.metadata
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise HTTPException(status_code=422, detail=str(e)) from None
         success = await state.agent_registry.register_agent(agent_info)
         if success:
             return {'status': 'success', 'message': f'Agent {request.agent_id} registered successfully', 'agent_id': request.agent_id, 'registered_at': datetime.now(UTC).isoformat()}
@@ -30,7 +34,7 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
         raise
     except Exception as e:
         logger.error('Error registering agent: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/agents/discover')
 @rate_limit(rate=200, per=60)
@@ -43,7 +47,7 @@ async def discover_agents(request: Request, query: dict[str, Any]) -> dict[str, 
         return {'status': 'success', 'query': query, 'agents': [agent.to_dict() for agent in agents], 'count': len(agents), 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error('Error discovering agents: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get('/agents/{agent_id}')
 @rate_limit(rate=200, per=60)
@@ -60,7 +64,7 @@ async def get_agent(request: Request, agent_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error('Error getting agent: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.put('/agents/{agent_id}/status')
 @rate_limit(rate=50, per=60)
@@ -77,7 +81,7 @@ async def update_agent_status(request: Request, agent_id: str, request_status: A
             raise HTTPException(status_code=500, detail='Failed to update agent status')
     except Exception as e:
         logger.error('Error updating agent status: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post('/agents/{agent_id}/heartbeat')
 @rate_limit(rate=100, per=60)
@@ -96,4 +100,4 @@ async def agent_heartbeat(request: Request, agent_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error('Error processing heartbeat: %s', e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
