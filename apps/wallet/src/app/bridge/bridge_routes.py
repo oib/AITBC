@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
@@ -14,7 +13,7 @@ router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
 
 
 @router.get("/price")
-async def get_price():
+async def get_price() -> dict:
     """
     Get current ETH-AIT exchange rate.
     """
@@ -33,7 +32,7 @@ async def get_price():
 
 
 @router.get("/deposits")
-async def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0):
+async def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict:
     """
     List ETH deposits.
     
@@ -54,7 +53,7 @@ async def list_deposits(status: str | None = None, limit: int = 50, offset: int 
 
 
 @router.get("/deposits/{deposit_id}")
-async def get_deposit(deposit_id: str):
+async def get_deposit(deposit_id: str) -> dict:
     """
     Get a specific deposit by ID.
     """
@@ -68,7 +67,7 @@ async def get_deposit(deposit_id: str):
 
 
 @router.post("/deposits/{deposit_id}/verify")
-async def verify_deposit(deposit_id: str):
+async def verify_deposit(deposit_id: str) -> dict:
     """
     Verify a deposit (admin operation).
     """
@@ -93,7 +92,7 @@ async def verify_deposit(deposit_id: str):
 
 
 @router.post("/deposits/{deposit_id}/complete")
-async def complete_deposit(deposit_id: str):
+async def complete_deposit(deposit_id: str) -> dict:
     """
     Mark a deposit as completed after AIT minting (admin operation).
     """
@@ -118,7 +117,7 @@ async def complete_deposit(deposit_id: str):
 
 
 @router.get("/calculate")
-async def calculate_exchange(eth_amount: float):
+async def calculate_exchange(eth_amount: float) -> dict:
     """
     Calculate AIT amount for a given ETH amount.
     
@@ -141,7 +140,7 @@ async def calculate_exchange(eth_amount: float):
 
 
 @router.get("/history")
-async def get_price_history():
+async def get_price_history() -> dict:
     """
     Get price history and all-time averages.
     """
@@ -192,7 +191,7 @@ async def get_price_history():
 
 
 @router.get("/status")
-async def get_bridge_status():
+async def get_bridge_status() -> dict:
     """
     Get bridge service status.
     """

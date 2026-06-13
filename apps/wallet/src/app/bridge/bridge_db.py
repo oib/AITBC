@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 ETH-AIT Bridge Database
 SQLite database for tracking ETH deposits and AIT minting operations.
@@ -11,7 +10,7 @@ from datetime import datetime
 DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
 
 
-def init_db():
+def init_db() -> None:
     """Initialize the bridge database with required tables."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
@@ -184,7 +183,7 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict]:
     ]
 
 
-def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: float, exchange_rate_eur: float):
+def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: float, exchange_rate_eur: float) -> None:
     """Insert a new price history record."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -201,7 +200,7 @@ def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: floa
     conn.close()
 
 
-def get_all_time_average() -> dict:
+def get_all_time_average() -> dict | None:
     """Get all-time average prices from history."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -231,7 +230,7 @@ def get_all_time_average() -> dict:
     return None
 
 
-def cleanup_old_prices(days: int = 30):
+def cleanup_old_prices(days: int = 30) -> int:
     """Clean up price history older than specified days."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
