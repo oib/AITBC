@@ -49,7 +49,7 @@ class PeerInfo:
 class HubManager:
     """Manages hub operations for federated mesh"""
 
-    def __init__(self, local_node_id: str, local_address: str, local_port: int, island_id: str, island_name: str, redis_url: str | None=None):
+    def __init__(self, local_node_id: str, local_address: str, local_port: int, island_id: str, island_name: str, redis_url: str | None=None) -> None:
         self.local_node_id = local_node_id
         self.local_address = local_address
         self.local_port = local_port
@@ -67,7 +67,7 @@ class HubManager:
         self._redis = None
         self.island_peers[self.island_id] = set()
 
-    async def _connect_redis(self):
+    async def _connect_redis(self) -> bool:
         """Connect to Redis"""
         try:
             import redis.asyncio as redis
@@ -182,7 +182,8 @@ class HubManager:
             for node_id, peer_info in self.peer_registry.items():
                 if peer_info.island_id == self.island_id:
                     members.append({'node_id': peer_info.node_id, 'address': peer_info.address, 'port': peer_info.port, 'is_hub': peer_info.is_hub, 'public_address': peer_info.public_address, 'public_port': peer_info.public_port})
-            members.append({'node_id': self.local_node_id, 'address': self.local_address, 'port': self.local_port, 'is_hub': True, 'public_address': self.known_hubs.get(self.local_node_id, {}).public_address if self.local_node_id in self.known_hubs else None, 'public_port': self.known_hubs.get(self.local_node_id, {}).public_port if self.local_node_id in self.known_hubs else None})
+            local_hub_info = self.known_hubs.get(self.local_node_id)
+            members.append({'node_id': self.local_node_id, 'address': self.local_address, 'port': self.local_port, 'is_hub': True, 'public_address': local_hub_info.public_address if local_hub_info else None, 'public_port': local_hub_info.public_port if local_hub_info else None})
             credentials = self._get_blockchain_credentials()
             response = {'type': 'join_response', 'island_id': self.island_id, 'island_name': self.island_name, 'island_chain_id': self.island_chain_id or f'ait-{self.island_id[:8]}', 'members': members, 'credentials': credentials}
             logger.info('Sent join_response to node %s with %s members', join_request.get('node_id'), len(members))
@@ -190,77 +191,6 @@ class HubManager:
         except Exception as e:
             logger.error('Error handling join request: %s', e)
             return None
-
-    def register_gpu_offer(self, offer_data: dict) -> bool:
-        """Register a GPU marketplace offer in the hub"""
-        try:
-            offer_id = offer_data.get('offer_id')
-            if offer_id:
-                self.gpu_offers[offer_id] = offer_data
-                logger.info('Registered GPU offer: %s', offer_id)
-                return True
-        except Exception as e:
-            logger.error('Error registering GPU offer: %s', e)
-        return False
-
-    def register_gpu_bid(self, bid_data: dict) -> bool:
-        """Register a GPU marketplace bid in the hub"""
-        try:
-            bid_id = bid_data.get('bid_id')
-            if bid_id:
-                self.gpu_bids[bid_id] = bid_data
-                logger.info('Registered GPU bid: %s', bid_id)
-                return True
-        except Exception as e:
-            logger.error('Error registering GPU bid: %s', e)
-        return False
-
-    def register_gpu_provider(self, node_id: str, gpu_info: dict) -> bool:
-        """Register a GPU provider in the hub"""
-        try:
-            self.gpu_providers[node_id] = gpu_info
-            logger.info('Registered GPU provider: %s', node_id)
-            return True
-        except Exception as e:
-            logger.error('Error registering GPU provider: %s', e)
-        return False
-
-    def register_exchange_order(self, order_data: dict) -> bool:
-        """Register an exchange order in the hub"""
-        try:
-            order_id = order_data.get('order_id')
-            if order_id:
-                self.exchange_orders[order_id] = order_data
-                pair = order_data.get('pair')
-                side = order_data.get('side')
-                if pair and side:
-                    if pair not in self.exchange_order_books:
-                        self.exchange_order_books[pair] = {'bids': [], 'asks': []}
-                    if side == 'buy':
-                        self.exchange_order_books[pair]['bids'].append(order_data)
-                    elif side == 'sell':
-                        self.exchange_order_books[pair]['asks'].append(order_data)
-                logger.info('Registered exchange order: %s', order_id)
-                return True
-        except Exception as e:
-            logger.error('Error registering exchange order: %s', e)
-        return False
-
-    def get_gpu_offers(self) -> list:
-        """Get all GPU offers"""
-        return list(self.gpu_offers.values())
-
-    def get_gpu_bids(self) -> list:
-        """Get all GPU bids"""
-        return list(self.gpu_bids.values())
-
-    def get_gpu_providers(self) -> list:
-        """Get all GPU providers"""
-        return list(self.gpu_providers.values())
-
-    def get_exchange_order_book(self, pair: str) -> dict:
-        """Get order book for a specific trading pair"""
-        return self.exchange_order_books.get(pair, {'bids': [], 'asks': []})
 
     async def register_as_hub(self, public_address: str | None=None, public_port: int | None=None) -> bool:
         """Register this node as a hub"""
@@ -359,14 +289,14 @@ class HubManager:
         """Get information about a specific peer"""
         return self.peer_registry.get(node_id)
 
-    def update_peer_last_seen(self, node_id: str):
+    def update_peer_last_seen(self, node_id: str) -> None:
         """Update the last seen time for a peer"""
         if node_id in self.peer_registry:
             self.peer_registry[node_id].last_seen = time.time()
         if node_id in self.known_hubs:
             self.known_hubs[node_id].last_seen = time.time()
 
-    async def start(self):
+    async def start(self) -> None:
         """Start hub manager"""
         self.running = True
         logger.info('Starting hub manager for node %s', self.local_node_id)
@@ -378,12 +308,12 @@ class HubManager:
         finally:
             self.running = False
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop hub manager"""
         self.running = False
         logger.info('Stopping hub manager')
 
-    async def _hub_health_check(self):
+    async def _hub_health_check(self) -> None:
         """Check health of known hubs"""
         while self.running:
             try:
@@ -401,7 +331,7 @@ class HubManager:
                 logger.error('Hub health check error: %s', e)
                 await asyncio.sleep(10)
 
-    async def _peer_cleanup(self):
+    async def _peer_cleanup(self) -> None:
         """Clean up stale peer entries"""
         while self.running:
             try:
