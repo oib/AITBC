@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 
 from sqlalchemy.orm import Session
@@ -33,7 +32,7 @@ from ..storage import get_session
 
 # Placeholder for service_registry - to be properly imported when module structure is fixed
 class MockServiceRegistry:
-    def get_service(self, service_type):
+    def get_service(self, service_type: str) -> None:
         return None
 
 service_registry = MockServiceRegistry()
@@ -71,8 +70,8 @@ async def submit_service_job(
     response.headers["X-Deprecation-Message"] = "Use /v1/registry/services/{service_id} instead"
 
     # Check if service exists in registry
-    service = service_registry.get_service(service_type.value)  # type: ignore[name-defined]
-    if not service:
+    service = service_registry.get_service(service_type.value)
+    if not service:  # type: ignore[unreachable]
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
     # Validate request against service schema
@@ -463,8 +462,8 @@ async def get_service_schema(request: Request, service_type: ServiceType) -> dic
     This endpoint will be removed in version 2.0.
     """
     # Get service from registry
-    service = service_registry.get_service(service_type.value)  # type: ignore[name-defined]
-    if not service:
+    service = service_registry.get_service(service_type.value)
+    if not service:  # type: ignore[unreachable]
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
     # Build schema from service definition
@@ -496,8 +495,8 @@ async def get_service_schema(request: Request, service_type: ServiceType) -> dic
 
 async def validate_service_request(service_id: str, request_data: dict[str, Any]) -> dict[str, Any]:
     """Validate a service request against the service schema"""
-    service = service_registry.get_service(service_id)  # type: ignore[name-defined]
-    if not service:
+    service = service_registry.get_service(service_id)
+    if not service:  # type: ignore[unreachable]
         return {"valid": False, "errors": [f"Service {service_id} not found"]}
 
     validation_result = {"valid": True, "errors": [], "warnings": []}
@@ -509,7 +508,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
 
     if missing_params:
         validation_result["valid"] = False
-        validation_result["errors"].extend([f"Missing required parameter: {param}" for param in missing_params])  # type: ignore[attr-defined]
+        validation_result["errors"].extend([f"Missing required parameter: {param}" for param in missing_params])
 
     # Validate parameter types and constraints
     for param in service.input_parameters:
@@ -519,30 +518,30 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
             # Type validation (simplified)
             if param.type == "integer" and not isinstance(value, int):
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be an integer")  # type: ignore[attr-defined]
+                validation_result["errors"].append(f"Parameter {param.name} must be an integer")
             elif param.type == "float" and not isinstance(value, (int, float)):
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be a number")  # type: ignore[attr-defined]
+                validation_result["errors"].append(f"Parameter {param.name} must be a number")
             elif param.type == "boolean" and not isinstance(value, bool):
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be a boolean")  # type: ignore[attr-defined]
+                validation_result["errors"].append(f"Parameter {param.name} must be a boolean")
             elif param.type == "array" and not isinstance(value, list):
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be an array")  # type: ignore[attr-defined]
+                validation_result["errors"].append(f"Parameter {param.name} must be an array")
 
             # Value constraints
             if param.min_value is not None and value < param.min_value:
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be >= {param.min_value}")  # type: ignore[attr-defined]
+                validation_result["errors"].append(f"Parameter {param.name} must be >= {param.min_value}")
 
             if param.max_value is not None and value > param.max_value:
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be <= {param.max_value}")  # type: ignore[attr-defined]
+                validation_result["errors"].append(f"Parameter {param.name} must be <= {param.max_value}")
 
             # Enum options
             if param.options and value not in param.options:
                 validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be one of: {', '.join(param.options)}")  # type: ignore[attr-defined]
+                validation_result["errors"].append(f"Parameter {param.name} must be one of: {', '.join(param.options)}")
 
     return validation_result
 
