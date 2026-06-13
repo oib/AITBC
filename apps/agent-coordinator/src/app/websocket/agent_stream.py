@@ -21,7 +21,7 @@ class ConnectionManager:
         self.message_handlers: dict[str, list[Callable]] = {}
         self.agent_inboxes: dict[str, list[dict[str, Any]]] = {}
 
-    async def connect(self, websocket: WebSocket, agent_id: str) -> Any:
+    async def connect(self, websocket: WebSocket, agent_id: str) -> None:
         """Accept a WebSocket connection from an agent"""
         await websocket.accept()
         self.active_connections[agent_id] = websocket
@@ -30,7 +30,7 @@ class ConnectionManager:
         logger.info('Agent %s connected via WebSocket', agent_id)
         await websocket.send_json({'type': 'connection_established', 'agent_id': agent_id, 'timestamp': datetime.now(UTC).isoformat(), 'message': 'WebSocket listener active - handlers will be triggered in real-time'})
 
-    def disconnect(self, agent_id: str) -> Any:
+    def disconnect(self, agent_id: str) -> None:
         """Remove agent connection"""
         if agent_id in self.active_connections:
             del self.active_connections[agent_id]
@@ -41,7 +41,7 @@ class ConnectionManager:
             del self.agent_topics[agent_id]
         logger.info('Agent %s disconnected from WebSocket', agent_id)
 
-    async def send_personal_message(self, message: dict[str, Any], agent_id: str) -> Any:
+    async def send_personal_message(self, message: dict[str, Any], agent_id: str) -> bool:
         """Send a message to a specific agent"""
         if agent_id in self.active_connections:
             try:
@@ -54,7 +54,7 @@ class ConnectionManager:
                 return False
         return False
 
-    async def broadcast(self, message: dict[str, Any], topic: str | None=None) -> Any:
+    async def broadcast(self, message: dict[str, Any], topic: str | None = None) -> None:
         """Broadcast message to all agents or topic subscribers"""
         if topic:
             recipients = self.topic_subscriptions.get(topic, set())
@@ -65,7 +65,7 @@ class ConnectionManager:
                 await self.send_personal_message(message, agent_id)
         logger.info('Broadcast message to %s agents (topic: %s)', len(recipients), topic)
 
-    async def subscribe(self, agent_id: str, topic: str) -> Any:
+    async def subscribe(self, agent_id: str, topic: str) -> None:
         """Subscribe agent to topic"""
         if agent_id not in self.agent_topics:
             self.agent_topics[agent_id] = set()
@@ -75,7 +75,7 @@ class ConnectionManager:
         self.topic_subscriptions[topic].add(agent_id)
         logger.info('Agent %s subscribed to topic %s', agent_id, topic)
 
-    async def unsubscribe(self, agent_id: str, topic: str) -> Any:
+    async def unsubscribe(self, agent_id: str, topic: str) -> None:
         """Unsubscribe agent from topic"""
         if agent_id in self.agent_topics:
             self.agent_topics[agent_id].discard(topic)
@@ -91,7 +91,7 @@ class ConnectionManager:
         """Get subscribers for a topic"""
         return self.topic_subscriptions.get(topic, set())
 
-    def register_handler(self, message_type: str, handler: Callable) -> Any:
+    def register_handler(self, message_type: str, handler: Callable) -> None:
         """Register a message handler for specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
@@ -120,7 +120,7 @@ class ConnectionManager:
                 results.append({'handler': handler.__name__, 'error': str(e), 'success': False})
         return {'message_type': message_type, 'handlers_triggered': len(handlers), 'results': results}
 
-    async def deliver_queued_messages(self, agent_id: str) -> Any:
+    async def deliver_queued_messages(self, agent_id: str) -> None:
         """Deliver queued messages when agent connects"""
         if agent_id in self.agent_inboxes and self.agent_inboxes[agent_id]:
             queued_messages = self.agent_inboxes[agent_id].copy()
@@ -135,7 +135,7 @@ class AgentStreamHandler:
     def __init__(self, connection_manager: ConnectionManager) -> None:
         self.connection_manager = connection_manager
 
-    async def handle_message_stream(self, websocket: WebSocket, agent_id: str) -> Any:
+    async def handle_message_stream(self, websocket: WebSocket, agent_id: str) -> None:
         """Handle WebSocket message stream for an agent"""
         await self.connection_manager.connect(websocket, agent_id)
         await self.connection_manager.deliver_queued_messages(agent_id)
@@ -176,7 +176,7 @@ class AgentStreamHandler:
             logger.error('Error in message stream for %s: %s', agent_id, e)
             self.connection_manager.disconnect(agent_id)
 
-    async def handle_presence_stream(self, websocket: WebSocket, agent_id: str) -> Any:
+    async def handle_presence_stream(self, websocket: WebSocket, agent_id: str) -> None:
         """Handle WebSocket presence stream for an agent"""
         await self.connection_manager.connect(websocket, agent_id)
         try:
