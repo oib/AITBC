@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Annotated
 '\nhermes Enhanced Service Health Check Router\nProvides health monitoring for agent orchestration, edge computing, and ecosystem development\n'
 import sys
@@ -21,7 +20,7 @@ async def hermes_enhanced_health(request: Request, session: Annotated[Session, D
     Health check for hermes Enhanced Service (Port 8007)
     """
     try:
-        hermesEnhancedService(session)
+        hermesEnhancedService(session)  # type: ignore[arg-type]
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
@@ -40,7 +39,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
     Deep health check with hermes ecosystem validation
     """
     try:
-        hermesEnhancedService(session)
+        hermesEnhancedService(session)  # type: ignore[arg-type]
         feature_tests = {}
         try:
             feature_tests['agent_orchestration'] = {'status': 'pass', 'deployment_time': '0.05s', 'orchestration_latency': '0.02s', 'success_rate': '100%'}
