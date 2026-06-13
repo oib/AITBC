@@ -16,13 +16,13 @@ class MessageStorage:
         self.redis_url = redis_url
         self.redis: redis.Redis | None = None
 
-    async def start(self) -> Any:
+    async def start(self) -> None:
         """Connect to Redis"""
         import redis.asyncio as redis
         self.redis = await redis.from_url(self.redis_url, decode_responses=True)
         logger.info('Message storage connected to Redis')
 
-    async def stop(self) -> Any:
+    async def stop(self) -> None:
         """Close Redis connection"""
         if self.redis:
             await self.redis.aclose()
@@ -72,7 +72,7 @@ class MessageStorage:
             logger.error('Error retrieving message %s: %s', message_id, e)
             return None
 
-    async def get_messages_by_sender(self, sender_id: str, limit: int=100, offset: int=0) -> list[dict[str, Any]]:
+    async def get_messages_by_sender(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         try:
             message_ids = await self.redis.smembers(f'messages:sender:{sender_id}')
@@ -88,7 +88,7 @@ class MessageStorage:
             logger.error('Error retrieving messages for sender %s: %s', sender_id, e)
             return []
 
-    async def get_messages_by_receiver(self, receiver_id: str, limit: int=100, offset: int=0) -> list[dict[str, Any]]:
+    async def get_messages_by_receiver(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         try:
             message_ids = await self.redis.smembers(f'messages:receiver:{receiver_id}')
@@ -104,7 +104,7 @@ class MessageStorage:
             logger.error('Error retrieving messages for receiver %s: %s', receiver_id, e)
             return []
 
-    async def get_all_messages(self, limit: int=100, offset: int=0) -> list[dict[str, Any]]:
+    async def get_all_messages(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get all messages with pagination"""
         try:
             message_ids = await self.redis.zrevrange('messages:timestamp', offset, offset + limit - 1)
@@ -147,19 +147,19 @@ class PeerStorage:
         self.redis_url = redis_url
         self.redis: redis.Redis | None = None
 
-    async def start(self) -> Any:
+    async def start(self) -> None:
         """Connect to Redis"""
         import redis.asyncio as redis
         self.redis = await redis.from_url(self.redis_url, decode_responses=True)
         logger.info('Peer storage connected to Redis')
 
-    async def stop(self) -> Any:
+    async def stop(self) -> None:
         """Close Redis connection"""
         if self.redis:
             await self.redis.aclose()
             logger.info('Peer storage disconnected from Redis')
 
-    async def add_peer(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None=None) -> bool:
+    async def add_peer(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
         """Add a peer connection for an agent"""
         try:
             await self.redis.sadd(f'peers:{agent_id}', peer_id)
