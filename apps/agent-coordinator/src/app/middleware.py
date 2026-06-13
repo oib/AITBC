@@ -2,7 +2,7 @@ import time
 from typing import Any
 
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.middleware.base import RequestResponseEndpoint
 
 from .auth.middleware import security_headers
 from .monitoring.prometheus_metrics import performance_monitor
