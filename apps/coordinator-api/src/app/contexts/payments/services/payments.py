@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from __future__ import annotations
 from typing import Annotated
 from fastapi import Depends
@@ -46,7 +45,7 @@ class PaymentService:
             logger.error('Failed to create payment: %s', e)
             raise
 
-    async def _create_token_escrow(self, payment: JobPayment) -> None:
+    async def _create_token_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
         """Create an escrow for AITBC token payments"""
         try:
             client = AITBCHTTPClient(timeout=10.0)
@@ -61,12 +60,15 @@ class PaymentService:
                 self.session.add(escrow)
             self.session.commit()
             logger.info('Created AITBC token escrow for payment %s', payment.id)
+            return escrow
         except NetworkError as e:
             logger.warning('Token escrow endpoint not available: %s', e)
+            return None
         except Exception as e:
             logger.warning('Token escrow creation failed: %s', e)
+            return None
 
-    async def _create_bitcoin_escrow(self, payment: JobPayment) -> None:
+    async def _create_bitcoin_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
         """Create an escrow for Bitcoin payments (exchange only)"""
         try:
             client = AITBCHTTPClient(timeout=30.0)
@@ -81,16 +83,19 @@ class PaymentService:
                     self.session.add(escrow)
                 self.session.commit()
                 logger.info('Created Bitcoin escrow for payment %s', payment.id)
+                return escrow
             except NetworkError as e:
                 logger.error('Failed to create Bitcoin escrow: %s', e)
                 payment.status = 'failed'
                 payment.updated_at = datetime.now(UTC)
                 self.session.commit()
+                return None
         except Exception as e:
             logger.error('Error creating Bitcoin escrow: %s', e)
             payment.status = 'failed'
             payment.updated_at = datetime.now(UTC)
             self.session.commit()
+            return None
 
     async def release_payment(self, job_id: str, payment_id: str, reason: str | None=None) -> bool:
         """Release payment from escrow to miner"""
