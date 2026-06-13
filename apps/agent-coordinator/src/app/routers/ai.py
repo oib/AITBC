@@ -31,7 +31,7 @@ async def get_learning_statistics(request: Request) -> dict[str, Any]:
 
 @router.post('/ai/learning/predict')
 @rate_limit(rate=100, per=60)
-async def predict_performance(request: Request, context: dict[str, Any], action: str=Query(...)) -> dict[str, Any]:
+async def predict_performance(request: Request, context: dict[str, Any], action: str = Query(...)) -> dict[str, Any]:
     """Predict performance for a given action"""
     try:
         result = await learning_system.predict_performance(context, action)
@@ -64,7 +64,7 @@ async def create_neural_network(request: Request, config: dict[str, Any]) -> dic
 
 @router.post('/ai/neural-network/{network_id}/train')
 @rate_limit(rate=50, per=60)
-async def train_neural_network(request: Request, network_id: str, training_data: list[dict[str, Any]], epochs: int=100) -> dict[str, Any]:
+async def train_neural_network(request: Request, network_id: str, training_data: list[dict[str, Any]], epochs: int = 100) -> dict[str, Any]:
     """Train a neural network"""
     try:
         result = await ai_integration.train_neural_network(network_id, training_data, epochs)
