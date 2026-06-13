@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Network Recovery Mechanisms
 Implements automatic network healing and recovery procedures
@@ -16,16 +15,16 @@ from .partition import NetworkPartitionManager, PartitionState
 
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
 
-def log_warn(msg: str):
+def log_warn(msg: str) -> None:
     logger.warning(msg)
 
-def log_debug(msg: str):
+def log_debug(msg: str) -> None:
     logger.debug(msg)
 
 class RecoveryStrategy(Enum):
@@ -67,7 +66,7 @@ class NetworkRecoveryManager:
         self.recovery_timeout = 300  # 5 minutes
         self.emergency_threshold = 0.1  # 10% of network remaining
 
-    async def start_recovery_service(self):
+    async def start_recovery_service(self) -> None:
         """Start network recovery service"""
         self.running = True
         log_info("Starting network recovery service")
@@ -82,26 +81,28 @@ class NetworkRecoveryManager:
                 log_error(f"Recovery service error: {e}")
                 await asyncio.sleep(10)
 
-    async def stop_recovery_service(self):
+    async def stop_recovery_service(self) -> None:
         """Stop network recovery service"""
         self.running = False
         log_info("Stopping network recovery service")
 
     async def trigger_recovery(self, trigger: RecoveryTrigger, target_node: str | None = None,
-                             metadata: dict = None):
+                             metadata: dict | None = None) -> None:
         """Trigger recovery procedure"""
         log_info(f"Recovery triggered: {trigger.value}")
 
         if trigger == RecoveryTrigger.PARTITION_DETECTED:
             await self._handle_partition_recovery()
         elif trigger == RecoveryTrigger.HIGH_LATENCY:
-            await self._handle_latency_recovery(target_node)
+            if target_node:
+                await self._handle_latency_recovery(target_node)
         elif trigger == RecoveryTrigger.PEER_FAILURE:
-            await self._handle_peer_failure_recovery(target_node)
+            if target_node:
+                await self._handle_peer_failure_recovery(target_node)
         elif trigger == RecoveryTrigger.MANUAL:
-            await self._handle_manual_recovery(target_node, metadata)
+            await self._handle_manual_recovery(target_node, metadata or {})
 
-    async def _handle_partition_recovery(self):
+    async def _handle_partition_recovery(self) -> None:
         """Handle partition recovery"""
         log_info("Starting partition recovery")
 
@@ -112,7 +113,7 @@ class NetworkRecoveryManager:
             # Create recovery actions for partition
             await self._create_partition_recovery_actions(partition_status)
 
-    async def _create_partition_recovery_actions(self, partition_status: dict):
+    async def _create_partition_recovery_actions(self, partition_status: dict) -> None:
         """Create recovery actions for partition"""
         local_partition_size = self.partition_manager.get_local_partition_size()
 
@@ -122,7 +123,7 @@ class NetworkRecoveryManager:
         else:
             await self._create_standard_recovery_actions()
 
-    async def _create_emergency_recovery_actions(self):
+    async def _create_emergency_recovery_actions(self) -> None:
         """Create emergency recovery actions"""
         log_warn("Creating emergency recovery actions")
 
@@ -151,7 +152,7 @@ class NetworkRecoveryManager:
         )
         self.recovery_actions.append(action)
 
-    async def _create_standard_recovery_actions(self):
+    async def _create_standard_recovery_actions(self) -> None:
         """Create standard recovery actions"""
         # Reconnect to recently lost peers
         health_status = self.health_monitor.get_all_health_status()
@@ -171,7 +172,7 @@ class NetworkRecoveryManager:
                     )
                     self.recovery_actions.append(action)
 
-    async def _handle_latency_recovery(self, target_node: str):
+    async def _handle_latency_recovery(self, target_node: str) -> None:
         """Handle high latency recovery"""
         log_info(f"Starting latency recovery for node {target_node}")
 
@@ -187,7 +188,7 @@ class NetworkRecoveryManager:
         )
         self.recovery_actions.append(action)
 
-    async def _handle_peer_failure_recovery(self, target_node: str):
+    async def _handle_peer_failure_recovery(self, target_node: str) -> None:
         """Handle peer failure recovery"""
         log_info(f"Starting peer failure recovery for node {target_node}")
 
@@ -203,7 +204,7 @@ class NetworkRecoveryManager:
         )
         self.recovery_actions.append(action)
 
-    async def _handle_manual_recovery(self, target_node: str | None, metadata: dict):
+    async def _handle_manual_recovery(self, target_node: str | None, metadata: dict) -> None:
         """Handle manual recovery"""
         recovery_type = metadata.get('type', 'standard')
 
@@ -214,7 +215,7 @@ class NetworkRecoveryManager:
         elif recovery_type == 'bootstrap_only':
             await self._bootstrap_only_recovery()
 
-    async def _process_recovery_actions(self):
+    async def _process_recovery_actions(self) -> None:
         """Process pending recovery actions"""
         # Sort actions by priority
         sorted_actions = sorted(
@@ -273,7 +274,7 @@ class NetworkRecoveryManager:
             log_error(f"Bootstrap connect failed to {address}:{port}: {e}")
             return False
 
-    async def _execute_alternative_discovery(self) -> bool:
+    async def _execute_alternative_discovery(self, action: RecoveryAction) -> bool:
         """Execute alternative discovery action"""
         try:
             # Try multicast discovery
@@ -329,8 +330,9 @@ class NetworkRecoveryManager:
         replacement = await self._find_replacement_peer()
 
         if replacement:
-            # Remove failed peer
-            await self.discovery._remove_peer(action.target_node, "Peer replacement")
+            # Remove failed peer from discovery peers dict
+            if action.target_node in self.discovery.peers:
+                del self.discovery.peers[action.target_node]
 
             # Add replacement peer
             success = await self.discovery._connect_to_peer(replacement[0], replacement[1])
@@ -351,7 +353,7 @@ class NetworkRecoveryManager:
 
         return None
 
-    async def _monitor_network_health(self):
+    async def _monitor_network_health(self) -> None:
         """Monitor network health for recovery triggers"""
         # Check for high latency
         health_status = self.health_monitor.get_all_health_status()
@@ -360,7 +362,7 @@ class NetworkRecoveryManager:
             if health.latency_ms > 2000:  # 2 seconds
                 await self.trigger_recovery(RecoveryTrigger.HIGH_LATENCY, node_id)
 
-    async def _adaptive_strategy_adjustment(self):
+    async def _adaptive_strategy_adjustment(self) -> None:
         """Adjust recovery strategy based on network conditions"""
         if self.recovery_strategy != RecoveryStrategy.ADAPTIVE:
             return
@@ -379,7 +381,7 @@ class NetworkRecoveryManager:
             self.recovery_strategy = RecoveryStrategy.AGGRESSIVE
             log_info("Switching to aggressive recovery strategy")
 
-    async def _force_reconnect(self, target_node: str | None):
+    async def _force_reconnect(self, target_node: str | None) -> None:
         """Force reconnection to specific node or all nodes"""
         if target_node:
             peer = self.discovery.peers.get(target_node)
@@ -390,7 +392,7 @@ class NetworkRecoveryManager:
             for peer in self.discovery.get_peer_list():
                 await self.discovery._connect_to_peer(peer.address, peer.port)
 
-    async def _reset_network(self):
+    async def _reset_network(self) -> None:
         """Reset network connections"""
         log_warn("Resetting network connections")
 
@@ -400,7 +402,7 @@ class NetworkRecoveryManager:
         # Restart discovery
         await self.discovery._connect_to_bootstrap_nodes()
 
-    async def _bootstrap_only_recovery(self):
+    async def _bootstrap_only_recovery(self) -> None:
         """Recover using bootstrap nodes only"""
         log_info("Starting bootstrap-only recovery")
 
@@ -411,12 +413,12 @@ class NetworkRecoveryManager:
         for address, port in self.discovery.bootstrap_nodes:
             await self.discovery._connect_to_peer(address, port)
 
-    async def _multicast_discovery(self):
+    async def _multicast_discovery(self) -> None:
         """Multicast discovery implementation"""
         # Implementation would use UDP multicast
         log_debug("Executing multicast discovery")
 
-    async def _dns_discovery(self):
+    async def _dns_discovery(self) -> None:
         """DNS discovery implementation"""
         # Implementation would query DNS records
         log_debug("Executing DNS discovery")
