@@ -5,8 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 from .. import state
-from ..auth.middleware import get_current_user, require_role
-from ..auth.permissions import Role
+from ..auth.middleware import get_current_user
 from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
 logger = get_logger(__name__)
 router = APIRouter()
