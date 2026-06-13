@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Cross-Chain Reputation Aggregator
 Aggregates reputation data from multiple blockchains and normalizes scores
@@ -81,7 +80,7 @@ class CrossChainReputationAggregator:
     async def detect_reputation_anomalies(self, agent_id: str) -> list[dict[str, Any]]:
         """Detect reputation anomalies across chains"""
         try:
-            anomalies = []
+            anomalies: list[dict[str, Any]] = []
             stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)
             aggregation = self.session.exec(stmt).first()
             if not aggregation:
@@ -114,7 +113,7 @@ class CrossChainReputationAggregator:
                     reputation = self.session.exec(stmt).first()
                     if reputation:
                         reputation.trust_score = new_score * 1000
-                        reputation.reputation_level = self._determine_reputation_level(new_score)
+                        reputation.reputation_level = self._determine_reputation_level(new_score)  # type: ignore[assignment]
                         reputation.updated_at = datetime.now(UTC)
                         event = ReputationEvent(agent_id=agent_id, event_type='batch_update', impact_score=new_score - reputation.trust_score / 1000.0, trust_score_before=reputation.trust_score, trust_score_after=reputation.trust_score, event_data=update, occurred_at=datetime.now(UTC))
                         self.session.add(event)
@@ -127,7 +126,8 @@ class CrossChainReputationAggregator:
                     logger.error('Error updating reputation for agent %s: %s', agent_id, e)
                     results[agent_id] = False
             self.session.commit()
-            for agent_id in updates:
+            for update in updates:
+                agent_id = update['agent_id']
                 if results.get(agent_id):
                     await self._update_cross_chain_aggregation(agent_id)
             return results
@@ -147,7 +147,7 @@ class CrossChainReputationAggregator:
             total_agents = len(reputations)
             total_reputation = sum((rep.trust_score for rep in reputations))
             average_reputation = total_reputation / total_agents / 1000.0
-            distribution = {}
+            distribution: dict[str, int] = {}
             for reputation in reputations:
                 level = reputation.reputation_level.value
                 distribution[level] = distribution.get(level, 0) + 1
@@ -189,8 +189,8 @@ class CrossChainReputationAggregator:
         """Get list of active chain IDs"""
         try:
             stmt = select(CrossChainReputationConfig.chain_id).where(CrossChainReputationConfig.is_active)
-            configs = self.session.exec(stmt).all()
-            return [config.chain_id for config in configs]
+            chain_ids = self.session.exec(stmt).all()
+            return list(chain_ids)
         except Exception as e:
             logger.error('Error getting active chain IDs: %s', e)
             return [1]
@@ -202,7 +202,7 @@ class CrossChainReputationAggregator:
             reputations = self.session.exec(stmt).all()
             if not reputations:
                 return
-            chain_scores = {}
+            chain_scores: dict[int, float] = {}
             for reputation in reputations:
                 chain_id = getattr(reputation, 'chain_id', 1)
                 chain_scores[chain_id] = reputation.trust_score / 1000.0
@@ -217,19 +217,19 @@ class CrossChainReputationAggregator:
                 variance = 0.0
                 score_range = 0.0
                 consistency_score = 1.0
-            stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)
-            aggregation = self.session.exec(stmt).first()
-            if aggregation:
-                aggregation.aggregated_score = avg_score
-                aggregation.chain_scores = chain_scores
-                aggregation.active_chains = list(chain_scores.keys())
-                aggregation.score_variance = variance
-                aggregation.score_range = score_range
-                aggregation.consistency_score = consistency_score
-                aggregation.last_updated = datetime.now(UTC)
+            agg_stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)
+            cross_chain_aggregation = self.session.exec(agg_stmt).first()
+            if cross_chain_aggregation:
+                cross_chain_aggregation.aggregated_score = avg_score
+                cross_chain_aggregation.chain_scores = chain_scores
+                cross_chain_aggregation.active_chains = list(chain_scores.keys())
+                cross_chain_aggregation.score_variance = variance
+                cross_chain_aggregation.score_range = score_range
+                cross_chain_aggregation.consistency_score = consistency_score
+                cross_chain_aggregation.last_updated = datetime.now(UTC)
             else:
-                aggregation = CrossChainReputationAggregation(agent_id=agent_id, aggregated_score=avg_score, chain_scores=chain_scores, active_chains=list(chain_scores.keys()), score_variance=variance, score_range=score_range, consistency_score=consistency_score, verification_status='pending', created_at=datetime.now(UTC), last_updated=datetime.now(UTC))
-                self.session.add(aggregation)
+                cross_chain_aggregation = CrossChainReputationAggregation(agent_id=agent_id, aggregated_score=avg_score, chain_scores=chain_scores, active_chains=list(chain_scores.keys()), score_variance=variance, score_range=score_range, consistency_score=consistency_score, verification_status='pending', created_at=datetime.now(UTC), last_updated=datetime.now(UTC))
+                self.session.add(cross_chain_aggregation)
             self.session.commit()
         except Exception as e:
             logger.error('Error updating cross-chain aggregation for agent %s: %s', agent_id, e)
