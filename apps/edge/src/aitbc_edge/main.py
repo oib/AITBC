@@ -1,5 +1,6 @@
 """Main FastAPI application for Edge API Service"""
 from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,7 +15,7 @@ from .storage import init_db
 logger = get_logger(__name__)
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown"""
     logger.info('Starting Edge API Service')
     await init_db()
@@ -25,12 +26,12 @@ app = FastAPI(title='Edge API Service', description='REST API for AITBC island a
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
 
 @app.get('/health')
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint"""
     return {'status': 'healthy', 'service': 'edge-api', 'version': '0.1.0'}
 
 @app.get('/ready')
-async def readiness_check():
+async def readiness_check() -> dict[str, str]:
     """Readiness check endpoint"""
     return {'status': 'ready', 'service': 'edge-api', 'version': '0.1.0'}
 app.include_router(islands, prefix=f'{settings.api_prefix}/islands', tags=['islands'])
@@ -40,7 +41,7 @@ app.include_router(serve, prefix=f'{settings.api_prefix}/serve', tags=['serve'])
 app.include_router(metrics, prefix=f'{settings.api_prefix}/metrics', tags=['metrics'])
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global exception handler"""
     logger.error('Unhandled exception: %s', exc)
     return JSONResponse(status_code=500, content={'error': 'Internal server error', 'detail': str(exc)})
