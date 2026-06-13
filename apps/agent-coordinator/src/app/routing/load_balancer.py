@@ -384,7 +384,7 @@ class LoadBalancer:
                 return self.consistent_hash_ring[hash_pos]
         return self.consistent_hash_ring[min(self.consistent_hash_ring.keys())]
 
-    def _build_hash_ring(self, agents: list[str]) -> Any:
+    def _build_hash_ring(self, agents: list[str]) -> None:
         """Build consistent hash ring"""
         self.consistent_hash_ring = {}
         for agent_id in agents:
@@ -415,13 +415,13 @@ class TaskDistributor:
         self.priority_queues: dict[TaskPriority, asyncio.Queue[Any]] = {TaskPriority.URGENT: asyncio.Queue(), TaskPriority.CRITICAL: asyncio.Queue(), TaskPriority.HIGH: asyncio.Queue(), TaskPriority.NORMAL: asyncio.Queue(), TaskPriority.LOW: asyncio.Queue()}
         self.distribution_stats = {'tasks_distributed': 0, 'tasks_completed': 0, 'tasks_failed': 0, 'avg_distribution_time': 0.0}
 
-    async def submit_task(self, task_data: dict[str, Any], priority: TaskPriority = TaskPriority.NORMAL, requirements: dict[str, Any] | None = None) -> Any:
+    async def submit_task(self, task_data: dict[str, Any], priority: TaskPriority = TaskPriority.NORMAL, requirements: dict[str, Any] | None = None) -> None:
         """Submit task for distribution"""
         task_info = {'task_data': task_data, 'priority': priority, 'requirements': requirements, 'submitted_at': datetime.now(UTC)}
         await self.priority_queues[priority].put(task_info)
         logger.info('Task submitted with priority %s', priority.value)
 
-    async def start_distribution(self) -> Any:
+    async def start_distribution(self) -> None:
         """Start task distribution loop"""
         logger.warning('=' * 60)
         logger.warning('DEBUG: TASK DISTRIBUTION LOOP STARTED')
@@ -445,7 +445,7 @@ class TaskDistributor:
                 logger.error('Error in distribution loop: %s', e)
                 await asyncio.sleep(1)
 
-    async def _distribute_task(self, task_info: dict[str, Any]) -> Any:
+    async def _distribute_task(self, task_info: dict[str, Any]) -> None:
         """Distribute a single task"""
         start_time = datetime.now(UTC)
         try:
@@ -469,7 +469,7 @@ class TaskDistributor:
             total_distributed = self.distribution_stats['tasks_distributed']
             self.distribution_stats['avg_distribution_time'] = (self.distribution_stats['avg_distribution_time'] * (total_distributed - 1) + distribution_time) / total_distributed if total_distributed > 0 else distribution_time
 
-    async def _send_task_to_agent(self, agent_id: str, task_message: AgentMessage) -> Any:
+    async def _send_task_to_agent(self, agent_id: str, task_message: AgentMessage) -> bool:
         """Send task to agent via HTTP"""
         try:
             agent_info = await self.load_balancer.registry.get_agent_by_id(agent_id)
@@ -504,7 +504,7 @@ class TaskDistributor:
             logger.error('Error sending task to agent %s: %s', agent_id, e)
             return False
 
-    async def _simulate_task_completion(self, task_info: dict[str, Any], agent_id: str) -> Any:
+    async def _simulate_task_completion(self, task_info: dict[str, Any], agent_id: str) -> None:
         """Simulate task completion (for testing)"""
         processing_time = 1.0 + hash(task_info['task_data'].get('task_id', '')) % 5
         await asyncio.sleep(processing_time)
@@ -536,7 +536,7 @@ class TaskDistributor:
         logger.info('Cleared %s tasks from %s queue', cleared_count, priority.value)
         return cleared_count
 
-async def example_usage() -> Any:
+async def example_usage() -> None:
     """Example of how to use the load balancer"""
     registry = AgentRegistry()
     await registry.start()
