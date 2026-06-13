@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Job distribution routes for Pool Hub"""
 
 from datetime import UTC, datetime
@@ -8,8 +7,8 @@ from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..registry import MinerRegistry
-from ..scoring import ScoringEngine
+from ..registry import MinerRegistry  # type: ignore[import-not-found]
+from ..scoring import ScoringEngine  # type: ignore[import-not-found]
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -59,7 +58,7 @@ async def assign_job(
     job: JobRequest,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)
-):
+) -> JobAssignment:
     """Assign a job to the best available miner."""
     # Find available miners with required capability
     available = await registry.list(
@@ -103,7 +102,7 @@ async def submit_result(
     result: JobResult,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)
-):
+) -> dict[str, str]:
     """Submit job result and update miner stats."""
     miner = await registry.get(result.miner_id)
     if not miner:
@@ -133,9 +132,9 @@ async def get_pending_jobs(
     pool_id: str | None = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> list:
     """Get pending jobs waiting for assignment."""
-    return await registry.get_pending_jobs(pool_id=pool_id, limit=limit)
+    return await registry.get_pending_jobs(pool_id=pool_id, limit=limit)  # type: ignore[no-any-return]
 
 
 @router.get("/{job_id}")
@@ -144,7 +143,7 @@ async def get_job_status(
     request: Request,
     job_id: str,
     registry: MinerRegistry = Depends(get_registry)
-):
+) -> object:
     """Get job assignment status."""
     job = await registry.get_job(job_id)
     if not job:
@@ -159,7 +158,7 @@ async def reassign_job(
     job_id: str,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)
-):
+) -> dict[str, str]:
     """Reassign a failed or timed-out job to another miner."""
     job = await registry.get_job(job_id)
     if not job:
