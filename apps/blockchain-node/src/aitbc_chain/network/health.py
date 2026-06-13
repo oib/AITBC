@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Peer Health Monitoring Service
 Monitors peer liveness and performance metrics
@@ -13,15 +12,15 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
 
-def log_debug(msg: str):
+def log_debug(msg: str) -> None:
     logger.debug(msg)
-import ping3
+import ping3  # type: ignore
 
 from .discovery import NodeStatus, PeerNode
 
@@ -60,7 +59,7 @@ class PeerHealthMonitor:
         self.min_health_score = 0.5
         self.max_consecutive_failures = 3
 
-    async def start_monitoring(self, peers: dict[str, PeerNode]):
+    async def start_monitoring(self, peers: dict[str, PeerNode]) -> None:
         """Start health monitoring for peers"""
         self.running = True
         log_info("Starting peer health monitoring")
@@ -73,12 +72,12 @@ class PeerHealthMonitor:
                 log_error(f"Health monitoring error: {e}")
                 await asyncio.sleep(10)
 
-    async def stop_monitoring(self):
+    async def stop_monitoring(self) -> None:
         """Stop health monitoring"""
         self.running = False
         log_info("Stopping peer health monitoring")
 
-    async def _check_all_peers(self, peers: dict[str, PeerNode]):
+    async def _check_all_peers(self, peers: dict[str, PeerNode]) -> None:
         """Check health of all peers"""
         tasks = []
 
@@ -90,7 +89,7 @@ class PeerHealthMonitor:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _check_peer_health(self, peer: PeerNode):
+    async def _check_peer_health(self, peer: PeerNode) -> None:
         """Check health of individual peer"""
         start_time = time.time()
 
@@ -108,7 +107,7 @@ class PeerHealthMonitor:
             health_score = self._calculate_health_score(latency, availability, throughput)
 
             # Update health status
-            self._update_health_status(peer, NodeStatus.ONLINE, latency, availability, throughput, 0.0, health_score)
+            self._update_health_status(peer, NodeStatus.ONLINE, latency, availability, throughput, 0.0, int(health_score))
 
             # Reset consecutive failures
             if peer.node_id in self.health_status:
@@ -121,9 +120,9 @@ class PeerHealthMonitor:
             consecutive_failures = self.health_status.get(peer.node_id, HealthStatus(peer.node_id, NodeStatus.OFFLINE, 0, 0, 0, 0, 0, 0, 0.0)).consecutive_failures + 1
 
             if consecutive_failures >= self.max_consecutive_failures:
-                self._update_health_status(peer, NodeStatus.OFFLINE, 0, 0, 0, 100.0, 0.0)
+                self._update_health_status(peer, NodeStatus.OFFLINE, 0, 0, 0, 100.0, int(consecutive_failures), 0.0)
             else:
-                self._update_health_status(peer, NodeStatus.ERROR, 0, 0, 0, 0.0, consecutive_failures, 0.0)
+                self._update_health_status(peer, NodeStatus.ERROR, 0, 0, 0, 0.0, int(consecutive_failures), 0.0)
 
     async def _measure_latency(self, address: str, port: int) -> float:
         """Measure network latency to peer"""
@@ -145,7 +144,7 @@ class PeerHealthMonitor:
                 if len(self.latency_history[node_id]) > self.max_history_size:
                     self.latency_history[node_id].pop(0)
 
-                return latency_ms
+                return latency_ms  # type: ignore[no-any-return]
             else:
                 return float('inf')
 
@@ -239,7 +238,7 @@ class PeerHealthMonitor:
 
     def _update_health_status(self, peer: PeerNode, status: NodeStatus, latency: float,
                             availability: float, throughput: float, error_rate: float,
-                            consecutive_failures: int = 0, health_score: float = 0.0):
+                            consecutive_failures: int = 0, health_score: float = 0.0) -> None:
         """Update health status for peer"""
         self.health_status[peer.node_id] = HealthStatus(
             node_id=peer.node_id,
