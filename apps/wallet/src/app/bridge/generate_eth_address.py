@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 #!/usr/bin/env python3
 """
 Generate Ethereum wallet address for ETH-AIT bridge.
@@ -15,7 +14,7 @@ except ImportError:
     from eth_account import Account
 
 
-def generate_eth_address():
+def generate_eth_address() -> tuple[str, str]:
     """Generate a new Ethereum address and private key."""
     # Enable mnemonic features
     Account.enable_unaudited_hdwallet_features()

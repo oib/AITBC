@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 import asyncio
@@ -215,8 +214,12 @@ def unlock_wallet(
     finally:
         if "secret" in locals():
             wipe_buffer(secret)
+    # Get chain_id from ledger
+    chain_id = "ait-mainnet"
+    if ledger_record := ledger.get_wallet(wallet_id):
+        chain_id = ledger_record.metadata.get("chain_id", "ait-mainnet") if isinstance(ledger_record.metadata, dict) else "ait-mainnet"
     # We don't expose the secret in response
-    return WalletUnlockResponse(wallet_id=wallet_id, unlocked=True)
+    return WalletUnlockResponse(wallet_id=wallet_id, chain_id=chain_id, unlocked=True)
 
 
 @router.post("/wallets/{wallet_id}/sign", response_model=WalletSignResponse, summary="Sign payload")
