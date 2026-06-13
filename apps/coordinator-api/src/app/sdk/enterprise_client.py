@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Enterprise Client SDK - Phase 6.1 Implementation
 Python SDK for enterprise clients to integrate with AITBC platform
@@ -74,22 +73,22 @@ class EnterpriseClient:
 
     def __init__(self, config: EnterpriseConfig):
         self.config = config
-        self.session = None
-        self.access_token = None
-        self.token_expires_at = None
-        self.refresh_token = None
+        self.session: aiohttp.ClientSession | None = None
+        self.access_token: str | None = None
+        self.token_expires_at: datetime | None = None
+        self.refresh_token: str | None = None
         self.logger = get_logger(f'enterprise.{config.tenant_id}')
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'EnterpriseClient':
         """Async context manager entry"""
         await self.initialize()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit"""
         await self.close()
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the SDK client"""
         try:
             self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.config.timeout), headers={'User-Agent': f'AITBC-Enterprise-SDK/{SDKVersion.CURRENT.value}', 'Content-Type': 'application/json', 'Accept': 'application/json'})
@@ -112,6 +111,8 @@ class EnterpriseClient:
 
     async def _client_credentials_auth(self) -> AuthenticationResponse:
         """Client credentials authentication"""
+        if not self.session:
+            raise RuntimeError('Session not initialized')
         url = f'{self.config.base_url}/auth'
         data = {'tenant_id': self.config.tenant_id, 'client_id': self.config.client_id, 'client_secret': self.config.client_secret, 'auth_method': 'client_credentials'}
         async with self.session.post(url, json=data) as response:
@@ -120,20 +121,23 @@ class EnterpriseClient:
                 self.access_token = auth_data['access_token']
                 self.refresh_token = auth_data.get('refresh_token')
                 self.token_expires_at = datetime.now(UTC) + timedelta(seconds=auth_data['expires_in'])
-                self.session.headers['Authorization'] = f'Bearer {self.access_token}'
+                if self.session:
+                    self.session.headers['Authorization'] = f'Bearer {self.access_token}'
                 return AuthenticationResponse(**auth_data)
             else:
                 error_text = await response.text()
                 raise Exception(f'Authentication failed: {response.status} - {error_text}')
 
-    async def _ensure_valid_token(self):
+    async def _ensure_valid_token(self) -> None:
         """Ensure we have a valid access token"""
-        if not self.access_token or (self.token_expires_at and datetime.now(UTC) >= self.token_expires_at):
+        if not self.access_token or (self.token_expires_at is not None and datetime.now(UTC) >= self.token_expires_at):
             await self.authenticate()
 
     async def create_integration(self, integration_config: IntegrationConfig) -> APIResponse:
         """Create enterprise integration"""
         await self._ensure_valid_token()
+        if not self.session:
+            return APIResponse(success=False, error='Session not initialized')
         try:
             url = f'{self.config.base_url}/integrations'
             data = {'integration_type': integration_config.integration_type.value, 'provider': integration_config.provider, 'configuration': integration_config.configuration}
@@ -153,6 +157,8 @@ class EnterpriseClient:
     async def get_integration_status(self, integration_id: str) -> APIResponse:
         """Get integration status"""
         await self._ensure_valid_token()
+        if not self.session:
+            return APIResponse(success=False, error='Session not initialized')
         try:
             url = f'{self.config.base_url}/integrations/{integration_id}/status'
             async with self.session.get(url) as response:
@@ -169,6 +175,8 @@ class EnterpriseClient:
     async def test_integration(self, integration_id: str) -> APIResponse:
         """Test integration connection"""
         await self._ensure_valid_token()
+        if not self.session:
+            return APIResponse(success=False, error='Session not initialized')
         try:
             url = f'{self.config.base_url}/integrations/{integration_id}/test'
             async with self.session.post(url) as response:
@@ -185,6 +193,8 @@ class EnterpriseClient:
     async def sync_data(self, integration_id: str, data_type: str, filters: dict | None=None) -> APIResponse:
         """Sync data from integration"""
         await self._ensure_valid_token()
+        if not self.session:
+            return APIResponse(success=False, error='Session not initialized')
         try:
             url = f'{self.config.base_url}/integrations/{integration_id}/sync'
             data = {'operation': 'sync_data', 'parameters': {'data_type': data_type, 'filters': filters or {}}}
@@ -202,6 +212,8 @@ class EnterpriseClient:
     async def push_data(self, integration_id: str, data_type: str, data: dict[str, Any]) -> APIResponse:
         """Push data to integration"""
         await self._ensure_valid_token()
+        if not self.session:
+            return APIResponse(success=False, error='Session not initialized')
         try:
             url = f'{self.config.base_url}/integrations/{integration_id}/push'
             request_data = {'operation': 'push_data', 'data': data, 'parameters': {'data_type': data_type}}
@@ -219,6 +231,8 @@ class EnterpriseClient:
     async def get_analytics(self) -> APIResponse:
         """Get enterprise analytics"""
         await self._ensure_valid_token()
+        if not self.session:
+            return APIResponse(success=False, error='Session not initialized')
         try:
             url = f'{self.config.base_url}/analytics'
             async with self.session.get(url) as response:
@@ -235,6 +249,8 @@ class EnterpriseClient:
     async def get_quota_status(self) -> APIResponse:
         """Get quota status"""
         await self._ensure_valid_token()
+        if not self.session:
+            return APIResponse(success=False, error='Session not initialized')
         try:
             url = f'{self.config.base_url}/quota/status'
             async with self.session.get(url) as response:
@@ -248,7 +264,7 @@ class EnterpriseClient:
             self.logger.error('Failed to get quota status: %s', e)
             return APIResponse(success=False, error=str(e))
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the SDK client"""
         if self.session:
             await self.session.close()
@@ -307,9 +323,9 @@ class WebhookHandler:
 
     def __init__(self, secret: str | None=None):
         self.secret = secret
-        self.handlers = {}
+        self.handlers: dict[str, Any] = {}
 
-    def register_handler(self, event_type: str, handler_func):
+    def register_handler(self, event_type: str, handler_func: Any) -> None:
         """Register webhook event handler"""
         self.handlers[event_type] = handler_func
 
@@ -317,7 +333,8 @@ class WebhookHandler:
         """Verify webhook signature"""
         if not self.secret:
             return True
-        expected_signature = hashlib.hmac_sha256(self.secret.encode(), payload.encode()).hexdigest()
+        import hmac
+        expected_signature = hmac.new(self.secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
         return secrets.compare_digest(expected_signature, signature)
 
     async def handle_webhook(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -342,22 +359,22 @@ async def create_salesforce_integration(enterprise_client: EnterpriseClient, cli
     config = IntegrationConfig(integration_type=IntegrationType.CRM, provider='salesforce', configuration={'client_id': client_id, 'client_secret': client_secret, 'username': username, 'password': password, 'security_token': security_token, 'endpoint_url': 'https://login.salesforce.com'})
     return await enterprise_client.create_integration(config)
 
-async def example_usage():
+async def example_usage() -> None:
     """Example usage of the Enterprise SDK"""
     config = EnterpriseConfig(tenant_id='enterprise_tenant_123', client_id='enterprise_client_456', client_secret='enterprise_secret_789')
     async with EnterpriseClient(config) as client:
         sap_result = await create_sap_integration(client, 'DEV', '100', 'sap_user', 'sap_pass', 'sap.example.com')
-        if sap_result.success:
+        if sap_result.success and sap_result.data:
             integration_id = sap_result.data['integration_id']
             test_result = await client.test_integration(integration_id)
             if test_result.success:
                 logger.info('SAP integration test passed')
                 erp = ERPIntegration(client)
                 customers_result = await erp.sync_customers(integration_id)
-                if customers_result.success:
+                if customers_result.success and customers_result.data:
                     customers = customers_result.data['data']['customers']
                     logger.info('Synced %s customers', len(customers))
         analytics = await client.get_analytics()
-        if analytics.success:
+        if analytics.success and analytics.data:
             logger.info('API calls: %s', analytics.data['api_calls_total'])
 __all__ = ['EnterpriseClient', 'EnterpriseConfig', 'ERPIntegration', 'CRMIntegration', 'WebhookHandler', 'create_sap_integration', 'create_salesforce_integration', 'example_usage']
