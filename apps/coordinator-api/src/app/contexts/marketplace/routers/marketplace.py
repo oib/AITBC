@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from __future__ import annotations
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -18,7 +17,7 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=['marketplace'])
 
 def _get_service(session: Session=Depends(get_session)) -> MarketplaceService:
-    return MarketplaceService(session)
+    return MarketplaceService(session)  # type: ignore[arg-type]
 
 @router.get('/marketplace/offers', response_model=list[MarketplaceOfferView], summary='List marketplace offers')
 @limiter.limit('100/minute')
