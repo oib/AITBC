@@ -415,7 +415,7 @@ class TaskDistributor:
         self.priority_queues: dict[TaskPriority, asyncio.Queue[Any]] = {TaskPriority.URGENT: asyncio.Queue(), TaskPriority.CRITICAL: asyncio.Queue(), TaskPriority.HIGH: asyncio.Queue(), TaskPriority.NORMAL: asyncio.Queue(), TaskPriority.LOW: asyncio.Queue()}
         self.distribution_stats = {'tasks_distributed': 0, 'tasks_completed': 0, 'tasks_failed': 0, 'avg_distribution_time': 0.0}
 
-    async def submit_task(self, task_data: dict[str, Any], priority: TaskPriority=TaskPriority.NORMAL, requirements: dict[str, Any] | None=None) -> Any:
+    async def submit_task(self, task_data: dict[str, Any], priority: TaskPriority = TaskPriority.NORMAL, requirements: dict[str, Any] | None = None) -> Any:
         """Submit task for distribution"""
         task_info = {'task_data': task_data, 'priority': priority, 'requirements': requirements, 'submitted_at': datetime.now(UTC)}
         await self.priority_queues[priority].put(task_info)
