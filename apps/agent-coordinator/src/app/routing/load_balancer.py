@@ -187,7 +187,7 @@ class LoadBalancer:
         except Exception as e:
             logger.error('Error completing task %s: %s', task_id, e)
 
-    async def _find_eligible_agents(self, task_data: dict[str, Any], requirements: dict[str, Any] | None=None) -> list[str]:
+    async def _find_eligible_agents(self, task_data: dict[str, Any], requirements: dict[str, Any] | None = None) -> list[str]:
         """Find eligible agents for task"""
         logger.warning('=' * 60)
         logger.warning('DEBUG: _find_eligible_agents() CALLED - NEW CODE LOADED')
