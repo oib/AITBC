@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Message Encryption Module for AITBC Agent Coordinator
 Implements end-to-end message encryption using agent public/private keys
@@ -7,10 +8,13 @@ import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

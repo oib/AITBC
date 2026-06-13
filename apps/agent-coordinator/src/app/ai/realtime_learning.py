@@ -8,7 +8,9 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass
@@ -62,10 +64,10 @@ class RealTimeLearningSystem:
         if len(self.performance_history) < 10:
             return
         recent_performance = list(self.performance_history)[-10:]
-        avg_reward = statistics.mean((p['reward'] for p in recent_performance))
+        avg_reward = statistics.mean(p['reward'] for p in recent_performance)
         if len(self.performance_history) >= 20:
             older_performance = list(self.performance_history)[-20:-10]
-            older_avg_reward = statistics.mean((p['reward'] for p in older_performance))
+            older_avg_reward = statistics.mean(p['reward'] for p in older_performance)
             if older_avg_reward - avg_reward > self.adaptation_threshold:
                 await self._trigger_adaptation()
 
@@ -121,7 +123,7 @@ class RealTimeLearningSystem:
             similar_experiences = [exp for exp in self.experiences[-100:] if exp.action == action and self._context_similarity(exp.context, context) > 0.7]
             if not similar_experiences:
                 return {'status': 'success', 'predicted_performance': 0.5, 'confidence': 0.1, 'based_on': 'insufficient_data'}
-            predicted_performance = statistics.mean((exp.reward for exp in similar_experiences))
+            predicted_performance = statistics.mean(exp.reward for exp in similar_experiences)
             confidence = min(1.0, len(similar_experiences) / 10.0)
             return {'status': 'success', 'predicted_performance': predicted_performance, 'confidence': confidence, 'based_on': f'{len(similar_experiences)} similar experiences'}
         except Exception as e:
@@ -157,8 +159,8 @@ class RealTimeLearningSystem:
             recent_experiences = [exp for exp in self.experiences if exp.timestamp > datetime.now(UTC) - timedelta(hours=24)]
             if not self.experiences:
                 return {'status': 'success', 'total_experiences': 0, 'learning_rate': self.learning_rate, 'models_count': len(self.models), 'message': 'No experiences recorded yet'}
-            avg_reward = statistics.mean((exp.reward for exp in self.experiences))
-            recent_avg_reward = statistics.mean((exp.reward for exp in recent_experiences)) if recent_experiences else avg_reward
+            avg_reward = statistics.mean(exp.reward for exp in self.experiences)
+            recent_avg_reward = statistics.mean(exp.reward for exp in recent_experiences) if recent_experiences else avg_reward
             if len(self.performance_history) >= 10:
                 recent_performance = [p['reward'] for p in list(self.performance_history)[-10:]]
                 performance_trend = 'improving' if recent_performance[-1] > recent_performance[0] else 'declining'
