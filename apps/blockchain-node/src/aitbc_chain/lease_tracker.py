@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Redis-based lease tracker for block subscription system."""
 import asyncio
 import time
@@ -34,7 +33,7 @@ class LeaseTracker:
             return
         try:
             logger.info('Starting lease tracker with Redis URL: %s', self._redis_url)
-            if self._redis_url.startswith('redis://'):
+            if self._redis_url and self._redis_url.startswith('redis://'):
                 self._redis = redis.from_url(self._redis_url, decode_responses=True)
             else:
                 self._redis = redis.Redis(host='127.0.0.1', port=6379, decode_responses=True)
@@ -163,17 +162,23 @@ class LeaseTracker:
         subscribers = []
         node_ids = await asyncio.to_thread(self._redis.smembers, LEASE_SET)
         for node_id in node_ids:
-            key = f'{LEASE_PREFIX}{node_id}'
+            node_id_str = node_id if isinstance(node_id, str) else node_id.decode() if isinstance(node_id, bytes) else str(node_id)
+            key = f'{LEASE_PREFIX}{node_id_str}'
             data = await asyncio.to_thread(self._redis.hgetall, key)
             if not data:
                 continue
             expiry = float(data.get('expiry', 0))
             if expiry < now:
-                await self.revoke_lease(node_id)
+                await self.revoke_lease(node_id_str)
                 continue
             if chain_id and data.get('chain_id') != chain_id:
                 continue
-            subscribers.append(SubscriberInfo(node_id=data['node_id'], transport=data['transport'], expiry=expiry, chain_id=data['chain_id']))
+            subscribers.append(SubscriberInfo(
+                node_id=str(data['node_id']),
+                transport=str(data['transport']),
+                expiry=expiry,
+                chain_id=str(data['chain_id'])
+            ))
         return subscribers
 
     async def _cleanup_loop(self) -> None:
@@ -199,15 +204,16 @@ class LeaseTracker:
         cleaned = 0
         node_ids = await asyncio.to_thread(self._redis.smembers, LEASE_SET)
         for node_id in node_ids:
-            key = f'{LEASE_PREFIX}{node_id}'
+            node_id_str = node_id if isinstance(node_id, str) else node_id.decode() if isinstance(node_id, bytes) else str(node_id)
+            key = f'{LEASE_PREFIX}{node_id_str}'
             expiry_str = await asyncio.to_thread(self._redis.hget, key, 'expiry')
             if not expiry_str:
-                await self.revoke_lease(node_id)
+                await self.revoke_lease(node_id_str)
                 cleaned += 1
                 continue
             expiry = float(expiry_str)
             if expiry < now:
-                await self.revoke_lease(node_id)
+                await self.revoke_lease(node_id_str)
                 cleaned += 1
         if cleaned > 0:
             logger.info('Cleaned up %s expired leases', cleaned)
