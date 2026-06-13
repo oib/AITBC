@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 AI Agent Service Marketplace Service
 Implements a sophisticated marketplace where agents can offer specialized services
@@ -438,12 +437,12 @@ class AgentServiceMarketplace:
             total_volume = sum((service.total_earnings for service in self.services.values()))
             active_service_prices = [service.base_price for service in self.services.values() if service.status == ServiceStatus.ACTIVE]
             average_price = sum(active_service_prices) / len(active_service_prices) if active_service_prices else 0
-            category_counts = {}
+            category_counts: dict[str, int] = {}
             for service in self.services.values():
                 if service.status == ServiceStatus.ACTIVE:
                     category_counts[service.service_type.value] = category_counts.get(service.service_type.value, 0) + 1
             popular_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-            agent_earnings = {}
+            agent_earnings: dict[str, float] = {}
             for service in self.services.values():
                 agent_earnings[service.agent_id] = agent_earnings.get(service.agent_id, 0) + service.total_earnings
             top_agents = sorted(agent_earnings.items(), key=lambda x: x[1], reverse=True)[:5]
