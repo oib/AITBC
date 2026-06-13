@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Chain Synchronization Service
 Keeps blockchain nodes synchronized by sharing blocks via P2P and Redis gossip
@@ -10,16 +9,16 @@ from typing import Any
 from aitbc import get_logger
 logger = get_logger('chain_sync')
 try:
-    from .config import settings
+    from .config import settings as chain_settings
 except ImportError:
 
     class Settings:
         blockchain_monitoring_interval_seconds = 10
-    settings = Settings()
+    chain_settings = Settings()  # type: ignore
 
 class ChainSyncService:
 
-    def __init__(self, redis_url: str, node_id: str, rpc_port: int=8006, leader_host: str=None, source_host: str='127.0.0.1', source_port: int=None, import_host: str='127.0.0.1', import_port: int=None, chain_id: str=''):
+    def __init__(self, redis_url: str, node_id: str, rpc_port: int=8006, leader_host: str | None=None, source_host: str='127.0.0.1', source_port: int | None=None, import_host: str='127.0.0.1', import_port: int | None=None, chain_id: str=''):
         self.redis_url = redis_url
         self.node_id = node_id
         self.rpc_port = rpc_port
@@ -28,12 +27,12 @@ class ChainSyncService:
         self.source_port = source_port or rpc_port
         self.import_host = import_host
         self.import_port = import_port or rpc_port
-        self.chain_id = chain_id or getattr(settings, 'chain_id', '') or 'ait-mainnet'
+        self.chain_id = chain_id or getattr(chain_settings, 'chain_id', '') or 'ait-mainnet'
         self._stop_event = asyncio.Event()
-        self._redis = None
+        self._redis: Any = None
         self._receiver_ready = asyncio.Event()
 
-    async def start(self):
+    async def start(self) -> None:
         """Start chain synchronization service"""
         logger.info('Starting chain sync service for node %s', self.node_id)
         try:
@@ -56,12 +55,12 @@ class ChainSyncService:
         if self._redis:
             await self._redis.close()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop chain synchronization service"""
         logger.info('Stopping chain sync service')
         self._stop_event.set()
 
-    async def _get_import_head_height(self, session) -> int:
+    async def _get_import_head_height(self, session: Any) -> int:
         """Get the current height on the local import target."""
         try:
             async with session.get(f'http://{self.import_host}:{self.import_port}/rpc/head', params={'chain_id': self.chain_id}) as resp:
@@ -75,13 +74,13 @@ class ChainSyncService:
             logger.warning('Failed to get import head height: %s', e)
         return -1
 
-    async def _broadcast_blocks(self):
+    async def _broadcast_blocks(self) -> None:
         """Broadcast local blocks to other nodes"""
         import aiohttp
         last_broadcast_height = -1
         retry_count = 0
         max_retries = 5
-        base_delay = settings.blockchain_monitoring_interval_seconds
+        base_delay = chain_settings.blockchain_monitoring_interval_seconds
         while not self._stop_event.is_set():
             try:
                 async with aiohttp.ClientSession() as session:
@@ -122,7 +121,7 @@ class ChainSyncService:
                     retry_count = 0
             await asyncio.sleep(base_delay)
 
-    async def _receive_blocks(self):
+    async def _receive_blocks(self) -> None:
         """Receive blocks from other nodes via Redis"""
         if not self._redis:
             return
@@ -141,7 +140,7 @@ class ChainSyncService:
                 except Exception as e:
                     logger.error('Error processing received block: %s', e)
 
-    async def _get_block_by_height(self, height: int, session) -> dict[str, Any] | None:
+    async def _get_block_by_height(self, height: int, session: Any) -> dict[str, Any] | None:
         """Get block data by height from local RPC"""
         try:
             async with session.get(f'http://{self.source_host}:{self.source_port}/rpc/blocks-range?start={height}&end={height}') as resp:
@@ -154,7 +153,7 @@ class ChainSyncService:
             logger.error('Error getting block %s: %s', height, e)
         return None
 
-    async def _broadcast_block(self, block_data: dict[str, Any]):
+    async def _broadcast_block(self, block_data: dict[str, Any]) -> None:
         """Broadcast block to other nodes via Redis"""
         if not self._redis:
             return
@@ -164,7 +163,7 @@ class ChainSyncService:
         except Exception as e:
             logger.error('Error broadcasting block: %s', e)
 
-    async def _import_block(self, block_data: dict[str, Any]):
+    async def _import_block(self, block_data: dict[str, Any]) -> None:
         """Import block from another node"""
         import aiohttp
         try:
@@ -204,12 +203,12 @@ class ChainSyncService:
         except Exception as e:
             logger.error('Error importing block: %s', e)
 
-async def run_chain_sync(redis_url: str, node_id: str, rpc_port: int=8006, leader_host: str=None, source_host: str='127.0.0.1', source_port: int=None, import_host: str='127.0.0.1', import_port: int=None, chain_id: str=''):
+async def run_chain_sync(redis_url: str, node_id: str, rpc_port: int=8006, leader_host: str | None=None, source_host: str='127.0.0.1', source_port: int | None=None, import_host: str='127.0.0.1', import_port: int | None=None, chain_id: str='') -> None:
     """Run chain synchronization service"""
     service = ChainSyncService(redis_url=redis_url, node_id=node_id, rpc_port=rpc_port, leader_host=leader_host, source_host=source_host, source_port=source_port, import_host=import_host, import_port=import_port, chain_id=chain_id)
     await service.start()
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description='AITBC Chain Synchronization Service')
     parser.add_argument('--redis', default='redis://localhost:6379', help='Redis URL')
