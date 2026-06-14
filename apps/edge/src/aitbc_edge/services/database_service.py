@@ -1,6 +1,5 @@
-# mypy: ignore-errors
-
 from datetime import datetime
+from typing import Any
 
 from sqlmodel import delete, select
 
@@ -11,7 +10,7 @@ from ..storage import get_session
 class DatabaseService:
     """Service for edge database operations"""
 
-    async def init_database(self, database_id: str, island_id: str, capacity_gb: int) -> dict:
+    async def init_database(self, database_id: str, island_id: str, capacity_gb: int) -> dict[str, Any]:
         """Initialize edge database"""
         async with get_session() as session:
             # Check if database already exists
@@ -45,7 +44,7 @@ class DatabaseService:
                 "id": db.id
             }
 
-    async def get_database(self, database_id: str) -> dict | None:
+    async def get_database(self, database_id: str) -> dict[str, Any] | None:
         """Get database details"""
         async with get_session() as session:
             result = await session.execute(select(EdgeDatabase).where(EdgeDatabase.database_id == database_id))
@@ -71,12 +70,12 @@ class DatabaseService:
     async def delete_database(self, database_id: str) -> bool:
         """Delete database"""
         async with get_session() as session:
-            stmt = delete(EdgeDatabase).where(EdgeDatabase.database_id == database_id)
+            stmt = delete(EdgeDatabase).where(EdgeDatabase.database_id == database_id)  # type: ignore[arg-type]
             result = await session.execute(stmt)
             await session.commit()
-            return result.rowcount > 0
+            return bool(result.rowcount > 0)  # type: ignore[attr-defined]
 
-    async def sync_database(self, database_id: str) -> dict:
+    async def sync_database(self, database_id: str) -> dict[str, Any]:
         """Sync database from source"""
         async with get_session() as session:
             result = await session.execute(select(EdgeDatabase).where(EdgeDatabase.database_id == database_id))
@@ -106,7 +105,7 @@ class DatabaseService:
                 "records_synced": db.records_synced
             }
 
-    async def list_databases(self, island_id: str = None) -> list[dict]:
+    async def list_databases(self, island_id: str | None = None) -> list[dict[str, Any]]:
         """List databases, optionally filtered by island_id"""
         async with get_session() as session:
             if island_id:

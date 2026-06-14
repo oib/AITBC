@@ -1,5 +1,6 @@
-# mypy: ignore-errors
 """GPU operations router for Edge API Service"""
+
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -25,14 +26,14 @@ async def list_gpus(
     edge_optimized: bool = Query(None),
     min_memory_gb: int = Query(None),
     svc: GPUService = Depends(get_gpu_service)
-):
+) -> dict[str, Any]:
     """List all GPUs"""
     gpus = await svc.list_gpus(architecture=architecture, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
     return {"gpus": gpus, "total": len(gpus)}
 
 
 @router.get("/{gpu_id}")
-async def get_gpu_listing(gpu_id: str, svc: GPUService = Depends(get_gpu_service)):
+async def get_gpu_listing(gpu_id: str, svc: GPUService = Depends(get_gpu_service)) -> Any:
     """Get GPU listing details"""
     gpu = await svc.get_gpu_listing(gpu_id)
     if gpu is None:
@@ -41,7 +42,7 @@ async def get_gpu_listing(gpu_id: str, svc: GPUService = Depends(get_gpu_service
 
 
 @router.delete("/{gpu_id}")
-async def remove_gpu_listing(gpu_id: str, svc: GPUService = Depends(get_gpu_service)):
+async def remove_gpu_listing(gpu_id: str, svc: GPUService = Depends(get_gpu_service)) -> dict[str, str]:
     """Remove GPU listing"""
     success = await svc.remove_gpu_listing(gpu_id)
     if success:
@@ -51,7 +52,7 @@ async def remove_gpu_listing(gpu_id: str, svc: GPUService = Depends(get_gpu_serv
 
 
 @router.post("/scan")
-async def scan_gpus(request: ScanGPUsRequest, svc: GPUService = Depends(get_gpu_service)):
+async def scan_gpus(request: ScanGPUsRequest, svc: GPUService = Depends(get_gpu_service)) -> Any:
     """Scan GPUs for a miner"""
     result = await svc.scan_gpus(request.miner_id)
     return result
@@ -62,7 +63,7 @@ async def get_gpu_metrics(
     gpu_id: str,
     limit: int = Query(100),
     svc: GPUService = Depends(get_gpu_service)
-):
+) -> dict[str, Any]:
     """Get GPU metrics"""
     metrics = await svc.get_gpu_metrics(gpu_id, limit)
     return {"gpu_id": gpu_id, "metrics": metrics, "total": len(metrics)}
