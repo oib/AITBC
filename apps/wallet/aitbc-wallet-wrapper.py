@@ -22,8 +22,9 @@ os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Override wallet directory if specified
-if os.getenv("WALLET_DIR"):
-    os.environ["WALLET_DIR"] = os.getenv("WALLET_DIR")
+wallet_dir = os.getenv("WALLET_DIR")
+if wallet_dir:
+    os.environ["WALLET_DIR"] = wallet_dir
 
 # Execute the actual service
 exec_cmd = [

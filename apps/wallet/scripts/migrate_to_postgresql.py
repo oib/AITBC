@@ -5,7 +5,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-import psycopg2
+import psycopg2  # type: ignore
 
 # Database configurations
 SQLITE_DB = "data/wallet_ledger.db"
