@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 warnings.filterwarnings('ignore', message='coroutine.* was never awaited', category=RuntimeWarning)
 try:
-    from broadcaster import Broadcast
+    from broadcaster import Broadcast  # type: ignore[import-not-found]
 except ImportError:
     Broadcast = None
 from ..metrics import metrics_registry
@@ -43,7 +43,7 @@ class TopicSubscription:
     async def get(self) -> Any:
         return await self.queue.get()
 
-    async def __aiter__(self):
+    async def __aiter__(self) -> Any:
         try:
             while True:
                 yield (await self.queue.get())
@@ -236,10 +236,10 @@ class _InProcessSubscriber:
     def __init__(self, queue: asyncio.Queue[Any]):
         self._queue = queue
 
-    def __aiter__(self):
+    def __aiter__(self) -> Any:
         return self._iterator()
 
-    async def _iterator(self):
+    async def _iterator(self) -> Any:
         while True:
             yield (await self._queue.get())
 
@@ -260,7 +260,7 @@ class _InProcessBroadcast:
         self._running = False
 
     @asynccontextmanager
-    async def subscribe(self, topic: str):
+    async def subscribe(self, topic: str) -> Any:
         queue: asyncio.Queue[Any] = asyncio.Queue()
         async with self._lock:
             self._topics[topic].append(queue)

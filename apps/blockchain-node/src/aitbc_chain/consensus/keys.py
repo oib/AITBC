@@ -10,6 +10,7 @@ from typing import cast
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 from aitbc import get_logger
 logger = get_logger(__name__)
@@ -78,16 +79,16 @@ class KeyManager:
         if address not in self.key_pairs:
             return None
         key_pair = self.key_pairs[address]
-        private_key = serialization.load_pem_private_key(key_pair.private_key_pem.encode(), password=None, backend=default_backend())
+        private_key = cast(RSAPrivateKey, serialization.load_pem_private_key(key_pair.private_key_pem.encode(), password=None, backend=default_backend()))
         signature = private_key.sign(message.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH), hashes.SHA256())
-        return cast(str, signature.hex())
+        return signature.hex()
 
     def verify_signature(self, address: str, message: str, signature: str) -> bool:
         """Verify a message signature"""
         if address not in self.key_pairs:
             return False
         key_pair = self.key_pairs[address]
-        public_key = serialization.load_pem_public_key(key_pair.public_key_pem.encode(), backend=default_backend())
+        public_key = cast(RSAPublicKey, serialization.load_pem_public_key(key_pair.public_key_pem.encode(), backend=default_backend()))
         try:
             signature_bytes = bytes.fromhex(signature)
             public_key.verify(signature_bytes, message.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH), hashes.SHA256())
@@ -111,7 +112,7 @@ class KeyManager:
                 json.dump(keys_data, f, indent=2)
             os.chmod(keys_file, 384)
         except Exception as e:
-            logger.error('Error saving keys', error=str(e))
+            logger.error('Error saving keys: %s', str(e))
 
     def should_rotate_key(self, address: str, rotation_interval: int=86400) -> bool:
         """Check if key should be rotated (default: 24 hours)"""

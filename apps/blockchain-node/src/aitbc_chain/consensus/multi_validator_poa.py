@@ -25,6 +25,7 @@ class Validator:
     role: ValidatorRole
     last_proposed: int
     is_active: bool
+    hybrid_score: float = 0.0
 
 class MultiValidatorPoA:
     """Multi-Validator Proof of Authority consensus mechanism"""

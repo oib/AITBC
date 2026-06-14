@@ -119,7 +119,7 @@ class ParticipantKeyRepository:
         stmt = select(ParticipantKeyDB).where(ParticipantKeyDB.participant_id == participant_id)
 
         if active_only:
-            stmt = stmt.where(ParticipantKeyDB.active)
+            stmt = stmt.where(ParticipantKeyDB.active)  # type: ignore[arg-type]
 
         result = await session.execute(stmt)
         return result.scalar_one_or_none()

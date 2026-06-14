@@ -5,9 +5,10 @@ Uses Starlette Broadcast to share messages between nodes
 import argparse
 import logging
 import uvicorn
-from aitbc.logging import get_logger
+from typing import Any
+from aitbc.logging import get_logger  # type: ignore[import-not-found]
 from starlette.applications import Starlette
-from starlette.broadcast import Broadcast
+from starlette.broadcast import Broadcast  # type: ignore[import-not-found]
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, WebSocketRoute
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = get_logger(__name__)
 broadcast = Broadcast('memory://')
 
-async def gossip_endpoint(request):
+async def gossip_endpoint(request: Any) -> dict[str, str]:
     """HTTP endpoint for publishing gossip messages"""
     try:
         data = await request.json()
@@ -32,7 +33,7 @@ async def gossip_endpoint(request):
         logger.error('Error publishing: %s', e)
         return {'status': 'error', 'message': str(e)}
 
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket) -> None:
     """WebSocket endpoint for real-time gossip"""
     await websocket.accept()
     channel = websocket.query_params.get('channel', 'blockchain')
@@ -52,7 +53,7 @@ def create_app() -> Starlette:
     middleware = [Middleware(CORSMiddleware, allow_origins=['http://localhost:8011', 'http://localhost:8001', 'http://localhost:8002', 'http://localhost:8003', 'http://localhost:8010', 'http://localhost:8011', 'http://localhost:8012', 'http://localhost:8013', 'http://localhost:8014', 'http://localhost:8015', 'http://localhost:8016'], allow_methods=['POST', 'GET', 'OPTIONS'])]
     return Starlette(routes=routes, middleware=middleware)
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='AITBC Gossip Relay')
     parser.add_argument('--host', default='127.0.0.1', help='Bind host')
     parser.add_argument('--port', type=int, default=7070, help='Bind port')

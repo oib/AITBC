@@ -19,7 +19,7 @@ _logger = get_logger(__name__)
 _last_import_time = 0.0
 _import_lock = asyncio.Lock()
 
-@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=200, per=60)
 async def get_genesis_allocations(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
     chain_id = get_chain_id(chain_id)
@@ -36,14 +36,14 @@ async def get_genesis_allocations(request: Request, chain_id: str | None = None)
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=500, detail=f'Failed to parse genesis block metadata: {e}')
 
-@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=200, per=60)
 async def get_head(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get current chain head"""
     chain_id = get_chain_id(chain_id)
     metrics_registry.increment('rpc_get_head_total')
     start = time.perf_counter()
     with session_scope(chain_id) as session:
-        result = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()
+        result = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()  # type: ignore[attr-defined]
         if result is None:
             metrics_registry.increment('rpc_get_head_not_found_total')
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='no blocks yet')
@@ -51,7 +51,7 @@ async def get_head(request: Request, chain_id: str | None = None) -> dict[str, A
     metrics_registry.observe('rpc_get_head_duration_seconds', time.perf_counter() - start)
     return {'height': result.height, 'hash': result.hash, 'timestamp': result.timestamp.isoformat(), 'tx_count': result.tx_count}
 
-@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=200, per=60)
 async def get_block(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get block by height"""
     chain_id = get_chain_id(chain_id)
@@ -72,7 +72,7 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
     metrics_registry.observe('rpc_get_block_duration_seconds', time.perf_counter() - start)
     return {'chain_id': block.chain_id, 'height': block.height, 'hash': block.hash, 'parent_hash': block.parent_hash, 'proposer': block.proposer, 'timestamp': block.timestamp.isoformat(), 'tx_count': block.tx_count, 'state_root': block.state_root, 'transactions': tx_list}
 
-@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=200, per=60)
 async def get_blocks_range(request: Request, start: int = 0, end: int = 10, include_tx: bool = True, chain_id: str | None = None) -> dict[str, Any]:
     """Get blocks in a height range
     
@@ -83,7 +83,7 @@ async def get_blocks_range(request: Request, start: int = 0, end: int = 10, incl
     """
     with session_scope() as session:
         chain_id = get_chain_id(chain_id)
-        blocks = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height >= start, Block.height <= end).order_by(Block.height.asc())).all()
+        blocks = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height >= start, Block.height <= end).order_by(Block.height.asc())).all()  # type: ignore[attr-defined]
         result_blocks = []
         for b in blocks:
             block_data = {'height': b.height, 'hash': b.hash, 'parent_hash': b.parent_hash, 'proposer': b.proposer, 'timestamp': b.timestamp.isoformat(), 'tx_count': b.tx_count, 'state_root': b.state_root}
@@ -93,7 +93,7 @@ async def get_blocks_range(request: Request, start: int = 0, end: int = 10, incl
             result_blocks.append(block_data)
         return {'success': True, 'blocks': result_blocks, 'count': len(blocks)}
 
-@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=50, per=60)
 async def import_block(request: Request, block_data: dict) -> dict[str, Any]:
     """Import a block into the blockchain"""
     global _last_import_time
@@ -134,7 +134,7 @@ async def import_block(request: Request, block_data: dict) -> dict[str, Any]:
                 existing_block = session.execute(select(Block).where(Block.hash == block_hash)).first()
                 if existing_block:
                     _logger.warning('Deleting existing block with conflicting hash %s from chain %s', block_hash, existing_block[0].chain_id)
-                    session.execute(delete(Block).where(Block.hash == block_hash))
+                    session.execute(delete(Block).where(Block.hash == block_hash))  # type: ignore[arg-type]
                     session.commit()
                 block = Block(chain_id=chain_id, height=block_height, hash=block_hash, parent_hash=block_data['parent_hash'], proposer=block_data['proposer'], timestamp=timestamp, state_root=block_data.get('state_root'), tx_count=block_data.get('tx_count', 0))
                 session.add(block)

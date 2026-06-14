@@ -280,20 +280,20 @@ class AlertManager:
     def _evaluate_condition(self, condition: str, metrics: dict[str, Any], threshold: float) -> bool:
         """Evaluate alert condition"""
         if 'error_rate' in condition:
-            error_rate = metrics.get('error_rate', 0)
-            return error_rate > threshold
+            error_rate: float = metrics.get('error_rate', 0)
+            return bool(error_rate > threshold)
         elif 'response_time' in condition:
-            response_time = metrics.get('avg_response_time', 0)
-            return response_time > threshold
+            response_time: float = metrics.get('avg_response_time', 0)
+            return bool(response_time > threshold)
         elif 'agent_count' in condition:
-            agent_count = metrics.get('active_agents', 0)
-            return agent_count < threshold
+            agent_count: float = metrics.get('active_agents', 0)
+            return bool(agent_count < threshold)
         elif 'memory_usage' in condition:
-            memory_usage = metrics.get('memory_usage_percent', 0)
-            return memory_usage > threshold
+            memory_usage: float = metrics.get('memory_usage_percent', 0)
+            return bool(memory_usage > threshold)
         elif 'cpu_usage' in condition:
-            cpu_usage = metrics.get('cpu_usage_percent', 0)
-            return cpu_usage > threshold
+            cpu_usage: float = metrics.get('cpu_usage_percent', 0)
+            return bool(cpu_usage > threshold)
         return False
 
     def _trigger_alert(self, rule: AlertRule, metrics: dict[str, Any]) -> Any:
@@ -311,10 +311,14 @@ class AlertManager:
 
     def _find_similar_active_alert(self, rule: AlertRule) -> Alert | None:
         """Find similar active alert"""
+        result: Alert | None = None
         for alert in self.alerts.values():
-            if alert.status == AlertStatus.ACTIVE and alert.name == rule.name and (alert.labels == rule.labels):
-                return alert
-        return None
+            if alert.status == AlertStatus.ACTIVE and alert.name == rule.name:
+                labels_equal = alert.labels == rule.labels
+                if bool(labels_equal):
+                    result = alert
+                    break
+        return result
 
     def _generate_alert_message(self, alert: Alert, metrics: dict[str, Any]) -> str:
         """Generate alert message"""
