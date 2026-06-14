@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Alerting System for AITBC Agent Coordinator
 Implements comprehensive alerting with multiple channels and SLA monitoring
@@ -15,13 +14,11 @@ from typing import Any
 from aitbc import get_logger
 
 try:
-    from email.mime.multipart import MimeMultipart
-    from email.mime.text import MimeText
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
     EMAIL_AVAILABLE = True
 except ImportError:
     EMAIL_AVAILABLE = False
-    MimeText = None
-    MimeMultipart = None
 import requests
 
 logger = get_logger(__name__)
@@ -88,9 +85,9 @@ class SLAMonitor:
     """SLA monitoring and compliance tracking"""
 
     def __init__(self) -> None:
-        self.sla_rules = {}
-        self.sla_metrics = {}
-        self.violations = {}
+        self.sla_rules: dict[str, Any] = {}
+        self.sla_metrics: dict[str, Any] = {}
+        self.violations: dict[str, Any] = {}
 
     def add_sla_rule(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
         """Add SLA rule"""
@@ -150,9 +147,9 @@ class NotificationManager:
     """Manages notifications across different channels"""
 
     def __init__(self) -> None:
-        self.email_config = {}
-        self.slack_config = {}
-        self.webhook_configs = {}
+        self.email_config: dict[str, Any] = {}
+        self.slack_config: dict[str, Any] = {}
+        self.webhook_configs: dict[str, Any] = {}
 
     def configure_email(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
         """Configure email notifications"""
@@ -162,7 +159,7 @@ class NotificationManager:
         """Configure Slack notifications"""
         self.slack_config = {'webhook_url': webhook_url, 'channel': channel}
 
-    def add_webhook(self, name: str, url: str, headers: dict[str, str]=None) -> Any:
+    def add_webhook(self, name: str, url: str, headers: dict[str, str] | None=None) -> Any:
         """Add webhook configuration"""
         self.webhook_configs[name] = {'url': url, 'headers': headers or {}}
 
@@ -190,12 +187,12 @@ class NotificationManager:
             logger.warning('Email not configured')
             return
         try:
-            msg = MimeMultipart()
+            msg = MIMEMultipart()
             msg['From'] = self.email_config['from_email']
             msg['To'] = 'admin@aitbc.local'
             msg['Subject'] = f'[{alert.severity.value.upper()}] {alert.name}'
             body = f'\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            '
-            msg.attach(MimeText(body, 'plain'))
+            msg.attach(MIMEText(body, 'plain'))
             server = smtplib.SMTP(self.email_config['smtp_server'], self.email_config['smtp_port'])
             server.starttls()
             server.login(self.email_config['username'], self.email_config['password'])
@@ -237,11 +234,11 @@ class AlertManager:
     """Main alert management system"""
 
     def __init__(self) -> None:
-        self.alerts = {}
-        self.rules = {}
+        self.alerts: dict[str, Any] = {}
+        self.rules: dict[str, Any] = {}
         self.notification_manager = NotificationManager()
         self.sla_monitor = SLAMonitor()
-        self.active_conditions = {}
+        self.active_conditions: dict[str, Any] = {}
         self._initialize_default_rules()
 
     def _initialize_default_rules(self) -> None:

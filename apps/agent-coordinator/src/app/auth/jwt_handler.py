@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 JWT Authentication Handler for AITBC Agent Coordinator
 Implements JWT token generation, validation, and management
@@ -93,7 +92,7 @@ class PasswordManager:
     @staticmethod
     def hash_password(password: str) -> dict[str, Any]:
         """Hash password using bcrypt"""
-        import bcrypt
+        import bcrypt  # type: ignore
         try:
             salt = bcrypt.gensalt()
             hashed = bcrypt.hashpw(password.encode('utf-8'), salt)

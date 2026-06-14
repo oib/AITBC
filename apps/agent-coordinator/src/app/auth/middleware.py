@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Authentication Middleware for AITBC Agent Coordinator
 Implements JWT and API key authentication middleware
@@ -98,7 +97,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(
                 user_id = payload.get('user_id')
                 rate_check = rate_limiter.is_allowed(user_id, payload.get('role', 'default'))
                 if not rate_check['allowed']:
-                    raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail={'error': 'Rate limit exceeded', 'reset_time': rate_check['reset_time']}, headers={'Retry-After': str(int(rate_check['reset_time'] - rate_limiter.requests[user_id][0]))})
+                    raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail={'error': 'Rate limit exceeded', 'reset_time': rate_check['reset_time']}, headers={'Retry-After': str(int(rate_check['reset_time'] - rate_limiter.requests[user_id][0]))})  # type: ignore
                 return {'user_id': user_id, 'username': payload.get('username'), 'role': str(payload.get('role', 'default')), 'permissions': payload.get('permissions', []), 'auth_type': 'jwt'}
         api_key = None
         if credentials and credentials.scheme == 'ApiKey':
