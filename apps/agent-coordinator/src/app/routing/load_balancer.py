@@ -263,7 +263,7 @@ class LoadBalancer:
         elif self.strategy == LoadBalancingStrategy.CONSISTENT_HASH:
             return self._consistent_hash_selection(eligible_agents, task_data)
         else:
-            return eligible_agents[0]
+            return eligible_agents[0]  # type: ignore[unreachable]
 
     def _round_robin_selection(self, agents: list[str]) -> str:
         """Round-robin agent selection"""

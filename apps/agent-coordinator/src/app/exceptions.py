@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Any
 
