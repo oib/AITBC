@@ -9,12 +9,11 @@ from uuid import uuid4
 from aitbc import get_logger
 logger = get_logger(__name__)
 from sqlmodel import Session, select
-from app.domain.agent_performance import AgentPerformanceProfile, LearningStrategy, MetaLearningModel, OptimizationTarget, PerformanceMetric, PerformanceOptimization, ResourceAllocation, ResourceType
-
+from app.domain.agent_performance import AgentPerformanceProfile, LearningStrategy, MetaLearningModel, OptimizationTarget, PerformanceMetric, PerformanceOptimization, ResourceAllocation, ResourceType  # type: ignore[import-not-found]
 class MetaLearningEngine:
     """Advanced meta-learning system for rapid skill acquisition"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.meta_algorithms = {'model_agnostic_meta_learning': self.maml_algorithm, 'reptile': self.reptile_algorithm, 'meta_sgd': self.meta_sgd_algorithm, 'prototypical_networks': self.prototypical_algorithm}
         self.adaptation_strategies = {'fast_adaptation': self.fast_adaptation, 'gradual_adaptation': self.gradual_adaptation, 'transfer_adaptation': self.transfer_adaptation, 'multi_task_adaptation': self.multi_task_adaptation}
         self.performance_metrics = [PerformanceMetric.ACCURACY, PerformanceMetric.ADAPTATION_SPEED, PerformanceMetric.GENERALIZATION, PerformanceMetric.RESOURCE_EFFICIENCY]
@@ -156,7 +155,7 @@ class MetaLearningEngine:
 class ResourceManager:
     """Self-optimizing resource management system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.optimization_algorithms = {'genetic_algorithm': self.genetic_optimization, 'simulated_annealing': self.simulated_annealing, 'gradient_descent': self.gradient_optimization, 'bayesian_optimization': self.bayesian_optimization}
         self.resource_constraints = {ResourceType.CPU: {'min': 0.5, 'max': 16.0, 'step': 0.5}, ResourceType.MEMORY: {'min': 1.0, 'max': 64.0, 'step': 1.0}, ResourceType.GPU: {'min': 0.0, 'max': 8.0, 'step': 1.0}, ResourceType.STORAGE: {'min': 10.0, 'max': 1000.0, 'step': 10.0}, ResourceType.NETWORK: {'min': 10.0, 'max': 1000.0, 'step': 10.0}}
 
@@ -272,7 +271,7 @@ class ResourceManager:
 class PerformanceOptimizer:
     """Advanced performance optimization system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.optimization_techniques = {'hyperparameter_tuning': self.tune_hyperparameters, 'architecture_optimization': self.optimize_architecture, 'algorithm_selection': self.select_algorithm, 'data_optimization': self.optimize_data_pipeline}
         self.performance_targets = {PerformanceMetric.ACCURACY: {'weight': 0.3, 'target': 0.95}, PerformanceMetric.LATENCY: {'weight': 0.25, 'target': 100.0}, PerformanceMetric.THROUGHPUT: {'weight': 0.2, 'target': 100.0}, PerformanceMetric.RESOURCE_EFFICIENCY: {'weight': 0.15, 'target': 0.8}, PerformanceMetric.COST_EFFICIENCY: {'weight': 0.1, 'target': 0.9}}
 
@@ -321,7 +320,7 @@ class PerformanceOptimizer:
 
     def analyze_current_performance(self, current_performance: dict[str, float], target_metric: PerformanceMetric) -> dict[str, Any]:
         """Analyze current performance to identify bottlenecks"""
-        analysis = {'current_value': current_performance.get(target_metric.value, 0.0), 'target_value': self.performance_targets[target_metric]['target'], 'gap': 0.0, 'bottlenecks': [], 'improvement_potential': 0.0}
+        analysis: dict[str, Any] = {'current_value': current_performance.get(target_metric.value, 0.0), 'target_value': self.performance_targets[target_metric]['target'], 'gap': 0.0, 'bottlenecks': [], 'improvement_potential': 0.0}
         current_value = analysis['current_value']
         target_value = analysis['target_value']
         if target_metric == PerformanceMetric.ACCURACY:
