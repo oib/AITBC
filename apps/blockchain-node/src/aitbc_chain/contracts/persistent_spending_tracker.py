@@ -83,7 +83,7 @@ class PersistentSpendingTracker:
         else:
             raise ValueError(f'Invalid period: {period}')
 
-    def get_spent_in_period(self, agent_address: str, period: str, timestamp: datetime=None) -> float:
+    def get_spent_in_period(self, agent_address: str, period: str, timestamp: datetime | None = None) -> float:
         """
         Get total spent in given period from database
         
@@ -101,9 +101,9 @@ class PersistentSpendingTracker:
         agent_address = to_checksum_address(agent_address)
         with self.get_session() as session:
             total = session.query(SpendingRecord).filter(SpendingRecord.agent_address == agent_address, SpendingRecord.period_type == period, SpendingRecord.period_key == period_key).with_entities(SpendingRecord.amount).all()
-            return sum((record.amount for record in total))
+            return float(sum((record.amount for record in total if record.amount is not None)))
 
-    def record_spending(self, agent_address: str, amount: float, transaction_hash: str, timestamp: datetime=None) -> bool:
+    def record_spending(self, agent_address: str, amount: float, transaction_hash: str, timestamp: datetime | None = None) -> bool:
         """
         Record a spending transaction in the database
         
@@ -124,7 +124,7 @@ class PersistentSpendingTracker:
                 periods = ['hour', 'day', 'week']
                 for period in periods:
                     period_key = self._get_period_key(timestamp, period)
-                    record = SpendingRecord(id=f'{transaction_hash}_{period}', agent_address=agent_address, period_type=period, period_key=period_key, amount=amount, transaction_hash=transaction_hash, timestamp=timestamp)
+                    record = SpendingRecord(id=f'{transaction_hash}_{period}', agent_address=agent_address, period_type=period, period_key=period_key, amount=amount, transaction_hash=transaction_hash, timestamp=timestamp)  # type: ignore[arg-type]
                     session.add(record)
                 session.commit()
                 return True
@@ -132,7 +132,7 @@ class PersistentSpendingTracker:
             logger.error('Failed to record spending: %s', e)
             return False
 
-    def check_spending_limits(self, agent_address: str, amount: float, timestamp: datetime=None) -> SpendingCheckResult:
+    def check_spending_limits(self, agent_address: str, amount: float, timestamp: datetime | None = None) -> SpendingCheckResult:
         """
         Check if amount exceeds spending limits using persistent data
         
@@ -150,32 +150,37 @@ class PersistentSpendingTracker:
         with self.get_session() as session:
             limits = session.query(SpendingLimit).filter(SpendingLimit.agent_address == agent_address).first()
             if not limits:
-                limits = SpendingLimit(agent_address=agent_address, per_transaction=1000.0, per_hour=5000.0, per_day=20000.0, per_week=100000.0, time_lock_threshold=5000.0, time_lock_delay_hours=24)
+                limits = SpendingLimit(agent_address=agent_address, per_transaction=1000.0, per_hour=5000.0, per_day=20000.0, per_week=100000.0, time_lock_threshold=5000.0, time_lock_delay_hours=24)  # type: ignore[arg-type]
                 session.add(limits)
                 session.commit()
-        current_spent = {}
-        remaining = {}
-        if amount > limits.per_transaction:
-            return SpendingCheckResult(allowed=False, reason=f'Amount {amount} exceeds per-transaction limit {limits.per_transaction}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
+        current_spent: dict[str, float] = {}
+        remaining: dict[str, float] = {}
+        per_transaction = limits.per_transaction if limits.per_transaction is not None else 0.0
+        per_hour = limits.per_hour if limits.per_hour is not None else 0.0
+        per_day = limits.per_day if limits.per_day is not None else 0.0
+        per_week = limits.per_week if limits.per_week is not None else 0.0
+        time_lock_threshold = limits.time_lock_threshold if limits.time_lock_threshold is not None else 0.0
+        if amount > per_transaction:
+            return SpendingCheckResult(allowed=False, reason=f'Amount {amount} exceeds per-transaction limit {per_transaction}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
         spent_hour = self.get_spent_in_period(agent_address, 'hour', timestamp)
         current_spent['hour'] = spent_hour
-        remaining['hour'] = limits.per_hour - spent_hour
-        if spent_hour + amount > limits.per_hour:
-            return SpendingCheckResult(allowed=False, reason=f'Hourly spending {spent_hour + amount} would exceed limit {limits.per_hour}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
+        remaining['hour'] = per_hour - spent_hour  # type: ignore[operator]
+        if spent_hour + amount > per_hour:
+            return SpendingCheckResult(allowed=False, reason=f'Hourly spending {spent_hour + amount} would exceed limit {per_hour}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
         spent_day = self.get_spent_in_period(agent_address, 'day', timestamp)
         current_spent['day'] = spent_day
-        remaining['day'] = limits.per_day - spent_day
-        if spent_day + amount > limits.per_day:
-            return SpendingCheckResult(allowed=False, reason=f'Daily spending {spent_day + amount} would exceed limit {limits.per_day}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
+        remaining['day'] = per_day - spent_day  # type: ignore[operator]
+        if spent_day + amount > per_day:
+            return SpendingCheckResult(allowed=False, reason=f'Daily spending {spent_day + amount} would exceed limit {per_day}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
         spent_week = self.get_spent_in_period(agent_address, 'week', timestamp)
         current_spent['week'] = spent_week
-        remaining['week'] = limits.per_week - spent_week
-        if spent_week + amount > limits.per_week:
-            return SpendingCheckResult(allowed=False, reason=f'Weekly spending {spent_week + amount} would exceed limit {limits.per_week}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
-        requires_time_lock = amount >= limits.time_lock_threshold
+        remaining['week'] = per_week - spent_week  # type: ignore[operator]
+        if spent_week + amount > per_week:
+            return SpendingCheckResult(allowed=False, reason=f'Weekly spending {spent_week + amount} would exceed limit {per_week}', current_spent=current_spent, remaining=remaining, requires_time_lock=False)
+        requires_time_lock = amount >= time_lock_threshold
         time_lock_until = None
         if requires_time_lock:
-            time_lock_until = timestamp + timedelta(hours=limits.time_lock_delay_hours)
+            time_lock_until = timestamp + timedelta(hours=float(limits.time_lock_delay_hours if limits.time_lock_delay_hours is not None else 0))
         return SpendingCheckResult(allowed=True, reason='Spending limits check passed', current_spent=current_spent, remaining=remaining, requires_time_lock=requires_time_lock, time_lock_until=time_lock_until)
 
     def update_spending_limits(self, agent_address: str, new_limits: dict, guardian_address: str) -> bool:
@@ -212,7 +217,7 @@ class PersistentSpendingTracker:
                 session.commit()
                 return True
         except Exception as e:
-            logger.error('Failed to update spending limits', error=str(e))
+            logger.error('Failed to update spending limits: %s', str(e))
             return False
 
     def add_guardian(self, agent_address: str, guardian_address: str, added_by: str) -> bool:
@@ -243,7 +248,7 @@ class PersistentSpendingTracker:
                 session.commit()
                 return True
         except Exception as e:
-            logger.error('Failed to add guardian', error=str(e))
+            logger.error('Failed to add guardian: %s', str(e))
             return False
 
     def is_guardian_authorized(self, agent_address: str, guardian_address: str) -> bool:
@@ -280,7 +285,10 @@ class PersistentSpendingTracker:
             limits = session.query(SpendingLimit).filter(SpendingLimit.agent_address == agent_address).first()
             if not limits:
                 return {'error': 'No spending limits set'}
-        remaining = {'hour': limits.per_hour - current_spent['hour'], 'day': limits.per_day - current_spent['day'], 'week': limits.per_week - current_spent['week']}
+        per_hour_limit = float(limits.per_hour) if limits.per_hour is not None else 0.0
+        per_day_limit = float(limits.per_day) if limits.per_day is not None else 0.0
+        per_week_limit = float(limits.per_week) if limits.per_week is not None else 0.0
+        remaining = {'hour': per_hour_limit - current_spent['hour'], 'day': per_day_limit - current_spent['day'], 'week': per_week_limit - current_spent['week']}
         with self.get_session() as session:
             guardians = session.query(GuardianAuthorization).filter(GuardianAuthorization.agent_address == agent_address, GuardianAuthorization.is_active == True).all()
         return {'agent_address': agent_address, 'current_spending': current_spent, 'remaining_spending': remaining, 'limits': {'per_transaction': limits.per_transaction, 'per_hour': limits.per_hour, 'per_day': limits.per_day, 'per_week': limits.per_week}, 'time_lock': {'threshold': limits.time_lock_threshold, 'delay_hours': limits.time_lock_delay_hours}, 'authorized_guardians': [g.guardian_address for g in guardians], 'last_updated': limits.updated_at.isoformat() if limits.updated_at else None}

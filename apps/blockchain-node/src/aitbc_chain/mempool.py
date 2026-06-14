@@ -15,7 +15,7 @@ from .metrics import metrics_registry
 mempool_metadata = MetaData()
 
 
-class MempoolEntry(SQLModel, table=True):  # type: ignore[call-arg]
+class MempoolEntry(SQLModel, table=True):
     __tablename__ = "mempool"
     __table_args__: Any = (
         {"metadata": mempool_metadata},
@@ -194,8 +194,8 @@ class DatabaseMempool:
                         received_at REAL NOT NULL,
                         PRIMARY KEY (chain_id, tx_hash)
                     )
-                """))
-                session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))
+                """))  # type: ignore[call-overload]
+                session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
                 session.commit()
 
     def add(self, tx: dict[str, Any], chain_id: str | None = None) -> str:
@@ -341,7 +341,7 @@ class DatabaseMempool:
                 count = session.exec(
                     select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
                 ).one()
-                return cast(int, count)
+                return count
 
     def get_pending_transactions(self, chain_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""

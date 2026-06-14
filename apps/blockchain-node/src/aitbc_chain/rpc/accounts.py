@@ -20,13 +20,13 @@ ACCOUNT_CACHE_TTL = 30
 _logger = get_logger(__name__)
 
 @rate_limit(rate=200, per=60)
-async def get_account(request: Request, address: str, chain_id: str=None) -> dict[str, Any]:
+async def get_account(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
     cache_key = f'account_balance:{chain_id}:{address.lower()}'
     cached = _cache.get(cache_key)
     if cached is not None:
-        return cached
+        return cached  # type: ignore[no-any-return]
     with session_scope() as session:
         account = session.exec(select(Account).where(Account.address == address).where(Account.chain_id == chain_id)).first()
         if not account:
@@ -36,12 +36,12 @@ async def get_account(request: Request, address: str, chain_id: str=None) -> dic
         return result
 
 @rate_limit(rate=200, per=60)
-async def get_account_alias(request: Request, address: str, chain_id: str=None) -> dict[str, Any]:
+async def get_account_alias(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information (alias endpoint)"""
     return await get_account(request, address, chain_id)
 
 @rate_limit(rate=200, per=60)
-async def get_account_details(request: Request, address: str, chain_id: str=None) -> dict[str, Any]:
+async def get_account_details(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """
     Get account details including balance and nonce.
     
@@ -57,7 +57,7 @@ async def get_account_details(request: Request, address: str, chain_id: str=None
     cache_key = f'account_details:{chain_id}:{address}'
     cached = _cache.get(cache_key)
     if cached is not None:
-        return cached
+        return cached  # type: ignore[no-any-return]
     with session_scope() as session:
         account = session.get(Account, (chain_id, address))
         if not account:
@@ -146,7 +146,7 @@ async def faucet_request(request: Request, faucet_data: dict) -> dict[str, Any]:
         return {'success': True, 'address': address, 'amount': amount, 'tx_hash': tx_hash, 'chain_id': chain_id, 'message': 'Faucet transaction completed'}
 
 @rate_limit(rate=100, per=60)
-async def get_balance_breakdown(request: Request, address: str, chain_id: str=None) -> dict[str, Any]:
+async def get_balance_breakdown(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """
     Get detailed balance breakdown including:
     - Available balance
@@ -170,7 +170,7 @@ async def get_balance_breakdown(request: Request, address: str, chain_id: str=No
         raise HTTPException(status_code=500, detail=f'Failed to get balance: {str(e)}')
 
 @rate_limit(rate=20, per=60)
-async def reconcile_balance(request: Request, address: str, chain_id: str=None) -> dict[str, Any]:
+async def reconcile_balance(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """
     Reconcile account balance against all recorded operations.
     

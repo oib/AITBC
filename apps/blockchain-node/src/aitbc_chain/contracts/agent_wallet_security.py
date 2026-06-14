@@ -8,6 +8,7 @@ of agent compromise.
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from eth_utils import to_checksum_address
 
@@ -31,7 +32,7 @@ class AgentSecurityProfile:
     enabled: bool = True
     created_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at is None:
             self.created_at = datetime.now(UTC)
 
@@ -41,7 +42,7 @@ class AgentWalletSecurity:
     Security manager for autonomous agent wallets
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.agent_profiles: dict[str, AgentSecurityProfile] = {}
         self.guardian_contracts: dict[str, GuardianContract] = {}
         self.security_events: list[dict] = []
@@ -416,7 +417,7 @@ class AgentWalletSecurity:
 
         return sorted(events, key=lambda x: x["timestamp"], reverse=True)[:limit]
 
-    def _log_security_event(self, **kwargs):
+    def _log_security_event(self, **kwargs: Any) -> None:
         """Log a security event"""
         event = {
             "timestamp": datetime.now(UTC).isoformat(),

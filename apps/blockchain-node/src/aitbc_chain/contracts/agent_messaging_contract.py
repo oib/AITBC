@@ -76,7 +76,7 @@ class AgentReputation:
 class AgentMessagingContract:
     """Main contract for agent messaging functionality"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.messages: dict[str, Message] = {}
         self.topics: dict[str, Topic] = {}
         self.agent_reputations: dict[str, AgentReputation] = {}
@@ -434,7 +434,7 @@ class AgentMessagingContract:
         return self.agent_reputations[agent_id].is_moderator
 
     def _update_agent_reputation(self, agent_id: str, message_count: int = 0,
-                               upvotes_received: int = 0, downvotes_received: int = 0):
+                               upvotes_received: int = 0, downvotes_received: int = 0) -> None:
         """Update agent reputation"""
 
         if agent_id not in self.agent_reputations:

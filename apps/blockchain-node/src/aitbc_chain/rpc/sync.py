@@ -39,7 +39,7 @@ def _parse_datetime_value(value: Any, field_name: str) -> datetime | None:
     raise HTTPException(status_code=400, detail=f'Invalid {field_name} type: {type(value).__name__}')
 
 def _select_export_blocks(session: Session, chain_id: str) -> list[Block]:
-    blocks_result = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.asc(), Block.id.desc()))
+    blocks_result = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.asc(), Block.id.desc()))  # type: ignore[attr-defined,union-attr]
     blocks: list[Block] = []
     seen_heights = set()
     duplicate_count = 0
@@ -76,7 +76,7 @@ def _dedupe_import_blocks(blocks: list[dict[str, Any]], chain_id: str) -> list[d
         _logger.warning('Filtered %s duplicate imported blocks for chain %s', duplicate_count, chain_id)
     return [latest_by_height[height] for height in sorted(latest_by_height)]
 
-@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=200, per=60)
 async def export_chain(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Export full chain state as JSON for manual synchronization"""
     chain_id = get_chain_id(chain_id)
@@ -85,7 +85,7 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
             blocks = _select_export_blocks(session, chain_id)
             accounts_result = session.execute(select(Account).where(Account.chain_id == chain_id).order_by(Account.address))
             accounts = list(accounts_result.scalars().all())
-            txs_result = session.execute(select(Transaction).where(Transaction.chain_id == chain_id).order_by(Transaction.block_height, Transaction.id))
+            txs_result = session.execute(select(Transaction).where(Transaction.chain_id == chain_id).order_by(Transaction.block_height, Transaction.id))  # type: ignore[arg-type]
             transactions = list(txs_result.scalars().all())
             export_data = {'chain_id': chain_id, 'export_timestamp': datetime.now().isoformat(), 'block_count': len(blocks), 'account_count': len(accounts), 'transaction_count': len(transactions), 'blocks': [{'chain_id': b.chain_id, 'height': b.height, 'hash': b.hash, 'parent_hash': b.parent_hash, 'proposer': b.proposer, 'timestamp': b.timestamp.isoformat() if b.timestamp else None, 'state_root': b.state_root, 'tx_count': b.tx_count, 'block_metadata': b.block_metadata} for b in blocks], 'accounts': [{'chain_id': a.chain_id, 'address': a.address, 'balance': a.balance, 'nonce': a.nonce} for a in accounts], 'transactions': [{'id': t.id, 'chain_id': t.chain_id, 'tx_hash': t.tx_hash, 'block_height': t.block_height, 'sender': t.sender, 'recipient': t.recipient, 'payload': t.payload, 'value': t.value, 'fee': t.fee, 'nonce': t.nonce, 'timestamp': _serialize_optional_timestamp(t.timestamp), 'status': t.status, 'created_at': t.created_at.isoformat() if t.created_at else None, 'tx_metadata': t.tx_metadata} for t in transactions]}
             return {'success': True, 'export_data': export_data, 'export_size_bytes': len(json.dumps(export_data))}
@@ -95,7 +95,7 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
         _logger.error('Error exporting chain: %s', e)
         raise HTTPException(status_code=500, detail=f'Failed to export chain: {str(e)}')
 
-@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=50, per=60)
 async def import_chain(request: Request, import_data: dict) -> dict[str, Any]:
     """Import chain state from JSON for manual synchronization"""
     async with _import_lock:
@@ -111,25 +111,25 @@ async def import_chain(request: Request, import_data: dict) -> dict[str, Any]:
             with session_scope() as session:
                 if not unique_blocks:
                     raise HTTPException(status_code=400, detail='No blocks to import')
-                existing_blocks = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height))
+                existing_blocks = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height))  # type: ignore[arg-type]
                 existing_count = len(list(existing_blocks.scalars().all()))
                 if existing_count > 0:
                     _logger.info('Backing up existing chain with %s blocks', existing_count)
                 _logger.info('Clearing existing transactions for chain %s', chain_id)
-                session.execute(delete(Transaction).where(Transaction.chain_id == chain_id))
+                session.execute(delete(Transaction).where(Transaction.chain_id == chain_id))  # type: ignore[arg-type]
                 if accounts:
                     _logger.info('Clearing existing accounts for chain %s', chain_id)
-                    session.execute(delete(Account).where(Account.chain_id == chain_id))
+                    session.execute(delete(Account).where(Account.chain_id == chain_id))  # type: ignore[arg-type]
                 _logger.info('Clearing existing blocks for chain %s', chain_id)
-                session.execute(delete(Block).where(Block.chain_id == chain_id))
+                session.execute(delete(Block).where(Block.chain_id == chain_id))  # type: ignore[arg-type]
                 import_hashes = {block_data['hash'] for block_data in unique_blocks}
                 if import_hashes:
-                    hash_conflict_result = session.execute(select(Block.hash, Block.chain_id).where(Block.hash.in_(import_hashes)))
+                    hash_conflict_result = session.execute(select(Block.hash, Block.chain_id).where(Block.hash.in_(import_hashes)))  # type: ignore[attr-defined]
                     hash_conflicts = hash_conflict_result.all()
                     if hash_conflicts:
                         conflict_chains = {chain_id for _, chain_id in hash_conflicts}
                         _logger.warning('Clearing %s blocks with conflicting hashes across chains: %s', len(hash_conflicts), conflict_chains)
-                        session.execute(delete(Block).where(Block.hash.in_(import_hashes)))
+                        session.execute(delete(Block).where(Block.hash.in_(import_hashes)))  # type: ignore[attr-defined]
                 session.commit()
                 session.expire_all()
                 _logger.info('Importing %s unique blocks (filtered from %s total)', len(unique_blocks), len(blocks))
@@ -160,7 +160,7 @@ async def import_chain(request: Request, import_data: dict) -> dict[str, Any]:
             _logger.error('Error importing chain: %s', e)
             raise HTTPException(status_code=500, detail=f'Failed to import chain: {str(e)}')
 
-@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
+@rate_limit(rate=50, per=60)
 async def force_sync(request: Request, peer_data: dict) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
     try:

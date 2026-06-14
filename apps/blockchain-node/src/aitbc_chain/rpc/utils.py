@@ -11,14 +11,14 @@ from ..config import settings
 _poa_proposers: dict[str, Any] = {}
 
 
-def set_poa_proposer(proposer, chain_id: str | None = None):
+def set_poa_proposer(proposer: Any, chain_id: str | None = None) -> None:
     """Set the global PoA proposer instance"""
     if chain_id is None:
         chain_id = getattr(getattr(proposer, "_config", None), "chain_id", None) or get_chain_id(None)
     _poa_proposers[chain_id] = proposer
 
 
-def get_poa_proposer(chain_id: str | None = None):
+def get_poa_proposer(chain_id: str | None = None) -> Any:
     """Get the global PoA proposer instance"""
     chain_id = get_chain_id(chain_id)
     return _poa_proposers.get(chain_id)
@@ -45,7 +45,7 @@ def get_supported_chains() -> list[str]:
     return chains
 
 
-def get_chain_db(chain_id: str | None = None):
+def get_chain_db(chain_id: str | None = None) -> Any:
     """Get chain-specific database engine"""
     from ..database import get_engine
 

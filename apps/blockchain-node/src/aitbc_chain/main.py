@@ -4,7 +4,7 @@ import os
 from contextlib import asynccontextmanager, AbstractAsyncContextManager
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Callable, cast
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
@@ -15,8 +15,9 @@ from .mempool import init_mempool
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
 logger = get_logger('aitbc_chain.main')
+create_island_manager: Callable[[str, str, str], IslandManager] | None
 try:
-    from .network.island_manager import create_island_manager
+    from .network.island_manager import create_island_manager, IslandManager
     _island_manager_available = True
 except ImportError as e:
     logger.warning('Island manager module not available - island operations will be disabled: %s', e)
@@ -27,7 +28,7 @@ def _load_keystore_password() -> str:
     """Load keystore password from file or environment."""
     pwd_file = settings.keystore_password_file
     if pwd_file.exists():
-        return cast(str, pwd_file.read_text().strip())
+        return pwd_file.read_text().strip()
     env_pwd = os.getenv('KEYSTORE_PASSWORD')
     if env_pwd:
         return env_pwd
@@ -110,7 +111,9 @@ class BlockchainNode:
 
     async def _ensure_genesis_for_chains(self) -> None:
         for chain_id in self._supported_chains():
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda cid=chain_id: session_scope(cid))
+            def session_factory_for_chain(cid: str) -> Any:
+                return session_scope(cid)
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=session_factory_for_chain)  # type: ignore[arg-type]
             await proposer._ensure_genesis_block()
 
     async def _setup_gossip_subscribers(self) -> None:
@@ -160,7 +163,9 @@ class BlockchainNode:
                                 continue
                             logger.info('Received block from gossip for chain %s', chain_id_param)
                             logger.info('Importing block for chain %s: %s', chain_id_param, block_data.get('height'))
-                            sync = ChainSync(session_factory=lambda cid=chain_id_param: session_scope(cid), chain_id=chain_id_param)
+                            def session_factory_for_sync(cid: str) -> Any:
+                                return session_scope(cid)
+                            sync = ChainSync(session_factory=session_factory_for_sync, chain_id=chain_id_param)  # type: ignore[arg-type]
                             res = sync.import_block(block_data, transactions=block_data.get('transactions'))
                             logger.info('Import result: accepted=%s, reason=%s', res.accepted, res.reason)
                             if not res.accepted and 'Gap detected' in res.reason and settings.auto_sync_enabled:
@@ -211,7 +216,7 @@ class BlockchainNode:
             init_db(chain_id)
             logger.info('Initialized database for chain: %s', chain_id)
         init_mempool(backend=settings.mempool_backend, db_url=settings.mempool_db_url, max_size=settings.mempool_max_size, min_fee=settings.min_fee)
-        if _island_manager_available and create_island_manager:
+        if _island_manager_available and create_island_manager is not None:
             try:
                 node_id = os.getenv('NODE_ID', 'unknown-node')
                 default_island_id = os.getenv('DEFAULT_ISLAND_ID', f'{self._supported_chains()[0]}-island')
@@ -236,7 +241,7 @@ class BlockchainNode:
             subscription_client = None
             if settings.subscription_enabled:
                 node_id = os.getenv('NODE_ID', settings.p2p_node_id or 'unknown-node')
-                hub_url = settings.default_peer_rpc_url or settings.genesis_node
+                hub_url = settings.default_peer_rpc_url or settings.genesis_node  # type: ignore[attr-defined]
                 chain_id = self._supported_chains()[0]
                 if hub_url:
                     subscription_client = SubscriptionClient(hub_url, node_id, chain_id)
@@ -271,7 +276,9 @@ class BlockchainNode:
                 continue
             if chain_id in self._proposers:
                 continue
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda cid=chain_id: session_scope(cid))
+            def session_factory_for_proposer(cid: str) -> Any:
+                return session_scope(cid)
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=session_factory_for_proposer)  # type: ignore[arg-type]
             self._proposers[chain_id] = proposer
             asyncio.create_task(proposer.start())
 
@@ -279,7 +286,7 @@ class BlockchainNode:
         """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active."""
         chains = self._supported_chains()
         sync_interval = settings.periodic_sync_interval
-        source_url = settings.default_peer_rpc_url or settings.genesis_node
+        source_url = settings.default_peer_rpc_url or settings.genesis_node  # type: ignore[attr-defined]
         if not source_url:
             logger.warning('Periodic sync disabled: no default_peer_rpc_url or genesis_node configured')
             return
@@ -292,7 +299,9 @@ class BlockchainNode:
                     logger.info('Sync mode: pull (periodic, WebSocket push unavailable)')
                     for chain_id in chains:
                         try:
-                            sync = ChainSync(session_factory=lambda cid=chain_id: session_scope(cid), chain_id=chain_id)
+                            def session_factory_for_periodic(cid: str) -> Any:
+                                return session_scope(cid)
+                            sync = ChainSync(session_factory=session_factory_for_periodic, chain_id=chain_id)  # type: ignore[arg-type]
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:
                                 logger.info('Periodic sync imported %s blocks for chain %s', imported, chain_id)
