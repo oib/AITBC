@@ -12,6 +12,14 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 
 **Note:** This release completes all implementable backend features. Remaining skipped tests are due to legitimate architectural decisions or test environment requirements (environment variables, test environment limitations).
 
+**MyPy Type Safety Graduation Plan:**
+- Phase 1 (v0.4.17): Complex files suppressed with per-file ignores ✅ Complete
+- Phase 2 (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues ✅ COMPLETE
+  - v0.4.18: coordinator-api MyPy clean ✅, agent-coordinator 1 error ⚠️
+  - v0.4.19: hermes, edge, pool-hub, wallet, agent-management MyPy clean ✅
+  - v0.4.20: coordinator-api (32→0), edge (5→0), blockchain-node (16→0) ✅ COMPLETE
+- Phase 3 (v0.5.0): Remove all per-file ignores and enforce strict type checking 📅 Planned
+
 ## 📊 Implementation Status
 
 ### ✅ Completed Fixes
@@ -107,7 +115,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ Route ordering fixes - /history before /{agent_id} to prevent shadowing
 - ✅ Auth middleware test - Unskipped SLA status test (auth middleware already implemented)
 - ✅ Workflow orchestration - WorkflowOrchestrator with Redis persistence, multi-agent workflow execution
-- ✅ Environment config tests - Enabled 8 tests by setting TEST_ADMIN_PASSWORD, improved coverage to 29.80%
+- ✅ Environment config tests - Enabled 8 tests by setting TEST_ADMIN_PASSWORD (overall project coverage remained below 20% gate)
 - ✅ Concurrent message test - Unskipped and fixed assertion to accept 500 status, achieved 100% test pass rate
 - ✅ Test improvements - 221 passed, 0 skipped (up from 188 passed, 34 skipped)
 
@@ -180,7 +188,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ Pinned pydantic version in pyproject.toml to prevent future conflicts
 - ✅ Fixed MyPy blockchain-node (excluded - no .py[i] files)
 - ✅ MyPy coordinator-api: 0 errors in 362 source files (146 files with per-file ignores)
-- ✅ Test coverage at 29.81% (passes 20% gate)
+- ⚠️ Test coverage below 20% gate (measured at ~16.7% in subsequent verification)
 - ✅ Achieved 100% test pass rate (221 passed, 0 skipped, 0 failed for integration tests)
 - ✅ CLI tests: 761 passed, 206 skipped, 0 failed (100% pass rate on non-skipped)
 - ✅ Marketplace tests: 14 passed, 15 skipped, 0 failed (100% pass rate on non-skipped)
@@ -199,7 +207,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ Workflow orchestration - WorkflowOrchestrator with Redis persistence, multi-agent workflow execution
 
 ### Remaining Technical Debt
-- ✅ Ruff G004: All logging f-string errors fixed (45+ files, 24 commits)
+- ⚠️ Ruff G004: Globally ignored in pyproject.toml (866 errors deferred, not manually fixed)
 - ⚠️ Integration tests: Limited to test_agent_coordinator.py for CI/CD (other integration tests have failures)
 
 ### Backward Compatibility

@@ -5,8 +5,6 @@ Tests for AITBC testing utilities
 
 import pytest
 
-pytestmark = pytest.mark.skip("Skipping broken test file")
-
 from aitbc.testing import (
     MockCache,
     MockDatabase,
