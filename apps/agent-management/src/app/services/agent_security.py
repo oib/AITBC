@@ -139,14 +139,14 @@ class AgentAuditor:
 
     def __init__(self, session: Session):
         self.session = session
-        self.security_policies = {}
+        self.security_policies: dict[str, Any] = {}
         self.trust_manager = AgentTrustManager(session)
         self.sandbox_manager = AgentSandboxManager(session)
 
     async def log_event(self, event_type: AuditEventType, workflow_id: str | None=None, execution_id: str | None=None, step_id: str | None=None, user_id: str | None=None, security_level: SecurityLevel=SecurityLevel.PUBLIC, event_data: dict[str, Any] | None=None, previous_state: dict[str, Any] | None=None, new_state: dict[str, Any] | None=None, ip_address: str | None=None, user_agent: str | None=None) -> AgentAuditLog:
         """Log an audit event with comprehensive security context"""
-        risk_score = self._calculate_risk_score(event_type, event_data, security_level)
-        audit_log = AgentAuditLog(event_type=event_type, workflow_id=workflow_id, execution_id=execution_id, step_id=step_id, user_id=user_id, security_level=security_level, ip_address=ip_address, user_agent=user_agent, event_data=event_data or {}, previous_state=previous_state, new_state=new_state, risk_score=risk_score, requires_investigation=risk_score >= 70, cryptographic_hash=self._generate_event_hash(event_data), signature_valid=self._verify_signature(event_data))
+        risk_score = self._calculate_risk_score(event_type, event_data or {}, security_level)
+        audit_log = AgentAuditLog(event_type=event_type, workflow_id=workflow_id, execution_id=execution_id, step_id=step_id, user_id=user_id, security_level=security_level, ip_address=ip_address, user_agent=user_agent, event_data=event_data or {}, previous_state=previous_state, new_state=new_state, risk_score=risk_score, requires_investigation=risk_score >= 70, cryptographic_hash=self._generate_event_hash(event_data or {}), signature_valid=self._verify_signature(event_data or {}))
         self.session.add(audit_log)
         self.session.commit()
         self.session.refresh(audit_log)
@@ -171,7 +171,7 @@ class AgentAuditor:
                 base_score += 5
         return min(base_score, 100)
 
-    def _generate_event_hash(self, event_data: dict[str, Any]) -> str:
+    def _generate_event_hash(self, event_data: dict[str, Any]) -> str | None:
         """Generate cryptographic hash for event data"""
         if not event_data:
             return None
@@ -195,7 +195,7 @@ class AgentAuditor:
             logger.error('Signature verification failed: %s', e)
             return False
 
-    async def _handle_high_risk_event(self, audit_log: AgentAuditLog):
+    async def _handle_high_risk_event(self, audit_log: AgentAuditLog) -> None:
         """Handle high-risk audit events requiring investigation"""
         logger.warning('High-risk audit event detected: %s (Score: %s)', audit_log.event_type.value, audit_log.risk_score)
         investigation_notes = f'High-risk event detected on {audit_log.timestamp}. '
@@ -217,9 +217,9 @@ class AgentTrustManager:
     def __init__(self, session: Session):
         self.session = session
 
-    async def update_trust_score(self, entity_type: str, entity_id: str, execution_success: bool, execution_time: float | None=None, security_violation: bool=False, policy_violation: bool=bool) -> AgentTrustScore:
+    async def update_trust_score(self, entity_type: str, entity_id: str, execution_success: bool, execution_time: float | None=None, security_violation: bool=False, policy_violation: bool=False) -> AgentTrustScore:
         """Update trust score based on execution results"""
-        trust_score = self.session.execute(select(AgentTrustScore).where((AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id))).first()
+        trust_score = self.session.exec(select(AgentTrustScore).where((AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id))).first()
         if not trust_score:
             trust_score = AgentTrustScore(entity_type=entity_type, entity_id=entity_id)
             self.session.add(trust_score)
@@ -376,7 +376,7 @@ class AgentSecurityManager:
 
     async def validate_workflow_security(self, workflow: AIAgentWorkflow, user_id: str) -> dict[str, Any]:
         """Validate workflow against security policies"""
-        validation_result = {'valid': True, 'violations': [], 'warnings': [], 'required_security_level': SecurityLevel.PUBLIC, 'recommendations': []}
+        validation_result: dict[str, Any] = {'valid': True, 'violations': [], 'warnings': [], 'required_security_level': SecurityLevel.PUBLIC, 'recommendations': []}
         security_sensitive_steps = []
         for step_data in workflow.steps.values():
             if step_data.get('step_type') in ['training', 'data_processing']:
@@ -400,7 +400,7 @@ class AgentSecurityManager:
 
     async def monitor_execution_security(self, execution_id: str, workflow_id: str) -> dict[str, Any]:
         """Monitor execution for security violations"""
-        monitoring_result = {'execution_id': execution_id, 'workflow_id': workflow_id, 'security_status': 'monitoring', 'violations': [], 'alerts': []}
+        monitoring_result: dict[str, Any] = {'execution_id': execution_id, 'workflow_id': workflow_id, 'security_status': 'monitoring', 'violations': [], 'alerts': []}
         try:
             sandbox_monitoring = await self.sandbox_manager.monitor_sandbox(execution_id)
             if sandbox_monitoring['resource_usage']['cpu_percent'] > 90:
@@ -414,11 +414,11 @@ class AgentSecurityManager:
                 monitoring_result['alerts'].extend((f'Security event: {event}' for event in sandbox_monitoring['security_events']))
             if monitoring_result['violations']:
                 monitoring_result['security_status'] = 'violations_detected'
-                await self.auditor.log_event(AuditEventType.SECURITY_VIOLATION, execution_id=execution_id, workflow_id=workflow_id, security_level=SecurityLevel.INTERNAL, event_data={'violations': monitoring_result['violations']}, requires_investigation=len(monitoring_result['violations']) > 0)
+                await self.auditor.log_event(AuditEventType.SECURITY_VIOLATION, execution_id=execution_id, workflow_id=workflow_id, security_level=SecurityLevel.INTERNAL, event_data={'violations': monitoring_result['violations']}, requires_investigation=len(monitoring_result['violations']) > 0)  # type: ignore
             else:
                 monitoring_result['security_status'] = 'secure'
         except Exception as e:
             monitoring_result['security_status'] = 'monitoring_failed'
             monitoring_result['alerts'].append(f'Security monitoring failed: {e}')
-            await self.auditor.log_event(AuditEventType.SECURITY_VIOLATION, execution_id=execution_id, workflow_id=workflow_id, security_level=SecurityLevel.INTERNAL, event_data={'error': str(e)}, requires_investigation=True)
+            await self.auditor.log_event(AuditEventType.SECURITY_VIOLATION, execution_id=execution_id, workflow_id=workflow_id, security_level=SecurityLevel.INTERNAL, event_data={'error': str(e)}, requires_investigation=True)  # type: ignore
         return monitoring_result
