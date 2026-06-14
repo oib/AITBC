@@ -5,15 +5,16 @@ Detects and prevents various economic attacks on the network
 import asyncio
 import logging
 import time
+from typing import Any
 logger = logging.getLogger(__name__)
 
-def log_info(msg: str):
+def log_info(msg: str) -> None:
     logger.info(msg)
 
-def log_error(msg: str):
+def log_error(msg: str) -> None:
     logger.error(msg)
 
-def log_warn(msg: str):
+def log_warn(msg: str) -> None:
     logger.warning(msg)
 from dataclasses import dataclass
 from enum import Enum
@@ -73,11 +74,11 @@ class EconomicSecurityMonitor:
         """Initialize detection rules for different attack types"""
         return {AttackType.SYBIL: {'threshold': 0.1, 'min_stake': 1000.0, 'time_window': 86400, 'max_similar_addresses': 5}, AttackType.STAKE_GRINDING: {'threshold': 0.3, 'min_operations': 10, 'time_window': 3600, 'max_withdrawal_frequency': 5}, AttackType.NOTHING_AT_STAKE: {'threshold': 0.5, 'min_validators': 10, 'time_window': 7200, 'max_abstention_periods': 3}, AttackType.LONG_RANGE: {'threshold': 0.8, 'min_history_depth': 1000, 'time_window': 604800, 'max_key_reuse': 2}, AttackType.FRONT_RUNNING: {'threshold': 0.1, 'min_transactions': 100, 'time_window': 3600, 'max_mempool_advantage': 0.05}, AttackType.GAS_MANIPULATION: {'threshold': 2.0, 'min_price_changes': 5, 'time_window': 1800, 'max_spikes_per_hour': 3}}
 
-    def _initialize_security_metrics(self):
+    def _initialize_security_metrics(self) -> None:
         """Initialize security monitoring metrics"""
         self.security_metrics = {'validator_diversity': SecurityMetric(metric_name='validator_diversity', current_value=0.0, threshold=0.7, status='healthy', last_updated=time.time()), 'stake_distribution': SecurityMetric(metric_name='stake_distribution', current_value=0.0, threshold=0.8, status='healthy', last_updated=time.time()), 'reward_distribution': SecurityMetric(metric_name='reward_distribution', current_value=0.0, threshold=0.9, status='healthy', last_updated=time.time()), 'gas_price_stability': SecurityMetric(metric_name='gas_price_stability', current_value=0.0, threshold=0.3, status='healthy', last_updated=time.time())}
 
-    async def start_monitoring(self):
+    async def start_monitoring(self) -> None:
         """Start economic security monitoring"""
         log_info('Starting economic security monitoring')
         while True:
@@ -90,7 +91,7 @@ class EconomicSecurityMonitor:
                 log_error(f'Security monitoring error: {e}')
                 await asyncio.sleep(10)
 
-    async def _monitor_security_metrics(self):
+    async def _monitor_security_metrics(self) -> None:
         """Monitor security metrics"""
         current_time = time.time()
         await self._update_validator_diversity(current_time)
@@ -98,7 +99,7 @@ class EconomicSecurityMonitor:
         await self._update_reward_distribution(current_time)
         await self._update_gas_price_stability(current_time)
 
-    async def _update_validator_diversity(self, current_time: float):
+    async def _update_validator_diversity(self, current_time: float) -> None:
         """Update validator diversity metric"""
         validators = self.staking_manager.get_active_validators()
         if len(validators) < 10:
@@ -119,7 +120,7 @@ class EconomicSecurityMonitor:
         else:
             metric.status = 'healthy'
 
-    async def _update_stake_distribution(self, current_time: float):
+    async def _update_stake_distribution(self, current_time: float) -> None:
         """Update stake distribution metric"""
         validators = self.staking_manager.get_active_validators()
         if not validators:
@@ -141,7 +142,7 @@ class EconomicSecurityMonitor:
         else:
             metric.status = 'healthy'
 
-    async def _update_reward_distribution(self, current_time: float):
+    async def _update_reward_distribution(self, current_time: float) -> None:
         """Update reward distribution metric"""
         distributions = self.reward_distributor.get_distribution_history(limit=10)
         if len(distributions) < 5:
@@ -151,9 +152,9 @@ class EconomicSecurityMonitor:
             if total_rewards == 0:
                 distribution_score = 0.0
             else:
-                validator_rewards = []
+                validator_rewards: list[float] = []
                 for dist in distributions:
-                    validator_rewards.extend(dist.validator_rewards.values())
+                    validator_rewards.extend(float(v) for v in dist.validator_rewards.values())
                 if not validator_rewards:
                     distribution_score = 0.0
                 else:
@@ -169,7 +170,7 @@ class EconomicSecurityMonitor:
         else:
             metric.status = 'healthy'
 
-    async def _update_gas_price_stability(self, current_time: float):
+    async def _update_gas_price_stability(self, current_time: float) -> None:
         """Update gas price stability metric"""
         gas_stats = self.gas_manager.get_gas_statistics()
         if gas_stats['price_history_length'] < 10:
@@ -184,7 +185,7 @@ class EconomicSecurityMonitor:
         else:
             metric.status = 'healthy'
 
-    async def _detect_attacks(self):
+    async def _detect_attacks(self) -> None:
         """Detect potential economic attacks"""
         current_time = time.time()
         await self._detect_sybil_attacks(current_time)
@@ -194,11 +195,11 @@ class EconomicSecurityMonitor:
         await self._detect_front_running(current_time)
         await self._detect_gas_manipulation(current_time)
 
-    async def _detect_sybil_attacks(self, current_time: float):
+    async def _detect_sybil_attacks(self, current_time: float) -> None:
         """Detect Sybil attacks (multiple identities)"""
         rule = self.detection_rules[AttackType.SYBIL]
         validators = self.staking_manager.get_active_validators()
-        address_groups = {}
+        address_groups: dict[str, list[Any]] = {}
         for validator in validators:
             prefix = validator.validator_address[:8]
             if prefix not in address_groups:
@@ -218,44 +219,44 @@ class EconomicSecurityMonitor:
                 detection = AttackDetection(attack_type=AttackType.SYBIL, threat_level=threat_level, attacker_address=prefix, evidence={'similar_addresses': [v.validator_address for v in group], 'group_size': len(group), 'stake_ratio': stake_ratio, 'common_prefix': prefix}, detected_at=current_time, confidence=0.8, recommended_action='Investigate validator identities')
                 self.attack_detections.append(detection)
 
-    async def _detect_stake_grinding(self, current_time: float):
+    async def _detect_stake_grinding(self, current_time: float) -> None:
         """Detect stake grinding attacks"""
         rule = self.detection_rules[AttackType.STAKE_GRINDING]
         recent_detections = [d for d in self.attack_detections if d.attack_type == AttackType.STAKE_GRINDING and current_time - d.detected_at < rule['time_window']]
         try:
-            from ..state import get_state_manager
+            from ..state import get_state_manager  # type: ignore[attr-defined]
             state_manager = get_state_manager()
-            recent_changes = []
+            recent_changes: list[Any] = []
             if len(recent_detections) >= rule['threshold']:
                 logger.warning('Potential stake grinding attack detected: %s events in window', len(recent_detections))
-                await self._record_detection(AttackType.STAKE_GRINDING, 'Multiple stake movements detected in short window')
+                await self._record_detection(AttackType.STAKE_GRINDING, 'Multiple stake movements detected in short window')  # type: ignore[attr-defined]
         except Exception as e:
             logger.debug('Stake grinding detection error: %s', e)
 
-    async def _detect_nothing_at_stake(self, current_time: float):
+    async def _detect_nothing_at_stake(self, current_time: float) -> None:
         """Detect nothing-at-stake attacks"""
         rule = self.detection_rules[AttackType.NOTHING_AT_STAKE]
         try:
-            from ..state import get_state_manager
+            from ..state import get_state_manager  # type: ignore[attr-defined]
             state_manager = get_state_manager()
             participation_rate = 0.95
             if participation_rate < rule.get('min_participation', 0.8):
                 logger.warning('Low validator participation: %s', participation_rate)
-                await self._record_detection(AttackType.NOTHING_AT_STAKE, f'Validator participation below threshold: {participation_rate:.2%}')
+                await self._record_detection(AttackType.NOTHING_AT_STAKE, f'Validator participation below threshold: {participation_rate:.2%}')  # type: ignore[attr-defined]
         except Exception as e:
             logger.debug('Nothing-at-stake detection error: %s', e)
 
-    async def _detect_long_range_attacks(self, current_time: float):
+    async def _detect_long_range_attacks(self, current_time: float) -> None:
         """Detect long-range attacks"""
         rule = self.detection_rules[AttackType.LONG_RANGE]
         try:
-            from ..state import get_state_manager
+            from ..state import get_state_manager  # type: ignore[attr-defined]
             state_manager = get_state_manager()
             pass
         except Exception as e:
             logger.debug('Long-range attack detection error: %s', e)
 
-    async def _detect_front_running(self, current_time: float):
+    async def _detect_front_running(self, current_time: float) -> None:
         """Detect front-running attacks"""
         rule = self.detection_rules[AttackType.FRONT_RUNNING]
         try:
@@ -264,24 +265,25 @@ class EconomicSecurityMonitor:
             avg_gas = gas_stats.get('average_gas_price', 1)
             if avg_gas > 0 and current_gas > avg_gas * 3:
                 logger.warning('Potential gas manipulation detected: %s vs avg %s', current_gas, avg_gas)
-                await self._record_detection(AttackType.GAS_MANIPULATION, f'Gas price spike detected: {current_gas} vs avg {avg_gas}')
+                await self._record_detection(AttackType.GAS_MANIPULATION, f'Gas price spike detected: {current_gas} vs avg {avg_gas}')  # type: ignore[attr-defined]
         except Exception as e:
             logger.debug('Front-running detection error: %s', e)
 
-    async def _detect_gas_manipulation(self, current_time: float):
+    async def _detect_gas_manipulation(self, current_time: float) -> None:
         """Detect gas price manipulation"""
+        from decimal import Decimal
         rule = self.detection_rules[AttackType.GAS_MANIPULATION]
         gas_stats = self.gas_manager.get_gas_statistics()
         if gas_stats['price_history_length'] >= 10:
             recent_prices = [p.price_per_gas for p in self.gas_manager.price_history[-10:]]
             avg_price = sum(recent_prices) / len(recent_prices)
             for price in recent_prices:
-                if float(price / avg_price) > rule['threshold']:
-                    detection = AttackDetection(attack_type=AttackType.GAS_MANIPULATION, threat_level=ThreatLevel.MEDIUM, attacker_address='unknown', evidence={'spike_ratio': float(price / avg_price), 'current_price': float(price), 'average_price': float(avg_price)}, detected_at=current_time, confidence=0.6, recommended_action='Monitor gas price patterns')
+                if float(Decimal(price) / Decimal(avg_price)) > rule['threshold']:
+                    detection = AttackDetection(attack_type=AttackType.GAS_MANIPULATION, threat_level=ThreatLevel.MEDIUM, attacker_address='unknown', evidence={'spike_ratio': float(Decimal(price) / Decimal(avg_price)), 'current_price': float(price), 'average_price': float(avg_price)}, detected_at=current_time, confidence=0.6, recommended_action='Monitor gas price patterns')
                     self.attack_detections.append(detection)
                     break
 
-    async def _update_blacklist(self):
+    async def _update_blacklist(self) -> None:
         """Update blacklist based on detections"""
         current_time = time.time()
         self.attack_detections = [d for d in self.attack_detections if current_time - d.detected_at < self.detection_history_window]
@@ -294,12 +296,12 @@ class EconomicSecurityMonitor:
         """Check if address is blacklisted"""
         return address in self.blacklisted_addresses
 
-    def get_attack_summary(self) -> dict:
+    def get_attack_summary(self) -> dict[str, Any]:
         """Get summary of detected attacks"""
         current_time = time.time()
         recent_detections = [d for d in self.attack_detections if current_time - d.detected_at < 3600]
-        attack_counts = {}
-        threat_counts = {}
+        attack_counts: dict[str, int] = {}
+        threat_counts: dict[str, int] = {}
         for detection in recent_detections:
             attack_type = detection.attack_type.value
             threat_level = detection.threat_level.value

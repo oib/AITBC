@@ -61,10 +61,10 @@ def _initialize_tracing() -> None:
     """Initialize distributed tracing exporter."""
     try:
         import os
-        from opentelemetry import trace
-        from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry import trace  # type: ignore[import-not-found]
+        from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore[import-not-found]
+        from opentelemetry.sdk.trace import TracerProvider  # type: ignore[import-not-found]
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore[import-not-found]
         jaeger_host = os.environ.get('JAEGER_HOST', 'localhost')
         jaeger_port = int(os.environ.get('JAEGER_PORT', 6831))
         trace.set_tracer_provider(TracerProvider())
