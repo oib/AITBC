@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 UI router for serving static HTML pages
 """
@@ -17,6 +16,6 @@ templates = Jinja2Templates(directory=templates_dir)
 
 
 @router.get("/services", response_class=HTMLResponse, include_in_schema=False)
-async def services_ui(request: Request):
+async def services_ui(request: Request) -> HTMLResponse:
     """Serve the service configuration UI"""
-    return templates.TemplateResponse("services.html", {"request": request})
+    return templates.TemplateResponse(request, "services.html", {"request": request})
