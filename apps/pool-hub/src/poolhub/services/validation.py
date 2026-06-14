@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Hardware validation service for service configurations
 """
@@ -13,20 +12,20 @@ from ..settings import settings
 
 class ValidationResult:
     """Validation result for a service configuration"""
-    def __init__(self):
+    def __init__(self) -> None:
         self.valid = True
-        self.errors = []
-        self.warnings = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
         self.score = 0  # 0-100 score indicating how well the hardware matches
-        self.missing_requirements = []
-        self.performance_impact = None
+        self.missing_requirements: list[dict[str, Any]] = []
+        self.performance_impact: dict[str, Any] | None = None
 
 
 class HardwareValidator:
     """Validates service configurations against miner hardware"""
 
-    def __init__(self):
-        self.registry_url = f"{settings.coordinator_url}/v1/registry"
+    def __init__(self) -> None:
+        self.registry_url = f"{settings.coordinator_billing_url}/v1/registry"
 
     async def validate_service_for_miner(
         self,
@@ -74,7 +73,7 @@ class HardwareValidator:
         try:
             response = requests.get(f"{self.registry_url}/services/{service_id}")
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore
             return None
         except Exception:
             return None
@@ -212,7 +211,7 @@ class HardwareValidator:
         config: dict[str, Any]
     ) -> dict[str, Any]:
         """Estimate performance impact based on hardware and configuration"""
-        impact = {
+        impact: dict[str, Any] = {
             "level": "low",  # low, medium, high
             "expected_fps": None,
             "expected_throughput": None,

@@ -1,16 +1,16 @@
-# mypy: ignore-errors
 """
 Service configuration router for pool hub
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..deps import get_db, get_miner_id
-from ..models import Miner, ServiceConfig, ServiceType
+from ..deps import get_db, get_miner_id  # type: ignore
+from ..models import Miner, ServiceConfig, ServiceType  # type: ignore
 from ..schemas import ServiceConfigCreate, ServiceConfigResponse, ServiceConfigUpdate
 
 router = APIRouter(prefix="/services", tags=["services"])
@@ -49,7 +49,9 @@ async def get_service_config(
             config={},
             pricing={},
             capabilities=[],
-            max_concurrent=1
+            max_concurrent=1,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
     return ServiceConfigResponse.from_orm(config)
@@ -272,7 +274,7 @@ async def validate_service_config(
         )
 
     # Validate based on service type
-    validation_result = {
+    validation_result: dict[str, Any] = {
         "valid": True,
         "warnings": [],
         "errors": []

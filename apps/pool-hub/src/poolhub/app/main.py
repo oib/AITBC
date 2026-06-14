@@ -1,18 +1,20 @@
-# mypy: ignore-errors
-
 from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 
 from ..database import close_engine, create_engine
 from ..redis_cache import close_redis, create_redis
 from ..settings import settings
-from .routers import health_router, match_router, metrics_router, services, ui, validation
+from .routers import health_router, match_router, metrics_router
+from .routers.services import router as services_router
+from .routers.ui import router as ui_router
+from .routers.validation import router as validation_router
 from .routers.sla import router as sla_router
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     create_engine()
     create_redis()
     try:
@@ -26,9 +28,9 @@ app = FastAPI(**settings.asgi_kwargs(), lifespan=lifespan)
 app.include_router(match_router, prefix="/v1")
 app.include_router(health_router)
 app.include_router(metrics_router)
-app.include_router(services, prefix="/v1")
-app.include_router(ui)
-app.include_router(validation, prefix="/v1")
+app.include_router(services_router, prefix="/v1")
+app.include_router(ui_router)
+app.include_router(validation_router, prefix="/v1")
 app.include_router(sla_router, prefix="/v1")
 
 

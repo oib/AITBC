@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from poolhub.app.routers.sla import router
-from poolhub.database import get_db
+from poolhub.database import get_db  # type: ignore
 from poolhub.models import Miner, SLAMetric
 from sqlalchemy.orm import Session
 

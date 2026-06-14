@@ -21,7 +21,7 @@ if str(POOLHUB_SRC) not in sys.path:
 from poolhub.models import Base
 
 
-def _get_required_env(name: str) -> str:
+def _get_required_env(name: str) -> str | None:
     value = os.getenv(name)
     if not value:
         pytest.skip(f"Set {name} to run Pool Hub integration tests")

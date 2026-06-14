@@ -1,7 +1,7 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -58,7 +58,7 @@ async def match_endpoint(
         candidates = _select_candidates(requirements, payload.hints, active_miners, top_k)
 
         await match_repo.add_results(
-            request_id=request.id,
+            request_id=uuid.UUID(str(request.id)),
             candidates=candidates,
         )
 
@@ -112,7 +112,7 @@ def _select_candidates(
     return ranked[:top_k]
 
 
-def _compose_explain(score: float, miner, status) -> str:
+def _compose_explain(score: float, miner: Any, status: Any) -> str:
     load = status.queue_len if status else 0
     latency = status.avg_latency_ms if status else "n/a"
     return f"score={score:.3f} load={load} latency={latency}"
