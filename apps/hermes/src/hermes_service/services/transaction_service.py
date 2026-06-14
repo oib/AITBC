@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 class TransactionService:
     """Service for generating signed blockchain transactions."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.rpc_url = os.getenv('BLOCKCHAIN_RPC_URL', 'http://localhost:8202')
         self.chain_id = os.getenv('CHAIN_ID', 'ait-mainnet')
@@ -29,7 +29,7 @@ class TransactionService:
             from aitbc import AITBCHTTPClient
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f'/rpc/account/{address}')
-            return account_data.get('nonce', 0)
+            return int(account_data.get('nonce', 0))
         except Exception as e:
             self.logger.error('Error getting nonce: %s', e)
         return 0
@@ -48,7 +48,7 @@ class TransactionService:
             from aitbc import AITBCHTTPClient
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f'/rpc/account/{address}')
-            return account_data.get('balance', 0)
+            return int(account_data.get('balance', 0))
         except Exception as e:
             self.logger.error('Error getting balance: %s', e)
         return 0
