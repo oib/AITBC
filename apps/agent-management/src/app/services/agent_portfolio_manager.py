@@ -10,12 +10,12 @@ from datetime import UTC, datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
-from app.domain.agent_portfolio import AgentPortfolio, PortfolioAsset, PortfolioStrategy, PortfolioTrade, RiskMetrics, TradeStatus
-from ..blockchain.contract_interactions import ContractInteractionService
-from ..marketdata.price_service import PriceService
-from ..ml.strategy_optimizer import StrategyOptimizer
-from ..risk.risk_calculator import RiskCalculator
-from ..schemas.portfolio import PortfolioCreate, PortfolioResponse, RebalanceRequest, RebalanceResponse, RiskAssessmentResponse, StrategyCreate, StrategyResponse, TradeRequest, TradeResponse
+from app.domain.agent_portfolio import AgentPortfolio, PortfolioAsset, PortfolioStrategy, PortfolioTrade, RiskMetrics, TradeStatus  # type: ignore[import-not-found]
+from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
+from ..marketdata.price_service import PriceService  # type: ignore[import-not-found]
+from ..ml.strategy_optimizer import StrategyOptimizer  # type: ignore[import-not-found]
+from ..risk.risk_calculator import RiskCalculator  # type: ignore[import-not-found]
+from ..schemas.portfolio import PortfolioCreate, PortfolioResponse, RebalanceRequest, RebalanceResponse, RiskAssessmentResponse, StrategyCreate, StrategyResponse, TradeRequest, TradeResponse  # type: ignore[import-not-found]
 logger = logging.getLogger(__name__)
 
 class AgentPortfolioManager:

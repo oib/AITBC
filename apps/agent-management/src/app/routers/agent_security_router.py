@@ -1,5 +1,4 @@
 from typing import Annotated
-from sqlalchemy.orm import Session
 '\nAgent Security API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for security management and auditing\n'
 from datetime import UTC, datetime
 from typing import Any
@@ -7,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 logger = get_logger(__name__)
+from sqlalchemy import desc
 from sqlmodel import Session, select
 from app.domain.agent import AIAgentWorkflow
 from ..deps import require_admin_key
@@ -16,7 +16,7 @@ router = APIRouter(prefix='/agents/security', tags=['Agent Security'])
 
 @router.post('/policies', response_model=AgentSecurityPolicy)
 @rate_limit(rate=50, per=60)
-async def create_security_policy(request: Request, name: str, description: str, security_level: SecurityLevel, policy_rules: dict, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> AgentSecurityPolicy:
+async def create_security_policy(request: Request, name: str, description: str, security_level: SecurityLevel, policy_rules: dict, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentSecurityPolicy:
     """Create a new security policy"""
     try:
         security_manager = AgentSecurityManager(session)
@@ -29,7 +29,7 @@ async def create_security_policy(request: Request, name: str, description: str, 
 
 @router.get('/policies', response_model=list[AgentSecurityPolicy])
 @rate_limit(rate=200, per=60)
-async def list_security_policies(request: Request, security_level: SecurityLevel | None=None, is_active: bool | None=None, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> list[AgentSecurityPolicy]:
+async def list_security_policies(request: Request, security_level: SecurityLevel | None=None, is_active: bool | None=None, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> list[AgentSecurityPolicy]:
     """List security policies with filtering"""
     try:
         query = select(AgentSecurityPolicy)
@@ -37,7 +37,7 @@ async def list_security_policies(request: Request, security_level: SecurityLevel
             query = query.where(AgentSecurityPolicy.security_level == security_level)
         if is_active is not None:
             query = query.where(AgentSecurityPolicy.is_active == is_active)
-        policies = session.execute(query).all()
+        policies = list(session.exec(query).all())
         return policies
     except Exception as e:
         logger.error('Failed to list security policies: %s', e)
@@ -45,7 +45,7 @@ async def list_security_policies(request: Request, security_level: SecurityLevel
 
 @router.get('/policies/{policy_id}', response_model=AgentSecurityPolicy)
 @rate_limit(rate=200, per=60)
-async def get_security_policy(request: Request, policy_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> AgentSecurityPolicy:
+async def get_security_policy(request: Request, policy_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentSecurityPolicy:
     """Get a specific security policy"""
     try:
         policy = session.get(AgentSecurityPolicy, policy_id)
@@ -60,7 +60,7 @@ async def get_security_policy(request: Request, policy_id: str, session: Session
 
 @router.put('/policies/{policy_id}', response_model=AgentSecurityPolicy)
 @rate_limit(rate=50, per=60)
-async def update_security_policy(request: Request, policy_id: str, policy_updates: dict, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> AgentSecurityPolicy:
+async def update_security_policy(request: Request, policy_id: str, policy_updates: dict, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentSecurityPolicy:
     """Update a security policy"""
     try:
         policy = session.get(AgentSecurityPolicy, policy_id)
@@ -84,7 +84,7 @@ async def update_security_policy(request: Request, policy_id: str, policy_update
 
 @router.delete('/policies/{policy_id}')
 @rate_limit(rate=50, per=60)
-async def delete_security_policy(request: Request, policy_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, str]:
+async def delete_security_policy(request: Request, policy_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, str]:
     """Delete a security policy"""
     try:
         policy = session.get(AgentSecurityPolicy, policy_id)
@@ -104,7 +104,7 @@ async def delete_security_policy(request: Request, policy_id: str, session: Sess
 
 @router.post('/validate-workflow/{workflow_id}')
 @rate_limit(rate=50, per=60)
-async def validate_workflow_security(request: Request, workflow_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def validate_workflow_security(request: Request, workflow_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Validate workflow security requirements"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -123,7 +123,7 @@ async def validate_workflow_security(request: Request, workflow_id: str, session
 
 @router.get('/audit-logs', response_model=list[AgentAuditLog])
 @rate_limit(rate=200, per=60)
-async def list_audit_logs(request: Request, event_type: AuditEventType | None=None, workflow_id: str | None=None, execution_id: str | None=None, user_id: str | None=None, security_level: SecurityLevel | None=None, requires_investigation: bool | None=None, risk_score_min: int | None=None, risk_score_max: int | None=None, limit: int=100, offset: int=0, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> list[AgentAuditLog]:
+async def list_audit_logs(request: Request, event_type: AuditEventType | None=None, workflow_id: str | None=None, execution_id: str | None=None, user_id: str | None=None, security_level: SecurityLevel | None=None, requires_investigation: bool | None=None, risk_score_min: int | None=None, risk_score_max: int | None=None, limit: int=100, offset: int=0, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> list[AgentAuditLog]:
     """List audit logs with filtering"""
     try:
         from ..services.agent_security import AgentAuditLog
@@ -145,8 +145,8 @@ async def list_audit_logs(request: Request, event_type: AuditEventType | None=No
         if risk_score_max is not None:
             query = query.where(AgentAuditLog.risk_score <= risk_score_max)
         query = query.offset(offset).limit(limit)
-        query = query.order_by(AgentAuditLog.timestamp.desc())
-        audit_logs = session.execute(query).all()
+        query = query.order_by(desc(AgentAuditLog.timestamp))  # type: ignore[arg-type]
+        audit_logs = list(session.exec(query).all())
         return audit_logs
     except Exception as e:
         logger.error('Failed to list audit logs: %s', e)
@@ -154,7 +154,7 @@ async def list_audit_logs(request: Request, event_type: AuditEventType | None=No
 
 @router.get('/audit-logs/{audit_id}', response_model=AgentAuditLog)
 @rate_limit(rate=200, per=60)
-async def get_audit_log(request: Request, audit_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> AgentAuditLog:
+async def get_audit_log(request: Request, audit_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentAuditLog:
     """Get a specific audit log entry"""
     try:
         audit_log = session.get(AgentAuditLog, audit_id)
@@ -169,7 +169,7 @@ async def get_audit_log(request: Request, audit_id: str, session: Session=Depend
 
 @router.get('/trust-scores')
 @rate_limit(rate=200, per=60)
-async def list_trust_scores(request: Request, entity_type: str | None=None, entity_id: str | None=None, min_score: float | None=None, max_score: float | None=None, limit: int=100, offset: int=0, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> list[AgentTrustScore]:
+async def list_trust_scores(request: Request, entity_type: str | None=None, entity_id: str | None=None, min_score: float | None=None, max_score: float | None=None, limit: int=100, offset: int=0, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> list[AgentTrustScore]:
     """List trust scores with filtering"""
     try:
         from ..services.agent_security import AgentTrustScore
@@ -183,8 +183,8 @@ async def list_trust_scores(request: Request, entity_type: str | None=None, enti
         if max_score is not None:
             query = query.where(AgentTrustScore.trust_score <= max_score)
         query = query.offset(offset).limit(limit)
-        query = query.order_by(AgentTrustScore.trust_score.desc())
-        trust_scores = session.execute(query).all()
+        query = query.order_by(desc(AgentTrustScore.trust_score))  # type: ignore[arg-type]
+        trust_scores = list(session.exec(query).all())
         return trust_scores
     except Exception as e:
         logger.error('Failed to list trust scores: %s', e)
@@ -192,11 +192,11 @@ async def list_trust_scores(request: Request, entity_type: str | None=None, enti
 
 @router.get('/trust-scores/{entity_type}/{entity_id}', response_model=AgentTrustScore)
 @rate_limit(rate=200, per=60)
-async def get_trust_score(request: Request, entity_type: str, entity_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> AgentTrustScore:
+async def get_trust_score(request: Request, entity_type: str, entity_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentTrustScore:
     """Get trust score for specific entity"""
     try:
         from ..services.agent_security import AgentTrustScore
-        trust_score = session.execute(select(AgentTrustScore).where((AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id))).first()
+        trust_score = session.exec(select(AgentTrustScore).where((AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id))).first()
         if not trust_score:
             raise HTTPException(status_code=404, detail='Trust score not found')
         return trust_score
@@ -208,7 +208,7 @@ async def get_trust_score(request: Request, entity_type: str, entity_id: str, se
 
 @router.post('/trust-scores/{entity_type}/{entity_id}/update')
 @rate_limit(rate=50, per=60)
-async def update_trust_score(request: Request, entity_type: str, entity_id: str, execution_success: bool, execution_time: float | None=None, security_violation: bool=False, policy_violation: bool=False, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> AgentTrustScore:
+async def update_trust_score(request: Request, entity_type: str, entity_id: str, execution_success: bool, execution_time: float | None=None, security_violation: bool=False, policy_violation: bool=False, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentTrustScore:
     """Update trust score based on execution results"""
     try:
         trust_manager = AgentTrustManager(session)
@@ -223,7 +223,7 @@ async def update_trust_score(request: Request, entity_type: str, entity_id: str,
 
 @router.post('/sandbox/{execution_id}/create')
 @rate_limit(rate=50, per=60)
-async def create_sandbox(request: Request, execution_id: str, security_level: SecurityLevel=SecurityLevel.PUBLIC, workflow_requirements: dict | None=None, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def create_sandbox(request: Request, execution_id: str, security_level: SecurityLevel=SecurityLevel.PUBLIC, workflow_requirements: dict | None=None, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Create sandbox environment for agent execution"""
     try:
         sandbox_manager = AgentSandboxManager(session)
@@ -231,14 +231,14 @@ async def create_sandbox(request: Request, execution_id: str, security_level: Se
         auditor = AgentAuditor(session)
         await auditor.log_event(AuditEventType.EXECUTION_STARTED, execution_id=execution_id, user_id=current_user, security_level=security_level, event_data={'sandbox_id': sandbox.id, 'sandbox_type': sandbox.sandbox_type, 'security_level': sandbox.security_level})
         logger.info('Sandbox created for execution %s', execution_id)
-        return sandbox
+        return dict(sandbox)
     except Exception as e:
         logger.error('Failed to create sandbox: %s', e)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/sandbox/{execution_id}/monitor')
 @rate_limit(rate=200, per=60)
-async def monitor_sandbox(request: Request, execution_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def monitor_sandbox(request: Request, execution_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Monitor sandbox execution for security violations"""
     try:
         sandbox_manager = AgentSandboxManager(session)
@@ -250,7 +250,7 @@ async def monitor_sandbox(request: Request, execution_id: str, session: Session=
 
 @router.post('/sandbox/{execution_id}/cleanup')
 @rate_limit(rate=50, per=60)
-async def cleanup_sandbox(request: Request, execution_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def cleanup_sandbox(request: Request, execution_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Clean up sandbox environment after execution"""
     try:
         sandbox_manager = AgentSandboxManager(session)
@@ -264,7 +264,7 @@ async def cleanup_sandbox(request: Request, execution_id: str, session: Session=
 
 @router.post('/executions/{execution_id}/security-monitor')
 @rate_limit(rate=50, per=60)
-async def monitor_execution_security(request: Request, execution_id: str, workflow_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def monitor_execution_security(request: Request, execution_id: str, workflow_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Monitor execution for security violations"""
     try:
         security_manager = AgentSecurityManager(session)
@@ -276,18 +276,18 @@ async def monitor_execution_security(request: Request, execution_id: str, workfl
 
 @router.get('/security-dashboard')
 @rate_limit(rate=200, per=60)
-async def get_security_dashboard(request: Request, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def get_security_dashboard(request: Request, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Get comprehensive security dashboard data"""
     try:
         from ..services.agent_security import AgentAuditLog, AgentSandboxConfig
-        recent_audits = session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).all()
-        high_risk_events = session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation).order_by(AgentAuditLog.timestamp.desc()).limit(10)).all()
-        trust_scores = session.execute(select(AgentTrustScore)).all()
+        recent_audits = list(session.exec(select(AgentAuditLog).order_by(desc(AgentAuditLog.timestamp)).limit(50)).all())  # type: ignore[arg-type]
+        high_risk_events = list(session.exec(select(AgentAuditLog).where(AgentAuditLog.requires_investigation).order_by(desc(AgentAuditLog.timestamp)).limit(10)).all())  # type: ignore[arg-type]
+        trust_scores = list(session.exec(select(AgentTrustScore)).all())
         avg_trust_score = sum((ts.trust_score for ts in trust_scores)) / len(trust_scores) if trust_scores else 0
-        active_sandboxes = session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()
-        total_audits = session.execute(select(AgentAuditLog)).count()
-        high_risk_count = session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).count()
-        security_violations = session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION)).count()
+        active_sandboxes = session.exec(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()
+        total_audits = len(session.exec(select(AgentAuditLog)).all())
+        high_risk_count = len(session.exec(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).all())
+        security_violations = len(session.exec(select(AgentAuditLog).where(AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION)).all())
         return {'recent_audits': recent_audits, 'high_risk_events': high_risk_events, 'trust_score_stats': {'average_score': avg_trust_score, 'total_entities': len(trust_scores), 'high_trust_entities': len([ts for ts in trust_scores if ts.trust_score >= 80]), 'low_trust_entities': len([ts for ts in trust_scores if ts.trust_score < 20])}, 'active_sandboxes': len(active_sandboxes), 'security_stats': {'total_audits': total_audits, 'high_risk_count': high_risk_count, 'security_violations': security_violations, 'risk_rate': high_risk_count / total_audits * 100 if total_audits > 0 else 0}}
     except Exception as e:
         logger.error('Failed to get security dashboard: %s', e)
@@ -295,17 +295,17 @@ async def get_security_dashboard(request: Request, session: Session=Depends(Anno
 
 @router.get('/security-stats')
 @rate_limit(rate=200, per=60)
-async def get_security_statistics(request: Request, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def get_security_statistics(request: Request, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Get security statistics and metrics"""
     try:
         from ..services.agent_security import AgentTrustScore
-        total_audits = session.execute(select(AgentAuditLog)).count()
+        total_audits = len(session.exec(select(AgentAuditLog)).all())
         event_type_counts = {}
         for event_type in AuditEventType:
-            count = session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == event_type)).count()
+            count = len(session.exec(select(AgentAuditLog).where(AgentAuditLog.event_type == event_type)).all())
             event_type_counts[event_type.value] = count
         risk_score_distribution = {'low': 0, 'medium': 0, 'high': 0, 'critical': 0}
-        all_audits = session.execute(select(AgentAuditLog)).all()
+        all_audits = session.exec(select(AgentAuditLog)).all()
         for audit in all_audits:
             if audit.risk_score <= 30:
                 risk_score_distribution['low'] += 1
@@ -315,7 +315,7 @@ async def get_security_statistics(request: Request, session: Session=Depends(Ann
                 risk_score_distribution['high'] += 1
             else:
                 risk_score_distribution['critical'] += 1
-        trust_scores = session.execute(select(AgentTrustScore)).all()
+        trust_scores = list(session.exec(select(AgentTrustScore)).all())
         trust_score_distribution = {'very_low': 0, 'low': 0, 'medium': 0, 'high': 0, 'very_high': 0}
         for trust_score in trust_scores:
             if trust_score.trust_score <= 20:

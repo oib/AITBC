@@ -1,14 +1,13 @@
-# mypy: ignore-errors
 """
 Factory for creating shared AgentIntegrationService with app-specific adapters.
 This enables gradual migration from duplicated code to shared implementation.
 """
 
+from typing import Any
 
-from aitbc_agent_core import AgentIntegrationService
-
-from ..database import get_session
-from .adapters.agent_core_adapters import (
+from aitbc_agent_core import AgentIntegrationService  # type: ignore[import-not-found]
+from ..database import get_session  # type: ignore[import-not-found]
+from .adapters.agent_core_adapters import (  # type: ignore[import-not-found]
     AgentAuditorAdapter,
     AgentOrchestratorAdapter,
     AgentSecurityManagerAdapter,
@@ -27,10 +26,9 @@ def create_agent_integration_service() -> AgentIntegrationService:
         Configured AgentIntegrationService instance
     """
     # Create app-specific service instances
-    security_manager = AgentSecurityManager()
-    auditor = AgentAuditor()
-    orchestrator = AIAgentOrchestrator()
-
+    security_manager = AgentSecurityManager()  # type: ignore[call-arg]
+    auditor = AgentAuditor()  # type: ignore[call-arg]
+    orchestrator = AIAgentOrchestrator()  # type: ignore[call-arg]
     # Wrap with protocol adapters
     return AgentIntegrationService(
         session_provider=SessionProviderAdapter(get_session),

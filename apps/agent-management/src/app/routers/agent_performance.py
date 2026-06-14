@@ -1,5 +1,4 @@
 from typing import Annotated
-from sqlalchemy.orm import Session
 '\nAdvanced Agent Performance API Endpoints\nREST API for meta-learning, resource optimization, and performance enhancement\n'
 from datetime import UTC, datetime
 from typing import Any
@@ -10,7 +9,7 @@ from aitbc.rate_limiting import rate_limit
 logger = get_logger(__name__)
 from uuid import uuid4
 from sqlmodel import Session, select
-from app.domain.agent_performance import AgentCapability, AgentPerformanceProfile, LearningStrategy, MetaLearningModel, OptimizationTarget, PerformanceMetric, PerformanceOptimization, ResourceAllocation
+from app.domain.agent_performance import AgentCapability, AgentPerformanceProfile, LearningStrategy, MetaLearningModel, OptimizationTarget, PerformanceMetric, PerformanceOptimization, ResourceAllocation  # type: ignore[import-not-found]
 from ..services.agent_performance_service import AgentPerformanceService, MetaLearningEngine, PerformanceOptimizer, ResourceManager
 from ..storage import get_session
 router = APIRouter(prefix='/v1/agent-performance', tags=['agent-performance'])
@@ -126,7 +125,7 @@ class CapabilityResponse(BaseModel):
 
 @router.post('/profiles', response_model=PerformanceProfileResponse)
 @rate_limit(rate=50, per=60)
-async def create_performance_profile(request: Request, profile_request: PerformanceProfileRequest, session: Annotated[Session, Depends(get_session)]) -> PerformanceProfileResponse:
+async def create_performance_profile(request: Request, profile_request: PerformanceProfileRequest, session: Annotated[Session, Depends(get_session)] = Depends()) -> PerformanceProfileResponse:
     """Create agent performance profile"""
     performance_service = AgentPerformanceService(session)
     try:
@@ -138,7 +137,7 @@ async def create_performance_profile(request: Request, profile_request: Performa
 
 @router.get('/profiles/{agent_id}', response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def get_performance_profile(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def get_performance_profile(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)] = Depends()) -> dict[str, Any]:
     """Get agent performance profile"""
     performance_service = AgentPerformanceService(session)
     try:
@@ -154,7 +153,7 @@ async def get_performance_profile(request: Request, agent_id: str, session: Anno
 
 @router.post('/profiles/{agent_id}/metrics')
 @rate_limit(rate=50, per=60)
-async def update_performance_metrics(request: Request, agent_id: str, metrics: dict[str, float], session: Annotated[Session, Depends(get_session)], task_context: dict[str, Any] | None=None) -> dict[str, Any]:
+async def update_performance_metrics(request: Request, agent_id: str, metrics: dict[str, float], session: Annotated[Session, Depends(get_session)] = Depends(), task_context: dict[str, Any] | None=None) -> dict[str, Any]:
     """Update agent performance metrics"""
     performance_service = AgentPerformanceService(session)
     try:
@@ -166,7 +165,7 @@ async def update_performance_metrics(request: Request, agent_id: str, metrics: d
 
 @router.post('/meta-learning/models', response_model=MetaLearningResponse)
 @rate_limit(rate=50, per=60)
-async def create_meta_learning_model(request: Request, model_request: MetaLearningRequest, session: Annotated[Session, Depends(get_session)]) -> MetaLearningResponse:
+async def create_meta_learning_model(request: Request, model_request: MetaLearningRequest, session: Annotated[Session, Depends(get_session)] = Depends()) -> MetaLearningResponse:
     """Create meta-learning model"""
     meta_learning_engine = MetaLearningEngine()
     try:
@@ -178,7 +177,7 @@ async def create_meta_learning_model(request: Request, model_request: MetaLearni
 
 @router.post('/meta-learning/models/{model_id}/adapt')
 @rate_limit(rate=50, per=60)
-async def adapt_model_to_task(request: Request, model_id: str, task_data: dict[str, Any], session: Annotated[Session, Depends(get_session)], adaptation_steps: int=Query(default=10, ge=1, le=50)) -> dict[str, Any]:
+async def adapt_model_to_task(request: Request, model_id: str, task_data: dict[str, Any], session: Annotated[Session, Depends(get_session)] = Depends(), adaptation_steps: int=Query(default=10, ge=1, le=50)) -> dict[str, Any]:
     """Adapt meta-learning model to new task"""
     meta_learning_engine = MetaLearningEngine()
     try:
@@ -192,7 +191,7 @@ async def adapt_model_to_task(request: Request, model_id: str, task_data: dict[s
 
 @router.get('/meta-learning/models')
 @rate_limit(rate=200, per=60)
-async def list_meta_learning_models(request: Request, session: Annotated[Session, Depends(get_session)], status: str | None=Query(default=None, description='Filter by status'), meta_strategy: str | None=Query(default=None, description='Filter by meta strategy'), limit: int=Query(default=50, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
+async def list_meta_learning_models(request: Request, session: Annotated[Session, Depends(get_session)] = Depends(), status: str | None=Query(default=None, description='Filter by status'), meta_strategy: str | None=Query(default=None, description='Filter by meta strategy'), limit: int=Query(default=50, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
     """List meta-learning models"""
     try:
         query = select(MetaLearningModel)
@@ -200,7 +199,7 @@ async def list_meta_learning_models(request: Request, session: Annotated[Session
             query = query.where(MetaLearningModel.status == status)
         if meta_strategy:
             query = query.where(MetaLearningModel.meta_strategy == LearningStrategy(meta_strategy))
-        models = session.execute(query.order_by(MetaLearningModel.created_at.desc()).limit(limit)).all()
+        models = session.exec(query.order_by(MetaLearningModel.created_at.desc()).limit(limit)).all()
         return [{'model_id': model.model_id, 'model_name': model.model_name, 'model_type': model.model_type, 'meta_strategy': model.meta_strategy.value, 'adaptation_targets': model.adaptation_targets, 'meta_accuracy': model.meta_accuracy, 'adaptation_speed': model.adaptation_speed, 'generalization_ability': model.generalization_ability, 'status': model.status, 'deployment_count': model.deployment_count, 'success_rate': model.success_rate, 'created_at': model.created_at.isoformat(), 'trained_at': model.trained_at.isoformat() if model.trained_at else None} for model in models]
     except Exception as e:
         logger.error('Error listing meta-learning models: %s', str(e))
@@ -208,7 +207,7 @@ async def list_meta_learning_models(request: Request, session: Annotated[Session
 
 @router.post('/resources/allocate', response_model=ResourceAllocationResponse)
 @rate_limit(rate=50, per=60)
-async def allocate_resources(request: Request, allocation_request: ResourceAllocationRequest, session: Annotated[Session, Depends(get_session)]) -> ResourceAllocationResponse:
+async def allocate_resources(request: Request, allocation_request: ResourceAllocationRequest, session: Annotated[Session, Depends(get_session)] = Depends()) -> ResourceAllocationResponse:
     """Allocate resources for agent task"""
     resource_manager = ResourceManager()
     try:
@@ -220,13 +219,13 @@ async def allocate_resources(request: Request, allocation_request: ResourceAlloc
 
 @router.get('/resources/{agent_id}')
 @rate_limit(rate=200, per=60)
-async def get_resource_allocations(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)], status: str | None=Query(default=None, description='Filter by status'), limit: int=Query(default=20, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
+async def get_resource_allocations(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), status: str | None=Query(default=None, description='Filter by status'), limit: int=Query(default=20, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
     """Get resource allocations for agent"""
     try:
         query = select(ResourceAllocation).where(ResourceAllocation.agent_id == agent_id)
         if status:
             query = query.where(ResourceAllocation.status == status)
-        allocations = session.execute(query.order_by(ResourceAllocation.created_at.desc()).limit(limit)).all()
+        allocations = session.exec(query.order_by(ResourceAllocation.created_at.desc()).limit(limit)).all()
         return [{'allocation_id': allocation.allocation_id, 'agent_id': allocation.agent_id, 'task_id': allocation.task_id, 'cpu_cores': allocation.cpu_cores, 'memory_gb': allocation.memory_gb, 'gpu_count': allocation.gpu_count, 'gpu_memory_gb': allocation.gpu_memory_gb, 'storage_gb': allocation.storage_gb, 'network_bandwidth': allocation.network_bandwidth, 'optimization_target': allocation.optimization_target.value, 'priority_level': allocation.priority_level, 'status': allocation.status, 'efficiency_score': allocation.efficiency_score, 'cost_efficiency': allocation.cost_efficiency, 'allocated_at': allocation.allocated_at.isoformat() if allocation.allocated_at else None, 'started_at': allocation.started_at.isoformat() if allocation.started_at else None, 'completed_at': allocation.completed_at.isoformat() if allocation.completed_at else None} for allocation in allocations]
     except Exception as e:
         logger.error('Error getting resource allocations for agent %s: %s', agent_id, str(e))
@@ -234,7 +233,7 @@ async def get_resource_allocations(request: Request, agent_id: str, session: Ann
 
 @router.post('/optimization/optimize', response_model=PerformanceOptimizationResponse)
 @rate_limit(rate=50, per=60)
-async def optimize_performance(request: Request, optimization_request: PerformanceOptimizationRequest, session: Annotated[Session, Depends(get_session)]) -> PerformanceOptimizationResponse:
+async def optimize_performance(request: Request, optimization_request: PerformanceOptimizationRequest, session: Annotated[Session, Depends(get_session)] = Depends()) -> PerformanceOptimizationResponse:
     """Optimize agent performance"""
     performance_optimizer = PerformanceOptimizer()
     try:
@@ -246,7 +245,7 @@ async def optimize_performance(request: Request, optimization_request: Performan
 
 @router.get('/optimization/{agent_id}')
 @rate_limit(rate=200, per=60)
-async def get_optimization_history(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)], status: str | None=Query(default=None, description='Filter by status'), target_metric: str | None=Query(default=None, description='Filter by target metric'), limit: int=Query(default=20, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
+async def get_optimization_history(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), status: str | None=Query(default=None, description='Filter by status'), target_metric: str | None=Query(default=None, description='Filter by target metric'), limit: int=Query(default=20, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
     """Get optimization history for agent"""
     try:
         query = select(PerformanceOptimization).where(PerformanceOptimization.agent_id == agent_id)
@@ -254,7 +253,7 @@ async def get_optimization_history(request: Request, agent_id: str, session: Ann
             query = query.where(PerformanceOptimization.status == status)
         if target_metric:
             query = query.where(PerformanceOptimization.target_metric == PerformanceMetric(target_metric))
-        optimizations = session.execute(query.order_by(PerformanceOptimization.created_at.desc()).limit(limit)).all()
+        optimizations = session.exec(query.order_by(PerformanceOptimization.created_at.desc()).limit(limit)).all()
         return [{'optimization_id': optimization.optimization_id, 'agent_id': optimization.agent_id, 'optimization_type': optimization.optimization_type, 'target_metric': optimization.target_metric.value, 'status': optimization.status, 'baseline_performance': optimization.baseline_performance, 'optimized_performance': optimization.optimized_performance, 'baseline_cost': optimization.baseline_cost, 'optimized_cost': optimization.optimized_cost, 'performance_improvement': optimization.performance_improvement, 'resource_savings': optimization.resource_savings, 'cost_savings': optimization.cost_savings, 'overall_efficiency_gain': optimization.overall_efficiency_gain, 'optimization_duration': optimization.optimization_duration, 'iterations_required': optimization.iterations_required, 'convergence_achieved': optimization.convergence_achieved, 'created_at': optimization.created_at.isoformat(), 'completed_at': optimization.completed_at.isoformat() if optimization.completed_at else None} for optimization in optimizations]
     except Exception as e:
         logger.error('Error getting optimization history for agent %s: %s', agent_id, str(e))
@@ -262,7 +261,7 @@ async def get_optimization_history(request: Request, agent_id: str, session: Ann
 
 @router.post('/capabilities', response_model=CapabilityResponse)
 @rate_limit(rate=50, per=60)
-async def create_capability(request: Request, capability_request: CapabilityRequest, session: Annotated[Session, Depends(get_session)]) -> CapabilityResponse:
+async def create_capability(request: Request, capability_request: CapabilityRequest, session: Annotated[Session, Depends(get_session)] = Depends()) -> CapabilityResponse:
     """Create agent capability"""
     try:
         capability_id = f'cap_{uuid4().hex[:8]}'
@@ -277,7 +276,7 @@ async def create_capability(request: Request, capability_request: CapabilityRequ
 
 @router.get('/capabilities/{agent_id}')
 @rate_limit(rate=200, per=60)
-async def get_agent_capabilities(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)], capability_type: str | None=Query(default=None, description='Filter by capability type'), domain_area: str | None=Query(default=None, description='Filter by domain area'), limit: int=Query(default=50, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
+async def get_agent_capabilities(request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), capability_type: str | None=Query(default=None, description='Filter by capability type'), domain_area: str | None=Query(default=None, description='Filter by domain area'), limit: int=Query(default=50, ge=1, le=100, description='Number of results')) -> list[dict[str, Any]]:
     """Get agent capabilities"""
     try:
         query = select(AgentCapability).where(AgentCapability.agent_id == agent_id)
@@ -285,7 +284,7 @@ async def get_agent_capabilities(request: Request, agent_id: str, session: Annot
             query = query.where(AgentCapability.capability_type == capability_type)
         if domain_area:
             query = query.where(AgentCapability.domain_area == domain_area)
-        capabilities = session.execute(query.order_by(AgentCapability.skill_level.desc()).limit(limit)).all()
+        capabilities = session.exec(query.order_by(AgentCapability.skill_level.desc()).limit(limit)).all()
         return [{'capability_id': capability.capability_id, 'agent_id': capability.agent_id, 'capability_name': capability.capability_name, 'capability_type': capability.capability_type, 'domain_area': capability.domain_area, 'skill_level': capability.skill_level, 'proficiency_score': capability.proficiency_score, 'experience_years': capability.experience_years, 'success_rate': capability.success_rate, 'average_quality': capability.average_quality, 'learning_rate': capability.learning_rate, 'adaptation_speed': capability.adaptation_speed, 'specialization_areas': capability.specialization_areas, 'sub_capabilities': capability.sub_capabilities, 'tool_proficiency': capability.tool_proficiency, 'certified': capability.certified, 'certification_level': capability.certification_level, 'status': capability.status, 'acquired_at': capability.acquired_at.isoformat(), 'last_improved': capability.last_improved.isoformat() if capability.last_improved else None} for capability in capabilities]
     except Exception as e:
         logger.error('Error getting capabilities for agent %s: %s', agent_id, str(e))
@@ -293,15 +292,15 @@ async def get_agent_capabilities(request: Request, agent_id: str, session: Annot
 
 @router.get('/analytics/performance-summary')
 @rate_limit(rate=200, per=60)
-async def get_performance_summary(request: Request, session: Annotated[Session, Depends(get_session)], agent_ids: list[str]=Query(default=[], description='List of agent IDs'), metric: str | None=Query(default='overall_score', description='Metric to summarize'), period: str=Query(default='7d', description='Time period')) -> dict[str, Any]:
+async def get_performance_summary(request: Request, session: Annotated[Session, Depends(get_session)] = Depends(), agent_ids: list[str]=Query(default=[], description='List of agent IDs'), metric: str | None=Query(default='overall_score', description='Metric to summarize'), period: str=Query(default='7d', description='Time period')) -> dict[str, Any]:
     """Get performance summary for agents"""
     try:
         if not agent_ids:
-            profiles = session.execute(select(AgentPerformanceProfile)).all()
+            profiles = session.exec(select(AgentPerformanceProfile)).all()
             agent_ids = [p.agent_id for p in profiles]
         summaries = []
         for agent_id in agent_ids:
-            profile = session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)).first()
+            profile = session.exec(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)).first()
             if profile:
                 summaries.append({'agent_id': agent_id, 'overall_score': profile.overall_score, 'performance_metrics': profile.performance_metrics, 'resource_efficiency': profile.resource_efficiency, 'cost_per_task': profile.cost_per_task, 'throughput': profile.throughput, 'average_latency': profile.average_latency, 'specialization_areas': profile.specialization_areas, 'last_assessed': profile.last_assessed.isoformat() if profile.last_assessed else None})
         if summaries:
@@ -316,7 +315,7 @@ async def get_performance_summary(request: Request, session: Annotated[Session, 
 
 def calculate_specialization_distribution(summaries: list[dict[str, Any]]) -> dict[str, int]:
     """Calculate specialization distribution"""
-    distribution = {}
+    distribution: dict[str, int] = {}
     for summary in summaries:
         for area in summary['specialization_areas']:
             distribution[area] = distribution.get(area, 0) + 1
