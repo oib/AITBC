@@ -150,7 +150,6 @@ AITBC v0.4.20 is the **final Phase 2 release** of the three-phase type safety gr
 - [x] blockchain-node significant progress (15 of 16 files cleaned)
 
 ### Next Steps (Future Work)
-- [ ] blockchain-node rpc/router.py (1 file - untyped external library decorator)
 - [ ] wallet per-file ignore (1 file - untyped psycopg2 library)
 - [ ] agent-management per-file ignore (1 file - migration-in-progress)
 - [ ] Strict mypy enforcement (`strict = true`)
