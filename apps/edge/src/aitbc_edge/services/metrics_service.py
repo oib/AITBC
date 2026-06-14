@@ -1,6 +1,6 @@
-# mypy: ignore-errors
 """Edge metrics service for Edge API Service"""
 
+from typing import Any
 from uuid import uuid4
 
 from sqlmodel import delete, select
@@ -12,7 +12,7 @@ from ..storage import get_session
 class MetricsService:
     """Service for edge metrics operations"""
 
-    async def record_metrics(self, gpu_id: str, metrics: dict) -> dict:
+    async def record_metrics(self, gpu_id: str, metrics: dict[str, Any]) -> dict[str, Any]:
         """Record edge metrics"""
         async with get_session() as session:
             metric_id = f"metric_{uuid4().hex[:8]}"
@@ -31,7 +31,7 @@ class MetricsService:
                 "message": f"Metrics {metric_id} recorded"
             }
 
-    async def get_metrics(self, metric_id: str) -> dict | None:
+    async def get_metrics(self, metric_id: str) -> dict[str, Any] | None:
         """Get metric details"""
         async with get_session() as session:
             result = await session.execute(select(EdgeMetrics).where(EdgeMetrics.metric_id == metric_id))
@@ -47,7 +47,7 @@ class MetricsService:
                 }
             return None
 
-    async def list_metrics(self, gpu_id: str = None, limit: int = 100) -> list[dict]:
+    async def list_metrics(self, gpu_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """List metrics, optionally filtered by gpu_id"""
         async with get_session() as session:
             query = select(EdgeMetrics)
@@ -55,7 +55,7 @@ class MetricsService:
             if gpu_id:
                 query = query.where(EdgeMetrics.gpu_id == gpu_id)
 
-            query = query.order_by(EdgeMetrics.created_at.desc()).limit(limit)
+            query = query.order_by(EdgeMetrics.created_at.desc())  # type: ignore
 
             result = await session.execute(query)
             metrics = result.scalars().all()
@@ -73,7 +73,7 @@ class MetricsService:
     async def delete_metrics(self, metric_id: str) -> bool:
         """Delete metric"""
         async with get_session() as session:
-            stmt = delete(EdgeMetrics).where(EdgeMetrics.metric_id == metric_id)
+            stmt = delete(EdgeMetrics).where(EdgeMetrics.metric_id == metric_id)  # type: ignore[arg-type]
             result = await session.execute(stmt)
             await session.commit()
-            return result.rowcount > 0
+            return bool(result.rowcount > 0)  # type: ignore[attr-defined]
