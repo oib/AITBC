@@ -5,7 +5,7 @@ This enables gradual migration from duplicated code to shared implementation.
 
 from typing import Any
 
-from aitbc_agent_core import AgentIntegrationService  # type: ignore[import-not-found]
+from aitbc_agent_core import AgentIntegrationService
 from ..database import get_session  # type: ignore[import-not-found]
 from .adapters.agent_core_adapters import (  # type: ignore[import-not-found]
     AgentAuditorAdapter,

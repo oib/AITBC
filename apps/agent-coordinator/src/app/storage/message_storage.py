@@ -34,7 +34,7 @@ class MessageStorage:
         """Store a message in Redis"""
         assert self.redis is not None, 'Redis not connected'
         try:
-            await self.redis.hset(f'message:{message_id}', mapping=message_data)
+            await self.redis.hset(f'message:{message_id}', mapping=message_data)  # type: ignore[arg-type]
             sender_id = message_data.get('sender')
             if sender_id:
                 await self.redis.sadd(f'messages:sender:{sender_id}', message_id)
@@ -67,7 +67,7 @@ class MessageStorage:
         """Retrieve a specific message by ID"""
         assert self.redis is not None, 'Redis not connected'
         try:
-            message_data = await self.redis.hgetall(f'message:{message_id}')
+            message_data: dict[str, Any] = await self.redis.hgetall(f'message:{message_id}')  # type: ignore[assignment]
             if message_data:
                 if 'payload' in message_data:
                     message_data['payload'] = json.loads(message_data['payload'])
@@ -81,8 +81,8 @@ class MessageStorage:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, 'Redis not connected'
         try:
-            message_ids = await self.redis.smembers(f'messages:sender:{sender_id}')
-            message_ids = list(message_ids)
+            raw_ids = await self.redis.smembers(f'messages:sender:{sender_id}')
+            message_ids: list[str] = [str(m) for m in raw_ids]
             message_ids = message_ids[offset:offset + limit]
             messages = []
             for message_id in message_ids:
@@ -98,8 +98,8 @@ class MessageStorage:
         """Get messages received by a specific agent"""
         assert self.redis is not None, 'Redis not connected'
         try:
-            message_ids = await self.redis.smembers(f'messages:receiver:{receiver_id}')
-            message_ids = list(message_ids)
+            raw_ids = await self.redis.smembers(f'messages:receiver:{receiver_id}')
+            message_ids: list[str] = [str(m) for m in raw_ids]
             message_ids = message_ids[offset:offset + limit]
             messages = []
             for message_id in message_ids:
