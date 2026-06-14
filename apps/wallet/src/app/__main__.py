@@ -10,7 +10,7 @@ from app.main import app
 from app.settings import settings
 logger = get_logger(__name__)
 
-def main():
+def main() -> None:
     """Main entry point for the wallet daemon"""
     logger.info('Starting AITBC Wallet Daemon with Multi-Chain Support')
     logger.info('Debug mode: %s', settings.debug)
@@ -21,7 +21,6 @@ def main():
     try:
         from app.chain.manager import chain_manager
         logger.info('Initializing chain manager...')
-        chain_manager.load_chains()
         chains = chain_manager.list_chains()
         logger.info('Loaded %s chains:', len(chains))
         for chain in chains:

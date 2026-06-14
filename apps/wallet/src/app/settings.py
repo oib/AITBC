@@ -20,6 +20,8 @@ class Settings(BaseSettings):
 
     rest_prefix: str = Field(default="/v1", alias="REST_PREFIX")
     ledger_db_path: Path = Field(default=Path("./data/wallet_ledger.db"), alias="LEDGER_DB_PATH")
+    host: str = Field(default="0.0.0.0", alias="HOST")
+    port: int = Field(default=8108, alias="PORT")
 
     @field_validator('coordinator_api_key')
     @classmethod

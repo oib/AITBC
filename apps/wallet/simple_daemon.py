@@ -135,7 +135,8 @@ async def create_chain(request: dict[str, Any]):
         raise HTTPException(status_code=400, detail="chain_id and name are required")
 
     # Check if chain already exists
-    for chain in chains_data["chains"]:
+    chains: list[dict[str, Any]] = chains_data["chains"]  # type: ignore
+    for chain in chains:
         if chain["chain_id"] == chain_id:
             raise HTTPException(status_code=409, detail=f"Chain {chain_id} already exists")
 
@@ -151,7 +152,7 @@ async def create_chain(request: dict[str, Any]):
         "metadata": metadata
     }
 
-    chains_data["chains"].append(new_chain)
+    chains_data["chains"].append(new_chain)  # type: ignore
 
     return JSONResponse({
         "success": True,
@@ -206,7 +207,7 @@ async def list_chain_wallets(chain_id: str):
     })
 
 @wallet_app.post("/v1/chains/{chain_id}/wallets")
-async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
+async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = None):
     """Create a wallet in a specific chain"""
     if request is None:
         request = {}
@@ -219,7 +220,7 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] = None):
         import io
         import sys
 
-        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
+        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet  # type: ignore
 
         # Capture stdout to avoid printing to console
         old_stdout = sys.stdout
@@ -382,7 +383,7 @@ async def list_wallets():
     return JSONResponse({"items": wallets, "total": len(wallets)})
 
 @wallet_app.post("/v1/wallets")
-async def create_wallet(request: dict[str, Any] = None):
+async def create_wallet(request: dict[str, Any] | None = None):
     """Create a wallet"""
     if request is None:
         request = {}
@@ -395,7 +396,7 @@ async def create_wallet(request: dict[str, Any] = None):
         import io
         import sys
 
-        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet
+        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet  # type: ignore
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
         result = cli_create_wallet(wallet_name, password)
