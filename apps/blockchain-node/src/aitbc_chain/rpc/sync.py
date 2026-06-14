@@ -1,14 +1,13 @@
-# mypy: ignore-errors
 """
 Sync-related RPC endpoints.
 """
 import asyncio
 import json
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 from fastapi import HTTPException, Request
-from sqlmodel import delete, select
+from sqlmodel import delete, select, Session
 from aitbc.rate_limiting import rate_limit
 from ..database import session_scope
 from ..logger import get_logger
@@ -24,7 +23,7 @@ def _serialize_optional_timestamp(value: Any) -> str | None:
     if isinstance(value, str):
         return value
     if hasattr(value, 'isoformat'):
-        return value.isoformat()
+        return cast(str, value.isoformat())
     return str(value)
 
 def _parse_datetime_value(value: Any, field_name: str) -> datetime | None:
@@ -39,7 +38,7 @@ def _parse_datetime_value(value: Any, field_name: str) -> datetime | None:
             raise HTTPException(status_code=400, detail=f'Invalid {field_name}: {value}') from exc
     raise HTTPException(status_code=400, detail=f'Invalid {field_name} type: {type(value).__name__}')
 
-def _select_export_blocks(session, chain_id: str) -> list[Block]:
+def _select_export_blocks(session: Session, chain_id: str) -> list[Block]:
     blocks_result = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.asc(), Block.id.desc()))
     blocks: list[Block] = []
     seen_heights = set()
@@ -77,8 +76,8 @@ def _dedupe_import_blocks(blocks: list[dict[str, Any]], chain_id: str) -> list[d
         _logger.warning('Filtered %s duplicate imported blocks for chain %s', duplicate_count, chain_id)
     return [latest_by_height[height] for height in sorted(latest_by_height)]
 
-@rate_limit(rate=200, per=60)
-async def export_chain(request: Request, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
+async def export_chain(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Export full chain state as JSON for manual synchronization"""
     chain_id = get_chain_id(chain_id)
     try:
@@ -96,7 +95,7 @@ async def export_chain(request: Request, chain_id: str=None) -> dict[str, Any]:
         _logger.error('Error exporting chain: %s', e)
         raise HTTPException(status_code=500, detail=f'Failed to export chain: {str(e)}')
 
-@rate_limit(rate=50, per=60)
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
 async def import_chain(request: Request, import_data: dict) -> dict[str, Any]:
     """Import chain state from JSON for manual synchronization"""
     async with _import_lock:
@@ -161,7 +160,7 @@ async def import_chain(request: Request, import_data: dict) -> dict[str, Any]:
             _logger.error('Error importing chain: %s', e)
             raise HTTPException(status_code=500, detail=f'Failed to import chain: {str(e)}')
 
-@rate_limit(rate=50, per=60)
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
 async def force_sync(request: Request, peer_data: dict) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
     try:
