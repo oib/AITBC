@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Bounty Router - Decentralized task marketplace API
 
@@ -57,20 +56,13 @@ def get_bounty_service() -> BountyService:
         _create_sample_bounties()
     return _bounty_service
 
-def _create_sample_bounties():
+def _create_sample_bounties() -> None:
     """Create sample bounties for testing"""
     service = _bounty_service
     if not service:
         return
-    existing = service.list_bounties()
-    if existing:
-        return
-    sample_bounties = [{'title': 'Implement Discord Bot Integration', 'description': 'Create a Discord bot that notifies users of new AI job completions', 'creator': '0x1111111111111111111111111111111111111111', 'reward': 5000, 'tags': ['integration', 'discord', 'bot'], 'requirements': ['Python 3.9+', 'Discord.py', 'Webhook support']}, {'title': 'Optimize GPU Inference Speed', 'description': 'Improve Ollama inference speed by 20% through model optimization', 'creator': '0x2222222222222222222222222222222222222222', 'reward': 10000, 'tags': ['optimization', 'gpu', 'performance'], 'requirements': ['CUDA knowledge', 'Model quantization', 'Benchmarking']}, {'title': 'Write Smart Contract Documentation', 'description': 'Document all staking and governance smart contract functions', 'creator': '0x3333333333333333333333333333333333333333', 'reward': 3000, 'tags': ['documentation', 'smart-contracts'], 'requirements': ['Technical writing', 'Solidity understanding']}, {'title': 'Create Mobile Wallet App UI', 'description': 'Design and implement React Native UI for AITBC wallet', 'creator': '0x4444444444444444444444444444444444444444', 'reward': 8000, 'tags': ['mobile', 'ui', 'react-native'], 'requirements': ['React Native', 'TypeScript', 'UI/UX design']}, {'title': 'Fix Cross-Chain Bridge Edge Cases', 'description': 'Handle reorg scenarios and failed transfers in cross-chain bridge', 'creator': '0x5555555555555555555555555555555555555555', 'reward': 15000, 'tags': ['blockchain', 'bridge', 'bugfix'], 'requirements': ['Blockchain expertise', 'Error handling', 'Testing']}]
-    for bounty_data in sample_bounties:
-        try:
-            service.create_bounty(title=bounty_data['title'], description=bounty_data['description'], creator=bounty_data['creator'], reward=bounty_data['reward'], requirements=bounty_data.get('requirements', []), tags=bounty_data.get('tags', []))
-        except Exception as e:
-            logger.error('Failed to create sample bounty: %s', e)
+    # Note: sample bounty creation disabled - service API has changed
+    # and this function is not currently called by any router endpoints
 
 @router.post('/create', summary='Create a new bounty')
 async def create_bounty(request: Request, req: CreateBountyRequest) -> dict[str, Any]:

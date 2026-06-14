@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Badge System - Achievement and recognition badge system
 """
@@ -7,8 +6,8 @@ from typing import Any
 from uuid import uuid4
 from aitbc import get_logger
 logger = get_logger(__name__)
-from app.domain.certification import AchievementBadge, AgentBadge, BadgeType
-from app.domain.reputation import AgentReputation
+from app.domain.certification import AchievementBadge, AgentBadge, BadgeType  # type: ignore[import-not-found]
+from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
 from sqlmodel import Session, and_, select
 
 class BadgeSystem:
@@ -77,7 +76,7 @@ class BadgeSystem:
     def get_metric_value(self, reputation: AgentReputation, metric: str) -> float:
         """Get metric value from reputation data"""
         metric_map = {'jobs_completed': float(reputation.jobs_completed), 'successful_transactions': float(reputation.jobs_completed * (reputation.success_rate / 100)), 'total_earnings': reputation.total_earnings, 'community_contributions': float(reputation.community_contributions or 0), 'trust_score': reputation.trust_score, 'reliability_score': reputation.reliability_score, 'performance_rating': reputation.performance_rating, 'transaction_count': float(reputation.transaction_count)}
-        return metric_map.get(metric, 0.0)
+        return float(metric_map.get(metric, 0.0))
 
     async def check_and_award_automatic_badges(self, session: Session, agent_id: str) -> list[dict[str, Any]]:
         """Check and award automatic badges for an agent"""
@@ -89,6 +88,6 @@ class BadgeSystem:
                 existing = session.execute(select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge.badge_id))).first()
                 if not existing:
                     success, agent_badge, message = await self.award_badge(session, agent_id, badge.badge_id, 'system', 'Automatic badge award', eligibility_result.get('context'))
-                    if success:
+                    if success and agent_badge is not None:
                         awarded_badges.append({'badge_id': badge.badge_id, 'badge_name': badge.badge_name, 'badge_type': badge.badge_type.value, 'awarded_at': agent_badge.awarded_at.isoformat(), 'reason': message})
         return awarded_badges

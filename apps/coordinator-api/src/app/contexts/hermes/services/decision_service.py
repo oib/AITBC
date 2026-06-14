@@ -1,7 +1,7 @@
-# mypy: ignore-errors
 """Service for Hermes distributed decision making."""
 import uuid
 from datetime import datetime
+from typing import Any
 from sqlalchemy.orm import Session
 from aitbc import get_logger
 logger = get_logger(__name__)
@@ -10,8 +10,9 @@ from ....schemas.hermes_decision import DecisionProposal, DecisionProposalRespon
 class DecisionService:
     """Service for managing distributed agent decisions."""
 
-    def __init__(self):
-        pass
+    def __init__(self) -> None:
+        self.decisions: dict[str, dict[str, Any]] = {}
+        self.votes: dict[str, list[dict[str, Any]]] = {}
 
     def propose_decision(self, proposal: DecisionProposal, session: Session) -> DecisionProposalResponse:
         """Create a new decision proposal for agent voting."""
