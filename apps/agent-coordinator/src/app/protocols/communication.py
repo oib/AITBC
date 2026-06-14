@@ -287,7 +287,7 @@ class WebSocketHandler:
         self.communication_manager = communication_manager
         self.websocket_connections: dict[str, Any] = {}
 
-    async def handle_connection(self, websocket, agent_id: str) -> Any:
+    async def handle_connection(self, websocket: Any, agent_id: str) -> Any:
         """Handle WebSocket connection from agent"""
         import websockets
         self.websocket_connections[agent_id] = websocket
@@ -347,7 +347,7 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-def create_protocol(protocol_type: str, agent_id: str, **kwargs) -> CommunicationProtocol:
+def create_protocol(protocol_type: str, agent_id: str, **kwargs: Any) -> CommunicationProtocol:
     """Factory function to create communication protocols"""
     if protocol_type == 'hierarchical':
         return HierarchicalProtocol(agent_id, kwargs.get('is_master', False))

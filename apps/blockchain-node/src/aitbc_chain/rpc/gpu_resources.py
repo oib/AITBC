@@ -48,10 +48,10 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
 
         with session_scope() as session:
             from sqlalchemy import select, and_
-            query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)
+            query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)  # type: ignore[arg-type]
 
             if status:
-                query = query.where(GPURegistration.status == status)
+                query = query.where(GPURegistration.status == status)  # type: ignore[arg-type]
 
             result = session.execute(query)
             gpus = result.scalars().all()
@@ -95,8 +95,8 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
             result = session.execute(
                 select(GPUAllocation).where(
                     and_(
-                        GPUAllocation.chain_id == chain_id,
-                        GPUAllocation.gpu_id == gpu_id
+                        GPUAllocation.chain_id == chain_id,  # type: ignore[arg-type]
+                        GPUAllocation.gpu_id == gpu_id  # type: ignore[arg-type]
                     )
                 )
             )
@@ -144,8 +144,8 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
             result = session.execute(
                 select(GPURegistration).where(
                     and_(
-                        GPURegistration.chain_id == chain_id,
-                        GPURegistration.gpu_id == request.gpu_id
+                        GPURegistration.chain_id == chain_id,  # type: ignore[arg-type]
+                        GPURegistration.gpu_id == request.gpu_id  # type: ignore[arg-type]
                     )
                 )
             )
@@ -215,8 +215,8 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
             result = session.execute(
                 select(GPURegistration).where(
                     and_(
-                        GPURegistration.chain_id == chain_id,
-                        GPURegistration.gpu_id == gpu_id
+                        GPURegistration.chain_id == chain_id,  # type: ignore[arg-type]
+                        GPURegistration.gpu_id == gpu_id  # type: ignore[arg-type]
                     )
                 )
             )
