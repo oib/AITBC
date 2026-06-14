@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """AI approval strategy - uses Ollama to evaluate requests."""
 
 import os
@@ -7,7 +6,7 @@ from typing import Any
 
 import requests
 
-from ...storage import CoinRequest, get_db_session
+from ...storage import CoinRequest, get_db_session  # type: ignore
 from .base_approval import ApprovalStrategy
 
 
