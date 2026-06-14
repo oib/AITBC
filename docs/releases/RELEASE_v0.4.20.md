@@ -160,13 +160,17 @@ AITBC v0.4.20 completes the **Phase 2 work** and includes **Phase 3 progress** o
 ### Next Steps (Future Work)
 - [x] wallet per-file ignore - Fixed by adding types-psycopg2 dependency and proper type annotations
 - [x] agent-management per-file ignore - Partially resolved by installing aitbc-agent-core and migrating core ZK proof operations
-- [ ] agent-management deployment/monitoring sections - Legacy code patterns require refactoring
-- [ ] Strict mypy enforcement (`strict = true`) - Individual strict options enabled, full strict mode deferred
+- [x] agent-management deployment/monitoring sections - **Moved to v0.4.21**: Legacy code patterns refactoring moved to Phase 4 of dedicated release v0.4.21
+- [x] Strict mypy enforcement (`strict = true`) - **Analysis completed and moved to v0.4.21**: Current state has `strict_equality` and `strict_optional` enabled. Full strict mode would require addressing ~47+ errors across files. **Incremental plan created** and moved to dedicated release v0.4.21.
 
 ### Deferred to v0.4.21
 - [x] blockchain-node rpc/router.py - untyped external library decorator + complex imports (moved to dedicated release v0.4.21)
 
 Both remaining per-file ignores have documented justifications and are tracked for future refactoring.
+
+### Moved to v0.4.21
+- [x] Strict mypy enforcement analysis - Comprehensive analysis and incremental implementation plan moved to dedicated release v0.4.21
+- [x] agent-management deployment/monitoring sections - Legacy code patterns refactoring moved to Phase 4 of v0.4.21
 
 ---
 
