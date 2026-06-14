@@ -140,7 +140,7 @@ class TranslationEngine:
     def __init__(self, config: dict):
         self.config = config
         self.translators = self._initialize_translators()
-        self.cache = None
+        self.cache: 'TranslationCache | None' = None
         self.quality_checker = None
 
     def _initialize_translators(self) -> dict[TranslationProvider, BaseTranslator]:
