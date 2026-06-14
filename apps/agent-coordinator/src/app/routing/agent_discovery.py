@@ -11,9 +11,10 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum, StrEnum
 from typing import Any
 
-redis: Any = None
+redis_client: Any = None
 try:
     import redis.asyncio as redis
+    redis_client = redis
 except ImportError:
     pass
 from aitbc import get_logger
@@ -76,7 +77,7 @@ class AgentRegistry:
 
     def __init__(self, redis_url: str = 'redis://localhost:6379/1') -> None:
         self.redis_url = redis_url
-        self.redis_client: redis.Redis | None = None
+        self.redis_client: Any = None
         self.agents: dict[str, AgentInfo] = {}
         self.service_index: dict[str, set[str]] = {}
         self.capability_index: dict[str, set[str]] = {}
@@ -87,7 +88,7 @@ class AgentRegistry:
 
     async def start(self) -> None:
         """Start the registry service"""
-        self.redis_client = redis.from_url(self.redis_url)
+        self.redis_client = redis_client.from_url(self.redis_url)
         await self._load_agents_from_redis()
         asyncio.create_task(self._heartbeat_monitor())
         asyncio.create_task(self._cleanup_inactive_agents())

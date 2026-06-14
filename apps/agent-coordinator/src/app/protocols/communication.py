@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Multi-Agent Communication Protocols for AITBC Agent Coordination
 """
@@ -297,7 +296,7 @@ class WebSocketHandler:
             async for message in websocket:
                 data = json.loads(message)
                 agent_message = AgentMessage.from_dict(data)
-                await self.communication_manager.receive_message(agent_message)
+                await self.communication_manager.receive_message(agent_message)  # type: ignore
         except websockets.exceptions.ConnectionClosed:
             logger.info('WebSocket connection closed for agent %s', agent_id)
         finally:
