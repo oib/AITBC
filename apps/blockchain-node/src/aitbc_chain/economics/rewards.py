@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Reward Distribution System
 Handles validator reward calculation and distribution
@@ -72,7 +71,7 @@ class RewardCalculator:
         if uptime_score >= self.uptime_requirement:
             performance_bonus = (uptime_score - self.uptime_requirement) / (1.0 - self.uptime_requirement)
             performance_bonus = min(performance_bonus, 1.0)  # Cap at 1.0
-            reward *= (Decimal('1') + (performance_bonus * self.performance_bonus_max))
+            reward *= (Decimal('1') + (performance_bonus * self.performance_bonus_max))  # type: ignore
         else:
             # Penalty for low uptime
             reward *= Decimal(str(uptime_score))
@@ -119,7 +118,7 @@ class RewardDistributor:
         self.delegation_reward_split = 0.9  # 90% to delegators, 10% to validator
 
     def add_reward_event(self, validator_address: str, reward_type: RewardType,
-                        amount: float, block_height: int, metadata: dict = None):
+                        amount: float, block_height: int, metadata: dict | None = None):
         """Add a reward event"""
         reward_event = RewardEvent(
             validator_address=validator_address,
@@ -149,20 +148,20 @@ class RewardDistributor:
         total_rewards = sum(event.amount for event in period_events)
 
         return {
-            'total_rewards': total_rewards,
-            'block_proposal_rewards': sum(
+            'total_rewards': total_rewards,  # type: ignore
+            'block_proposal_rewards': sum(  # type: ignore
                 event.amount for event in period_events
                 if event.reward_type == RewardType.BLOCK_PROPOSAL
             ),
-            'block_validation_rewards': sum(
+            'block_validation_rewards': sum(  # type: ignore
                 event.amount for event in period_events
                 if event.reward_type == RewardType.BLOCK_VALIDATION
             ),
-            'consensus_rewards': sum(
+            'consensus_rewards': sum(  # type: ignore
                 event.amount for event in period_events
                 if event.reward_type == RewardType.CONSENSUS_PARTICIPATION
             ),
-            'uptime_rewards': sum(
+            'uptime_rewards': sum(  # type: ignore
                 event.amount for event in period_events
                 if event.reward_type == RewardType.UPTIME
             )
@@ -224,7 +223,7 @@ class RewardDistributor:
             # Create distribution record
             distribution = RewardDistribution(
                 distribution_id=distribution_id,
-                total_rewards=total_rewards,
+                total_rewards=total_rewards,  # type: ignore
                 validator_rewards=validator_rewards,
                 delegator_rewards=delegator_rewards,
                 distributed_at=time.time(),
@@ -247,7 +246,7 @@ class RewardDistributor:
 
     def get_total_rewards_distributed(self) -> Decimal:
         """Get total rewards distributed"""
-        return sum(dist.total_rewards for dist in self.distributions)
+        return sum(dist.total_rewards for dist in self.distributions)  # type: ignore
 
     def get_reward_history(self, validator_address: str | None = None,
                           limit: int = 100) -> list[RewardEvent]:
