@@ -63,7 +63,7 @@ class ChainManager:
         self.default_chain_id: str | None = None
         self._load_chains()
 
-    def _load_chains(self):
+    def _load_chains(self) -> None:
         """Load chain configurations from file"""
         try:
             if self.config_path.exists():
@@ -80,7 +80,7 @@ class ChainManager:
             logger.error('Failed to load chain configurations: %s', e)
             self._create_default_chain()
 
-    def _create_default_chain(self):
+    def _create_default_chain(self) -> None:
         """Create default chain configuration"""
         default_chain = ChainConfig(chain_id='ait-devnet', name='AITBC Development Network', coordinator_url='http://localhost:8011', coordinator_api_key='dev-coordinator-key', ledger_db_path='./data/wallet_ledger_devnet.db', keystore_path='./data/keystore_devnet')
         self.chains[default_chain.chain_id] = default_chain
@@ -88,7 +88,7 @@ class ChainManager:
         self._save_chains()
         logger.info('Created default chain: %s', default_chain.chain_id)
 
-    def _save_chains(self):
+    def _save_chains(self) -> None:
         """Save chain configurations to file"""
         try:
             data = {'chains': [chain.to_dict() for chain in self.chains.values()], 'default_chain_id': self.default_chain_id, 'updated_at': datetime.now().isoformat()}
