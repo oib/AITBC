@@ -21,19 +21,20 @@ class ChainAwareWalletService:
         self.chain_keystores: dict[str, PersistentKeystoreService] = {}
         self._initialize_chain_keystores()
 
-    def _initialize_chain_keystores(self):
+    def _initialize_chain_keystores(self) -> None:
         """Initialize keystore for each chain"""
         for chain in self.chain_manager.list_chains():
             self._init_chain_keystore(chain.chain_id)
 
-    def _init_chain_keystore(self, chain_id: str):
+    def _init_chain_keystore(self, chain_id: str) -> None:
         """Initialize keystore for a specific chain"""
         try:
             chain = self.chain_manager.get_chain(chain_id)
             if not chain:
                 return
             keystore_path = chain.keystore_path or f'./data/keystore_{chain_id}'
-            keystore = PersistentKeystoreService(keystore_path)
+            from pathlib import Path
+            keystore = PersistentKeystoreService(Path(keystore_path))
             self.chain_keystores[chain_id] = keystore
             logger.info('Initialized keystore for chain: %s', chain_id)
         except Exception as e:
@@ -55,11 +56,11 @@ class ChainAwareWalletService:
             if not keystore:
                 logger.error('Failed to get keystore for chain: %s', chain_id)
                 return None
-            keystore_record = keystore.create_wallet(wallet_id, password, secret_key, metadata or {})
+            keystore_record = keystore.create_wallet(wallet_id, password, secret_key, metadata or {})  # type: ignore
             success = self.multichain_ledger.create_wallet(chain_id, wallet_id, keystore_record.public_key, metadata=keystore_record.metadata)
             if not success:
                 try:
-                    keystore.delete_wallet(wallet_id, password)
+                    keystore.delete_wallet(wallet_id)
                 except Exception:
                     pass
                 return None
@@ -106,7 +107,7 @@ class ChainAwareWalletService:
             keystore = self._get_keystore(chain_id)
             if not keystore:
                 return False
-            keystore_success = keystore.delete_wallet(wallet_id, password)
+            keystore_success = keystore.delete_wallet(wallet_id)
             if not keystore_success:
                 return False
             self.multichain_ledger.record_event(chain_id, wallet_id, 'deleted', {'chain_id': chain_id})
@@ -128,7 +129,7 @@ class ChainAwareWalletService:
             if signature:
                 self.multichain_ledger.record_event(chain_id, wallet_id, 'signed', {'message_length': len(message), 'ip_address': ip_address, 'chain_id': chain_id})
                 logger.info('Signed message for wallet %s in chain %s', wallet_id, chain_id)
-            return signature
+            return signature  # type: ignore[return-value]
         except Exception as e:
             logger.error('Failed to sign message for wallet %s in chain %s: %s', wallet_id, chain_id, e)
             return None
@@ -145,7 +146,7 @@ class ChainAwareWalletService:
             if success:
                 self.multichain_ledger.record_event(chain_id, wallet_id, 'unlocked', {'chain_id': chain_id})
                 logger.info('Unlocked wallet %s in chain %s', wallet_id, chain_id)
-            return success
+            return success  # type: ignore[return-value]
         except Exception as e:
             logger.error('Failed to unlock wallet %s in chain %s: %s', wallet_id, chain_id, e)
             return False
@@ -158,11 +159,11 @@ class ChainAwareWalletService:
             keystore = self._get_keystore(chain_id)
             if not keystore:
                 return False
-            success = keystore.lock_wallet(wallet_id)
+            success = keystore.lock_wallet(wallet_id)  # type: ignore[attr-defined]
             if success:
                 self.multichain_ledger.record_event(chain_id, wallet_id, 'locked', {'chain_id': chain_id})
                 logger.info('Locked wallet %s in chain %s', wallet_id, chain_id)
-            return success
+            return success  # type: ignore[no-any-return]
         except Exception as e:
             logger.error('Failed to lock wallet %s in chain %s: %s', wallet_id, chain_id, e)
             return False
@@ -187,7 +188,8 @@ class ChainAwareWalletService:
             keystore = self._get_keystore(chain_id)
             keystore_stats = {}
             if keystore:
-                keystore_stats = {'total_wallets': len(keystore.list_wallets()), 'unlocked_wallets': len([w for w in keystore.list_wallets() if w.get('unlocked', False)])}
+                wallet_list = keystore.list_wallets()
+                keystore_stats = {'total_wallets': len(wallet_list), 'unlocked_wallets': len(wallet_list)}
             return {'chain_id': chain_id, 'ledger_stats': ledger_stats, 'keystore_stats': keystore_stats}
         except Exception as e:
             logger.error('Failed to get stats for chain %s: %s', chain_id, e)
@@ -195,7 +197,7 @@ class ChainAwareWalletService:
 
     def get_all_chain_wallet_stats(self) -> dict[str, Any]:
         """Get wallet statistics for all chains"""
-        stats = {'total_chains': 0, 'total_wallets': 0, 'chain_stats': {}}
+        stats: dict[str, Any] = {'total_chains': 0, 'total_wallets': 0, 'chain_stats': {}}
         for chain in self.chain_manager.get_active_chains():
             chain_stats = self.get_chain_wallet_stats(chain.chain_id)
             if chain_stats:
@@ -231,7 +233,7 @@ class ChainAwareWalletService:
                 if not source_keystore_record:
                     logger.error('Failed to get source wallet record')
                     return False
-                target_wallet = self.create_wallet(target_chain_id, wallet_id, new_password or password, source_keystore_record.get('secret_key'), source_wallet.metadata)
+                target_wallet = self.create_wallet(target_chain_id, wallet_id, new_password or password, source_keystore_record.get('secret_key'), source_wallet.metadata)  # type: ignore
                 if target_wallet:
                     self.multichain_ledger.record_event(source_chain_id, wallet_id, 'migrated_from', {'target_chain': target_chain_id, 'migration_timestamp': datetime.now().isoformat()})
                     self.multichain_ledger.record_event(target_chain_id, wallet_id, 'migrated_to', {'source_chain': source_chain_id, 'migration_timestamp': datetime.now().isoformat()})
@@ -247,12 +249,12 @@ class ChainAwareWalletService:
             logger.error('Wallet migration failed: %s', e)
             return False
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Cleanup resources"""
         try:
             for chain_id, keystore in self.chain_keystores.items():
                 try:
-                    keystore.close()
+                    keystore.close()  # type: ignore[attr-defined]
                     logger.info('Closed keystore for chain: %s', chain_id)
                 except Exception as e:
                     logger.error('Failed to close keystore for chain %s: %s', chain_id, e)

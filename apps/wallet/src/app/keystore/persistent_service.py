@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Persistent Keystore Service - Fixes data loss on restart
 Replaces the in-memory-only keystore with database persistence
@@ -11,7 +10,7 @@ import sqlite3
 import threading
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from secrets import token_bytes
 
 import httpx
@@ -56,13 +55,13 @@ class PersistentKeystoreService:
         self._lock = threading.Lock()
         self._initialized = False
 
-    def _ensure_initialized(self):
+    def _ensure_initialized(self) -> None:
         """Lazy initialization of database"""
         if not self._initialized:
             self._init_database()
             self._initialized = True
 
-    def _init_database(self):
+    def _init_database(self) -> None:
         """Initialize database schema"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
@@ -450,7 +449,7 @@ class PersistentKeystoreService:
             )
             if response.status_code == 200:
                 data = response.json()
-                return data.get("nonce", 0)
+                return int(data.get("nonce", 0))
             return 0
         except Exception:
             # Default to 0 if account doesn't exist or request fails
@@ -480,7 +479,7 @@ class PersistentKeystoreService:
                 timeout=30.0
             )
             response.raise_for_status()
-            return response.json()
+            return dict(response.json())
             
         except httpx.HTTPStatusError as e:
             return {
@@ -512,7 +511,7 @@ class PersistentKeystoreService:
             finally:
                 conn.close()
 
-    def _log_access(self, wallet_id: str, action: str, success: bool, ip_address: Optional[str] = None):
+    def _log_access(self, wallet_id: str, action: str, success: bool, ip_address: Optional[str] = None) -> None:
         """Log wallet access for audit trail"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
