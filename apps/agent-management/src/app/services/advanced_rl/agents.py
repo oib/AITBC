@@ -24,7 +24,7 @@ class PPOAgent(nn.Module):
             nn.Linear(state_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
         )
 
-    def forward(self, state):
+    def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         action_probs = self.actor(state)
         value = self.critic(state)
         return action_probs, value
@@ -60,7 +60,7 @@ class SACAgent(nn.Module):
             nn.Linear(hidden_dim, 1),
         )
 
-    def forward(self, state):
+    def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         mean = self.actor_mean(state)
         std = torch.exp(self.actor_log_std)
         return mean, std
@@ -88,7 +88,7 @@ class RainbowDQNAgent(nn.Module):
             nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(), nn.Linear(hidden_dim // 2, action_dim * num_atoms)
         )
 
-    def forward(self, state):
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
         features = self.feature_layer(state)
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
@@ -99,4 +99,4 @@ class RainbowDQNAgent(nn.Module):
 
         # Dueling architecture
         q_atoms = values + advantages - advantages.mean(dim=1, keepdim=True)
-        return q_atoms
+        return q_atoms  # type: ignore[no-any-return]  # type: ignore[no-any-return]

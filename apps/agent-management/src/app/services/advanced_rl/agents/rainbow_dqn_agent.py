@@ -1,8 +1,8 @@
-# mypy: ignore-errors
 """
 Rainbow DQN Agent implementation
 """
 
+import torch
 import torch.nn as nn
 
 
@@ -28,7 +28,7 @@ class RainbowDQNAgent(nn.Module):
             nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(), nn.Linear(hidden_dim // 2, action_dim * num_atoms)
         )
 
-    def forward(self, state):
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
         features = self.feature_layer(state)
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
@@ -39,4 +39,4 @@ class RainbowDQNAgent(nn.Module):
 
         # Dueling architecture
         q_atoms = values + advantages - advantages.mean(dim=1, keepdim=True)
-        return q_atoms
+        return q_atoms  # type: ignore[no-any-return]

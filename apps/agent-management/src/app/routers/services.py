@@ -43,8 +43,8 @@ async def submit_service_job(
     request_http: Request,
     service_type: ServiceType,
     request_data: dict[str, Any],
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
     user_agent: str = Header(None),
 ) -> ServiceResponse:
     """Submit a job for a specific service type
@@ -112,8 +112,8 @@ async def submit_service_job(
 async def whisper_transcribe(
     request_http: Request,
     request: WhisperRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Transcribe audio file using Whisper"""
 
@@ -140,13 +140,13 @@ async def whisper_transcribe(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Translate audio using Whisper",
-)  # type: ignore
-@rate_limit(rate=50, per=60)  # type: ignore
+)
+@rate_limit(rate=50, per=60)
 async def whisper_translate(
     request_http: Request,
     request: WhisperRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Translate audio file using Whisper"""
     # Force task to be translate
@@ -176,13 +176,13 @@ async def whisper_translate(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Generate images using Stable Diffusion",
-)  # type: ignore
-@rate_limit(rate=50, per=60)  # type: ignore
+)
+@rate_limit(rate=50, per=60)
 async def stable_diffusion_generate(
     request_http: Request,
     request: StableDiffusionRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Generate images using Stable Diffusion"""
 
@@ -211,13 +211,13 @@ async def stable_diffusion_generate(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Image-to-image generation",
-)  # type: ignore
-@rate_limit(rate=50, per=60)  # type: ignore
+)
+@rate_limit(rate=50, per=60)
 async def stable_diffusion_img2img(
     request_http: Request,
     request: StableDiffusionRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Image-to-image generation using Stable Diffusion"""
     # Add img2img specific parameters
@@ -245,13 +245,13 @@ async def stable_diffusion_img2img(
 # LLM Inference endpoints
 @router.post(
     "/services/llm/inference", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED, summary="Run LLM inference"
-)  # type: ignore
-@rate_limit(rate=50, per=60)  # type: ignore
+)
+@rate_limit(rate=50, per=60)
 async def llm_inference(
     request_http: Request,
     request: LLMRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Run inference on a language model"""
 
@@ -275,13 +275,13 @@ async def llm_inference(
     )
 
 
-@router.post("/services/llm/stream", summary="Stream LLM inference")  # type: ignore
-@rate_limit(rate=50, per=60)  # type: ignore
+@router.post("/services/llm/stream", summary="Stream LLM inference")
+@rate_limit(rate=50, per=60)
 async def llm_stream(
     request_http: Request,
     request: LLMRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Stream LLM inference response"""
     # Force streaming mode
@@ -313,13 +313,13 @@ async def llm_stream(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Transcode video using FFmpeg",
-)  # type: ignore
-@rate_limit(rate=50, per=60)  # type: ignore
+)
+@rate_limit(rate=50, per=60)
 async def ffmpeg_transcode(
     request_http: Request,
     request: FFmpegRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Transcode video using FFmpeg"""
 
@@ -350,13 +350,13 @@ async def ffmpeg_transcode(
     response_model=ServiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Render using Blender",
-)  # type: ignore
-@rate_limit(rate=50, per=60)  # type: ignore
+)
+@rate_limit(rate=50, per=60)
 async def blender_render(
     request_http: Request,
     request: BlenderRequest,
-    session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
+    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
 ) -> ServiceResponse:
     """Render scene using Blender"""
 
@@ -384,8 +384,8 @@ async def blender_render(
 
 
 # Utility endpoints
-@router.get("/services", summary="List available services")  # type: ignore
-@rate_limit(rate=200, per=60)  # type: ignore
+@router.get("/services", summary="List available services")
+@rate_limit(rate=200, per=60)
 async def list_services(
     request: Request
 ) -> dict[str, Any]:
@@ -446,8 +446,8 @@ async def list_services(
     }
 
 
-@router.get("/services/{service_type}/schema", summary="Get service request schema", deprecated=True)  # type: ignore
-@rate_limit(rate=200, per=60)  # type: ignore
+@router.get("/services/{service_type}/schema", summary="Get service request schema", deprecated=True)
+@rate_limit(rate=200, per=60)
 async def get_service_schema(
     request: Request, service_type: ServiceType
 ) -> dict[str, Any]:

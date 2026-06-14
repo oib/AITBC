@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Adapters for agent-management app to implement aitbc-agent-core protocols.
 Since agent-management uses coordinator-api's domain models via symlink,
@@ -7,33 +6,25 @@ these adapters wrap the shared coordinator-api implementations.
 
 from typing import Any
 
-from aitbc_agent_core.protocols.database import ISessionProvider
-from aitbc_agent_core.protocols.domain import (
+from aitbc_agent_core.protocols.database import ISessionProvider  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.domain import (  # type: ignore[import-not-found]
     AgentStatus as ProtocolAgentStatus,
-)
-from aitbc_agent_core.protocols.domain import (
     IAgentExecution,
     IAgentStepExecution,
-)
-from aitbc_agent_core.protocols.domain import (
     StepType as ProtocolStepType,
-)
-from aitbc_agent_core.protocols.domain import (
     VerificationLevel as ProtocolVerificationLevel,
 )
-from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator
-from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
-from aitbc_agent_core.protocols.zk_proof import IZKProofService
-
+from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.zk_proof import IZKProofService  # type: ignore[import-not-found]
 # Import from coordinator-api domain (shared via symlink)
 from app.domain.agent import (
     AgentExecution,
     AgentStepExecution,
 )
-from app.services.agent_coordination.agent_service import AIAgentOrchestrator
-
+from app.services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
 # Import from coordinator-api services
-from app.services.agent_coordination.security import (
+from app.services.agent_coordination.security import (  # type: ignore[import-not-found]
     AgentAuditor,
     AgentSecurityManager,
 )
@@ -49,23 +40,19 @@ class AgentExecutionAdapter(IAgentExecution):
     @property
     def id(self) -> str:
         return self._execution.id
-
     @property
     def workflow_id(self) -> str:
         return self._execution.workflow_id
-
     @property
     def status(self) -> ProtocolAgentStatus:
         return ProtocolAgentStatus(self._execution.status)
 
     @property
     def verification_level(self) -> ProtocolVerificationLevel:
-        return ProtocolVerificationLevel(self._execution.verification_level)
+        return ProtocolVerificationLevel(self._execution.verification_level)  # type: ignore[attr-defined]
 
     def to_dict(self) -> dict[str, Any]:
         return self._execution.model_dump()
-
-
 class AgentStepExecutionAdapter(IAgentStepExecution):
     """Adapter for AgentStepExecution domain model"""
 
@@ -75,19 +62,15 @@ class AgentStepExecutionAdapter(IAgentStepExecution):
     @property
     def id(self) -> str:
         return self._step_execution.id
-
     @property
     def execution_id(self) -> str:
         return self._step_execution.execution_id
-
     @property
     def step_type(self) -> ProtocolStepType:
-        return ProtocolStepType(self._step_execution.step_type)
+        return ProtocolStepType(self._step_execution.step_type)  # type: ignore[attr-defined]
 
     def to_dict(self) -> dict[str, Any]:
         return self._step_execution.model_dump()
-
-
 class AgentSecurityManagerAdapter(ISecurityManager):
     """Adapter for AgentSecurityManager"""
 
@@ -101,7 +84,8 @@ class AgentSecurityManagerAdapter(ISecurityManager):
         try:
             # Try to call the method if it exists
             if hasattr(self._manager, 'validate_operation'):
-                return await self._manager.validate_operation(operation, context)
+                result = await self._manager.validate_operation(operation, context)
+                return bool(result)
             # Fallback: basic validation
             return True
         except Exception:
@@ -141,7 +125,8 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
     ) -> dict[str, Any]:
         # Delegate to app-specific implementation
         if hasattr(self._orchestrator, 'execute_workflow'):
-            return await self._orchestrator.execute_workflow(workflow_id, inputs)
+            result = await self._orchestrator.execute_workflow(workflow_id, inputs)
+            return dict(result)
         # Fallback: return mock result
         return {
             "execution_id": f"exec_{workflow_id}",
@@ -152,7 +137,8 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
     async def get_status(self, execution_id: str) -> dict[str, Any]:
         # Delegate to app-specific implementation
         if hasattr(self._orchestrator, 'get_status'):
-            return await self._orchestrator.get_status(execution_id)
+            result = await self._orchestrator.get_status(execution_id)
+            return dict(result)
         # Fallback: return mock status
         return {
             "execution_id": execution_id,
@@ -193,11 +179,12 @@ class ZKProofServiceAdapter(IZKProofService):
 class SessionProviderAdapter(ISessionProvider):
     """Adapter for SQLModel session management"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Any) -> None:
         self._session_factory = session_factory
 
     def get_session(self) -> Session:
-        return self._session_factory()
+        session = self._session_factory()
+        return session  # type: ignore[no-any-return]
 
     def close_session(self, session: Session) -> None:
         session.close()

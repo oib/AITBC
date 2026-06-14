@@ -9,9 +9,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
-from .bid_strategy_engine import BidResult
-from .task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
-
+from .bid_strategy_engine import BidResult  # type: ignore[import-not-found]
+from .task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition  # type: ignore[import-not-found]
 class OrchestratorStatus(StrEnum):
     """Orchestrator status"""
     IDLE = 'idle'
@@ -105,7 +104,7 @@ class AgentOrchestrator:
         self.monitoring_interval = config.get('monitoring_interval', 30)
         self.retry_limit = config.get('retry_limit', 3)
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the orchestrator"""
         logger.info('Initializing Agent Orchestrator')
         await self._load_agent_capabilities()
@@ -192,13 +191,13 @@ class AgentOrchestrator:
                 logger.info('Retrying sub-task %s (attempt %s)', assignment.sub_task_id, assignment.retry_count + 1)
         return retried_tasks
 
-    async def register_agent(self, capability: AgentCapability):
+    async def register_agent(self, capability: AgentCapability) -> None:
         """Register a new agent"""
         self.agent_capabilities[capability.agent_id] = capability
         self.agent_status[capability.agent_id] = AgentStatus.AVAILABLE
         logger.info('Registered agent %s', capability.agent_id)
 
-    async def update_agent_status(self, agent_id: str, status: AgentStatus):
+    async def update_agent_status(self, agent_id: str, status: AgentStatus) -> None:
         """Update agent status"""
         if agent_id in self.agent_status:
             self.agent_status[agent_id] = status
@@ -235,12 +234,12 @@ class AgentOrchestrator:
         confidence_score = await self._calculate_plan_confidence(decomposition, budget_limit, deadline)
         return OrchestrationPlan(task_id=task_id, decomposition=decomposition, agent_assignments=assignments, execution_timeline=execution_timeline, resource_requirements=resource_requirements, estimated_cost=total_cost, confidence_score=confidence_score)
 
-    async def _execute_assignments(self, plan: OrchestrationPlan):
+    async def _execute_assignments(self, plan: OrchestrationPlan) -> None:
         """Execute agent assignments"""
         for assignment in plan.agent_assignments:
             await self._assign_sub_task(assignment.sub_task_id, plan)
 
-    async def _assign_sub_task(self, sub_task_id: str, plan: OrchestrationPlan):
+    async def _assign_sub_task(self, sub_task_id: str, plan: OrchestrationPlan) -> None:
         """Assign sub-task to suitable agent"""
         sub_task = next((st for st in plan.decomposition.sub_tasks if st.sub_task_id == sub_task_id))
         available_agents = await self.get_available_agents(sub_task.requirements.task_type.value, sub_task.requirements.gpu_tier)
@@ -270,7 +269,7 @@ class AgentOrchestrator:
         scored_agents.sort(key=lambda x: x[1], reverse=True)
         return scored_agents[0][0]
 
-    async def _allocate_resources(self, agent_id: str, sub_task_id: str, requirements):
+    async def _allocate_resources(self, agent_id: str, sub_task_id: str, requirements: Any) -> None:
         """Allocate resources for sub-task"""
         allocations = []
         gpu_allocation = ResourceAllocation(agent_id=agent_id, sub_task_id=sub_task_id, resource_type=ResourceType.GPU, allocated_amount=1, allocated_at=datetime.now(UTC), expected_duration=requirements.estimated_duration)
@@ -281,7 +280,7 @@ class AgentOrchestrator:
             self.resource_allocations[agent_id] = []
         self.resource_allocations[agent_id].extend(allocations)
 
-    async def _release_agent_resources(self, agent_id: str, sub_task_id: str):
+    async def _release_agent_resources(self, agent_id: str, sub_task_id: str) -> None:
         """Release resources from agent"""
         if agent_id in self.resource_allocations:
             self.resource_allocations[agent_id] = [alloc for alloc in self.resource_allocations[agent_id] if alloc.sub_task_id != sub_task_id]
@@ -290,7 +289,7 @@ class AgentOrchestrator:
             if self.agent_capabilities[agent_id].current_load == 0:
                 self.agent_status[agent_id] = AgentStatus.AVAILABLE
 
-    async def _monitor_executions(self):
+    async def _monitor_executions(self) -> None:
         """Monitor active executions"""
         while True:
             try:
@@ -323,7 +322,7 @@ class AgentOrchestrator:
                 logger.error('Error in execution monitoring: %s', e)
                 await asyncio.sleep(60)
 
-    async def _update_agent_status(self):
+    async def _update_agent_status(self) -> None:
         """Update agent status periodically"""
         while True:
             try:
@@ -342,7 +341,7 @@ class AgentOrchestrator:
                 logger.error('Error updating agent status: %s', e)
                 await asyncio.sleep(60)
 
-    async def _update_resource_utilization(self):
+    async def _update_resource_utilization(self) -> None:
         """Update resource utilization metrics"""
         total_resources = dict.fromkeys(ResourceType, 0)
         used_resources = dict.fromkeys(ResourceType, 0)
@@ -370,7 +369,7 @@ class AgentOrchestrator:
         if total_agents > 0:
             availability_ratio = available_agents / total_agents
             confidence *= 0.5 + availability_ratio * 0.5
-        return max(0.1, min(0.95, confidence))
+        return float(max(0.1, min(0.95, confidence)))
 
     async def _calculate_actual_cost(self, plan: OrchestrationPlan) -> float:
         """Calculate actual cost of orchestration"""
@@ -378,12 +377,12 @@ class AgentOrchestrator:
         for assignment in plan.agent_assignments:
             if assignment.agent_id in self.agent_capabilities:
                 agent = self.agent_capabilities[assignment.agent_id]
-                duration = assignment.actual_duration or 1.0
+                duration = assignment.actual_duration or 1.0  # type: ignore[attr-defined]
                 cost = agent.cost_per_hour * duration
                 actual_cost += cost
         return actual_cost
 
-    async def _load_agent_capabilities(self):
+    async def _load_agent_capabilities(self) -> None:
         """Load agent capabilities from storage"""
         mock_agents = [AgentCapability(agent_id='agent_001', supported_task_types=['text_processing', 'data_analysis'], gpu_tier=GPU_Tier.MID_RANGE_GPU, max_concurrent_tasks=3, current_load=0, performance_score=0.85, cost_per_hour=0.05, reliability_score=0.92), AgentCapability(agent_id='agent_002', supported_task_types=['image_processing', 'model_inference'], gpu_tier=GPU_Tier.HIGH_END_GPU, max_concurrent_tasks=2, current_load=0, performance_score=0.92, cost_per_hour=0.09, reliability_score=0.88), AgentCapability(agent_id='agent_003', supported_task_types=['compute_intensive', 'model_training'], gpu_tier=GPU_Tier.PREMIUM_GPU, max_concurrent_tasks=1, current_load=0, performance_score=0.96, cost_per_hour=0.15, reliability_score=0.95)]
         for agent in mock_agents:
