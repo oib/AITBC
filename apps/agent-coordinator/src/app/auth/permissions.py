@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Permissions and Role-Based Access Control for AITBC Agent Coordinator
 Implements RBAC with roles, permissions, and access control
@@ -194,7 +193,7 @@ class PermissionManager:
     def get_permission_stats(self) -> dict[str, Any]:
         """Get statistics about permissions and users"""
         try:
-            stats = {'total_permissions': len(Permission), 'total_roles': len(Role), 'total_users': len(self.user_roles), 'users_by_role': {}, 'custom_permission_users': len(self.custom_permissions)}
+            stats: dict[str, Any] = {'total_permissions': len(Permission), 'total_roles': len(Role), 'total_users': len(self.user_roles), 'users_by_role': {}, 'custom_permission_users': len(self.custom_permissions)}
             for user_id, role in self.user_roles.items():
                 role_name = role.value
                 stats['users_by_role'][role_name] = stats['users_by_role'].get(role_name, 0) + 1

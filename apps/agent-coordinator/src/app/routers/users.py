@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -150,14 +149,14 @@ async def get_permission_stats(request: Request, current_user: dict[str, Any] = 
 
 @router.get('/protected/admin')
 @rate_limit(rate=100, per=60)
-@require_role([Role.ADMIN])
+@require_role([Role.ADMIN])  # type: ignore
 async def admin_only_endpoint(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Admin-only endpoint example"""
     return {'status': 'success', 'message': 'Welcome admin!', 'user': {'user_id': current_user.get('user_id'), 'username': current_user.get('username'), 'role': str(current_user.get('role')), 'permissions': current_user.get('permissions', []), 'auth_type': current_user.get('auth_type')}}
 
 @router.get('/protected/operator')
 @rate_limit(rate=100, per=60)
-@require_role([Role.ADMIN, Role.OPERATOR])
+@require_role([Role.ADMIN, Role.OPERATOR])  # type: ignore
 async def operator_endpoint(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     """Operator and admin endpoint example"""
     return {'status': 'success', 'message': 'Welcome operator!', 'user': {'user_id': current_user.get('user_id'), 'username': current_user.get('username'), 'role': str(current_user.get('role')), 'permissions': current_user.get('permissions', []), 'auth_type': current_user.get('auth_type')}}

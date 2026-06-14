@@ -10,9 +10,10 @@ from datetime import UTC, datetime
 from enum import Enum, StrEnum
 from typing import Any
 
-redis: Any = None
+redis_client: Any = None
 try:
     import redis.asyncio as redis
+    redis_client = redis
 except ImportError:
     pass
 from aitbc import get_logger
@@ -116,15 +117,15 @@ class WorkflowOrchestrator:
 
     def __init__(self, redis_url: str = 'redis://localhost:6379/1') -> None:
         self.redis_url = redis_url
-        self.redis_client: redis.Redis | None = None
+        self.redis_client: Any = None
         self.active_executions: dict[str, WorkflowExecution] = {}
 
     async def start(self) -> None:
         """Start the orchestrator"""
-        if not redis:
+        if not redis_client:
             logger.warning('Redis not available, workflow orchestrator running in memory-only mode')
             return
-        self.redis_client = redis.from_url(self.redis_url)
+        self.redis_client = redis_client.from_url(self.redis_url)
         await self._load_active_executions()
         logger.info('Workflow orchestrator started')
 
