@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Gas Fee Model Implementation
 Handles transaction fee calculation and gas optimization
@@ -231,7 +230,7 @@ class GasManager:
 
         # Calculate volatility (standard deviation)
         if len(prices) > 1:
-            variance = sum((p - avg_price) ** 2 for p in prices) / len(prices)
+            variance = sum((p - avg_price) ** 2 for p in prices) / len(prices)  # type: ignore
             volatility = (variance ** 0.5) / avg_price
         else:
             volatility = 0.0
@@ -322,7 +321,7 @@ class GasOptimizer:
             }
 
         total_savings = 0
-        type_counts = {}
+        type_counts: dict[str, int] = {}
 
         for opt in self.optimization_history:
             for suggestion in opt['optimizations']:
