@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 AITBC Agent Wallet Security Implementation
 
@@ -30,7 +29,7 @@ class AgentSecurityProfile:
     guardian_addresses: list[str]
     custom_limits: dict | None = None
     enabled: bool = True
-    created_at: datetime = None
+    created_at: datetime | None = None
 
     def __post_init__(self):
         if self.created_at is None:
@@ -57,8 +56,8 @@ class AgentWalletSecurity:
     def register_agent(self,
                       agent_address: str,
                       security_level: str = "conservative",
-                      guardian_addresses: list[str] = None,
-                      custom_limits: dict = None) -> dict:
+                      guardian_addresses: list[str] | None = None,
+                      custom_limits: dict | None = None) -> dict:
         """
         Register an agent for security protection
         
@@ -132,7 +131,7 @@ class AgentWalletSecurity:
                 "guardian_addresses": guardian_addresses,
                 "limits": guardian_contract.config.limits,
                 "time_lock_threshold": guardian_contract.config.time_lock.threshold,
-                "registered_at": profile.created_at.isoformat()
+                "registered_at": profile.created_at.isoformat() if profile.created_at else None
             }
 
         except Exception as e:
@@ -366,7 +365,7 @@ class AgentWalletSecurity:
                 "security_level": profile.security_level,
                 "enabled": profile.enabled,
                 "guardian_addresses": profile.guardian_addresses,
-                "registered_at": profile.created_at.isoformat(),
+                "registered_at": profile.created_at.isoformat() if profile.created_at else None,
                 "spending_status": guardian_contract.get_spending_status(),
                 "pending_operations": guardian_contract.get_pending_operations(),
                 "recent_activity": guardian_contract.get_operation_history(10)
@@ -393,12 +392,12 @@ class AgentWalletSecurity:
                 "pending_operations": len(guardian_contract.pending_operations),
                 "paused": guardian_contract.paused,
                 "emergency_mode": guardian_contract.emergency_mode,
-                "registered_at": profile.created_at.isoformat()
+                "registered_at": profile.created_at.isoformat() if profile.created_at else None
             })
 
         return sorted(agents, key=lambda x: x["registered_at"], reverse=True)
 
-    def get_security_events(self, agent_address: str = None, limit: int = 50) -> list[dict]:
+    def get_security_events(self, agent_address: str | None = None, limit: int = 50) -> list[dict]:
         """
         Get security events
         
@@ -484,7 +483,7 @@ agent_wallet_security = AgentWalletSecurity()
 # Convenience functions for common operations
 def register_agent_for_protection(agent_address: str,
                                  security_level: str = "conservative",
-                                 guardians: list[str] = None) -> dict:
+                                 guardians: list[str] | None = None) -> dict:
     """Register an agent for security protection"""
     return agent_wallet_security.register_agent(
         agent_address=agent_address,
