@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
@@ -25,8 +24,6 @@ def create_redis() -> redis.Redis:
 def get_redis_client() -> redis.Redis:
     if _redis_client is None:
         client = create_redis()
-        if client is None:
-            logger.warning("Redis client unavailable - features requiring Redis will be disabled")
         return client
     return _redis_client
 

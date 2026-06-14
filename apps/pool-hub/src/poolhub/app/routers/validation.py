@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Validation router for service configuration validation
 """
@@ -7,9 +6,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from ..deps import get_miner_from_token
-from ..models import Miner
-from ..services.validation import HardwareValidator
+from ..deps import get_miner_from_token  # type: ignore
+from ..models import Miner  # type: ignore
+from ..services.validation import HardwareValidator  # type: ignore
 
 router = APIRouter(tags=["validation"])
 validator = HardwareValidator()
