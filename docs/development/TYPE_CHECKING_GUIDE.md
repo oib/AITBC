@@ -15,20 +15,20 @@ This project uses a **gradual type checking approach** to improve code quality w
 **v0.4.19 Progress:**
 - ✅ hermes: 0 MyPy errors (1 file fixed, removed per-file ignore)
 - ✅ edge: 0 MyPy errors (6 files fixed, removed all per-file ignores)
-- ✅ pool-hub: 0 MyPy errors (6 files fixed, removed all per-file ignores)
+- ✅ pool-hub: 0 MyPy errors (16 files fixed, removed all per-file ignores)
 - ✅ wallet: 0 MyPy errors (8 files fixed, removed all per-file ignores)
-- ✅ agent-management: 0 MyPy errors (1 file fixed, removed per-file ignore)
+- ⚠️ agent-management: 5/6 files fixed, 1 file retained per-file ignore (services.py - rate_limit decorator issue)
 - ⚠️ blockchain-node: ~477 errors (excluded from MyPy checks)
-- ✅ Reduced per-file ignore count from 163 to 128 (35 files fixed)
+- ✅ Reduced per-file ignore count from 163 to 127 (36 files fixed)
 
 **Remaining per-file ignores by app:**
 - coordinator-api: 81 files (0 MyPy errors with current config)
 - blockchain-node: 31 files (excluded from MyPy checks)
+- agent-management: 1 file (services.py - rate_limit decorator issue)
 - hermes: 0 files ✅ MyPy clean
 - edge: 0 files ✅ MyPy clean
 - pool-hub: 0 files ✅ MyPy clean
 - wallet: 0 files ✅ MyPy clean
-- agent-management: 0 files ✅ MyPy clean
 
 ## How It Works
 

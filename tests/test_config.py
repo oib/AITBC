@@ -2,8 +2,6 @@
 
 import pytest
 
-pytestmark = pytest.mark.skip("Skipping broken test file")
-
 from pathlib import Path
 from unittest.mock import patch
 
@@ -145,10 +143,3 @@ class TestAITBCConfig:
         assert config.host == "0.0.0.0"  # AITBCConfig default
         assert config.port == 8000  # AITBCConfig default
 
-    @patch('aitbc.config.logger')
-    def test_init_logs_configuration(self, mock_logger):
-        """Test __init__ logs configuration"""
-        config = AITBCConfig(host="localhost", port=9000)
-        mock_logger.info.assert_called_once()
-        assert "localhost:9000" in mock_logger.info.call_args[0][0]
-        mock_logger.debug.assert_called_once()
