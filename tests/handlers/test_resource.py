@@ -1,5 +1,4 @@
 """
-pytestmark = pytest.mark.skip('Skipping broken test file')
 Resource Handler Tests
 Tests for resource command handlers
 """

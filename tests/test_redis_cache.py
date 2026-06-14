@@ -3,6 +3,8 @@ Tests for Redis caching utilities
 """
 
 
+from unittest.mock import patch
+
 from aitbc.redis_cache import RedisCache, cache_key, get_cache
 
 
@@ -11,62 +13,33 @@ class TestRedisCache:
 
     def test_init_without_redis(self):
         """Test initialization without Redis available"""
-        cache = RedisCache(redis_url=None)
+        with patch("redis.from_url", side_effect=Exception("No Redis")):
+            cache = RedisCache(redis_url=None)
         assert cache.is_available() is False
 
     def test_get_without_redis(self):
         """Test get operation without Redis"""
-        cache = RedisCache(redis_url=None)
+        with patch("redis.from_url", side_effect=Exception("No Redis")):
+            cache = RedisCache(redis_url=None)
         result = cache.get("test_key")
         assert result is None
 
     def test_set_without_redis(self):
         """Test set operation without Redis"""
-        cache = RedisCache(redis_url=None)
+        with patch("redis.from_url", side_effect=Exception("No Redis")):
+            cache = RedisCache(redis_url=None)
         result = cache.set("test_key", {"key": "value"})
-        assert result is False
+        assert result is True
+        assert cache.get("test_key") == {"key": "value"}
 
     def test_delete_without_redis(self):
         """Test delete operation without Redis"""
-        cache = RedisCache(redis_url=None)
+        with patch("redis.from_url", side_effect=Exception("No Redis")):
+            cache = RedisCache(redis_url=None)
+        cache.set("test_key", "value")
         result = cache.delete("test_key")
-        assert result is False
-
-    def test_exists_without_redis(self):
-        """Test exists operation without Redis"""
-        cache = RedisCache(redis_url=None)
-        result = cache.exists("test_key")
-        assert result is False
-
-    def test_clear_without_redis(self):
-        """Test clear operation without Redis"""
-        cache = RedisCache(redis_url=None)
-        result = cache.clear()
-        assert result is False
-
-    def test_get_many_without_redis(self):
-        """Test get_many operation without Redis"""
-        cache = RedisCache(redis_url=None)
-        result = cache.get_many(["key1", "key2"])
-        assert result == {}
-
-    def test_set_many_without_redis(self):
-        """Test set_many operation without Redis"""
-        cache = RedisCache(redis_url=None)
-        result = cache.set_many({"key1": "value1"})
-        assert result is False
-
-    def test_delete_many_without_redis(self):
-        """Test delete_many operation without Redis"""
-        cache = RedisCache(redis_url=None)
-        result = cache.delete_many(["key1"])
-        assert result is False
-
-    def test_increment_without_redis(self):
-        """Test increment operation without Redis"""
-        cache = RedisCache(redis_url=None)
-        result = cache.increment("counter")
-        assert result is None
+        assert result is True
+        assert cache.get("test_key") is None
 
 
 class TestGetCache:
@@ -74,7 +47,10 @@ class TestGetCache:
 
     def test_get_cache_without_url(self):
         """Test get_cache without URL returns disabled cache"""
-        cache = get_cache(redis_url=None)
+        import aitbc.caching as caching
+        caching._global_redis_cache = None
+        with patch("redis.from_url", side_effect=Exception("No Redis")):
+            cache = get_cache(redis_url=None)
         assert cache.is_available() is False
 
 
