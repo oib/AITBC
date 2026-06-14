@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """GPU resource RPC endpoints for AITBC blockchain."""
 
 import os
@@ -48,7 +47,7 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
         from ..state.gpu_resources import GPURegistration
 
         with session_scope() as session:
-            from sqlalchemy import select
+            from sqlalchemy import select, and_
             query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)
 
             if status:
@@ -92,11 +91,13 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
         from ..state.gpu_resources import GPUAllocation
 
         with session_scope() as session:
-            from sqlalchemy import select
+            from sqlalchemy import select, and_
             result = session.execute(
                 select(GPUAllocation).where(
-                    GPUAllocation.chain_id == chain_id,
-                    GPUAllocation.gpu_id == gpu_id
+                    and_(
+                        GPUAllocation.chain_id == chain_id,
+                        GPUAllocation.gpu_id == gpu_id
+                    )
                 )
             )
             allocations = result.scalars().all()
@@ -139,11 +140,13 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
 
         with session_scope() as session:
             # Check if GPU already registered
-            from sqlalchemy import select
+            from sqlalchemy import select, and_
             result = session.execute(
                 select(GPURegistration).where(
-                    GPURegistration.chain_id == chain_id,
-                    GPURegistration.gpu_id == request.gpu_id
+                    and_(
+                        GPURegistration.chain_id == chain_id,
+                        GPURegistration.gpu_id == request.gpu_id
+                    )
                 )
             )
             existing = result.scalar_one_or_none()
@@ -208,11 +211,13 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
         from ..state.gpu_resources import GPURegistration
 
         with session_scope() as session:
-            from sqlalchemy import select
+            from sqlalchemy import select, and_
             result = session.execute(
                 select(GPURegistration).where(
-                    GPURegistration.chain_id == chain_id,
-                    GPURegistration.gpu_id == gpu_id
+                    and_(
+                        GPURegistration.chain_id == chain_id,
+                        GPURegistration.gpu_id == gpu_id
+                    )
                 )
             )
             gpu = result.scalar_one_or_none()
