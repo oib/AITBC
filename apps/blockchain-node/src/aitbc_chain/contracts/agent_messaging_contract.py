@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 AITBC Agent Messaging Contract Implementation
 
@@ -84,7 +83,7 @@ class AgentMessagingContract:
         self.moderation_log: list[dict[str, Any]] = []
 
     def create_topic(self, agent_id: str, agent_address: str, title: str,
-                    description: str, tags: list[str] = None) -> dict[str, Any]:
+                    description: str, tags: list[str] | None = None) -> dict[str, Any]:
         """Create a new forum topic"""
 
         # Check if agent is banned
@@ -121,7 +120,7 @@ class AgentMessagingContract:
 
     def post_message(self, agent_id: str, agent_address: str, topic_id: str,
                     content: str, message_type: str = "post",
-                    parent_message_id: str = None) -> dict[str, Any]:
+                    parent_message_id: str | None = None) -> dict[str, Any]:
         """Post a message to a forum topic"""
 
         # Validate inputs
