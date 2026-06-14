@@ -1,9 +1,9 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 import datetime as dt
 import json
 from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -25,8 +25,8 @@ class MatchRepository:
         self,
         *,
         job_id: str,
-        requirements: dict[str, object],
-        hints: dict[str, object] | None = None,
+        requirements: dict[str, Any],
+        hints: dict[str, Any] | None = None,
         top_k: int = 1,
         enqueue: bool = True,
     ) -> MatchRequest:
@@ -55,7 +55,7 @@ class MatchRepository:
         self,
         *,
         request_id: UUID,
-        candidates: Sequence[dict[str, object]],
+        candidates: Sequence[dict[str, Any]],
         publish: bool = True,
     ) -> list[MatchResult]:
         results: list[MatchResult] = []
@@ -92,7 +92,7 @@ class MatchRepository:
         return await self._session.get(MatchRequest, request_id)
 
     async def list_recent_requests(self, limit: int = 20) -> list[MatchRequest]:
-        stmt: Select[MatchRequest] = (
+        stmt: Select[tuple[MatchRequest]] = (
             select(MatchRequest)
             .order_by(MatchRequest.created_at.desc())
             .limit(limit)
@@ -101,7 +101,7 @@ class MatchRepository:
         return list(result.scalars().all())
 
     async def list_results_for_job(self, job_id: str, limit: int = 10) -> list[MatchResult]:
-        stmt: Select[MatchResult] = (
+        stmt: Select[tuple[MatchResult]] = (
             select(MatchResult)
             .join(MatchRequest)
             .where(MatchRequest.job_id == job_id)
@@ -111,7 +111,7 @@ class MatchRepository:
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
-    def _result_payload(self, result: MatchResult) -> dict[str, object]:
+    def _result_payload(self, result: MatchResult) -> dict[str, Any]:
         return {
             "request_id": str(result.request_id),
             "miner_id": result.miner_id,
