@@ -1,7 +1,7 @@
-# mypy: ignore-errors
 """Edge serve service for Edge API Service"""
 
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlmodel import select
@@ -13,7 +13,7 @@ from ..storage import get_session
 class ServeService:
     """Service for edge serve operations"""
 
-    async def submit_compute_request(self, gpu_id: str, model_name: str, input_data: dict, priority: str = "normal") -> dict:
+    async def submit_compute_request(self, gpu_id: str, model_name: str, input_data: dict[str, Any], priority: str = "normal") -> dict[str, Any]:
         """Submit compute request"""
         async with get_session() as session:
             request_id = f"req_{uuid4().hex[:8]}"
@@ -36,7 +36,7 @@ class ServeService:
                 "message": f"Compute request {request_id} submitted"
             }
 
-    async def get_compute_request(self, request_id: str) -> dict | None:
+    async def get_compute_request(self, request_id: str) -> dict[str, Any] | None:
         """Get compute request details"""
         async with get_session() as session:
             result = await session.execute(select(ComputeRequest).where(ComputeRequest.request_id == request_id))
@@ -71,7 +71,7 @@ class ServeService:
                 return True
             return False
 
-    async def list_compute_requests(self, gpu_id: str = None, status: str = None) -> list[dict]:
+    async def list_compute_requests(self, gpu_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
         """List compute requests, optionally filtered"""
         async with get_session() as session:
             query = select(ComputeRequest)
@@ -96,7 +96,7 @@ class ServeService:
                 for req in requests
             ]
 
-    async def get_compute_result(self, request_id: str) -> dict | None:
+    async def get_compute_result(self, request_id: str) -> dict[str, Any] | None:
         """Get compute result"""
         async with get_session() as session:
             result = await session.execute(select(ComputeResult).where(ComputeResult.request_id == request_id))
@@ -106,10 +106,10 @@ class ServeService:
                 return {
                     "result_id": res.result_id,
                     "request_id": res.request_id,
-                    "output_data": res.output_data,
-                    "metrics": res.metrics,
-                    "status": res.status,
+                    "output_data": res.output_data,  # type: ignore[attr-defined]
+                    "metrics": res.metrics,  # type: ignore[attr-defined]
+                    "status": res.status,  # type: ignore[attr-defined]
                     "created_at": res.created_at.isoformat() if res.created_at else None,
-                    "extra_data": res.extra_data
+                    "extra_data": res.extra_data  # type: ignore[attr-defined]
                 }
             return None
