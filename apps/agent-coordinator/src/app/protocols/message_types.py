@@ -77,7 +77,7 @@ class TaskMessage(BaseModel):
 
     @field_validator('deadline')
     @classmethod
-    def validate_deadline(cls, v: Any) -> datetime | None:
+    def validate_deadline(cls, v: datetime | None) -> datetime | None:
         if v and v < datetime.now(UTC):
             raise ValueError('Deadline cannot be in the past')
         return v
