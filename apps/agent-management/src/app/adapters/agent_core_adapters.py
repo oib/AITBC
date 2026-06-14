@@ -6,17 +6,17 @@ these adapters wrap the shared coordinator-api implementations.
 
 from typing import Any
 
-from aitbc_agent_core.protocols.database import ISessionProvider  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.domain import (  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.database import ISessionProvider
+from aitbc_agent_core.protocols.domain import (
     AgentStatus as ProtocolAgentStatus,
     IAgentExecution,
     IAgentStepExecution,
     StepType as ProtocolStepType,
     VerificationLevel as ProtocolVerificationLevel,
 )
-from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.zk_proof import IZKProofService  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator
+from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
+from aitbc_agent_core.protocols.zk_proof import IZKProofService
 # Import from coordinator-api domain (shared via symlink)
 from app.domain.agent import (
     AgentExecution,
