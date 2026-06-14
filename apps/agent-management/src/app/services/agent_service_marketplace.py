@@ -174,7 +174,7 @@ class AgentServiceMarketplace:
         self.rating_weight = 100
         self._initialize_categories()
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the marketplace service"""
         logger.info('Initializing Agent Service Marketplace')
         await self._load_marketplace_data()
@@ -437,12 +437,12 @@ class AgentServiceMarketplace:
             total_volume = sum((service.total_earnings for service in self.services.values()))
             active_service_prices = [service.base_price for service in self.services.values() if service.status == ServiceStatus.ACTIVE]
             average_price = sum(active_service_prices) / len(active_service_prices) if active_service_prices else 0
-            category_counts = {}
+            category_counts: dict[str, int] = {}
             for service in self.services.values():
                 if service.status == ServiceStatus.ACTIVE:
                     category_counts[service.service_type.value] = category_counts.get(service.service_type.value, 0) + 1
             popular_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-            agent_earnings = {}
+            agent_earnings: dict[str, float] = {}
             for service in self.services.values():
                 agent_earnings[service.agent_id] = agent_earnings.get(service.agent_id, 0) + service.total_earnings
             top_agents = sorted(agent_earnings.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -482,7 +482,7 @@ class AgentServiceMarketplace:
         """Get agent reputation (simplified)"""
         return 1000
 
-    async def _update_agent_reputation(self, agent_id: str, change: int):
+    async def _update_agent_reputation(self, agent_id: str, change: int) -> None:
         """Update agent reputation (simplified)"""
         pass
 
@@ -501,16 +501,16 @@ class AgentServiceMarketplace:
         import uuid
         return str(uuid.uuid4())
 
-    def _initialize_categories(self):
+    def _initialize_categories(self) -> None:
         """Initialize service categories"""
         for service_type in ServiceType:
             self.categories[service_type.value] = ServiceCategory(name=service_type.value, description=f'Services related to {service_type.value}', service_count=0, total_volume=0.0, average_price=0.0, is_active=True)
 
-    async def _load_marketplace_data(self):
+    async def _load_marketplace_data(self) -> None:
         """Load existing marketplace data"""
         pass
 
-    async def _monitor_request_timeouts(self):
+    async def _monitor_request_timeouts(self) -> None:
         """Monitor and handle request timeouts"""
         while True:
             try:
@@ -524,7 +524,7 @@ class AgentServiceMarketplace:
                 logger.error('Error monitoring timeouts: %s', e)
                 await asyncio.sleep(3600)
 
-    async def _update_marketplace_analytics(self):
+    async def _update_marketplace_analytics(self) -> None:
         """Update marketplace analytics"""
         while True:
             try:
@@ -535,7 +535,7 @@ class AgentServiceMarketplace:
                 logger.error('Error updating analytics: %s', e)
                 await asyncio.sleep(3600)
 
-    async def _process_service_recommendations(self):
+    async def _process_service_recommendations(self) -> None:
         """Process service recommendations"""
         while True:
             try:
@@ -544,7 +544,7 @@ class AgentServiceMarketplace:
                 logger.error('Error processing recommendations: %s', e)
                 await asyncio.sleep(1800)
 
-    async def _maintain_guild_reputation(self):
+    async def _maintain_guild_reputation(self) -> None:
         """Maintain guild reputation scores"""
         while True:
             try:

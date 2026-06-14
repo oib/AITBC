@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 SAC Agent implementation
 """
@@ -37,7 +36,7 @@ class SACAgent(nn.Module):
             nn.Linear(hidden_dim, 1),
         )
 
-    def forward(self, state):
+    def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         mean = self.actor_mean(state)
         std = torch.exp(self.actor_log_std)
         return mean, std

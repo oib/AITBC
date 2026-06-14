@@ -1,8 +1,8 @@
-# mypy: ignore-errors
 """
 PPO Agent implementation
 """
 
+import torch
 import torch.nn as nn
 
 
@@ -23,7 +23,7 @@ class PPOAgent(nn.Module):
             nn.Linear(state_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
         )
 
-    def forward(self, state):
+    def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         action_probs = self.actor(state)
         value = self.critic(state)
         return action_probs, value
