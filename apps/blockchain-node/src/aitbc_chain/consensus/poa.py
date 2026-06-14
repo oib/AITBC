@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import re
@@ -21,7 +22,7 @@ def _sanitize_metric_suffix(value: str) -> str:
     sanitized = _METRIC_KEY_SANITIZE.sub('_', value).strip('_')
     return sanitized or 'unknown'
 
-def _compute_state_root(session: Session, chain_id: str) -> str:
+def _compute_state_root(session: Session, chain_id: str) -> str | None:
     """Compute state root from current account state."""
     try:
         state_manager = StateManager()
@@ -88,7 +89,7 @@ class PoAProposer:
     def _fetch_chain_head(self) -> Block | None:
         """Fetch the current chain head block from the database."""
         with self._session_factory() as session:
-            return session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
+            return session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()  # type: ignore[attr-defined]
 
     async def start(self) -> None:
         if self._task is not None:
@@ -186,7 +187,7 @@ class PoAProposer:
                     metrics_registry.increment('sync_empty_blocks_skipped_total')
                     return False
         with self._session_factory() as session:
-            head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
+            head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()  # type: ignore[attr-defined]
             next_height = 0
             parent_hash = '0x00'
             interval_seconds: float | None = None
@@ -390,7 +391,7 @@ class PoAProposer:
         try:
             with open(genesis_path) as f:
                 genesis_data = json.load(f)
-            return genesis_data
+            return genesis_data  # type: ignore[no-any-return]
         except Exception as e:
             self._logger.warning('Failed to load genesis file: %s', e)
             return {}
@@ -399,7 +400,7 @@ class PoAProposer:
         """Load genesis allocations from file for embedding in genesis block metadata."""
         return []
 
-    async def _load_genesis_block_from_rpc(self) -> dict:
+    async def _load_genesis_block_from_rpc(self) -> dict | None:
         """Load genesis block data from trusted peer via RPC.
         
         Returns:
@@ -422,7 +423,7 @@ class PoAProposer:
                     response.raise_for_status()
                     data = response.json()
                     self._logger.info('RPC response from %s: %s', peer_url, data)
-                    return data
+                    return data  # type: ignore[no-any-return]
             except Exception as e:
                 self._logger.error('Failed to fetch genesis block from %s: %s', peer_url, e)
                 continue
@@ -483,7 +484,7 @@ class PoAProposer:
         session.commit()
         self._logger.info('Created %s accounts from genesis allocations', created)
 
-    def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime, transactions: list=None) -> str:
+    def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime, transactions: list | None = None) -> str:
         tx_hashes = []
         if transactions:
             tx_hashes = [tx.tx_hash for tx in transactions]

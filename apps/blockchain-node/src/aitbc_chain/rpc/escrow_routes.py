@@ -35,7 +35,7 @@ async def _get_account_nonce(address: str, client: httpx.AsyncClient) -> int:
     try:
         r = await client.get(f'{_HUB_RPC_URL}/accounts/{address}')
         if r.status_code == 200:
-            return r.json().get('nonce', 0)
+            return int(r.json().get('nonce', 0))
     except Exception:
         pass
     return 0
@@ -83,6 +83,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         amount_dec = Decimal(str(amount))
     except Exception:
         raise HTTPException(status_code=400, detail=f'Invalid amount: {amount}')
+    if not isinstance(job_id, str) or not isinstance(buyer, str) or not isinstance(provider, str):
+        raise HTTPException(status_code=400, detail='Invalid types for job_id, buyer, or provider')
     success, message, contract_id = await mgr.create_contract(job_id=job_id, client_address=buyer, agent_address=provider, amount=amount_dec)
     if not success:
         raise HTTPException(status_code=400, detail=message)
@@ -175,5 +177,5 @@ def _find_contract_id(mgr: Any, job_id: str) -> str | None:
     """Find contract_id by job_id in EscrowManager."""
     for cid, contract in mgr.escrow_contracts.items():
         if contract.job_id == job_id:
-            return cid
+            return str(cid)
     return None

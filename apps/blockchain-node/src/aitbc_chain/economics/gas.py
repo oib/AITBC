@@ -61,7 +61,7 @@ class GasManager:
         # Initialize gas schedules
         self._initialize_gas_schedules()
 
-    def _initialize_gas_schedules(self):
+    def _initialize_gas_schedules(self) -> None:
         """Initialize gas schedules for different transaction types"""
         self.gas_schedules = {
             GasType.TRANSFER: GasSchedule(
