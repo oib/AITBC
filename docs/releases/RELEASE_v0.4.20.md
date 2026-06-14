@@ -129,7 +129,7 @@ AITBC v0.4.20 is the **final Phase 2 release** of the three-phase type safety gr
 
 2. **agent-management per-file ignore**: 1 file (`agent_integration.py`) has a justified per-file ignore as it is migration-in-progress code.
 
-3. **G004 logging f-string**: Still globally ignored (866 errors). No auto-fix available. Deferred to v0.5.0.
+3. **G004 logging f-string**: Removed from global ignore - check now passes with 0 errors.
 
 4. **blockchain-node rpc/router.py**: 1 file has a justified per-file ignore due to untyped decorators from external library (rate_limit).
 
@@ -153,8 +153,9 @@ AITBC v0.4.20 is the **final Phase 2 release** of the three-phase type safety gr
 - [ ] blockchain-node rpc/router.py (1 file - untyped external library decorator)
 - [ ] wallet per-file ignore (1 file - untyped psycopg2 library)
 - [ ] agent-management per-file ignore (1 file - migration-in-progress)
-- [ ] G004 logging f-string fixes (866 errors, globally ignored)
 - [ ] Strict mypy enforcement (`strict = true`)
+
+Both files have documented justifications and are tracked for future refactoring.
 
 ---
 
