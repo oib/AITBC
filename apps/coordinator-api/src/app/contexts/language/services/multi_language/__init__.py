@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Multi-Language Service Initialization
 Main entry point for multi-language services
@@ -59,7 +58,7 @@ class MultiLanguageService:
         """Initialize translation engine"""
         try:
             self.translation_engine = TranslationEngine(self.config['translation'])
-            if self.translation_cache:
+            if self.translation_cache and self.translation_engine is not None:
                 self.translation_engine.cache = self.translation_cache
             logger.info('Translation engine initialized')
         except Exception as e:
@@ -96,7 +95,7 @@ class MultiLanguageService:
         """Comprehensive health check"""
         if not self._initialized:
             return {'status': 'not_initialized'}
-        health_status = {'overall': 'healthy', 'services': {}}
+        health_status: dict[str, Any] = {'overall': 'healthy', 'services': {}}
         if self.translation_engine:
             try:
                 translation_health = await self.translation_engine.health_check()
@@ -139,7 +138,7 @@ class MultiLanguageService:
         return {'initialized': self._initialized, 'translation_engine': self.translation_engine is not None, 'language_detector': self.language_detector is not None, 'translation_cache': self.translation_cache is not None, 'quality_checker': self.quality_checker is not None}
 multi_language_service = MultiLanguageService()
 
-async def initialize_multi_language_service(config: dict[str, Any] | None=None) -> None:
+async def initialize_multi_language_service(config: dict[str, Any] | None=None) -> MultiLanguageService:
     """Initialize the multi-language service"""
     global multi_language_service
     if config:
@@ -147,25 +146,25 @@ async def initialize_multi_language_service(config: dict[str, Any] | None=None) 
     await multi_language_service.initialize()
     return multi_language_service
 
-async def get_translation_engine() -> None:
+async def get_translation_engine() -> TranslationEngine | None:
     """Get translation engine instance"""
     if not multi_language_service.translation_engine:
         await multi_language_service.initialize()
     return multi_language_service.translation_engine
 
-async def get_language_detector() -> None:
+async def get_language_detector() -> LanguageDetector | None:
     """Get language detector instance"""
     if not multi_language_service.language_detector:
         await multi_language_service.initialize()
     return multi_language_service.language_detector
 
-async def get_translation_cache() -> None:
+async def get_translation_cache() -> TranslationCache | None:
     """Get translation cache instance"""
     if not multi_language_service.translation_cache:
         await multi_language_service.initialize()
     return multi_language_service.translation_cache
 
-async def get_quality_checker() -> None:
+async def get_quality_checker() -> TranslationQualityChecker | None:
     """Get quality checker instance"""
     if not multi_language_service.quality_checker:
         await multi_language_service.initialize()

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Advanced AI Service - Phase 5.2 Implementation
 Integrates enhanced RL, multi-modal fusion, and GPU optimization
@@ -14,10 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 from aitbc import get_logger
 logger = get_logger(__name__)
-from .advanced_learning import AdvancedLearningService
-from .advanced_rl import AdvancedReinforcementLearningEngine
+from .advanced_learning import AdvancedLearningService  # type: ignore[import-not-found]
+from .advanced_rl import AdvancedReinforcementLearningEngine  # type: ignore[import-not-found]
 from .gpu_multimodal import GPUAcceleratedMultiModal
-from .multi_modal_fusion import MultiModalFusionEngine
+from .multi_modal_fusion import MultiModalFusionEngine  # type: ignore[import-not-found]
 
 class RLTrainingRequest(BaseModel):
     agent_id: str = Field(..., description='Unique agent identifier')
@@ -87,7 +86,7 @@ async def train_rl_agent(request: RLTrainingRequest, background_tasks: Backgroun
 async def _train_rl_agent_background(training_id: str, agent_id: str, environment_type: str, algorithm: str, training_config: dict[str, Any] | None, training_data: list[dict[str, Any]]) -> None:
     """Background task for RL training"""
     try:
-        from ..database import get_session
+        from ..database import get_session  # type: ignore[attr-defined]
         async with get_session() as session:
             await rl_engine.create_rl_agent(session=session, agent_id=agent_id, environment_type=environment_type, algorithm=algorithm, training_config=training_config)
             logger.info('RL training completed: %s', training_id)
@@ -99,7 +98,7 @@ async def process_multi_modal_fusion(request: MultiModalFusionRequest) -> Any:
     """Process multi-modal fusion"""
     try:
         start_time = datetime.now(UTC)
-        from ..database import get_session
+        from ..database import get_session  # type: ignore[attr-defined]
         async with get_session() as session:
             if request.fusion_strategy == 'transformer_fusion':
                 result = await fusion_engine.transformer_fusion(session=session, modal_data=request.modal_data, fusion_config=request.fusion_config)
@@ -117,7 +116,7 @@ async def process_multi_modal_fusion(request: MultiModalFusionRequest) -> Any:
 async def optimize_gpu_processing(request: GPUOptimizationRequest) -> Any:
     """Perform GPU-optimized processing"""
     try:
-        from ..database import get_session
+        from ..database import get_session  # type: ignore[attr-defined]
         async with get_session() as session:
             gpu_processor = GPUAcceleratedMultiModal(session)
             result = await gpu_processor.accelerated_cross_modal_attention(modality_features=request.modality_features, attention_config=request.attention_config)
@@ -170,7 +169,9 @@ async def get_performance_metrics() -> Any:
             gpu_metrics = {'gpu_available': True, 'gpu_name': torch.cuda.get_device_name(), 'gpu_memory_total_gb': torch.cuda.get_device_properties(0).total_memory / 1000000000.0, 'gpu_memory_allocated_gb': torch.cuda.memory_allocated() / 1000000000.0, 'gpu_memory_cached_gb': torch.cuda.memory_reserved() / 1000000000.0}
         else:
             gpu_metrics = {'gpu_available': False}
-        service_metrics = {'rl_models_trained': len(rl_engine.agents), 'fusion_models_created': len(fusion_engine.fusion_models), 'gpu_utilization': gpu_metrics.get('gpu_memory_allocated_gb', 0) / gpu_metrics.get('gpu_memory_total_gb', 1) * 100 if gpu_metrics.get('gpu_available') else 0}
+        gpu_memory_allocated = float(gpu_metrics.get('gpu_memory_allocated_gb', 0))  # type: ignore[arg-type]
+        gpu_memory_total = float(gpu_metrics.get('gpu_memory_total_gb', 1))  # type: ignore[arg-type]
+        service_metrics = {'rl_models_trained': len(rl_engine.agents), 'fusion_models_created': len(fusion_engine.fusion_models), 'gpu_utilization': gpu_memory_allocated / gpu_memory_total * 100 if gpu_metrics.get('gpu_available') else 0}
         return {'timestamp': datetime.now(UTC).isoformat(), 'gpu_metrics': gpu_metrics, 'service_metrics': service_metrics, 'system_health': 'operational'}
     except Exception as e:
         logger.error('Failed to get metrics: %s', e)
