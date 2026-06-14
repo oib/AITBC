@@ -2,12 +2,13 @@
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+Base: Any = declarative_base()
 
 
 class CoinRequestStatus(str, Enum):

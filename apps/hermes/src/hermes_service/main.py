@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
-from .handlers import HandlerRegistry
-from .services.transaction_service import TransactionService
-from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db
+from .handlers import HandlerRegistry  # type: ignore[import-not-found]
+from .services.transaction_service import TransactionService  # type: ignore
+from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # type: ignore
 logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -20,7 +20,7 @@ handler_registry = HandlerRegistry(COORDINATOR_URL, HERMES_AGENT_ID)
 handler_registry.load_all_handlers()
 init_db()
 
-async def expire_old_requests():
+async def expire_old_requests() -> None:
     """Background task to expire requests older than 1 month."""
     while True:
         try:
@@ -38,7 +38,7 @@ async def expire_old_requests():
         await asyncio.sleep(3600)
 
 @app.on_event('startup')
-async def startup_event():
+async def startup_event() -> None:
     """Start background tasks on startup."""
     asyncio.create_task(expire_old_requests())
 
@@ -72,7 +72,7 @@ def _check_blockchain_rpc() -> bool:
         return False
 
 @app.get('/health')
-async def health():
+async def health() -> dict[str, Any]:
     """Health check endpoint with dependency verification."""
     checks = {'database': _check_db(), 'coordinator': _check_coordinator(), 'blockchain_rpc': _check_blockchain_rpc()}
     all_healthy = all(checks.values())
@@ -86,10 +86,11 @@ async def receive_message(message: dict[str, Any]) -> dict[str, Any]:
     sender = message.get('sender', 'unknown')
     msg_id = message.get('id', 'unknown')
     logger.info('Received message from %s: %s (ID: %s)', sender, content, msg_id)
-    return await handler_registry.process_message(message)
+    result = await handler_registry.process_message(message)
+    return dict(result)
 
 @app.get('/')
-async def root():
+async def root() -> dict[str, Any]:
     """Root endpoint."""
     return {'service': 'AITBC Hermes Service', 'version': '1.0.0', 'status': 'operational'}
 
