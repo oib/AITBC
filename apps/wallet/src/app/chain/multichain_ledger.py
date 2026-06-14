@@ -56,7 +56,7 @@ class MultiChainLedgerAdapter:
         self.chain_locks: dict[str, threading.Lock] = {}
         self._initialize_chain_databases()
 
-    def _initialize_chain_databases(self):
+    def _initialize_chain_databases(self) -> None:
         """Initialize database for each chain"""
         for chain in self.chain_manager.list_chains():
             self._init_chain_database(chain.chain_id)
@@ -69,7 +69,7 @@ class MultiChainLedgerAdapter:
             return Path(chain.ledger_db_path)
         return self.base_data_path / f'wallet_ledger_{chain_id}.db'
 
-    def _init_chain_database(self, chain_id: str):
+    def _init_chain_database(self, chain_id: str) -> None:
         """Initialize database for a specific chain"""
         _validate_chain_id(chain_id)
         try:
@@ -84,7 +84,7 @@ class MultiChainLedgerAdapter:
         except Exception as e:
             logger.error('Failed to initialize database for chain %s: %s', chain_id, e)
 
-    def _create_chain_schema(self, conn: sqlite3.Connection, chain_id: str):
+    def _create_chain_schema(self, conn: sqlite3.Connection, chain_id: str) -> None:
         """Create database schema for a specific chain"""
         cursor = conn.cursor()
         cursor.execute(f'\n            CREATE TABLE IF NOT EXISTS wallet_metadata_{chain_id} (\n                wallet_id TEXT PRIMARY KEY,\n                public_key TEXT NOT NULL,\n                address TEXT,\n                metadata TEXT,\n                created_at TEXT NOT NULL,\n                updated_at TEXT NOT NULL\n            )\n        ')
@@ -242,7 +242,7 @@ class MultiChainLedgerAdapter:
 
     def get_all_chain_stats(self) -> dict[str, Any]:
         """Get statistics for all chains"""
-        stats = {'total_chains': 0, 'total_wallets': 0, 'chain_stats': {}}
+        stats: dict[str, Any] = {'total_chains': 0, 'total_wallets': 0, 'chain_stats': {}}
         for chain in self.chain_manager.get_active_chains():
             chain_stats = self.get_chain_stats(chain.chain_id)
             if chain_stats:
@@ -251,7 +251,7 @@ class MultiChainLedgerAdapter:
                 stats['total_chains'] += 1
         return stats
 
-    def close_all_connections(self):
+    def close_all_connections(self) -> None:
         """Close all database connections"""
         for chain_id, conn in self.chain_connections.items():
             try:

@@ -2,6 +2,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
@@ -12,7 +13,7 @@ from .bridge import init_db, start_monitoring
 from .settings import settings
 logger = logging.getLogger(__name__)
 
-async def _import_genesis_wallet_from_env():
+async def _import_genesis_wallet_from_env() -> None:
     """Auto-import genesis wallet from node.env into daemon on startup if not already present."""
     import httpx
     node_env_file = os.getenv('AITBC_NODE_ENV_FILE', '/etc/aitbc/node.env')
@@ -49,7 +50,7 @@ async def _import_genesis_wallet_from_env():
     except Exception as e:
         logger.warning('Could not auto-import genesis wallet: %s', e)
 
-async def _import_file_wallets():
+async def _import_file_wallets() -> None:
     """Auto-import wallets from wallet directory into daemon on startup."""
     import json
     from pathlib import Path
@@ -105,7 +106,7 @@ async def _import_file_wallets():
             return
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_db()
     start_monitoring()
     import asyncio
@@ -122,7 +123,7 @@ def create_app() -> FastAPI:
     app.include_router(bridge_router)
 
     @app.get('/health')
-    async def health_check():
+    async def health_check() -> dict[str, str]:
         return {'status': 'ok', 'env': 'dev', 'python_version': '3.13.5'}
     return app
 app = create_app()

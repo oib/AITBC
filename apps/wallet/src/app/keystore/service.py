@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -56,7 +55,7 @@ class KeystoreService:
             signing_key = SigningKey.generate()
             secret_bytes = signing_key.encode()
         else:
-            if len(secret) != SigningKey.seed_size:
+            if len(secret) != SigningKey.seed_size:  # type: ignore[attr-defined]
                 raise ValueError("secret key must be 32 bytes")
             secret_bytes = secret
             signing_key = SigningKey(secret_bytes)
