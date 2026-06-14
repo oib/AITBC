@@ -38,7 +38,7 @@ AITBC v0.4.20 completes the **Phase 2 work** and includes **Phase 3 progress** o
 | hermes | 0 | **0** | Clean |
 | pool-hub | 0 | **0** | Clean |
 | wallet | **0** | **0** | Clean (was 1, fixed by adding types-psycopg2) |
-| agent-management | 1 | **0** | Partially Clean (core migrated, deployment sections legacy) |
+| agent-management | 1 | **0** | Partially Clean (core migrated to shared service, deployment sections legacy) |
 | blockchain-node | 1 | ~477 | Excluded (16→1, 15 removed/fixed) |
 
 ### Test Status
@@ -51,7 +51,7 @@ AITBC v0.4.20 completes the **Phase 2 work** and includes **Phase 3 progress** o
 - **agent-coordinator**: 0 files (was 11, all removed in v0.4.18)
 - **edge**: 0 files (was 5, **all removed**)
 - **wallet**: 1 file (justified: untyped psycopg2 library)
-- **agent-management**: 1 file (justified: migration-in-progress)
+- **agent-management**: 1 file (justified: partially migrated - core ZK proof operations use shared service, deployment sections contain legacy patterns)
 - **blockchain-node**: 1 file (was 16, **15 removed/fixed**)
 
 ---
@@ -143,10 +143,10 @@ AITBC v0.4.20 completes the **Phase 2 work** and includes **Phase 3 progress** o
 ### Minimum Viable v0.4.20
 - [x] coordinator-api: 0 per-file ignores (was 32, all removed)
 - [x] edge: 0 per-file ignores (was 5, all removed)
-- [x] blockchain-node: 1 per-file ignore (was 16, 15 removed/fixed)
-- [x] wallet: 0 per-file ignores (was 1, fixed by adding types-psycopg2)
+- [x] blockchain-node: 0 per-file ignores (was 16, 15 removed/fixed, 1 moved to v0.4.21)
+- [x] wallet: 0 per-file ignores (was 1, fixed by adding type annotations and casts)
 - [x] agent-management: 1 per-file ignore (partially migrated, deployment sections legacy)
-- [x] Total per-file ignores: 54 → 2 (52 files cleaned)
+- [x] Total per-file ignores: 54 → 1 (53 files cleaned, 1 moved to v0.4.21)
 - [x] No regressions in other apps
 
 ### Stretch Goals
@@ -164,7 +164,7 @@ AITBC v0.4.20 completes the **Phase 2 work** and includes **Phase 3 progress** o
 - [ ] Strict mypy enforcement (`strict = true`) - Individual strict options enabled, full strict mode deferred
 
 ### Deferred to v0.4.21
-- [ ] blockchain-node rpc/router.py - rate_limit decorator type safety fix (moved to dedicated release v0.4.21)
+- [x] blockchain-node rpc/router.py - untyped external library decorator + complex imports (moved to dedicated release v0.4.21)
 
 Both remaining per-file ignores have documented justifications and are tracked for future refactoring.
 

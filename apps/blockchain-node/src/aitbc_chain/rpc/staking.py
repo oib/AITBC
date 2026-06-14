@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Staking-related RPC endpoints.
 """
@@ -13,7 +12,7 @@ from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote,
 from .utils import get_chain_id
 _logger = get_logger(__name__)
 
-@rate_limit(rate=20, per=60)
+@rate_limit(rate=20, per=60)  # type: ignore[untyped-decorator]
 async def stake_tokens(request: Request, stake_data: dict) -> dict[str, Any]:
     """
     Stake tokens for consensus participation.
@@ -48,7 +47,7 @@ async def stake_tokens(request: Request, stake_data: dict) -> dict[str, Any]:
         _logger.info('Tokens staked: %s staked %s on %s', address, amount, chain_id)
         return {'success': True, 'stake_id': stake.id, 'address': address, 'amount': amount, 'chain_id': chain_id, 'locked_until': locked_until.isoformat(), 'status': 'active', 'remaining_balance': account.balance}
 
-@rate_limit(rate=10, per=60)
+@rate_limit(rate=10, per=60)  # type: ignore[untyped-decorator]
 async def unstake_tokens(request: Request, unstake_data: dict) -> dict[str, Any]:
     """
     Unstake tokens after lock period expires.
@@ -86,8 +85,8 @@ async def unstake_tokens(request: Request, unstake_data: dict) -> dict[str, Any]
         _logger.info('Tokens unstaked: %s recovered %s from stake %s', address, stake.amount, stake_id)
         return {'success': True, 'stake_id': stake_id, 'address': address, 'amount': stake.amount, 'chain_id': chain_id, 'new_balance': account.balance, 'status': 'withdrawn'}
 
-@rate_limit(rate=100, per=60)
-async def get_staking_info(request: Request, address: str, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=100, per=60)  # type: ignore[untyped-decorator]
+async def get_staking_info(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get staking information for an address"""
     chain_id = get_chain_id(chain_id)
     address = address.lower().strip()
@@ -98,7 +97,7 @@ async def get_staking_info(request: Request, address: str, chain_id: str=None) -
         active_stakes = [{'stake_id': s.id, 'amount': s.amount, 'locked_until': s.locked_until.isoformat() if s.locked_until else None, 'status': s.status, 'created_at': s.created_at.isoformat() if s.created_at else None} for s in stakes if s.status == 'active']
         return {'success': True, 'address': address, 'chain_id': chain_id, 'total_staked': total_staked, 'active_stake_count': len(active_stakes), 'active_stakes': active_stakes}
 
-@rate_limit(rate=20, per=60)
+@rate_limit(rate=20, per=60)  # type: ignore[untyped-decorator]
 async def register_agent_identity(request: Request, identity_data: dict) -> dict[str, Any]:
     """
     Register an agent identity on the blockchain.
@@ -127,8 +126,8 @@ async def register_agent_identity(request: Request, identity_data: dict) -> dict
         _logger.info('Agent identity registered on-chain: %s -> %s', agent_id, agent_address)
         return {'success': True, 'identity_id': identity.id, 'agent_id': agent_id, 'agent_address': agent_address, 'chain_id': chain_id, 'status': identity.status, 'is_verified': identity.is_verified}
 
-@rate_limit(rate=50, per=60)
-async def get_agent_identity(request: Request, agent_id: str, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
+async def get_agent_identity(request: Request, agent_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get agent identity from blockchain"""
     chain_id = get_chain_id(chain_id)
     with session_scope() as session:
@@ -137,7 +136,7 @@ async def get_agent_identity(request: Request, agent_id: str, chain_id: str=None
             raise HTTPException(status_code=404, detail=f'Agent identity not found: {agent_id}')
         return {'success': True, 'identity_id': identity.id, 'agent_id': identity.agent_id, 'agent_address': identity.agent_address, 'display_name': identity.display_name, 'agent_type': identity.agent_type, 'capabilities': identity.capabilities, 'status': identity.status, 'is_verified': identity.is_verified, 'verified_at': identity.verified_at.isoformat() if identity.verified_at else None, 'created_at': identity.created_at.isoformat() if identity.created_at else None, 'chain_id': chain_id}
 
-@rate_limit(rate=50, per=60)
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
 async def verify_agent_identity(request: Request, verification_data: dict) -> dict[str, Any]:
     """
     Verify an agent identity on the blockchain.
@@ -161,7 +160,7 @@ async def verify_agent_identity(request: Request, verification_data: dict) -> di
         _logger.info('Agent identity verified: %s by %s', agent_id, verifier_address)
         return {'success': True, 'identity_id': identity.id, 'agent_id': agent_id, 'is_verified': True, 'verified_at': identity.verified_at.isoformat(), 'verified_by': verifier_address, 'chain_id': chain_id}
 
-@rate_limit(rate=20, per=60)
+@rate_limit(rate=20, per=60)  # type: ignore[untyped-decorator]
 async def create_governance_proposal(request: Request, proposal_data: dict) -> dict[str, Any]:
     """
     Create a governance proposal on the blockchain.
@@ -199,7 +198,7 @@ async def create_governance_proposal(request: Request, proposal_data: dict) -> d
         _logger.info('Governance proposal created on-chain: %s by %s', proposal_id, proposer_address)
         return {'success': True, 'proposal_id': proposal.proposal_id, 'proposer_address': proposal.proposer_address, 'title': proposal.title, 'status': proposal.status, 'voting_starts': proposal.voting_starts.isoformat(), 'voting_ends': proposal.voting_ends.isoformat(), 'chain_id': chain_id}
 
-@rate_limit(rate=50, per=60)
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
 async def cast_governance_vote(request: Request, vote_data: dict) -> dict[str, Any]:
     """
     Cast a vote on a governance proposal.
@@ -237,8 +236,8 @@ async def cast_governance_vote(request: Request, vote_data: dict) -> dict[str, A
         _logger.info('Governance vote cast: %s voted %s on %s', voter_address, vote_type, proposal_id)
         return {'success': True, 'vote_id': vote.id, 'proposal_id': proposal_id, 'voter_address': voter_address, 'vote_type': vote_type, 'voting_power': voting_power, 'chain_id': chain_id}
 
-@rate_limit(rate=50, per=60)
-async def get_governance_proposal(request: Request, proposal_id: str, chain_id: str=None) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
+async def get_governance_proposal(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get governance proposal from blockchain"""
     chain_id = get_chain_id(chain_id)
     with session_scope() as session:

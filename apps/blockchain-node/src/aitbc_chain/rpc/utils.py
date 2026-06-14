@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Utility functions for blockchain RPC endpoints.
 """
@@ -12,20 +11,20 @@ from ..config import settings
 _poa_proposers: dict[str, Any] = {}
 
 
-def set_poa_proposer(proposer, chain_id: str = None):
+def set_poa_proposer(proposer, chain_id: str | None = None):
     """Set the global PoA proposer instance"""
     if chain_id is None:
         chain_id = getattr(getattr(proposer, "_config", None), "chain_id", None) or get_chain_id(None)
     _poa_proposers[chain_id] = proposer
 
 
-def get_poa_proposer(chain_id: str = None):
+def get_poa_proposer(chain_id: str | None = None):
     """Get the global PoA proposer instance"""
     chain_id = get_chain_id(chain_id)
     return _poa_proposers.get(chain_id)
 
 
-def get_chain_id(chain_id: str = None) -> str:
+def get_chain_id(chain_id: str | None = None) -> str:
     """Get chain_id from parameter or use default from settings"""
     if chain_id is None:
         return settings.chain_id or "ait-mainnet"
@@ -46,7 +45,7 @@ def get_supported_chains() -> list[str]:
     return chains
 
 
-def get_chain_db(chain_id: str = None):
+def get_chain_db(chain_id: str | None = None):
     """Get chain-specific database engine"""
     from ..database import get_engine
 
