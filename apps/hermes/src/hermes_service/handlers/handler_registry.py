@@ -14,12 +14,12 @@ class HandlerRegistry:
         self.handlers: list[BaseHandler] = []
         self.logger = logging.getLogger(__name__)
 
-    def register_handler(self, handler: BaseHandler):
+    def register_handler(self, handler: BaseHandler) -> None:
         """Register a handler instance."""
         self.handlers.append(handler)
         self.logger.info('Registered handler: %s', handler.__class__.__name__)
 
-    def load_handlers_from_module(self, module_name: str):
+    def load_handlers_from_module(self, module_name: str) -> None:
         """Dynamically load handlers from a module."""
         try:
             module = importlib.import_module(module_name)
@@ -30,9 +30,9 @@ class HandlerRegistry:
         except Exception as e:
             self.logger.error('Failed to load handlers from %s: %s', module_name, e)
 
-    def load_all_handlers(self):
+    def load_all_handlers(self) -> None:
         """Load all handlers from the handlers package."""
-        import hermes_service.handlers as handlers_package
+        import hermes_service.handlers as handlers_package  # type: ignore
         for importer, modname, ispkg in pkgutil.iter_modules(handlers_package.__path__):
             if modname != 'base_handler' and modname != 'handler_registry':
                 try:
