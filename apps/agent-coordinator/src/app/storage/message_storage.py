@@ -115,7 +115,8 @@ class MessageStorage:
         """Get all messages with pagination"""
         assert self.redis is not None, 'Redis not connected'
         try:
-            message_ids = await self.redis.zrevrange('messages:timestamp', offset, offset + limit - 1)
+            message_ids_raw = await self.redis.zrevrange('messages:timestamp', offset, offset + limit - 1)
+            message_ids: list[str] = [str(m) for m in message_ids_raw]
             messages = []
             for message_id in message_ids:
                 message_data = await self.get_message(message_id)
@@ -174,7 +175,7 @@ class PeerStorage:
         try:
             await self.redis.sadd(f'peers:{agent_id}', peer_id)
             if metadata:
-                await self.redis.hset(f'peer_connection:{agent_id}:{peer_id}', mapping=metadata)
+                await self.redis.hset(f'peer_connection:{agent_id}:{peer_id}', mapping=metadata)  # type: ignore[arg-type]
             logger.debug('Added peer %s for agent %s', peer_id, agent_id)
             return True
         except Exception as e:
@@ -197,8 +198,8 @@ class PeerStorage:
         """Get all peers for a specific agent"""
         assert self.redis is not None, 'Redis not connected'
         try:
-            peer_ids = await self.redis.smembers(f'peers:{agent_id}')
-            return list(peer_ids)
+            peer_ids_raw = await self.redis.smembers(f'peers:{agent_id}')
+            return [str(m) for m in peer_ids_raw]
         except Exception as e:
             logger.error('Error retrieving peers for agent %s: %s', agent_id, e)
             return []
@@ -207,8 +208,8 @@ class PeerStorage:
         """Get metadata for a specific peer connection"""
         assert self.redis is not None, 'Redis not connected'
         try:
-            metadata = await self.redis.hgetall(f'peer_connection:{agent_id}:{peer_id}')
-            return metadata if metadata else None
+            metadata_raw: dict[str, Any] = await self.redis.hgetall(f'peer_connection:{agent_id}:{peer_id}')  # type: ignore[assignment]
+            return metadata_raw if metadata_raw else None
         except Exception as e:
             logger.error('Error retrieving peer metadata for %s:%s: %s', agent_id, peer_id, e)
             return None

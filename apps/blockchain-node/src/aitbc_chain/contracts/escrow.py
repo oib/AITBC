@@ -6,14 +6,15 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 from aitbc import get_logger
 logger = get_logger(__name__)
 
-def log_info(message: str):
+def log_info(message: str) -> None:
     """Simple logging function"""
     logger.info(message)
 
-def log_info_old(message: str):
+def log_info_old(message: str) -> None:
     """Legacy logging function - use logger instead"""
     logger.info('[EscrowManager] %s', message)
 
@@ -67,7 +68,7 @@ class Milestone:
 class EscrowManager:
     """Manages escrow contracts for AI job marketplace"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.escrow_contracts: dict[str, EscrowContract] = {}
         self.active_contracts: set[str] = set()
         self.disputed_contracts: set[str] = set()
@@ -88,11 +89,12 @@ class EscrowManager:
             fee_rate = fee_rate or self.default_fee_rate
             platform_fee = amount * fee_rate
             total_amount = amount + platform_fee
-            validated_milestones = []
+            validated_milestones: list[dict[Any, Any]] = []
             if milestones:
-                validated_milestones = await self._validate_milestones(milestones, amount)
-                if not validated_milestones:
+                validated = await self._validate_milestones(milestones, amount)
+                if not validated:
                     return (False, 'Invalid milestones configuration', None)
+                validated_milestones = validated
             else:
                 validated_milestones = [{'milestone_id': 'milestone_1', 'description': 'Complete job', 'amount': amount, 'completed': False}]
             contract_id = self._generate_contract_id(client_address, agent_address, job_id)
@@ -170,7 +172,7 @@ class EscrowManager:
         log_info(f'Job started for contract: {contract_id}')
         return (True, 'Job started successfully')
 
-    async def complete_milestone(self, contract_id: str, milestone_id: str, evidence: dict=None) -> tuple[bool, str]:
+    async def complete_milestone(self, contract_id: str, milestone_id: str, evidence: dict[Any, Any] | None = None) -> tuple[bool, str]:
         """Mark milestone as completed"""
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
@@ -197,7 +199,7 @@ class EscrowManager:
         log_info(f'Milestone {milestone_id} completed for contract: {contract_id}')
         return (True, 'Milestone completed successfully')
 
-    async def _release_milestone_payment(self, contract_id: str, milestone_id: str):
+    async def _release_milestone_payment(self, contract_id: str, milestone_id: str) -> None:
         """Release payment for verified milestone"""
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
@@ -235,11 +237,11 @@ class EscrowManager:
         log_info(f'Full payment released for contract: {contract_id}')
         return (True, 'Payment released successfully')
 
-    async def create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict]=None) -> tuple[bool, str]:
+    async def create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict] | None = None) -> tuple[bool, str]:
         """Create dispute for contract"""
         return await self._create_dispute(contract_id, reason, description, evidence)
 
-    async def _create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict]=None):
+    async def _create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict] | None = None) -> tuple[bool, str]:
         """Internal dispute creation method"""
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
@@ -253,7 +255,7 @@ class EscrowManager:
         contract.state = EscrowState.DISPUTED
         contract.dispute_reason = reason
         contract.dispute_evidence = evidence or []
-        contract.dispute_created_at = time.time()
+        contract.dispute_created_at = time.time()  # type: ignore[attr-defined]
         self.disputed_contracts.add(contract_id)
         log_info(f'Dispute created for contract: {contract_id} - {reason.value}')
         return (True, 'Dispute created successfully')
@@ -341,7 +343,7 @@ class EscrowManager:
         total_contracts = len(self.escrow_contracts)
         active_count = len(self.active_contracts)
         disputed_count = len(self.disputed_contracts)
-        state_counts = {}
+        state_counts: dict[str, int] = {}
         for contract in self.escrow_contracts.values():
             state = contract.state.value
             state_counts[state] = state_counts.get(state, 0) + 1
