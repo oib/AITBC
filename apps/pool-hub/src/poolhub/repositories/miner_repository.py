@@ -1,7 +1,7 @@
-# mypy: ignore-errors
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any, Mapping, cast
 
 from redis.asyncio import Redis
 from sqlalchemy import select, update
@@ -32,7 +32,7 @@ class MinerRepository:
         ram_gb: float,
         max_parallel: int,
         base_price: float,
-        tags: dict[str, str],
+        tags: dict[str, Any],
         capabilities: list[str],
         region: str | None,
     ) -> Miner:
@@ -159,7 +159,7 @@ class MinerRepository:
         }
 
         redis_key = RedisKeys.miner_hash(miner_id)
-        await self._redis.hset(redis_key, mapping=payload)
+        await self._redis.hset(redis_key, mapping=cast(Mapping[str, str], payload))  # type: ignore[arg-type]
         await self._redis.expire(redis_key, settings.session_ttl_seconds + settings.heartbeat_grace_seconds)
 
         score = self._compute_score(miner, status)

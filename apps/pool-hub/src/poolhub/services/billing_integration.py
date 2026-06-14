@@ -62,7 +62,7 @@ class BillingIntegration:
         start_date = end_date - timedelta(hours=hours_back)
         stmt = select(Miner)
         miners = self.db.execute(stmt).scalars().all()
-        results = {'sync_period': {'start': start_date.isoformat(), 'end': end_date.isoformat()}, 'miners_processed': 0, 'miners_failed': 0, 'total_usage_records': 0, 'details': []}
+        results: dict[str, Any] = {'sync_period': {'start': start_date.isoformat(), 'end': end_date.isoformat()}, 'miners_processed': 0, 'miners_failed': 0, 'total_usage_records': 0, 'details': []}
         for miner in miners:
             try:
                 result = await self.sync_miner_usage(miner.miner_id, start_date, end_date)
@@ -78,11 +78,11 @@ class BillingIntegration:
     async def _collect_miner_usage(self, miner_id: str, start_date: datetime, end_date: datetime) -> dict[str, float]:
         """Collect usage data for a miner from pool-hub"""
         usage_data = {'gpu_hours': 0.0, 'api_calls': 0.0, 'compute_hours': 0.0}
-        stmt = select(func.count(MatchRequest.id)).where(and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date))
-        api_calls = self.db.execute(stmt).scalar() or 0
+        count_stmt = select(func.count(MatchRequest.id)).where(and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date))
+        api_calls = self.db.execute(count_stmt).scalar() or 0
         usage_data['api_calls'] = float(api_calls)
-        stmt = select(MatchResult).where(and_(MatchResult.miner_id == miner_id, MatchResult.created_at >= start_date, MatchResult.created_at <= end_date)).where(MatchResult.eta_ms.isnot_(None))
-        results = self.db.execute(stmt).scalars().all()
+        result_stmt = select(MatchResult).where(and_(MatchResult.miner_id == miner_id, MatchResult.created_at >= start_date, MatchResult.created_at <= end_date)).where(MatchResult.eta_ms.isnot_(None))
+        results = self.db.execute(result_stmt).scalars().all()
         total_compute_time_ms = sum((r.eta_ms for r in results if r.eta_ms))
         compute_hours = total_compute_time_ms / 1000 / 3600 if results else 0.0
         usage_data['compute_hours'] = compute_hours
@@ -99,7 +99,7 @@ class BillingIntegration:
         client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
         response = await client.async_post('/api/billing/usage', json=billing_event)
         if response:
-            return response
+            return response  # type: ignore[no-any-return]
         else:
             raise NetworkError('Failed to send billing event')
 
@@ -109,12 +109,12 @@ class BillingIntegration:
         if self.coordinator_api_key:
             headers['Authorization'] = f'Bearer {self.coordinator_api_key}'
         client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
-        params = {'hours': hours}
+        params: dict[str, Any] = {'hours': hours}
         if tenant_id:
             params['tenant_id'] = tenant_id
         response = await client.async_get('/api/billing/metrics', params=params)
         if response:
-            return response
+            return response  # type: ignore[no-any-return]
         else:
             raise NetworkError('Failed to get billing metrics')
 
@@ -127,7 +127,7 @@ class BillingIntegration:
         client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
         response = await client.async_post('/api/billing/invoice', json=payload)
         if response:
-            return response
+            return response  # type: ignore[no-any-return]
         else:
             raise NetworkError('Failed to trigger invoice generation')
 
@@ -139,7 +139,7 @@ class BillingIntegrationScheduler:
         self.logger = get_logger(__name__)
         self.running = False
 
-    async def start(self, sync_interval_hours: int=1):
+    async def start(self, sync_interval_hours: int=1) -> None:
         """Start the billing synchronization scheduler"""
         if self.running:
             return
@@ -147,12 +147,12 @@ class BillingIntegrationScheduler:
         self.logger.info('Billing Integration scheduler started')
         asyncio.create_task(self._sync_loop(sync_interval_hours))
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the billing synchronization scheduler"""
         self.running = False
         self.logger.info('Billing Integration scheduler stopped')
 
-    async def _sync_loop(self, interval_hours: int):
+    async def _sync_loop(self, interval_hours: int) -> None:
         """Background task that syncs usage data periodically"""
         while self.running:
             try:
