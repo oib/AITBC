@@ -47,7 +47,7 @@ def rate_limit(rate: int=100, per: int=60, key_func: Callable[[Request], str] | 
     from typing import ParamSpec
     P = ParamSpec('P')
 
-    def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
+    def decorator(func: Callable[P, Any]) -> Callable[P, Any]:  # type: ignore[misc]
         limiter = RateLimiter(rate=rate, per=per)
         is_async = asyncio.iscoroutinefunction(func)
 
