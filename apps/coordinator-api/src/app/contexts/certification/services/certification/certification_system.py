@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Certification System - Agent certification framework and verification system
 """
@@ -9,8 +8,8 @@ from typing import Any
 from uuid import uuid4
 from aitbc import get_logger
 logger = get_logger(__name__)
-from app.domain.certification import AgentCertification, CertificationLevel, CertificationStatus, VerificationType
-from app.domain.reputation import AgentReputation
+from app.domain.certification import AgentCertification, CertificationLevel, CertificationStatus, VerificationType  # type: ignore[import-not-found]
+from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
 from sqlmodel import Session, and_, select
 
 class CertificationSystem:
@@ -22,10 +21,10 @@ class CertificationSystem:
 
     async def certify_agent(self, session: Session, agent_id: str, level: CertificationLevel, issued_by: str, certification_type: str='standard') -> tuple[bool, AgentCertification | None, list[str]]:
         """Certify an agent at a specific level"""
-        level_config = self.certification_levels.get(level)
+        level_config: dict[str, Any] | None = self.certification_levels.get(level)
         if not level_config:
             return (False, None, [f'Invalid certification level: {level}'])
-        requirements = level_config['requirements']
+        requirements: list[str] = level_config['requirements']
         errors = []
         verification_results = {}
         for requirement in requirements:
@@ -41,7 +40,7 @@ class CertificationSystem:
             return (False, None, errors)
         certification_id = f'cert_{uuid4().hex[:8]}'
         verification_hash = self.generate_verification_hash(agent_id, level, certification_id)
-        expires_at = datetime.now(UTC) + timedelta(days=level_config['validity_days'])
+        expires_at = datetime.now(UTC) + timedelta(days=int(level_config['validity_days']))
         certification = AgentCertification(certification_id=certification_id, agent_id=agent_id, certification_level=level, certification_type=certification_type, issued_by=issued_by, expires_at=expires_at, verification_hash=verification_hash, status=CertificationStatus.ACTIVE, requirements_met=requirements, verification_results=verification_results, granted_privileges=level_config['privileges'], access_levels=[level.value], special_capabilities=self.get_special_capabilities(level), audit_log=[{'action': 'issued', 'timestamp': datetime.now(UTC).isoformat(), 'performed_by': issued_by, 'details': f'Certification issued at {level.value} level'}])
         session.add(certification)
         session.commit()
@@ -179,10 +178,10 @@ class CertificationSystem:
             return (False, 'Certification not found')
         if certification.status != CertificationStatus.ACTIVE:
             return (False, 'Cannot renew inactive certification')
-        level_config = self.certification_levels.get(certification.certification_level)
+        level_config: dict[str, Any] | None = self.certification_levels.get(certification.certification_level)
         if not level_config:
             return (False, 'Invalid certification level')
-        renewal_requirements = level_config['renewal_requirements']
+        renewal_requirements: list[str] = level_config['renewal_requirements']
         errors = []
         for requirement in renewal_requirements:
             result = await self.verify_requirement(session, certification.agent_id, requirement)
@@ -190,7 +189,7 @@ class CertificationSystem:
                 errors.append(f"Renewal requirement '{requirement}' failed: {result.get('reason', 'Unknown reason')}")
         if errors:
             return (False, f"Renewal requirements not met: {'; '.join(errors)}")
-        certification.expires_at = datetime.now(UTC) + timedelta(days=level_config['validity_days'])
+        certification.expires_at = datetime.now(UTC) + timedelta(days=int(level_config['validity_days']))
         certification.renewal_count += 1
         certification.last_renewed_at = datetime.now(UTC)
         certification.verification_hash = self.generate_verification_hash(certification.agent_id, certification.certification_level, certification.certification_id)

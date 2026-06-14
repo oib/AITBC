@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Service for Hermes self-healing and health monitoring with database storage."""
 import json
 import uuid
@@ -18,7 +17,7 @@ class HealthService:
     def report_health(self, health_check: HealthCheck, session: Session) -> str:
         """Report health status for an agent or service."""
         key = f'{health_check.agent_id}:{health_check.service_name}'
-        health_record = HealthCheckModel(id=str(uuid.uuid4()), agent_id=health_check.agent_id, service_name=health_check.service_name, status=health_check.status, timestamp=health_check.timestamp or datetime.utcnow(), response_time_ms=health_check.response_time_ms, error_message=health_check.error_message, meta_data=json.dumps(health_check.metadata or {}))
+        health_record = HealthCheckModel(id=str(uuid.uuid4()), agent_id=health_check.agent_id, service_name=health_check.service_name, status=health_check.status, timestamp=health_check.timestamp or datetime.utcnow(), response_time_ms=health_check.response_time_ms, error_message=health_check.error_message, meta_data=json.dumps(health_check.metadata or {}))  # type: ignore[arg-type]
         session.add(health_record)
         session.commit()
         if health_check.status in [HealthStatus.UNHEALTHY, HealthStatus.DEGRADED]:
