@@ -118,7 +118,7 @@ class RewardDistributor:
         self.delegation_reward_split = 0.9  # 90% to delegators, 10% to validator
 
     def add_reward_event(self, validator_address: str, reward_type: RewardType,
-                        amount: float, block_height: int, metadata: dict | None = None):
+                        amount: float, block_height: int, metadata: dict | None = None) -> None:
         """Add a reward event"""
         reward_event = RewardEvent(
             validator_address=validator_address,

@@ -7,7 +7,7 @@ to ensure they only occur through validated transactions.
 from __future__ import annotations
 import os
 from datetime import UTC, datetime
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlmodel import Session, select
 from ..logger import get_logger
 from ..models import Account, Receipt, Transaction
@@ -15,7 +15,7 @@ from .gpu_resources import GPUAllocation, GPURegistration
 try:
     from aitbc.redis_cache import RedisCache
     _REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-    _cache = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
+    _cache: RedisCache | None = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
 except Exception:
     _cache = None
 logger = get_logger(__name__)
@@ -29,7 +29,7 @@ class StateTransition:
     balances.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._processed_nonces: dict[str, int] = {}
         self._processed_tx_hashes: set = set()
 
@@ -57,7 +57,7 @@ class StateTransition:
         sender_account = session.get(Account, (chain_id, sender_addr))
         if not sender_account:
             return (False, f'Sender account not found: {sender_addr}')
-        expected_nonce = sender_account.nonce
+        expected_nonce = sender_account.nonce if sender_account.nonce is not None else 0
         tx_nonce = tx_data.get('nonce', 0)
         if tx_nonce != expected_nonce:
             return (False, f'Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}')
@@ -154,13 +154,14 @@ class StateTransition:
             receipt_id = tx_data.get('payload', {}).get('receipt_id')
             receipt = session.exec(select(Receipt).where(Receipt.chain_id == chain_id, Receipt.receipt_id == receipt_id)).first()
             if receipt and receipt.minted_amount:
-                sender_account.balance += receipt.minted_amount
+                sender_account.balance += receipt.minted_amount  # type: ignore[union-attr]
                 receipt.status = 'claimed'
                 receipt.claimed_at = datetime.now(UTC)
                 receipt.claimed_by = sender_addr
                 logger.info('Claimed receipt %s: minted_amount=%s, claimed_by=%s', receipt_id, receipt.minted_amount, sender_addr)
         self._processed_tx_hashes.add(tx_hash)
-        self._processed_nonces[sender_addr] = sender_account.nonce
+        if sender_addr is not None:
+            self._processed_nonces[sender_addr] = sender_account.nonce  # type: ignore[union-attr]
         if _cache and _cache.is_available():
             for addr in [sender_addr, recipient_addr]:
                 if addr:
