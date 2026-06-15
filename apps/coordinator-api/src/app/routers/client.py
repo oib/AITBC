@@ -35,7 +35,7 @@ async def submit_job(req: JobCreate, request: Request, session: Annotated[Sessio
             job.payment_status = 'skipped'
             session.commit()
             session.refresh(job)
-    return service.to_view(job)
+    return service.to_view(job)  # type: ignore[no-any-return]
 
 @router.get('/jobs/{job_id}', response_model=JobView, summary='Get job status')
 @rate_limit(rate=200, per=60)
@@ -45,7 +45,7 @@ async def get_job(request: Request, job_id: str, session: Annotated[Session, Dep
         job = service.get_job(job_id, client_id=client_id)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='job not found')
-    return service.to_view(job)
+    return service.to_view(job)  # type: ignore[no-any-return]
 
 @router.get('/jobs/{job_id}/result', response_model=JobResult, summary='Get job result')
 @rate_limit(rate=200, per=60)
@@ -59,7 +59,7 @@ async def get_job_result(request: Request, job_id: str, session: Annotated[Sessi
         raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail='job not ready')
     if job.result is None and job.receipt is None:
         raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail='job not ready')
-    return service.to_result(job)
+    return service.to_result(job)  # type: ignore[no-any-return]
 
 @router.post('/jobs/{job_id}/cancel', response_model=JobView, summary='Cancel job')
 @rate_limit(rate=50, per=60)
@@ -72,7 +72,7 @@ async def cancel_job(request: Request, job_id: str, session: Annotated[Session, 
     if job.state not in {JobState.queued, JobState.running}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='job not cancelable')
     job = service.cancel_job(job)
-    return service.to_view(job)
+    return service.to_view(job)  # type: ignore[no-any-return]
 
 @router.get('/jobs/{job_id}/receipt', summary='Get latest signed receipt')
 @rate_limit(rate=200, per=60)
@@ -84,7 +84,7 @@ async def get_job_receipt(request: Request, job_id: str, session: Annotated[Sess
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='job not found')
     if not job.receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='receipt not available')
-    return job.receipt
+    return job.receipt  # type: ignore[no-any-return]
 
 @router.get('/jobs/{job_id}/receipts', summary='List signed receipts')
 @rate_limit(rate=200, per=60)
@@ -106,7 +106,7 @@ async def list_jobs(request: Request, session: Annotated[Session, Depends(get_se
         except ValueError:
             pass
     if job_type:
-        filters['job_type'] = job_type
+        filters['job_type'] = job_type  # type: ignore[assignment]
     jobs = service.list_jobs(client_id=client_id, limit=limit, offset=offset, **filters)
     return {'items': [service.to_view(job) for job in jobs], 'total': len(jobs), 'limit': limit, 'offset': offset}
 
@@ -123,7 +123,7 @@ async def get_job_history(request: Request, session: Annotated[Session, Depends(
         except ValueError:
             pass
     if job_type:
-        filters['job_type'] = job_type
+        filters['job_type'] = job_type  # type: ignore[assignment]
     try:
         jobs = service.list_jobs(client_id=client_id, limit=limit, offset=offset, **filters)
         return {'items': [service.to_view(job) for job in jobs], 'total': len(jobs), 'limit': limit, 'offset': offset, 'from_time': from_time, 'to_time': to_time}

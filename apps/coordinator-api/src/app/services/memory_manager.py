@@ -144,7 +144,7 @@ class MemoryManager:
                         results.append(result)
             except Exception as e:
                 logger.error('Batch store error: %s', e)
-        return results
+        return results # type: ignore[return-value]
 
     async def list_agent_memories(self, agent_id: str, memory_type: MemoryType | None=None, limit: int=100, sort_by: str='timestamp', ascending: bool=False) -> list[MemoryRecord]:
         """List memories for an agent with filtering and sorting"""
@@ -204,11 +204,11 @@ class MemoryManager:
                     memories = list(self.memory_records.values())
                 total_memories = len(memories)
                 total_size = sum((m.size for m in memories))
-                by_type = {}
+                by_type: dict[str, int] = {}
                 for memory in memories:
                     memory_type = memory.memory_type.value
                     by_type[memory_type] = by_type.get(memory_type, 0) + 1
-                by_priority = {}
+                by_priority: dict[str, int] = {}
                 for memory in memories:
                     priority = memory.priority.value
                     by_priority[priority] = by_priority.get(priority, 0) + 1
@@ -230,9 +230,9 @@ class MemoryManager:
                         try:
                             deal_id = await self.ipfs_service.create_filecoin_deal(cid)
                             if deal_id:
-                                optimization_results['archived'] += 1
+                                optimization_results['archived'] += 1 # type: ignore[operator]
                         except Exception as e:
-                            optimization_results['errors'].append(f'Archive failed for {cid}: {e}')
+                            optimization_results['errors'].append(f'Archive failed for {cid}: {e}')  # type: ignore[attr-defined]
                 return optimization_results
             except Exception as e:
                 logger.error('Storage optimization failed: %s', e)

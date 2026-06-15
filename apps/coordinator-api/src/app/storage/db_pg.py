@@ -4,8 +4,8 @@ import json
 from collections.abc import Generator
 from typing import Any
 
-import psycopg2  # type: ignore[import-untyped]
-from psycopg2.extras import RealDictCursor  # type: ignore[import-untyped]
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
@@ -68,7 +68,7 @@ class PostgreSQLAdapter:
         """Execute a query and return results"""
         with self.connection.cursor() as cursor:
             cursor.execute(query, params)
-            rows: list[dict[str, Any]] = cursor.fetchall()
+            rows: list[dict[str, Any]] = cursor.fetchall()  # type: ignore[assignment]
             return rows
 
     def execute_update(self, query: str, params: tuple[Any, ...] | list[Any] | None = None) -> int:

@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 import websockets
+from websockets.server import WebSocketServerProtocol  # type: ignore[attr-defined]
 from aitbc import get_logger
 logger = get_logger(__name__)
 
@@ -57,7 +58,7 @@ class MarketDataCollector:
         self.data_callbacks: dict[DataSource, list[Callable]] = {}
         self.raw_data: list[MarketDataPoint] = []
         self.aggregated_data: dict[str, AggregatedMarketData] = {}
-        self.websocket_connections: dict[str, websockets.WebSocketServerProtocol] = {}
+        self.websocket_connections: dict[str, WebSocketServerProtocol] = {}
         self.collection_intervals = {DataSource.GPU_METRICS: 60, DataSource.BOOKING_DATA: 30, DataSource.REGIONAL_DEMAND: 300, DataSource.COMPETITOR_PRICES: 600, DataSource.PERFORMANCE_DATA: 120, DataSource.MARKET_SENTIMENT: 180}
         self.max_data_age = timedelta(hours=48)
         self.max_raw_data_points = 10000
@@ -255,7 +256,7 @@ class MarketDataCollector:
             relevant_data = [point for point in self.raw_data if point.resource_type == resource_type and point.region == region and (point.timestamp >= cutoff_time)]
             if not relevant_data:
                 return None
-            source_data = {}
+            source_data: dict[str, list[Any]] = {}
             data_sources = []
             for point in relevant_data:
                 if point.source not in source_data:
@@ -263,14 +264,14 @@ class MarketDataCollector:
                 source_data[point.source].append(point)
                 if point.source not in data_sources:
                     data_sources.append(point.source)
-            demand_level = self._calculate_aggregated_demand(source_data)
-            supply_level = self._calculate_aggregated_supply(source_data)
-            average_price = self._calculate_aggregated_price(source_data)
-            price_volatility = self._calculate_price_volatility(source_data)
-            utilization_rate = self._calculate_aggregated_utilization(source_data)
-            competitor_prices = self._get_competitor_prices(source_data)
-            market_sentiment = self._calculate_aggregated_sentiment(source_data)
-            confidence = self._calculate_aggregation_confidence(source_data, data_sources)
+            demand_level = self._calculate_aggregated_demand(source_data)  # type: ignore[arg-type]
+            supply_level = self._calculate_aggregated_supply(source_data)  # type: ignore[arg-type]
+            average_price = self._calculate_aggregated_price(source_data)  # type: ignore[arg-type]
+            price_volatility = self._calculate_price_volatility(source_data)  # type: ignore[arg-type]
+            utilization_rate = self._calculate_aggregated_utilization(source_data)  # type: ignore[arg-type]
+            competitor_prices = self._get_competitor_prices(source_data)  # type: ignore[arg-type]
+            market_sentiment = self._calculate_aggregated_sentiment(source_data)  # type: ignore[arg-type]
+            confidence = self._calculate_aggregation_confidence(source_data, data_sources)  # type: ignore[arg-type]
             return AggregatedMarketData(resource_type=resource_type, region=region, timestamp=datetime.now(UTC), demand_level=demand_level, supply_level=supply_level, average_price=average_price, price_volatility=price_volatility, utilization_rate=utilization_rate, competitor_prices=competitor_prices, market_sentiment=market_sentiment, data_sources=data_sources, confidence_score=confidence)
         except Exception as e:
             logger.error('Error aggregating data for %s_%s: %s', resource_type, region, e)
@@ -287,7 +288,7 @@ class MarketDataCollector:
             for point in source_data[DataSource.REGIONAL_DEMAND]:
                 demand_values.append(point.value)
         if demand_values:
-            return sum(demand_values) / len(demand_values)
+            return sum(demand_values) / len(demand_values)  # type: ignore[no-any-return]
         else:
             return 0.5
 
@@ -299,7 +300,7 @@ class MarketDataCollector:
                 if 'supply_level' in point.metadata:
                     supply_values.append(point.metadata['supply_level'])
         if supply_values:
-            return sum(supply_values) / len(supply_values)
+            return sum(supply_values) / len(supply_values)  # type: ignore[no-any-return]
         else:
             return 0.5
 
@@ -394,7 +395,7 @@ class MarketDataCollector:
     async def _start_websocket_server(self) -> None:
         """Start WebSocket server for real-time data streaming"""
 
-        async def handle_websocket(websocket, path) -> None:
+        async def handle_websocket(websocket: Any, path: str) -> None:
             """Handle WebSocket connections"""
             try:
                 connection_id = f'{websocket.remote_address}_{datetime.now(UTC).timestamp()}'
@@ -412,7 +413,7 @@ class MarketDataCollector:
             except Exception as e:
                 logger.error('Error handling WebSocket connection: %s', e)
         try:
-            self.websocket_server = await websockets.serve(handle_websocket, 'localhost', self.websocket_port)
+            self.websocket_server = await websockets.serve(handle_websocket, 'localhost', self.websocket_port)  # type: ignore[assignment, arg-type]
             logger.info('WebSocket server started on port %s', self.websocket_port)
         except Exception as e:
             logger.error('Failed to start WebSocket server: %s', e)

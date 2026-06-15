@@ -74,3 +74,15 @@ class MappingNotFoundError(AgentIdentityError):
     """Exception raised when cross-chain mapping is not found"""
 
     pass
+
+
+class NotFoundError(AgentIdentityError):
+    """Exception raised when resource is not found"""
+
+    pass
+
+
+class APIError(AgentIdentityError):
+    """Base exception for API errors"""
+
+    pass
