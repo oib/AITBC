@@ -17,6 +17,9 @@ Environment="TRANSFORMERS_CACHE=/var/lib/aitbc/whisper-cache"
 ExecStart=/opt/aitbc/venv/bin/python main.py
 Restart=always
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-whisper
 MemoryMax=1G
 
 [Install]
