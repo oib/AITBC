@@ -13,7 +13,7 @@ from aitbc import get_logger
 
 from ....agent_identity.manager import AgentIdentityManager
 from ....reputation.engine import CrossChainReputationEngine
-from ....services.multi_chain_transaction_manager import TransactionPriority
+from ....services.multi_chain_transaction_manager import TransactionPriority  # type: ignore[attr-defined]
 from ....storage.db import get_session
 from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
 from ..domain.global_marketplace import GlobalMarketplaceOffer
@@ -439,36 +439,36 @@ async def get_integration_health(
 ) -> dict[str, Any]:
     """Get global marketplace integration health status"""
     try:
-        health_status = {"overall_status": "healthy", "services": {}, "metrics": {}, "issues": []}
+        health_status: dict[str, Any] = {"overall_status": "healthy", "services": {}, "metrics": {}, "issues": []}
         try:
             await integration_service.marketplace_service.get_global_offers(limit=1)
-            health_status["services"]["marketplace_service"] = "healthy"  # type: ignore[index]
+            health_status["services"]["marketplace_service"] = "healthy"
         except Exception:
-            health_status["services"]["marketplace_service"] = "unhealthy"  # type: ignore[index]
-            health_status["issues"].append("Marketplace service error")  # type: ignore[attr-defined]
+            health_status["services"]["marketplace_service"] = "unhealthy"
+            health_status["issues"].append("Marketplace service error")
         try:
             regions = await integration_service.region_manager._get_active_regions()  # type: ignore[attr-defined]
-            health_status["services"]["region_manager"] = "healthy"  # type: ignore[index]
-            health_status["metrics"]["active_regions"] = len(regions)  # type: ignore[index]
+            health_status["services"]["region_manager"] = "healthy"
+            health_status["metrics"]["active_regions"] = len(regions)
         except Exception:
-            health_status["services"]["region_manager"] = "unhealthy"  # type: ignore[index]
-            health_status["issues"].append("Region manager error")  # type: ignore[attr-defined]
+            health_status["services"]["region_manager"] = "unhealthy"
+            health_status["issues"].append("Region manager error")
         if integration_service.bridge_service:
             try:
                 stats = await integration_service.bridge_service.get_bridge_statistics(1)
-                health_status["services"]["bridge_service"] = "healthy"  # type: ignore[index]
-                health_status["metrics"]["bridge_requests"] = stats["total_requests"]  # type: ignore[index]
+                health_status["services"]["bridge_service"] = "healthy"
+                health_status["metrics"]["bridge_requests"] = stats["total_requests"]
             except Exception:
-                health_status["services"]["bridge_service"] = "unhealthy"  # type: ignore[index]
-                health_status["issues"].append("Bridge service error")  # type: ignore[attr-defined]
+                health_status["services"]["bridge_service"] = "unhealthy"
+                health_status["issues"].append("Bridge service error")
         if integration_service.tx_manager:
             try:
                 stats = await integration_service.tx_manager.get_transaction_statistics(1)
-                health_status["services"]["transaction_manager"] = "healthy"  # type: ignore[index]
-                health_status["metrics"]["transactions"] = stats["total_transactions"]  # type: ignore[index]
+                health_status["services"]["transaction_manager"] = "healthy"
+                health_status["metrics"]["transactions"] = stats["total_transactions"]
             except Exception:
-                health_status["services"]["transaction_manager"] = "unhealthy"  # type: ignore[index]
-                health_status["issues"].append("Transaction manager error")  # type: ignore[attr-defined]
+                health_status["services"]["transaction_manager"] = "unhealthy"
+                health_status["issues"].append("Transaction manager error")
         if health_status["issues"]:
             health_status["overall_status"] = "degraded"
         health_status["last_updated"] = datetime.now(UTC).isoformat()
@@ -485,46 +485,49 @@ async def run_integration_diagnostics(
 ) -> dict[str, Any]:
     """Run integration diagnostics"""
     try:
-        diagnostics = {"diagnostic_type": diagnostic_type, "started_at": datetime.now(UTC).isoformat(), "results": {}}
+        diagnostics: dict[str, Any] = {
+            "diagnostic_type": diagnostic_type,
+            "started_at": datetime.now(UTC).isoformat(),
+            "results": {},
+        }
         if diagnostic_type == "full" or diagnostic_type == "services":
-            diagnostics["results"]["services"] = {}  # type: ignore[index]
+            diagnostics["results"]["services"] = {}
             try:
                 await integration_service.marketplace_service.get_global_offers(limit=1)
-                diagnostics["results"]["services"]["marketplace_service"] = {"status": "healthy", "offers_accessible": True}  # type: ignore[index]
+                diagnostics["results"]["services"]["marketplace_service"] = {"status": "healthy", "offers_accessible": True}
             except Exception:
-                diagnostics["results"]["services"]["marketplace_service"] = {"status": "unhealthy", "error": "Service error"}  # type: ignore[index]
+                diagnostics["results"]["services"]["marketplace_service"] = {"status": "unhealthy", "error": "Service error"}
             try:
                 regions = await integration_service.region_manager._get_active_regions()  # type: ignore[attr-defined]
-                diagnostics["results"]["services"]["region_manager"] = {"status": "healthy", "active_regions": len(regions)}  # type: ignore[index]
+                diagnostics["results"]["services"]["region_manager"] = {"status": "healthy", "active_regions": len(regions)}
             except Exception:
-                diagnostics["results"]["services"]["region_manager"] = {"status": "unhealthy", "error": "Service error"}  # type: ignore[index]
+                diagnostics["results"]["services"]["region_manager"] = {"status": "unhealthy", "error": "Service error"}
         if diagnostic_type == "full" or diagnostic_type == "cross-chain":
-            diagnostics["results"]["cross_chain"] = {}  # type: ignore[index]  # type: ignore[index]
+            diagnostics["results"]["cross_chain"] = {}
             if integration_service.bridge_service:
                 try:
                     stats = await integration_service.bridge_service.get_bridge_statistics(1)
-                    diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "healthy", "statistics": stats}  # type: ignore[index]
+                    diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "healthy", "statistics": stats}
                 except Exception:
-                    diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "unhealthy", "error": "Service error"}  # type: ignore[index]
+                    diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "unhealthy", "error": "Service error"}
             if integration_service.tx_manager:
                 try:
                     stats = await integration_service.tx_manager.get_transaction_statistics(1)
-                    diagnostics["results"]["cross_chain"]["transaction_manager"] = {"status": "healthy", "statistics": stats}  # type: ignore[index]
+                    diagnostics["results"]["cross_chain"]["transaction_manager"] = {"status": "healthy", "statistics": stats}
                 except Exception as e:
                     logger.error("Transaction manager error: %s", e)
                     diagnostics["results"]["cross_chain"]["transaction_manager"] = {
                         "status": "unhealthy",
                         "error": "Service error",
-                    }  # type: ignore[index]
+                    }
         if diagnostic_type == "full" or diagnostic_type == "performance":
             diagnostics["results"]["performance"] = {
                 "integration_metrics": integration_service.metrics,
                 "configuration": integration_service.integration_config,
-            }  # type: ignore[index]
+            }
         diagnostics["completed_at"] = datetime.now(UTC).isoformat()
-        diagnostics["duration_seconds"] = (
-            datetime.now(UTC) - datetime.fromisoformat(diagnostics["started_at"])
-        ).total_seconds()  # type: ignore[arg-type, assignment]
+        start_time = datetime.fromisoformat(diagnostics["started_at"])
+        diagnostics["duration_seconds"] = (datetime.now(UTC) - start_time).total_seconds()
         return diagnostics
     except Exception:
         raise HTTPException(status_code=500, detail="Error running diagnostics") from None
