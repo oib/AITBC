@@ -71,7 +71,7 @@ async def cache_health_check(request: Request, admin_key: str = Depends(require_
         raise HTTPException(status_code=500, detail="Failed to retrieve cache health") from e
 
 
-def _get_cache_recommendations(stats: dict) -> list:
+def _get_cache_recommendations(stats: dict[str, Any]) -> list[str]:
     """Get cache performance recommendations"""
     recommendations = []
     hit_rate = stats["hit_rate_percent"]
