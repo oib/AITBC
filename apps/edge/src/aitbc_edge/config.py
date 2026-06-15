@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # API settings
     api_host: str = "0.0.0.0"
-    api_port: int = 8103
+    api_port: int = 8111
     api_prefix: str = "/v1"
 
     # Database settings
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Blockchain node RPC settings
     blockchain_rpc_host: str = "localhost"
-    blockchain_rpc_port: int = 8006
+    blockchain_rpc_port: int = 8202
 
     # GPU service settings
     gpu_service_host: str = "localhost"
