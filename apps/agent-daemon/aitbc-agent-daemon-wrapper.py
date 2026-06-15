@@ -5,10 +5,14 @@ Supports multichain by spawning daemon instances for each configured chain
 Also supports Hermes API polling for agent messaging
 """
 
+import logging
 import os
 import subprocess
 
 from aitbc import DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, REPO_DIR
+
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
@@ -43,7 +47,7 @@ if enable_hermes and hermes_agent_ids:
             "--log-level",
             "INFO",
         ]
-        print(f"Starting Hermes polling daemon for agent: {agent_id}")
+        logger.info("Starting Hermes polling daemon for agent: %s", agent_id)
         proc = subprocess.Popen(cmd)
         processes.append(proc)
 
@@ -83,7 +87,7 @@ if processes or len(chains) > 1:
     for chain_id in chains:
         db_path = f"/var/lib/aitbc/data/{chain_id}/chain.db"
         cmd = ["/opt/aitbc/venv/bin/python", daemon_script, *base_args, "--db-path", db_path, "--chain-id", chain_id]
-        print(f"Starting blockchain agent daemon for chain: {chain_id} (db: {db_path})")
+        logger.info("Starting blockchain agent daemon for chain: %s (db: %s)", chain_id, db_path)
         proc = subprocess.Popen(cmd)
         processes.append(proc)
 
@@ -92,7 +96,7 @@ if processes or len(chains) > 1:
         for proc in processes:
             proc.wait()
     except KeyboardInterrupt:
-        print("Shutting down agent daemons...")
+        logger.info("Shutting down agent daemons")
         for proc in processes:
             proc.terminate()
         for proc in processes:
@@ -102,16 +106,16 @@ elif len(chains) == 1:
     chain_id = chains[0]
     db_path = f"/var/lib/aitbc/data/{chain_id}/chain.db"
     exec_cmd = ["/opt/aitbc/venv/bin/python", daemon_script, *base_args, "--db-path", db_path, "--chain-id", chain_id]
-    print(f"Starting single-chain agent daemon for {chain_id} (db: {db_path})")
+    logger.info("Starting single-chain agent daemon for %s (db: %s)", chain_id, db_path)
     os.execvp(exec_cmd[0], exec_cmd)
 else:
     # No chains configured, only Hermes daemons running
-    print("No blockchain chains configured, only Hermes polling active")
+    logger.info("No blockchain chains configured, only Hermes polling active")
     try:
         for proc in processes:
             proc.wait()
     except KeyboardInterrupt:
-        print("Shutting down Hermes daemons...")
+        logger.info("Shutting down Hermes daemons")
         for proc in processes:
             proc.terminate()
         for proc in processes:
