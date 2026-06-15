@@ -308,7 +308,7 @@ def handle_messaging_reputation(args, default_rpc_url, output_format, render_map
             if output_format(args) == "json":
                 logger.info(json.dumps(reputation, indent=2))
             else:
-                render_mapping("Agent %s reputation:" % args.agent_id, reputation)
+                render_mapping(f"Agent {args.agent_id} reputation:", reputation)
         else:
             logger.error("Query failed: %s", response.status_code)
             logger.error("Error: %s", response.text)

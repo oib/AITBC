@@ -10,7 +10,7 @@ from uuid import uuid4
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from app.domain.trading import (  # type: ignore[import-not-found]  # type: ignore[import-not-found]
+from app.domain.trading import (  # type: ignore[import-not-found]  # type: ignore[import-not-found]  # noqa: E402
     NegotiationStatus,
     SettlementType,
     TradeAgreement,
@@ -20,7 +20,7 @@ from app.domain.trading import (  # type: ignore[import-not-found]  # type: igno
     TradeStatus,
     TradeType,
 )
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, or_, select  # noqa: E402
 
 
 class MatchingEngine:

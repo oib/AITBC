@@ -202,7 +202,7 @@ async def execute_cross_chain_swap(swap_request: CrossChainSwapRequest) -> dict[
             "status": "pending",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Swap execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Swap execution failed: {str(e)}") from e
 
 
 async def process_cross_chain_swap(swap_id: str):
@@ -302,7 +302,7 @@ async def get_cross_chain_swap(swap_id: str):
             raise HTTPException(status_code=404, detail="Swap not found")
         return dict(swap)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get swap: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get swap: {str(e)}") from e
 
 
 @app.get("/api/v1/cross-chain/swaps")
@@ -328,7 +328,7 @@ async def get_cross_chain_swaps(user_address: str | None = None, status: str | N
         conn.close()
         return {"swaps": swaps, "total_swaps": len(swaps)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get swaps: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get swaps: {str(e)}") from e
 
 
 @app.post("/api/v1/cross-chain/bridge")
@@ -367,7 +367,7 @@ async def create_bridge_transaction(bridge_request: BridgeRequest):
             "status": "pending",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Bridge creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Bridge creation failed: {str(e)}") from e
 
 
 async def process_bridge_transaction(bridge_id: str):
@@ -407,7 +407,7 @@ async def get_bridge_transaction(bridge_id: str):
             raise HTTPException(status_code=404, detail="Bridge transaction not found")
         return dict(bridge)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get bridge: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get bridge: {str(e)}") from e
 
 
 @app.get("/api/v1/cross-chain/rates")
@@ -435,7 +435,7 @@ async def get_cross_chain_pools():
         conn.close()
         return {"pools": pools, "total_pools": len(pools)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get pools: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get pools: {str(e)}") from e
 
 
 @app.get("/api/v1/cross-chain/stats")
@@ -463,7 +463,7 @@ async def get_cross_chain_stats():
             "timestamp": datetime.now().isoformat(),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}") from e
 
 
 if __name__ == "__main__":

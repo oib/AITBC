@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 # Mock numpy before importing
 sys.modules["numpy"] = MagicMock()
 
-from ai_service import ai_engine, app
+from ai_service import ai_engine, app  # noqa: E402
 
 
 @pytest.mark.integration

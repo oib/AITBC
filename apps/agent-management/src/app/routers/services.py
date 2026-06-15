@@ -6,15 +6,15 @@ from sqlalchemy.orm import Session
 Services router for specific GPU workloads
 """
 
-from typing import Any
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status  # noqa: E402
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
-from ..deps import require_client_key
-from ..models.registry import service_registry  # type: ignore[import-not-found]
-from ..models.services import (  # type: ignore[import-not-found]
+from ..deps import require_client_key  # noqa: E402
+from ..models.registry import service_registry  # type: ignore[import-not-found]  # noqa: E402
+from ..models.services import (  # type: ignore[import-not-found]  # noqa: E402
     BlenderRequest,
     FFmpegRequest,
     LLMRequest,
@@ -24,9 +24,9 @@ from ..models.services import (  # type: ignore[import-not-found]
     StableDiffusionRequest,
     WhisperRequest,
 )
-from ..schemas import JobCreate  # type: ignore[import-not-found]
-from ..services import JobService  # type: ignore[attr-defined]
-from ..storage import get_session
+from ..schemas import JobCreate  # type: ignore[import-not-found]  # noqa: E402
+from ..services import JobService  # type: ignore[attr-defined]  # noqa: E402
+from ..storage import get_session  # noqa: E402
 
 router = APIRouter(tags=["services"])
 
@@ -79,7 +79,7 @@ async def submit_service_job(
     try:
         typed_request = service_request.get_service_request()
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request for {service_type}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request for {service_type}: {str(e)}") from e
 
     # Get constraints from service request
     constraints = typed_request.get_constraints()
@@ -544,7 +544,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
 
 
 # Import models for type hints
-from ..models.services import (
+from ..models.services import (  # noqa: E402
     BlenderEngine,
     FFmpegCodec,
     LLMModel,

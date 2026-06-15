@@ -4,7 +4,7 @@ Security tests for AITBC Confidential Transactions
 
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
@@ -185,7 +185,7 @@ class TestConfidentialTransactionSecurity:
         assert "rotation_id" in rotation_result
 
         # Verify old key can't decrypt new ciphertext
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             decrypt_data(
                 ciphertext=rotation_result["new_ciphertext"],
                 receiver_key=old_key,

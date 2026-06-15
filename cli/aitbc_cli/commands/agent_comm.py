@@ -73,7 +73,7 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
 
     except Exception as e:
         error(f"Error registering agent: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -124,7 +124,7 @@ def list(ctx, chain_id, status, capabilities, format):
 
     except Exception as e:
         error(f"Error listing agents: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -166,7 +166,7 @@ def discover(ctx, chain_id, capabilities, format):
 
     except Exception as e:
         error(f"Error discovering agents: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -191,7 +191,7 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
         except ValueError:
             error(f"Invalid message type: {message_type}")
             error(f"Valid types: {[t.value for t in MessageType]}")
-            raise click.Abort()
+            raise click.Abort() from None
 
         # Parse payload
         payload_dict = {}
@@ -200,7 +200,7 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
                 payload_dict = json.loads(payload)
             except json.JSONDecodeError:
                 error("Invalid JSON payload")
-                raise click.Abort()
+                raise click.Abort() from None
 
         # Create message
         message = AgentMessage(
@@ -238,11 +238,11 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
             output(message_data, ctx.obj.get("output_format", "table"))
         else:
             error(f"Failed to send message to {receiver_id}")
-            raise click.Abort()
+            raise click.Abort() from None
 
     except Exception as e:
         error(f"Error sending message: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -263,7 +263,7 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
                 governance_dict = json.loads(governance)
             except json.JSONDecodeError:
                 error("Invalid JSON governance rules")
-                raise click.Abort()
+                raise click.Abort() from None
 
         # Create collaboration
         collaboration_id = asyncio.run(comm.create_collaboration(list(agent_ids), collaboration_type, governance_dict))
@@ -282,11 +282,11 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
             output(collab_data, ctx.obj.get("output_format", "table"))
         else:
             error("Failed to create collaboration")
-            raise click.Abort()
+            raise click.Abort() from None
 
     except Exception as e:
         error(f"Error creating collaboration: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -332,7 +332,7 @@ def reputation(ctx, agent_id, interaction_result, feedback):
 
     except Exception as e:
         error(f"Error updating reputation: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -374,7 +374,7 @@ def status(ctx, agent_id, format):
 
     except Exception as e:
         error(f"Error getting agent status: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -431,7 +431,7 @@ def network(ctx, format):
 
     except Exception as e:
         error(f"Error getting network overview: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent_comm.command()
@@ -508,4 +508,4 @@ def monitor(ctx, realtime, interval):
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

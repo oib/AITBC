@@ -8,15 +8,14 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from datetime import UTC, datetime
+from datetime import UTC, datetime  # noqa: E402
 
-from app.workflow.orchestrator import (
-    WorkflowStatus,
+from app.workflow.orchestrator import (  # noqa: E402
     StepStatus,
-    WorkflowStep,
     WorkflowDefinition,
     WorkflowExecution,
+    WorkflowStatus,
+    WorkflowStep,
 )
 
 

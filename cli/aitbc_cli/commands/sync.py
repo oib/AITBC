@@ -68,4 +68,4 @@ def bulk(source, import_url, batch_size, poll_interval):
         click.echo("Bulk sync completed.")
     except Exception as e:
         click.echo(f"Error during bulk sync: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

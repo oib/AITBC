@@ -43,7 +43,7 @@ def _parse_datetime_value(value: Any, field_name: str) -> datetime | None:
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=f"Invalid {field_name}: {value}") from exc
-    raise HTTPException(status_code=400, detail=f"Invalid {field_name} type: {type(value).__name__}")
+    raise HTTPException(status_code=400, detail=f"Invalid {field_name} type: {type(value).__name__}") from None
 
 
 def _select_export_blocks(session: Session, chain_id: str) -> list[Block]:
@@ -151,7 +151,7 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
         raise
     except Exception as e:
         _logger.error("Error exporting chain: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to export chain: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export chain: {str(e)}") from e
 
 
 @rate_limit(rate=50, per=60)
@@ -267,7 +267,7 @@ async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[st
             raise
         except Exception as e:
             _logger.error("Error importing chain: %s", e)
-            raise HTTPException(status_code=500, detail=f"Failed to import chain: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to import chain: {str(e)}") from e
 
 
 @rate_limit(rate=50, per=60)
@@ -313,4 +313,4 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
         raise
     except Exception as e:
         _logger.error("Error forcing sync: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to force sync: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to force sync: {str(e)}") from e

@@ -62,10 +62,10 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
             "message": "Funds locked successfully. Use /bridge/confirm to complete.",
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         _logger.error("Bridge lock failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge lock failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Bridge lock failed: {str(e)}") from e
 
 
 @rate_limit(rate=20, per=60)
@@ -103,10 +103,10 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
             "message": "Cross-chain transfer completed successfully",
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         _logger.error("Bridge confirm failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge confirm failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Bridge confirm failed: {str(e)}") from e
 
 
 @rate_limit(rate=100, per=60)
@@ -140,7 +140,7 @@ async def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, A
         raise
     except Exception as e:
         _logger.error("Get bridge transfer failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get transfer: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get transfer: {str(e)}") from e
 
 
 @rate_limit(rate=50, per=60)
@@ -169,4 +169,4 @@ async def list_pending_transfers(request: Request, chain_id: str | None = None) 
         ]
     except Exception as e:
         _logger.error("List pending transfers failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to list transfers: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list transfers: {str(e)}") from e

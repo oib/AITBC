@@ -130,14 +130,14 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
             output(order_info, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error submitting transaction: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error creating buy order: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange_island.command()
@@ -229,10 +229,10 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
             output(order_info, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
     except Exception as e:
         error(f"Error creating sell order: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange_island.command()
@@ -325,10 +325,10 @@ def orderbook(ctx, pair: str, limit: int):
                     info(f"Best Ask: {best_ask:.8f} {pair.split('/')[1]}/AIT")
         except NetworkError as e:
             error(f"Network error fetching order book: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
     except Exception as e:
         error(f"Error fetching order book: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange_island.command()
@@ -379,11 +379,11 @@ def rates(ctx):
 
         except Exception as e:
             error(f"Network error querying blockchain: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error viewing exchange rates: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange_island.command()
@@ -439,11 +439,11 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
             output(orders_data, ctx.obj.get("output_format", "table"), title=f"Exchange Orders ({island_id[:16]}...)")
         except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error listing orders: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange_island.command()
@@ -496,8 +496,8 @@ def cancel(ctx, order_id: str):
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error cancelling order: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

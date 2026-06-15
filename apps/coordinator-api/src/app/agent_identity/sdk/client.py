@@ -15,8 +15,8 @@ import aiohttp
 from aitbc import get_logger
 
 from .exceptions import (
-    APIError,
     AgentIdentityError,
+    APIError,
     AuthenticationError,
     ConnectionError,
     NetworkError,
@@ -25,14 +25,24 @@ from .exceptions import (
     ValidationError,
 )
 from .models import (
-    AgentIdentity,
+    AgentIdentity,  # noqa: F401
     AgentWallet,
+    ChainConfig,
     ChainType,
-    CreateIdentityRequest,
+    CreateIdentityRequest,  # noqa: F401
     CreateIdentityResponse,
     CrossChainMapping,
+    IdentityStatistics,
     IdentityStatus,
+    MigrationResponse,
+    RegistryHealth,
+    SearchResponse,
+    SyncReputationResponse,
+    Transaction,
+    TransactionResponse,
+    UpdateIdentityResponse,
     VerificationType,
+    VerifyIdentityResponse,
 )
 
 logger = get_logger(__name__)
@@ -108,9 +118,9 @@ class AgentIdentityClient:
                         raise APIError(error_data.get("message", "Unknown error"))
             except aiohttp.ClientError as e:
                 if attempt == self.max_retries:
-                    raise ConnectionError(f"Failed to connect after {self.max_retries} retries: {e}")
+                    raise ConnectionError(f"Failed to connect after {self.max_retries} retries: {e}") from e
                 await asyncio.sleep(2**attempt)
-        raise APIError("Max retries exceeded")
+        raise APIError("Max retries exceeded") from None
 
     async def _post(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
         """Make a POST request with retry logic"""
@@ -143,8 +153,8 @@ class AgentIdentityClient:
                 if attempt < self.max_retries:
                     await asyncio.sleep(2**attempt)
                     continue
-                raise NetworkError(f"Network error: {str(e)}")
-        raise APIError("Max retries exceeded")
+                raise NetworkError(f"Network error: {str(e)}") from e
+        raise APIError("Max retries exceeded") from None
 
     async def create_identity(
         self,

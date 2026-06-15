@@ -10,8 +10,8 @@ cli_path = Path("/opt/aitbc/cli")
 if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
-import pytest
-from aitbc_cli.utils.crypto_utils import (
+import pytest  # noqa: E402
+from aitbc_cli.utils.crypto_utils import (  # noqa: E402
     MultisigSecurityManager,
     bech32_to_hex,
     create_signature_challenge,

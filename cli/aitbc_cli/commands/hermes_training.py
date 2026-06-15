@@ -23,7 +23,7 @@ def train(ctx, agent_id, dataset, epochs):
         output(result, ctx.obj.get("output_format", "table"), title="Hermes Training")
     except Exception as e:
         error(f"Error starting training: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hermes_training.command()
@@ -36,4 +36,4 @@ def status(ctx, agent_id):
         output(result, ctx.obj.get("output_format", "table"), title="Training Status")
     except Exception as e:
         error(f"Error getting training status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

@@ -43,7 +43,7 @@ async def prove_ml_training(request: Request, proof_request: dict) -> dict[str, 
             "circuit_type": "ml_training",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/verify/training")
@@ -64,7 +64,7 @@ async def verify_ml_training(request: Request, verification_request: dict, test_
             "privacy_preserved": verification_result.get("privacy_preserved", False),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/prove/modular")
@@ -88,7 +88,7 @@ async def prove_modular_ml(request: Request, proof_request: dict) -> dict[str, A
             "optimization_level": "phase3_optimized",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/verify/inference")
@@ -109,7 +109,7 @@ async def verify_ml_inference(request: Request, verification_request: dict, test
             "privacy_preserved": verification_result["privacy_preserved"],
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/fhe/inference")
@@ -153,7 +153,7 @@ async def fhe_ml_inference(request: Request, fhe_request: dict) -> dict[str, Any
             "computation_time_ms": fhe_request.get("computation_time_ms", 0),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/circuits")

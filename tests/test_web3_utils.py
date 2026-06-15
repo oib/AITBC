@@ -1,6 +1,6 @@
 """Tests for aitbc.network.web3_utils (fallback paths without web3)"""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

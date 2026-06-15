@@ -10,17 +10,25 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "packages" / "py" / "aitbc-agent-sdk" / "src"))
 sys.path.insert(0, str(REPO_ROOT / "packages" / "py" / "aitbc-sdk" / "src"))
 
-import aitbc_agent
-import aitbc_sdk
+import aitbc_agent  # noqa: E402
+import aitbc_sdk  # noqa: E402
 
-import aitbc
-from aitbc.aitbc_logging import get_logger as direct_get_logger
-from aitbc.constants import BLOCKCHAIN_RPC_PORT, DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, PACKAGE_VERSION
-from aitbc.exceptions import NetworkError, ValidationError
-from aitbc.network.http_client import AITBCHTTPClient
-from aitbc.testing import MockFactory
-from aitbc.utils.paths import ensure_dir, get_keystore_path
-from aitbc.utils.validation import validate_address, validate_url
+import aitbc  # noqa: E402
+from aitbc.aitbc_logging import get_logger as direct_get_logger  # noqa: E402
+from aitbc.constants import (  # noqa: E402
+    BLOCKCHAIN_RPC_PORT,
+    DATA_DIR,
+    ENV_FILE,
+    KEYSTORE_DIR,
+    LOG_DIR,
+    NODE_ENV_FILE,
+    PACKAGE_VERSION,
+)
+from aitbc.exceptions import NetworkError, ValidationError  # noqa: E402
+from aitbc.network.http_client import AITBCHTTPClient  # noqa: E402
+from aitbc.testing import MockFactory  # noqa: E402
+from aitbc.utils.paths import ensure_dir, get_keystore_path  # noqa: E402
+from aitbc.utils.validation import validate_address, validate_url  # noqa: E402
 
 
 def test_aitbc_root_exports_match_lightweight_submodules() -> None:

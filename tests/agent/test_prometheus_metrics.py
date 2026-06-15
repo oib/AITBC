@@ -11,8 +11,8 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from app.monitoring.prometheus_metrics import (
+import pytest  # noqa: E402
+from app.monitoring.prometheus_metrics import (  # noqa: E402
     Counter,
     Gauge,
     Histogram,

@@ -308,7 +308,7 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = No
             }
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create wallet: {str(e)}") from e
 
 
 @wallet_app.get("/v1/chains/{chain_id}/wallets/{wallet_id}")

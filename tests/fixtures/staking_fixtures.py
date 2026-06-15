@@ -16,8 +16,8 @@ from sqlmodel import SQLModel
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "coordinator-api" / "src"))
 
-from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
-from app.services.staking_service import StakingService
+from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool  # noqa: E402
+from app.services.staking_service import StakingService  # noqa: E402
 
 
 @pytest.fixture

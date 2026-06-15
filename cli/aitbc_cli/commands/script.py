@@ -33,7 +33,7 @@ def run(ctx, script_path, args):
         )
     except Exception as e:
         error(f"Error running script: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @script.command()
@@ -54,4 +54,4 @@ def list(ctx, script_dir):
         output(scripts, ctx.obj.get("output_format", "table"), title="Available Scripts")
     except Exception as e:
         error(f"Error listing scripts: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

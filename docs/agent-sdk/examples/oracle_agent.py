@@ -243,7 +243,7 @@ class OracleAgentExample:
             data = await self.data_sources[data_type](**parameters)
             return {"success": True, "data": data, "timestamp": datetime.now(UTC).isoformat()}
         else:
-            return {"success": False, "error": "Unknown data type: %s" % data_type}
+            return {"success": False, "error": f"Unknown data type: {data_type}"}
 
     async def get_agent_status(self) -> dict[str, Any]:
         """Get current agent status"""

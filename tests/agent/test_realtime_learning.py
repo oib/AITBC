@@ -8,11 +8,10 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from datetime import UTC, datetime, timedelta
-from collections import deque
+from collections import deque  # noqa: E402
+from datetime import UTC, datetime, timedelta  # noqa: E402
 
-from app.ai.realtime_learning import (
+from app.ai.realtime_learning import (  # noqa: E402
     LearningExperience,
     PredictiveModel,
     RealTimeLearningSystem,

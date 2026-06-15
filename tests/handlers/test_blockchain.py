@@ -12,8 +12,8 @@ cli_path = Path("/opt/aitbc/cli")
 if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
-import pytest
-from handlers.blockchain import (
+import pytest  # noqa: E402
+from handlers.blockchain import (  # noqa: E402
     handle_blockchain_block,
     handle_blockchain_blocks_range,
     handle_blockchain_export,

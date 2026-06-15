@@ -18,10 +18,23 @@ from ..logger import get_logger
 from ..mempool import get_mempool
 
 _logger = get_logger(__name__)
-from .accounts import create_account, faucet_request, get_account, get_account_alias, get_balance_breakdown, reconcile_balance
-from .blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block
-from .subscription import get_lease_status, get_subscribers, heartbeat, register_subscription, revoke_subscription
-from .transactions import (
+from .accounts import (  # noqa: E402
+    create_account,
+    faucet_request,
+    get_account,
+    get_account_alias,
+    get_balance_breakdown,
+    reconcile_balance,
+)
+from .blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block  # noqa: E402
+from .subscription import (  # noqa: E402
+    get_lease_status,
+    get_subscribers,
+    heartbeat,
+    register_subscription,
+    revoke_subscription,
+)
+from .transactions import (  # noqa: E402
     TransactionRequest,
     query_transactions,
     submit_marketplace_transaction,
@@ -98,8 +111,8 @@ except ImportError:
         verify_contract,
         vote_message,
     )
-from .gossip import GetLogsRequest, GetLogsResponse, get_logs
-from .sync import export_chain, force_sync, import_chain
+from .gossip import GetLogsRequest, GetLogsResponse, get_logs  # noqa: E402
+from .sync import export_chain, force_sync, import_chain  # noqa: E402
 
 try:
     from .islands import (
@@ -162,7 +175,7 @@ except ImportError:
 security = HTTPBearer(auto_error=False)
 router = APIRouter()
 try:
-    from .gpu_resources import *
+    from .gpu_resources import *  # noqa: F403
 except ImportError:
     _logger.warning("GPU resources module not available")
 _last_import_time = 0

@@ -6,16 +6,16 @@ from sqlalchemy.orm import Session
 Modality Optimization Service - FastAPI Entry Point
 """
 
-from fastapi import Depends, FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Depends, FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from ..contexts.multimodal.routers.modality_optimization_health import router as health_router
-from ..contexts.multimodal.services.modality_optimization import (
+from ..contexts.multimodal.routers.modality_optimization_health import router as health_router  # noqa: E402
+from ..contexts.multimodal.services.modality_optimization import (  # noqa: E402
     ModalityOptimizationManager,
     ModalityType,
     OptimizationStrategy,
 )
-from ..storage import get_session
+from ..storage import get_session  # noqa: E402
 
 app = FastAPI(
     title="AITBC Modality Optimization Service",

@@ -8,14 +8,14 @@ import asyncio
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-import hashlib
-import json
-from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timedelta
-from enum import StrEnum
-from typing import Any
+import hashlib  # noqa: E402
+import json  # noqa: E402
+from dataclasses import asdict, dataclass, field  # noqa: E402
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
 
-from app.contexts.cross_chain.services.cross_chain.reputation import (
+from app.contexts.cross_chain.services.cross_chain.reputation import (  # noqa: E402
     CrossChainReputationService,  # type: ignore[import-not-found]
 )
 

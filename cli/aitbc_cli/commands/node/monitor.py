@@ -100,7 +100,7 @@ def monitor_command(ctx, node_id, realtime, interval):
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def test_command(ctx, node_id):
@@ -157,4 +157,4 @@ def test_command(ctx, node_id):
 
     except Exception as e:
         error(f"Error testing node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

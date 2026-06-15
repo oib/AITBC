@@ -21,10 +21,10 @@ sys.path.insert(0, str(project_root))
 # Training fixtures (kept here as they're specific to training tests)
 # Auth fixtures
 # Test data factory
-import pytest
-from click.testing import CliRunner
+import pytest  # noqa: E402
+from click.testing import CliRunner  # noqa: E402
 
-from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
+from aitbc.training_setup import TrainingEnvironment, TrainingSetupError  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

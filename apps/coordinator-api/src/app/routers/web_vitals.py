@@ -75,7 +75,7 @@ async def collect_web_vitals(request: Request, metric: WebVitalsMetric) -> dict[
 
     except (ValueError, AttributeError, KeyError) as e:
         logger.error("Error processing web vitals metric", error=str(e))  # type: ignore[call-arg]
-        raise HTTPException(status_code=500, detail="Failed to process metric")
+        raise HTTPException(status_code=500, detail="Failed to process metric") from e
 
 
 # Health check for web vitals endpoint

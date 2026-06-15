@@ -92,7 +92,7 @@ class AgentPortfolioManager:
         except Exception as e:
             logger.error("Error creating portfolio: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def execute_trade(self, trade_request: TradeRequest, agent_address: str) -> TradeResponse:
         """Execute a trade within the agent's portfolio"""
@@ -136,7 +136,7 @@ class AgentPortfolioManager:
         except Exception as e:
             logger.error("Error executing trade: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def execute_rebalancing(self, rebalance_request: RebalanceRequest, agent_address: str) -> RebalanceResponse:
         """Automated portfolio rebalancing based on market conditions"""
@@ -165,7 +165,7 @@ class AgentPortfolioManager:
             )
         except Exception as e:
             logger.error("Error executing rebalancing: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def risk_assessment(self, agent_address: str) -> RiskAssessmentResponse:
         """Real-time risk assessment and position sizing"""
@@ -193,7 +193,7 @@ class AgentPortfolioManager:
             return RiskAssessmentResponse.from_orm(risk_metrics)
         except Exception as e:
             logger.error("Error in risk assessment: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def get_portfolio_performance(self, agent_address: str, period: str = "30d") -> dict:
         """Get portfolio performance metrics"""
@@ -203,7 +203,7 @@ class AgentPortfolioManager:
             return performance_data
         except Exception as e:
             logger.error("Error getting portfolio performance: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def create_portfolio_strategy(self, strategy_data: StrategyCreate) -> StrategyResponse:
         """Create a new portfolio strategy"""
@@ -228,7 +228,7 @@ class AgentPortfolioManager:
         except Exception as e:
             logger.error("Error creating strategy: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     def _get_agent_portfolio(self, agent_address: str) -> AgentPortfolio:
         """Get portfolio for agent address"""

@@ -74,7 +74,7 @@ def _get_wallet_password(wallet_name: str) -> str:
         if password:
             return password
         error("No TTY available for password prompt. Set AITBC_WALLET_PASSWORD environment variable.")
-        raise click.Abort()
+        raise click.Abort() from None
 
     # Prompt for password
     while True:
@@ -82,7 +82,7 @@ def _get_wallet_password(wallet_name: str) -> str:
             password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
         except Exception as e:
             error(f"Password prompt failed: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
         if not password:
             error("Password cannot be empty")
@@ -128,7 +128,7 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
             wallet_data["private_key"] = decrypt_value(wallet_data["private_key"], password)
         except Exception:
             error("Invalid password for wallet")
-            raise click.Abort()
+            raise click.Abort() from None
 
     return wallet_data
 
@@ -516,7 +516,7 @@ def balance(ctx, name: str | None):
         output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
     except Exception as e:
         error(f"Error getting wallet balance: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @wallet.command()
@@ -582,7 +582,7 @@ def transactions(ctx, name: str | None, limit: int):
         )
     except Exception as e:
         error(f"Error getting transactions: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @wallet.command()
@@ -941,7 +941,7 @@ def stake(ctx, amount: float, duration: int):
         )
     except Exception as e:
         error(f"Error staking tokens: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @wallet.command()
@@ -1001,7 +1001,7 @@ def unstake(ctx, stake_id: str):
         )
     except Exception as e:
         error(f"Error unstaking tokens: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @wallet.command(name="staking-info")
@@ -1058,7 +1058,7 @@ def staking_info(ctx):
         )
     except Exception as e:
         error(f"Error fetching staking info: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @wallet.command(name="multisig-create")

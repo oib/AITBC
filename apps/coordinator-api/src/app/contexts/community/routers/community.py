@@ -3,23 +3,23 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 
 "\nCommunity and Developer Ecosystem API Endpoints\nREST API for managing hermes developer profiles, SDKs, solutions, and hackathons\n"
-from typing import Any
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from ....domain.community import AgentSolution, CommunityPost, DeveloperProfile, Hackathon, InnovationLab
-from ....services.community_service import (
+from ....domain.community import AgentSolution, CommunityPost, DeveloperProfile, Hackathon, InnovationLab  # noqa: E402
+from ....services.community_service import (  # noqa: E402
     CommunityPlatformService,
     DeveloperEcosystemService,
     InnovationLabService,
     ThirdPartySolutionService,
 )
-from ....storage import get_session
+from ....storage import get_session  # noqa: E402
 
 router = APIRouter(prefix="/community", tags=["community"])
 
@@ -85,7 +85,7 @@ async def create_developer_profile(
         return profile
     except Exception as e:
         logger.error("Error creating developer profile: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/developers/{developer_id}", response_model=DeveloperProfile)
@@ -121,7 +121,7 @@ async def publish_solution(
         return solution
     except Exception as e:
         logger.error("Error publishing solution: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/solutions", response_model=list[AgentSolution])
@@ -145,9 +145,9 @@ async def purchase_solution(
         result = await service.purchase_solution(buyer_id, solution_id)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/labs/propose", response_model=InnovationLab)
@@ -164,7 +164,7 @@ async def propose_innovation_lab(
         lab = await service.propose_lab(researcher_id, request.dict())
         return lab
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/labs/{lab_id}/join")
@@ -178,7 +178,7 @@ async def join_innovation_lab(
         lab = await service.join_lab(lab_id, developer_id)
         return lab
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/labs/{lab_id}/fund")
@@ -192,7 +192,7 @@ async def fund_innovation_lab(
         lab = await service.fund_lab(lab_id, amount)
         return lab
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/platform/posts", response_model=CommunityPost)
@@ -209,7 +209,7 @@ async def create_community_post(
         post = await service.create_post(author_id, request.dict())
         return post
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/platform/feed", response_model=list[CommunityPost])
@@ -233,7 +233,7 @@ async def upvote_community_post(
         post = await service.upvote_post(post_id)
         return post
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/hackathons/create", response_model=Hackathon)
@@ -250,9 +250,9 @@ async def create_hackathon(
         hackathon = await service.create_hackathon(organizer_id, request.dict())
         return hackathon
     except ValueError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/hackathons/{hackathon_id}/register")
@@ -269,4 +269,4 @@ async def register_for_hackathon(
         hackathon = await service.register_for_hackathon(hackathon_id, developer_id)
         return hackathon
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

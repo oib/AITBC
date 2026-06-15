@@ -98,7 +98,7 @@ async def capabilities():
             "gpu_device": _device,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get capabilities: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get capabilities: {e}") from e
 
 
 @app.post("/process")
@@ -119,7 +119,7 @@ async def process_video(
         if _hw_accel not in result.stdout:
             raise HTTPException(status_code=503, detail=f"Hardware acceleration {_hw_accel} not available")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"FFmpeg not available: {e}")
+        raise HTTPException(status_code=503, detail=f"FFmpeg not available: {e}") from e
 
     # Create temporary files
     suffix = os.path.splitext(file.filename or "video.mp4")[1] or ".mp4"

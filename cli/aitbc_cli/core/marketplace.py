@@ -12,7 +12,6 @@ from enum import Enum
 from typing import Any
 
 from aitbc_cli.core.config import MultiChainConfig
-from aitbc_cli.models.chain import ChainType
 
 logger = logging.getLogger(__name__)
 
@@ -511,7 +510,7 @@ class GlobalChainMarketplace:
         """Update marketplace performance metrics"""
         try:
             total_listings = len(self.listings)
-            active_listings = len([l for l in self.listings.values() if l.status == MarketplaceStatus.ACTIVE])
+            active_listings = len([listing for listing in self.listings.values() if listing.status == MarketplaceStatus.ACTIVE])
             total_transactions = len(self.transactions)
 
             # Calculate total volume and average price

@@ -207,7 +207,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             buffer = self.metal_device.newBufferWithLength_options_(size, Metal.MTLResourceStorageModeShared)
             return buffer
         except Exception as e:
-            raise RuntimeError("Failed to allocate Apple Silicon memory: %s" % e)
+            raise RuntimeError(f"Failed to allocate Apple Silicon memory: {e}") from e
 
     def free_memory(self, memory_handle: Any) -> None:
         """Free allocated Apple Silicon memory."""
@@ -361,7 +361,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 return False
 
             result.fill(0)
-            for scalar, point in zip(scalars, points):
+            for scalar, point in zip(scalars, points, strict=True):
                 temp = np.multiply(scalar, point, dtype=result.dtype)
                 np.add(result, temp, out=result, dtype=result.dtype)
 
@@ -464,6 +464,6 @@ class AppleSiliconComputeProvider(ComputeProvider):
 
 
 # Register the Apple Silicon provider
-from .compute_provider import ComputeProviderFactory
+from .compute_provider import ComputeProviderFactory  # noqa: E402
 
 ComputeProviderFactory.register_provider(ComputeBackend.APPLE_SILICON, AppleSiliconComputeProvider)
