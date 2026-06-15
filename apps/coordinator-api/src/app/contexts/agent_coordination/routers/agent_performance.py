@@ -428,7 +428,7 @@ async def list_agent_capabilities(
 @router.get("/analytics/{agent_id}")
 @rate_limit(rate=200, per=60)
 async def get_performance_analytics(
-    request: Request, agent_id: str, period_days: int = 30, session: Annotated[Session, Depends(get_session)]
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)], period_days: int = 30
 ) -> dict[str, Any]:
     """Get performance analytics for an agent"""
     performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
