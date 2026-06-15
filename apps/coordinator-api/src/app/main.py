@@ -14,7 +14,12 @@ from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
-from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, get_logger
+from aitbc import (  # type: ignore[attr-defined]
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    get_logger,
+)
 from aitbc.aitbc_logging import configure_logging
 
 if TYPE_CHECKING:
@@ -469,7 +474,7 @@ def create_app() -> FastAPI:
         return Response(content=generate_latest(rate_limit_registry), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/v1/metrics", tags=["health"], summary="Live JSON metrics for dashboard consumption")
-    async def live_metrics() -> dict:
+    async def live_metrics() -> dict[str, Any]:
         return build_live_metrics_payload(
             cache_stats=cache_manager.get_stats(), dispatcher=alert_dispatcher, collector=metrics_collector
         )
