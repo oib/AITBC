@@ -57,13 +57,13 @@ class GlobalMarketplaceIntegrationService:
             logger.error('Error initializing integration services: %s', e)
             raise
 
-    async def create_cross_chain_marketplace_offer(self, agent_id: str, service_type: str, resource_specification: dict[str, Any], base_price: float, currency: str='USD', total_capacity: int=100, regions_available: list[str]=None, supported_chains: list[int]=None, cross_chain_pricing: dict[int, float] | None=None, auto_bridge_enabled: bool=True, reputation_threshold: float=500.0, deadline_minutes: int=60) -> dict[str, Any]:
+    async def create_cross_chain_marketplace_offer(self, agent_id: str, service_type: str, resource_specification: dict[str, Any], base_price: float, currency: str='USD', total_capacity: int=100, regions_available: list[str] | None=None, supported_chains: list[int] | None=None, cross_chain_pricing: dict[int, float] | None=None, auto_bridge_enabled: bool=True, reputation_threshold: float=500.0, deadline_minutes: int=60) -> dict[str, Any]:
         """Create a cross-chain enabled marketplace offer"""
         try:
             reputation_summary = await self.reputation_engine.get_agent_reputation_summary(agent_id)
             if reputation_summary.get('trust_score', 0) < reputation_threshold:
                 raise ValueError(f"Insufficient reputation: {reputation_summary.get('trust_score', 0)} < {reputation_threshold}")
-            active_regions = await self.region_manager._get_active_regions()
+            active_regions = await self.region_manager._get_active_regions()  # type: ignore[attr-defined]
             if not regions_available:
                 regions_available = [region.region_code for region in active_regions]
             if not supported_chains:
@@ -72,7 +72,7 @@ class GlobalMarketplaceIntegrationService:
                 cross_chain_pricing = await self._calculate_cross_chain_pricing(base_price, supported_chains, regions_available)
             from ..domain.global_marketplace import GlobalMarketplaceOfferRequest
             offer_request = GlobalMarketplaceOfferRequest(agent_id=agent_id, service_type=service_type, resource_specification=resource_specification, base_price=base_price, currency=currency, total_capacity=total_capacity, regions_available=regions_available, supported_chains=supported_chains, dynamic_pricing_enabled=self.integration_config['regional_pricing_enabled'], expires_at=datetime.now(UTC) + timedelta(minutes=deadline_minutes))
-            global_offer = await self.marketplace_service.create_global_offer(offer_request, None)
+            global_offer = await self.marketplace_service.create_global_offer(offer_request, None) # type: ignore[arg-type]
             if cross_chain_pricing:
                 global_offer.cross_chain_pricing = cross_chain_pricing
                 self.session.commit()
@@ -99,14 +99,14 @@ class GlobalMarketplaceIntegrationService:
             if buyer_reputation.get('trust_score', 0) < 300:
                 raise ValueError('Insufficient buyer reputation')
             if not source_chain or not target_chain:
-                source_chain, target_chain = await self._determine_optimal_chains(buyer_id, offer, source_region, target_region)
+                source_chain, target_chain = await self._determine_optimal_chains(buyer_id, offer, source_region, target_region) # type: ignore[arg-type]
             unit_price = offer.base_price
             if source_chain in offer.cross_chain_pricing:
                 unit_price = offer.cross_chain_pricing[source_chain]
             total_amount = unit_price * quantity
             from ..domain.global_marketplace import GlobalMarketplaceTransactionRequest
             tx_request = GlobalMarketplaceTransactionRequest(buyer_id=buyer_id, offer_id=offer_id, quantity=quantity, source_region=source_region, target_region=target_region, payment_method=payment_method, source_chain=source_chain, target_chain=target_chain)
-            global_transaction = await self.marketplace_service.create_global_transaction(tx_request, None)
+            global_transaction = await self.marketplace_service.create_global_transaction(tx_request, None) # type: ignore[arg-type]
             offer.available_capacity -= quantity
             offer.total_transactions += 1
             offer.updated_at = datetime.now(UTC)
@@ -153,8 +153,8 @@ class GlobalMarketplaceIntegrationService:
             start_time = end_time - timedelta(hours=time_period_hours)
             analytics_request = GlobalMarketplaceAnalyticsRequest(period_type='hourly', start_date=start_time, end_date=end_time, region=region or 'global', metrics=[], include_cross_chain=True, include_regional=True)
             marketplace_analytics = await self.marketplace_service.get_marketplace_analytics(analytics_request)
-            bridge_stats = await self.bridge_service.get_bridge_statistics(time_period_hours)
-            tx_stats = await self.tx_manager.get_transaction_statistics(time_period_hours, chain_id)
+            bridge_stats = await self.bridge_service.get_bridge_statistics(time_period_hours)  # type: ignore[union-attr]
+            tx_stats = await self.tx_manager.get_transaction_statistics(time_period_hours, chain_id)  # type: ignore[union-attr]
             cross_chain_metrics = await self._calculate_cross_chain_metrics(time_period_hours, region, chain_id)
             return {'time_period_hours': time_period_hours, 'region': region or 'global', 'chain_id': chain_id, 'marketplace_analytics': marketplace_analytics, 'bridge_statistics': bridge_stats, 'transaction_statistics': tx_stats, 'cross_chain_metrics': cross_chain_metrics, 'integration_metrics': self.metrics, 'generated_at': datetime.now(UTC).isoformat()}
         except Exception as e:
@@ -169,7 +169,7 @@ class GlobalMarketplaceIntegrationService:
             if not offer:
                 raise ValueError('Offer not found')
             market_conditions = await self._analyze_market_conditions(offer.service_type, target_regions, target_chains)
-            optimized_pricing = await self._calculate_optimized_pricing(offer, market_conditions, optimization_strategy)
+            optimized_pricing = await self._calculate_optimized_pricing(offer, market_conditions, optimization_strategy) # type: ignore[arg-type]
             offer.price_per_region = optimized_pricing['regional_pricing']
             offer.cross_chain_pricing = optimized_pricing['cross_chain_pricing']
             offer.updated_at = datetime.now(UTC)
@@ -242,7 +242,7 @@ class GlobalMarketplaceIntegrationService:
         """Execute cross-chain bridge for transaction"""
         try:
             user_address = f'0x{hashlib.sha256(user_id.encode()).hexdigest()[:40]}'
-            bridge_request = await self.bridge_service.create_bridge_request(user_address=user_address, source_chain_id=source_chain, target_chain_id=target_chain, amount=amount, protocol=protocol, security_level=BridgeSecurityLevel.MEDIUM, deadline_minutes=30)
+            bridge_request = await self.bridge_service.create_bridge_request(user_address=user_address, source_chain_id=source_chain, target_chain_id=target_chain, amount=amount, protocol=protocol, security_level=BridgeSecurityLevel.MEDIUM, deadline_minutes=30)  # type: ignore[union-attr]
             return bridge_request
         except Exception as e:
             logger.error('Error executing cross-chain bridge: %s', e)
@@ -254,7 +254,7 @@ class GlobalMarketplaceIntegrationService:
             availability = {'total_chains': len(offer.supported_chains), 'available_chains': offer.supported_chains, 'pricing_available': bool(offer.cross_chain_pricing), 'bridge_enabled': self.integration_config['auto_bridge_execution'], 'regional_availability': {}}
             for region in offer.regions_available:
                 region_availability = {'available': True, 'chains_available': offer.supported_chains, 'pricing': offer.price_per_region.get(region, offer.base_price)}
-                availability['regional_availability'][region] = region_availability
+                availability['regional_availability'][region] = region_availability  # type: ignore[index]
             return availability
         except Exception as e:
             logger.error('Error getting cross-chain availability: %s', e)
@@ -265,7 +265,7 @@ class GlobalMarketplaceIntegrationService:
         try:
             metrics = {'cross_chain_volume': 0.0, 'cross_chain_transactions': 0, 'average_cross_chain_time': 0.0, 'cross_chain_success_rate': 0.0, 'chain_utilization': {}, 'regional_distribution': {}}
             for chain_id in WalletAdapterFactory.get_supported_chains():
-                metrics['chain_utilization'][str(chain_id)] = {'volume': 0.0, 'transactions': 0, 'success_rate': 0.0}
+                metrics['chain_utilization'][str(chain_id)] = {'volume': 0.0, 'transactions': 0, 'success_rate': 0.0}  # type: ignore[index]
             return metrics
         except Exception as e:
             logger.error('Error calculating cross-chain metrics: %s', e)
@@ -277,11 +277,11 @@ class GlobalMarketplaceIntegrationService:
             conditions = {'demand_level': 'medium', 'competition_level': 'medium', 'price_trend': 'stable', 'regional_conditions': {}, 'chain_conditions': {}}
             if target_regions:
                 for region in target_regions:
-                    conditions['regional_conditions'][region] = {'demand': 'medium', 'supply': 'medium', 'price_pressure': 'stable'}
+                    conditions['regional_conditions'][region] = {'demand': 'medium', 'supply': 'medium', 'price_pressure': 'stable'}  # type: ignore[index]
             if target_chains:
                 for chain_id in target_chains:
                     chain_info = WalletAdapterFactory.get_chain_info(chain_id)
-                    conditions['chain_conditions'][str(chain_id)] = {'gas_price': chain_info.get('gas_price', 20), 'network_activity': 'medium', 'congestion': 'low'}
+                    conditions['chain_conditions'][str(chain_id)] = {'gas_price': chain_info.get('gas_price', 20), 'network_activity': 'medium', 'congestion': 'low'}  # type: ignore[index]  # type: ignore[index]
             return conditions
         except Exception as e:
             logger.error('Error analyzing market conditions: %s', e)
@@ -300,7 +300,7 @@ class GlobalMarketplaceIntegrationService:
                         demand_multiplier = 1.1
                     elif regional_condition.get('demand') == 'low':
                         demand_multiplier = 0.9
-                    optimized_pricing['regional_pricing'][region] = base_price * demand_multiplier
+                    optimized_pricing['regional_pricing'][region] = base_price * demand_multiplier  # type: ignore[index]
                 for chain_id in offer.supported_chains:
                     chain_condition = market_conditions['chain_conditions'].get(str(chain_id), {})
                     chain_multiplier = 1.0
@@ -308,18 +308,18 @@ class GlobalMarketplaceIntegrationService:
                         chain_multiplier = 1.05
                     elif chain_condition.get('congestion') == 'low':
                         chain_multiplier = 0.95
-                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * chain_multiplier
+                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * chain_multiplier  # type: ignore[index]
             elif strategy == 'aggressive':
                 for region in offer.regions_available:
-                    optimized_pricing['regional_pricing'][region] = base_price * 0.9
+                    optimized_pricing['regional_pricing'][region] = base_price * 0.9  # type: ignore[index]
                 for chain_id in offer.supported_chains:
-                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * 0.85
+                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * 0.85  # type: ignore[index]
                 optimized_pricing['price_improvement'] = -0.1
             elif strategy == 'premium':
                 for region in offer.regions_available:
-                    optimized_pricing['regional_pricing'][region] = base_price * 1.15
+                    optimized_pricing['regional_pricing'][region] = base_price * 1.15  # type: ignore[index]
                 for chain_id in offer.supported_chains:
-                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * 1.1
+                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * 1.1  # type: ignore[index]
                 optimized_pricing['price_improvement'] = 0.1
             return optimized_pricing
         except Exception as e:

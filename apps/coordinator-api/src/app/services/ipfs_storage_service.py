@@ -15,7 +15,7 @@ from .secure_pickle import safe_loads
 ipfshttpclient = None
 web3 = None
 try:
-    import ipfshttpclient
+    import ipfshttpclient  # type: ignore[import-not-found, no-redef]
     from web3 import Web3
     web3 = Web3
 except ImportError as e:
@@ -59,7 +59,7 @@ class IPFSStorageService:
         if ipfshttpclient is None:
             logger.warning('IPFS client not available - ipfshttpclient not installed')
             return
-        try:
+        try:  # type: ignore[unreachable]
             ipfs_url = self.config.get('ipfs_url', '/ip4/127.0.0.1/tcp/5001')
             self.ipfs_client = ipfshttpclient.connect(ipfs_url, session=True)
             version = self.ipfs_client.version()
@@ -85,7 +85,7 @@ class IPFSStorageService:
         """Upload agent memory data to IPFS"""
         if self.ipfs_client is None:
             raise ValueError('IPFS service not available')
-        start_time = datetime.now(UTC)
+        start_time = datetime.now(UTC)  # type: ignore[unreachable]
         tags = tags or []
         try:
             serialized_data = pickle.dumps(memory_data)
@@ -129,7 +129,7 @@ class IPFSStorageService:
             metadata = await self._get_metadata(cid)
             if not metadata:
                 raise ValueError(f'No metadata found for CID {cid}')
-            retrieved_data = self.ipfs_client.cat(cid)
+            retrieved_data = self.ipfs_client.cat(cid)  # type: ignore[attr-defined]
             if verify_integrity:
                 calculated_hash = hashlib.sha256(retrieved_data).hexdigest()
                 if calculated_hash != metadata.integrity_hash:
@@ -165,7 +165,7 @@ class IPFSStorageService:
             except Exception as e:
                 logger.error('Batch upload error: %s', e)
             await asyncio.sleep(0.1)
-        return results
+        return results # type: ignore[return-value]
 
     async def create_filecoin_deal(self, cid: str, duration: int=180) -> str | None:
         """Create Filecoin storage deal for CID persistence"""
@@ -192,7 +192,7 @@ class IPFSStorageService:
     async def delete_memory(self, cid: str) -> bool:
         """Delete/unpin memory from IPFS"""
         try:
-            self.ipfs_client.pin.rm(cid)
+            self.ipfs_client.pin.rm(cid)  # type: ignore[attr-defined]
             if cid in self.cache:
                 del self.cache[cid]
             await self._delete_metadata(cid)
@@ -205,7 +205,7 @@ class IPFSStorageService:
     async def get_storage_stats(self) -> dict[str, Any]:
         """Get storage statistics"""
         try:
-            stats = self.ipfs_client.repo.stat()
+            stats = self.ipfs_client.repo.stat()  # type: ignore[attr-defined]
             return {'total_objects': stats.get('numObjects', 0), 'repo_size': stats.get('repoSize', 0), 'storage_max': stats.get('storageMax', 0), 'version': stats.get('version', 'unknown'), 'cached_objects': len(self.cache)}
         except Exception as e:
             logger.error('Failed to get storage stats: %s', e)

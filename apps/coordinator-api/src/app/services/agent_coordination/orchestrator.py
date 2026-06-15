@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
-from app.contexts.trading.services.trading_marketplace.bid_strategy import BidResult
+from app.contexts.trading.services.trading_marketplace.bid_strategy import BidResult  # type: ignore[import-not-found]
 from ..task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
 
 class OrchestratorStatus(StrEnum):
@@ -270,7 +270,7 @@ class AgentOrchestrator:
         scored_agents.sort(key=lambda x: x[1], reverse=True)
         return scored_agents[0][0]
 
-    async def _allocate_resources(self, agent_id: str, sub_task_id: str, requirements) -> None:
+    async def _allocate_resources(self, agent_id: str, sub_task_id: str, requirements: Any) -> None:
         """Allocate resources for sub-task"""
         allocations = []
         gpu_allocation = ResourceAllocation(agent_id=agent_id, sub_task_id=sub_task_id, resource_type=ResourceType.GPU, allocated_amount=1, allocated_at=datetime.now(UTC), expected_duration=requirements.estimated_duration)

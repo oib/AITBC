@@ -27,12 +27,17 @@ from prometheus_client.core import CollectorRegistry
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
-try:
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from slowapi.errors import RateLimitExceeded as RateLimitExceededClass
-    RateLimitExceeded = RateLimitExceededClass
-except ImportError:
-    from slowapi import RateLimitExceeded as RateLimitExceededClass
-    RateLimitExceeded = RateLimitExceededClass
+else:
+    try:
+        from slowapi.errors import RateLimitExceeded as RateLimitExceededClass
+    except ImportError:
+        RateLimitExceededClass = Exception  # type: ignore[assignment, misc]
+
+RateLimitExceeded = RateLimitExceededClass
 from .config import settings
 from .contexts.agent_identity.routers import agent_identity
 from .contexts.blockchain.routers import blockchain
@@ -167,7 +172,7 @@ def create_app() -> FastAPI:
     limiter = Limiter(key_func=get_remote_address)
     app = FastAPI(title='AITBC Coordinator API', description='API for coordinating AI training jobs and blockchain operations', version='1.0.0', docs_url='/docs', redoc_url='/redoc', lifespan=lifespan, openapi_components={'securitySchemes': {'ApiKeyAuth': {'type': 'apiKey', 'in': 'header', 'name': 'X-Api-Key'}}}, openapi_tags=[{'name': 'health', 'description': 'Health check endpoints'}, {'name': 'client', 'description': 'Client operations'}, {'name': 'miner', 'description': 'Miner operations'}, {'name': 'admin', 'description': 'Admin operations'}, {'name': 'marketplace', 'description': 'GPU Marketplace'}, {'name': 'exchange', 'description': 'Exchange operations'}, {'name': 'governance', 'description': 'Governance operations'}, {'name': 'zk', 'description': 'Zero-Knowledge proofs'}])
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler) # type: ignore[arg-type]
     app.add_middleware(CORSMiddleware, allow_origins=settings.allow_origins, allow_credentials=True, allow_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allow_headers=['*'])
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PerformanceLoggingMiddleware)

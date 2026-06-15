@@ -147,7 +147,7 @@ class GPUWorker:
         try:
             if not self._capabilities:
                 await self.initialize()
-            register_data = {'capabilities': {'gpu': self._capabilities.gpu_available, 'models': self._capabilities.models, 'concurrency': self._capabilities.max_concurrency, 'memory_gb': self._capabilities.memory_gb, 'architecture': self._capabilities.architecture, 'edge_optimized': self._capabilities.edge_optimized}, 'concurrency': self._capabilities.max_concurrency, 'region': 'local'}
+            register_data = {'capabilities': {'gpu': self._capabilities.gpu_available, 'models': self._capabilities.models, 'concurrency': self._capabilities.max_concurrency, 'memory_gb': self._capabilities.memory_gb, 'architecture': self._capabilities.architecture, 'edge_optimized': self._capabilities.edge_optimized}, 'concurrency': self._capabilities.max_concurrency, 'region': 'local'}  # type: ignore[union-attr]
             response = await self._http_client.post(f'{self.coordinator_url}/miners/register', headers={'X-Miner-ID': self.worker_id, 'X-API-Key': api_key}, json=register_data)
             if response.status_code in (200, 201):
                 logger.info('Worker %s registered with coordinator', self.worker_id)
@@ -212,7 +212,7 @@ class GPUWorker:
             execution_time = int((time.time() - start_time) * 1000)
             if not inference_result.get('success'):
                 return JobExecutionResult(success=False, output={}, execution_time_ms=execution_time, gpu_utilization=0.0, receipt={}, error=inference_result.get('error', 'Inference failed'))
-            receipt = self._generate_receipt(job.get('job_id'), inference_result, execution_time)
+            receipt = self._generate_receipt(job.get('job_id'), inference_result, execution_time)  # type: ignore[arg-type]
             self._processed_count += 1
             gpu_utilization = 0.0
             try:

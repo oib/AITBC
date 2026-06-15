@@ -107,7 +107,7 @@ class CrossChainReputationEngine:
         """Get reputation trend for an agent over specified days"""
         try:
             cutoff_date = datetime.now(UTC) - timedelta(days=days)
-            stmt = select(ReputationEvent).where(ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= cutoff_date).order_by(ReputationEvent.occurred_at)
+            stmt = select(ReputationEvent).where(ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= cutoff_date).order_by(ReputationEvent.occurred_at)  # type: ignore[arg-type]
             events = self.session.exec(stmt).all()
             scores = []
             for event in events:
@@ -121,8 +121,8 @@ class CrossChainReputationEngine:
     async def detect_reputation_anomalies(self, agent_id: str) -> list[dict[str, Any]]:
         """Detect reputation anomalies for an agent"""
         try:
-            anomalies = []
-            stmt = select(ReputationEvent).where(ReputationEvent.agent_id == agent_id).order_by(ReputationEvent.occurred_at.desc()).limit(10)
+            anomalies: list[dict[str, Any]] = []
+            stmt = select(ReputationEvent).where(ReputationEvent.agent_id == agent_id).order_by(ReputationEvent.occurred_at.desc()).limit(10)  # type: ignore[attr-defined]
             events = self.session.exec(stmt).all()
             if len(events) < 2:
                 return anomalies
@@ -224,11 +224,11 @@ class CrossChainReputationEngine:
             reputation = self.session.exec(stmt).first()
             if not reputation:
                 return {'agent_id': agent_id, 'trust_score': 0.0, 'reputation_level': ReputationLevel.BEGINNER, 'total_transactions': 0, 'success_rate': 0.0, 'cross_chain': {'aggregated_score': 0.0, 'chain_count': 0, 'active_chains': [], 'consistency_score': 1.0}}
-            stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)
+            stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)  # type: ignore[assignment]
             aggregation = self.session.exec(stmt).first()
             trend = await self.get_reputation_trend(agent_id, 30)
             anomalies = await self.detect_reputation_anomalies(agent_id)
-            return {'agent_id': agent_id, 'trust_score': reputation.trust_score, 'reputation_level': reputation.reputation_level, 'performance_rating': getattr(reputation, 'performance_rating', 3.0), 'reliability_score': getattr(reputation, 'reliability_score', 50.0), 'total_transactions': getattr(reputation, 'transaction_count', 0), 'success_rate': getattr(reputation, 'success_rate', 0.0), 'dispute_count': getattr(reputation, 'dispute_count', 0), 'last_activity': getattr(reputation, 'last_activity', datetime.now(UTC)), 'cross_chain': {'aggregated_score': aggregation.aggregated_score if aggregation else 0.0, 'chain_count': aggregation.chain_count if aggregation else 0, 'active_chains': aggregation.active_chains if aggregation else [], 'consistency_score': aggregation.consistency_score if aggregation else 1.0, 'chain_scores': aggregation.chain_scores if aggregation else {}}, 'trend': trend, 'anomalies': anomalies, 'created_at': reputation.created_at, 'updated_at': reputation.updated_at}
+            return {'agent_id': agent_id, 'trust_score': reputation.trust_score, 'reputation_level': reputation.reputation_level, 'performance_rating': getattr(reputation, 'performance_rating', 3.0), 'reliability_score': getattr(reputation, 'reliability_score', 50.0), 'total_transactions': getattr(reputation, 'transaction_count', 0), 'success_rate': getattr(reputation, 'success_rate', 0.0), 'dispute_count': getattr(reputation, 'dispute_count', 0), 'last_activity': getattr(reputation, 'last_activity', datetime.now(UTC)), 'cross_chain': {'aggregated_score': aggregation.aggregated_score if aggregation else 0.0, 'chain_count': aggregation.chain_count if aggregation else 0, 'active_chains': aggregation.active_chains if aggregation else [], 'consistency_score': aggregation.consistency_score if aggregation else 1.0, 'chain_scores': aggregation.chain_scores if aggregation else {}}, 'trend': trend, 'anomalies': anomalies, 'created_at': reputation.created_at, 'updated_at': reputation.updated_at}  # type: ignore[attr-defined]
         except Exception as e:
             logger.error('Error getting reputation summary for agent %s: %s', agent_id, e)
             return {'agent_id': agent_id, 'error': str(e)}

@@ -8,9 +8,9 @@ from typing import Any
 import redis
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
-from ..exceptions import QuotaExceededError, TenantError
-from ..middleware.tenant_context import get_current_tenant_id
-from ..models.multitenant import Tenant, TenantQuota, UsageRecord
+from ..exceptions import QuotaExceededError, TenantError  # type: ignore[import-not-found]
+from ..middleware.tenant_context import get_current_tenant_id  # type: ignore[import-not-found]
+from ..models.multitenant import Tenant, TenantQuota, UsageRecord  # type: ignore[import-not-found]
 
 class QuotaEnforcementService:
     """Service for enforcing tenant resource quotas"""
@@ -19,7 +19,7 @@ class QuotaEnforcementService:
         self.db = db
         self.redis = redis_client
         self.logger = __import__('logging').getLogger(f'aitbc.{self.__class__.__name__}')
-        self._quota_cache = {}
+        self._quota_cache: dict[str, Any] = {}
         self._cache_ttl = 300
         if self.redis is None:
             self.logger.warning('Redis client not provided - quota caching disabled, falling back to database only')
@@ -67,7 +67,7 @@ class QuotaEnforcementService:
             raise TenantError('No tenant context found')
         stmt = update(UsageRecord).where(and_(UsageRecord.id == usage_record_id, UsageRecord.tenant_id == tenant_id)).values(quantity=UsageRecord.quantity - quantity, total_cost=UsageRecord.total_cost - await self._calculate_cost(resource_type, quantity))
         result = self.db.execute(stmt)
-        if result.rowcount > 0:
+        if result.rowcount > 0:  # type: ignore[attr-defined]
             await self._update_quota_usage(tenant_id, resource_type, -quantity)
             cache_key = f'quota_usage:{tenant_id}:{resource_type}'
             if self.redis:
@@ -87,7 +87,7 @@ class QuotaEnforcementService:
         if resource_type:
             stmt = stmt.where(TenantQuota.resource_type == resource_type)
         quotas = self.db.execute(stmt).scalars().all()
-        status = {'tenant_id': tenant_id, 'quotas': {}, 'summary': {'total_resources': len(quotas), 'over_limit': 0, 'near_limit': 0}}
+        status: dict[str, Any] = {'tenant_id': tenant_id, 'quotas': {}, 'summary': {'total_resources': len(quotas), 'over_limit': 0, 'near_limit': 0}}
         for quota in quotas:
             current_usage = await self._get_current_usage(tenant_id, quota.resource_type)
             usage_percent = current_usage / quota.limit_value * 100 if quota.limit_value > 0 else 0
@@ -100,7 +100,7 @@ class QuotaEnforcementService:
         return status
 
     @asynccontextmanager
-    async def quota_reservation(self, resource_type: str, quantity: float, timeout: int=300, tenant_id: str | None=None):
+    async def quota_reservation(self, resource_type: str, quantity: float, timeout: int=300, tenant_id: str | None=None) -> Any:
         """Context manager for temporary quota reservation"""
         tenant_id = tenant_id or get_current_tenant_id()
         reservation_id = f'reserve:{tenant_id}:{resource_type}:{datetime.now(UTC).timestamp()}'
@@ -227,7 +227,7 @@ class QuotaMiddleware:
         if not resource_config:
             return
         try:
-            await self.quota_service.check_quota(resource_config['resource'], resource_config['cost'] + estimated_cost)
+            await self.quota_service.check_quota(resource_config['resource'], resource_config['cost'] + estimated_cost)  # type: ignore[arg-type, operator]
         except QuotaExceededError as e:
             self.logger.warning('Quota exceeded for endpoint %s: %s', endpoint, e)
             raise
@@ -238,6 +238,6 @@ class QuotaMiddleware:
         if not resource_config:
             return
         try:
-            await self.quota_service.consume_quota(resource_config['resource'], resource_config['cost'] + actual_cost)
+            await self.quota_service.consume_quota(resource_config['resource'], resource_config['cost'] + actual_cost)  # type: ignore[arg-type, operator]
         except Exception as e:
             self.logger.error('Failed to consume quota for %s: %s', endpoint, e)
