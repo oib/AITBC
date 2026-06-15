@@ -27,7 +27,7 @@ class HermesRestPollingDaemon:
         self.agent_id = agent_id
         self.poll_interval = poll_interval
         self.running = True
-        logging.basicConfig(level=getattr(logging, log_level.upper()), format="[%(name)s] %(levelname)s: %(message)s")
+        logging.basicConfig(level=getattr(logging, log_level.upper()), format="[%(levelname)s] %(message)s")
         self.logger = logging.getLogger("hermes-polling")
         self._seen_messages: set[str] = set()
 
