@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 from datetime import datetime, timedelta
 from typing import Any
@@ -11,13 +10,13 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
+from aitbc import get_logger
+
 from .handlers import HandlerRegistry  # type: ignore[import-not-found]
 from .services.transaction_service import TransactionService  # type: ignore
 from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # type: ignore
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 app = FastAPI(title="AITBC Hermes Service", description="Agent orchestration and edge computing service", version="1.0.0")
 COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
 HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")

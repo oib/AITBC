@@ -3,17 +3,18 @@ Chain analytics and monitoring system
 """
 
 import asyncio
-import logging
 import statistics
 from collections import defaultdict, deque
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+from aitbc import get_logger
+
 from .config import MultiChainConfig
 from .node_client import NodeClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

@@ -1,13 +1,14 @@
 """Blockchain command handlers."""
 
 import json
-import logging
 import os
 import sys
 
 import requests
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def handle_blockchain_info(args, get_chain_info, render_mapping):

@@ -22,7 +22,8 @@ wallet_dir = os.getenv("WALLET_DIR")
 if wallet_dir:
     os.environ["WALLET_DIR"] = wallet_dir
 
-log_level = os.getenv("LOG_LEVEL", "warning").lower()
+log_level = os.getenv("LOG_LEVEL", "info").lower()
+access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
 
 # Execute the actual service
 exec_cmd = [
@@ -37,4 +38,6 @@ exec_cmd = [
     "--log-level",
     log_level,
 ]
+if access_log:
+    exec_cmd.append("--access-log")
 os.execvp(exec_cmd[0], exec_cmd)

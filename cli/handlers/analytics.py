@@ -1,9 +1,10 @@
 """Analytics command handlers for AITBC CLI."""
 
 import json
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def handle_analytics_metrics(args, default_rpc_url, output_format, render_mapping):

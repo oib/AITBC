@@ -3,16 +3,15 @@ Multi-modal RL Router
 Handles multi-modal reinforcement learning endpoints by proxying to AI service
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from aitbc import AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 from aitbc.rate_limiting import rate_limit
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 router = APIRouter(prefix="/multi-modal-rl", tags=["multi-modal-rl"])
 
 

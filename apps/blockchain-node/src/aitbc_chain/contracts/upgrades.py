@@ -4,14 +4,15 @@ Handles safe contract versioning and upgrade mechanisms
 """
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def log_info(msg: str) -> None:

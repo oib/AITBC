@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,7 +11,9 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 _REGISTRY_PATH = Path(os.getenv("DATA_DIR", "/var/lib/aitbc")) / "plugins.json"
 _HUB_RPC = os.getenv("HUB_RPC_URL", "https://hub.aitbc.bubuit.net/rpc")
 app = FastAPI(

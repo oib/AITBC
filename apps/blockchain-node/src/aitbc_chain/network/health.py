@@ -4,7 +4,6 @@ Monitors peer liveness and performance metrics
 """
 
 import asyncio
-import logging
 import statistics
 import time
 from dataclasses import dataclass
@@ -12,9 +11,11 @@ from enum import Enum
 
 import ping3  # type: ignore
 
+from aitbc import get_logger
+
 from .discovery import NodeStatus, PeerNode
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def log_info(msg: str) -> None:

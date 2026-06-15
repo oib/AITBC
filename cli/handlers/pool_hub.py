@@ -1,10 +1,8 @@
 """Pool hub SLA and capacity management handlers."""
 
-import logging
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
-from aitbc import AITBCHTTPClient, NetworkError
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def handle_pool_hub_sla_metrics(args):

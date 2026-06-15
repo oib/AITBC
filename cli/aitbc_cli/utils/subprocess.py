@@ -1,11 +1,12 @@
-import logging
 import subprocess
 import sys
 from typing import Any
 
+from aitbc import get_logger
+
 from . import error
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def run_subprocess(

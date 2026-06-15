@@ -4,16 +4,17 @@ Handles peer join/leave operations and connection management
 """
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from aitbc import get_logger
+
 from .discovery import NodeStatus, P2PDiscovery, PeerNode
 from .health import PeerHealthMonitor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def log_info(msg: str) -> None:

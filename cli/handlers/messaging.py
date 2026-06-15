@@ -1,12 +1,13 @@
 """Messaging contract handlers."""
 
 import json
-import logging
 import sys
 
 import requests
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def handle_messaging_deploy(args, default_rpc_url, render_mapping):

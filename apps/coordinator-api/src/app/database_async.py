@@ -1,14 +1,15 @@
 """Async database module with connection pooling for Coordinator API."""
 
-import logging
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from aitbc import get_logger
+
 from .config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _async_engine = None
 _async_session_factory = None
 

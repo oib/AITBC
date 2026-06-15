@@ -4,7 +4,6 @@ Chain manager for multi-chain operations
 
 import hashlib
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -20,10 +19,12 @@ from models.chain import (  # type: ignore[import-not-found]
     GenesisBlock,
 )
 
+from aitbc import get_logger
+
 from .config import MultiChainConfig
 from .node_client import NodeClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ChainAlreadyExistsError(Exception):

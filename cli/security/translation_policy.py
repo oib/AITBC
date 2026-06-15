@@ -6,12 +6,13 @@ ensuring that translation services never compromise security-sensitive operation
 """
 
 import asyncio
-import logging
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class SecurityLevel(Enum):

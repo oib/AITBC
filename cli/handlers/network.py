@@ -1,12 +1,13 @@
 """Network status and peer management handlers."""
 
-import logging
 import sys
 from urllib.parse import urlparse
 
 import requests
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def handle_network_status(args, default_rpc_url, get_network_snapshot):

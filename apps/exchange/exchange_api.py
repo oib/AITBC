@@ -17,9 +17,9 @@ from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 
 sys.path.insert(0, "/opt/aitbc")
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from database import get_db_session, init_db  # noqa: E402
 from models import Order, Trade, User  # noqa: E402

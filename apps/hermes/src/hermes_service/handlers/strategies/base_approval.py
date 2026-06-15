@@ -1,8 +1,9 @@
 """Base approval strategy class."""
 
-import logging
 from abc import ABC, abstractmethod
 from typing import Any
+
+from aitbc import get_logger
 
 
 class ApprovalStrategy(ABC):
@@ -11,7 +12,7 @@ class ApprovalStrategy(ABC):
     def __init__(self, coordinator_url: str, agent_id: str):
         self.coordinator_url = coordinator_url
         self.agent_id = agent_id
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
 
     @abstractmethod
     def approve(self, request: dict[str, Any]) -> dict[str, Any]:

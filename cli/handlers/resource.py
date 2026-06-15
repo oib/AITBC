@@ -1,14 +1,15 @@
 """Resource command handlers for AITBC CLI."""
 
 import json
-import logging
 import os
 from datetime import datetime
 
 import psutil
 import requests
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 COORDINATOR_URL = "http://localhost:8203"
 CLIENT_API_KEY = "aitbc-client-key-secure-token-production"

@@ -3,7 +3,6 @@ Chain analytics and monitoring system
 """
 
 import asyncio
-import logging
 import statistics
 from collections import defaultdict, deque
 from dataclasses import asdict, dataclass
@@ -13,7 +12,9 @@ from typing import Any
 from aitbc_cli.core.config import MultiChainConfig
 from aitbc_cli.core.node_client import NodeClient
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

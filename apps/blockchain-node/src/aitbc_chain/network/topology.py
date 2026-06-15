@@ -4,7 +4,6 @@ Optimizes peer connection strategies for network performance
 """
 
 import asyncio
-import logging
 import random
 from dataclasses import dataclass
 from enum import Enum
@@ -12,10 +11,12 @@ from typing import Any
 
 import networkx as nx  # type: ignore
 
+from aitbc import get_logger
+
 from .discovery import P2PDiscovery, PeerNode
 from .health import PeerHealthMonitor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def log_info(msg: str) -> None:
