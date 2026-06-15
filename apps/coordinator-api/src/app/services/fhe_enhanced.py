@@ -52,7 +52,7 @@ class EncryptedVector:
     """Encrypted vector using simplified BFV"""
 
     ciphertext: np.ndarray
-    shape: tuple
+    shape: tuple[int, ...]
     dtype: str
     context_id: str
 

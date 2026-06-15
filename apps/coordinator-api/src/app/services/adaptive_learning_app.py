@@ -50,7 +50,7 @@ async def health() -> dict[str, Any]:
 @app.post("/create-environment")
 async def create_learning_environment(
     environment_id: str,
-    config: dict,
+    config: dict[str, Any],
     session: Annotated[Session, Depends(get_session)] = None,  # type: ignore[assignment]
 ) -> Any:
     """Create safe learning environment"""
@@ -63,7 +63,7 @@ async def create_learning_environment(
 async def create_learning_agent(
     agent_id: str,
     algorithm: str,
-    config: dict,
+    config: dict[str, Any],
     session: Annotated[Session, Depends(get_session)] = None,  # type: ignore[assignment]
 ) -> Any:
     """Create reinforcement learning agent"""
@@ -76,7 +76,7 @@ async def create_learning_agent(
 async def train_agent(
     agent_id: str,
     environment_id: str,
-    training_config: dict,
+    training_config: dict[str, Any],
     session: Annotated[Session, Depends(get_session)] = None,  # type: ignore[assignment]
 ) -> Any:
     """Train agent in environment"""

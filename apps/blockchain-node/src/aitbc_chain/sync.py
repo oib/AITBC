@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from sqlalchemy import desc
+from sqlalchemy import text
 from sqlmodel import Session, select
 
 from .base_models import Account, Block
@@ -302,8 +302,8 @@ class ChainSync:
             return 0
         with self._session_factory() as session:
             local_head = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height)).limit(1)
-            ).first()  # type: ignore[arg-type]
+                select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+            ).first()
             local_height = local_head.height if local_head else -1
             logger.info(
                 "Bulk sync local head: chain_id=%s, height=%s, hash=%s",
@@ -435,8 +435,8 @@ class ChainSync:
                 metrics_registry.increment("sync_blocks_duplicate_total")
                 return ImportResult(accepted=False, height=height, block_hash=block_hash, reason="Block already exists")
             our_head = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height)).limit(1)
-            ).first()  # type: ignore[arg-type]
+                select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+            ).first()
             our_height = our_head.height if our_head else -1
             logger.info(
                 "Import block check: height=%s, our_height=%s, parent_hash=%s, block_hash=%s",
@@ -665,8 +665,8 @@ class ChainSync:
             select(Block)
             .where(Block.chain_id == self._chain_id)
             .where(Block.height >= fork_height)
-            .order_by(desc(Block.height))
-        ).all()  # type: ignore[arg-type]
+            .order_by(text("height DESC"))
+        ).all()
         removed_count = 0
         for old_block in blocks_to_remove:
             old_txs = session.exec(
@@ -691,8 +691,8 @@ class ChainSync:
         """Get current sync status and metrics."""
         with self._session_factory() as session:
             head = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height)).limit(1)
-            ).first()  # type: ignore[arg-type]
+                select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+            ).first()
             total_blocks = session.exec(select(Block).where(Block.chain_id == self._chain_id)).all()
             total_txs = session.exec(select(ChainTransaction).where(ChainTransaction.chain_id == self._chain_id)).all()
         return {
