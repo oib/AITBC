@@ -5,7 +5,7 @@ const { ethers } = hardhat;
 describe.skip("EscrowService", function () {
   let escrowService, aitbcToken, aiPowerRental, paymentProcessor;
   let deployer, depositor, beneficiary, arbiter;
-  
+
   const ESCROW_AMOUNT = ethers.parseEther("100");
   const INITIAL_SUPPLY = ethers.parseUnits("1000000", 18);
 
@@ -270,14 +270,14 @@ describe.skip("EscrowService", function () {
   describe("Arbiter Management", function () {
     it("Should authorize arbiter", async function () {
       await escrowService.connect(deployer).authorizeArbiter(beneficiary.address);
-      
+
       expect(await escrowService.authorizedArbiters(beneficiary.address)).to.be.true;
     });
 
     it("Should revoke arbiter", async function () {
       await escrowService.connect(deployer).authorizeArbiter(beneficiary.address);
       await escrowService.connect(deployer).revokeArbiter(beneficiary.address);
-      
+
       expect(await escrowService.authorizedArbiters(beneficiary.address)).to.be.false;
     });
 

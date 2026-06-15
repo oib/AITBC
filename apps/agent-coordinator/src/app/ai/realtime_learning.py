@@ -121,7 +121,7 @@ class RealTimeLearningSystem:
             else:
                 patterns["failure_contexts"][exp.action].append(exp.context)
         for key, values in patterns["optimal_conditions"].items():
-            if isinstance(values[0], (int, float)):
+            if isinstance(values[0], int | float):
                 patterns["optimal_conditions"][key] = statistics.mean(values)
         return patterns
 
@@ -187,7 +187,7 @@ class RealTimeLearningSystem:
         similarities = []
         for key in common_keys:
             val1, val2 = (context1[key], context2[key])
-            if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+            if isinstance(val1, int | float) and isinstance(val2, int | float):
                 max_val = max(abs(val1), abs(val2))
                 if max_val == 0:
                     similarity = 1.0

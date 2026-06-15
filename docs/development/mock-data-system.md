@@ -229,7 +229,7 @@ All methods include fallback to default data when the coordinator API is unavail
    ```python
    # Old
    chains = ['ait-devnet', 'ait-testnet']
-   
+
    # New
    from cli.config.chains import get_chain_registry
    registry = get_chain_registry()
@@ -241,7 +241,7 @@ All methods include fallback to default data when the coordinator API is unavail
    # Old
    response = await client.get(f"{rpc_url}/rpc/transactions")
    data = response.json()
-   
+
    # New
    from aitbc import get_data_layer
    data_layer = get_data_layer()
@@ -252,7 +252,7 @@ All methods include fallback to default data when the coordinator API is unavail
    ```python
    # Old
    mock_address = "0x1234567890abcdef"
-   
+
    # New
    from aitbc.testing import MockFactory
    mock_address = MockFactory.generate_ethereum_address()

@@ -5,14 +5,10 @@ High-priority tests for staking service functionality
 import os
 import sys
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "apps" / "coordinator-api" / "src"))
 
 # Clear cached 'app' modules to avoid conflicts with agent-coordinator tests
 for mod_name in list(sys.modules.keys()):

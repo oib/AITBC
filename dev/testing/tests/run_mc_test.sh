@@ -23,4 +23,3 @@ ssh aitbc1-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-testne
 echo ""
 echo "6. Checking head of ait-devnet on aitbc (Should be 0 if no txs since genesis fixed):"
 ssh aitbc-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-devnet\" | jq ."
-

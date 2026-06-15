@@ -234,8 +234,8 @@ Implementation:
 
 ---
 
-**Next Audit Date**: June 18, 2026  
-**Report Version**: v0.2.0  
+**Next Audit Date**: June 18, 2026
+**Report Version**: v0.2.0
 **Auditor**: AITBC Security Team
 
 ---

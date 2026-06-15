@@ -9,12 +9,13 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
+from ..metrics import metrics_registry
+
 warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
 try:
     from broadcaster import Broadcast  # type: ignore[import-not-found]
 except ImportError:
     Broadcast = None
-from ..metrics import metrics_registry  # noqa: E402
 
 
 def _increment_publication(metric_prefix: str, topic: str) -> None:
@@ -101,7 +102,6 @@ class InMemoryGossipBackend(GossipBackend):
         _set_queue_gauge(topic, queue.qsize())
 
         def _unsubscribe() -> None:
-
             async def _remove() -> None:
                 async with self._lock:
                     queues = self._topics.get(topic)
@@ -189,7 +189,6 @@ class BroadcastGossipBackend(GossipBackend):
             metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
 
         def _unsubscribe() -> None:
-
             async def _stop() -> None:
                 stop_event.set()
                 task.cancel()
@@ -309,13 +308,13 @@ def create_backend(backend_type: str, *, broadcast_url: str | None = None) -> Go
 
 
 def _encode_message(message: Any) -> Any:
-    if isinstance(message, (str, bytes, bytearray)):
+    if isinstance(message, str | bytes | bytearray):
         return message
     return json.dumps(message, separators=(",", ":"))
 
 
 def _decode_message(message: Any) -> Any:
-    if isinstance(message, (bytes, bytearray)):
+    if isinstance(message, bytes | bytearray):
         message = message.decode("utf-8")
     if isinstance(message, str):
         try:

@@ -34,27 +34,27 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 main() {
     print_header "AITBC Development Logs Organization"
     echo ""
-    
+
     # Step 1: Create proper log structure
     print_header "Step 1: Creating Log Directory Structure"
     create_log_structure
-    
+
     # Step 2: Move existing scattered logs
     print_header "Step 2: Moving Existing Logs"
     move_existing_logs
-    
+
     # Step 3: Set up log prevention measures
     print_header "Step 3: Setting Up Prevention Measures"
     setup_prevention
-    
+
     # Step 4: Create log management tools
     print_header "Step 4: Creating Log Management Tools"
     create_log_tools
-    
+
     # Step 5: Configure environment
     print_header "Step 5: Configuring Environment"
     configure_environment
-    
+
     print_header "Log Organization Complete! 🎉"
     echo ""
     echo "✅ Log structure created"
@@ -82,20 +82,20 @@ main() {
 # Create proper log directory structure
 create_log_structure() {
     print_status "Creating log directory structure..."
-    
+
     mkdir -p "$DEV_LOGS_DIR"/{archive,current,tools,cli,services,temp}
-    
+
     # Create subdirectories with timestamps
     mkdir -p "$DEV_LOGS_DIR/archive/$(date +%Y)/$(date +%m)"
     mkdir -p "$DEV_LOGS_DIR/current/$(date +%Y-%m-%d)"
-    
+
     print_status "Log structure created"
 }
 
 # Move existing scattered logs
 move_existing_logs() {
     print_status "Moving existing scattered logs..."
-    
+
     # Move wget-log if it exists and has content
     if [[ -f "$PROJECT_ROOT/wget-log" && -s "$PROJECT_ROOT/wget-log" ]]; then
         mv "$PROJECT_ROOT/wget-log" "$DEV_LOGS_DIR/tools/wget-log-$TIMESTAMP"
@@ -104,10 +104,10 @@ move_existing_logs() {
         rm "$PROJECT_ROOT/wget-log"  # Remove empty file
         print_status "Removed empty wget-log"
     fi
-    
+
     # Find and move other common log files
     local common_logs=("*.log" "*.out" "*.err" "download.log" "install.log" "build.log")
-    
+
     for log_pattern in "${common_logs[@]}"; do
         find "$PROJECT_ROOT" -maxdepth 1 -name "$log_pattern" -type f 2>/dev/null | while read log_file; do
             if [[ -s "$log_file" ]]; then
@@ -120,14 +120,14 @@ move_existing_logs() {
             fi
         done
     done
-    
+
     print_status "Existing logs organized"
 }
 
 # Set up prevention measures
 setup_prevention() {
     print_status "Setting up log prevention measures..."
-    
+
     # Create log aliases
     cat > "$PROJECT_ROOT/.env.dev.logs" << 'EOF'
 # AITBC Development Log Environment
@@ -153,7 +153,7 @@ alias devlog="echo '[$(date +%Y-%m-%d %H:%M:%S)]' >> $AITBC_CURRENT_LOG_DIR/dev-
 alias cleanlogs="find $AITBC_DEV_LOGS_DIR -name '*.log' -mtime +7 -delete"
 alias archivelogs="find $AITBC_DEV_LOGS_DIR/current -name '*.log' -mtime +1 -exec mv {} $AITBC_DEV_LOGS_DIR/archive/$(date +%Y)/$(date +%m)/ \;"
 EOF
-    
+
     # Update main .env.dev to include log environment
     if [[ -f "$PROJECT_ROOT/.env.dev" ]]; then
         if ! grep -q "AITBC_DEV_LOGS_DIR" "$PROJECT_ROOT/.env.dev"; then
@@ -162,14 +162,14 @@ EOF
             echo "source /opt/aitbc/.env.dev.logs" >> "$PROJECT_ROOT/.env.dev"
         fi
     fi
-    
+
     print_status "Log aliases and environment configured"
 }
 
 # Create log management tools
 create_log_tools() {
     print_status "Creating log management tools..."
-    
+
     # Log organizer script
     cat > "$DEV_LOGS_DIR/organize-logs.sh" << 'EOF'
 #!/bin/bash
@@ -194,7 +194,7 @@ done
 
 echo "🎉 Log organization complete!"
 EOF
-    
+
     # Log cleanup script
     cat > "$DEV_LOGS_DIR/cleanup-logs.sh" << 'EOF'
 #!/bin/bash
@@ -215,7 +215,7 @@ find "$DEV_LOGS_DIR" -type d -empty -delete
 
 echo "✅ Log cleanup complete!"
 EOF
-    
+
     # Log viewer script
     cat > "$DEV_LOGS_DIR/view-logs.sh" << 'EOF'
 #!/bin/bash
@@ -259,17 +259,17 @@ case "${1:-help}" in
         ;;
 esac
 EOF
-    
+
     # Make scripts executable
     chmod +x "$DEV_LOGS_DIR"/*.sh
-    
+
     print_status "Log management tools created"
 }
 
 # Configure environment
 configure_environment() {
     print_status "Configuring environment for log management..."
-    
+
     # Update .gitignore to prevent log files in root
     if [[ -f "$PROJECT_ROOT/.gitignore" ]]; then
         if ! grep -q "# Development logs" "$PROJECT_ROOT/.gitignore"; then
@@ -282,7 +282,7 @@ configure_environment() {
             echo "download.log" >> "$PROJECT_ROOT/.gitignore"
         fi
     fi
-    
+
     # Create a log prevention reminder
     cat > "$PROJECT_ROOT/DEV_LOGS.md" << 'EOF'
 # Development Logs Policy
@@ -339,7 +339,7 @@ archivelogs          # Archive current logs
 5. **Archive** important logs before cleanup
 
 EOF
-    
+
     print_status "Environment configured"
 }
 

@@ -32,7 +32,7 @@ for pattern in "${ROOT_FORBIDDEN_PATTERNS[@]}"; do
     if ls $pattern 1> /dev/null 2>&1; then
         echo "❌ ERROR: Found files matching '$pattern' at root level"
         echo "📁 Suggested location:"
-        
+
         case $pattern in
             "test_*.py"|"test_*.sh"|"run_mc_test.sh")
                 echo "   → dev/tests/"
@@ -44,7 +44,7 @@ for pattern in "${ROOT_FORBIDDEN_PATTERNS[@]}"; do
                 echo "   → dev/tools/multi-chain/"
                 ;;
         esac
-        
+
         echo "💡 Run: ./scripts/move-to-right-folder.sh --auto"
         echo "💡 Or manually: mv $pattern <suggested-directory>/"
         exit 1
@@ -56,7 +56,7 @@ for dir in "${ROOT_FORBIDDEN_DIRS[@]}"; do
     if [[ -d "$dir" && "$dir" != "." && "$dir" != ".." && ! "$dir" =~ ^\.git ]]; then
         echo "❌ ERROR: Found directory '$dir' at root level"
         echo "📁 Suggested location:"
-        
+
         case $dir in
             "node_modules"|".venv"|"cli_env")
                 echo "   → dev/env/"
@@ -65,7 +65,7 @@ for dir in "${ROOT_FORBIDDEN_DIRS[@]}"; do
                 echo "   → dev/cache/"
                 ;;
         esac
-        
+
         echo "💡 Run: ./scripts/move-to-right-folder.sh --auto"
         echo "💡 Or manually: mv $dir <suggested-directory>/"
         exit 1
@@ -77,11 +77,11 @@ NEW_FILES=$(git diff --cached --name-only --diff-filter=A)
 
 for file in $NEW_FILES; do
     dirname=$(dirname "$file")
-    
+
     # Check if file is at root and shouldn't be
     if [[ "$dirname" == "." ]]; then
         filename=$(basename "$file")
-        
+
         case "$filename" in
             test_*.py|test_*.sh)
                 echo "⚠️  WARNING: Test file '$filename' should be in dev/tests/"

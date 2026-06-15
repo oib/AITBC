@@ -1,25 +1,27 @@
-from typing import Annotated
+"""
+Community and Developer Ecosystem API Endpoints
+REST API for managing hermes developer profiles, SDKs, solutions, and hackathons
+"""
 
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-"\nCommunity and Developer Ecosystem API Endpoints\nREST API for managing hermes developer profiles, SDKs, solutions, and hackathons\n"
-from typing import Any  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-logger = get_logger(__name__)
-from ....domain.community import AgentSolution, CommunityPost, DeveloperProfile, Hackathon, InnovationLab  # noqa: E402
-from ....services.community_service import (  # noqa: E402
+from ....domain.community import AgentSolution, CommunityPost, DeveloperProfile, Hackathon, InnovationLab
+from ....services.community_service import (
     CommunityPlatformService,
     DeveloperEcosystemService,
     InnovationLabService,
     ThirdPartySolutionService,
 )
-from ....storage import get_session  # noqa: E402
+from ....storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/community", tags=["community"])
 

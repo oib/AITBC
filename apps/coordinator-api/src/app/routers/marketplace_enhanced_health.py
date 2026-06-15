@@ -1,19 +1,18 @@
-from typing import Annotated
-
 "\nEnhanced Marketplace Service Health Check Router\nProvides health monitoring for royalties, licensing, verification, and analytics\n"
-import sys  # noqa: E402
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
 
-import psutil  # noqa: E402
-from fastapi import APIRouter, Depends, Request  # noqa: E402
-from sqlalchemy.orm import Session  # noqa: E402
+import sys
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+import psutil
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session
 
-from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService  # noqa: E402
-from ..storage import get_session  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
+
+from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
+from ..storage import get_session
 
 logger = get_logger(__name__)
 router = APIRouter()

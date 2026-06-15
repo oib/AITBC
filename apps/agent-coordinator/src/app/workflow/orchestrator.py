@@ -11,6 +11,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+from aitbc import get_logger
+
 redis_client: Any = None
 try:
     import redis.asyncio as redis
@@ -18,7 +20,6 @@ try:
     redis_client = redis
 except ImportError:
     pass
-from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 

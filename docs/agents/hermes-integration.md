@@ -24,7 +24,7 @@ Hermes Edge Network
 # Centralized deployment
 Hermes Core → Agent Coordination → Edge Processing
 
-# Distributed deployment  
+# Distributed deployment
 Hermes Edge → Local Agents → Direct Processing
 
 # Hybrid deployment
@@ -63,7 +63,7 @@ aitbc hermes deploy agent_123 \
         "capacity": "gpu_memory:16GB,cpu:8cores"
       },
       {
-        "region": "eu-central", 
+        "region": "eu-central",
         "datacenter": "edge-node-2",
         "capacity": "gpu_memory:24GB,cpu:16cores"
       }

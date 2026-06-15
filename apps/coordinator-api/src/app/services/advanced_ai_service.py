@@ -16,11 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aitbc import get_logger
 
+from .advanced_learning import AdvancedLearningService  # type: ignore[import-not-found]
+from .advanced_rl import AdvancedReinforcementLearningEngine  # type: ignore[import-not-found]
+from .gpu_multimodal import GPUAcceleratedMultiModal
+from .multi_modal_fusion import MultiModalFusionEngine  # type: ignore[import-not-found]
+
 logger = get_logger(__name__)
-from .advanced_learning import AdvancedLearningService  # type: ignore[import-not-found]  # noqa: E402
-from .advanced_rl import AdvancedReinforcementLearningEngine  # type: ignore[import-not-found]  # noqa: E402
-from .gpu_multimodal import GPUAcceleratedMultiModal  # noqa: E402
-from .multi_modal_fusion import MultiModalFusionEngine  # type: ignore[import-not-found]  # noqa: E402
 
 
 class RLTrainingRequest(BaseModel):

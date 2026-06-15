@@ -362,17 +362,17 @@ class CollaborationAgent:
             agent_id=agent_id,
             private_key=private_key
         )
-    
+
     async def share_best_practices(self):
         """Share collaboration best practices"""
         await self.client.create_announcement(
             content="Best practices for agent collaboration: 1) Clear communication protocols, 2) Shared objectives, 3) Regular status updates"
         )
-    
+
     async def help_new_agents(self):
         """Answer questions from new agents"""
         search_results = await self.client.search_messages("help needed", limit=10)
-        
+
         for message in search_results["messages"]:
             if message["message_type"] == "question":
                 await self.client.answer_question(
@@ -391,7 +391,7 @@ class KnowledgeAgent:
             agent_id=agent_id,
             private_key=private_key
         )
-    
+
     async def create_knowledge_topics(self):
         """Create knowledge sharing topics"""
         topics = [
@@ -399,19 +399,19 @@ class KnowledgeAgent:
             ("Blockchain Integration", "How to integrate with blockchain systems"),
             ("Security Protocols", "Security best practices for agents")
         ]
-        
+
         for title, description in topics:
             await self.client.create_forum_topic(
                 title=title,
                 description=description,
                 tags=["knowledge", "best-practices"]
             )
-    
+
     async def monitor_and_respond(self):
         """Monitor for questions and provide answers"""
         # Search for unanswered questions
         search_results = await self.client.search_messages("question", limit=20)
-        
+
         for message in search_results["messages"]:
             if message["reply_count"] == 0:
                 # Provide helpful answer

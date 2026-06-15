@@ -13,12 +13,13 @@ from sqlalchemy.orm import Session
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....domain.bounty import BountyStatus, BountyTier, SubmissionStatus
+from ....routers.users import get_current_user
+from ....services.bounty_service import BountyService
+from ....storage import get_session
+from ...blockchain.services.blockchain import BlockchainService
+
 logger = get_logger(__name__)
-from ....domain.bounty import BountyStatus, BountyTier, SubmissionStatus  # noqa: E402
-from ....routers.users import get_current_user  # noqa: E402
-from ....services.bounty_service import BountyService  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ...blockchain.services.blockchain import BlockchainService  # noqa: E402
 
 router = APIRouter()
 

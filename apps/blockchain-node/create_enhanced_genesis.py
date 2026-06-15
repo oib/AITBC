@@ -11,9 +11,6 @@ from datetime import datetime
 from typing import Any
 
 import yaml
-
-sys.path.insert(0, "src")
-
 from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.models import Account, Block, Transaction
 from sqlmodel import select

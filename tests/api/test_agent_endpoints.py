@@ -3,16 +3,8 @@ API Endpoint Tests
 Tests for agent registration and discovery API endpoints
 """
 
-import sys
-from pathlib import Path
-
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-import pytest  # noqa: E402
-from app.models import AgentRegistrationRequest, AgentStatusUpdate  # noqa: E402
+import pytest
+from app.models import AgentRegistrationRequest, AgentStatusUpdate
 
 
 class TestAgentRegistrationRequest:

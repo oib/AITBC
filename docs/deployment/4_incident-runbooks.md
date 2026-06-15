@@ -421,7 +421,7 @@ journalctl --vacuum-time=7d
    ```bash
    # Clean old logs
    find /var/log -name "*.log" -mtime +7 -delete
-   
+
    # Clean old backups
    find /var/backups -mtime +30 -delete
    ```
@@ -499,4 +499,3 @@ df -h
 *Version: 1.0*
 *Last Updated: 2024-12-22*
 *Owner: SRE Team*
-

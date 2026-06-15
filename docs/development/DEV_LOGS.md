@@ -50,4 +50,3 @@ archivelogs          # Archive current logs
 3. **Use** log aliases for common operations
 4. **Clean** up old logs regularly
 5. **Archive** important logs before cleanup
-

@@ -100,7 +100,7 @@ Shows how to migrate from direct CUDA calls to the new abstraction layer.
 
 # BEFORE (Direct CUDA)
 # from high_performance_cuda_accelerator import HighPerformanceCUDAZKAccelerator
-# 
+#
 # accelerator = HighPerformanceCUDAZKAccelerator()
 # if accelerator.initialized:
 #     result = accelerator.field_add_cuda(a, b)
@@ -144,7 +144,7 @@ Shows how to migrate FastAPI endpoints to use the new abstraction layer.
 
 # BEFORE (CUDA-specific API)
 # from fastapi_cuda_zk_api import ProductionCUDAZKAPI
-# 
+#
 # cuda_api = ProductionCUDAZKAPI()
 # if not cuda_api.initialized:
 #     raise HTTPException(status_code=500, detail="CUDA not available")

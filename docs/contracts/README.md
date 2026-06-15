@@ -1,9 +1,9 @@
 # AITBC Contract Documentation
 
-**Level**: Advanced  
-**Prerequisites**: Beginner blockchain concepts, AITBC project documentation, and basic smart contract familiarity  
-**Estimated Time**: 20-40 minutes  
-**Last Updated**: 2026-04-27  
+**Level**: Advanced
+**Prerequisites**: Beginner blockchain concepts, AITBC project documentation, and basic smart contract familiarity
+**Estimated Time**: 20-40 minutes
+**Last Updated**: 2026-04-27
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -59,6 +59,6 @@ This directory contains documentation for AITBC smart contracts:
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Active index for contract documentation*

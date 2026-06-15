@@ -409,4 +409,3 @@ journalctl -u aitbc-blockchain-node | grep "Imported block"
 ```
 
 If you want to enable push sync, ensure the hub supports subscription endpoints and check your network connectivity to the hub.
-

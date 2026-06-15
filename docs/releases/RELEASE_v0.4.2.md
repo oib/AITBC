@@ -1,7 +1,7 @@
 # AITBC v0.4.2 Release Notes
 
-**Date**: June 1, 2026  
-**Status**: ✅ Released  
+**Date**: June 1, 2026
+**Status**: ✅ Released
 **Scope**: Hermes Agent Integration & Configuration Hardening
 
 ## 🎯 Overview

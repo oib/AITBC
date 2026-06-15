@@ -3,18 +3,11 @@ Tests for missing authentication, unauthorized access, and invalid tokens.
 """
 
 import os
-import sys
-from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
-
-repo_root = Path(__file__).resolve().parents[2]
-blockchain_src = repo_root / "apps" / "blockchain-node" / "src"
-if str(blockchain_src) not in sys.path:
-    sys.path.insert(0, str(blockchain_src))
 
 
 @pytest.mark.asyncio

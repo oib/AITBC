@@ -65,7 +65,7 @@ init_logging() {
 # Check systemd service status
 check_service_status() {
     local service="$1"
-    
+
     if systemctl is-active --quiet "$service"; then
         success "$service is running"
         return 0
@@ -82,12 +82,12 @@ check_service_status() {
 check_endpoint_health() {
     local service="$1"
     local url="$2"
-    
+
     if ! command -v curl &> /dev/null; then
         warning "curl not available, skipping endpoint check for $service"
         return 0
     fi
-    
+
     if curl -sf "$url" > /dev/null 2>&1; then
         success "$service endpoint is healthy ($url)"
         return 0
@@ -100,15 +100,15 @@ check_endpoint_health() {
 # Check service resource usage
 check_resource_usage() {
     local service="$1"
-    
+
     # Get PID of service
     local pid=$(systemctl show -p MainPID --value "$service" 2>/dev/null || echo "")
-    
+
     if [[ -z "$pid" ]] || [[ "$pid" == "0" ]]; then
         warning "Cannot get PID for $service"
         return 0
     fi
-    
+
     # Check CPU usage
     if [[ -f "/proc/$pid/stat" ]]; then
         local cpu_usage=$(ps -p "$pid" -o %cpu --no-headers 2>/dev/null | tr -d ' ' || echo "0")
@@ -119,7 +119,7 @@ check_resource_usage() {
             log "$service CPU usage: ${cpu_usage}%"
         fi
     fi
-    
+
     # Check memory usage
     local mem_usage=$(ps -p "$pid" -o %mem --no-headers 2>/dev/null | tr -d ' ' || echo "0")
     local mem_int=${mem_usage%.*}
@@ -133,15 +133,15 @@ check_resource_usage() {
 # Check disk usage
 check_disk_usage() {
     local path="${1:-/var/lib/aitbc}"
-    
+
     if [[ ! -d "$path" ]]; then
         warning "Path $path does not exist"
         return 0
     fi
-    
+
     local disk_usage=$(df "$path" | awk 'NR==2 {print $5}' | tr -d '%')
     local disk_int=${disk_usage%.*}
-    
+
     if [[ $disk_int -gt $ALERT_THRESHOLD_DISK ]]; then
         error "Disk usage high for $path: ${disk_usage}%"
     else
@@ -155,7 +155,7 @@ check_system_memory() {
     local total=$(echo $mem_info | awk '{print $2}')
     local used=$(echo $mem_info | awk '{print $3}')
     local percent=$((used * 100 / total))
-    
+
     if [[ $percent -gt $ALERT_THRESHOLD_MEM ]]; then
         error "System memory usage high: ${percent}%"
     else
@@ -166,14 +166,14 @@ check_system_memory() {
 # Check blockchain sync status
 check_blockchain_sync() {
     local rpc_url="http://localhost:8006"
-    
+
     if ! command -v curl &> /dev/null || ! command -v jq &> /dev/null; then
         warning "curl or jq not available, skipping blockchain sync check"
         return 0
     fi
-    
+
     local block_height=$(curl -s "$rpc_url/rpc/head" | jq -r '.height' 2>/dev/null || echo "0")
-    
+
     if [[ "$block_height" != "0" ]] && [[ "$block_height" != "null" ]]; then
         success "Blockchain current height: $block_height"
         return 0
@@ -218,7 +218,7 @@ check_redis() {
 # Check network connectivity
 check_network() {
     local target_host="${1:-8.8.8.8}"
-    
+
     if ping -c 1 -W 2 "$target_host" &> /dev/null; then
         success "Network connectivity OK (ping to $target_host)"
         return 0
@@ -231,21 +231,21 @@ check_network() {
 # Main health check function
 main() {
     local check_type="${1:-all}"
-    
+
     init_logging
-    
+
     log "=== Starting AITBC Health Check ==="
     log "Check type: $check_type"
     echo ""
-    
+
     TOTAL_ERRORS=0
     TOTAL_WARNINGS=0
-    
+
     case "$check_type" in
         "services")
             log "Checking systemd services..."
             echo ""
-            
+
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
                 check_service_status "$service" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
                 check_resource_usage "$service"
@@ -254,7 +254,7 @@ main() {
         "endpoints")
             log "Checking API endpoints..."
             echo ""
-            
+
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
                 check_endpoint_health "$service" "${SERVICE_ENDPOINTS[$service]}" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             done
@@ -262,20 +262,20 @@ main() {
         "resources")
             log "Checking resource usage..."
             echo ""
-            
+
             check_disk_usage "/var/lib/aitbc"
             check_system_memory
             ;;
         "blockchain")
             log "Checking blockchain status..."
             echo ""
-            
+
             check_blockchain_sync || TOTAL_WARNINGS=$((TOTAL_WARNINGS + 1))
             ;;
         "infrastructure")
             log "Checking infrastructure..."
             echo ""
-            
+
             check_database || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             check_redis || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             check_network || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
@@ -283,7 +283,7 @@ main() {
         "all")
             log "Running comprehensive health check..."
             echo ""
-            
+
             # Check services
             log "--- Service Status ---"
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
@@ -291,25 +291,25 @@ main() {
                 check_resource_usage "$service"
             done
             echo ""
-            
+
             # Check endpoints
             log "--- API Endpoints ---"
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
                 check_endpoint_health "$service" "${SERVICE_ENDPOINTS[$service]}" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             done
             echo ""
-            
+
             # Check resources
             log "--- Resource Usage ---"
             check_disk_usage "/var/lib/aitbc"
             check_system_memory
             echo ""
-            
+
             # Check blockchain
             log "--- Blockchain Status ---"
             check_blockchain_sync || TOTAL_WARNINGS=$((TOTAL_WARNINGS + 1))
             echo ""
-            
+
             # Check infrastructure
             log "--- Infrastructure ---"
             check_database || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
@@ -329,10 +329,10 @@ main() {
             exit 1
             ;;
     esac
-    
+
     echo ""
     log "=== Health Check Complete ==="
-    
+
     if [[ $TOTAL_ERRORS -eq 0 ]] && [[ $TOTAL_WARNINGS -eq 0 ]]; then
         success "All health checks passed"
         exit 0

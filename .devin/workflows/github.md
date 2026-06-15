@@ -163,30 +163,30 @@ fi
 # Sync follower node with genesis
 if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
     echo "=== Syncing Follower Node ==="
-    
+
     # Option 1: Push from genesis to follower
     ssh aitbc1 'cd /opt/aitbc && git fetch origin'
     ssh aitbc1 'cd /opt/aitbc && git pull origin main'
-    
+
     # Option 2: Copy changes directly (if remote sync fails)
     rsync -av --exclude='.git' /opt/aitbc/ aitbc1:/opt/aitbc/
     ssh aitbc1 'cd /opt/aitbc && git add . && git commit -m "sync from genesis node" || true'
-    
+
     echo "✅ Follower node synced"
 fi
 
 # Sync gitea-runner node with genesis
 if [ "$GENESIS_HASH" != "$RUNNER_HASH" ]; then
     echo "=== Syncing Gitea-Runner Node ==="
-    
+
     # Option 1: Push from genesis to gitea-runner
     ssh gitea-runner 'cd /opt/aitbc && git fetch origin'
     ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
-    
+
     # Option 2: Copy changes directly (if remote sync fails)
     rsync -av --exclude='.git' /opt/aitbc/ gitea-runner:/opt/aitbc/
     ssh gitea-runner 'cd /opt/aitbc && git add . && git commit -m "sync from genesis node" || true'
-    
+
     echo "✅ Gitea-Runner node synced"
 fi
 ```
@@ -233,10 +233,10 @@ RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
 
 if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ] && [ "$GENESIS_HASH" = "$RUNNER_HASH" ]; then
     echo "✅ All nodes in sync, proceeding with GitHub push"
-    
+
     # Push to GitHub (milestone only)
     git push github main
-    
+
     echo "✅ GitHub push complete"
     echo "Verify on GitHub: https://github.com/oib/AITBC"
 else
@@ -482,31 +482,31 @@ RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
 
 if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ] || [ "$GENESIS_HASH" != "$RUNNER_HASH" ]; then
     echo "⚠️ Nodes out of sync - fixing..."
-    
+
     # Check connectivity to follower
     ssh aitbc1 'echo "Follower node reachable"' || {
         echo "❌ Cannot reach follower node"
         exit 1
     }
-    
+
     # Check connectivity to gitea-runner
     ssh gitea-runner 'echo "Gitea-Runner node reachable"' || {
         echo "❌ Cannot reach gitea-runner node"
         exit 1
     }
-    
+
     # Sync follower node
     if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
         ssh aitbc1 'cd /opt/aitbc && git fetch origin'
         ssh aitbc1 'cd /opt/aitbc && git pull origin main'
     fi
-    
+
     # Sync gitea-runner node
     if [ "$GENESIS_HASH" != "$RUNNER_HASH" ]; then
         ssh gitea-runner 'cd /opt/aitbc && git fetch origin'
         ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
     fi
-    
+
     # Verify sync
     NEW_FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
     NEW_RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')

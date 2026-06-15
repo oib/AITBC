@@ -1,22 +1,19 @@
-from typing import Annotated
-
-from sqlalchemy.orm import Session
-
 """
 Partner Router - Third-party integration management
 """
 
-import hashlib  # noqa: E402
-import secrets  # noqa: E402
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+import hashlib
+import secrets
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from aitbc.rate_limiting import rate_limit
 
-from ....storage import get_session  # noqa: E402
+from ....storage import get_session
 
 router = APIRouter(tags=["partners"])
 

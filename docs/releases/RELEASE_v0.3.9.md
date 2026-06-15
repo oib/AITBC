@@ -1,7 +1,7 @@
 # AITBC v0.3.9 Release Notes
 
-**Date**: May 13, 2026  
-**Status**: ✅ Released  
+**Date**: May 13, 2026
+**Status**: ✅ Released
 **Scope**: Persistent GPU marketplace and SQLModel backend
 
 ## 🎯 Overview
@@ -101,6 +101,6 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 
 ---
 
-*Last updated: 2026-05-13*  
-*Version: 0.3.9*  
+*Last updated: 2026-05-13*
+*Version: 0.3.9*
 *Status: Persistent GPU Marketplace Release*

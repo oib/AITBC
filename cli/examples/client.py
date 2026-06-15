@@ -232,7 +232,7 @@ def main():
                 status_counts[status_label] = status_counts.get(status_label, 0) + 1
                 payload = receipt.get("payload") or {}
                 units = payload.get("units")
-                if isinstance(units, (int, float)):
+                if isinstance(units, int | float):
                     total_units += float(units)
                     if unit_type is None:
                         unit_type = payload.get("unit_type")

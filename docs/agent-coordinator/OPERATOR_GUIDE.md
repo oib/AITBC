@@ -107,7 +107,7 @@ register_agent() {
   local agent_id=$1
   local agent_type=$2
   local capabilities=$3
-  
+
   aitbc-cli agent sdk register \
     --agent-id "$agent_id" \
     --type "$agent_type" \

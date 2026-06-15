@@ -7,11 +7,6 @@ Usage: python -m aitbc_chain.sync_cli --source http://198.51.100.40:8006 [--batc
 import argparse
 import asyncio
 import os
-import sys
-from pathlib import Path
-
-# Add src to path for standalone execution
-sys.path.insert(0, str(Path(__file__).parent))
 
 from aitbc_chain.config import settings  # type: ignore
 from aitbc_chain.database import session_scope  # type: ignore

@@ -14,26 +14,26 @@ import "./AIToken.sol";
  * @notice Allows DAO and users to create bounties that are automatically completed when agents submit valid ZK-proofs
  */
 contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
-    
+
     // State variables
     IERC20 public aitbcToken;
     PerformanceVerifier public performanceVerifier;
-    
+
     uint256 public bountyCounter;
     uint256 public creationFeePercentage = 50; // 0.5% in basis points
     uint256 public successFeePercentage = 200; // 2% in basis points
     uint256 public disputeFeePercentage = 10; // 0.1% in basis points
     uint256 public platformFeePercentage = 100; // 1% in basis points
-    
+
     // Bounty tiers
     enum BountyTier { BRONZE, SILVER, GOLD, PLATINUM }
-    
+
     // Bounty status
     enum BountyStatus { CREATED, ACTIVE, SUBMITTED, VERIFIED, COMPLETED, EXPIRED, DISPUTED }
-    
+
     // Submission status
     enum SubmissionStatus { PENDING, VERIFIED, REJECTED, DISPUTED }
-    
+
     // Structs
     struct Bounty {
         uint256 bountyId;
@@ -53,7 +53,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         bool requiresZKProof;
         mapping(address => bool) authorizedSubmitters;
     }
-    
+
     struct Submission {
         uint256 submissionId;
         uint256 bountyId;
@@ -67,7 +67,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         string disputeReason;
         address verifier;
     }
-    
+
     struct BountyStats {
         uint256 totalBounties;
         uint256 activeBounties;
@@ -76,7 +76,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         uint256 averageReward;
         uint256 successRate;
     }
-    
+
     // Mappings
     mapping(uint256 => Bounty) public bounties;
     mapping(uint256 => Submission) public submissions;
@@ -85,11 +85,11 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256[]) public creatorBounties;
     mapping(BountyTier => uint256) public tierRequirements;
     mapping(uint256 => mapping(address => bool)) public hasSubmitted;
-    
+
     // Arrays
     uint256[] public activeBountyIds;
     address[] public authorizedCreators;
-    
+
     // Events
     event BountyCreated(
         uint256 indexed bountyId,
@@ -99,7 +99,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         BountyTier tier,
         uint256 deadline
     );
-    
+
     event BountySubmitted(
         uint256 indexed bountyId,
         uint256 indexed submissionId,
@@ -107,7 +107,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         bytes32 performanceHash,
         uint256 accuracy
     );
-    
+
     event BountyVerified(
         uint256 indexed bountyId,
         uint256 indexed submissionId,
@@ -115,69 +115,69 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         bool success,
         uint256 rewardAmount
     );
-    
+
     event BountyCompleted(
         uint256 indexed bountyId,
         address indexed winner,
         uint256 rewardAmount,
         uint256 completionTime
     );
-    
+
     event BountyExpired(
         uint256 indexed bountyId,
         uint256 refundAmount
     );
-    
+
     event BountyDisputed(
         uint256 indexed bountyId,
         uint256 indexed submissionId,
         address indexed disputer,
         string reason
     );
-    
+
     event PlatformFeeCollected(
         uint256 indexed bountyId,
         uint256 feeAmount,
         address indexed collector
     );
-    
+
     // Modifiers
     modifier bountyExists(uint256 _bountyId) {
         require(_bountyId < bountyCounter, "Bounty does not exist");
         _;
     }
-    
+
     modifier onlyAuthorizedCreator() {
         require(isAuthorizedCreator(msg.sender), "Not authorized to create bounties");
         _;
     }
-    
+
     modifier validBountyStatus(uint256 _bountyId, BountyStatus _requiredStatus) {
         require(bounties[_bountyId].status == _requiredStatus, "Invalid bounty status");
         _;
     }
-    
+
     modifier beforeDeadline(uint256 _deadline) {
         require(block.timestamp <= _deadline, "Deadline passed");
         _;
     }
-    
+
     modifier sufficientBalance(uint256 _amount) {
         require(aitbcToken.balanceOf(msg.sender) >= _amount, "Insufficient balance");
         _;
     }
-    
+
     constructor(address _aitbcToken, address _performanceVerifier) {
         aitbcToken = IERC20(_aitbcToken);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
-        
+
         // Set tier requirements (minimum reward amounts)
         tierRequirements[BountyTier.BRONZE] = 100 * 10**18;   // 100 AITBC
         tierRequirements[BountyTier.SILVER] = 500 * 10**18;   // 500 AITBC
         tierRequirements[BountyTier.GOLD] = 1000 * 10**18;   // 1000 AITBC
         tierRequirements[BountyTier.PLATINUM] = 5000 * 10**18; // 5000 AITBC
     }
-    
+
     /**
      * @dev Creates a new bounty
      * @param _title Bounty title
@@ -200,20 +200,20 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         uint256 _deadline,
         uint256 _maxSubmissions,
         bool _requiresZKProof
-    ) external 
+    ) external
         onlyAuthorizedCreator
         sufficientBalance(_rewardAmount)
         beforeDeadline(_deadline)
-        nonReentrant 
-        returns (uint256) 
+        nonReentrant
+        returns (uint256)
     {
         require(_rewardAmount >= tierRequirements[_tier], "Reward below tier minimum");
         require(_minAccuracy <= 100, "Invalid accuracy");
         require(_maxSubmissions > 0, "Invalid max submissions");
         require(_deadline > block.timestamp, "Invalid deadline");
-        
+
         uint256 bountyId = bountyCounter++;
-        
+
         Bounty storage bounty = bounties[bountyId];
         bounty.bountyId = bountyId;
         bounty.title = _title;
@@ -229,34 +229,34 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         bounty.maxSubmissions = _maxSubmissions;
         bounty.submissionCount = 0;
         bounty.requiresZKProof = _requiresZKProof;
-        
+
         // Calculate and collect creation fee
         uint256 creationFee = (_rewardAmount * creationFeePercentage) / 10000;
         uint256 totalRequired = _rewardAmount + creationFee;
-        
+
         require(aitbcToken.balanceOf(msg.sender) >= totalRequired, "Insufficient total amount");
-        
+
         // Transfer tokens to contract
         require(aitbcToken.transferFrom(msg.sender, address(this), totalRequired), "Transfer failed");
-        
+
         // Transfer creation fee to DAO treasury (owner for now)
         if (creationFee > 0) {
             require(aitbcToken.transfer(owner(), creationFee), "Fee transfer failed");
             emit PlatformFeeCollected(bountyId, creationFee, owner());
         }
-        
+
         // Update tracking arrays
         activeBountyIds.push(bountyId);
         creatorBounties[msg.sender].push(bountyId);
-        
+
         // Activate bounty
         bounty.status = BountyStatus.ACTIVE;
-        
+
         emit BountyCreated(bountyId, _title, _rewardAmount, msg.sender, _tier, _deadline);
-        
+
         return bountyId;
     }
-    
+
     /**
      * @dev Submits a solution to a bounty
      * @param _bountyId Bounty ID
@@ -271,24 +271,24 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         bytes32 _performanceHash,
         uint256 _accuracy,
         uint256 _responseTime
-    ) external 
+    ) external
         bountyExists(_bountyId)
         validBountyStatus(_bountyId, BountyStatus.ACTIVE)
         beforeDeadline(bounties[_bountyId].deadline)
-        nonReentrant 
-        returns (uint256) 
+        nonReentrant
+        returns (uint256)
     {
         Bounty storage bounty = bounties[_bountyId];
-        
+
         require(!hasSubmitted[_bountyId][msg.sender], "Already submitted");
         require(bounty.submissionCount < bounty.maxSubmissions, "Max submissions reached");
-        
+
         if (bounty.requiresZKProof) {
             require(_zkProof.length > 0, "ZK-proof required");
         }
-        
+
         uint256 submissionId = bounty.submissionCount; // Use count as ID
-        
+
         Submission storage submission = submissions[submissionId];
         submission.submissionId = submissionId;
         submission.bountyId = _bountyId;
@@ -299,23 +299,23 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         submission.responseTime = _responseTime;
         submission.submissionTime = block.timestamp;
         submission.status = SubmissionStatus.PENDING;
-        
+
         // Update tracking
         bounty.submissionCount++;
         hasSubmitted[_bountyId][msg.sender] = true;
         bountySubmissions[_bountyId].push(submissionId);
         userSubmissions[msg.sender].push(submissionId);
-        
+
         // Auto-verify if ZK-proof is provided
         if (_zkProof.length > 0) {
             _verifySubmission(_bountyId, submissionId);
         }
-        
+
         emit BountySubmitted(_bountyId, submissionId, msg.sender, _performanceHash, _accuracy);
-        
+
         return submissionId;
     }
-    
+
     /**
      * @dev Manually verifies a submission (oracle or automated)
      * @param _bountyId Bounty ID
@@ -328,29 +328,29 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         uint256 _submissionId,
         bool _verified,
         address _verifier
-    ) external 
+    ) external
         bountyExists(_bountyId)
-        nonReentrant 
+        nonReentrant
     {
         Bounty storage bounty = bounties[_bountyId];
         Submission storage submission = submissions[_submissionId];
-        
+
         require(submission.status == SubmissionStatus.PENDING, "Submission not pending");
         require(submission.bountyId == _bountyId, "Submission bounty mismatch");
-        
+
         submission.status = _verified ? SubmissionStatus.VERIFIED : SubmissionStatus.REJECTED;
         submission.verifier = _verifier;
-        
+
         if (_verified) {
             // Check if this meets the bounty requirements
             if (submission.accuracy >= bounty.minAccuracy) {
                 _completeBounty(_bountyId, _submissionId);
             }
         }
-        
+
         emit BountyVerified(_bountyId, _submissionId, submission.submitter, _verified, bounty.rewardAmount);
     }
-    
+
     /**
      * @dev Disputes a submission
      * @param _bountyId Bounty ID
@@ -361,29 +361,29 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         uint256 _bountyId,
         uint256 _submissionId,
         string memory _reason
-    ) external 
+    ) external
         bountyExists(_bountyId)
-        nonReentrant 
+        nonReentrant
     {
         Bounty storage bounty = bounties[_bountyId];
         Submission storage submission = submissions[_submissionId];
-        
+
         require(submission.status == SubmissionStatus.VERIFIED, "Can only dispute verified submissions");
         require(block.timestamp - submission.submissionTime <= 86400, "Dispute window expired"); // 24 hours
-        
+
         submission.status = SubmissionStatus.DISPUTED;
         submission.disputeReason = _reason;
         bounty.status = BountyStatus.DISPUTED;
-        
+
         // Collect dispute fee
         uint256 disputeFee = (bounty.rewardAmount * disputeFeePercentage) / 10000;
         if (disputeFee > 0) {
             require(aitbcToken.transferFrom(msg.sender, address(this), disputeFee), "Dispute fee transfer failed");
         }
-        
+
         emit BountyDisputed(_bountyId, _submissionId, msg.sender, _reason);
     }
-    
+
     /**
      * @dev Resolves a dispute
      * @param _bountyId Bounty ID
@@ -397,15 +397,15 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     ) external onlyOwner bountyExists(_bountyId) nonReentrant {
         Bounty storage bounty = bounties[_bountyId];
         Submission storage submission = submissions[_submissionId];
-        
+
         require(bounty.status == BountyStatus.DISPUTED, "No dispute to resolve");
         require(submission.status == SubmissionStatus.DISPUTED, "Submission not disputed");
-        
+
         if (_upholdDispute) {
             // Reject the submission
             submission.status = SubmissionStatus.REJECTED;
             bounty.status = BountyStatus.ACTIVE;
-            
+
             // Return dispute fee
             uint256 disputeFee = (bounty.rewardAmount * disputeFeePercentage) / 10000;
             if (disputeFee > 0) {
@@ -417,29 +417,29 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             _completeBounty(_bountyId, _submissionId);
         }
     }
-    
+
     /**
      * @dev Expires a bounty and returns funds to creator
      * @param _bountyId Bounty ID
      */
     function expireBounty(uint256 _bountyId) external bountyExists(_bountyId) nonReentrant {
         Bounty storage bounty = bounties[_bountyId];
-        
+
         require(bounty.status == BountyStatus.ACTIVE, "Bounty not active");
         require(block.timestamp > bounty.deadline, "Deadline not passed");
-        
+
         bounty.status = BountyStatus.EXPIRED;
-        
+
         // Return funds to creator
         uint256 refundAmount = bounty.rewardAmount;
         require(aitbcToken.transfer(bounty.creator, refundAmount), "Refund transfer failed");
-        
+
         // Remove from active bounties
         _removeFromActiveBounties(_bountyId);
-        
+
         emit BountyExpired(_bountyId, refundAmount);
     }
-    
+
     /**
      * @dev Authorizes a creator to create bounties
      * @param _creator Address to authorize
@@ -447,20 +447,20 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     function authorizeCreator(address _creator) external onlyOwner {
         require(_creator != address(0), "Invalid address");
         require(!isAuthorizedCreator(_creator), "Already authorized");
-        
+
         authorizedCreators.push(_creator);
         bounties[0].authorizedSubmitters[_creator] = true; // Use bounty 0 as storage
     }
-    
+
     /**
      * @dev Revokes creator authorization
      * @param _creator Address to revoke
      */
     function revokeCreator(address _creator) external onlyOwner {
         require(isAuthorizedCreator(_creator), "Not authorized");
-        
+
         bounties[0].authorizedSubmitters[_creator] = false; // Use bounty 0 as storage
-        
+
         // Remove from array
         for (uint256 i = 0; i < authorizedCreators.length; i++) {
             if (authorizedCreators[i] == _creator) {
@@ -470,7 +470,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             }
         }
     }
-    
+
     /**
      * @dev Updates fee percentages
      * @param _creationFee New creation fee percentage
@@ -485,12 +485,12 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         require(_creationFee <= 500, "Creation fee too high"); // Max 5%
         require(_successFee <= 500, "Success fee too high"); // Max 5%
         require(_platformFee <= 500, "Platform fee too high"); // Max 5%
-        
+
         creationFeePercentage = _creationFee;
         successFeePercentage = _successFee;
         platformFeePercentage = _platformFee;
     }
-    
+
     /**
      * @dev Updates tier requirements
      * @param _tier Bounty tier
@@ -499,9 +499,9 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     function updateTierRequirement(BountyTier _tier, uint256 _minimumReward) external onlyOwner {
         tierRequirements[_tier] = _minimumReward;
     }
-    
+
     // View functions
-    
+
     /**
      * @dev Gets bounty details
      * @param _bountyId Bounty ID
@@ -538,7 +538,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             bounty.requiresZKProof
         );
     }
-    
+
     /**
      * @dev Gets submission details
      * @param _submissionId Submission ID
@@ -565,7 +565,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             submission.verifier
         );
     }
-    
+
     /**
      * @dev Gets all submissions for a bounty
      * @param _bountyId Bounty ID
@@ -573,7 +573,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     function getBountySubmissions(uint256 _bountyId) external view bountyExists(_bountyId) returns (uint256[] memory) {
         return bountySubmissions[_bountyId];
     }
-    
+
     /**
      * @dev Gets all bounties created by a user
      * @param _creator Creator address
@@ -581,7 +581,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     function getCreatorBounties(address _creator) external view returns (uint256[] memory) {
         return creatorBounties[_creator];
     }
-    
+
     /**
      * @dev Gets all submissions by a user
      * @param _submitter Submitter address
@@ -589,14 +589,14 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     function getUserSubmissions(address _submitter) external view returns (uint256[] memory) {
         return userSubmissions[_submitter];
     }
-    
+
     /**
      * @dev Gets all active bounty IDs
      */
     function getActiveBounties() external view returns (uint256[] memory) {
         return activeBountyIds;
     }
-    
+
     /**
      * @dev Gets bounty statistics
      */
@@ -604,7 +604,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         uint256 totalValue = 0;
         uint256 activeCount = 0;
         uint256 completedCount = 0;
-        
+
         for (uint256 i = 0; i < bountyCounter; i++) {
             if (bounties[i].status == BountyStatus.ACTIVE) {
                 activeCount++;
@@ -614,10 +614,10 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
                 totalValue += bounties[i].rewardAmount;
             }
         }
-        
+
         uint256 avgReward = bountyCounter > 0 ? totalValue / bountyCounter : 0;
         uint256 successRate = completedCount > 0 ? (completedCount * 100) / bountyCounter : 0;
-        
+
         return BountyStats({
             totalBounties: bountyCounter,
             activeBounties: activeCount,
@@ -627,7 +627,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             successRate: successRate
         });
     }
-    
+
     /**
      * @dev Checks if an address is authorized to create bounties
      * @param _creator Address to check
@@ -635,13 +635,13 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     function isAuthorizedCreator(address _creator) public view returns (bool) {
         return bounties[0].authorizedSubmitters[_creator]; // Use bounty 0 as storage
     }
-    
+
     // Internal functions
-    
+
     function _verifySubmission(uint256 _bountyId, uint256 _submissionId) internal {
         Bounty storage bounty = bounties[_bountyId];
         Submission storage submission = submissions[_submissionId];
-        
+
         // Verify ZK-proof using PerformanceVerifier
         bool proofValid = performanceVerifier.verifyPerformanceProof(
             0, // Use dummy agreement ID for bounty verification
@@ -651,7 +651,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             100, // Default compute power
             submission.zkProof
         );
-        
+
         if (proofValid && submission.accuracy >= bounty.minAccuracy) {
             submission.status = SubmissionStatus.VERIFIED;
             _completeBounty(_bountyId, _submissionId);
@@ -659,39 +659,39 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             submission.status = SubmissionStatus.REJECTED;
         }
     }
-    
+
     function _completeBounty(uint256 _bountyId, uint256 _submissionId) internal {
         Bounty storage bounty = bounties[_bountyId];
         Submission storage submission = submissions[_submissionId];
-        
+
         require(bounty.status == BountyStatus.ACTIVE || bounty.status == BountyStatus.SUBMITTED, "Bounty not active");
-        
+
         bounty.status = BountyStatus.COMPLETED;
         bounty.winningSubmission = submission.submitter;
-        
+
         // Calculate fees
         uint256 successFee = (bounty.rewardAmount * successFeePercentage) / 10000;
         uint256 platformFee = (bounty.rewardAmount * platformFeePercentage) / 10000;
         uint256 totalFees = successFee + platformFee;
         uint256 winnerReward = bounty.rewardAmount - totalFees;
-        
+
         // Transfer reward to winner
         if (winnerReward > 0) {
             require(aitbcToken.transfer(submission.submitter, winnerReward), "Reward transfer failed");
         }
-        
+
         // Transfer fees to treasury
         if (totalFees > 0) {
             require(aitbcToken.transfer(owner(), totalFees), "Fee transfer failed");
             emit PlatformFeeCollected(_bountyId, totalFees, owner());
         }
-        
+
         // Remove from active bounties
         _removeFromActiveBounties(_bountyId);
-        
+
         emit BountyCompleted(_bountyId, submission.submitter, winnerReward, block.timestamp);
     }
-    
+
     function _removeFromActiveBounties(uint256 _bountyId) internal {
         for (uint256 i = 0; i < activeBountyIds.length; i++) {
             if (activeBountyIds[i] == _bountyId) {
@@ -701,14 +701,14 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             }
         }
     }
-    
+
     /**
      * @dev Emergency pause function
      */
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @dev Unpause function
      */

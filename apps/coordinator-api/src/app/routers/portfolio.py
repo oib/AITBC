@@ -53,7 +53,9 @@ async def get_portfolio(request: Request, user_id: str | None = None) -> dict[st
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get portfolio: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get portfolio: {str(e)}"
+        ) from e
 
 
 @router.post("/", summary="Get portfolio for specific wallets")
@@ -75,7 +77,9 @@ async def get_portfolio_for_wallets(request: Request, req: PortfolioRequest) -> 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get portfolio: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get portfolio: {str(e)}"
+        ) from e
 
 
 @router.get("/wallet/{address}", summary="Get wallet breakdown")

@@ -81,7 +81,7 @@ echo "Committing dependency updates..."
 git commit -m "deps: update dependencies to resolve GitHub PRs
 
 - Update bandit from 1.7.5 to 1.9.4 (security scanner) - resolves PR #31
-- Update black from 24.3.0 to 26.3.1 (code formatter) - resolves PR #37  
+- Update black from 24.3.0 to 26.3.1 (code formatter) - resolves PR #37
 - Update tabulate from 0.9.0 to 0.10.0 - resolves PR #34
 - Update types-requests from 2.31.0 to 2.32.4.20260107 - resolves PR #35
 
@@ -93,13 +93,13 @@ This will automatically close the corresponding Dependabot PRs when pushed."
 echo ""
 echo "=== PR Resolution Summary ==="
 echo "✅ PR #31 (bandit): RESOLVED - Security update applied via poetry"
-echo "✅ PR #37 (black): RESOLVED - Development tool updated via poetry"  
+echo "✅ PR #37 (black): RESOLVED - Development tool updated via poetry"
 echo "✅ PR #34 (tabulate): RESOLVED - Production dependency updated via poetry"
 echo "✅ PR #35 (types-requests): RESOLVED - Type hints updated via poetry"
 echo ""
 echo "Remaining PRs (CI/CD):"
 echo "- PR #30 (actions/github-script): Will be auto-merged by Dependabot"
-echo "- PR #29 (actions/upload-artifact): Will be auto-merged by Dependabot"  
+echo "- PR #29 (actions/upload-artifact): Will be auto-merged by Dependabot"
 echo "- PR #28 (ossf/scorecard-action): Will be auto-merged by Dependabot"
 echo ""
 echo "⚠️  PR #33 (black duplicate): Can be closed as superseded by PR #37"
@@ -111,7 +111,7 @@ echo "Run 'git push origin main' to push these changes and resolve the PRs."
 echo ""
 echo "After pushing, the following PRs should be automatically closed:"
 echo "- PR #31 (bandit security update)"
-echo "- PR #37 (black formatter update)"  
+echo "- PR #37 (black formatter update)"
 echo "- PR #34 (tabulate update)"
 echo "- PR #35 (types-requests update)"
 

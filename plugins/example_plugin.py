@@ -11,11 +11,13 @@ from enum import Enum
 from typing import Any
 
 import click
+
 from aitbc.plugins import BasePlugin, PluginContext, PluginMetadata
 
 
 class PluginStatus(Enum):
     """Plugin status enumeration."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     UNLOADED = "unloaded"
@@ -224,8 +226,9 @@ def get_plugin_info() -> dict[str, Any]:
 
 
 try:
-    from aitbc.plugins import CLIPlugin
     from click import Group
+
+    from aitbc.plugins import CLIPlugin
 
     class ExampleCLIPlugin(CLIPlugin, ExamplePlugin):
         """Example CLI plugin extending the base plugin."""

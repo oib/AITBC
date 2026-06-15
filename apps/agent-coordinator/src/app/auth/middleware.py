@@ -169,7 +169,6 @@ def require_permissions(required_permissions: list[str]) -> Callable[[F], F]:
     """Decorator to require specific permissions"""
 
     def decorator(func: F) -> F:
-
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             current_user = kwargs.get("current_user")
@@ -193,7 +192,6 @@ def require_role(required_roles: list[str]) -> Callable[[F], F]:
     """Decorator to require specific role"""
 
     def decorator(func: F) -> F:
-
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             current_user = kwargs.get("current_user")

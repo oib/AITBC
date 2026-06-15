@@ -100,7 +100,7 @@ class ExplorerService:
             if value_str == "0":
                 value = job.payload.get("value") if isinstance(job.payload, dict) else None
                 if value is not None:
-                    if isinstance(value, (int, float)):
+                    if isinstance(value, int | float):
                         value_str = f"{value}"
                     else:
                         value_str = str(value)

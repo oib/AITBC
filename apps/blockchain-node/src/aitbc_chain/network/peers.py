@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from .discovery import NodeStatus, P2PDiscovery, PeerNode
+from .health import PeerHealthMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +26,6 @@ def log_error(msg: str) -> None:
 
 def log_warn(msg: str) -> None:
     logger.warning(msg)
-
-
-from .health import PeerHealthMonitor  # noqa: E402
 
 
 class PeerAction(Enum):

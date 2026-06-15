@@ -150,7 +150,7 @@ Parser template pattern:
 def register(subparsers, ctx):
     parser = subparsers.add_parser("<command_group>", help="Command group description")
     sub = parser.add_subparsers(dest="action", help="Subcommand")
-    
+
     # Add subcommands
     sub_<subcommand> = sub.add_parser("<subcommand>", help="Subcommand description")
     sub_<subcommand>.add_argument("--option", required=True, help="Option description")

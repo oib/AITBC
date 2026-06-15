@@ -55,19 +55,19 @@ force_stop_service() {
     local service_name="$1"
     local max_attempts=3
     local attempt=1
-    
+
     print_persistent "Service $service_name has auto-restart - applying enhanced stop procedure..."
-    
+
     # Disable auto-restart temporarily
     if systemctl show "$service_name" -p Restart | grep -q "Restart=always"; then
         print_status "Temporarily disabling auto-restart for $service_name"
         sudo systemctl kill -s SIGSTOP "$service_name" 2>/dev/null || true
     fi
-    
+
     # Try to stop with increasing force
     while [ $attempt -le $max_attempts ]; do
         print_status "Attempt $attempt/$max_attempts to stop $service_name"
-        
+
         case $attempt in
             1)
                 # First attempt: normal stop
@@ -88,17 +88,17 @@ force_stop_service() {
                 sudo systemctl kill -s SIGKILL "$service_name" 2>/dev/null || true
                 ;;
         esac
-        
+
         # Wait and check
         sleep 2
         if ! is_service_running "$service_name"; then
             print_success "Service $service_name stopped on attempt $attempt"
             return 0
         fi
-        
+
         attempt=$((attempt + 1))
     done
-    
+
     # If still running, try service masking
     print_persistent "Service $service_name still persistent - trying service masking..."
     service_file="/etc/systemd/system/$service_name.service"
@@ -107,7 +107,7 @@ force_stop_service() {
         sudo systemctl daemon-reload 2>/dev/null || true
         systemctl stop "$service_name" 2>/dev/null || true
         sleep 2
-        
+
         if ! is_service_running "$service_name"; then
             print_success "Service $service_name stopped via service masking"
             # Restore the service file
@@ -120,7 +120,7 @@ force_stop_service() {
             sudo systemctl daemon-reload 2>/dev/null || true
         fi
     fi
-    
+
     print_error "Failed to stop persistent service $service_name after $max_attempts attempts"
     return 1
 }
@@ -149,11 +149,11 @@ if [ -z "$aitbc_services" ]; then
 else
     print_status "Found AITBC services:"
     echo "$aitbc_services" | sed 's/^/  - /'
-    
+
     # Categorize services
     normal_services=""
     persistent_services=""
-    
+
     for service in $aitbc_services; do
         service_name=$(echo "$service" | sed 's/\.service$//')
         if has_auto_restart "$service_name"; then
@@ -162,13 +162,13 @@ else
             normal_services="$normal_services $service_name"
         fi
     done
-    
+
     # Stop normal services first
     if [ -n "$normal_services" ]; then
         print_status "Stopping normal services..."
         for service_name in $normal_services; do
             print_status "Stopping service: $service_name"
-            
+
             if is_service_running "$service_name"; then
                 if systemctl stop "$service_name"; then
                     print_success "Service $service_name stopped successfully"
@@ -180,13 +180,13 @@ else
             fi
         done
     fi
-    
+
     # Stop persistent services with enhanced procedure
     if [ -n "$persistent_services" ]; then
         print_status "Stopping persistent services with enhanced procedure..."
         for service_name in $persistent_services; do
             print_status "Processing persistent service: $service_name"
-            
+
             if is_service_running "$service_name"; then
                 if force_stop_service "$service_name"; then
                     print_success "Persistent service $service_name stopped successfully"
@@ -206,7 +206,7 @@ print_status "Stopping incus containers..."
 containers=("aitbc" "aitbc1")
 for container in "${containers[@]}"; do
     print_status "Stopping container: $container"
-    
+
     if incus info "$container" >/dev/null 2>&1; then
         # Check if container is running
         if incus info "$container" | grep -q "Status: RUNNING"; then
@@ -231,7 +231,7 @@ if [ -n "$aitbc_services" ]; then
     print_status "Systemd Services Status:"
     stopped_count=0
     running_count=0
-    
+
     for service in $aitbc_services; do
         service_name=$(echo "$service" | sed 's/\.service$//')
         if is_service_running "$service_name"; then
@@ -242,11 +242,11 @@ if [ -n "$aitbc_services" ]; then
             stopped_count=$((stopped_count + 1))
         fi
     done
-    
+
     # Calculate success rate
     total_services=$((stopped_count + running_count))
     success_rate=$(( (stopped_count * 100) / total_services ))
-    
+
     if [ $running_count -eq 0 ]; then
         print_success "All systemd services stopped successfully (100%)"
     elif [ $success_rate -ge 90 ]; then

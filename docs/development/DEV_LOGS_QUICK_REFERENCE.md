@@ -74,19 +74,19 @@ download.log
 ## 🚀 **Best Practices:**
 
 ### **DO:**
-✅ Use `wgetlog <url>` instead of `wget <url>`  
-✅ Use `curllog <url>` instead of `curl <url>`  
-✅ Use `devlog "message"` for development notes  
-✅ Store all logs in `/opt/aitbc/dev/logs/`  
-✅ Use log aliases for navigation  
-✅ Clean up old logs regularly  
+✅ Use `wgetlog <url>` instead of `wget <url>`
+✅ Use `curllog <url>` instead of `curl <url>`
+✅ Use `devlog "message"` for development notes
+✅ Store all logs in `/opt/aitbc/dev/logs/`
+✅ Use log aliases for navigation
+✅ Clean up old logs regularly
 
 ### **DON'T:**
-❌ Create log files in project root  
-❌ Use `wget` without `-o` option  
-❌ Use `curl` without output redirection  
-❌ Leave scattered log files  
-❌ Ignore log organization  
+❌ Create log files in project root
+❌ Use `wget` without `-o` option
+❌ Use `curl` without output redirection
+❌ Leave scattered log files
+❌ Ignore log organization
 
 ## 📋 **Quick Commands:**
 

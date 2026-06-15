@@ -52,13 +52,13 @@ from datetime import datetime, timedelta
 @pytest.mark.e2e
 class TestJobLifecycle:
     """End-to-end test for complete job lifecycle"""
-    
+
     @pytest.fixture
     async def client(self):
         """HTTP client for API calls"""
         async with httpx.AsyncClient() as client:
             yield client
-    
+
     async def test_complete_job_execution(self, client):
         """Test complete job from submission to completion"""
         # 1. Submit job
@@ -73,7 +73,7 @@ class TestJobLifecycle:
             },
             "ttl_seconds": 900
         }
-        
+
         response = await client.post(
             "http://localhost:8203/v1/jobs",
             json=job_data,
@@ -82,13 +82,13 @@ class TestJobLifecycle:
         assert response.status_code == 201
         job = response.json()
         job_id = job["job_id"]
-        
+
         # 2. Wait for job assignment
         await self._wait_for_job_state(client, job_id, "ASSIGNED", timeout=60)
-        
+
         # 3. Wait for job completion
         await self._wait_for_job_state(client, job_id, "COMPLETED", timeout=300)
-        
+
         # 4. Verify result
         response = await client.get(
             f"http://localhost:8203/v1/jobs/{job_id}",
@@ -98,7 +98,7 @@ class TestJobLifecycle:
         job = response.json()
         assert job["state"] == "COMPLETED"
         assert "result" in job
-        
+
         # 5. Verify payment
         response = await client.get(
             f"http://localhost:8203/v1/jobs/{job_id}/payment",
@@ -107,7 +107,7 @@ class TestJobLifecycle:
         assert response.status_code == 200
         payment = response.json()
         assert payment["status"] == "completed"
-    
+
     async def _wait_for_job_state(self, client, job_id, expected_state, timeout):
         """Wait for job to reach expected state"""
         start = datetime.now()
@@ -120,7 +120,7 @@ class TestJobLifecycle:
             if job["state"] == expected_state:
                 return
             await asyncio.sleep(1)
-        
+
         pytest.fail(f"Job did not reach state {expected_state} within {timeout}s")
 ```
 

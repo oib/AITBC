@@ -1,18 +1,20 @@
+"""
+Enhanced Marketplace API Router - Phase 6.5
+REST API endpoints for advanced marketplace features including royalties, licensing, and analytics
+"""
+
 from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-"\nEnhanced Marketplace API Router - Phase 6.5\nREST API endpoints for advanced marketplace features including royalties, licensing, and analytics\n"
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
-
-from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService  # noqa: E402
-from ..deps import require_admin_key  # noqa: E402
-from ..domain import MarketplaceOffer  # type: ignore[attr-defined]  # noqa: E402
-from ..schemas.marketplace_enhanced import (  # noqa: E402
+from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
+from ..deps import require_admin_key
+from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
+from ..schemas.marketplace_enhanced import (
     MarketplaceAnalyticsResponse,
     ModelLicenseRequest,
     ModelLicenseResponse,
@@ -21,7 +23,9 @@ from ..schemas.marketplace_enhanced import (  # noqa: E402
     RoyaltyDistributionRequest,
     RoyaltyDistributionResponse,
 )
-from ..storage import get_session  # noqa: E402
+from ..storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Enhanced Marketplace"])
 

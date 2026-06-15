@@ -134,11 +134,11 @@ def validate_transaction(tx: dict) -> bool:
         ('gas_limit', SecurityValidator.validate_gas_limit),
         ('amount', SecurityValidator.validate_amount),
     ]
-    
+
     for field, validator in validations:
         if not validator(tx.get(field, 0)):
             raise ValidationError(f"Invalid {field}")
-    
+
     return True
 ```
 
@@ -157,10 +157,10 @@ def get_account_balance(address: str, chain_id: int) -> str:
     balance = cache.get_account_balance(address, chain_id)
     if balance:
         return balance
-    
+
     # Query blockchain
     balance = blockchain_rpc.get_balance(address, chain_id)
-    
+
     # Cache result
     cache.set_account_balance(address, chain_id, balance)
     return balance
@@ -188,10 +188,10 @@ db.connect()
 def check_performance():
     stats = db.get_monitoring_stats()
     slow_queries = db.get_slow_queries(limit=5)
-    
+
     if stats['avg_execution_time_ms'] > 100:
         print("⚠️  High average query time")
-    
+
     for query in slow_queries:
         print(f"⚠️  Slow query: {query.query[:50]}... ({query.execution_time_ms:.2f}ms)")
 
@@ -275,13 +275,13 @@ def get_performance_metrics():
 def health_check():
     """Quick health check"""
     metrics = get_performance_metrics()
-    
+
     health = {
         'cache_hit_rate': metrics['cache']['hit_rate'] > 0.7,
         'db_error_rate': metrics['database']['error_rate'] < 0.05,
         'avg_query_time': metrics['database']['avg_execution_time_ms'] < 100
     }
-    
+
     return all(health.values()), health
 ```
 
@@ -339,5 +339,5 @@ pip freeze > requirements.txt
 
 ---
 
-**Version**: 1.0  
+**Version**: 1.0
 **Last Updated**: 2025-01-04

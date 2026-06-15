@@ -30,12 +30,12 @@ log() {
 execute_aitbc() {
     local cmd="$@"
     log "INFO" "Executing AITBC: $cmd"
-    
+
     cd /opt/aitbc
     local output
     output=$(./aitbc-cli $cmd 2>&1)
     local exit_code=$?
-    
+
     if [ $exit_code -eq 0 ]; then
         log "SUCCESS" "AITBC command succeeded"
         echo "$output"
@@ -51,11 +51,11 @@ execute_aitbc() {
 analyze_with_hermes() {
     local data="$@"
     log "INFO" "Analyzing with Hermes..."
-    
+
     local analysis
     analysis=$(echo "$data" | $HERMES_CMD --message "Analyze this AITBC output and provide insights: $data" 2>&1)
     local exit_code=$?
-    
+
     if [ $exit_code -eq 0 ]; then
         log "SUCCESS" "Hermes analysis completed"
         echo "$analysis"
@@ -71,22 +71,22 @@ analyze_with_hermes() {
 hybrid_execute() {
     local cmd="$@"
     local use_hermes="${USE_HERMES:-false}"
-    
+
     # Execute AITBC command
     local aitbc_output
     aitbc_output=$(execute_aitbc $cmd)
     local aitbc_exit=$?
-    
+
     if [ $aitbc_exit -ne 0 ]; then
         return $aitbc_exit
     fi
-    
+
     # Optionally analyze with Hermes
     if [ "$use_hermes" = "true" ]; then
         echo -e "${BLUE}=== Hermes Analysis ===${NC}"
         analyze_with_hermes "$aitbc_output"
     fi
-    
+
     return 0
 }
 
@@ -94,7 +94,7 @@ hybrid_execute() {
 main() {
     local command="$1"
     shift || true
-    
+
     case "$command" in
         exec)
             # Execute AITBC command only

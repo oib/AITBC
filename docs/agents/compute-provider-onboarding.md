@@ -36,7 +36,7 @@ steps:
     auto_remediation:
       - "install_cuda_drivers"
       - "setup_gpu_environment"
-  
+
   - step: 2
     name: "SDK Installation"
     action: "install_dependencies"
@@ -49,7 +49,7 @@ steps:
     auto_remediation:
       - "update_pip"
       - "install_system_dependencies"
-  
+
   - step: 3
     name: "Agent Creation"
     action: "create_agent"
@@ -58,7 +58,7 @@ steps:
     verification:
       - "provider.identity.id is generated"
       - "provider.registered == False"
-  
+
   - step: 4
     name: "Network Registration"
     action: "register_network"
@@ -69,7 +69,7 @@ steps:
     error_handling:
       - "retry_with_different_name"
       - "check_network_connectivity"
-  
+
   - step: 5
     name: "Resource Configuration"
     action: "configure_resources"
@@ -78,7 +78,7 @@ steps:
     verification:
       - "len(provider.current_offers) > 0"
       - "provider.current_offers[0].price_per_hour == 0.1"
-  
+
   - step: 6
     name: "Swarm Integration"
     action: "join_swarm"
@@ -86,7 +86,7 @@ steps:
       - "python3 -c 'await provider.join_swarm(\"load_balancing\", {\"role\": \"resource_provider\", \"data_sharing\": True})'"
     verification:
       - "provider.joined_swarms contains \"load_balancing\""
-  
+
   - step: 7
     name: "Start Earning"
     action: "start_participation"

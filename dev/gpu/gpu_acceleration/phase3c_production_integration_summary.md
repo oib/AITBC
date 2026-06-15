@@ -114,7 +114,7 @@ Response:
 ```python
 class ProductionCUDAZKAPI:
     """Production-ready CUDA ZK Accelerator API"""
-    
+
     def __init__(self):
         self.cuda_accelerator = None
         self.initialized = False
@@ -132,7 +132,7 @@ class ProductionCUDAZKAPI:
 ```python
 async def process_zk_operation(self, request: ZKOperationRequest) -> ZKOperationResult:
     """Process ZK operation with GPU acceleration and fallback"""
-    
+
     # GPU acceleration attempt
     if request.use_gpu and self.cuda_accelerator and self.initialized:
         try:
@@ -141,7 +141,7 @@ async def process_zk_operation(self, request: ZKOperationRequest) -> ZKOperation
             return gpu_result
         except Exception as e:
             logger.warning(f"GPU operation failed: {e}, falling back to CPU")
-    
+
     # CPU fallback
     return await self._process_with_cpu(request)
 ```
@@ -150,13 +150,13 @@ async def process_zk_operation(self, request: ZKOperationRequest) -> ZKOperation
 ```python
 def get_performance_statistics(self) -> Dict[str, Any]:
     """Get comprehensive performance statistics"""
-    
+
     stats = self.operation_stats.copy()
     stats["average_execution_time"] = stats["total_time"] / stats["total_operations"]
     stats["gpu_usage_rate"] = stats["gpu_operations"] / stats["total_operations"] * 100
     stats["cuda_available"] = CUDA_AVAILABLE
     stats["cuda_initialized"] = self.initialized
-    
+
     return stats
 ```
 
@@ -167,15 +167,15 @@ def get_performance_statistics(self) -> Dict[str, Any]:
 @app.post("/field-addition", response_model=APIResponse)
 async def field_addition(request: FieldAdditionRequest):
     """Perform GPU-accelerated field addition"""
-    
+
     zk_request = ZKOperationRequest(
         operation_type="field_addition",
         circuit_data={"num_elements": request.num_elements},
         use_gpu=request.use_gpu
     )
-    
+
     result = await cuda_api.process_zk_operation(zk_request)
-    
+
     return APIResponse(
         success=result.success,
         message="Field addition completed successfully",
@@ -236,22 +236,22 @@ uvicorn.run(
 # Integration with existing AITBC Coordinator API
 async def integrate_with_coordinator():
     """Integrate CUDA acceleration with existing ZK workflow"""
-    
+
     # Field operations
     field_result = await cuda_api.process_zk_operation(
         ZKOperationRequest(operation_type="field_addition", ...)
     )
-    
+
     # Constraint verification
     constraint_result = await cuda_api.process_zk_operation(
         ZKOperationRequest(operation_type="constraint_verification", ...)
     )
-    
+
     # Witness generation
     witness_result = await cuda_api.process_zk_operation(
         ZKOperationRequest(operation_type="witness_generation", ...)
     )
-    
+
     return {
         "field_operations": field_result,
         "constraint_verification": constraint_result,
@@ -264,9 +264,9 @@ async def integrate_with_coordinator():
 # Real-time performance monitoring
 def monitor_performance():
     """Monitor GPU acceleration performance"""
-    
+
     stats = cuda_api.get_performance_statistics()
-    
+
     return {
         "total_operations": stats["total_operations"],
         "gpu_usage_rate": stats["gpu_usage_rate"],

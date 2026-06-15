@@ -159,7 +159,7 @@ class TestBlockchainRPCContracts:
 
                 # Contract: Balance should be non-negative
                 if "balance" in data:
-                    assert isinstance(data["balance"], (int, str)), "Balance should be integer or string"
+                    assert isinstance(data["balance"], int | str), "Balance should be integer or string"
 
         except httpx.ConnectError:
             pytest.skip("Blockchain RPC not available")
@@ -215,7 +215,7 @@ class TestBlockchainRPCContracts:
                 data = response.json()
 
                 # Contract: Response should be a list
-                assert isinstance(data, (list, dict)), "Response should be a list or dict"
+                assert isinstance(data, list | dict), "Response should be a list or dict"
 
                 if isinstance(data, list) and data:
                     # Contract: Each peer should have identifier

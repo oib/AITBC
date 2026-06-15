@@ -208,7 +208,88 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/test_rate_limiting_types.py -
 - `./venv/bin/python -m mypy --show-error-codes`: Run type checker
 - `./venv/bin/python -m ruff check .`: Run linter
 - `./venv/bin/python -m ruff format .`: Run formatter
+- `pre-commit run --all-files`: Run pre-commit hooks manually
+- `git commit --no-verify`: Skip pre-commit hooks for WIP commits
+
+## Pre-commit Hooks
+
+The project uses pre-commit hooks to enforce code quality automatically on every commit.
+
+### Enabled Hooks
+- **pre-commit-hooks**: Basic file checks (trailing whitespace, YAML, JSON, merge conflicts, etc.)
+- **Ruff**: Linting with auto-fix and formatting
+- **MyPy**: Type checking on the 12 clean apps (coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, hermes, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer)
+- **Bandit**: Security scanning (runs on pre-push only)
+
+### Installation
+```bash
+# Already installed in venv
+pre-commit install
+```
+
+### Usage
+```bash
+# Run manually on all files
+pre-commit run --all-files
+
+# Skip hooks for WIP commits
+git commit --no-verify -m "WIP message"
+```
+
+## Multi-node Deployment Configuration
+
+All internal services now support multi-node deployments by default.
+
+### Service Bind Configuration
+
+Services use standardized environment variables for bind configuration:
+
+| Service | Host Variable | Port Variable | Default Host | Default Port |
+|---------|---------------|---------------|--------------|--------------|
+| Marketplace | `MARKETPLACE_BIND_HOST` | `MARKETPLACE_BIND_PORT` | `0.0.0.0` | 8102 |
+| GPU | `GPU_BIND_HOST` | `GPU_BIND_PORT` | `0.0.0.0` | 8101 |
+| Trading | `TRADING_BIND_HOST` | `TRADING_BIND_PORT` | `0.0.0.0` | 8104 |
+| Governance | `GOVERNANCE_BIND_HOST` | `GOVERNANCE_BIND_PORT` | `0.0.0.0` | 8105 |
+| Wallet | `WALLET_BIND_HOST` | `WALLET_BIND_PORT` | `0.0.0.0` | 8108 |
+| Hermes | `HERMES_BIND_HOST` | `HERMES_BIND_PORT` | `0.0.0.0` | 8103 |
+| Agent Coordinator | `AGENT_COORDINATOR_BIND_HOST` | `AGENT_COORDINATOR_BIND_PORT` | `0.0.0.0` | 9001 |
+| FFmpeg | `FFMPEG_BIND_HOST` | `FFMPEG_BIND_PORT` | `0.0.0.0` | 8230 |
+| Whisper | `WHISPER_BIND_HOST` | `WHISPER_BIND_PORT` | `0.0.0.0` | 8110 |
+| Transcoder | `TRANSCODER_BIND_HOST` | `TRANSCODER_BIND_PORT` | `0.0.0.0` | 8220 |
+
+### Example Usage
+
+```bash
+# Multi-node deployment (default - bind to all interfaces)
+export MARKETPLACE_BIND_HOST=0.0.0.0
+export MARKETPLACE_BIND_PORT=8102
+
+# Local-only deployment (restrict to localhost)
+export GPU_BIND_HOST=127.0.0.1
+export GPU_BIND_PORT=8101
+```
+
+### Backward Compatibility
+
+Old environment variable names are still supported with fallback chains:
+- Hermes: `BIND_HOST`, `HERMES_PORT` → `HERMES_BIND_HOST`, `HERMES_BIND_PORT`
+- Agent Coordinator: `HOST`, `PORT` → `AGENT_COORDINATOR_BIND_HOST`, `AGENT_COORDINATOR_BIND_PORT`
+- FFmpeg: `FFMPEG_PORT` → `FFMPEG_BIND_PORT`
+- Whisper: `WHISPER_PORT` → `WHISPER_BIND_PORT`
+- Transcoder: `TRANSCODER_PORT` → `TRANSCODER_BIND_PORT`
+
+## Code Quality Status
+
+### Ruff Linting
+- **Status**: ✅ 0 errors
+- **Total issues resolved**: 1,689
+- **Categories fixed**: W293, UP035, F601, C401, F811, F402, F841, B007, F405, E402, B904, UP031, F821, B023, F403, UP007/UP045, B017, B905, C417/C416, B011, E741/E712
+
+### MyPy Type Checking
+- **Status**: ✅ 0 errors on 12 clean apps
+- **Strict mode**: ✅ 12/12 strict options enabled
+- **Applications clean**: coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, hermes, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer
 
 ---
 
-*Last updated: 2026-06-15 - Full strict MyPy mode enabled (12/12 strict options), all primary applications (pool-hub, wallet, edge, hermes, agent-management, agent-coordinator) pass strict mode, comprehensive type parameter fixes applied across 12+ applications*
+*Last updated: 2026-06-15 - Full strict MyPy mode enabled (12/12 strict options), all primary applications (pool-hub, wallet, edge, hermes, agent-management, agent-coordinator) pass strict mode, comprehensive type parameter fixes applied across 12+ applications, pre-commit hooks implemented, multi-node deployment bind fixes completed, environment variable standardization completed, Ruff linting 0 errors*

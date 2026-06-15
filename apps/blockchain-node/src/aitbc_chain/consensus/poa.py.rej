@@ -3,9 +3,9 @@
 @@ -101,7 +101,7 @@
                  # Wait for interval before proposing next block
                  await asyncio.sleep(self.config.interval_seconds)
-                 
+
 -                self._propose_block()
 +                await self._propose_block()
-                 
+
          except asyncio.CancelledError:
              pass

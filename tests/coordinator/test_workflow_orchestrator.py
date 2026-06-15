@@ -11,7 +11,6 @@ Or enable with: AITBC_RUN_WORKFLOW_TESTS=1 pytest tests/coordinator/test_workflo
 import os
 import sys
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 
@@ -22,11 +21,6 @@ pytestmark = pytest.mark.skipif(
     not os.environ.get("AITBC_RUN_WORKFLOW_TESTS"),
     reason="Import conflict with coordinator-api app - set AITBC_RUN_WORKFLOW_TESTS=1 to run",
 )
-
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
 
 # Clear any cached 'app' modules from other test suites to avoid import conflicts
 for mod_name in list(sys.modules.keys()):

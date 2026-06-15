@@ -1,19 +1,19 @@
-from typing import Annotated
+"""
+AI Agent API Router for Verifiable AI Agent Orchestration
+Provides REST API endpoints for agent workflow management and execution
+"""
 
-"\nAI Agent API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for agent workflow management and execution\n"
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request  # noqa: E402
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlmodel import Session, select
 
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
-
-from ....deps import require_admin_key  # noqa: E402
-from ....domain.agent import (  # noqa: E402
+from ....deps import require_admin_key
+from ....domain.agent import (
     AgentExecutionRequest,
     AgentExecutionResponse,
     AgentExecutionStatus,
@@ -22,8 +22,10 @@ from ....domain.agent import (  # noqa: E402
     AgentWorkflowUpdate,
     AIAgentWorkflow,
 )
-from ....services.agent_coordination.agent_service import AIAgentOrchestrator  # noqa: E402
-from ....storage import get_session  # noqa: E402
+from ....services.agent_coordination.agent_service import AIAgentOrchestrator
+from ....storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["AI Agents"])
 
@@ -230,29 +232,12 @@ async def list_executions(
         if workflow_id:
             workflow = session.get(AIAgentWorkflow, workflow_id)
             if not workflow or workflow.owner_id != current_user.id:  # type: ignore[attr-defined]
-                raise HTTPException(status_code=404, detail="Workflow not found")
+                raise HTTPException(status_code=403, detail="Access denied")
             query = query.where(AgentExecution.workflow_id == workflow_id)
-        else:
-            user_workflows = session.execute(
-                select(AIAgentWorkflow.id).where(AIAgentWorkflow.owner_id == current_user.id)
-            ).all()  # type: ignore[attr-defined]
-            workflow_ids = [w.id for w in user_workflows]
-            query = query.where(AgentExecution.workflow_id.in_(workflow_ids))
         if status:
             query = query.where(AgentExecution.status == status)
-        query = query.offset(offset).limit(limit)
-        query = query.order_by(AgentExecution.created_at.desc())
-        executions = session.execute(query).all()
-        execution_statuses = []
-        for execution in executions:
-            from ..coordinator_client import CoordinatorClient  # type: ignore[import-not-found]
-            from ..services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
-
-            coordinator_client = CoordinatorClient()
-            orchestrator = AIAgentOrchestrator(session, coordinator_client)
-            status = await orchestrator.get_execution_status(execution.id)
-            execution_statuses.append(status)
-        return execution_statuses  # type: ignore[return-value]
+        executions = session.execute(query.offset(offset).limit(limit)).all()
+        return executions  # type: ignore[return-value]
     except HTTPException:
         raise
     except Exception as e:
@@ -260,157 +245,58 @@ async def list_executions(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.post("/executions/{execution_id}/cancel")
-async def cancel_execution(
+@router.post("/workflows/{workflow_id}/cancel")
+async def cancel_workflow(
+    workflow_id: str,
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-) -> dict[str, str]:  # type: ignore[arg-type]
-    """Cancel an ongoing execution"""
+) -> dict[str, Any]:  # type: ignore[arg-type]
+    """Cancel a workflow execution"""
     try:
-        from ..domain.agent import AgentExecution  # type: ignore[import-not-found]
-        from ..services.agent_coordination.agent_service import AgentStateManager
-
-        execution = session.get(AgentExecution, execution_id)
-        if not execution:
-            raise HTTPException(status_code=404, detail="Execution not found")
-        workflow = session.get(AIAgentWorkflow, execution.workflow_id)
-        if workflow.owner_id != current_user.id:  # type: ignore[union-attr, attr-defined]
+        workflow = session.get(AIAgentWorkflow, workflow_id)
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        if workflow.owner_id != current_user.id:  # type: ignore[attr-defined]
             raise HTTPException(status_code=403, detail="Access denied")
-        if execution.status not in [AgentStatus.PENDING, AgentStatus.RUNNING]:
-            raise HTTPException(status_code=400, detail="Execution cannot be cancelled")
-        state_manager = AgentStateManager(session)
-        await state_manager.update_execution_status(execution_id, status=AgentStatus.CANCELLED, completed_at=datetime.now(UTC))
-        logger.info("Cancelled agent execution: %s", execution_id)
-        return {"message": "Execution cancelled successfully"}
+        from app.services.agent_coordination.coordinator_client import CoordinatorClient  # type: ignore[import-not-found]
+
+        coordinator_client = CoordinatorClient()
+        from app.services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
+
+        orchestrator = AIAgentOrchestrator(session, coordinator_client)
+        result = await orchestrator.cancel_execution(execution_id)
+        logger.info("Cancelled workflow execution: %s", execution_id)
+        return result  # type: ignore[no-any-return]
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to cancel execution: %s", e)
+        logger.error("Failed to cancel workflow: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.get("/executions/{execution_id}/logs")
-async def get_execution_logs(
-    execution_id: str,
+@router.get("/workflows/{workflow_id}/executions", response_model=list[AgentExecutionStatus])
+async def list_workflow_executions(
+    workflow_id: str,
+    limit: int = 50,
+    offset: int = 0,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
-    """Get execution logs"""
+) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
+    """List executions for a specific workflow"""
     try:
-        from ..domain.agent import AgentExecution, AgentStepExecution
-
-        execution = session.get(AgentExecution, execution_id)
-        if not execution:
-            raise HTTPException(status_code=404, detail="Execution not found")
-        workflow = session.get(AIAgentWorkflow, execution.workflow_id)
-        if workflow.owner_id != current_user.id:  # type: ignore[union-attr, attr-defined]
+        workflow = session.get(AIAgentWorkflow, workflow_id)
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        if workflow.owner_id != current_user.id and (not workflow.is_public):  # type: ignore[attr-defined]
             raise HTTPException(status_code=403, detail="Access denied")
-        step_executions = session.execute(
-            select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id)
-        ).all()
-        logs = []
-        for step_exec in step_executions:
-            logs.append(
-                {
-                    "step_id": step_exec.step_id,
-                    "status": step_exec.status,
-                    "started_at": step_exec.started_at,
-                    "completed_at": step_exec.completed_at,
-                    "execution_time": step_exec.execution_time,
-                    "error_message": step_exec.error_message,
-                    "gpu_accelerated": step_exec.gpu_accelerated,
-                    "memory_usage": step_exec.memory_usage,
-                }
-            )
-        return {
-            "execution_id": execution_id,
-            "workflow_id": execution.workflow_id,
-            "status": execution.status,
-            "started_at": execution.started_at,
-            "completed_at": execution.completed_at,
-            "total_execution_time": execution.total_execution_time,
-            "step_logs": logs,
-        }
+        from app.domain.agent import AgentExecution  # type: ignore[import-not-found]
+
+        query = select(AgentExecution).where(AgentExecution.workflow_id == workflow_id)
+        executions = session.execute(query.offset(offset).limit(limit)).all()
+        return executions  # type: ignore[return-value]
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to get execution logs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-@router.get("/test")
-@rate_limit(rate=1000, per=60)
-async def test_endpoint(request: Request) -> dict[str, str]:
-    """Test endpoint to verify router is working"""
-    return {"message": "Agent router is working", "timestamp": datetime.now(UTC).isoformat()}
-
-
-@router.post("/networks", response_model=dict, status_code=201)
-@rate_limit(rate=50, per=60)
-async def create_agent_network(
-    network_data: dict,
-    request: Request,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
-    """Create a new agent network for collaborative processing"""
-    try:
-        if not network_data.get("name"):
-            raise HTTPException(status_code=400, detail="Network name is required")
-        if not network_data.get("agents"):
-            raise HTTPException(status_code=400, detail="Agent list is required")
-        network_id = f"network_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
-        network_response = {
-            "id": network_id,
-            "name": network_data["name"],
-            "description": network_data.get("description", ""),
-            "agents": network_data["agents"],
-            "coordination_strategy": network_data.get("coordination", "centralized"),
-            "status": "active",
-            "created_at": datetime.now(UTC).isoformat(),
-            "owner_id": current_user,
-        }
-        logger.info("Created agent network: %s", network_id)
-        return network_response
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Failed to create agent network: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-@router.get("/executions/{execution_id}/receipt")
-@rate_limit(rate=100, per=60)
-async def get_execution_receipt(
-    execution_id: str,
-    request: Request,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
-) -> dict[str, Any]:  # type: ignore[arg-type]
-    """Get verifiable receipt for completed execution"""
-    try:
-        receipt_data = {
-            "execution_id": execution_id,
-            "workflow_id": f"workflow_{execution_id}",
-            "status": "completed",
-            "receipt_id": f"receipt_{execution_id}",
-            "miner_signature": "0xmock_signature_placeholder",
-            "coordinator_attestations": [
-                {
-                    "coordinator_id": "coordinator_1",
-                    "signature": "0xmock_attestation_1",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                }
-            ],
-            "minted_amount": 1000,
-            "recorded_at": datetime.now(UTC).isoformat(),
-            "verified": True,
-            "block_hash": "0xmock_block_hash",
-            "transaction_hash": "0xmock_tx_hash",
-        }
-        logger.info("Generated receipt for execution: %s", execution_id)
-        return receipt_data
-    except Exception as e:
-        logger.error("Failed to get execution receipt: %s", e)
+        logger.error("Failed to list workflow executions: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e

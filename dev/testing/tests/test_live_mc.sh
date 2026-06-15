@@ -12,19 +12,19 @@ CHAINS=("ait-devnet" "ait-testnet" "ait-healthchain")
 
 for CHAIN in "${CHAINS[@]}"; do
     echo "=== Testing Chain: $CHAIN ==="
-    
+
     echo "1. Fetching head block from aitbc (Primary Node):"
     ssh aitbc-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=$CHAIN\" | jq ."
-    
+
     echo "2. Fetching head block from aitbc1 (Secondary Node):"
     ssh aitbc1-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=$CHAIN\" | jq ."
-    
+
     echo "3. Submitting a test transaction to $CHAIN on aitbc..."
     ssh aitbc-cascade "curl -s -X POST \"http://127.0.0.1:8082/rpc/sendTx?chain_id=$CHAIN\" -H \"Content-Type: application/json\" -d '{\"sender\":\"test_user\",\"recipient\":\"test_recipient\",\"payload\":{\"data\":\"multi-chain test\"},\"nonce\":1,\"fee\":0,\"type\":\"TRANSFER\"}'" | jq .
-    
+
     echo "Waiting for blocks to process..."
     sleep 3
-    
+
     echo "4. Checking updated head block on aitbc1 (Cross-Site Sync Test)..."
     ssh aitbc1-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=$CHAIN\" | jq ."
     echo "--------------------------------------------------------"
