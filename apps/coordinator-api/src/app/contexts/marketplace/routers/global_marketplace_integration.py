@@ -12,13 +12,13 @@ from sqlmodel import Session, select
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from ....agent_identity.manager import AgentIdentityManager
-from ....reputation.engine import CrossChainReputationEngine
-from ....services.multi_chain_transaction_manager import TransactionPriority
-from ....storage.db import get_session
-from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
-from ..domain.global_marketplace import GlobalMarketplaceOffer
-from ..services.global_marketplace_integration import GlobalMarketplaceIntegrationService, IntegrationStatus
+from ....agent_identity.manager import AgentIdentityManager  # noqa: E402
+from ....reputation.engine import CrossChainReputationEngine  # noqa: E402
+from ....services.multi_chain_transaction_manager import TransactionPriority  # noqa: E402
+from ....storage.db import get_session  # noqa: E402
+from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol  # noqa: E402
+from ..domain.global_marketplace import GlobalMarketplaceOffer  # noqa: E402
+from ..services.global_marketplace_integration import GlobalMarketplaceIntegrationService, IntegrationStatus  # noqa: E402
 
 router = APIRouter(prefix="/global-marketplace-integration", tags=["Global Marketplace Integration"])
 
@@ -74,9 +74,9 @@ async def create_cross_chain_marketplace_offer(
         )
         return offer
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad request")
+        raise HTTPException(status_code=400, detail="Bad request") from None
     except Exception:
-        raise HTTPException(status_code=500, detail="Error creating cross-chain offer")
+        raise HTTPException(status_code=500, detail="Error creating cross-chain offer") from None
 
 
 @router.get("/offers/cross-chain", response_model=list[dict[str, Any]])
@@ -104,7 +104,7 @@ async def get_integrated_marketplace_offers(
         )
         return offers
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting integrated offers")
+        raise HTTPException(status_code=500, detail="Error getting integrated offers") from None
 
 
 @router.get("/offers/{offer_id}/cross-chain-details", response_model=dict[str, Any])
@@ -144,7 +144,7 @@ async def get_cross_chain_offer_details(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting cross-chain offer details")
+        raise HTTPException(status_code=500, detail="Error getting cross-chain offer details") from None
 
 
 @router.post("/offers/{offer_id}/optimize-pricing", response_model=dict[str, Any])
@@ -166,9 +166,9 @@ async def optimize_offer_pricing(
         )
         return optimization
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad request")
+        raise HTTPException(status_code=400, detail="Bad request") from None
     except Exception:
-        raise HTTPException(status_code=500, detail="Error optimizing offer pricing")
+        raise HTTPException(status_code=500, detail="Error optimizing offer pricing") from None
 
 
 @router.post("/transactions/execute-cross-chain", response_model=dict[str, Any])
@@ -208,9 +208,9 @@ async def execute_cross_chain_transaction(
         )
         return transaction
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad request")
+        raise HTTPException(status_code=400, detail="Bad request") from None
     except Exception:
-        raise HTTPException(status_code=500, detail="Error executing cross-chain transaction")
+        raise HTTPException(status_code=500, detail="Error executing cross-chain transaction") from None
 
 
 @router.get("/transactions/cross-chain", response_model=list[dict[str, Any]])
@@ -262,7 +262,7 @@ async def get_cross_chain_transactions(
                     )
         return cross_chain_transactions
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting cross-chain transactions")
+        raise HTTPException(status_code=500, detail="Error getting cross-chain transactions") from None
 
 
 @router.get("/analytics/cross-chain", response_model=dict[str, Any])
@@ -280,7 +280,7 @@ async def get_cross_chain_analytics(
         )
         return analytics
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting cross-chain analytics")
+        raise HTTPException(status_code=500, detail="Error getting cross-chain analytics") from None
 
 
 @router.get("/analytics/marketplace-integration", response_model=dict[str, Any])
@@ -306,7 +306,7 @@ async def get_marketplace_integration_analytics(
             "last_updated": datetime.now(UTC).isoformat(),
         }
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting marketplace integration analytics")
+        raise HTTPException(status_code=500, detail="Error getting marketplace integration analytics") from None
 
 
 @router.get("/status", response_model=dict[str, Any])
@@ -341,7 +341,7 @@ async def get_integration_status(
             "last_updated": datetime.now(UTC).isoformat(),
         }
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting integration status")
+        raise HTTPException(status_code=500, detail="Error getting integration status") from None
 
 
 @router.get("/config", response_model=dict[str, Any])
@@ -403,7 +403,7 @@ async def get_integration_config(
             "last_updated": datetime.now(UTC).isoformat(),
         }
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting integration config")
+        raise HTTPException(status_code=500, detail="Error getting integration config") from None
 
 
 @router.post("/config/update", response_model=dict[str, Any])
@@ -426,9 +426,9 @@ async def update_integration_config(
             "updated_at": datetime.now(UTC).isoformat(),
         }
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad request")
+        raise HTTPException(status_code=400, detail="Bad request") from None
     except Exception:
-        raise HTTPException(status_code=500, detail="Error updating integration config")
+        raise HTTPException(status_code=500, detail="Error updating integration config") from None
 
 
 @router.get("/health", response_model=dict[str, Any])
@@ -473,7 +473,7 @@ async def get_integration_health(
         health_status["last_updated"] = datetime.now(UTC).isoformat()
         return health_status
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting integration health")
+        raise HTTPException(status_code=500, detail="Error getting integration health") from None
 
 
 @router.post("/diagnostics/run", response_model=dict[str, Any])
@@ -526,4 +526,4 @@ async def run_integration_diagnostics(
         ).total_seconds()  # type: ignore[arg-type, assignment]
         return diagnostics
     except Exception:
-        raise HTTPException(status_code=500, detail="Error running diagnostics")
+        raise HTTPException(status_code=500, detail="Error running diagnostics") from None

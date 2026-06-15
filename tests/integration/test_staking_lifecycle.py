@@ -19,11 +19,11 @@ for mod_name in list(sys.modules.keys()):
         del sys.modules[mod_name]
 
 # Import after path setup
-from app.contexts.staking.services.staking_service import StakingService
-from app.domain.bounty import AgentMetrics, PerformanceTier, StakeStatus
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlmodel import SQLModel
+from app.contexts.staking.services.staking_service import StakingService  # noqa: E402
+from app.domain.bounty import AgentMetrics, PerformanceTier, StakeStatus  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from sqlmodel import SQLModel  # noqa: E402
 
 
 @pytest.fixture
@@ -206,7 +206,7 @@ class TestStakingLifecycle:
         assert stake1.stake_id != stake2.stake_id
         assert stake1.amount == 500.0
         assert stake2.amount == 1500.0
-        assert stake2.auto_compound == True
+        assert stake2.auto_compound is True
 
         # Verify agent metrics
         metrics = await staking_service.get_agent_metrics(agent_wallet)

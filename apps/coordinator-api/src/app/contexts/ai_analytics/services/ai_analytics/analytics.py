@@ -10,7 +10,7 @@ from uuid import uuid4
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from app.domain.analytics import (  # type: ignore[import-not-found]
+from app.domain.analytics import (  # type: ignore[import-not-found]  # noqa: E402
     AnalyticsAlert,
     AnalyticsPeriod,
     DashboardConfig,
@@ -19,7 +19,7 @@ from app.domain.analytics import (  # type: ignore[import-not-found]
     MarketMetric,
     MetricType,
 )
-from sqlmodel import Session, and_, select
+from sqlmodel import Session, and_, select  # noqa: E402
 
 
 class DataCollector:

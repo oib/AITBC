@@ -21,10 +21,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from database import get_db_session, init_db
-from models import Order, Trade, User
+from database import get_db_session, init_db  # noqa: E402
+from models import Order, Trade, User  # noqa: E402
 
-from aitbc.rate_limiting import RateLimitMiddleware
+from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 
 
 @asynccontextmanager

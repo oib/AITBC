@@ -9,9 +9,15 @@ from typing import Any
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, and_, func, select
+from sqlmodel import Session, and_, func, select  # noqa: E402
 
-from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationEvent, ReputationLevel, TrustScoreCategory
+from ....domain.reputation import (  # noqa: E402
+    AgentReputation,
+    CommunityFeedback,
+    ReputationEvent,
+    ReputationLevel,
+    TrustScoreCategory,
+)
 
 
 class TrustScoreCalculator:

@@ -71,7 +71,7 @@ def get_engine(chain_id: str = "") -> Engine:
             except ImportError:
                 raise RuntimeError(
                     "SQLCipher encryption enabled but sqlcipher3-binary not installed. Run: pip install sqlcipher3-binary"
-                )
+                ) from None
 
             # Load encryption key from file (raw binary bytes, convert to hex)
             with open(settings.db_encryption_key_path, "rb") as f:
@@ -253,7 +253,7 @@ def shutdown_db(chain_id: str = "") -> None:
                 Path(temp_path).unlink(missing_ok=True)
                 del _db_temp_paths[resolved_chain_id]
             except Exception as e:
-                raise RuntimeError(f"Failed to encrypt database for chain {resolved_chain_id}: {e}")
+                raise RuntimeError(f"Failed to encrypt database for chain {resolved_chain_id}: {e}") from e
 
     # Dispose of engine
     if resolved_chain_id in _engines:

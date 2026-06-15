@@ -3,6 +3,7 @@ General operations commands for AITBC CLI (marketplace, AI, agents)
 """
 
 import json
+import os
 from pathlib import Path
 
 import click
@@ -10,7 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from ..config import get_config
-from ..utils import error, output, success
+from ..utils import error, info, output, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
 
@@ -18,6 +19,7 @@ logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://localhost:8202"
 DEFAULT_WALLET_DIR = Path.home() / ".aitbc" / "wallets"
+DEFAULT_KEYSTORE_DIR = Path.home() / ".aitbc" / "wallets"
 
 
 def _load_wallet(wallet_path: Path, wallet_name: str) -> dict:
@@ -34,7 +36,7 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict:
             wallet_data["private_key"] = decrypt_value(wallet_data["private_key"], password)
         except Exception:
             error("Invalid password for wallet")
-            raise click.Abort()
+            raise click.Abort() from None
 
     return wallet_data
 
@@ -168,7 +170,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
 
     except Exception as e:
         error(f"Error purchasing: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()

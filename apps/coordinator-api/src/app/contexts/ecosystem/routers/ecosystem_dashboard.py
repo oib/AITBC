@@ -14,9 +14,9 @@ from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-from ....routers.users import get_current_user
-from ....services.ecosystem_service import EcosystemService
-from ....storage import get_session
+from ....routers.users import get_current_user  # noqa: E402
+from ....services.ecosystem_service import EcosystemService  # noqa: E402
+from ....storage import get_session  # noqa: E402
 
 router = APIRouter()
 
@@ -108,7 +108,7 @@ async def get_developer_earnings(
         return DeveloperEarningsResponse(period=period, **earnings_data)
     except Exception as e:
         logger.error("Failed to get developer earnings: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/agent-utilization", response_model=AgentUtilizationResponse)
@@ -125,7 +125,7 @@ async def get_agent_utilization(
         return AgentUtilizationResponse(period=period, **utilization_data)
     except Exception as e:
         logger.error("Failed to get agent utilization: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/treasury-allocation", response_model=TreasuryAllocationResponse)
@@ -142,7 +142,7 @@ async def get_treasury_allocation(
         return TreasuryAllocationResponse(period=period, **treasury_data)
     except Exception as e:
         logger.error("Failed to get treasury allocation: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/staking-metrics", response_model=StakingMetricsResponse)
@@ -159,7 +159,7 @@ async def get_staking_metrics(
         return StakingMetricsResponse(period=period, **staking_data)
     except Exception as e:
         logger.error("Failed to get staking metrics: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/bounty-analytics", response_model=BountyAnalyticsResponse)
@@ -176,7 +176,7 @@ async def get_bounty_analytics(
         return BountyAnalyticsResponse(period=period, **bounty_data)
     except Exception as e:
         logger.error("Failed to get bounty analytics: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/overview", response_model=EcosystemOverviewResponse)
@@ -203,7 +203,7 @@ async def get_ecosystem_overview(
         )
     except Exception as e:
         logger.error("Failed to get ecosystem overview: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/metrics")
@@ -225,7 +225,7 @@ async def get_ecosystem_metrics(
         return {"metrics": metrics, "period_type": period_type, "count": len(metrics)}
     except Exception as e:
         logger.error("Failed to get ecosystem metrics: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/health-score")
@@ -246,7 +246,7 @@ async def get_ecosystem_health_score(
         }  # type: ignore[index]
     except Exception as e:
         logger.error("Failed to get health score: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/growth-indicators")
@@ -268,7 +268,7 @@ async def get_growth_indicators(
         }
     except Exception as e:
         logger.error("Failed to get growth indicators: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/top-performers")
@@ -287,7 +287,7 @@ async def get_top_performers(
         return {"category": category, "period": period, "performers": performers, "count": len(performers)}
     except Exception as e:
         logger.error("Failed to get top performers: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/predictions")
@@ -311,7 +311,7 @@ async def get_ecosystem_predictions(
         }
     except Exception as e:
         logger.error("Failed to get predictions: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/alerts")
@@ -328,7 +328,7 @@ async def get_ecosystem_alerts(
         return {"alerts": alerts, "severity": severity, "count": len(alerts), "last_updated": datetime.now(UTC)}
     except Exception as e:
         logger.error("Failed to get alerts: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/comparison")
@@ -358,7 +358,7 @@ async def get_ecosystem_comparison(
         }
     except Exception as e:
         logger.error("Failed to get comparison: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/export")
@@ -387,7 +387,7 @@ async def export_ecosystem_data(
         }
     except Exception as e:
         logger.error("Failed to export data: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/real-time")
@@ -403,7 +403,7 @@ async def get_real_time_metrics(
         return {"timestamp": datetime.now(UTC), "metrics": real_time_data, "update_frequency": "60s"}
     except Exception as e:
         logger.error("Failed to get real-time metrics: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/ecosystem/kpi-dashboard")
@@ -419,4 +419,4 @@ async def get_kpi_dashboard(
         return {"kpis": kpi_data, "last_updated": datetime.now(UTC), "refresh_interval": 300}
     except Exception as e:
         logger.error("Failed to get KPI dashboard: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

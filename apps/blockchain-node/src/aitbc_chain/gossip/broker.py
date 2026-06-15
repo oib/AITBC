@@ -14,7 +14,7 @@ try:
     from broadcaster import Broadcast  # type: ignore[import-not-found]
 except ImportError:
     Broadcast = None
-from ..metrics import metrics_registry
+from ..metrics import metrics_registry  # noqa: E402
 
 
 def _increment_publication(metric_prefix: str, topic: str) -> None:

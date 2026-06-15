@@ -19,8 +19,8 @@ for mod_name in list(sys.modules.keys()):
     if mod_name == "app" or mod_name.startswith("app."):
         del sys.modules[mod_name]
 
-from app.contexts.staking.services.staking_service import StakingService
-from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
+from app.contexts.staking.services.staking_service import StakingService  # noqa: E402
+from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool  # noqa: E402
 
 # Skip staking tests in full suite due to SQLite index conflicts with coordinator tests
 # Run separately with: pytest tests/services/test_staking_service.py

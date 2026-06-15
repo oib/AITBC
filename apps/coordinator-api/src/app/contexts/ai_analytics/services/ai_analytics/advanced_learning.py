@@ -8,13 +8,13 @@ import asyncio
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-import json
-from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any
+import json  # noqa: E402
+from dataclasses import asdict, dataclass  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
 
-import numpy as np
+import numpy as np  # noqa: E402
 
 
 class LearningType(StrEnum):

@@ -23,12 +23,12 @@ def log_warn(msg: str) -> None:
     logger.warning(msg)
 
 
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass  # noqa: E402
+from enum import Enum  # noqa: E402
 
-from .gas import GasManager
-from .rewards import RewardDistributor
-from .staking import StakingManager
+from .gas import GasManager  # noqa: E402
+from .rewards import RewardDistributor  # noqa: E402
+from .staking import StakingManager  # noqa: E402
 
 
 class AttackType(Enum):

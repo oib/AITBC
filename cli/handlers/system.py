@@ -175,7 +175,7 @@ def handle_agent_coordinator_action(args, render_mapping):
 
         elif action == "workflow_create":
             # Create workflow
-            with open(args.steps_file, "r") as f:
+            with open(args.steps_file) as f:
                 steps = json.load(f)
 
             data = {"name": args.name, "description": getattr(args, "description", ""), "steps": steps, "created_by": "cli"}
@@ -188,7 +188,7 @@ def handle_agent_coordinator_action(args, render_mapping):
             # Execute workflow
             input_params = {}
             if hasattr(args, "input_file") and args.input_file:
-                with open(args.input_file, "r") as f:
+                with open(args.input_file) as f:
                     input_params = json.load(f)
 
             data = {"input_parameters": input_params}

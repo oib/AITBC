@@ -21,7 +21,7 @@ from websockets.exceptions import ConnectionClosed
 if TYPE_CHECKING:
     from websockets.legacy.server import WebSocketServerProtocol
 WebSocketServerProtocol = Any  # type: ignore[assignment, misc]
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 

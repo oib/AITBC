@@ -39,8 +39,8 @@ rpc_request_duration = Histogram(
 rpc_requests_total = Counter("blockchain_rpc_requests_total", "Total RPC requests", ["method", "status"])
 
 # Legacy MetricsRegistry for backward compatibility
-from dataclasses import dataclass
-from threading import Lock
+from dataclasses import dataclass  # noqa: E402
+from threading import Lock  # noqa: E402
 
 
 @dataclass

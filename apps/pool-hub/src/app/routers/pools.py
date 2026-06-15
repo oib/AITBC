@@ -76,7 +76,7 @@ async def create_pool(request: Request, pool: PoolCreate, registry: MinerRegistr
         )
         return created  # type: ignore[no-any-return]
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{pool_id}", response_model=PoolInfo)

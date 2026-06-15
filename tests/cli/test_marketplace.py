@@ -65,7 +65,7 @@ class TestMarketplaceCommands:
         data = json.loads(result.output)
         assert len(data["gpus"]) == 2
         assert data["gpus"][0]["model"] == "RTX4090"
-        assert data["gpus"][0]["available"] == True
+        assert data["gpus"][0]["available"] is True
 
         # Verify API call
         mock_client.get.assert_called_once_with(
@@ -101,7 +101,7 @@ class TestMarketplaceCommands:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data["gpus"]) == 1
-        assert data["gpus"][0]["available"] == True
+        assert data["gpus"][0]["available"] is True
 
         # Verify API call
         mock_client.get.assert_called_once_with(

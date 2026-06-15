@@ -204,7 +204,7 @@ class TestWebhookAlertChannel:
     def test_webhook_channel_send_success(self):
         # Skip if httpx is not available
         try:
-            import httpx
+            import httpx  # noqa: F401
         except ImportError:
             pytest.skip("httpx not available")
 
@@ -223,7 +223,7 @@ class TestWebhookAlertChannel:
     def test_webhook_channel_send_failure(self):
         # Skip if httpx is not available
         try:
-            import httpx
+            import httpx  # noqa: F401
         except ImportError:
             pytest.skip("httpx not available")
 
@@ -247,7 +247,7 @@ class TestAlertRule:
     """Test AlertRule class"""
 
     def test_alert_rule_initialization(self):
-        condition = lambda: True
+        condition = lambda: True  # noqa: E731
         rule = alerting.AlertRule(
             name="test-rule",
             condition=condition,
@@ -265,7 +265,7 @@ class TestAlertRule:
         assert rule.last_fired is None
 
     def test_alert_rule_custom_interval(self):
-        condition = lambda: True
+        condition = lambda: True  # noqa: E731
         rule = alerting.AlertRule(
             name="test-rule",
             condition=condition,

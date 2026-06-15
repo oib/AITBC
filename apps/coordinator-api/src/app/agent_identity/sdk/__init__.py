@@ -13,10 +13,22 @@ from .exceptions import (
 from .models import (
     AgentIdentity,
     AgentWallet,
+    ChainConfig,
     ChainType,
+    CreateIdentityRequest,
+    CreateIdentityResponse,
     CrossChainMapping,
+    IdentityStatistics,
     IdentityStatus,
+    MigrationResponse,
+    RegistryHealth,
+    SearchResponse,
+    SyncReputationResponse,
+    Transaction,
+    TransactionResponse,
+    UpdateIdentityResponse,
     VerificationType,
+    VerifyIdentityResponse,
 )
 
 __version__ = "1.0.0"

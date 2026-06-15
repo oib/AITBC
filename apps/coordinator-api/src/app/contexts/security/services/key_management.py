@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from ....schemas import KeyPair, KeyRotationLog
+from ....schemas import KeyPair, KeyRotationLog  # noqa: E402
 
 
 class KeyManager:
@@ -48,7 +48,7 @@ class KeyManager:
             return key_pair
         except Exception as e:
             logger.error("Failed to generate key pair for %s: %s", participant_id, e)
-            raise KeyManagementError(f"Key generation failed: {e}")
+            raise KeyManagementError(f"Key generation failed: {e}") from e
 
     async def rotate_keys(self, participant_id: str) -> KeyPair:
         """Rotate encryption keys for participant"""
@@ -76,7 +76,7 @@ class KeyManager:
             return new_key_pair
         except Exception as e:
             logger.error("Failed to rotate keys for %s: %s", participant_id, e)
-            raise KeyManagementError(f"Key rotation failed: {e}")
+            raise KeyManagementError(f"Key rotation failed: {e}") from e
 
     def get_public_key(self, participant_id: str) -> X25519PublicKey:
         """Get public key for participant"""
@@ -152,7 +152,7 @@ class KeyManager:
             return base64.b64encode(auth_json.encode()).decode()
         except Exception as e:
             logger.error("Failed to create audit authorization: %s", e)
-            raise KeyManagementError(f"Authorization creation failed: {e}")
+            raise KeyManagementError(f"Authorization creation failed: {e}") from e
 
     async def list_participants(self) -> list[str]:
         """List all participants with keys"""
@@ -201,7 +201,7 @@ class KeyManager:
             self._audit_key = audit_public  # type: ignore[assignment]
         except Exception as e:
             logger.error("Failed to generate audit key: %s", e)
-            raise KeyManagementError(f"Audit key generation failed: {e}")
+            raise KeyManagementError(f"Audit key generation failed: {e}") from e
 
     def _should_rotate_audit_key(self) -> bool:
         """Check if audit key needs rotation"""

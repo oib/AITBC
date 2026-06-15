@@ -67,10 +67,10 @@ def submit(ctx, wallet, job_type, prompt, payment, password, password_file, chai
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error submitting job: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @ai.command()
@@ -99,10 +99,10 @@ def jobs(ctx, limit, status, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error listing jobs: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @ai.command()
@@ -131,10 +131,10 @@ def status(ctx, job_id, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting job status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @ai.group()
@@ -164,10 +164,10 @@ def list(ctx, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error listing services: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @service.command()
@@ -175,7 +175,7 @@ def list(ctx, coordinator_url, format):
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def status(ctx, name, coordinator_url, format):
+def service_status(ctx, name, coordinator_url, format):
     """Check AI service status"""
     config = get_config()
 
@@ -196,10 +196,10 @@ def status(ctx, name, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting service status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @service.command()
@@ -229,10 +229,10 @@ def test(ctx, name, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error testing service: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @ai.command()
@@ -261,10 +261,10 @@ def results(ctx, job_id, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting job results: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @ai.command()
@@ -302,10 +302,10 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error cancelling job: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @ai.command()
@@ -329,10 +329,10 @@ def stats(ctx, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting statistics: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @ai.command()
@@ -356,7 +356,7 @@ def distribution_stats(ctx, coordinator_url, format):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting distribution statistics: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

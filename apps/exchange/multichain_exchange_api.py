@@ -197,7 +197,7 @@ async def create_order(order: OrderRequest, background_tasks: BackgroundTasks):
             "message": f"Order created on {chain_info['name']}",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Order creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Order creation failed: {str(e)}") from e
 
 
 async def submit_order_to_blockchain(order_id: int, chain_id: str):
@@ -246,7 +246,7 @@ async def get_chain_orders(chain_id: str, status: str | None = None):
         conn.close()
         return {"chain_id": chain_id, "orders": orders, "total_orders": len(orders)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get orders: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get orders: {str(e)}") from e
 
 
 @app.get("/api/v1/orderbook/{chain_id}")
@@ -275,7 +275,7 @@ async def get_chain_orderbook(chain_id: str):
             "spread": sell_orders[0]["price"] - buy_orders[0]["price"] if buy_orders and sell_orders else None,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get orderbook: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get orderbook: {str(e)}") from e
 
 
 @app.get("/api/v1/trades/{chain_id}")
@@ -294,7 +294,7 @@ async def get_chain_trades(chain_id: str, limit: int = Query(default=50, le=100)
         conn.close()
         return {"chain_id": chain_id, "trades": trades, "total_trades": len(trades)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get trades: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get trades: {str(e)}") from e
 
 
 @app.post("/api/v1/trades")
@@ -324,7 +324,7 @@ async def create_trade(trade: MultiChainTradeRequest, background_tasks: Backgrou
             "message": f"Trade created on {chain_info['name']}",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Trade creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Trade creation failed: {str(e)}") from e
 
 
 async def submit_trade_to_blockchain(trade_id: int, chain_id: str):
@@ -381,7 +381,7 @@ async def get_chain_stats(chain_id: str):
             "timestamp": datetime.now().isoformat(),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}") from e
 
 
 if __name__ == "__main__":

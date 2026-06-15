@@ -44,7 +44,7 @@ async def heartbeat(
     try:
         MinerService(session).heartbeat(miner_id, req)
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not registered")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not registered") from None
     return {"status": "ok"}
 
 
@@ -78,7 +78,7 @@ async def submit_result(
     try:
         job = job_service.get_job(job_id)
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     job.result = req.result
     job.state = JobState.completed
     job.error = None
@@ -125,7 +125,7 @@ async def submit_failure(
         service.fail_job(job_id, miner_id, req.error_message)
         return {"status": "ok"}
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
 
 
 @router.post("/miners/{miner_id}/jobs", summary="List jobs for a miner")
@@ -220,10 +220,10 @@ async def update_miner_capabilities(
             "session_token": record.session_token,
         }
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found") from None
     except Exception as e:
         logger.error("Error updating miner capabilities: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.delete("/miners/{miner_id}", summary="Deregister miner")
@@ -240,10 +240,10 @@ async def deregister_miner(
         service.deregister(miner_id)
         return {"miner_id": miner_id, "status": "deregistered"}
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found") from None
     except Exception as e:
         logger.error("Error deregistering miner: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.post("/miners/{miner_id}/jobs/{job_id}/fail", summary="Report job failure")
@@ -262,10 +262,10 @@ async def fail_job(
         job_service.fail_job(job_id, fail_req.error_message)
         return {"job_id": job_id, "status": "failed"}
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     except Exception as e:
         logger.error("Error failing job %s: %s", job_id, e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 class FailJobRequest(BaseModel):
@@ -311,9 +311,9 @@ async def complete_job(
             "receipt_hash": complete_req.receipt.get("hash", "")[:16] if complete_req.receipt else None,
         }
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         logger.error("Error completing job %s: %s", job_id, e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e

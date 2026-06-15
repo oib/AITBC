@@ -63,7 +63,7 @@ async def get_job(
     try:
         job = service.get_job(job_id, client_id=client_id)
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     return service.to_view(job)  # type: ignore[no-any-return]
 
 
@@ -79,11 +79,11 @@ async def get_job_result(
     try:
         job = service.get_job(job_id, client_id=client_id)
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     if job.state not in {JobState.completed, JobState.failed, JobState.canceled, JobState.expired}:
-        raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready")
+        raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready") from None
     if job.result is None and job.receipt is None:
-        raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready")
+        raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready") from None
     return service.to_result(job)  # type: ignore[no-any-return]
 
 
@@ -99,9 +99,9 @@ async def cancel_job(
     try:
         job = service.get_job(job_id, client_id=client_id)
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     if job.state not in {JobState.queued, JobState.running}:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="job not cancelable")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="job not cancelable") from None
     job = service.cancel_job(job)
     return service.to_view(job)  # type: ignore[no-any-return]
 
@@ -118,9 +118,9 @@ async def get_job_receipt(
     try:
         job = service.get_job(job_id, client_id=client_id)
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     if not job.receipt:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="receipt not available")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="receipt not available") from None
     return job.receipt  # type: ignore[no-any-return]
 
 

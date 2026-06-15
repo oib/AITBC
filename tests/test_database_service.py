@@ -90,7 +90,7 @@ class TestSQLiteDatabaseService:
                 cursor = conn.cursor()
                 cursor.execute("CREATE TABLE test (id INTEGER)")
 
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017
                 with service.get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("INSERT INTO test (id) VALUES (1)")
@@ -209,7 +209,7 @@ class TestSQLiteDatabaseService:
                 ("INSERT INTO test (id, name, invalid) VALUES (?, ?, ?)", (3, "Charlie", "error")),  # Invalid
             ]
 
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017
                 service.execute_transaction(queries)
 
             # Verify no rows inserted

@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
 from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)
@@ -128,7 +129,7 @@ class SecurityValidator:
         """
         if not isinstance(data, dict):
             return False
-        return all((field in data for field in required_fields))
+        return all(field in data for field in required_fields)
 
     @staticmethod
     def sanitize_filename(filename: str) -> str:

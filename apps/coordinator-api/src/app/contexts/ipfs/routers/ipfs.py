@@ -93,7 +93,7 @@ async def upload_memory(request: IPFSUploadRequest) -> None:
             "filecoin_deal": result.filecoin_deal,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}") from e
 
 
 @router.post("/retrieve")
@@ -123,9 +123,9 @@ async def retrieve_memory(request: IPFSRetrieveRequest) -> None:
             },
         }
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Retrieve failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Retrieve failed: {str(e)}") from e
 
 
 @router.post("/batch-upload")
@@ -158,7 +158,7 @@ async def batch_upload_memories(request: IPFSBatchUploadRequest) -> None:
             ],
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Batch upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Batch upload failed: {str(e)}") from e
 
 
 @router.post("/create-deal")
@@ -183,7 +183,7 @@ async def create_filecoin_deal(request: IPFSCreateDealRequest) -> None:
             "duration": request.duration,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Deal creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Deal creation failed: {str(e)}") from e
 
 
 @router.get("/list/{agent_id}")
@@ -205,7 +205,7 @@ async def list_agent_memories(  # type: ignore[no-untyped-def]
             "cids": cids,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"List failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"List failed: {str(e)}") from e
 
 
 @router.delete("/delete")
@@ -228,7 +228,7 @@ async def delete_memory(request: IPFSDeleteRequest) -> None:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}") from e
 
 
 @router.get("/stats")
@@ -245,7 +245,7 @@ async def get_storage_stats() -> None:
             "stats": stats,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}") from e
 
 
 @router.get("/health")

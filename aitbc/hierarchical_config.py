@@ -6,9 +6,11 @@ Provides multi-source configuration loading with validation
 import json
 from pathlib import Path
 from typing import Any
+
 import yaml
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from .aitbc_logging import get_logger
 from .constants import CONFIG_DIR, DATA_DIR, ENV_FILE, LOG_DIR
 

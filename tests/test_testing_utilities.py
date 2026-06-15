@@ -1,7 +1,6 @@
 """Tests for aitbc.testing utilities"""
 
 import asyncio
-import tempfile
 
 from aitbc.testing import (
     MockCache,

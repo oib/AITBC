@@ -20,9 +20,9 @@ from pydantic import BaseModel, Field
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota  # type: ignore[import-not-found]
-from ...exceptions import QuotaExceededError, TenantError
-from ...storage.db import get_session
+from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota  # type: ignore[import-not-found]  # noqa: E402
+from ...exceptions import QuotaExceededError, TenantError  # noqa: E402
+from ...storage.db import get_session  # noqa: E402
 
 
 class EnterpriseAuthRequest(BaseModel):
@@ -154,7 +154,7 @@ class EnterpriseAPIGateway:
             )
         except Exception as e:
             logger.error("Enterprise authentication failed: %s", e)
-            raise HTTPException(status_code=401, detail="Authentication failed")
+            raise HTTPException(status_code=401, detail="Authentication failed") from e
 
     def _generate_access_token(self, tenant_id: str, client_id: str, scopes: list[str]) -> str:
         """Generate JWT access token"""
@@ -213,7 +213,7 @@ class EnterpriseAPIGateway:
             raise
         except Exception as e:
             logger.error("Quota check failed: %s", e)
-            raise HTTPException(status_code=500, detail="Quota check failed")
+            raise HTTPException(status_code=500, detail="Quota check failed") from e
 
     async def _get_tenant_quota(self, tenant_id: str, db_session: Any) -> dict[str, int]:
         """Get tenant quota configuration"""
@@ -270,7 +270,7 @@ class EnterpriseAPIGateway:
             }
         except Exception as e:
             logger.error("Failed to create enterprise integration: %s", e)
-            raise HTTPException(status_code=500, detail="Integration creation failed")
+            raise HTTPException(status_code=500, detail="Integration creation failed") from e
 
     async def _initialize_integration(self, integration: Any) -> None:
         """Initialize enterprise integration"""
@@ -355,7 +355,7 @@ class EnterpriseAPIGateway:
             )
         except Exception as e:
             logger.error("Failed to get enterprise metrics: %s", e)
-            raise HTTPException(status_code=500, detail="Metrics retrieval failed")
+            raise HTTPException(status_code=500, detail="Metrics retrieval failed") from e
 
     async def record_api_call(self, tenant_id: str, endpoint: str, response_time: float, success: bool) -> None:
         """Record API call for metrics"""

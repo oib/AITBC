@@ -4,20 +4,20 @@ from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
 "\nP2P Trading Protocol API Endpoints\nREST API for agent-to-agent trading, matching, negotiation, and settlement\n"
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
-from sqlmodel import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+from sqlmodel import select  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from ....domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
-from ....storage import get_session
-from ..services.trading_marketplace.trading import P2PTradingProtocol
+from ....domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ..services.trading_marketplace.trading import P2PTradingProtocol  # noqa: E402
 
 router = APIRouter(prefix="/trading", tags=["trading"])
 
@@ -208,7 +208,7 @@ async def create_trade_request(
         )
     except Exception as e:
         logger.error("Error creating trade request: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/requests/{request_id}", response_model=TradeRequestResponse)
@@ -240,7 +240,7 @@ async def get_trade_request(
         raise
     except Exception as e:
         logger.error("Error getting trade request %s: %s", request_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/requests/{request_id}/matches")
@@ -252,10 +252,10 @@ async def find_matches(request: Request, request_id: str, session: Session = Dep
         matches = await trading_protocol.find_matches(request_id)
         return matches  # type: ignore[return-value]
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error finding matches for request %s: %s", request_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/requests/{request_id}/matches")
@@ -291,7 +291,7 @@ async def get_trade_matches(
         ]
     except Exception as e:
         logger.error("Error getting trade matches for request %s: %s", request_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/negotiations", response_model=NegotiationResponse)
@@ -320,10 +320,10 @@ async def initiate_negotiation(
             expires_at=negotiation.expires_at.isoformat() if negotiation.expires_at else None,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error initiating negotiation: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/negotiations/{negotiation_id}", response_model=NegotiationResponse)
@@ -356,7 +356,7 @@ async def get_negotiation(
         raise
     except Exception as e:
         logger.error("Error getting negotiation %s: %s", negotiation_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/matches/{match_id}")
@@ -389,7 +389,7 @@ async def get_trade_match(request: Request, match_id: str, session: Session = De
         raise
     except Exception as e:
         logger.error("Error getting trade match %s: %s", match_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/agents/{agent_id}/summary", response_model=TradingSummaryResponse)
@@ -404,7 +404,7 @@ async def get_trading_summary(
         return TradingSummaryResponse(**summary)
     except Exception as e:
         logger.error("Error getting trading summary for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/requests")
@@ -447,7 +447,7 @@ async def list_trade_requests(
         ]
     except Exception as e:
         logger.error("Error listing trade requests: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/matches")
@@ -493,7 +493,7 @@ async def list_trade_matches(
         ]
     except Exception as e:
         logger.error("Error listing trade matches: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/negotiations")
@@ -535,7 +535,7 @@ async def list_negotiations(
         ]
     except Exception as e:
         logger.error("Error listing negotiations: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/analytics")
@@ -588,7 +588,7 @@ async def get_trading_analytics(
         return analytics
     except Exception as e:
         logger.error("Error getting trading analytics: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/simulate-match")
@@ -629,4 +629,4 @@ async def simulate_trade_matching(
         }
     except Exception as e:
         logger.error("Error simulating trade matching: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e

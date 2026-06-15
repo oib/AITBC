@@ -74,7 +74,7 @@ async def create_knowledge_graph(
         )
     except Exception as e:
         logger.error("Failed to create knowledge graph: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/graphs", response_model=list[KnowledgeGraphResponse])
@@ -85,7 +85,7 @@ async def list_knowledge_graphs(request: Request, session: Session = Depends(get
         return []
     except Exception as e:
         logger.error("Failed to list knowledge graphs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/graphs/{graph_id}", response_model=KnowledgeGraphResponse)
@@ -107,7 +107,7 @@ async def get_knowledge_graph(
         )
     except Exception as e:
         logger.error("Failed to get knowledge graph %s: %s", graph_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/graphs/{graph_id}/nodes", response_model=KnowledgeNodeResponse)
@@ -128,7 +128,7 @@ async def contribute_knowledge(
         )
     except Exception as e:
         logger.error("Failed to contribute knowledge to graph %s: %s", graph_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/graphs/{graph_id}/query", response_model=list[KnowledgeNodeResponse])
@@ -145,7 +145,7 @@ async def query_knowledge_graph(
         return []
     except Exception as e:
         logger.error("Failed to query knowledge graph %s: %s", graph_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/graphs/{graph_id}/join")
@@ -156,4 +156,4 @@ async def join_knowledge_graph(request: Request, graph_id: str, session: Session
         return {"status": "success", "message": f"Joined graph {graph_id}"}
     except Exception as e:
         logger.error("Failed to join knowledge graph %s: %s", graph_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

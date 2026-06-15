@@ -110,7 +110,7 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
         return {"success": True, "transaction_hash": tx_hash, "message": "Transaction submitted to mempool"}
     except Exception as e:
         _logger.error("Failed to submit transaction", extra={"error": str(e)})
-        raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {str(e)}") from e
 
 
 @rate_limit(rate=200, per=60)
@@ -126,7 +126,7 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
         return {"success": True, "transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
         _logger.error("Failed to get mempool", extra={"error": str(e)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}") from e
 
 
 @rate_limit(rate=50, per=60)
@@ -155,7 +155,7 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         return {"success": True, "transaction_hash": tx_hash, "message": "Marketplace transaction submitted to mempool"}
     except Exception as e:
         _logger.error("Failed to submit marketplace transaction", extra={"error": str(e)})
-        raise HTTPException(status_code=400, detail=f"Failed to submit marketplace transaction: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to submit marketplace transaction: {str(e)}") from e
 
 
 @rate_limit(rate=200, per=60)

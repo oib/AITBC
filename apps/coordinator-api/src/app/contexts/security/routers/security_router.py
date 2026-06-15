@@ -2,17 +2,17 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 "\nAgent Security API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for security management and auditing\n"
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from ....deps import require_admin_key
-from ....domain.agent import AIAgentWorkflow
-from ....services.agent_coordination.security import (
+from ....deps import require_admin_key  # noqa: E402
+from ....domain.agent import AIAgentWorkflow  # noqa: E402
+from ....services.agent_coordination.security import (  # noqa: E402
     AgentAuditLog,
     AgentAuditor,
     AgentSandboxManager,
@@ -23,7 +23,7 @@ from ....services.agent_coordination.security import (
     AuditEventType,
     SecurityLevel,
 )
-from ....storage import get_session
+from ....storage import get_session  # noqa: E402
 
 router = APIRouter(prefix="/agents/security", tags=["Agent Security"])
 
@@ -49,7 +49,7 @@ async def create_security_policy(
         return policy
     except Exception as e:
         logger.error("Failed to create security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/scan", response_model=dict[str, Any])
@@ -69,7 +69,7 @@ async def scan_security(
         }
     except Exception as e:
         logger.error("Failed to perform security scan: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/policies", response_model=list[AgentSecurityPolicy])
@@ -79,7 +79,7 @@ async def list_security_policies() -> list[AgentSecurityPolicy]:
         return []
     except Exception as e:
         logger.error("Failed to list security policies: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/policies/{policy_id}", response_model=AgentSecurityPolicy)
@@ -100,7 +100,7 @@ async def get_security_policy(
         raise
     except Exception as e:
         logger.error("Failed to get security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/policies/{policy_id}", response_model=AgentSecurityPolicy)
@@ -137,7 +137,7 @@ async def update_security_policy(
         raise
     except Exception as e:
         logger.error("Failed to update security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/policies/{policy_id}")
@@ -169,7 +169,7 @@ async def delete_security_policy(
         raise
     except Exception as e:
         logger.error("Failed to delete security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/validate-workflow/{workflow_id}")
@@ -194,7 +194,7 @@ async def validate_workflow_security(
         raise
     except Exception as e:
         logger.error("Failed to validate workflow security: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/audit-logs", response_model=list[AgentAuditLog])
@@ -241,7 +241,7 @@ async def list_audit_logs(
         return audit_logs  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to list audit logs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/audit-logs/{audit_id}", response_model=AgentAuditLog)
@@ -262,7 +262,7 @@ async def get_audit_log(
         raise
     except Exception as e:
         logger.error("Failed to get audit log: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/trust-scores")
@@ -297,7 +297,7 @@ async def list_trust_scores(
         return trust_scores  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to list trust scores: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/trust-scores/{entity_type}/{entity_id}", response_model=AgentTrustScore)
@@ -325,7 +325,7 @@ async def get_trust_score(
         raise
     except Exception as e:
         logger.error("Failed to get trust score: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/trust-scores/{entity_type}/{entity_id}/update")
@@ -371,7 +371,7 @@ async def update_trust_score(
         return trust_score
     except Exception as e:
         logger.error("Failed to update trust score: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/sandbox/{execution_id}/create")
@@ -406,7 +406,7 @@ async def create_sandbox(
         return sandbox  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to create sandbox: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/sandbox/{execution_id}/monitor")
@@ -424,7 +424,7 @@ async def monitor_sandbox(
         return monitoring_data
     except Exception as e:
         logger.error("Failed to monitor sandbox: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/sandbox/{execution_id}/cleanup")
@@ -450,7 +450,7 @@ async def cleanup_sandbox(
         return {"success": success, "message": "Sandbox cleanup completed"}
     except Exception as e:
         logger.error("Failed to cleanup sandbox: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/executions/{execution_id}/security-monitor")
@@ -469,7 +469,7 @@ async def monitor_execution_security(
         return monitoring_result
     except Exception as e:
         logger.error("Failed to monitor execution security: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/security-dashboard")
@@ -517,7 +517,7 @@ async def get_security_dashboard(
         }
     except Exception as e:
         logger.error("Failed to get security dashboard: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/security-stats")
@@ -583,4 +583,4 @@ async def get_security_statistics(
         }
     except Exception as e:
         logger.error("Failed to get security statistics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

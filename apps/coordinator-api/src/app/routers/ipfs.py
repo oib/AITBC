@@ -67,7 +67,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), pin: bool 
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Upload failed: {str(e)}") from e
 
 
 @router.post("/upload-text", summary="Upload text content to IPFS")
@@ -89,7 +89,7 @@ async def upload_text(request: Request, req: UploadTextRequest) -> dict[str, Any
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Upload failed: {str(e)}") from e
 
 
 @router.get("/content/{cid}", summary="Get IPFS content by CID")
@@ -127,7 +127,7 @@ async def get_content(request: Request, cid: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve content: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve content: {str(e)}") from e
 
 
 @router.post("/pin", summary="Pin a CID")
@@ -141,7 +141,7 @@ async def pin_cid(request: Request, req: PinCIDRequest) -> dict[str, Any]:
         return {"success": success, "cid": req.cid, "message": "Pinned successfully" if success else "Failed to pin"}
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Pin failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Pin failed: {str(e)}") from e
 
 
 @router.post("/unpin/{cid}", summary="Unpin a CID")
@@ -155,7 +155,7 @@ async def unpin_cid(request: Request, cid: str) -> dict[str, Any]:
         return {"success": success, "cid": cid, "message": "Unpinned successfully" if success else "Failed to unpin"}
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unpin failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unpin failed: {str(e)}") from e
 
 
 @router.get("/health", summary="Health check")
@@ -178,7 +178,7 @@ async def list_pins(request: Request) -> dict[str, Any]:
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to list pins: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to list pins: {str(e)}") from e
 
 
 @router.get("/gateway/{cid}", summary="Get gateway URL")

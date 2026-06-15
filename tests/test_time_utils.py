@@ -2,8 +2,6 @@
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
-
 from aitbc.utils.time_utils import (
     add_duration,
     calculate_deadline,
@@ -12,9 +10,9 @@ from aitbc.utils.time_utils import (
     format_iso8601,
     format_time_ago,
     get_deadline_remaining,
-    get_timestamp_utc,
     get_time_since,
     get_time_until,
+    get_timestamp_utc,
     get_utc_now,
     is_deadline_passed,
     iso_to_timestamp,

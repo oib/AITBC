@@ -3,17 +3,17 @@ from sqlalchemy.orm import Session
 from sqlmodel import select
 
 "\nCertification and Partnership API Endpoints\nREST API for agent certification, partnership programs, and badge system\n"
-from datetime import UTC, datetime
-from typing import Any
+from datetime import UTC, datetime  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from ....domain.certification import (
+from ....domain.certification import (  # noqa: E402
     AchievementBadge,
     AgentBadge,
     AgentCertification,
@@ -27,8 +27,13 @@ from ....domain.certification import (
     VerificationRecord,
     VerificationType,
 )
-from ....storage import get_session
-from ..services.certification import BadgeSystem, CertificationAndPartnershipService, CertificationSystem, PartnershipManager
+from ....storage import get_session  # noqa: E402
+from ..services.certification import (  # noqa: E402
+    BadgeSystem,
+    CertificationAndPartnershipService,
+    CertificationSystem,
+    PartnershipManager,
+)
 
 router = APIRouter(prefix="/v1/certification", tags=["certification"])
 
@@ -175,7 +180,7 @@ async def certify_agent(
         raise
     except Exception as e:
         logger.error("Error certifying agent: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/certifications/{certification_id}/renew")
@@ -196,7 +201,7 @@ async def renew_certification(
         raise
     except Exception as e:
         logger.error("Error renewing certification: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/certifications/{agent_id}")
@@ -232,7 +237,7 @@ async def get_agent_certifications(
         ]
     except Exception as e:
         logger.error("Error getting certifications for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/partnerships/programs")
@@ -266,7 +271,7 @@ async def create_partnership_program(
         }
     except Exception as e:
         logger.error("Error creating partnership program: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/partnerships/apply", response_model=PartnershipResponse)
@@ -302,7 +307,7 @@ async def apply_for_partnership(
         raise
     except Exception as e:
         logger.error("Error applying for partnership: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/partnerships/{agent_id}")
@@ -340,7 +345,7 @@ async def get_agent_partnerships(
         ]
     except Exception as e:
         logger.error("Error getting partnerships for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/partnerships/programs")
@@ -378,7 +383,7 @@ async def list_partnership_programs(
         ]
     except Exception as e:
         logger.error("Error listing partnership programs: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/badges")
@@ -412,7 +417,7 @@ async def create_badge(
         }
     except Exception as e:
         logger.error("Error creating badge: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/badges/award", response_model=BadgeResponse)
@@ -450,7 +455,7 @@ async def award_badge(
         raise
     except Exception as e:
         logger.error("Error awarding badge: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/badges/{agent_id}")
@@ -495,7 +500,7 @@ async def get_agent_badges(
         ]
     except Exception as e:
         logger.error("Error getting badges for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/badges")
@@ -542,7 +547,7 @@ async def list_available_badges(
         ]
     except Exception as e:
         logger.error("Error listing available badges: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/badges/{agent_id}/check-automatic")
@@ -560,7 +565,7 @@ async def check_automatic_badges(request: Request, agent_id: str, session: Sessi
         }
     except Exception as e:
         logger.error("Error checking automatic badges for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/summary/{agent_id}", response_model=AgentCertificationSummary)
@@ -575,7 +580,7 @@ async def get_agent_summary(
         return AgentCertificationSummary(**summary)
     except Exception as e:
         logger.error("Error getting certification summary for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/verification/{agent_id}")
@@ -614,7 +619,7 @@ async def get_verification_records(
         ]
     except Exception as e:
         logger.error("Error getting verification records for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/levels")
@@ -637,7 +642,7 @@ async def get_certification_levels(request: Request, session: Session = Depends(
         return sorted(levels, key=lambda x: ["basic", "intermediate", "advanced", "enterprise", "premium"].index(x["level"]))
     except Exception as e:
         logger.error("Error getting certification levels: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/requirements")
@@ -678,7 +683,7 @@ async def get_certification_requirements(
         ]
     except Exception as e:
         logger.error("Error getting certification requirements: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/leaderboard")
@@ -740,4 +745,4 @@ async def get_certification_leaderboard(
         ]
     except Exception as e:
         logger.error("Error getting certification leaderboard: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e

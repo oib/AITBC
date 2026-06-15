@@ -9,9 +9,9 @@ from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-from typing import Any
+from typing import Any  # noqa: E402
 
-from models.chain import (
+from models.chain import (  # noqa: E402
     ChainBackupResult,
     ChainConfig,
     ChainInfo,
@@ -22,8 +22,8 @@ from models.chain import (
     GenesisBlock,
 )
 
-from .config import MultiChainConfig
-from .node_client import NodeClient
+from .config import MultiChainConfig  # noqa: E402
+from .node_client import NodeClient  # noqa: E402
 
 
 class ChainAlreadyExistsError(Exception):

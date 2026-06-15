@@ -365,7 +365,7 @@ class TestAsyncAITBCHTTPClient:
     async def test_async_context_manager(self):
         # Skip if httpx is not available
         try:
-            import httpx
+            import httpx  # noqa: F401
         except ImportError:
             pytest.skip("httpx not available")
 

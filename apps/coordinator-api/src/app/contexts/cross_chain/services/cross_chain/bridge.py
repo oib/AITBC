@@ -114,7 +114,7 @@ class CrossChainBridgeService:
         except Exception as e:
             logger.error("Error initiating bridge transfer: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def monitor_bridge_status(self, request_id: int) -> BridgeStatusResponse:
         """Real-time bridge status monitoring across multiple chains"""
@@ -147,7 +147,7 @@ class CrossChainBridgeService:
             raise
         except Exception as e:
             logger.error("Error monitoring bridge status: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def dispute_resolution(self, dispute_data: dict) -> dict:
         """Automated dispute resolution for failed transfers"""
@@ -173,7 +173,7 @@ class CrossChainBridgeService:
             raise
         except Exception as e:
             logger.error("Error resolving dispute: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def confirm_bridge_transfer(self, confirm_request: BridgeConfirmRequest, validator_address: str) -> dict:
         """Confirm bridge transfer by validator"""
@@ -227,7 +227,7 @@ class CrossChainBridgeService:
         except Exception as e:
             logger.error("Error confirming bridge transfer: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def complete_bridge_transfer(self, complete_request: BridgeCompleteRequest, executor_address: str) -> dict:
         """Complete bridge transfer on target chain"""
@@ -269,7 +269,7 @@ class CrossChainBridgeService:
         except Exception as e:
             logger.error("Error completing bridge transfer: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def add_supported_token(self, token_request: TokenSupportRequest) -> dict:
         """Add support for new token"""
@@ -296,7 +296,7 @@ class CrossChainBridgeService:
         except Exception as e:
             logger.error("Error adding supported token: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def add_supported_chain(self, chain_request: ChainSupportRequest) -> dict:
         """Add support for new blockchain"""
@@ -324,7 +324,7 @@ class CrossChainBridgeService:
         except Exception as e:
             logger.error("Error adding supported chain: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def _validate_transfer_request(self, transfer_request: BridgeCreateRequest, sender_address: str) -> ValidationResult:
         """Validate bridge transfer request"""

@@ -81,7 +81,7 @@ def leave(ctx, island_id):
 
 @island.command()
 @click.pass_context
-def list(ctx):
+def list_islands(ctx):
     """List all known islands"""
     list_islands_command(ctx)
 
@@ -89,7 +89,7 @@ def list(ctx):
 @island.command()
 @click.argument("island_id")
 @click.pass_context
-def info(ctx, island_id):
+def island_info(ctx, island_id):
     """Get island information"""
     island_info_command(ctx, island_id)
 
@@ -124,7 +124,7 @@ def unregister(ctx, redis_url, hub_discovery_url):
 @hub.command()
 @click.option("--redis-url", default="redis://localhost:6379", help="Redis URL for persistence")
 @click.pass_context
-def list(ctx, redis_url):
+def list_hubs(ctx, redis_url):
     """List registered hubs from Redis"""
     list_hubs_command(ctx, redis_url)
 
@@ -164,7 +164,7 @@ def reject(ctx, request_id, reason):
 
 @bridge.command()
 @click.pass_context
-def list(ctx):
+def list_bridges(ctx):
     """List bridge connections"""
     list_bridges_command(ctx)
 
@@ -195,7 +195,7 @@ def stop(ctx, chain_id):
 
 @chain.command()
 @click.pass_context
-def list(ctx):
+def list_chains(ctx):
     """List all active chain instances"""
     list_chains_command(ctx)
 

@@ -17,8 +17,8 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import aitbc utilities
-from aitbc.constants import DATA_DIR, LOG_DIR
-from aitbc.testing import MockCache, MockDatabase, MockFactory, TestDataGenerator
+from aitbc.constants import DATA_DIR, LOG_DIR  # noqa: E402
+from aitbc.testing import MockCache, MockDatabase, MockFactory, TestDataGenerator  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

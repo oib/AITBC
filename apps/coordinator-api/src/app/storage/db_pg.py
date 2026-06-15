@@ -13,9 +13,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime
+from datetime import UTC, datetime  # noqa: E402
 
-from .config_pg import settings  # type: ignore[import-not-found]
+from .config_pg import settings  # type: ignore[import-not-found]  # noqa: E402
 
 # SQLAlchemy setup for complex queries
 engine = create_engine(

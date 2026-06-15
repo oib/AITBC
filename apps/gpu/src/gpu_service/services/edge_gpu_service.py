@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 
-from ..domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture, GPURegistry
+from ..domain.gpu_marketplace import CONSUMER_GPU_PROFILES, ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture, GPURegistry
 
 logger = get_logger(__name__)
 

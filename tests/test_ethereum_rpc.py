@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient, get_ethereum_client
 
 

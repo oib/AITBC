@@ -4,17 +4,17 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 "\nModality-Specific Optimization Strategies - Phase 5.1\nSpecialized optimization for text, image, audio, video, tabular, and graph data\n"
-import asyncio
+import asyncio  # noqa: E402
 
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any
+from datetime import UTC, datetime  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
 
-from ....storage import get_session
-from .multimodal_agent import ModalityType
+from ....storage import get_session  # noqa: E402
+from .multimodal_agent import ModalityType  # noqa: E402
 
 
 class OptimizationStrategy(StrEnum):

@@ -301,12 +301,12 @@ def execute_job(job, available_models):
                 return True
             else:
                 logger.error("Ollama error: %s", ollama_response.status_code)
-                submit_result(job_id, {"result": {"status": "failed", "error": "Ollama error: %s" % ollama_response.text}})
+                submit_result(job_id, {"result": {"status": "failed", "error": f"Ollama error: {ollama_response.text}"}})
                 return False
         else:
             # Unsupported job type
             logger.error("Unsupported job type: %s", payload.get("type"))
-            submit_result(job_id, {"result": {"status": "failed", "error": "Unsupported job type: %s" % payload.get("type")}})
+            submit_result(job_id, {"result": {"status": "failed", "error": f"Unsupported job type: {payload.get('type')}"}})
             return False
 
     except Exception as e:

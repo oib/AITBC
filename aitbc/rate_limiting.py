@@ -4,12 +4,14 @@ Provides decorators and middleware for API rate limiting
 """
 
 import asyncio
-from collections.abc import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, cast
+from typing import Any
+
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
+
 from .aitbc_logging import get_logger
 from .security_hardening import RateLimiter
 

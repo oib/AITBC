@@ -94,7 +94,7 @@ class AMMService:
         except Exception as e:
             logger.error("Error creating service pool: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def add_liquidity(self, liquidity_request: LiquidityAddRequest, provider_address: str) -> LiquidityAddResponse:
         """Add liquidity to a pool"""
@@ -148,7 +148,7 @@ class AMMService:
         except Exception as e:
             logger.error("Error adding liquidity: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def remove_liquidity(
         self, liquidity_request: LiquidityRemoveRequest, provider_address: str
@@ -195,7 +195,7 @@ class AMMService:
         except Exception as e:
             logger.error("Error removing liquidity: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def execute_swap(self, swap_request: SwapRequest, user_address: str) -> SwapResponse:
         """Execute token swap"""
@@ -247,7 +247,7 @@ class AMMService:
         except Exception as e:
             logger.error("Error executing swap: %s", str(e))
             self.session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def dynamic_fee_adjustment(self, pool_id: int, volatility: float) -> FeeStructure:
         """Adjust trading fees based on market volatility"""
@@ -272,7 +272,7 @@ class AMMService:
             return fee_structure
         except Exception as e:
             logger.error("Error adjusting fees: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def liquidity_incentives(self, pool_id: int) -> IncentiveProgram:
         """Implement liquidity provider rewards"""
@@ -306,7 +306,7 @@ class AMMService:
             return program
         except Exception as e:
             logger.error("Error creating incentive program: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def get_pool_metrics(self, pool_id: int) -> PoolMetricsResponse:
         """Get comprehensive pool metrics"""
@@ -316,7 +316,7 @@ class AMMService:
             return PoolMetricsResponse.from_orm(metrics)
         except Exception as e:
             logger.error("Error getting pool metrics: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def get_user_positions(self, user_address: str) -> list[LiquidityPosition]:
         """Get all liquidity positions for a user"""
@@ -327,7 +327,7 @@ class AMMService:
             return positions  # type: ignore[return-value]
         except Exception as e:
             logger.error("Error getting user positions: %s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def _get_pool_by_id(self, pool_id: int) -> LiquidityPool:
         """Get pool by ID"""

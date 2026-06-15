@@ -8,7 +8,7 @@ from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
-from ....config import settings
+from ....config import settings  # noqa: E402
 
 BLOCKCHAIN_RPC = "http://127.0.0.1:9080/rpc"
 
@@ -49,7 +49,7 @@ async def mint_tokens(address: str, amount: float) -> dict:
         )
         return response  # type: ignore[no-any-return]
     except NetworkError as e:
-        raise Exception(f"Failed to mint tokens: {e}")
+        raise Exception(f"Failed to mint tokens: {e}") from e
 
 
 def get_balance(address: str) -> float | None:

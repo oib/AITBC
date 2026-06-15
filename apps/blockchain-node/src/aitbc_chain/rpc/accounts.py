@@ -222,7 +222,7 @@ async def get_balance_breakdown(request: Request, address: str, chain_id: str | 
         raise
     except Exception as e:
         _logger.error("Failed to get balance breakdown: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get balance: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get balance: {str(e)}") from e
 
 
 @rate_limit(rate=20, per=60)
@@ -247,4 +247,4 @@ async def reconcile_balance(request: Request, address: str, chain_id: str | None
         raise
     except Exception as e:
         _logger.error("Balance reconciliation failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Reconciliation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Reconciliation failed: {str(e)}") from e

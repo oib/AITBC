@@ -1,21 +1,21 @@
 from typing import Annotated
 
 "\nAdvanced Agent Performance API Endpoints\nREST API for meta-learning, resource optimization, and performance enhancement\n"
-from datetime import UTC, datetime
-from typing import Any
+from datetime import UTC, datetime  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from uuid import uuid4
+from uuid import uuid4  # noqa: E402
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from app.domain.agent_performance import (  # type: ignore[import-not-found]
+from app.domain.agent_performance import (  # type: ignore[import-not-found]  # noqa: E402
     AgentCapability,
     AgentPerformanceProfile,
     LearningStrategy,
@@ -26,13 +26,13 @@ from app.domain.agent_performance import (  # type: ignore[import-not-found]
     ResourceAllocation,
 )
 
-from ..services.agent_performance_service import (
+from ..services.agent_performance_service import (  # noqa: E402
     AgentPerformanceService,
     MetaLearningEngine,
     PerformanceOptimizer,
     ResourceManager,
 )
-from ..storage import get_session
+from ..storage import get_session  # noqa: E402
 
 router = APIRouter(prefix="/v1/agent-performance", tags=["agent-performance"])
 
@@ -198,7 +198,7 @@ async def create_performance_profile(
         )
     except Exception as e:
         logger.error("Error creating performance profile: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/profiles/{agent_id}", response_model=dict[str, Any])
@@ -217,7 +217,7 @@ async def get_performance_profile(
         raise
     except Exception as e:
         logger.error("Error getting performance profile for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/profiles/{agent_id}/metrics")
@@ -244,7 +244,7 @@ async def update_performance_metrics(
         }
     except Exception as e:
         logger.error("Error updating performance metrics for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/meta-learning/models", response_model=MetaLearningResponse)
@@ -277,7 +277,7 @@ async def create_meta_learning_model(
         )
     except Exception as e:
         logger.error("Error creating meta-learning model: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/meta-learning/models/{model_id}/adapt")
@@ -302,10 +302,10 @@ async def adapt_model_to_task(
             "adapted_at": datetime.now(UTC).isoformat(),
         }
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error adapting model %s: %s", model_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/meta-learning/models")
@@ -345,7 +345,7 @@ async def list_meta_learning_models(
         ]
     except Exception as e:
         logger.error("Error listing meta-learning models: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/resources/allocate", response_model=ResourceAllocationResponse)
@@ -379,7 +379,7 @@ async def allocate_resources(
         )
     except Exception as e:
         logger.error("Error allocating resources: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/resources/{agent_id}")
@@ -421,7 +421,7 @@ async def get_resource_allocations(
         ]
     except Exception as e:
         logger.error("Error getting resource allocations for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/optimization/optimize", response_model=PerformanceOptimizationResponse)
@@ -455,7 +455,7 @@ async def optimize_performance(
         )
     except Exception as e:
         logger.error("Error optimizing performance: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/optimization/{agent_id}")
@@ -501,7 +501,7 @@ async def get_optimization_history(
         ]
     except Exception as e:
         logger.error("Error getting optimization history for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/capabilities", response_model=CapabilityResponse)
@@ -540,7 +540,7 @@ async def create_capability(
         )
     except Exception as e:
         logger.error("Error creating capability: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/capabilities/{agent_id}")
@@ -588,7 +588,7 @@ async def get_agent_capabilities(
         ]
     except Exception as e:
         logger.error("Error getting capabilities for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/analytics/performance-summary")
@@ -649,7 +649,7 @@ async def get_performance_summary(
             }
     except Exception as e:
         logger.error("Error getting performance summary: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def calculate_specialization_distribution(summaries: list[dict[str, Any]]) -> dict[str, int]:

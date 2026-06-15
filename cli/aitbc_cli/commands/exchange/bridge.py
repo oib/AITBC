@@ -3,7 +3,7 @@ Bridge-related exchange commands.
 """
 
 try:
-    from aitbc_cli.utils import error, output, success
+    from aitbc_cli.utils import error, output, success  # noqa: F401
 except ImportError:
     from ..utils import error, output
 

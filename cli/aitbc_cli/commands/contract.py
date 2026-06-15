@@ -24,10 +24,10 @@ def deploy(ctx, contract_name, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Contract Deployed")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error deploying contract: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @contract.command()
@@ -49,7 +49,7 @@ def call(ctx, contract_address, method, args, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Contract Call")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error calling contract: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

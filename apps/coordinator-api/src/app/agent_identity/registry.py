@@ -12,9 +12,9 @@ from uuid import uuid4
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from ..contexts.agent_identity.domain.agent_identity import (
+from ..contexts.agent_identity.domain.agent_identity import (  # noqa: E402
     AgentIdentity,
     ChainType,
     CrossChainMapping,

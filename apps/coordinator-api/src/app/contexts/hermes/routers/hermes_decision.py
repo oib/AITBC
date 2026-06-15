@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException  # noqa: E402
 
-from ....deps import require_admin_key
-from ....schemas.hermes_decision import (
+from ....deps import require_admin_key  # noqa: E402
+from ....schemas.hermes_decision import (  # noqa: E402
     DecisionListResponse,
     DecisionProposal,
     DecisionProposalResponse,
@@ -20,8 +20,8 @@ from ....schemas.hermes_decision import (
     Vote,
     VoteResponse,
 )
-from ....storage import get_session
-from ..services.decision_service_db import decision_service
+from ....storage import get_session  # noqa: E402
+from ..services.decision_service_db import decision_service  # noqa: E402
 
 router = APIRouter(prefix="/hermes/decision", tags=["hermes Decision Making"])
 
@@ -37,7 +37,7 @@ async def propose_decision(
         return decision_service.propose_decision(proposal, session)
     except Exception as e:
         logger.error("Error proposing decision: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/vote", response_model=VoteResponse)
@@ -49,7 +49,7 @@ async def submit_vote(
         return decision_service.submit_vote(vote, session)
     except Exception as e:
         logger.error("Error submitting vote: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{decision_id}", response_model=DecisionResult)
@@ -66,7 +66,7 @@ async def get_decision(
         raise
     except Exception as e:
         logger.error("Error getting decision: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/", response_model=DecisionListResponse)
@@ -82,4 +82,4 @@ async def list_decisions(
         return DecisionListResponse(decisions=decisions, total=len(decisions))
     except Exception as e:
         logger.error("Error listing decisions: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

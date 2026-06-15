@@ -24,8 +24,8 @@ def log_warn(msg: str) -> None:
     logger.warning(msg)
 
 
-from decimal import Decimal
-from enum import Enum
+from decimal import Decimal  # noqa: E402
+from enum import Enum  # noqa: E402
 
 
 class UpgradeStatus(Enum):

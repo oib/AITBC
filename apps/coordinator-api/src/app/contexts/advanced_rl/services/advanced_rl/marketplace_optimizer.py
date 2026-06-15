@@ -13,10 +13,10 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]
-from .engine import AdvancedReinforcementLearningEngine
+from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]  # noqa: E402
+from .engine import AdvancedReinforcementLearningEngine  # noqa: E402
 
 
 class MarketplaceStrategyOptimizer:

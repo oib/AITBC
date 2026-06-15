@@ -17,7 +17,7 @@ mock_psutil.virtual_memory = Mock(return_value=MagicMock(percent=60.2))
 mock_psutil.Error = PsutilError
 sys.modules["psutil"] = mock_psutil
 
-import monitor
+import monitor  # noqa: E402
 
 
 @pytest.mark.unit

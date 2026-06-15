@@ -18,7 +18,7 @@ POOLHUB_SRC = BASE_DIR / "pool-hub" / "src"
 if str(POOLHUB_SRC) not in sys.path:
     sys.path.insert(0, str(POOLHUB_SRC))
 
-from poolhub.models import Base
+from poolhub.models import Base  # noqa: E402
 
 
 def _get_required_env(name: str) -> str | None:

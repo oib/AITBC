@@ -21,6 +21,6 @@ sys.path.insert(0, str(project_root / "apps" / "wallet-daemon" / "src"))
 sys.path.insert(0, str(project_root / "apps" / "blockchain-node" / "src"))
 
 # Run pytest with the original arguments
-import pytest
+import pytest  # noqa: E402
 
 sys.exit(pytest.main())

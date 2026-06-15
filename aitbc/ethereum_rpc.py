@@ -79,7 +79,7 @@ class EthereumRPCClient:
         try:
             from web3 import Web3
         except ImportError:
-            raise RuntimeError("web3 package not installed: pip install web3")
+            raise RuntimeError("web3 package not installed: pip install web3") from None
 
         for url in self.config.get_rpc_urls():
             try:

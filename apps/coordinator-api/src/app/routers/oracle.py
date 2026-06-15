@@ -54,7 +54,7 @@ async def get_price(request: Request, pair: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get price: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get price: {str(e)}") from e
 
 
 @router.get("/prices", summary="Get all prices")
@@ -71,7 +71,7 @@ async def get_all_prices(request: Request) -> dict[str, Any]:
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get prices: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get prices: {str(e)}") from e
 
 
 @router.post("/price", summary="Set price (admin)")
@@ -91,7 +91,7 @@ async def set_price(request: Request, req: SetPriceRequest) -> dict[str, Any]:
         return {"success": True, **result}
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to set price: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to set price: {str(e)}") from e
 
 
 @router.get("/health", summary="Health check")

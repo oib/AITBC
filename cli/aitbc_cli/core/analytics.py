@@ -136,9 +136,9 @@ class ChainAnalytics:
         tasks = []
         for node_id, node_config in self.config.nodes.items():
 
-            async def get_node_metrics(nid):
+            async def get_node_metrics(nid, config=node_config):
                 try:
-                    async with NodeClient(node_config) as client:
+                    async with NodeClient(config) as client:
                         chains = await client.get_hosted_chains()
                         node_metrics = []
 

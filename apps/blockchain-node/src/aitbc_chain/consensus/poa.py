@@ -16,10 +16,10 @@ from ..logger import get_logger
 from ..state.merkle_patricia_trie import StateManager
 
 logger = get_logger(__name__)
-from ..config import ProposerConfig
-from ..metrics import metrics_registry
-from ..models import Account, Block
-from ..state.state_transition import get_state_transition
+from ..config import ProposerConfig  # noqa: E402
+from ..metrics import metrics_registry  # noqa: E402
+from ..models import Account, Block  # noqa: E402
+from ..state.state_transition import get_state_transition  # noqa: E402
 
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 
@@ -42,7 +42,7 @@ def _compute_state_root(session: Session, chain_id: str) -> str | None:
         return None
 
 
-import time
+import time  # noqa: E402
 
 
 class CircuitBreaker:
@@ -468,7 +468,7 @@ class PoAProposer:
                     timestamp = genesis_timestamp
             except Exception as e:
                 self._logger.error("Failed to parse genesis timestamp: %s", e)
-                raise RuntimeError(f"Invalid timestamp format in genesis file: {e}")
+                raise RuntimeError(f"Invalid timestamp format in genesis file: {e}") from e
             genesis = Block(
                 chain_id=self._config.chain_id,
                 height=0,

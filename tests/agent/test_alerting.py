@@ -8,15 +8,14 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta  # noqa: E402
 
-from app.monitoring.alerting import (
+from app.monitoring.alerting import (  # noqa: E402
+    Alert,
+    AlertRule,
     AlertSeverity,
     AlertStatus,
     NotificationChannel,
-    Alert,
-    AlertRule,
     SLAMonitor,
 )
 

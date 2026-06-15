@@ -94,7 +94,7 @@ def test_block_import_complete():
             "chain_id": CHAIN_ID,
         },
     )
-    if response.status_code == 200 and response.json().get("success") == True:
+    if response.status_code == 200 and response.json().get("success") is True:
         print("✅ PASS: Correctly handled existing block")
         results.append(True)
     else:
@@ -167,7 +167,7 @@ def test_block_import_complete():
             "chain_id": CHAIN_ID,
         },
     )
-    if response.status_code == 200 and response.json().get("success") == True:
+    if response.status_code == 200 and response.json().get("success") is True:
         print("✅ PASS: Successfully imported block without transactions")
         results.append(True)
     else:

@@ -237,7 +237,7 @@ async def remote_execute_coin_request(
         result = http_client.post("/rpc/transaction", json=signed_tx)
         tx_hash = result.get("transaction_hash")
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Blockchain RPC error: {e}")
+        raise HTTPException(status_code=502, detail=f"Blockchain RPC error: {e}") from e
     logger.info("Remote execution of %s: %s AIT to %s — tx %s", req.request_id, req.amount, req.wallet_address, tx_hash)
     return {
         "success": True,

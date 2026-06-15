@@ -12,13 +12,13 @@ import click
 CLI_DIR = Path(__file__).parent
 sys.path.insert(0, str(CLI_DIR))
 # Import config function
-from config import get_config
+from config import get_config  # noqa: E402
 
 # Import only working commands
-from .commands.blockchain import blockchain
-from .commands.compliance import compliance
-from .commands.config import config
-from .commands.wallet import wallet
+from .commands.blockchain import blockchain  # noqa: E402
+from .commands.compliance import compliance  # noqa: E402
+from .commands.config import config  # noqa: E402
+from .commands.wallet import wallet  # noqa: E402
 
 
 @click.group()

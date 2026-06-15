@@ -27,7 +27,7 @@ def log_warn(msg: str) -> None:
     logger.warning(msg)
 
 
-from .health import PeerHealthMonitor
+from .health import PeerHealthMonitor  # noqa: E402
 
 
 class PeerAction(Enum):

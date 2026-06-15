@@ -329,7 +329,7 @@ class ComputeProvider(Agent):
                 return offer_id
             else:
                 logger.error("Failed to submit offer: %s", response.status_code)
-                raise NetworkError("Marketplace submission failed: %s" % response.status_code)
+                raise NetworkError(f"Marketplace submission failed: {response.status_code}")
         except NetworkError:
             raise
         except Exception as e:
@@ -356,7 +356,7 @@ class ComputeProvider(Agent):
                 logger.info("Offer updated successfully: %s", offer.provider_id)
             else:
                 logger.error("Failed to update offer: %s", response.status_code)
-                raise NetworkError("Marketplace update failed: %s" % response.status_code)
+                raise NetworkError(f"Marketplace update failed: {response.status_code}")
         except NetworkError:
             raise
         except Exception as e:

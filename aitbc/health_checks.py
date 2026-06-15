@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
 from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)

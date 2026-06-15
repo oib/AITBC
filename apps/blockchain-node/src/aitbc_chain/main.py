@@ -236,7 +236,7 @@ class BlockchainNode:
                                 except (ValueError, IndexError) as parse_exc:
                                     logger.error("Failed to parse gap size from reason: %s, error: %s", res.reason, parse_exc)
                         except Exception as exc:
-                            logger.error("Error processing block from gossip for chain %s: %s", chain_id, exc)
+                            logger.error("Error processing block from gossip for chain %s: %s", chain_id_param, exc)
 
                 asyncio.create_task(process_blocks_for_chain(chain_id_param=chain_id, block_sub_param=block_sub))
             except Exception as e:
@@ -358,8 +358,8 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
 
-                            def session_factory_for_periodic() -> Any:
-                                return session_scope(chain_id)
+                            def session_factory_for_periodic(cid: str = chain_id) -> Any:
+                                return session_scope(cid)
 
                             sync = ChainSync(session_factory=session_factory_for_periodic, chain_id=chain_id)  # type: ignore[arg-type]
                             imported = await sync.bulk_import_from(source_url)

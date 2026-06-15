@@ -14,8 +14,8 @@ from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
-from ..schemas import (
+from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info  # noqa: E402
+from ..schemas import (  # noqa: E402
     ExchangePaymentRequest,
     ExchangePaymentResponse,
     ExchangeRatesResponse,
@@ -24,7 +24,7 @@ from ..schemas import (
     WalletBalanceResponse,
     WalletInfoResponse,
 )
-from ..utils.cache import cached, get_cache_config
+from ..utils.cache import cached, get_cache_config  # noqa: E402
 
 router = APIRouter(tags=["exchange"])
 
@@ -181,7 +181,7 @@ async def get_wallet_balance_api(request: Request) -> WalletBalanceResponse:
         balance_data = get_wallet_balance()
         return WalletBalanceResponse(**balance_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/exchange/wallet/info", response_model=WalletInfoResponse)
@@ -192,7 +192,7 @@ async def get_wallet_info_api(request: Request) -> WalletInfoResponse:
         wallet_data = get_wallet_info()
         return WalletInfoResponse(**wallet_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def monitor_payment(payment_id: str) -> None:

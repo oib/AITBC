@@ -26,7 +26,7 @@ def start_chain_command(ctx, chain_id, chain_type):
 
     except Exception as e:
         error(f"Error starting chain: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def stop_chain_command(ctx, chain_id):
@@ -36,7 +36,7 @@ def stop_chain_command(ctx, chain_id):
 
     except Exception as e:
         error(f"Error stopping chain: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def list_chains_command(ctx):
@@ -50,4 +50,4 @@ def list_chains_command(ctx):
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

@@ -10,6 +10,64 @@ from uuid import uuid4
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
+# Consumer GPU profiles for edge computing
+CONSUMER_GPU_PROFILES: dict[str, dict[str, Any]] = {
+    "rtx_3060": {
+        "gpu_model": "NVIDIA RTX 3060",
+        "architecture": "ampere",
+        "consumer_grade": True,
+        "edge_optimized": True,
+        "cuda_cores": 3584,
+        "memory_gb": 12,
+        "memory_bandwidth_gbps": 360,
+        "tensor_cores": 112,
+        "base_clock_mhz": 1320,
+        "boost_clock_mhz": 1777,
+        "power_consumption_w": 170,
+        "thermal_design_power_w": 170,
+        "noise_level_db": 32,
+        "fp32_tflops": 12.7,
+        "fp16_tflops": 25.4,
+        "int8_tops": 50.8,
+        "low_latency_mode": True,
+        "mobile_optimized": False,
+        "thermal_throttling_resistance": 0.85,
+        "supported_cuda_versions": ["11.0", "11.1", "11.2", "11.3", "11.4", "11.5", "11.6", "11.7", "11.8", "12.0"],
+        "supported_tensorrt_versions": ["8.0", "8.1", "8.2", "8.3", "8.4", "8.5", "8.6"],
+        "supported_ollama_models": ["llama2", "mistral", "gemma"],
+        "market_price_usd": 299.0,
+        "edge_premium_multiplier": 1.2,
+        "availability_score": 0.9,
+    },
+    "rtx_4060": {
+        "gpu_model": "NVIDIA RTX 4060",
+        "architecture": "ada_lovelace",
+        "consumer_grade": True,
+        "edge_optimized": True,
+        "cuda_cores": 3072,
+        "memory_gb": 8,
+        "memory_bandwidth_gbps": 288,
+        "tensor_cores": 96,
+        "base_clock_mhz": 1830,
+        "boost_clock_mhz": 2460,
+        "power_consumption_w": 115,
+        "thermal_design_power_w": 115,
+        "noise_level_db": 28,
+        "fp32_tflops": 15.1,
+        "fp16_tflops": 30.2,
+        "int8_tops": 60.4,
+        "low_latency_mode": True,
+        "mobile_optimized": False,
+        "thermal_throttling_resistance": 0.9,
+        "supported_cuda_versions": ["11.8", "12.0", "12.1", "12.2"],
+        "supported_tensorrt_versions": ["8.5", "8.6"],
+        "supported_ollama_models": ["llama2", "mistral", "gemma", "phi"],
+        "market_price_usd": 299.0,
+        "edge_premium_multiplier": 1.3,
+        "availability_score": 0.85,
+    },
+}
+
 
 class GPUArchitecture(StrEnum):
     TURING = "turing"  # RTX 20 series

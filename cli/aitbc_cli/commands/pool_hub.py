@@ -32,7 +32,7 @@ def status(ctx, rpc_url):
         output(status, ctx.obj.get("output_format", "table"), title="Pool Hub Status (Simulated)")
     except Exception as e:
         error(f"Error getting pool hub status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @pool_hub.command()
@@ -59,4 +59,4 @@ def sla(ctx, pool_id, rpc_url):
         output(sla_data, ctx.obj.get("output_format", "table"), title="SLA Monitor (Simulated)")
     except Exception as e:
         error(f"Error monitoring SLA: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
