@@ -41,6 +41,6 @@ exec_cmd = [
     "--backlog",
     "256",
     "--log-level",
-    "warning",
+    "critical",
 ]
 os.execvp(exec_cmd[0], exec_cmd)
