@@ -12,6 +12,11 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
+from aitbc import get_logger
+
+from ..protocols.communication import AgentMessage, MessageType
+from ..protocols.message_types import DiscoveryMessage
+
 redis_client: Any = None
 try:
     import redis.asyncio as redis
@@ -19,10 +24,6 @@ try:
     redis_client = redis
 except ImportError:
     pass
-from aitbc import get_logger  # noqa: E402
-
-from ..protocols.communication import AgentMessage, MessageType  # noqa: E402
-from ..protocols.message_types import DiscoveryMessage  # noqa: E402
 
 logger = get_logger(__name__)
 

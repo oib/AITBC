@@ -109,13 +109,13 @@ contract AgentWallet is Ownable, ReentrancyGuard {
      */
     function deposit(address _agent, uint256 _amount) external onlyActiveAgent(_agent) nonReentrant {
         require(_amount > 0, "Amount must be greater than 0");
-        
+
         // Transfer tokens from the caller to this contract
         aitbcToken.safeTransferFrom(msg.sender, address(this), _amount);
-        
+
         // Update agent balance
         agents[_agent].balance += _amount;
-        
+
         emit FundsDeposited(_agent, _amount);
     }
 
@@ -127,13 +127,13 @@ contract AgentWallet is Ownable, ReentrancyGuard {
     function withdraw(address _agent, uint256 _amount) external onlyAgentOwner(_agent) nonReentrant {
         require(_amount > 0, "Amount must be greater than 0");
         require(agents[_agent].balance >= _amount, "Insufficient balance");
-        
+
         // Update agent balance
         agents[_agent].balance -= _amount;
-        
+
         // Transfer tokens back to the owner
         aitbcToken.safeTransfer(msg.sender, _amount);
-        
+
         emit FundsWithdrawn(_agent, _amount);
     }
 
@@ -144,22 +144,22 @@ contract AgentWallet is Ownable, ReentrancyGuard {
      * @param _purpose The purpose of the transaction
      */
     function executeMicroTransaction(
-        address _recipient, 
-        uint256 _amount, 
+        address _recipient,
+        uint256 _amount,
         string calldata _purpose
     ) external onlyActiveAgent(msg.sender) nonReentrant returns (uint256) {
         require(_recipient != address(0), "Invalid recipient");
         require(_amount > 0, "Amount must be greater than 0");
-        
+
         Agent storage agent = agents[msg.sender];
-        
+
         require(agent.balance >= _amount, "Insufficient balance");
         require(agent.totalSpent + _amount <= agent.spendingLimit, "Spending limit exceeded");
-        
+
         // Update agent balances
         agent.balance -= _amount;
         agent.totalSpent += _amount;
-        
+
         // Create transaction record
         uint256 txId = txCounter++;
         transactions[txId] = Transaction({
@@ -170,14 +170,14 @@ contract AgentWallet is Ownable, ReentrancyGuard {
             timestamp: block.timestamp,
             purpose: _purpose
         });
-        
+
         agentTransactions[msg.sender].push(txId);
-        
+
         // Transfer tokens to the recipient
         aitbcToken.safeTransfer(_recipient, _amount);
-        
+
         emit MicroTransactionExecuted(txId, msg.sender, _recipient, _amount, _purpose);
-        
+
         return txId;
     }
 

@@ -1,18 +1,17 @@
-from typing import Annotated
+"""
+AI Agent API Router for Verifiable AI Agent Orchestration
+Provides REST API endpoints for agent workflow management and execution
+"""
 
-"\nAI Agent API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for agent workflow management and execution\n"
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request  # noqa: E402
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlmodel import Session, select
 
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
-
-from app.domain.agent import (  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
+from app.domain.agent import (
     AgentExecutionRequest,
     AgentExecutionResponse,
     AgentExecutionStatus,
@@ -22,9 +21,11 @@ from app.domain.agent import (  # noqa: E402
     AIAgentWorkflow,
 )
 
-from ..deps import require_admin_key  # noqa: E402
-from ..services.agent_service import AIAgentOrchestrator  # noqa: E402
-from ..storage import get_session  # noqa: E402
+from ..deps import require_admin_key
+from ..services.agent_service import AIAgentOrchestrator
+from ..storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["AI Agents"])
 

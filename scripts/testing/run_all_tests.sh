@@ -14,11 +14,11 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
 run_scenario() {
     local scenario_name=$1
     local script_path=$2
-    
+
     echo ""
     echo "🔧 Running $scenario_name"
     echo "================================"
-    
+
     if [ -f "$script_path" ]; then
         bash "$script_path"
         local exit_code=$?
@@ -38,7 +38,7 @@ run_scenario() {
 check_prerequisites() {
     echo "🔍 Checking prerequisites..."
     echo "=========================="
-    
+
     # Check if aitbc CLI is available
     if command -v aitbc &> /dev/null; then
         echo "✅ AITBC CLI found"
@@ -48,25 +48,25 @@ check_prerequisites() {
         echo "Please ensure CLI is installed and in PATH"
         return 1
     fi
-    
+
     # Check if required services are running
     echo ""
     echo "🌐 Checking service connectivity..."
-    
+
     # Check aitbc connectivity
     if curl -s http://127.0.0.1:8000/v1/health &> /dev/null; then
         echo "✅ aitbc marketplace accessible (port 8000)"
     else
         echo "❌ aitbc marketplace not accessible (port 8000)"
     fi
-    
+
     # Check aitbc1 connectivity
     if curl -s http://127.0.0.1:8015/v1/health &> /dev/null; then
         echo "✅ aitbc1 marketplace accessible (port 8015)"
     else
         echo "❌ aitbc1 marketplace not accessible (port 8015)"
     fi
-    
+
     # Check Ollama
     if ollama list &> /dev/null; then
         echo "✅ Ollama GPU service available"
@@ -74,26 +74,26 @@ check_prerequisites() {
     else
         echo "❌ Ollama GPU service not available"
     fi
-    
+
     # Check SSH access to containers
     echo ""
     echo "🏢 Checking container access..."
-    
+
     if ssh aitbc-cascade "echo 'SSH OK'" &> /dev/null; then
         echo "✅ SSH access to aitbc container"
     else
         echo "❌ SSH access to aitbc container failed"
     fi
-    
+
     if ssh aitbc1-cascade "echo 'SSH OK'" &> /dev/null; then
         echo "✅ SSH access to aitbc1 container"
     else
         echo "❌ SSH access to aitbc1 container failed"
     fi
-    
+
     echo ""
     echo "📋 Checking user configurations..."
-    
+
     # Check miner1 and client1 configurations (relative to project root)
     local home_dir="$PROJECT_ROOT/home"
     if [ -f "$home_dir/miner1/miner_wallet.json" ]; then
@@ -101,13 +101,13 @@ check_prerequisites() {
     else
         echo "❌ miner1 configuration missing"
     fi
-    
+
     if [ -f "$home_dir/client1/client_wallet.json" ]; then
         echo "✅ client1 configuration found"
     else
         echo "❌ client1 configuration missing"
     fi
-    
+
     echo ""
     echo "🔧 Prerequisite check complete"
     echo "=============================="
@@ -118,7 +118,7 @@ run_cli_tests() {
     echo ""
     echo "🔧 Running Comprehensive CLI Tests"
     echo "================================="
-    
+
     local cli_commands=(
         "chain:list:aitbc chain list --node-endpoint http://127.0.0.1:18000"
         "chain:list:aitbc1:aitbc chain list --node-endpoint http://127.0.0.1:18001"
@@ -130,14 +130,14 @@ run_cli_tests() {
         "agent_comm:list:aitbc1:aitbc agent_comm list --node-endpoint http://127.0.0.1:18001"
         "deploy:overview:aitbc deploy overview --format table"
     )
-    
+
     local passed=0
     local total=0
-    
+
     for cmd_info in "${cli_commands[@]}"; do
         IFS=':' read -r test_name command <<< "$cmd_info"
         total=$((total + 1))
-        
+
         echo "Testing: $test_name"
         if eval "$command" &> /dev/null; then
             echo "✅ $test_name - PASSED"
@@ -146,7 +146,7 @@ run_cli_tests() {
             echo "❌ $test_name - FAILED"
         fi
     done
-    
+
     echo ""
     echo "CLI Test Results: $passed/$total passed"
     return $((total - passed))
@@ -157,14 +157,14 @@ generate_report() {
     local total_scenarios=$1
     local passed_scenarios=$2
     local failed_scenarios=$((total_scenarios - passed_scenarios))
-    
+
     echo ""
     echo "📊 FINAL TEST REPORT"
     echo "==================="
     echo "Total Scenarios: $total_scenarios"
     echo "Passed: $passed_scenarios"
     echo "Failed: $failed_scenarios"
-    
+
     if [ $failed_scenarios -eq 0 ]; then
         echo ""
         echo "🎉 ALL TESTS PASSED!"
@@ -182,13 +182,13 @@ generate_report() {
 main() {
     local scenario_count=0
     local passed_count=0
-    
+
     # Check prerequisites
     if ! check_prerequisites; then
         echo "❌ Prerequisites not met. Exiting."
         exit 1
     fi
-    
+
     # Run CLI tests first
     echo ""
     if run_cli_tests; then
@@ -198,7 +198,7 @@ main() {
         echo "❌ Some CLI tests failed"
     fi
     scenario_count=$((scenario_count + 1))
-    
+
     # Run scenario tests
     local scenarios=(
         "Scenario A: Localhost GPU Miner → aitbc Marketplace:$PROJECT_ROOT/test_scenario_a.sh"
@@ -206,16 +206,16 @@ main() {
         "Scenario C: aitbc Container User Operations:$PROJECT_ROOT/test_scenario_c.sh"
         "Scenario D: aitbc1 Container User Operations:$PROJECT_ROOT/test_scenario_d.sh"
     )
-    
+
     for scenario_info in "${scenarios[@]}"; do
         IFS=':' read -r scenario_name script_path <<< "$scenario_info"
         scenario_count=$((scenario_count + 1))
-        
+
         if run_scenario "$scenario_name" "$script_path"; then
             passed_count=$((passed_count + 1))
         fi
     done
-    
+
     # Run comprehensive test suite
     echo ""
     echo "🔧 Running Comprehensive Test Suite"
@@ -227,7 +227,7 @@ main() {
         echo "❌ Comprehensive test suite failed"
     fi
     scenario_count=$((scenario_count + 1))
-    
+
     # Generate final report
     generate_report $scenario_count $passed_count
 }

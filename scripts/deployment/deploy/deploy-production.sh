@@ -20,7 +20,7 @@ location /assets/ {
     expires 1y;
     add_header Cache-Control \"public, immutable\";
     add_header X-Content-Type-Options nosniff;
-    
+
     # Gzip compression
     gzip on;
     gzip_types text/css application/javascript image/svg+xml;

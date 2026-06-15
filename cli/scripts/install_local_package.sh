@@ -57,15 +57,15 @@ echo -e "${YELLOW}Verifying installation...${NC}"
 if command -v aitbc &> /dev/null; then
     echo -e "${GREEN}✓ AITBC CLI installed successfully!${NC}"
     echo -e "${BLUE}Installation location: $(which aitbc)${NC}"
-    
+
     # Show version
     echo -e "${YELLOW}CLI version:${NC}"
     aitbc --version 2>/dev/null || echo -e "${YELLOW}Version check failed, but installation succeeded${NC}"
-    
+
     # Show help
     echo -e "${YELLOW}Available commands:${NC}"
     aitbc --help 2>/dev/null | head -10 || echo -e "${YELLOW}Help command failed, but installation succeeded${NC}"
-    
+
 else
     echo -e "${RED}✗ Installation failed - aitbc command not found${NC}"
     exit 1

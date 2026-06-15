@@ -1,6 +1,5 @@
 """Tests for AITBC configuration classes"""
 
-
 from pathlib import Path
 
 from aitbc.config import AITBCConfig, BaseAITBCConfig

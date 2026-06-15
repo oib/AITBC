@@ -27,11 +27,11 @@ echo "aitbc height: $AITBC_HEIGHT"
 # Check if aitbc has any blocks
 if [ "$AITBC_HEIGHT" = "0" ] || [ "$AITBC_HEIGHT" = "null" ]; then
   echo "2. aitbc has no blocks - performing manual sync..."
-  
+
   # Copy genesis block with proper format
   echo "   Copying genesis block..."
   scp /opt/aitbc/apps/blockchain-node/data/ait-mainnet/genesis.json aitbc:/tmp/
-  
+
   # Create proper genesis block format for import
   ssh aitbc 'cat > /tmp/genesis_proper.json << EOF
 {
@@ -55,18 +55,18 @@ if [ "$AITBC_HEIGHT" = "0" ] || [ "$AITBC_HEIGHT" = "null" ]; then
   }
 }
 EOF'
-  
+
   # Import genesis block
   echo "   Importing genesis block..."
   ssh aitbc 'curl -X POST http://localhost:8202/rpc/importBlock -H "Content-Type: application/json" -d @/tmp/genesis_proper.json'
-  
+
   # Restart services
   echo "   Restarting aitbc services..."
   ssh aitbc 'systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc'
-  
+
   # Wait for services to start
   sleep 5
-  
+
   # Check status again
   AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo "0"')
   echo "   aitbc height after genesis import: $AITBC_HEIGHT"
@@ -75,24 +75,24 @@ fi
 # Sync recent blocks if still behind
 if [ "$AITBC_HEIGHT" -lt "$((AITBC1_HEIGHT - 5))" ]; then
   echo "3. Syncing recent blocks from aitbc1..."
-  
+
   # Get proposer address from genesis
   PROPOSER=$(cat /opt/aitbc/apps/blockchain-node/keystore/aitbc1genesis.json | jq -r '.address')
-  
+
   for height in $(seq $((AITBC_HEIGHT + 1)) $AITBC1_HEIGHT); do
     echo "   Importing block $height..."
-    
+
     # Get block from aitbc1
     curl -s "http://localhost:8202/rpc/blocks-range?start=$height&end=$height" | \
       jq '.blocks[0] + {"proposer": "'$PROPOSER'"}' > /tmp/block$height.json
-    
+
     # Import to aitbc
     scp /tmp/block$height.json aitbc:/tmp/
     ssh aitbc "curl -X POST http://localhost:8202/rpc/importBlock -H 'Content-Type: application/json' -d @/tmp/block$height.json"
-    
+
     sleep 1
   done
-  
+
   echo "   Block sync completed!"
 fi
 

@@ -41,7 +41,7 @@ aitbc agent network create \
       "responsibilities": ["gather_research_data", "validate_sources"]
     },
     {
-      "id": "agent2", 
+      "id": "agent2",
       "role": "analyst",
       "capabilities": ["statistical_analysis", "pattern_recognition"],
       "responsibilities": ["analyze_data", "identify_patterns"]

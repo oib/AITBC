@@ -5,20 +5,20 @@ const path = require("path");
 async function main() {
     console.log("🚀 Deploying Advanced Agent Features Contracts");
     console.log("=============================================");
-    
+
     const [deployer] = await ethers.getSigners();
     const balance = await deployer.getBalance();
-    
+
     console.log(`Deployer: ${deployer.address}`);
     console.log(`Balance: ${ethers.utils.formatEther(balance)} ETH`);
-    
+
     if (balance.lt(ethers.utils.parseEther("1"))) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
-    
+
     console.log("");
     console.log("Proceeding with advanced contracts deployment...");
-    
+
     // Deployment configuration
     const deployedContracts = {
         network: hre.network.name,
@@ -26,11 +26,11 @@ async function main() {
         timestamp: new Date().toISOString(),
         contracts: {}
     };
-    
+
     try {
         // Get existing contracts
         let aitbcTokenAddress, paymentProcessorAddress, agentWalletAddress, aiPowerRentalAddress;
-        
+
         try {
             const existingContractsFile = `deployed-contracts-${hre.network.name}.json`;
             if (fs.existsSync(existingContractsFile)) {
@@ -43,7 +43,7 @@ async function main() {
         } catch (error) {
             console.log("Could not load existing contracts, deploying mock ones...");
         }
-        
+
         // Deploy Mock ERC20 if needed
         if (!aitbcTokenAddress) {
             console.log("📦 Deploying mock AITBC token...");
@@ -55,16 +55,16 @@ async function main() {
             );
             await aitbcToken.deployed();
             aitbcTokenAddress = aitbcToken.address;
-            
+
             deployedContracts.contracts.AITBCToken = {
                 address: aitbcTokenAddress,
                 deploymentHash: aitbcToken.deployTransaction.hash,
                 gasUsed: (await aitbcToken.deployTransaction.wait()).gasUsed.toString()
             };
-            
+
             console.log(`✅ AITBC Token: ${aitbcTokenAddress}`);
         }
-        
+
         // Deploy Mock Payment Processor if needed
         if (!paymentProcessorAddress) {
             console.log("📦 Deploying mock AITBC Payment Processor...");
@@ -72,44 +72,44 @@ async function main() {
             const paymentProcessor = await MockPaymentProcessor.deploy(aitbcTokenAddress);
             await paymentProcessor.deployed();
             paymentProcessorAddress = paymentProcessor.address;
-            
+
             deployedContracts.contracts.AITBCPaymentProcessor = {
                 address: paymentProcessorAddress,
                 deploymentHash: paymentProcessor.deployTransaction.hash,
                 gasUsed: (await paymentProcessor.deployTransaction.wait()).gasUsed.toString()
             };
-            
+
             console.log(`✅ Payment Processor: ${paymentProcessorAddress}`);
         }
-        
+
         // Deploy CrossChainReputation contract
         console.log("📦 Deploying CrossChainReputation contract...");
         const CrossChainReputation = await ethers.getContractFactory("CrossChainReputation");
         const crossChainReputation = await CrossChainReputation.deploy();
         await crossChainReputation.deployed();
-        
+
         deployedContracts.contracts.CrossChainReputation = {
             address: crossChainReputation.address,
             deploymentHash: crossChainReputation.deployTransaction.hash,
             gasUsed: (await crossChainReputation.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ CrossChainReputation: ${crossChainReputation.address}`);
-        
+
         // Deploy AgentCommunication contract
         console.log("📦 Deploying AgentCommunication contract...");
         const AgentCommunication = await ethers.getContractFactory("AgentCommunication");
         const agentCommunication = await AgentCommunication.deploy(crossChainReputation.address);
         await agentCommunication.deployed();
-        
+
         deployedContracts.contracts.AgentCommunication = {
             address: agentCommunication.address,
             deploymentHash: agentCommunication.deployTransaction.hash,
             gasUsed: (await agentCommunication.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ AgentCommunication: ${agentCommunication.address}`);
-        
+
         // Deploy AgentCollaboration contract
         console.log("📦 Deploying AgentCollaboration contract...");
         const AgentCollaboration = await ethers.getContractFactory("AgentCollaboration");
@@ -119,15 +119,15 @@ async function main() {
             agentCommunication.address
         );
         await agentCollaboration.deployed();
-        
+
         deployedContracts.contracts.AgentCollaboration = {
             address: agentCollaboration.address,
             deploymentHash: agentCollaboration.deployTransaction.hash,
             gasUsed: (await agentCollaboration.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ AgentCollaboration: ${agentCollaboration.address}`);
-        
+
         // Deploy AgentLearning contract
         console.log("📦 Deploying AgentLearning contract...");
         const AgentLearning = await ethers.getContractFactory("AgentLearning");
@@ -136,15 +136,15 @@ async function main() {
             agentCollaboration.address
         );
         await agentLearning.deployed();
-        
+
         deployedContracts.contracts.AgentLearning = {
             address: agentLearning.address,
             deploymentHash: agentLearning.deployTransaction.hash,
             gasUsed: (await agentLearning.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ AgentLearning: ${agentLearning.address}`);
-        
+
         // Deploy AgentMarketplaceV2 contract
         console.log("📦 Deploying AgentMarketplaceV2 contract...");
         const AgentMarketplaceV2 = await ethers.getContractFactory("AgentMarketplaceV2");
@@ -157,15 +157,15 @@ async function main() {
             agentLearning.address
         );
         await agentMarketplaceV2.deployed();
-        
+
         deployedContracts.contracts.AgentMarketplaceV2 = {
             address: agentMarketplaceV2.address,
             deploymentHash: agentMarketplaceV2.deployTransaction.hash,
             gasUsed: (await agentMarketplaceV2.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ AgentMarketplaceV2: ${agentMarketplaceV2.address}`);
-        
+
         // Deploy ReputationNFT contract
         console.log("📦 Deploying ReputationNFT contract...");
         const ReputationNFT = await ethers.getContractFactory("ReputationNFT");
@@ -175,18 +175,18 @@ async function main() {
             crossChainReputation.address
         );
         await reputationNFT.deployed();
-        
+
         deployedContracts.contracts.ReputationNFT = {
             address: reputationNFT.address,
             deploymentHash: reputationNFT.deployTransaction.hash,
             gasUsed: (await reputationNFT.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ ReputationNFT: ${reputationNFT.address}`);
-        
+
         // Initialize contracts
         console.log("🔧 Initializing contracts...");
-        
+
         // Initialize CrossChainReputation
         await crossChainReputation.updateGlobalSettings(
             1000, // baseReputationScore
@@ -197,7 +197,7 @@ async function main() {
             3600   // syncCooldown (1 hour)
         );
         console.log("✅ CrossChainReputation initialized");
-        
+
         // Initialize AgentCommunication
         await agentCommunication.updateGlobalSettings(
             1000, // minReputationScore
@@ -207,41 +207,41 @@ async function main() {
             2592000 // channelTimeout (30 days)
         );
         console.log("✅ AgentCommunication initialized");
-        
+
         // Authorize deployer as agent
         await crossChainReputation.initializeReputation(deployer.address, 1000);
         await agentCommunication.authorizeAgent(deployer.address);
         await agentCollaboration.authorizeAgent(deployer.address);
         await agentLearning.authorizeAgent(deployer.address);
         console.log("✅ Deployer authorized as agent");
-        
+
         // Add supported chains to CrossChainReputation
         await crossChainReputation.addSupportedChain(1, crossChainReputation.address); // Ethereum
         await crossChainReputation.addSupportedChain(137, crossChainReputation.address); // Polygon
         await crossChainReputation.addSupportedChain(42161, crossChainReputation.address); // Arbitrum
         await crossChainReputation.addSupportedChain(10, crossChainReputation.address); // Optimism
         console.log("✅ Supported chains added to CrossChainReputation");
-        
+
         // Save deployment information
         const deploymentFile = `deployed-contracts-${hre.network.name}.json`;
-        
+
         // Load existing contracts if file exists
         let existingContracts = {};
         if (fs.existsSync(deploymentFile)) {
             existingContracts = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
         }
-        
+
         // Merge with existing contracts
         const allContracts = {
             ...existingContracts,
             ...deployedContracts
         };
-        
+
         fs.writeFileSync(
             path.join(__dirname, "..", deploymentFile),
             JSON.stringify(allContracts, null, 2)
         );
-        
+
         // Generate environment variables for frontend
         const envVars = `
 # AITBC Advanced Agent Features - ${hre.network.name.toUpperCase()}
@@ -274,10 +274,10 @@ VITE_SYNC_COOLDOWN=3600
 VITE_MIN_STAKE_AMOUNT=100000000000000000000
 VITE_MAX_DELEGATION_RATIO=1.0
 `;
-        
+
         const envFile = path.join(__dirname, "..", "..", "apps", "marketplace-web", ".env.advanced-features");
         fs.writeFileSync(envFile, envVars);
-        
+
         console.log("");
         console.log("🎉 ADVANCED CONTRACTS DEPLOYMENT COMPLETED");
         console.log("=====================================");
@@ -299,7 +299,7 @@ VITE_MAX_DELEGATION_RATIO=1.0
         console.log("  3. Set up agent communication channels");
         console.log("  4. Configure advanced learning models");
         console.log("  5. Test agent collaboration protocols");
-        
+
     } catch (error) {
         console.error("❌ Deployment failed:", error);
         process.exit(1);

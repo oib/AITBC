@@ -12,12 +12,6 @@ import pytest
 
 def test_agent_coordinator_cors_rejects_wildcard():
     """Test that agent-coordinator config rejects wildcard origins"""
-    repo_root = Path(__file__).resolve().parents[2]
-    agent_coordinator_src = repo_root / "apps" / "agent-coordinator" / "src"
-
-    if str(agent_coordinator_src) not in sys.path:
-        sys.path.insert(0, str(agent_coordinator_src))
-
     # Clear cached app modules to avoid import conflicts from other tests
     for mod_name in list(sys.modules.keys()):
         if mod_name.startswith("app"):
@@ -40,12 +34,6 @@ def test_agent_coordinator_cors_rejects_wildcard():
 
 def test_agent_coordinator_cors_accepts_localhost():
     """Test that agent-coordinator config accepts localhost origins"""
-    repo_root = Path(__file__).resolve().parents[2]
-    agent_coordinator_src = repo_root / "apps" / "agent-coordinator" / "src"
-
-    if str(agent_coordinator_src) not in sys.path:
-        sys.path.insert(0, str(agent_coordinator_src))
-
     # Clear cached app modules to avoid import conflicts from other tests
     for mod_name in list(sys.modules.keys()):
         if mod_name.startswith("app"):
@@ -80,9 +68,6 @@ def test_marketplace_cors_rejects_wildcard():
     if not agent_marketplace_file.exists():
         pytest.skip("agent_marketplace.py not found")
 
-    if str(marketplace_src) not in sys.path:
-        sys.path.insert(0, str(marketplace_src))
-
     # Set environment variable with wildcard
     os.environ["AITBC_MARKETPLACE_CORS_ORIGINS"] = "*"
 
@@ -107,9 +92,6 @@ def test_marketplace_cors_accepts_localhost():
 
     if not agent_marketplace_file.exists():
         pytest.skip("agent_marketplace.py not found")
-
-    if str(marketplace_src) not in sys.path:
-        sys.path.insert(0, str(marketplace_src))
 
     os.environ["AITBC_MARKETPLACE_CORS_ORIGINS"] = "http://localhost:8001,http://localhost:9001"
 

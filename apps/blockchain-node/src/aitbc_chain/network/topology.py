@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+import networkx as nx  # type: ignore
+
+from .discovery import P2PDiscovery, PeerNode
+from .health import PeerHealthMonitor
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,12 +24,6 @@ def log_info(msg: str) -> None:
 
 def log_error(msg: str) -> None:
     logger.error(msg)
-
-
-import networkx as nx  # type: ignore  # noqa: E402
-
-from .discovery import P2PDiscovery, PeerNode  # noqa: E402
-from .health import PeerHealthMonitor  # noqa: E402
 
 
 class TopologyStrategy(Enum):

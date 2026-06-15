@@ -221,13 +221,13 @@ import pytest
 def test_cli_command_help():
     """Test CLI help command."""
     # Test implementation
-    
+
 @pytest.mark.integration
 @pytest.mark.slow
 def test_blockchain_sync():
     """Test blockchain synchronization."""
     # Test implementation
-    
+
 @pytest.mark.cli
 def test_agent_create_command():
     """Test agent creation CLI command."""
@@ -312,7 +312,7 @@ pytest --lf
 
 ---
 
-**Migration completed**: ✅ All test configuration moved to `pyproject.toml`  
-**Shell script eliminated**: ✅ No more `run_all_tests.sh` dependency  
-**CI/CD updated**: ✅ Direct pytest integration in workflows  
+**Migration completed**: ✅ All test configuration moved to `pyproject.toml`
+**Shell script eliminated**: ✅ No more `run_all_tests.sh` dependency
+**CI/CD updated**: ✅ Direct pytest integration in workflows
 **Developer experience improved**: ✅ Simplified test execution

@@ -14,12 +14,12 @@ import "./PerformanceVerifier.sol";
  * @notice Handles disputes between AI service providers and consumers with fair resolution mechanisms
  */
 contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
-    
+
     // State variables
     AIPowerRental public aiPowerRental;
     AITBCPaymentProcessor public paymentProcessor;
     PerformanceVerifier public performanceVerifier;
-    
+
     uint256 public disputeCounter;
     uint256 public arbitrationFeePercentage = 100; // 1% in basis points
     uint256 public evidenceSubmissionPeriod = 3 days;
@@ -27,7 +27,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
     uint256 public escalationThreshold = 3; // Number of disputes before escalation
     uint256 public minArbitrators = 3;
     uint256 public maxArbitrators = 5;
-    
+
     // Structs
     struct Dispute {
         uint256 disputeId;
@@ -48,7 +48,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         bool isEscalated;
         uint256 escalationLevel;
     }
-    
+
     struct Evidence {
         uint256 evidenceId;
         uint256 disputeId;
@@ -61,7 +61,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         uint256 verificationScore;
         address verifiedBy;
     }
-    
+
     struct Arbitrator {
         address arbitratorAddress;
         bool isAuthorized;
@@ -71,7 +71,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         uint256 lastActiveTime;
         ArbitratorStatus status;
     }
-    
+
     struct ArbitrationVote {
         uint256 disputeId;
         address arbitrator;
@@ -81,7 +81,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         uint256 voteTime;
         bool isValid;
     }
-    
+
     struct EscalationRecord {
         uint256 disputeId;
         uint256 escalationLevel;
@@ -90,7 +90,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         uint256 escalationTime;
         address[] assignedArbitrators;
     }
-    
+
     // Enums
     enum DisputeStatus {
         Filed,
@@ -102,7 +102,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         Rejected,
         Expired
     }
-    
+
     enum DisputeType {
         Performance,
         Payment,
@@ -110,14 +110,14 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         Availability,
         Other
     }
-    
+
     enum ArbitratorStatus {
         Active,
         Inactive,
         Suspended,
         Retired
     }
-    
+
     enum EvidenceType {
         PerformanceMetrics,
         Logs,
@@ -128,7 +128,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         BlockchainProof,
         ZKProof
     }
-    
+
     // Mappings
     mapping(uint256 => Dispute) public disputes;
     mapping(uint256 => Evidence[]) public disputeEvidence;
@@ -140,11 +140,11 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => uint256) public agreementDisputes;
     mapping(address => bool) public authorizedArbitrators;
     mapping(uint256 => mapping(address => bool)) public hasVoted;
-    
+
     // Arrays for tracking
     address[] public authorizedArbitratorList;
     uint256[] public activeDisputes;
-    
+
     // Events
     event DisputeFiled(
         uint256 indexed disputeId,
@@ -154,7 +154,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         DisputeType disputeType,
         string reason
     );
-    
+
     event EvidenceSubmitted(
         uint256 indexed disputeId,
         uint256 indexed evidenceId,
@@ -162,73 +162,73 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         string evidenceType,
         bytes32 evidenceHash
     );
-    
+
     event EvidenceVerified(
         uint256 indexed disputeId,
         uint256 indexed evidenceId,
         bool isValid,
         uint256 verificationScore
     );
-    
+
     event ArbitratorAssigned(
         uint256 indexed disputeId,
         address indexed arbitrator,
         uint256 escalationLevel
     );
-    
+
     event ArbitrationVoteSubmitted(
         uint256 indexed disputeId,
         address indexed arbitrator,
         bool voteInFavorOfInitiator,
         uint256 confidence
     );
-    
+
     event DisputeResolved(
         uint256 indexed disputeId,
         address indexed winner,
         uint256 resolutionAmount,
         string resolutionReason
     );
-    
+
     event DisputeEscalated(
         uint256 indexed disputeId,
         uint256 escalationLevel,
         address indexed escalatedBy,
         string escalationReason
     );
-    
+
     event ArbitratorAuthorized(
         address indexed arbitrator,
         uint256 reputationScore
     );
-    
+
     event ArbitratorRevoked(
         address indexed arbitrator,
         string reason
     );
-    
+
     event ArbitrationFeeCollected(
         uint256 indexed disputeId,
         uint256 feeAmount,
         address indexed collector
     );
-    
+
     // Modifiers
     modifier onlyAuthorizedArbitrator() {
         require(authorizedArbitrators[msg.sender], "Not authorized arbitrator");
         _;
     }
-    
+
     modifier disputeExists(uint256 _disputeId) {
         require(_disputeId < disputeCounter, "Dispute does not exist");
         _;
     }
-    
+
     modifier validStatus(uint256 _disputeId, DisputeStatus _requiredStatus) {
         require(disputes[_disputeId].status == _requiredStatus, "Invalid dispute status");
         _;
     }
-    
+
     modifier onlyParticipant(uint256 _disputeId) {
         require(
             msg.sender == disputes[_disputeId].initiator ||
@@ -237,17 +237,17 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         );
         _;
     }
-    
+
     modifier withinDeadline(uint256 _deadline) {
         require(block.timestamp <= _deadline, "Deadline passed");
         _;
     }
-    
+
     modifier hasNotVoted(uint256 _disputeId) {
         require(!hasVoted[_disputeId][msg.sender], "Already voted");
         _;
     }
-    
+
     // Constructor
     constructor(
         address _aiPowerRental,
@@ -259,7 +259,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
         disputeCounter = 0;
     }
-    
+
     /**
      * @dev Files a new dispute
      * @param _agreementId ID of the agreement being disputed
@@ -278,23 +278,23 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         require(_respondent != address(0), "Invalid respondent");
         require(_respondent != msg.sender, "Cannot dispute yourself");
         require(bytes(_reason).length > 0, "Reason required");
-        
+
         // Verify agreement exists and get participants
         AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(_agreementId);
         require(agreement.provider != address(0), "Invalid agreement");
-        
+
         // Verify caller is a participant
         require(
             msg.sender == agreement.provider || msg.sender == agreement.consumer,
             "Not agreement participant"
         );
-        
+
         // Verify respondent is the other participant
         address otherParticipant = msg.sender == agreement.provider ? agreement.consumer : agreement.provider;
         require(_respondent == otherParticipant, "Respondent not in agreement");
-        
+
         uint256 disputeId = disputeCounter++;
-        
+
         disputes[disputeId] = Dispute({
             disputeId: disputeId,
             agreementId: _agreementId,
@@ -314,17 +314,17 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             isEscalated: false,
             escalationLevel: 1
         });
-        
+
         userDisputes[msg.sender].push(disputeId);
         userDisputes[_respondent].push(disputeId);
         agreementDisputes[_agreementId] = disputeId;
         activeDisputes.push(disputeId);
-        
+
         emit DisputeFiled(disputeId, _agreementId, msg.sender, _respondent, _disputeType, _reason);
-        
+
         return disputeId;
     }
-    
+
     /**
      * @dev Submits evidence for a dispute
      * @param _disputeId ID of the dispute
@@ -337,12 +337,12 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         string memory _evidenceData
     ) external disputeExists(_disputeId) onlyParticipant(_disputeId) withinDeadline(disputes[_disputeId].evidenceDeadline) nonReentrant {
         Dispute storage dispute = disputes[_disputeId];
-        
+
         require(dispute.status == DisputeStatus.Filed || dispute.status == DisputeStatus.EvidenceSubmitted, "Cannot submit evidence");
-        
+
         uint256 evidenceId = disputeEvidence[_disputeId].length;
         bytes32 evidenceHash = keccak256(abi.encodePacked(_evidenceData, msg.sender, block.timestamp));
-        
+
         disputeEvidence[_disputeId].push(Evidence({
             evidenceId: evidenceId,
             disputeId: _disputeId,
@@ -355,12 +355,12 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             verificationScore: 0,
             verifiedBy: address(0)
         }));
-        
+
         dispute.status = DisputeStatus.EvidenceSubmitted;
-        
+
         emit EvidenceSubmitted(_disputeId, evidenceId, msg.sender, _evidenceType, evidenceHash);
     }
-    
+
     /**
      * @dev Verifies evidence submitted in a dispute
      * @param _disputeId ID of the dispute
@@ -375,15 +375,15 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         uint256 _verificationScore
     ) external onlyAuthorizedArbitrator disputeExists(_disputeId) nonReentrant {
         require(_evidenceId < disputeEvidence[_disputeId].length, "Invalid evidence ID");
-        
+
         Evidence storage evidence = disputeEvidence[_disputeId][_evidenceId];
         evidence.isValid = _isValid;
         evidence.verificationScore = _verificationScore;
         evidence.verifiedBy = msg.sender;
-        
+
         emit EvidenceVerified(_disputeId, _evidenceId, _isValid, _verificationScore);
     }
-    
+
     /**
      * @dev Assigns arbitrators to a dispute
      * @param _disputeId ID of the dispute
@@ -394,23 +394,23 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         address[] memory _arbitrators
     ) external onlyOwner disputeExists(_disputeId) nonReentrant {
         Dispute storage dispute = disputes[_disputeId];
-        
+
         require(_arbitrators.length >= minArbitrators && _arbitrators.length <= maxArbitrators, "Invalid arbitrator count");
-        
+
         for (uint256 i = 0; i < _arbitrators.length; i++) {
             require(authorizedArbitrators[_arbitrators[i]], "Arbitrator not authorized");
             require(_arbitrators[i] != dispute.initiator && _arbitrators[i] != dispute.respondent, "Conflict of interest");
         }
-        
+
         dispute.arbitratorCount = _arbitrators.length;
         dispute.status = DisputeStatus.ArbitrationInProgress;
-        
+
         for (uint256 i = 0; i < _arbitrators.length; i++) {
             arbitratorDisputes[_arbitrators[i]].push(_disputeId);
             emit ArbitratorAssigned(_disputeId, _arbitrators[i], dispute.escalationLevel);
         }
     }
-    
+
     /**
      * @dev Submits arbitration vote
      * @param _disputeId ID of the dispute
@@ -425,7 +425,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         string memory _reasoning
     ) external onlyAuthorizedArbitrator disputeExists(_disputeId) validStatus(_disputeId, DisputeStatus.ArbitrationInProgress) hasNotVoted(_disputeId) withinDeadline(disputes[_disputeId].arbitrationDeadline) nonReentrant {
         Dispute storage dispute = disputes[_disputeId];
-        
+
         // Verify arbitrator is assigned to this dispute
         bool isAssigned = false;
         for (uint256 i = 0; i < arbitratorDisputes[msg.sender].length; i++) {
@@ -435,7 +435,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             }
         }
         require(isAssigned, "Arbitrator not assigned");
-        
+
         arbitrationVotes[_disputeId].push(ArbitrationVote({
             disputeId: _disputeId,
             arbitrator: msg.sender,
@@ -445,22 +445,22 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             voteTime: block.timestamp,
             isValid: true
         }));
-        
+
         hasVoted[_disputeId][msg.sender] = true;
-        
+
         // Update arbitrator stats
         Arbitrator storage arbitrator = arbitrators[msg.sender];
         arbitrator.totalDisputes++;
         arbitrator.lastActiveTime = block.timestamp;
-        
+
         emit ArbitrationVoteSubmitted(_disputeId, msg.sender, _voteInFavorOfInitiator, _confidence);
-        
+
         // Check if all arbitrators have voted
         if (arbitrationVotes[_disputeId].length == dispute.arbitratorCount) {
             _resolveDispute(_disputeId);
         }
     }
-    
+
     /**
      * @dev Escalates a dispute to higher level
      * @param _disputeId ID of the dispute
@@ -471,14 +471,14 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         string memory _escalationReason
     ) external onlyOwner disputeExists(_disputeId) nonReentrant {
         Dispute storage dispute = disputes[_disputeId];
-        
+
         require(dispute.status == DisputeStatus.Resolved, "Cannot escalate unresolved dispute");
         require(dispute.escalationLevel < 3, "Max escalation level reached");
-        
+
         dispute.escalationLevel++;
         dispute.isEscalated = true;
         dispute.status = DisputeStatus.Escalated;
-        
+
         escalations[_disputeId] = EscalationRecord({
             disputeId: _disputeId,
             escalationLevel: dispute.escalationLevel,
@@ -487,10 +487,10 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             escalationTime: block.timestamp,
             assignedArbitrators: new address[](0)
         });
-        
+
         emit DisputeEscalated(_disputeId, dispute.escalationLevel, msg.sender, _escalationReason);
     }
-    
+
     /**
      * @dev Authorizes an arbitrator
      * @param _arbitrator Address of the arbitrator
@@ -499,10 +499,10 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
     function authorizeArbitrator(address _arbitrator, uint256 _reputationScore) external onlyOwner {
         require(_arbitrator != address(0), "Invalid arbitrator address");
         require(!authorizedArbitrators[_arbitrator], "Arbitrator already authorized");
-        
+
         authorizedArbitrators[_arbitrator] = true;
         authorizedArbitratorList.push(_arbitrator);
-        
+
         arbitrators[_arbitrator] = Arbitrator({
             arbitratorAddress: _arbitrator,
             isAuthorized: true,
@@ -512,10 +512,10 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             lastActiveTime: block.timestamp,
             status: ArbitratorStatus.Active
         });
-        
+
         emit ArbitratorAuthorized(_arbitrator, _reputationScore);
     }
-    
+
     /**
      * @dev Revokes arbitrator authorization
      * @param _arbitrator Address of the arbitrator
@@ -523,29 +523,29 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
      */
     function revokeArbitrator(address _arbitrator, string memory _reason) external onlyOwner {
         require(authorizedArbitrators[_arbitrator], "Arbitrator not authorized");
-        
+
         authorizedArbitrators[_arbitrator] = false;
         arbitrators[_arbitrator].status = ArbitratorStatus.Suspended;
-        
+
         emit ArbitratorRevoked(_arbitrator, _reason);
     }
-    
+
     // Internal functions
-    
+
     function _resolveDispute(uint256 _disputeId) internal {
         Dispute storage dispute = disputes[_disputeId];
         ArbitrationVote[] storage votes = arbitrationVotes[_disputeId];
-        
+
         uint256 votesForInitiator = 0;
         uint256 votesForRespondent = 0;
         uint256 totalConfidence = 0;
         uint256 weightedVotesForInitiator = 0;
-        
+
         // Calculate weighted votes
         for (uint256 i = 0; i < votes.length; i++) {
             ArbitrationVote storage vote = votes[i];
             totalConfidence += vote.confidence;
-            
+
             if (vote.voteInFavorOfInitiator) {
                 votesForInitiator++;
                 weightedVotesForInitiator += vote.confidence;
@@ -553,176 +553,176 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
                 votesForRespondent++;
             }
         }
-        
+
         // Determine winner based on weighted votes
         bool initiatorWins = weightedVotesForInitiator > (totalConfidence / 2);
-        
+
         dispute.winner = initiatorWins ? dispute.initiator : dispute.respondent;
         dispute.status = DisputeStatus.Resolved;
-        
+
         // Calculate resolution amount based on agreement
         AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(dispute.agreementId);
-        
+
         if (initiatorWins) {
             dispute.resolutionAmount = agreement.price; // Full refund/compensation
         } else {
             dispute.resolutionAmount = 0; // No compensation
         }
-        
+
         // Update arbitrator success rates
         for (uint256 i = 0; i < votes.length; i++) {
             ArbitrationVote storage vote = votes[i];
             Arbitrator storage arbitrator = arbitrators[vote.arbitrator];
-            
+
             if ((vote.voteInFavorOfInitiator && initiatorWins) || (!vote.voteInFavorOfInitiator && !initiatorWins)) {
                 arbitrator.successfulResolutions++;
             }
         }
-        
+
         dispute.resolutionReason = initiatorWins ? "Evidence and reasoning support initiator" : "Evidence and reasoning support respondent";
-        
+
         emit DisputeResolved(_disputeId, dispute.winner, dispute.resolutionAmount, dispute.resolutionReason);
     }
-    
+
     // View functions
-    
+
     /**
      * @dev Gets dispute details
      * @param _disputeId ID of the dispute
      */
-    function getDispute(uint256 _disputeId) 
-        external 
-        view 
-        disputeExists(_disputeId) 
-        returns (Dispute memory) 
+    function getDispute(uint256 _disputeId)
+        external
+        view
+        disputeExists(_disputeId)
+        returns (Dispute memory)
     {
         return disputes[_disputeId];
     }
-    
+
     /**
      * @dev Gets evidence for a dispute
      * @param _disputeId ID of the dispute
      */
-    function getDisputeEvidence(uint256 _disputeId) 
-        external 
-        view 
-        disputeExists(_disputeId) 
-        returns (Evidence[] memory) 
+    function getDisputeEvidence(uint256 _disputeId)
+        external
+        view
+        disputeExists(_disputeId)
+        returns (Evidence[] memory)
     {
         return disputeEvidence[_disputeId];
     }
-    
+
     /**
      * @dev Gets arbitration votes for a dispute
      * @param _disputeId ID of the dispute
      */
-    function getArbitrationVotes(uint256 _disputeId) 
-        external 
-        view 
-        disputeExists(_disputeId) 
-        returns (ArbitrationVote[] memory) 
+    function getArbitrationVotes(uint256 _disputeId)
+        external
+        view
+        disputeExists(_disputeId)
+        returns (ArbitrationVote[] memory)
     {
         return arbitrationVotes[_disputeId];
     }
-    
+
     /**
      * @dev Gets arbitrator information
      * @param _arbitrator Address of the arbitrator
      */
-    function getArbitrator(address _arbitrator) 
-        external 
-        view 
-        returns (Arbitrator memory) 
+    function getArbitrator(address _arbitrator)
+        external
+        view
+        returns (Arbitrator memory)
     {
         return arbitrators[_arbitrator];
     }
-    
+
     /**
      * @dev Gets all disputes for a user
      * @param _user Address of the user
      */
-    function getUserDisputes(address _user) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getUserDisputes(address _user)
+        external
+        view
+        returns (uint256[] memory)
     {
         return userDisputes[_user];
     }
-    
+
     /**
      * @dev Gets all disputes for an arbitrator
      * @param _arbitrator Address of the arbitrator
      */
-    function getArbitratorDisputes(address _arbitrator) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getArbitratorDisputes(address _arbitrator)
+        external
+        view
+        returns (uint256[] memory)
     {
         return arbitratorDisputes[_arbitrator];
     }
-    
+
     /**
      * @dev Gets all authorized arbitrators
      */
-    function getAuthorizedArbitrators() 
-        external 
-        view 
-        returns (address[] memory) 
+    function getAuthorizedArbitrators()
+        external
+        view
+        returns (address[] memory)
     {
         address[] memory activeArbitrators = new address[](authorizedArbitratorList.length);
         uint256 activeCount = 0;
-        
+
         for (uint256 i = 0; i < authorizedArbitratorList.length; i++) {
             if (authorizedArbitrators[authorizedArbitratorList[i]]) {
                 activeArbitrators[activeCount] = authorizedArbitratorList[i];
                 activeCount++;
             }
         }
-        
+
         // Create correctly sized array and copy elements
         address[] memory result = new address[](activeCount);
         for (uint256 i = 0; i < activeCount; i++) {
             result[i] = activeArbitrators[i];
         }
-        
+
         return result;
     }
-    
+
     /**
      * @dev Gets active disputes
      */
-    function getActiveDisputes() 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getActiveDisputes()
+        external
+        view
+        returns (uint256[] memory)
     {
         uint256[] memory active = new uint256[](activeDisputes.length);
         uint256 activeCount = 0;
-        
+
         for (uint256 i = 0; i < activeDisputes.length; i++) {
-            if (disputes[activeDisputes[i]].status != DisputeStatus.Resolved && 
+            if (disputes[activeDisputes[i]].status != DisputeStatus.Resolved &&
                 disputes[activeDisputes[i]].status != DisputeStatus.Rejected) {
                 active[activeCount] = activeDisputes[i];
                 activeCount++;
             }
         }
-        
+
         // Create correctly sized array and copy elements
         uint256[] memory result = new uint256[](activeCount);
         for (uint256 i = 0; i < activeCount; i++) {
             result[i] = active[i];
         }
-        
+
         return result;
     }
-    
+
     /**
      * @dev Emergency pause function
      */
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @dev Unpause function
      */

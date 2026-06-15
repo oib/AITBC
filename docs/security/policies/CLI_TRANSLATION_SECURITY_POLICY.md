@@ -117,7 +117,7 @@ CRITICAL_POLICY = {
 }
 
 HIGH_POLICY = {
-    "translation_mode": "LOCAL_ONLY", 
+    "translation_mode": "LOCAL_ONLY",
     "allow_external_apis": False,
     "require_explicit_consent": True,
     "timeout_seconds": 5,
@@ -160,7 +160,7 @@ def get_command_security_level(command_name: str) -> SecurityLevel:
     high_commands = {'config', 'node', 'chain', 'marketplace', 'swap'}
     medium_commands = {'balance', 'status', 'monitor', 'analytics'}
     low_commands = {'help', 'version', 'info', 'list', 'show'}
-    
+
     # Return appropriate security level
 ```
 
@@ -174,7 +174,7 @@ if security_level == SecurityLevel.CRITICAL:
 # Timeout enforcement for external calls
 if policy.allow_external_apis:
     result = await asyncio.wait_for(
-        external_translate(request), 
+        external_translate(request),
         timeout=policy.timeout_seconds
     )
 ```
@@ -281,15 +281,15 @@ print(f"Recommendations: {report['recommendations']}")
 # Monitor translation security in real-time
 def monitor_translation_security():
     summary = cli_translation_security.get_security_summary()
-    
+
     # Alert on suspicious patterns
     if summary['by_security_level'].get('critical', 0) > 0:
         send_security_alert("Critical command translation attempts detected")
-    
+
     # Monitor failure rates
-    recent_failures = [log for log in summary['recent_checks'] 
+    recent_failures = [log for log in summary['recent_checks']
                       if log.get('translation_failed', False)]
-    
+
     if len(recent_failures) > 5:  # Threshold
         send_security_alert("High translation failure rate detected")
 ```
@@ -312,7 +312,7 @@ AITBC_TRANSLATION_AUDIT="true"             # Enable audit logging
 {
     "translation_security": {
         "critical_level": "disabled",
-        "high_level": "local_only", 
+        "high_level": "local_only",
         "medium_level": "fallback",
         "low_level": "full",
         "audit_logging": true,
@@ -341,7 +341,7 @@ async def handle_translation_outage():
         medium_level="local_only",  # Downgrade from fallback
         low_level="local_only"       # Downgrade from full
     )
-    
+
     # Log security policy change
     log_security_incident("Translation outage - external APIs disabled")
 ```
@@ -358,7 +358,7 @@ def handle_security_incident(incident_type: str):
             medium_level="local_only",
             low_level="fallback"
         )
-        
+
         # Trigger security review
         trigger_security_review()
 ```

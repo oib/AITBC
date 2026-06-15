@@ -403,7 +403,7 @@ upstream aitbc_rpc {
 server {
     listen 80;
     server_name rpc.aitbc.io;
-    
+
     location / {
         proxy_pass http://aitbc_rpc;
         proxy_set_header Host $host;

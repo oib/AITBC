@@ -170,14 +170,14 @@ async def lifespan(app: FastAPI):
     # Create AgentRegistry with Redis backing
     state.agent_registry = AgentRegistry()
     await state.agent_registry.start()
-    
+
     # Create LoadBalancer with registry
     state.load_balancer = LoadBalancer(state.agent_registry)
     state.load_balancer.set_strategy(LoadBalancingStrategy.LEAST_CONNECTIONS)
-    
+
     # Create TaskDistributor
     state.task_distributor = TaskDistributor(state.load_balancer)
-    
+
     # Start background tasks
     asyncio.create_task(state.task_distributor.start_distribution())
     asyncio.create_task(state.message_processor.start_processing())
@@ -244,7 +244,7 @@ sequenceDiagram
     participant AgentRegistry
     participant Redis
     participant Agent
-    
+
     Client->>Coordinator: POST /tasks/submit
     Coordinator->>TaskDistributor: submit_task()
     TaskDistributor->>TaskDistributor: add to priority queue

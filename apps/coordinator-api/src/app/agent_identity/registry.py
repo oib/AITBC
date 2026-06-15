@@ -9,18 +9,19 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from sqlmodel import Session, select
+
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
-
-from ..contexts.agent_identity.domain.agent_identity import (  # noqa: E402
+from ..contexts.agent_identity.domain.agent_identity import (
     AgentIdentity,
     ChainType,
     CrossChainMapping,
     IdentityVerification,
     VerificationType,
 )
+
+logger = get_logger(__name__)
 
 
 class CrossChainRegistry:

@@ -23,7 +23,7 @@ log_message() {
 # Function to check Redis connection
 check_redis_connection() {
     echo "=== Redis Connection Status ==="
-    
+
     if redis-cli ping > /dev/null 2>&1; then
         echo -e "${GREEN}OK: Redis is connected${NC}"
         log_message "INFO" "Redis is connected"
@@ -39,15 +39,15 @@ check_redis_connection() {
 check_redis_memory() {
     echo ""
     echo "=== Redis Memory Status ==="
-    
+
     local memory_used=$(redis-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
     local memory_peak=$(redis-cli info memory | grep used_memory_peak_human | cut -d: -f2 | tr -d '\r')
     local max_memory=$(redis-cli config get maxmemory | tail -1)
-    
+
     echo "Current Memory: $memory_used"
     echo "Peak Memory: $memory_peak"
     echo "Max Memory: $max_memory"
-    
+
     if [ "$max_memory" != "0" ]; then
         # Calculate percentage (simplified)
         echo "Memory limit is configured"
@@ -61,20 +61,20 @@ check_redis_memory() {
 check_cache_stats() {
     echo ""
     echo "=== Cache Statistics ==="
-    
+
     local keyspace_hits=$(redis-cli info stats | grep keyspace_hits | cut -d: -f2 | tr -d '\r')
     local keyspace_misses=$(redis-cli info stats | grep keyspace_misses | cut -d: -f2 | tr -d '\r')
     local total_keys=$(redis-cli info keyspace | grep db0 | cut -d: -f2 | tr -d '\r')
-    
+
     echo "Keyspace Hits: $keyspace_hits"
     echo "Keyspace Misses: $keyspace_misses"
     echo "Total Keys: $total_keys"
-    
+
     if [ "$keyspace_hits" != "0" ] || [ "$keyspace_misses" != "0" ]; then
         local total=$((keyspace_hits + keyspace_misses))
         local hit_rate=$((keyspace_hits * 100 / total))
         echo "Hit Rate: ${hit_rate}%"
-        
+
         if [ $hit_rate -lt 50 ]; then
             echo -e "${YELLOW}WARNING: Low cache hit rate (${hit_rate}%)${NC}"
             log_message "WARNING" "Low cache hit rate (${hit_rate}%)"
@@ -91,10 +91,10 @@ check_cache_stats() {
 check_aitbc_keys() {
     echo ""
     echo "=== AITBC Cache Keys ==="
-    
+
     local aitbc_keys=$(redis-cli keys "aitbc:*" | wc -l)
     echo "Total AITBC keys: $aitbc_keys"
-    
+
     if [ $aitbc_keys -gt 0 ]; then
         echo "Key types:"
         redis-cli keys "aitbc:*" | head -10 | while read key; do
@@ -109,20 +109,20 @@ main() {
     echo "AITBC Cache Monitoring Report"
     echo "=============================="
     echo ""
-    
+
     # Create log directory if it doesn't exist
     mkdir -p "$(dirname "$LOG_FILE")"
-    
+
     # Run checks
     local connection_status=0
-    
+
     check_redis_connection || connection_status=1
-    
+
     if [ $connection_status -eq 0 ]; then
         check_redis_memory
         check_cache_stats
         check_aitbc_keys
-        
+
         echo ""
         echo "=== Summary ==="
         echo -e "${GREEN}Cache monitoring completed successfully${NC}"

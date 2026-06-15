@@ -200,12 +200,12 @@ class TestAPIResponseTypes:
         # Check performance metrics types
         perf = data["performance"]
         assert isinstance(perf, dict)
-        assert isinstance(perf.get("avg_response_time"), (int, float))
-        assert isinstance(perf.get("p95_response_time"), (int, float))
-        assert isinstance(perf.get("p99_response_time"), (int, float))
-        assert isinstance(perf.get("error_rate"), (int, float))
+        assert isinstance(perf.get("avg_response_time"), int | float)
+        assert isinstance(perf.get("p95_response_time"), int | float)
+        assert isinstance(perf.get("p99_response_time"), int | float)
+        assert isinstance(perf.get("error_rate"), int | float)
         assert isinstance(perf.get("total_requests"), int)
-        assert isinstance(perf.get("uptime_seconds"), (int, float))
+        assert isinstance(perf.get("uptime_seconds"), int | float)
 
         # Check system metrics types
         system = data["system"]
@@ -257,7 +257,7 @@ class TestErrorHandlingTypes:
         assert "detail" in data  # FastAPI validation errors use "detail"
 
         # Check detail type
-        assert isinstance(data["detail"], (str, list))
+        assert isinstance(data["detail"], str | list)
 
     def test_authentication_error_types(self):
         """Test authentication error response types"""
@@ -393,7 +393,7 @@ class TestAdvancedFeaturesTypeSafety:
         # learning_rate may be None, so check if it exists and is numeric
         learning_rate = arch.get("learning_rate")
         if learning_rate is not None:
-            assert isinstance(learning_rate, (int, float))
+            assert isinstance(learning_rate, int | float)
 
     def test_consensus_proposal_types(self):
         """Test consensus proposal type validation"""
@@ -484,7 +484,7 @@ class TestTypeSafetyIntegration:
 
         for field in numeric_fields:
             assert field in perf
-            assert isinstance(perf[field], (int, float))
+            assert isinstance(perf[field], int | float)
 
         # 4. Check agent discovery returns consistent types
         response = requests.post(
@@ -538,7 +538,7 @@ class TestTypeSafetyIntegration:
         )
         assert response.status_code in [422, 400]
         error_validation = response.json()
-        assert isinstance(error_validation["detail"], (str, list))
+        assert isinstance(error_validation["detail"], str | list)
 
 
 if __name__ == "__main__":

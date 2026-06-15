@@ -48,7 +48,7 @@ jobs:
         run: |
           cd /opt/aitbc
           rm -rf venv
-          
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
@@ -59,22 +59,22 @@ jobs:
       - name: Test cross-chain block synchronization
         run: |
           cd /opt/aitbc
-          
+
           CHAINS="${{ inputs.chains || 'ait-mainnet,ait-testnet' }}"
-          
+
           echo "🧪 Testing cross-chain synchronization for chains: $CHAINS"
-          
+
           PYTHONPATH="$PWD/apps/blockchain-node/src:$PYTHONPATH" venv/bin/python -c "
           import asyncio
           import os
           from aitbc_chain.cross_chain import CrossChainSync
-          
+
           async def test_sync():
               chains = os.getenv('CHAINS', 'ait-mainnet,ait-testnet').split(',')
               sync = CrossChainSync(chains=chains)
               await sync.test_synchronization()
               print('✅ Cross-chain sync test passed')
-          
+
           asyncio.run(test_sync())
           "
 
@@ -100,7 +100,7 @@ jobs:
         run: |
           cd /opt/aitbc
           rm -rf venv
-          
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
@@ -154,7 +154,7 @@ jobs:
         run: |
           cd /opt/aitbc
           rm -rf venv
-          
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
@@ -165,18 +165,18 @@ jobs:
       - name: Test multi-chain consensus
         run: |
           cd /opt/aitbc
-          
+
           echo "🧪 Testing multi-chain consensus"
-          
+
           PYTHONPATH="$PWD/apps/blockchain-node/src:$PYTHONPATH" venv/bin/python -c "
           import asyncio
           from aitbc_chain.cross_chain import MultiChainConsensus
-          
+
           async def test_consensus():
               consensus = MultiChainConsensus(chains=['ait-mainnet', 'ait-testnet'])
               await consensus.test_consensus_mechanism()
               print('✅ Multi-chain consensus test passed')
-          
+
           asyncio.run(test_consensus())
           "
 
@@ -202,18 +202,18 @@ jobs:
       - name: Aggregate test results
         run: |
           cd /opt/aitbc
-          
+
           echo "📊 Aggregating cross-chain test results"
-          
+
           # Collect results from all test jobs
           SYNC_RESULT="${{ needs.test-cross-chain-sync.result }}"
           TX_RESULT="${{ needs.test-cross-chain-transactions.result }}"
           CONSENSUS_RESULT="${{ needs.test-multi-chain-consensus.result }}"
-          
+
           echo "Cross-chain sync: $SYNC_RESULT"
           echo "Cross-chain transactions: $TX_RESULT"
           echo "Multi-chain consensus: $CONSENSUS_RESULT"
-          
+
           if [[ "$SYNC_RESULT" == "success" && "$TX_RESULT" == "success" && "$CONSENSUS_RESULT" == "success" ]]; then
               echo "✅ All cross-chain tests passed"
               exit 0
@@ -221,4 +221,3 @@ jobs:
               echo "❌ Some cross-chain tests failed"
               exit 1
           fi
-

@@ -33,7 +33,7 @@ import json
 import subprocess
 
 # Get actual GPU information
-result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,driver_version,temperature.gpu', '--format=csv,noheader,nounits'], 
+result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,driver_version,temperature.gpu', '--format=csv,noheader,nounits'],
                       capture_output=True, text=True)
 gpu_info = result.stdout.strip().split(',')
 gpu_name = gpu_info[0].strip()
@@ -252,7 +252,7 @@ task = bid['task']
 
 # Check GPU status before execution
 try:
-    gpu_status = subprocess.run(['nvidia-smi', '--query-gpu=temperature.gpu,utilization.gpu,memory.used', '--format=csv,noheader,nounits'], 
+    gpu_status = subprocess.run(['nvidia-smi', '--query-gpu=temperature.gpu,utilization.gpu,memory.used', '--format=csv,noheader,nounits'],
                                capture_output=True, text=True)
     if gpu_status.returncode == 0:
         temp, util, mem_used = gpu_status.stdout.strip().split(',')

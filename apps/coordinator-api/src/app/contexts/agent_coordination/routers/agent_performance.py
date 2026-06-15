@@ -1,37 +1,31 @@
-from typing import Annotated
-from uuid import uuid4
+"""
+Advanced Agent Performance API Endpoints
+REST API for meta-learning, resource optimization, and performance enhancement
+"""
 
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlmodel import select
 
-"\nAdvanced Agent Performance API Endpoints\nREST API for meta-learning, resource optimization, and performance enhancement\n"
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-logger = get_logger(__name__)
-from ....domain.agent_performance import (  # noqa: E402
-    AgentCapability,
-    AgentPerformanceProfile,
+from ....domain.agent_performance import (
     LearningStrategy,
-    MetaLearningModel,
     OptimizationTarget,
     PerformanceMetric,
-    PerformanceOptimization,
-    ResourceAllocation,
 )
-from ....services.agent_coordination.performance import (  # noqa: E402
+from ....services.agent_coordination.performance import (
     AgentPerformanceService,
     MetaLearningEngine,
     PerformanceOptimizer,
     ResourceManager,
 )
-from ....storage import get_session  # noqa: E402
+from ....storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/agent-performance", tags=["agent-performance"])
 
@@ -293,57 +287,12 @@ async def adapt_model_to_task(
     try:
         results = await meta_learning_engine.adapt_to_new_task(
             session=session, model_id=model_id, task_data=task_data, adaptation_steps=adaptation_steps
-        )  # type: ignore[arg-type]
-        return {
-            "success": True,
-            "model_id": model_id,
-            "adaptation_results": results,
-            "adapted_at": datetime.now(UTC).isoformat(),
-        }
+        )
+        return results  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        logger.error("Error adapting model %s: %s", model_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.get("/meta-learning/models")
-@rate_limit(rate=200, per=60)
-async def list_meta_learning_models(
-    request: Request,
-    session: Annotated[Session, Depends(get_session)],
-    status: str | None = Query(default=None, description="Filter by status"),
-    meta_strategy: str | None = Query(default=None, description="Filter by meta strategy"),
-    limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-) -> list[dict[str, Any]]:
-    """List meta-learning models"""
-    try:
-        query = select(MetaLearningModel)
-        if status:
-            query = query.where(MetaLearningModel.status == status)
-        if meta_strategy:
-            query = query.where(MetaLearningModel.meta_strategy == LearningStrategy(meta_strategy))
-        models = session.execute(query.order_by(MetaLearningModel.created_at.desc()).limit(limit)).all()  # type: ignore[attr-defined]
-        return [
-            {
-                "model_id": model.model_id,
-                "model_name": model.model_name,
-                "model_type": model.model_type,
-                "meta_strategy": model.meta_strategy.value,
-                "adaptation_targets": model.adaptation_targets,
-                "meta_accuracy": model.meta_accuracy,
-                "adaptation_speed": model.adaptation_speed,
-                "generalization_ability": model.generalization_ability,
-                "status": model.status,
-                "deployment_count": model.deployment_count,
-                "success_rate": model.success_rate,
-                "created_at": model.created_at.isoformat(),
-                "trained_at": model.trained_at.isoformat() if model.trained_at else None,
-            }
-            for model in models
-        ]
-    except Exception as e:
-        logger.error("Error listing meta-learning models: %s", str(e))
+        logger.error("Error adapting meta-learning model: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -360,6 +309,7 @@ async def allocate_resources(
             agent_id=allocation_request.agent_id,
             task_requirements=allocation_request.task_requirements,
             optimization_target=allocation_request.optimization_target,
+            priority_level=allocation_request.priority_level,
         )  # type: ignore[arg-type]
         return ResourceAllocationResponse(
             allocation_id=allocation.allocation_id,
@@ -372,68 +322,27 @@ async def allocate_resources(
             network_bandwidth=allocation.network_bandwidth,
             optimization_target=allocation.optimization_target.value,
             status=allocation.status,
-            allocated_at=allocation.allocated_at.isoformat() if allocation.allocated_at else "",
+            allocated_at=allocation.allocated_at.isoformat(),
         )
     except Exception as e:
         logger.error("Error allocating resources: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/resources/{agent_id}")
-@rate_limit(rate=200, per=60)
-async def get_resource_allocations(
-    request: Request,
-    agent_id: str,
-    session: Annotated[Session, Depends(get_session)],
-    status: str | None = Query(default=None, description="Filter by status"),
-    limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-) -> list[dict[str, Any]]:
-    """Get resource allocations for agent"""
-    try:
-        query = select(ResourceAllocation).where(ResourceAllocation.agent_id == agent_id)
-        if status:
-            query = query.where(ResourceAllocation.status == status)
-        allocations = session.execute(query.order_by(ResourceAllocation.created_at.desc()).limit(limit)).all()  # type: ignore[attr-defined]
-        return [
-            {
-                "allocation_id": allocation.allocation_id,
-                "agent_id": allocation.agent_id,
-                "task_id": allocation.task_id,
-                "cpu_cores": allocation.cpu_cores,
-                "memory_gb": allocation.memory_gb,
-                "gpu_count": allocation.gpu_count,
-                "gpu_memory_gb": allocation.gpu_memory_gb,
-                "storage_gb": allocation.storage_gb,
-                "network_bandwidth": allocation.network_bandwidth,
-                "optimization_target": allocation.optimization_target.value,
-                "priority_level": allocation.priority_level,
-                "status": allocation.status,
-                "efficiency_score": allocation.efficiency_score,
-                "cost_efficiency": allocation.cost_efficiency,
-                "allocated_at": allocation.allocated_at.isoformat() if allocation.allocated_at else None,
-                "started_at": allocation.started_at.isoformat() if allocation.started_at else None,
-                "completed_at": allocation.completed_at.isoformat() if allocation.completed_at else None,
-            }
-            for allocation in allocations
-        ]
-    except Exception as e:
-        logger.error("Error getting resource allocations for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/optimization/optimize", response_model=PerformanceOptimizationResponse)
+@router.post("/optimize", response_model=PerformanceOptimizationResponse)
 @rate_limit(rate=20, per=60)
 async def optimize_performance(
     request: Request, optimization_request: PerformanceOptimizationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> PerformanceOptimizationResponse:
     """Optimize agent performance"""
-    performance_optimizer = PerformanceOptimizer()
+    optimizer = PerformanceOptimizer()
     try:
-        optimization = await performance_optimizer.optimize_agent_performance(
+        optimization = await optimizer.optimize_performance(
             session=session,
             agent_id=optimization_request.agent_id,
             target_metric=optimization_request.target_metric,
             current_performance=optimization_request.current_performance,
+            optimization_type=optimization_request.optimization_type,
         )  # type: ignore[arg-type]
         return PerformanceOptimizationResponse(
             optimization_id=optimization.optimization_id,
@@ -453,74 +362,23 @@ async def optimize_performance(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/optimization/{agent_id}")
-@rate_limit(rate=200, per=60)
-async def get_optimization_history(
-    request: Request,
-    agent_id: str,
-    session: Annotated[Session, Depends(get_session)],
-    status: str | None = Query(default=None, description="Filter by status"),
-    target_metric: str | None = Query(default=None, description="Filter by target metric"),
-    limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-) -> list[dict[str, Any]]:
-    """Get optimization history for agent"""
-    try:
-        query = select(PerformanceOptimization).where(PerformanceOptimization.agent_id == agent_id)
-        if status:
-            query = query.where(PerformanceOptimization.status == status)
-        if target_metric:
-            query = query.where(PerformanceOptimization.target_metric == PerformanceMetric(target_metric))
-        optimizations = session.execute(query.order_by(PerformanceOptimization.created_at.desc()).limit(limit)).all()  # type: ignore[attr-defined]
-        return [
-            {
-                "optimization_id": optimization.optimization_id,
-                "agent_id": optimization.agent_id,
-                "optimization_type": optimization.optimization_type,
-                "target_metric": optimization.target_metric.value,
-                "status": optimization.status,
-                "baseline_performance": optimization.baseline_performance,
-                "optimized_performance": optimization.optimized_performance,
-                "baseline_cost": optimization.baseline_cost,
-                "optimized_cost": optimization.optimized_cost,
-                "performance_improvement": optimization.performance_improvement,
-                "resource_savings": optimization.resource_savings,
-                "cost_savings": optimization.cost_savings,
-                "overall_efficiency_gain": optimization.overall_efficiency_gain,
-                "optimization_duration": optimization.optimization_duration,
-                "iterations_required": optimization.iterations_required,
-                "convergence_achieved": optimization.convergence_achieved,
-                "created_at": optimization.created_at.isoformat(),
-                "completed_at": optimization.completed_at.isoformat() if optimization.completed_at else None,
-            }
-            for optimization in optimizations
-        ]
-    except Exception as e:
-        logger.error("Error getting optimization history for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
 @router.post("/capabilities", response_model=CapabilityResponse)
 @rate_limit(rate=20, per=60)
 async def create_capability(
     request: Request, capability_request: CapabilityRequest, session: Annotated[Session, Depends(get_session)]
 ) -> CapabilityResponse:
     """Create agent capability"""
+    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
     try:
-        capability_id = f"cap_{uuid4().hex[:8]}"
-        capability = AgentCapability(
-            capability_id=capability_id,
+        capability = await performance_service.create_capability(
+            session=session,
             agent_id=capability_request.agent_id,
             capability_name=capability_request.capability_name,
             capability_type=capability_request.capability_type,
             domain_area=capability_request.domain_area,
             skill_level=capability_request.skill_level,
-            specializations=capability_request.specialization_areas,
-            proficiency_score=min(1.0, capability_request.skill_level / 10.0),
-            created_at=datetime.now(UTC),
-        )
-        session.add(capability)
-        session.commit()
-        session.refresh(capability)
+            specialization_areas=capability_request.specialization_areas,
+        )  # type: ignore[arg-type]
         return CapabilityResponse(
             capability_id=capability.capability_id,
             agent_id=capability.agent_id,
@@ -529,8 +387,8 @@ async def create_capability(
             domain_area=capability.domain_area,
             skill_level=capability.skill_level,
             proficiency_score=capability.proficiency_score,
-            specialization_areas=capability.specializations if hasattr(capability, "specializations") else [],
-            status="active",
+            specialization_areas=capability.specialization_areas,
+            status=capability.status,
             created_at=capability.created_at.isoformat(),
         )
     except Exception as e:
@@ -538,138 +396,45 @@ async def create_capability(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/capabilities/{agent_id}")
+@router.get("/capabilities/{agent_id}", response_model=list[CapabilityResponse])
 @rate_limit(rate=200, per=60)
-async def get_agent_capabilities(
-    request: Request,
-    agent_id: str,
-    session: Annotated[Session, Depends(get_session)],
-    capability_type: str | None = Query(default=None, description="Filter by capability type"),
-    domain_area: str | None = Query(default=None, description="Filter by domain area"),
-    limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-) -> list[dict[str, Any]]:
-    """Get agent capabilities"""
+async def list_agent_capabilities(
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+) -> list[CapabilityResponse]:
+    """List all capabilities for an agent"""
+    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
     try:
-        query = select(AgentCapability).where(AgentCapability.agent_id == agent_id)
-        if capability_type:
-            query = query.where(AgentCapability.capability_type == capability_type)
-        if domain_area:
-            query = query.where(AgentCapability.domain_area == domain_area)
-        capabilities = session.execute(query.order_by(AgentCapability.skill_level.desc()).limit(limit)).all()  # type: ignore[attr-defined]
+        capabilities = await performance_service.list_capabilities(agent_id)
         return [
-            {
-                "capability_id": capability.capability_id,
-                "agent_id": capability.agent_id,
-                "capability_name": capability.capability_name,
-                "capability_type": capability.capability_type,
-                "domain_area": capability.domain_area,
-                "skill_level": capability.skill_level,
-                "proficiency_score": capability.proficiency_score,
-                "experience_years": capability.experience_years,
-                "success_rate": capability.success_rate,
-                "average_quality": capability.average_quality,
-                "learning_rate": capability.learning_rate,
-                "adaptation_speed": capability.adaptation_speed,
-                "specialization_areas": capability.specialization_areas,
-                "sub_capabilities": capability.sub_capabilities,
-                "tool_proficiency": capability.tool_proficiency,
-                "certified": capability.certified,
-                "certification_level": capability.certification_level,
-                "status": capability.status,
-                "acquired_at": capability.acquired_at.isoformat(),
-                "last_improved": capability.last_improved.isoformat() if capability.last_improved else None,
-            }
-            for capability in capabilities
+            CapabilityResponse(
+                capability_id=cap.capability_id,
+                agent_id=cap.agent_id,
+                capability_name=cap.capability_name,
+                capability_type=cap.capability_type,
+                domain_area=cap.domain_area,
+                skill_level=cap.skill_level,
+                proficiency_score=cap.proficiency_score,
+                specialization_areas=cap.specialization_areas,
+                status=cap.status,
+                created_at=cap.created_at.isoformat(),
+            )
+            for cap in capabilities
         ]
     except Exception as e:
-        logger.error("Error getting capabilities for agent %s: %s", agent_id, str(e))
+        logger.error("Error listing capabilities for agent %s: %s", agent_id, str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/analytics/performance-summary")
+@router.get("/analytics/{agent_id}")
 @rate_limit(rate=200, per=60)
-async def get_performance_summary(
-    request: Request,
-    session: Annotated[Session, Depends(get_session)],
-    agent_ids: list[str] = Query(default=[], description="List of agent IDs"),
-    metric: str | None = Query(default="overall_score", description="Metric to summarize"),
-    period: str = Query(default="7d", description="Time period"),
+async def get_performance_analytics(
+    request: Request, agent_id: str, period_days: int = 30, session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> dict[str, Any]:
-    """Get performance summary for agents"""
+    """Get performance analytics for an agent"""
+    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
     try:
-        if not agent_ids:
-            profiles = session.execute(select(AgentPerformanceProfile)).all()
-            agent_ids = [p.agent_id for p in profiles]
-        summaries = []
-        for agent_id in agent_ids:
-            profile = session.execute(
-                select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
-            ).first()
-            if profile:
-                summaries.append(
-                    {
-                        "agent_id": agent_id,
-                        "overall_score": profile.overall_score,
-                        "performance_metrics": profile.performance_metrics,
-                        "resource_efficiency": profile.resource_efficiency,
-                        "cost_per_task": profile.cost_per_task,
-                        "throughput": profile.throughput,
-                        "average_latency": profile.average_latency,
-                        "specialization_areas": profile.specialization_areas,
-                        "last_assessed": profile.last_assessed.isoformat() if profile.last_assessed else None,
-                    }
-                )
-        if summaries:
-            overall_scores = [s["overall_score"] for s in summaries]
-            avg_score = sum(overall_scores) / len(overall_scores)
-            return {
-                "period": period,
-                "agent_count": len(summaries),
-                "average_score": avg_score,
-                "top_performers": sorted(summaries, key=lambda x: x["overall_score"], reverse=True)[:10],
-                "performance_distribution": {
-                    "excellent": len([s for s in summaries if s["overall_score"] >= 80]),
-                    "good": len([s for s in summaries if 60 <= s["overall_score"] < 80]),
-                    "average": len([s for s in summaries if 40 <= s["overall_score"] < 60]),
-                    "below_average": len([s for s in summaries if s["overall_score"] < 40]),
-                },
-                "specialization_distribution": calculate_specialization_distribution(summaries),
-            }
-        else:
-            return {
-                "period": period,
-                "agent_count": 0,
-                "average_score": 0.0,
-                "top_performers": [],
-                "performance_distribution": {},
-                "specialization_distribution": {},
-            }
+        analytics = await performance_service.get_performance_analytics(agent_id, period_days)
+        return analytics  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error("Error getting performance summary: %s", str(e))
+        logger.error("Error getting performance analytics for agent %s: %s", agent_id, str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-def calculate_specialization_distribution(summaries: list[dict[str, Any]]) -> dict[str, int]:
-    """Calculate specialization distribution"""
-    distribution: dict[str, int] = {}
-    for summary in summaries:
-        for area in summary["specialization_areas"]:
-            distribution[area] = distribution.get(area, 0) + 1
-    return distribution
-
-
-@router.get("/health")
-@rate_limit(rate=1000, per=60)
-async def health_check(request: Request) -> dict[str, Any]:
-    """Health check for agent performance service"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now(UTC).isoformat(),
-        "version": "1.0.0",
-        "services": {
-            "meta_learning_engine": "operational",
-            "resource_manager": "operational",
-            "performance_optimizer": "operational",
-            "performance_service": "operational",
-        },
-    }

@@ -12,10 +12,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
-logger = get_logger(__name__)
-
-from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info  # noqa: E402
-from ..schemas import (  # noqa: E402
+from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
+from ..schemas import (
     ExchangePaymentRequest,
     ExchangePaymentResponse,
     ExchangeRatesResponse,
@@ -24,7 +22,9 @@ from ..schemas import (  # noqa: E402
     WalletBalanceResponse,
     WalletInfoResponse,
 )
-from ..utils.cache import cached, get_cache_config  # noqa: E402
+from ..utils.cache import cached, get_cache_config
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["exchange"])
 

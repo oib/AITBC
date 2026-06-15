@@ -1,8 +1,8 @@
 # Hardhat Version Investigation
 
-**Level**: Technical  
-**Prerequisites**: Understanding of Hardhat and package management  
-**Last Updated**: 2026-05-22  
+**Level**: Technical
+**Prerequisites**: Understanding of Hardhat and package management
+**Last Updated**: 2026-05-22
 **Version**: 1.0
 
 ## Overview
@@ -66,7 +66,7 @@ This document explains why this exists and the blockers for unifying on Hardhat 
 
 ### Primary Blocker: OpenZeppelin v4 → v5
 
-**Impact:** High  
+**Impact:** High
 **Effort:** Significant
 
 All 30+ contract files in contracts/ import from OpenZeppelin v4.9.6:
@@ -91,7 +91,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 ### Secondary Blocker: Plugin Compatibility
 
-**Impact:** Medium  
+**Impact:** Medium
 **Effort:** Moderate
 
 **Plugins requiring verification:**
@@ -105,7 +105,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 ### Tertiary Blocker: Hardhat Toolbox Differences
 
-**Impact:** Low  
+**Impact:** Low
 **Effort:** Low
 
 - contracts/ uses `@nomicfoundation/hardhat-toolbox@^4.0.0`
@@ -176,6 +176,6 @@ Keep both versions for now. The cost of unifying (OpenZeppelin v4 → v5 migrati
 
 ---
 
-*Last updated: 2026-05-22*  
-*Version: 1.0*  
+*Last updated: 2026-05-22*
+*Version: 1.0*
 *Status: Investigation complete, no action required*

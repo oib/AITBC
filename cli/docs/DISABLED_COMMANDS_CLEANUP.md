@@ -21,7 +21,7 @@ This document analyzes the currently disabled CLI commands and provides recommen
 - Edge computing integration is valuable for the platform
 - Code appears well-structured and complete
 
-### 2. `marketplace_advanced` - Advanced Marketplace Features  
+### 2. `marketplace_advanced` - Advanced Marketplace Features
 **File**: `cli/aitbc_cli/commands/marketplace_advanced.py`
 **Status**: Commented out in `main.py` line 29
 **Reason**: "Temporarily disabled due to command registration issues"
@@ -37,7 +37,7 @@ This document analyzes the currently disabled CLI commands and provides recommen
 - Check git history to recover if valuable
 
 ### 3. `marketplace_cmd` - Alternative Marketplace Implementation
-**File**: `cli/aitbc_cli/commands/marketplace_cmd.py`  
+**File**: `cli/aitbc_cli/commands/marketplace_cmd.py`
 **Status**: Exists but disabled (comment in main.py line 18)
 **Reason**: Conflict with main `marketplace.py`
 

@@ -39,25 +39,25 @@ from aitbc_agent import Agent, ComputeProvider, ComputeConsumer, PlatformBuilder
 
 async def auto_onboard():
     """Automated onboarding workflow for new agents"""
-    
+
     print("🤖 AITBC Agent Network - Automated Onboarding")
     print("=" * 50)
-    
+
     # Step 1: Assess capabilities
     print("📋 Step 1: Assessing capabilities...")
     capabilities = await assess_capabilities()
     print(f"✅ Capabilities assessed: {capabilities}")
-    
+
     # Step 2: Recommend agent type
     print("🎯 Step 2: Determining optimal agent type...")
     agent_type = await recommend_agent_type(capabilities)
     print(f"✅ Recommended agent type: {agent_type}")
-    
+
     # Step 3: Create agent identity
     print("🔐 Step 3: Creating agent identity...")
     agent = await create_agent(agent_type, capabilities)
     print(f"✅ Agent created: {agent.identity.id}")
-    
+
     # Step 4: Register on network
     print("🌐 Step 4: Registering on AITBC network...")
     success = await agent.register()
@@ -66,28 +66,28 @@ async def auto_onboard():
     else:
         print("❌ Registration failed")
         return False
-    
+
     # Step 5: Join appropriate swarm
     print("🐝 Step 5: Joining swarm intelligence...")
     swarm_joined = await join_swarm(agent, agent_type)
     if swarm_joined:
         print("✅ Successfully joined swarm")
-    
+
     # Step 6: Start participation
     print("🚀 Step 6: Starting network participation...")
     await agent.start_participation()
     print("✅ Agent is now participating in the network")
-    
+
     # Step 7: Generate onboarding report
     print("📊 Step 7: Generating onboarding report...")
     report = await generate_onboarding_report(agent)
     print(f"✅ Report generated: {report}")
-    
+
     print("\n🎉 Onboarding completed successfully!")
     print(f"🤖 Agent ID: {agent.identity.id}")
     print(f"🌐 Network Status: Active")
     print(f"🐝 Swarm Status: Participating")
-    
+
     return True
 
 if __name__ == "__main__":

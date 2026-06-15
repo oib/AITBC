@@ -164,4 +164,3 @@ jobs:
             status=$(systemctl is-active "$svc" 2>/dev/null) || status="inactive"
             echo "  $svc: $status"
           done
-

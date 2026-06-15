@@ -40,17 +40,17 @@ STEPS=(
 for step in "${STEPS[@]}"; do
   SCRIPT=$(echo "$step" | cut -d: -f1)
   DESCRIPTION=$(echo "$step" | cut -d: -f2)
-  
+
   echo
   echo "=========================================="
   echo "STEP: $DESCRIPTION"
   echo "SCRIPT: $SCRIPT"
   echo "=========================================="
-  
+
   if [ -f "/opt/aitbc/scripts/workflow/$SCRIPT" ]; then
     echo "Executing $SCRIPT..."
     bash "/opt/aitbc/scripts/workflow/$SCRIPT"
-    
+
     if [ $? -eq 0 ]; then
       echo "✅ $DESCRIPTION completed successfully"
     else
@@ -71,7 +71,7 @@ for step in "${STEPS[@]}"; do
       exit 1
     fi
   fi
-  
+
   echo "Press Enter to continue to next step..."
   read -r
 done

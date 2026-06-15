@@ -111,7 +111,7 @@ echo "Payment transaction: $PAYMENT_TX"
 
 if [ "$PAYMENT_TX" != "unknown" ] && [ "$PAYMENT_TX" != "null" ]; then
     echo "✅ Escrow payment transaction created"
-    
+
     # Wait for mining
     echo "Waiting for payment to be mined..."
     for i in {1..10}; do

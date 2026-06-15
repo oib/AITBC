@@ -1,20 +1,22 @@
-from typing import Annotated
+"""
+Multi-Modal Agent Service - Phase 5.1
+Advanced AI agent capabilities with unified multi-modal processing pipeline
+"""
+
+import asyncio
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Annotated, Any
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-"\nMulti-Modal Agent Service - Phase 5.1\nAdvanced AI agent capabilities with unified multi-modal processing pipeline\n"
-import asyncio  # noqa: E402
+from aitbc import get_logger
 
-from aitbc import get_logger  # noqa: E402
+from ....domain import AgentExecution, AgentStatus
+from ....storage import get_session
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
-
-from ....domain import AgentExecution, AgentStatus  # noqa: E402
-from ....storage import get_session  # noqa: E402
 
 
 class ModalityType(StrEnum):
@@ -355,7 +357,7 @@ class MultiModalAgentService:
 
     def _is_tabular_data(self, data: Any) -> bool:
         """Check if data is tabular-like"""
-        if isinstance(data, (list, dict)):
+        if isinstance(data, list | dict):
             return True
         return False
 

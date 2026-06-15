@@ -1,25 +1,26 @@
-from typing import Annotated
+"""
+Agent Creativity API Endpoints
+REST API for agent creativity enhancement, ideation, and cross-domain synthesis
+"""
 
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlmodel import select
 
-"\nAgent Creativity API Endpoints\nREST API for agent creativity enhancement, ideation, and cross-domain synthesis\n"
-from typing import Any  # noqa: E402
+from aitbc import get_logger
 
-from fastapi import APIRouter, Depends, HTTPException  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
-
-logger = get_logger(__name__)
-from sqlmodel import select  # noqa: E402
-
-from ....domain.agent_performance import CreativeCapability  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ..services.creative_capabilities_service import (  # noqa: E402
+from ....domain.agent_performance import CreativeCapability
+from ....storage import get_session
+from ..services.creative_capabilities_service import (
     CreativityEnhancementEngine,
     CrossDomainCreativeIntegrator,
     IdeationAlgorithm,
 )
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/agent-creativity", tags=["agent-creativity"])
 

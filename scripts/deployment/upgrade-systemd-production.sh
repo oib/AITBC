@@ -185,7 +185,7 @@ while True:
             with open(blockchain_file, 'r') as f:
                 data = json.load(f)
                 logger.info(f'Blockchain: {len(data.get(\"blocks\", []))} blocks')
-        
+
         # Monitor marketplace
         marketplace_dir = Path('/opt/aitbc/production/data/marketplace')
         if marketplace_dir.exists():
@@ -194,15 +194,15 @@ while True:
                 with open(listings_file, 'r') as f:
                     listings = json.load(f)
                     logger.info(f'Marketplace: {len(listings)} GPU listings')
-        
+
         # Monitor system resources
         import psutil
         cpu_percent = psutil.cpu_percent()
         memory_percent = psutil.virtual_memory().percent
         logger.info(f'System: CPU {cpu_percent}%, Memory {memory_percent}%')
-        
+
         time.sleep(30)  # Monitor every 30 seconds
-        
+
     except Exception as e:
         logger.error(f'Monitoring error: {e}')
         time.sleep(60)

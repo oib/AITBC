@@ -1,9 +1,9 @@
 # pnpm Setup for AITBC Contracts
 
-**Level**: Intermediate  
-**Prerequisites**: Node.js, familiarity with package managers  
-**Estimated Time**: 5 minutes  
-**Last Updated**: 2026-05-22  
+**Level**: Intermediate
+**Prerequisites**: Node.js, familiarity with package managers
+**Estimated Time**: 5 minutes
+**Last Updated**: 2026-05-22
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -135,6 +135,6 @@ Workflows automatically install pnpm if not available on the runner.
 
 ---
 
-*Last updated: 2026-05-22*  
-*Version: 1.0*  
+*Last updated: 2026-05-22*
+*Version: 1.0*
 *Status: Active*

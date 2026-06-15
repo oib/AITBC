@@ -1,18 +1,10 @@
 """Tests for load balancer module"""
 
-import sys
-from pathlib import Path
+from datetime import UTC, datetime
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-from datetime import UTC, datetime  # noqa: E402
-
-import pytest  # noqa: E402
-from app.routing.agent_discovery import AgentRegistry  # noqa: E402
-from app.routing.load_balancer import (  # noqa: E402
+import pytest
+from app.routing.agent_discovery import AgentRegistry
+from app.routing.load_balancer import (
     AgentWeight,
     LoadBalancer,
     LoadBalancingStrategy,

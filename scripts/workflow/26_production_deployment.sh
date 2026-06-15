@@ -175,7 +175,7 @@ echo "Sync difference: $SYNC_DIFF"
 if [ "$SYNC_DIFF" -gt 100 ]; then
     echo "Large sync gap detected, running bulk sync..."
     ssh aitbc "/opt/aitbc/scripts/fast_bulk_sync.sh"
-    
+
     # Re-check after bulk sync
     NEW_REMOTE_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
     NEW_SYNC_DIFF=$((LOCAL_HEIGHT - NEW_REMOTE_HEIGHT))
@@ -237,7 +237,7 @@ ALL_CHECKS_PASSED=true
 for check in "${CRITICAL_CHECKS[@]}"; do
     check_name=$(echo "$check" | cut -d':' -f1)
     check_command=$(echo "$check" | cut -d':' -f2-)
-    
+
     echo "Checking: $check_name"
     if eval "$check_command" >/dev/null 2>&1; then
         echo -e "   ${GREEN}✅${NC} $check_name"

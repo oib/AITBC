@@ -1,21 +1,18 @@
-from typing import Annotated
-
-from sqlalchemy.orm import Session
-
 """
 ZK Applications Router - Privacy-preserving features for AITBC
 """
 
-import hashlib  # noqa: E402
-import secrets  # noqa: E402
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+import hashlib
+import secrets
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from ....schemas import UserProfile  # noqa: E402
-from ....storage import get_session  # noqa: E402
+from ....schemas import UserProfile
+from ....storage import get_session
 
 router = APIRouter(tags=["zk-applications"])
 

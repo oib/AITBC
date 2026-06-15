@@ -64,7 +64,7 @@ Booking/Cancellation Event
 
 **Critical Data Types**:
 - GPU availability status
-- GPU pricing information  
+- GPU pricing information
 - Order book data
 - Provider status
 
@@ -234,13 +234,13 @@ services:
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes --cluster-enabled yes
-    
+
   redis-replica-1:
     image: redis:7-alpine
     ports:
       - "6380:6379"
     command: redis-server --appendonly yes --cluster-enabled yes
-    
+
   redis-replica-2:
     image: redis:7-alpine
     ports:

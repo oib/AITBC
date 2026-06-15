@@ -99,7 +99,7 @@ if [ "$OFFER_ID" != "unknown" ] && [ -n "$OFFER_ID" ]; then
     echo "Checking plugin registry for bundle..."
     PLUGIN_CHECK=$(curl -s "http://localhost:8109/plugins?offer_id=$OFFER_ID" 2>/dev/null || echo "{}")
     echo "$PLUGIN_CHECK"
-    
+
     echo "✅ Hardware+software bundle registered"
 else
     echo "⚠️ Bundle creation failed, skipping registry check"
@@ -114,7 +114,7 @@ if [ "$OFFER_ID" != "unknown" ] && [ -n "$OFFER_ID" ]; then
     echo "Running inference with bundle $OFFER_ID..."
     RUN_RESULT=$(ssh $FOLLOWER_NODE "aitbc market run $OFFER_ID 'Explain the relationship between GPU memory bandwidth and AI model performance using real hardware specifications.' 2>&1" || echo '{"error": "Run failed"}')
     echo "$RUN_RESULT"
-    
+
     JOB_ID=$(echo "$RUN_RESULT" | python3 -c "
 import sys, json, re
 data = sys.stdin.read()
@@ -129,7 +129,7 @@ else:
     print('')
 " 2>/dev/null || echo "")
     echo "Job ID: $JOB_ID"
-    
+
     if [ -n "$JOB_ID" ]; then
         echo "✅ Inference job created with hardware+software bundle"
     else
@@ -160,11 +160,11 @@ if [ -n "$JOB_ID" ]; then
     echo "Checking job transaction on blockchain..."
     # Wait a moment for transaction to be mined
     sleep 3
-    
+
     # Check if job transaction exists on chain
     JOB_TX_CHECK=$(curl -s $BLOCKCHAIN_RPC/rpc/market-list 2>/dev/null | jq ".software_offers[] | select(.job_id == \"$JOB_ID\")" || echo "{}")
     echo "Job on-chain: $JOB_TX_CHECK"
-    
+
     echo "✅ Job transaction verified"
 else
     echo "⚠️ No job ID to verify"

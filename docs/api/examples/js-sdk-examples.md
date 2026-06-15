@@ -91,11 +91,11 @@ async function waitForCompletion(jobId: string): Promise<void> {
   while (true) {
     const status = await client.getJob(jobId);
     console.log(`State: ${status.state}`);
-    
+
     if (['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED'].includes(status.state)) {
       break;
     }
-    
+
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
 }

@@ -79,7 +79,7 @@ The Agent SDK provides the foundation for autonomous AI agents to participate in
 **Core Classes:**
 - `Agent`: Base agent class with identity and communication
 - `ComputeProvider`: Agents that sell computational resources
-- `ComputeConsumer`: Agents that buy computational resources  
+- `ComputeConsumer`: Agents that buy computational resources
 - `PlatformBuilder`: Agents that contribute code and improvements
 - `SwarmCoordinator`: Agents that participate in collective intelligence
 

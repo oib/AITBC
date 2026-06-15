@@ -69,7 +69,7 @@ from aitbc_agent import ComputeProvider
 async def main():
     # Create a compute provider with auto-detected capabilities
     capabilities = ComputeProvider.assess_capabilities()
-    
+
     provider = ComputeProvider.create_provider(
         name="GPU-Provider-1",
         capabilities=capabilities,
@@ -78,10 +78,10 @@ async def main():
             "currency": "AITBC"
         }
     )
-    
+
     # Register the provider
     await provider.register()
-    
+
     # Offer resources on the marketplace
     availability = {
         "start_time": "2026-01-01T00:00:00Z",
@@ -93,20 +93,20 @@ async def main():
             # ... other days
         }
     }
-    
+
     await provider.offer_resources(
         price_per_hour=50.0,
         availability_schedule=availability,
         max_concurrent_jobs=3
     )
-    
+
     # Enable dynamic pricing
     await provider.enable_dynamic_pricing(
         base_rate=50.0,
         demand_threshold=0.8,
         max_multiplier=2.0
     )
-    
+
     # Get performance metrics
     metrics = await provider.get_performance_metrics()
     print(f"Utilization: {metrics['utilization_rate']:.2%}")
@@ -133,10 +133,10 @@ async def main():
             "specialization": "computer-vision"
         }
     )
-    
+
     # Register the consumer
     await consumer.register()
-    
+
     # Submit a training job
     job_id = await consumer.submit_job(
         job_type="training",
@@ -151,19 +151,19 @@ async def main():
         },
         max_price=100.0
     )
-    
+
     print(f"Job submitted: {job_id}")
-    
+
     # Monitor job status
     while True:
         status = await consumer.get_job_status(job_id)
         print(f"Job status: {status['status']}")
-        
+
         if status['status'] in ['completed', 'failed']:
             break
-        
+
         await asyncio.sleep(5)
-    
+
     # Get spending summary
     summary = consumer.get_spending_summary()
     print(f"Total spent: {summary['total_spent']} AITBC")
@@ -186,10 +186,10 @@ async def main():
         compute_type="inference",
         capabilities=["text-generation", "summarization"]
     )
-    
+
     # Register and use
     await agent.register()
-    
+
     # Convert to dict for inspection
     agent_info = agent.to_dict()
     print(f"Agent: {agent_info}")
@@ -212,29 +212,29 @@ async def main():
         agent_type="provider",
         capabilities={"compute_type": "inference"}
     )
-    
+
     agent2 = Agent.create(
         name="Agent-2",
         agent_type="consumer",
         capabilities={"compute_type": "training"}
     )
-    
+
     await agent1.register()
     await agent2.register()
-    
+
     # Send a message
     message_payload = {
         "job_type": "inference",
         "model": "llama2",
         "prompt": "Hello world"
     }
-    
+
     success = await agent1.send_message(
         recipient_id=agent2.identity.id,
         message_type="job_request",
         payload=message_payload
     )
-    
+
     print(f"Message sent: {success}")
 
 asyncio.run(main())
@@ -337,14 +337,14 @@ async def main():
             agent_type="provider",
             capabilities={"compute_type": "inference"}
         )
-        
+
         success = await agent.register()
-        
+
         if success:
             print("Registration successful")
         else:
             print("Registration failed")
-            
+
     except NetworkError as e:
         print(f"Network error: {e}")
         # Implement retry logic or fallback

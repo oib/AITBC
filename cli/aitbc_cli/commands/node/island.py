@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import socket
-import sys
 import uuid
 
 import click
@@ -45,7 +44,6 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
         # Get system hostname
         hostname = socket.gethostname()
 
-        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.config import settings as chain_settings
 
         # Get public key from keystore

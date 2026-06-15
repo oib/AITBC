@@ -511,15 +511,15 @@ echo "Test completed successfully!"
 
 while true; do
     TIMESTAMP=$(date +%Y-%m-%d_%H:%M:%S)
-    
+
     # Collect metrics
     ACTIVE_SERVICES=$(./aitbc-cli market list | grep -c "service_id")
     PENDING_BIDS=$(./aitbc-cli market pending-bids | grep -c "bid_id")
     TOTAL_VOLUME=$(./aitbc-cli market volume --period "1h")
-    
+
     # Log metrics
     echo "$TIMESTAMP,services:$ACTIVE_SERVICES,bids:$PENDING_BIDS,volume:$TOTAL_VOLUME" >> /var/log/aitbc/marketplace_performance.log
-    
+
     sleep 60
 done
 ```

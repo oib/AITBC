@@ -183,7 +183,7 @@ Both remaining per-file ignores have documented justifications and are tracked f
 
 ### agent-management partial migration completed
 - **Issue**: `agent_integration.py` had per-file ignore, migration architecture existed but package not installed
-- **Solution**: 
+- **Solution**:
   - Installed `aitbc-agent-core` package in environment
   - Migrated core ZK proof operations to use shared `AgentIntegrationService`
   - Removed duplicate ZK proof generation/verification methods

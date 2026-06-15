@@ -1,24 +1,30 @@
+"""
+Reputation Management API Endpoints
+REST API for agent reputation, trust scores, and economic profiles
+"""
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
+from sqlmodel import func, select
 
-from ....domain.reputation import ReputationEvent
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-"\nReputation Management API Endpoints\nREST API for agent reputation, trust scores, and economic profiles\n"
-from datetime import UTC, datetime, timedelta  # noqa: E402
-from typing import Any  # noqa: E402
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from ....domain.reputation import (
+    AgentReputation,
+    CommunityFeedback,
+    ReputationEvent,
+    ReputationLevel,
+)
+from ....storage import get_session
+from ..services.reputation_service import ReputationService
 
 logger = get_logger(__name__)
-from sqlmodel import func, select  # noqa: E402
-
-from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationLevel  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ..services.reputation_service import ReputationService  # noqa: E402
 
 router = APIRouter(prefix="/reputation", tags=["reputation"])
 

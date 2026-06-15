@@ -117,35 +117,35 @@ main() {
     echo "🔄 Converting undocumented completed tasks to proper documentation"
     echo "📁 Organizing converted documentation by category"
     echo ""
-    
+
     # Step 1: Setup Analysis Environment
     print_header "Step 1: Setting Up Analysis Environment"
     setup_analysis_environment
-    
+
     # Step 2: Analyze Specific Files
     print_header "Step 2: Analyzing Specific Planning Files"
     analyze_specific_files
-    
+
     # Step 3: Check Documentation Status
     print_header "Step 3: Checking Documentation Status"
     check_documentation_status
-    
+
     # Step 4: Convert to Documentation
     print_header "Step 4: Converting to Documentation"
     convert_to_documentation
-    
+
     # Step 5: Merge and Organize
     print_header "Step 5: Merging and Organizing Documentation"
     merge_and_organize
-    
+
     # Step 6: Archive Original Files
     print_header "Step 6: Archiving Original Files"
     archive_original_files
-    
+
     # Step 7: Generate Reports
     print_header "Step 7: Generating Reports"
     generate_reports
-    
+
     print_header "Enhanced Planning Analysis & Documentation Conversion Complete! 🎉"
     echo ""
     echo "✅ Specific files analyzed"
@@ -164,21 +164,21 @@ main() {
 # Setup Analysis Environment
 setup_analysis_environment() {
     print_status "Creating enhanced analysis workspace..."
-    
+
     mkdir -p "$WORKSPACE_DIR"
     mkdir -p "$BACKUP_DIR"
     mkdir -p "$ARCHIVE_DIR"
-    
+
     # Install Python dependencies
     pip3 install --user beautifulsoup4 markdown python-frontmatter > /dev/null 2>&1 || true
-    
+
     print_status "Enhanced analysis environment ready"
 }
 
 # Analyze Specific Files
 analyze_specific_files() {
     print_status "Analyzing specific planning files..."
-    
+
     cat > "$WORKSPACE_DIR/analyze_specific_files.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -271,7 +271,7 @@ def categorize_file(file_path):
     path_parts = file_path.split('/')
     folder = path_parts[0] if len(path_parts) > 1 else 'root'
     filename = path_parts[1] if len(path_parts) > 1 else file_path
-    
+
     if 'core_planning' in folder:
         return 'core_planning'
     elif 'implementation' in folder:
@@ -292,7 +292,7 @@ def categorize_file(file_path):
         return 'maintenance'
     elif 'summaries' in folder:
         return 'summaries'
-    
+
     # Filename-based categorization
     if any(word in filename.lower() for word in ['infrastructure', 'port', 'nginx']):
         return 'infrastructure'
@@ -310,24 +310,24 @@ def categorize_file(file_path):
         return 'analytics'
     elif any(word in filename.lower() for word in ['maintenance', 'requirements']):
         return 'maintenance'
-    
+
     return 'general'
 
 def analyze_file_for_completion(file_path, planning_dir):
     """Analyze a specific file for completion indicators"""
     full_path = Path(planning_dir) / file_path
-    
+
     if not full_path.exists():
         return {
             'file_path': file_path,
             'exists': False,
             'error': 'File not found'
         }
-    
+
     try:
         with open(full_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        
+
         # Check for completion indicators
         completion_patterns = [
             r'✅\s*\*\*COMPLETE\*\*',
@@ -359,13 +359,13 @@ def analyze_file_for_completion(file_path, planning_dir):
             r'✅\s*\*\*FUNCTIONAL\*\*:',
             r'✅\s*\*\*ACHIEVED\*\*:'
         ]
-        
+
         has_completion = any(re.search(pattern, content, re.IGNORECASE) for pattern in completion_patterns)
-        
+
         if has_completion:
             # Count completion markers
             completion_count = sum(len(re.findall(pattern, content, re.IGNORECASE)) for pattern in completion_patterns)
-            
+
             # Extract completed tasks
             completed_tasks = []
             lines = content.split('\n')
@@ -380,7 +380,7 @@ def analyze_file_for_completion(file_path, planning_dir):
                             'pattern_used': pattern
                         })
                         break
-            
+
             return {
                 'file_path': file_path,
                 'exists': True,
@@ -392,7 +392,7 @@ def analyze_file_for_completion(file_path, planning_dir):
                 'last_modified': datetime.fromtimestamp(full_path.stat().st_mtime).isoformat(),
                 'content_preview': content[:500] + '...' if len(content) > 500 else content
             }
-        
+
         return {
             'file_path': file_path,
             'exists': True,
@@ -404,7 +404,7 @@ def analyze_file_for_completion(file_path, planning_dir):
             'last_modified': datetime.fromtimestamp(full_path.stat().st_mtime).isoformat(),
             'content_preview': content[:500] + '...' if len(content) > 500 else content
         }
-    
+
     except Exception as e:
         return {
             'file_path': file_path,
@@ -417,15 +417,15 @@ def analyze_file_for_completion(file_path, planning_dir):
 def analyze_all_specific_files(planning_dir):
     """Analyze all specific files"""
     results = []
-    
+
     for file_path in SPECIFIC_FILES:
         result = analyze_file_for_completion(file_path, planning_dir)
         results.append(result)
-    
+
     # Categorize results
     completed_files = [r for r in results if r.get('has_completion', False)]
     category_summary = {}
-    
+
     for result in completed_files:
         category = result['category']
         if category not in category_summary:
@@ -434,11 +434,11 @@ def analyze_all_specific_files(planning_dir):
                 'total_completion_count': 0,
                 'total_files': 0
             }
-        
+
         category_summary[category]['files'].append(result)
         category_summary[category]['total_completion_count'] += result['completion_count']
         category_summary[category]['total_files'] += 1
-    
+
     return {
         'total_files_analyzed': len(results),
         'files_with_completion': len(completed_files),
@@ -451,13 +451,13 @@ def analyze_all_specific_files(planning_dir):
 if __name__ == "__main__":
     planning_dir = '/opt/aitbc/docs/10_plan'
     output_file = 'specific_files_analysis.json'
-    
+
     analysis_results = analyze_all_specific_files(planning_dir)
-    
+
     # Save results
     with open(output_file, 'w') as f:
         json.dump(analysis_results, f, indent=2)
-    
+
     # Print summary
     print(f"Specific files analysis complete:")
     print(f"  Total files analyzed: {analysis_results['total_files_analyzed']}")
@@ -469,16 +469,16 @@ if __name__ == "__main__":
     for category, summary in analysis_results['category_summary'].items():
         print(f"  {category}: {summary['total_files']} files, {summary['total_completion_count']} markers")
 EOF
-    
+
     python3 "$WORKSPACE_DIR/analyze_specific_files.py"
-    
+
     print_status "Specific files analysis complete"
 }
 
 # Check Documentation Status
 check_documentation_status() {
     print_status "Checking documentation status..."
-    
+
     cat > "$WORKSPACE_DIR/check_documentation_status.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -494,14 +494,14 @@ from pathlib import Path
 def search_main_documentation(task_description, docs_dir):
     """Search for task in main documentation (excluding docs/10_plan)"""
     docs_path = Path(docs_dir)
-    
+
     # Extract keywords from task description
     keywords = re.findall(r'\b\w+\b', task_description.lower())
     keywords = [kw for kw in keywords if len(kw) > 3 and kw not in ['the', 'and', 'for', 'with', 'that', 'this', 'from', 'were', 'been', 'have']]
-    
+
     if not keywords:
         return False, []
-    
+
     # Search in documentation files (excluding docs/10_plan)
     matches = []
     for md_file in docs_path.rglob('*.md'):
@@ -509,32 +509,32 @@ def search_main_documentation(task_description, docs_dir):
             try:
                 with open(md_file, 'r', encoding='utf-8') as f:
                     content = f.read().lower()
-                
+
                 # Check for keyword matches
                 keyword_matches = sum(1 for keyword in keywords if keyword in content)
                 if keyword_matches >= len(keywords) * 0.4:  # At least 40% of keywords
                     matches.append(str(md_file))
             except:
                 continue
-    
+
     return len(matches) > 0, matches
 
 def check_documentation_status(analysis_file, docs_dir, output_file):
     """Check documentation status for completed tasks"""
-    
+
     with open(analysis_file, 'r') as f:
         analysis_results = json.load(f)
-    
+
     documentation_results = []
-    
+
     for result in analysis_results['all_results']:
         if not result.get('has_completion', False) or 'error' in result:
             continue
-        
+
         file_tasks = []
         for task in result.get('completed_tasks', []):
             documented, matches = search_main_documentation(task['task_description'], docs_dir)
-            
+
             task_doc_status = {
                 **task,
                 'documented': documented,
@@ -543,9 +543,9 @@ def check_documentation_status(analysis_file, docs_dir, output_file):
                 'file_category': result['category'],
                 'source_file': result['file_path']
             }
-            
+
             file_tasks.append(task_doc_status)
-        
+
         documentation_results.append({
             'file_path': result['file_path'],
             'category': result['category'],
@@ -554,16 +554,16 @@ def check_documentation_status(analysis_file, docs_dir, output_file):
             'undocumented_count': sum(1 for t in file_tasks if not t['documented']),
             'needs_documentation_count': sum(1 for t in file_tasks if not t['documented'])
         })
-    
+
     # Save documentation status results
     with open(output_file, 'w') as f:
         json.dump(documentation_results, f, indent=2)
-    
+
     # Print summary
     total_completed = sum(len(r['completed_tasks']) for r in documentation_results)
     total_documented = sum(r['documented_count'] for r in documentation_results)
     total_undocumented = sum(r['undocumented_count'] for r in documentation_results)
-    
+
     print(f"Documentation status check complete:")
     print(f"  Total completed tasks: {total_completed}")
     print(f"  Documented tasks: {total_documented}")
@@ -577,7 +577,7 @@ def check_documentation_status(analysis_file, docs_dir, output_file):
         if category not in category_undocumented:
             category_undocumented[category] = 0
         category_undocumented[category] += result['undocumented_count']
-    
+
     for category, count in category_undocumented.items():
         if count > 0:
             print(f"  {category}: {count} undocumented tasks")
@@ -586,19 +586,19 @@ if __name__ == "__main__":
     analysis_file = 'specific_files_analysis.json'
     docs_dir = '/opt/aitbc/docs'
     output_file = 'documentation_status_check.json'
-    
+
     check_documentation_status(analysis_file, docs_dir, output_file)
 EOF
-    
+
     python3 "$WORKSPACE_DIR/check_documentation_status.py"
-    
+
     print_status "Documentation status check complete"
 }
 
 # Convert to Documentation
 convert_to_documentation() {
     print_status "Converting undocumented completed tasks to documentation..."
-    
+
     cat > "$WORKSPACE_DIR/convert_to_documentation.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -614,7 +614,7 @@ from pathlib import Path
 def determine_documentation_category(task, file_category):
     """Determine the best documentation category for a task"""
     task_desc = task['task_description'].lower()
-    
+
     # Priority-based categorization
     if any(word in task_desc for word in ['cli', 'command', 'interface', 'multichain']):
         return 'cli'
@@ -885,41 +885,41 @@ All functionality has been implemented and tested.
 *Auto-generated documentation from planning analysis*
 """
     }
-    
+
     return templates.get(category, templates['general'])
 
 def convert_undocumented_tasks(doc_status_file, docs_dir):
     """Convert undocumented tasks to documentation"""
-    
+
     with open(doc_status_file, 'r') as f:
         doc_status = json.load(f)
-    
+
     docs_path = Path(docs_dir)
     converted_docs = []
-    
+
     # Create documentation directories
     categories = ['cli', 'backend', 'infrastructure', 'security', 'exchange', 'blockchain', 'analytics', 'maintenance', 'implementation', 'testing', 'general']
     for category in categories:
         (docs_path / category).mkdir(parents=True, exist_ok=True)
-    
+
     for result in doc_status:
         for task in result.get('completed_tasks', []):
             if task.get('needs_documentation', False):
                 # Determine documentation category
                 category = determine_documentation_category(task, result['category'])
-                
+
                 # Generate content
                 content = generate_documentation_content(task, category, result['file_path'])
-                
+
                 # Create documentation file
                 safe_filename = re.sub(r'[^a-zA-Z0-9_-]', '_', task['task_description'])[:50]
                 filename = f"converted_{safe_filename}.md"
                 filepath = docs_path / category / filename
-                
+
                 # Write documentation
                 with open(filepath, 'w') as f:
                     f.write(content)
-                
+
                 converted_docs.append({
                     'task_description': task['task_description'],
                     'category': category,
@@ -928,37 +928,37 @@ def convert_undocumented_tasks(doc_status_file, docs_dir):
                     'source_file': result['file_path'],
                     'line_number': task['line_number']
                 })
-                
+
                 print(f"Converted: {result['file_path']}:{task['line_number']} -> {category}/{filename}")
-    
+
     return converted_docs
 
 if __name__ == "__main__":
     import sys
     import re
-    
+
     doc_status_file = 'documentation_status_check.json'
     docs_dir = '/opt/aitbc/docs'
-    
+
     converted_docs = convert_undocumented_tasks(doc_status_file, docs_dir)
-    
+
     print(f"Documentation conversion complete:")
     print(f"  Converted {len(converted_docs)} undocumented tasks to documentation")
-    
+
     # Save conversion results
     with open('documentation_conversion_results.json', 'w') as f:
         json.dump(converted_docs, f, indent=2)
 EOF
-    
+
     python3 "$WORKSPACE_DIR/convert_to_documentation.py"
-    
+
     print_status "Documentation conversion complete"
 }
 
 # Merge and Organize
 merge_and_organize() {
     print_status "Merging and organizing documentation..."
-    
+
     cat > "$WORKSPACE_DIR/merge_and_organize.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -974,7 +974,7 @@ from datetime import datetime
 def create_category_index(docs_dir):
     """Create index files for each category"""
     docs_path = Path(docs_dir)
-    
+
     categories = {
         'cli': 'CLI Documentation',
         'backend': 'Backend Documentation',
@@ -988,15 +988,15 @@ def create_category_index(docs_dir):
         'testing': 'Testing Documentation',
         'general': 'General Documentation'
     }
-    
+
     for category, title in categories.items():
         category_dir = docs_path / category
         if not category_dir.exists():
             continue
-        
+
         # Find all markdown files in category
         md_files = list(category_dir.glob('*.md'))
-        
+
         # Create index content
         index_content = f"""# {title}
 
@@ -1006,22 +1006,22 @@ def create_category_index(docs_dir):
 ## Documentation Files
 
 """
-        
+
         for md_file in sorted(md_files):
             # Read first line to get title
             try:
                 with open(md_file, 'r', encoding='utf-8') as f:
                     first_line = f.readline().strip()
-                
+
                 if first_line.startswith('# '):
                     title_text = first_line[2:].strip()
                 else:
                     title_text = md_file.stem
-                
+
                 index_content += f"- [{title_text}]({md_file.name})\n"
             except:
                 index_content += f"- [{md_file.stem}]({md_file.name})\n"
-        
+
         index_content += f"""
 
 ## Category Overview
@@ -1030,18 +1030,18 @@ This section contains all documentation related to {title.lower()}.
 ---
 *Auto-generated index*
 """
-        
+
         # Write index file
         index_file = category_dir / 'README.md'
         with open(index_file, 'w', encoding='utf-8') as f:
             f.write(index_content)
-        
+
         print(f"Created index: {category}/README.md")
 
 def create_master_index(docs_dir):
     """Create master index for all documentation"""
     docs_path = Path(docs_dir)
-    
+
     categories = {
         'cli': 'CLI Documentation',
         'backend': 'Backend Documentation',
@@ -1055,7 +1055,7 @@ def create_master_index(docs_dir):
         'testing': 'Testing Documentation',
         'general': 'General Documentation'
     }
-    
+
     master_content = f"""# AITBC Documentation Master Index
 
 **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -1063,7 +1063,7 @@ def create_master_index(docs_dir):
 ## Documentation Categories
 
 """
-    
+
     total_files = 0
     for category, title in categories.items():
         category_dir = docs_path / category
@@ -1072,7 +1072,7 @@ def create_master_index(docs_dir):
             if md_files > 0:
                 total_files += md_files
                 master_content += f"- [{title}]({category}/README.md) - {md_files} files\n"
-    
+
     master_content += f"""
 
 ## Statistics
@@ -1085,40 +1085,40 @@ Documentation converted from planning analysis on {datetime.now().strftime('%Y-%
 ---
 *Auto-generated master index*
 """
-    
+
     # Write master index
     master_file = docs_path / 'DOCUMENTATION_INDEX.md'
     with open(master_file, 'w', encoding='utf-8') as f:
         f.write(master_content)
-    
+
     print(f"Created master index: DOCUMENTATION_INDEX.md")
 
 def organize_documentation(docs_dir):
     """Organize all documentation"""
-    
+
     # Create category indices
     create_category_index(docs_dir)
-    
+
     # Create master index
     create_master_index(docs_dir)
-    
+
     print("Documentation organization complete")
 
 if __name__ == "__main__":
     docs_dir = '/opt/aitbc/docs'
-    
+
     organize_documentation(docs_dir)
 EOF
-    
+
     python3 "$WORKSPACE_DIR/merge_and_organize.py"
-    
+
     print_status "Documentation merged and organized"
 }
 
 # Archive Original Files
 archive_original_files() {
     print_status "Archiving original planning files..."
-    
+
     cat > "$WORKSPACE_DIR/archive_original_files.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -1133,24 +1133,24 @@ from datetime import datetime
 
 def archive_original_files(analysis_file, planning_dir, archive_dir):
     """Archive original planning files"""
-    
+
     with open(analysis_file, 'r') as f:
         analysis_results = json.load(f)
-    
+
     planning_path = Path(planning_dir)
     archive_path = Path(archive_dir)
-    
+
     # Create archive directory with timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     specific_archive_dir = archive_path / f'specific_files_archive_{timestamp}'
     specific_archive_dir.mkdir(parents=True, exist_ok=True)
-    
+
     archived_files = []
-    
+
     for result in analysis_results['all_results']:
         if result.get('has_completion', False) and result.get('exists', False):
             source_path = planning_path / result['file_path']
-            
+
             if source_path.exists():
                 # Create archive entry
                 archive_entry = {
@@ -1160,15 +1160,15 @@ def archive_original_files(analysis_file, planning_dir, archive_dir):
                     'archive_date': datetime.now().isoformat(),
                     'archived_by': 'enhanced_planning_analysis'
                 }
-                
+
                 # Copy file to archive
                 archive_dest = specific_archive_dir / result['file_path']
                 archive_dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source_path, archive_dest)
-                
+
                 archived_files.append(archive_entry)
                 print(f"Archived: {result['file_path']}")
-    
+
     # Create archive summary
     summary_content = f"""# Specific Files Archive Summary
 
@@ -1179,7 +1179,7 @@ def archive_original_files(analysis_file, planning_dir, archive_dir):
 ## Archived Files
 
 """
-    
+
     for archive_entry in archived_files:
         summary_content += f"""
 ### {archive_entry['original_file']}
@@ -1187,7 +1187,7 @@ def archive_original_files(analysis_file, planning_dir, archive_dir):
 - **Completion Markers**: {archive_entry['completion_count']}
 - **Archive Date**: {archive_entry['archive_date']}
 """
-    
+
     summary_content += """
 
 ## Archive Purpose
@@ -1199,12 +1199,12 @@ Converted documentation is available in the main docs/ directory, organized by c
 ---
 *Generated by AITBC Enhanced Planning Analysis*
 """
-    
+
     # Write archive summary
     summary_file = specific_archive_dir / 'ARCHIVE_SUMMARY.md'
     with open(summary_file, 'w') as f:
         f.write(summary_content)
-    
+
     return {
         'archive_directory': str(specific_archive_dir),
         'files_archived': len(archived_files),
@@ -1215,27 +1215,27 @@ if __name__ == "__main__":
     analysis_file = 'specific_files_analysis.json'
     planning_dir = '/opt/aitbc/docs/10_plan'
     archive_dir = '/opt/aitbc/docs/archive'
-    
+
     archive_results = archive_original_files(analysis_file, planning_dir, archive_dir)
-    
+
     print(f"Archive creation complete:")
     print(f"  Archive directory: {archive_results['archive_directory']}")
     print(f"  Files archived: {archive_results['files_archived']}")
-    
+
     # Save archive results
     with open('archive_results.json', 'w') as f:
         json.dump(archive_results, f, indent=2)
 EOF
-    
+
     python3 "$WORKSPACE_DIR/archive_original_files.py"
-    
+
     print_status "Original files archived"
 }
 
 # Generate Reports
 generate_reports() {
     print_status "Generating comprehensive reports..."
-    
+
     cat > "$WORKSPACE_DIR/generate_reports.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -1248,20 +1248,20 @@ from datetime import datetime
 
 def generate_comprehensive_report():
     """Generate comprehensive final report"""
-    
+
     # Load all data files
     with open('specific_files_analysis.json', 'r') as f:
         analysis_results = json.load(f)
-    
+
     with open('documentation_status_check.json', 'r') as f:
         doc_status = json.load(f)
-    
+
     with open('documentation_conversion_results.json', 'r') as f:
         conversion_results = json.load(f)
-    
+
     with open('archive_results.json', 'r') as f:
         archive_results = json.load(f)
-    
+
     # Generate report
     report = {
         'timestamp': datetime.now().isoformat(),
@@ -1283,11 +1283,11 @@ def generate_comprehensive_report():
         'conversion_results': conversion_results,
         'archive_results': archive_results
     }
-    
+
     # Save report
     with open('enhanced_planning_analysis_final_report.json', 'w') as f:
         json.dump(report, f, indent=2)
-    
+
     # Print summary
     summary = report['summary']
     print(f"Enhanced Planning Analysis - Final Report:")
@@ -1306,9 +1306,9 @@ def generate_comprehensive_report():
 if __name__ == "__main__":
     generate_comprehensive_report()
 EOF
-    
+
     python3 "$WORKSPACE_DIR/generate_reports.py"
-    
+
     print_status "Comprehensive reports generated"
 }
 

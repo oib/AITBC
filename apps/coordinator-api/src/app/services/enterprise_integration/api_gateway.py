@@ -19,10 +19,11 @@ from pydantic import BaseModel, Field
 
 from aitbc import get_logger
 
+from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota  # type: ignore[import-not-found]
+from ...exceptions import QuotaExceededError, TenantError
+from ...storage.db import get_session
+
 logger = get_logger(__name__)
-from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota  # type: ignore[import-not-found]  # noqa: E402
-from ...exceptions import QuotaExceededError, TenantError  # noqa: E402
-from ...storage.db import get_session  # noqa: E402
 
 
 class EnterpriseAuthRequest(BaseModel):

@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import socket
-import sys
 
 import click
 
@@ -55,7 +54,6 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
         # Create HubManager instance
-        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.network.hub_discovery import HubDiscovery
         from aitbc_chain.network.hub_manager import HubManager
 
@@ -139,7 +137,6 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url):
         content = f"{hostname}:{local_address}:{local_port}:{public_key_pem}"
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
-        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.network.hub_discovery import HubDiscovery
         from aitbc_chain.network.hub_manager import HubManager
 

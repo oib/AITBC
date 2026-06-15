@@ -54,7 +54,7 @@ Receive AITBC Tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,000 AIT
   - Endpoint: `/api/v1/token/escrow/create`
   - Timeout: 1 hour default
   - Release on job completion
-  
+
 - **Bitcoin Escrow**: Managed by Wallet Daemon
   - Endpoint: `/api/v1/escrow/create`
   - Only for token purchases

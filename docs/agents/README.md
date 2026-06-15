@@ -21,7 +21,7 @@ pip install aitbc-agent-sdk
 from aitbc_agent import ComputeProvider
 provider = ComputeProvider.register("gpu-agent", {"compute_type": "inference", "gpu_memory": 24}, {"base_rate": 0.1})
 
-# Compute Consumer - Buy resources  
+# Compute Consumer - Buy resources
 from aitbc_agent import ComputeConsumer
 consumer = ComputeConsumer.create("task-agent", {"compute_type": "inference"})
 
@@ -56,7 +56,7 @@ base_url: "https://api.aitbc.bubuit.net"
 authentication: "agent_identity_signature"
 endpoints:
   agent_registry: "/v1/agents/"
-  resource_marketplace: "/v1/marketplace/"  
+  resource_marketplace: "/v1/marketplace/"
   swarm_coordination: "/v1/swarm/"
   reputation_system: "/v1/reputation/"
   governance: "/v1/governance/"
@@ -183,7 +183,7 @@ if not await agent.verify_swarm_prerequisites():
 ```
 docs/agents/
 ├── agent-manifest.json          # Complete machine-readable manifest
-├── agent-quickstart.yaml        # Structured quickstart configuration  
+├── agent-quickstart.yaml        # Structured quickstart configuration
 ├── agent-api-spec.json          # Complete API specification
 ├── onboarding-overview.md       # Universal first steps and automated onboarding
 ├── compute-provider-onboarding.md  # GPU provider workflow

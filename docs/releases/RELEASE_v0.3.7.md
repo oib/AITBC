@@ -1,7 +1,7 @@
 # AITBC v0.3.7 Release Notes
 
-**Date**: May 11, 2026  
-**Status**: ✅ Released  
+**Date**: May 11, 2026
+**Status**: ✅ Released
 **Scope**: Host GPU miner and Ollama inference integration
 
 ## 🎯 Overview
@@ -111,6 +111,6 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 
 ---
 
-*Last updated: 2026-05-11*  
-*Version: 0.3.7*  
+*Last updated: 2026-05-11*
+*Version: 0.3.7*
 *Status: GPU Mining Release*

@@ -9,14 +9,14 @@ import fs from "fs";
 
 async function main() {
   console.log("=== AITBC Smart Contract Deployment Verification ===");
-  
+
   const network = await ethers.provider.getNetwork();
   console.log("Network:", network.name);
   console.log("Chain ID:", network.chainId.toString());
 
   // Load deployment addresses
   const deploymentFile = process.env.DEPLOYMENT_FILE || `deployments-${network.name}.json`;
-  
+
   if (!fs.existsSync(deploymentFile)) {
     console.error(`Deployment file not found: ${deploymentFile}`);
     console.log("Usage: DEPLOYMENT_FILE=deployments-localhost.json npx hardhat run scripts/verify-deployment.js");
@@ -42,24 +42,24 @@ async function main() {
     if (deployments.ContractRegistry) {
       const ContractRegistry = await ethers.getContractFactory("ContractRegistry");
       const registry = ContractRegistry.attach(deployments.ContractRegistry);
-      
+
       // Contracts that should be registered in the registry
       const contractsToRegister = ["TreasuryManager", "AgentMarketplaceV2", "RewardDistributor", "PerformanceAggregator"];
-      
+
       for (const [name, address] of Object.entries(deployments)) {
         if (name === "ContractRegistry" || name === "AIToken") continue;
-        
+
         // Only check contracts that should be registered
         if (!contractsToRegister.includes(name)) {
           console.log(`⚠️  ${name} not expected to be in registry`);
           verificationResults[`${name}_registry`] = { success: true, skipped: true };
           continue;
         }
-        
+
         const contractId = ethers.keccak256(ethers.toUtf8Bytes(name));
         try {
           const registeredAddress = await registry.getContract(contractId);
-          
+
           if (registeredAddress.toLowerCase() === address.toLowerCase()) {
             console.log(`✅ ${name} registered correctly in registry`);
             verificationResults[`${name}_registry`] = { success: true, registered: true };
@@ -85,10 +85,10 @@ async function main() {
     if (deployments.TreasuryManager && deployments.AIToken) {
       const AIToken = await ethers.getContractFactory("AIToken");
       const aiToken = AIToken.attach(deployments.AIToken);
-      
+
       const treasuryBalance = await aiToken.balanceOf(deployments.TreasuryManager);
       console.log("TreasuryManager balance:", ethers.formatEther(treasuryBalance), "AIT");
-      
+
       verificationResults.TreasuryManagerBalance = {
         success: treasuryBalance > 0,
         balance: ethers.formatEther(treasuryBalance)
@@ -98,7 +98,7 @@ async function main() {
     // Summary
     console.log("\n=== Verification Summary ===");
     let allPassed = true;
-    
+
     for (const [name, result] of Object.entries(verificationResults)) {
       const status = result.success ? "✅" : "❌";
       console.log(`${status} ${name}`);
@@ -140,7 +140,7 @@ async function verifyContract(name, address) {
       const factory = await ethers.getContractFactory(name);
       contract = factory.attach(address);
       console.log(`✅ Contract deployed at: ${address}`);
-      
+
       // Try to call a view function to verify it's functional
       if (name === "AIToken") {
         const totalSupply = await contract.totalSupply();
@@ -152,9 +152,9 @@ async function verifyContract(name, address) {
         const token = await contract.treasuryToken();
         console.log(`   Token: ${token}`);
       }
-      
+
       return { success: true, address };
-      
+
     } catch (error) {
       console.log(`⚠️  Could not attach contract: ${error.message}`);
       return { success: false, error: error.message };

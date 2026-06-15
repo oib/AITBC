@@ -1,6 +1,6 @@
 # Security Remediation Testing Procedures
 
-**Date:** 2026-05-11  
+**Date:** 2026-05-11
 **Purpose:** Test completed security remediations before deployment
 
 ## Test Environment Setup
@@ -188,7 +188,7 @@ python -c "
 import ast
 with open('apps/coordinator-api/src/app/routers/zk_applications.py', 'r') as f:
     content = f.read()
-    
+
 # Check for DEMO_MODE_ENABLED flag
 print('Has DEMO_MODE_ENABLED flag:', 'DEMO_MODE_ENABLED' in content)
 print('Default value:', content.split('DEMO_MODE_ENABLED')[1].split('=')[1].strip() if 'DEMO_MODE_ENABLED' in content else 'N/A')
@@ -236,9 +236,9 @@ describe("AIToken Supply Cap", function () {
     const AIToken = await ethers.getContractFactory("AIToken");
     const initialSupply = ethers.parseEther("1000000"); // 1 million
     const token = await AIToken.deploy(initialSupply);
-    
+
     const MAX_SUPPLY = ethers.parseEther("1000000000"); // 1 billion
-    
+
     // Try to mint beyond cap
     await expect(
       token.mint(await token.owner(), MAX_SUPPLY - initialSupply + ethers.parseEther("1"))
@@ -249,7 +249,7 @@ describe("AIToken Supply Cap", function () {
     const AIToken = await ethers.getContractFactory("AIToken");
     const initialSupply = ethers.parseEther("1000000");
     const token = await AIToken.deploy(initialSupply);
-    
+
     // Mint within cap
     await token.mint(await token.owner(), ethers.parseEther("1000"));
     const totalSupply = await token.totalSupply();
@@ -280,10 +280,10 @@ describe("AIToken Minting Cooldown", function () {
   it("Should enforce 1-day cooldown", async function () {
     const AIToken = await ethers.getContractFactory("AIToken");
     const token = await AIToken.deploy(ethers.parseEther("1000000"));
-    
+
     // First mint
     await token.mint(await token.owner(), ethers.parseEther("1000"));
-    
+
     // Try to mint immediately again (should fail)
     await expect(
       token.mint(await token.owner(), ethers.parseEther("1000"))
@@ -293,17 +293,17 @@ describe("AIToken Minting Cooldown", function () {
   it("Should allow minting after cooldown", async function () {
     const AIToken = await ethers.getContractFactory("AIToken");
     const token = await AIToken.deploy(ethers.parseEther("1000000"));
-    
+
     // First mint
     await token.mint(await token.owner(), ethers.parseEther("1000"));
-    
+
     // Fast forward 1 day
     await ethers.provider.send("evm_increaseTime", [86400]);
     await ethers.provider.send("evm_mine");
-    
+
     // Mint after cooldown (should succeed)
     await token.mint(await token.owner(), ethers.parseEther("1000"));
-    
+
     const totalSupply = await token.totalSupply();
     expect(totalSupply).to.equal(ethers.parseEther("1000000") + ethers.parseEther("2000"));
   });
@@ -331,7 +331,7 @@ describe("AIToken Constructor", function () {
   it("Should reject initial supply exceeding MAX_SUPPLY", async function () {
     const AIToken = await ethers.getContractFactory("AIToken");
     const MAX_SUPPLY = ethers.parseEther("1000000000");
-    
+
     await expect(
       AIToken.deploy(MAX_SUPPLY + ethers.parseEther("1"))
     ).to.be.revertedWith("Initial supply exceeds max supply");

@@ -105,7 +105,7 @@ log_warning() {
 # Test functions
 test_connectivity() {
     log_info "Testing connectivity between nodes..."
-    
+
     # Test genesis node
     log_debug "Testing genesis node at ${GENESIS_IP}:${PORT}"
     if curl -f -s "http://${GENESIS_IP}:${PORT}/health" > /dev/null; then
@@ -114,7 +114,7 @@ test_connectivity() {
         log_error "Genesis node (aitbc) is NOT reachable"
         return 1
     fi
-    
+
     # Test follower node (aitbc1)
     log_debug "Testing follower node at ${FOLLOWER_IP}:${PORT}"
     if curl -f -s "http://${FOLLOWER_IP}:${PORT}/health" > /dev/null; then
@@ -123,7 +123,7 @@ test_connectivity() {
         log_error "Follower node (aitbc1) is NOT reachable"
         return 1
     fi
-    
+
     # Test follower node (aitbc2/gitea-runner)
     log_debug "Testing follower node (aitbc2/gitea-runner) at ${FOLLOWER2_IP}:${PORT}"
     if curl -f -s "http://${FOLLOWER2_IP}:${PORT}/health" > /dev/null; then
@@ -132,7 +132,7 @@ test_connectivity() {
         log_error "Follower node (aitbc2/gitea-runner) is NOT reachable"
         return 1
     fi
-    
+
     # Test P2P connectivity
     log_debug "Testing P2P connectivity"
     if ${CLI_PATH} network ping --node aitbc1 --host ${FOLLOWER_IP} --port ${PORT} --debug > /dev/null 2>&1; then
@@ -140,52 +140,52 @@ test_connectivity() {
     else
         log_warning "P2P connectivity to aitbc1 test failed (may not be critical)"
     fi
-    
+
     if ${CLI_PATH} network ping --node aitbc2 --host ${FOLLOWER2_IP} --port ${PORT} --debug > /dev/null 2>&1; then
         log_success "P2P connectivity to aitbc2 is working"
     else
         log_warning "P2P connectivity to aitbc2 test failed (may not be critical)"
     fi
-    
+
     # Check peers
     log_debug "Checking peer list"
     ${CLI_PATH} network peers --verbose >> "${LOG_FILE}" 2>&1
-    
+
     return 0
 }
 
 test_blockchain_status() {
     log_info "Testing blockchain status and synchronization..."
-    
+
     # Get genesis node status
     log_debug "Getting genesis node blockchain info"
     GENESIS_HEIGHT=$(NODE_URL="http://${GENESIS_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
     log_info "Genesis node block height: ${GENESIS_HEIGHT}"
-    
+
     # Get follower node (aitbc1) status
     log_debug "Getting follower node (aitbc1) blockchain info"
     FOLLOWER_HEIGHT=$(NODE_URL="http://${FOLLOWER_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
     log_info "Follower node (aitbc1) block height: ${FOLLOWER_HEIGHT}"
-    
+
     # Get follower node (aitbc2/gitea-runner) status
     log_debug "Getting follower node (aitbc2/gitea-runner) blockchain info"
     FOLLOWER2_HEIGHT=$(NODE_URL="http://${FOLLOWER2_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
     log_info "Follower node (aitbc2/gitea-runner) block height: ${FOLLOWER2_HEIGHT}"
-    
+
     # Compare heights
     HEIGHT_DIFF1=$((GENESIS_HEIGHT - FOLLOWER_HEIGHT))
     HEIGHT_DIFF1=${HEIGHT_DIFF1#-}  # Absolute value
-    
+
     HEIGHT_DIFF2=$((GENESIS_HEIGHT - FOLLOWER2_HEIGHT))
     HEIGHT_DIFF2=${HEIGHT_DIFF2#-}  # Absolute value
-    
+
     HEIGHT_DIFF3=$((FOLLOWER_HEIGHT - FOLLOWER2_HEIGHT))
     HEIGHT_DIFF3=${HEIGHT_DIFF3#-}  # Absolute value
-    
+
     # Use the maximum difference
     MAX_DIFF=$((HEIGHT_DIFF1 > HEIGHT_DIFF2 ? HEIGHT_DIFF1 : HEIGHT_DIFF2))
     MAX_DIFF=$((MAX_DIFF > HEIGHT_DIFF3 ? MAX_DIFF : HEIGHT_DIFF3))
-    
+
     if [ ${MAX_DIFF} -le 2 ]; then
         log_success "Block synchronization is good (max diff: ${MAX_DIFF} blocks)"
         return 0
@@ -200,29 +200,29 @@ test_blockchain_status() {
 
 test_transaction() {
     log_info "Testing transaction propagation..."
-    
+
     # Create test wallets
     log_debug "Creating test wallets"
     ${CLI_PATH} wallet create --name test-comm-sender --password test123 --yes --no-confirm >> "${LOG_FILE}" 2>&1 || true
     ${CLI_PATH} wallet create --name test-comm-receiver --password test123 --yes --no-confirm >> "${LOG_FILE}" 2>&1 || true
-    
+
     # Check if sender has balance
     SENDER_BALANCE=$(${CLI_PATH} wallet balance --name test-comm-sender --output json 2>/dev/null | grep -o '"balance":[0-9.]*' | grep -o '[0-9.]*' || echo "0")
-    
+
     if [ $(echo "${SENDER_BALANCE} < 1" | bc) -eq 1 ]; then
         log_warning "Test sender wallet has insufficient balance, skipping transaction test"
         return 0
     fi
-    
+
     # Send transaction
     log_debug "Sending test transaction"
     TX_START=$(date +%s)
     ${CLI_PATH} wallet send --from test-comm-sender --to test-comm-receiver --amount 1 --password test123 --yes --verbose >> "${LOG_FILE}" 2>&1
     TX_END=$(date +%s)
     TX_TIME=$((TX_END - TX_START))
-    
+
     log_info "Transaction completed in ${TX_TIME} seconds"
-    
+
     if [ ${TX_TIME} -le 30 ]; then
         log_success "Transaction propagation time is good (${TX_TIME}s)"
         return 0
@@ -237,33 +237,33 @@ test_transaction() {
 
 test_agent_messaging() {
     log_info "Testing agent message propagation..."
-    
+
     # This test requires existing agents
     log_debug "Checking for existing agents"
     AGENTS=$(${CLI_PATH} agent list --output json 2>/dev/null || echo "[]")
-    
+
     if [ "${AGENTS}" = "[]" ]; then
         log_warning "No agents found, skipping agent messaging test"
         return 0
     fi
-    
+
     # Get first agent ID
     AGENT_ID=$(echo "${AGENTS}" | grep -o '"id":"[^"]*"' | head -1 | grep -o ':[^:]*$' | tr -d '"' || echo "")
-    
+
     if [ -z "${AGENT_ID}" ]; then
         log_warning "Could not get agent ID, skipping agent messaging test"
         return 0
     fi
-    
+
     # Send test message
     log_debug "Sending test message to agent ${AGENT_ID}"
     MSG_START=$(date +%s)
     ${CLI_PATH} agent message --to ${AGENT_ID} --content "Blockchain communication test message" --debug >> "${LOG_FILE}" 2>&1
     MSG_END=$(date +%s)
     MSG_TIME=$((MSG_END - MSG_START))
-    
+
     log_info "Agent message sent in ${MSG_TIME} seconds"
-    
+
     if [ ${MSG_TIME} -le 10 ]; then
         log_success "Agent message propagation is good (${MSG_TIME}s)"
         return 0
@@ -275,12 +275,12 @@ test_agent_messaging() {
 
 test_sync() {
     log_info "Testing git-based synchronization..."
-    
+
     # Check git status on genesis
     log_debug "Checking git status on genesis node"
     cd /opt/aitbc
     GENESIS_STATUS=$(git status --porcelain 2>/dev/null || echo "error")
-    
+
     if [ "${GENESIS_STATUS}" = "error" ]; then
         log_error "Git status check failed on genesis node"
         return 1
@@ -289,11 +289,11 @@ test_sync() {
     else
         log_warning "Genesis node has uncommitted changes"
     fi
-    
+
     # Check git status on follower (aitbc1)
     log_debug "Checking git status on follower node (aitbc1)"
     FOLLOWER_STATUS=$(ssh aitbc1 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
-    
+
     if [ "${FOLLOWER_STATUS}" = "error" ]; then
         log_error "Git status check failed on follower node (aitbc1)"
         return 1
@@ -302,11 +302,11 @@ test_sync() {
     else
         log_warning "Follower node (aitbc1) has uncommitted changes"
     fi
-    
+
     # Check git status on follower (aitbc2/gitea-runner)
     log_debug "Checking git status on follower node (aitbc2/gitea-runner)"
     FOLLOWER2_STATUS=$(ssh gitea-runner 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
-    
+
     if [ "${FOLLOWER2_STATUS}" = "error" ]; then
         log_error "Git status check failed on follower node (aitbc2/gitea-runner)"
         return 1
@@ -315,13 +315,13 @@ test_sync() {
     else
         log_warning "Follower node (aitbc2/gitea-runner) has uncommitted changes"
     fi
-    
+
     # Test git pull
     log_debug "Testing git pull from Gitea"
     git pull origin main --verbose >> "${LOG_FILE}" 2>&1
     ssh aitbc1 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
     ssh gitea-runner 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
-    
+
     log_success "Git synchronization test completed"
     return 0
 }
@@ -330,7 +330,7 @@ test_sync() {
 run_test() {
     local test_name="$1"
     local test_func="$2"
-    
+
     log_info "Running: ${test_name}"
     if ${test_func}; then
         log_success "${test_name} PASSED"
@@ -344,17 +344,17 @@ run_test() {
 # Full test suite
 run_full_test() {
     log_info "Starting full blockchain communication test suite"
-    
+
     local failed_tests=0
-    
+
     run_test "Connectivity Test" test_connectivity || ((failed_tests++))
     run_test "Blockchain Status Test" test_blockchain_status || ((failed_tests++))
     run_test "Transaction Test" test_transaction || ((failed_tests++))
     run_test "Agent Messaging Test" test_agent_messaging || ((failed_tests++))
     run_test "Synchronization Test" test_sync || ((failed_tests++))
-    
+
     log_info "Test suite completed with ${failed_tests} failures"
-    
+
     if [ ${failed_tests} -eq 0 ]; then
         log_success "All tests PASSED"
         return 0
@@ -367,24 +367,24 @@ run_full_test() {
 # Monitor mode
 run_monitor() {
     log_info "Starting continuous monitoring (interval: ${INTERVAL}s)"
-    
+
     while true; do
         log_info "=== Monitoring cycle started at $(date) ==="
-        
+
         if run_full_test; then
             log_info "Monitoring cycle: All checks passed"
         else
             log_error "Monitoring cycle: Some checks failed"
-            
+
             # Send alert if configured
             if [ -n "${ALERT_EMAIL}" ]; then
                 echo "Blockchain communication test failed. Check logs at ${LOG_FILE}" | mail -s "AITBC Blockchain Test Alert" ${ALERT_EMAIL} 2>/dev/null || true
             fi
         fi
-        
+
         log_info "=== Monitoring cycle completed ==="
         echo "" >> "${MONITOR_LOG}"
-        
+
         sleep ${INTERVAL}
     done
 }
@@ -393,10 +393,10 @@ run_monitor() {
 main() {
     log_info "Blockchain Communication Test Script"
     log_info "Genesis IP: ${GENESIS_IP}, Follower IP: ${FOLLOWER_IP}, Follower2 IP: ${FOLLOWER2_IP}, Port: ${PORT}"
-    
+
     # Create log directory if it doesn't exist
     mkdir -p "${LOG_DIR}"
-    
+
     if [ "$MONITOR" = true ]; then
         run_monitor
     else

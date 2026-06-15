@@ -39,7 +39,7 @@ cat > /tmp/hermes_agents.json << 'EOF'
             "access": ["agent_communication", "task_distribution"]
         },
         "GenesisAgent": {
-            "node": "aitbc", 
+            "node": "aitbc",
             "capabilities": ["system_admin", "blockchain_genesis", "service_management"],
             "access": ["ssh", "systemctl", "file_system"]
         },

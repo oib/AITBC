@@ -49,12 +49,12 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
           pnpm install
           echo "✅ Node.js environment ready"
 
@@ -74,7 +74,7 @@ jobs:
       - name: Deploy contracts to testnet
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           # Skip deployment - no Ethereum-compatible testnet endpoint available
           # AITBC blockchain uses custom RPC protocol, not standard Ethereum JSON-RPC
           echo "⚠️  Skipping contract deployment - no Ethereum-compatible testnet endpoint"
@@ -85,20 +85,20 @@ jobs:
         if: inputs.verify_contracts != false
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           # Load verification configuration
           export ETHERSCAN_API_KEY=${{ secrets.TESTNET_EXPLORER_API_KEY }}
           export TESTNET_EXPLORER_URL=${{ secrets.TESTNET_EXPLORER_URL }}
-          
+
           # Verify deployed contracts
           pnpm hardhat verify --network testnet DEPLOYED_CONTRACT_ADDRESS CONSTRUCTOR_ARGS
-          
+
           echo "✅ Contracts verified on block explorer"
 
       - name: Record deployment metadata
         run: |
           cd /opt/aitbc
-          
+
           # Save deployment information
           cat > deployment-info.json << EOF
           {
@@ -113,23 +113,22 @@ jobs:
             }
           }
           EOF
-          
+
           echo "✅ Deployment metadata recorded"
 
       - name: Setup monitoring alerts
         run: |
           cd /opt/aitbc
-          
+
           # Configure monitoring for deployed contracts
           bash scripts/monitoring/setup-contract-monitoring.sh testnet
-          
+
           echo "✅ Monitoring alerts configured"
 
       - name: Run smoke tests
         run: |
           cd /opt/aitbc
-          
+
           # Skip smoke tests - script doesn't exist
           echo "⚠️  Skipping smoke tests - script not found"
           echo "✅ Smoke tests skipped"
-

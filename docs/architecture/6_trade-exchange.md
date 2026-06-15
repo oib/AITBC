@@ -237,7 +237,7 @@ class AITBCExchange:
     def __init__(self, base_url="https://aitbc.bubuit.net"):
         self.base_url = base_url
         self.session_token = None
-    
+
     def login(self, wallet_address):
         response = requests.post(
             f"{self.base_url}/api/users/login",
@@ -246,7 +246,7 @@ class AITBCExchange:
         data = response.json()
         self.session_token = data["token"]
         return data["user"]
-    
+
     def create_payment(self, aitbc_amount):
         headers = {"X-Session-Token": self.session_token}
         response = requests.post(

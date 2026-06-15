@@ -64,20 +64,20 @@ echo ""
 # Verification functions
 verify_contract_deployment() {
     print_verification "Verifying contract deployment..."
-    
+
     cd "$CONTRACTS_DIR"
-    
+
     # Check deployment file
     local deployment_file="deployed-contracts-${NETWORK}.json"
     if [[ ! -f "$deployment_file" ]]; then
         print_error "Deployment file not found: $deployment_file"
         return 1
     fi
-    
+
     # Load deployment data
     local contracts=$(jq -r '.contracts | keys[]' "$deployment_file")
     local deployed_contracts=()
-    
+
     for contract in $contracts; do
         local address=$(jq -r ".contracts[\"$contract\"].address" "$deployment_file")
         if [[ "$address" != "null" && "$address" != "" ]]; then
@@ -87,35 +87,35 @@ verify_contract_deployment() {
             print_error "✗ $contract: not deployed"
         fi
     done
-    
+
     # Verify on Etherscan
     print_status "Verifying contracts on Etherscan..."
     for contract_info in "${deployed_contracts[@]}"; do
         local contract_name="${contract_info%:*}"
         local contract_address="${contract_info#*:}"
-        
+
         # Check if contract exists on Etherscan
         local etherscan_url="https://api.etherscan.io/api?module=contract&action=getsourcecode&address=$contract_address&apikey=$ETHERSCAN_API_KEY"
-        
+
         if curl -s "$etherscan_url" | grep -q '"status":"1"'; then
             print_success "✓ $contract_name verified on Etherscan"
         else
             print_warning "⚠ $contract_name not verified on Etherscan"
         fi
     done
-    
+
     print_success "Contract deployment verification completed"
 }
 
 verify_cross_chain_reputation() {
     print_verification "Verifying Cross-Chain Reputation system..."
-    
+
     cd "$ROOT_DIR/apps/coordinator-api"
-    
+
     # Test reputation initialization
     print_status "Testing reputation initialization..."
     local test_agent="0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
-    
+
     python3 -c "
 import sys
 sys.path.append('src/app/services')
@@ -134,7 +134,7 @@ print('✓ Reputation initialization successful')
         print_error "✗ Reputation initialization failed"
         return 1
     }
-    
+
     # Test cross-chain sync
     print_status "Testing cross-chain synchronization..."
     python3 -c "
@@ -155,7 +155,7 @@ print('✓ Cross-chain sync successful')
         print_error "✗ Cross-chain sync failed"
         return 1
     }
-    
+
     # Test reputation staking
     print_status "Testing reputation staking..."
     python3 -c "
@@ -177,15 +177,15 @@ print('✓ Reputation staking successful')
         print_error "✗ Reputation staking failed"
         return 1
     }
-    
+
     print_success "Cross-Chain Reputation verification completed"
 }
 
 verify_agent_communication() {
     print_verification "Verifying Agent Communication system..."
-    
+
     cd "$ROOT_DIR/apps/coordinator-api"
-    
+
     # Test agent authorization
     print_status "Testing agent authorization..."
     python3 -c "
@@ -205,7 +205,7 @@ print('✓ Agent authorization successful')
         print_error "✗ Agent authorization failed"
         return 1
     }
-    
+
     # Test message sending
     print_status "Testing message sending..."
     python3 -c "
@@ -232,7 +232,7 @@ print('✓ Message sending successful')
         print_error "✗ Message sending failed"
         return 1
     }
-    
+
     # Test channel creation
     print_status "Testing channel creation..."
     python3 -c "
@@ -254,15 +254,15 @@ print('✓ Channel creation successful')
         print_error "✗ Channel creation failed"
         return 1
     }
-    
+
     print_success "Agent Communication verification completed"
 }
 
 verify_advanced_learning() {
     print_verification "Verifying Advanced Learning system..."
-    
+
     cd "$ROOT_DIR/apps/coordinator-api"
-    
+
     # Test model creation
     print_status "Testing model creation..."
     python3 -c "
@@ -283,7 +283,7 @@ print('✓ Model creation successful')
         print_error "✗ Model creation failed"
         return 1
     }
-    
+
     # Test learning session
     print_status "Testing learning session..."
     python3 -c "
@@ -307,7 +307,7 @@ print('✓ Learning session started successfully')
         print_error "✗ Learning session failed"
         return 1
     }
-    
+
     # Test model prediction
     print_status "Testing model prediction..."
     python3 -c "
@@ -330,13 +330,13 @@ print('✓ Model prediction successful')
         print_error "✗ Model prediction failed"
         return 1
     }
-    
+
     print_success "Advanced Learning verification completed"
 }
 
 verify_integration() {
     print_verification "Verifying system integration..."
-    
+
     # Test cross-chain reputation + communication integration
     print_status "Testing reputation + communication integration..."
     python3 -c "
@@ -367,26 +367,26 @@ print(f'✓ Integration test successful: can_communicate={can_communicate}')
         print_error "✗ Integration test failed"
         return 1
     }
-    
+
     print_success "System integration verification completed"
 }
 
 verify_performance() {
     print_verification "Verifying system performance..."
-    
+
     # Test contract gas usage
     print_status "Testing contract gas usage..."
     cd "$CONTRACTS_DIR"
-    
+
     # Run gas usage analysis
     npx hardhat test --network mainnet test/gas-usage.test.js || {
         print_warning "⚠ Gas usage test not available"
     }
-    
+
     # Test service response times
     print_status "Testing service response times..."
     cd "$ROOT_DIR/apps/coordinator-api"
-    
+
     # Test reputation service performance
     python3 -c "
 import time
@@ -414,21 +414,21 @@ else:
         print_error "✗ Performance test failed"
         return 1
     }
-    
+
     print_success "Performance verification completed"
 }
 
 verify_security() {
     print_verification "Verifying security measures..."
-    
+
     # Check contract security
     print_status "Checking contract security..."
     cd "$CONTRACTS_DIR"
-    
+
     # Run Slither security analysis
     if command -v slither &> /dev/null; then
         slither . --filter medium,high,critical --json slither-security.json || true
-        
+
         # Check for critical issues
         local critical_issues=$(jq -r '.results.detectors[] | select(.impact == "high") | .id' slither-security.json | wc -l)
         if [[ "$critical_issues" -eq 0 ]]; then
@@ -439,11 +439,11 @@ verify_security() {
     else
         print_warning "⚠ Slither not available for security analysis"
     fi
-    
+
     # Check service security
     print_status "Checking service security..."
     cd "$ROOT_DIR/apps/coordinator-api"
-    
+
     # Test input validation
     python3 -c "
 import sys
@@ -469,40 +469,40 @@ except Exception as e:
         print_error "✗ Security validation test failed"
         return 1
     }
-    
+
     print_success "Security verification completed"
 }
 
 verify_monitoring() {
     print_verification "Verifying monitoring setup..."
-    
+
     # Check if monitoring services are running
     print_status "Checking monitoring services..."
-    
+
     # Check Prometheus
     if curl -s http://localhost:9090/api/v1/query?query=up | grep -q '"result":'; then
         print_success "✓ Prometheus is running"
     else
         print_warning "⚠ Prometheus is not running"
     fi
-    
+
     # Check Grafana
     if curl -s http://localhost:3001/api/health | grep -q '"database":'; then
         print_success "✓ Grafana is running"
     else
         print_warning "⚠ Grafana is not running"
     fi
-    
+
     # Check Alert Manager
     if curl -s http://localhost:9093/api/v1/alerts | grep -q '"status":'; then
         print_success "✓ Alert Manager is running"
     else
         print_warning "⚠ Alert Manager is not running"
     fi
-    
+
     # Check service metrics endpoints
     print_status "Checking service metrics endpoints..."
-    
+
     local services=("reputation" "communication" "learning")
     for service in "${services[@]}"; do
         if curl -s "http://localhost:800${#services[@]}/metrics" | grep -q "# HELP"; then
@@ -511,13 +511,13 @@ verify_monitoring() {
             print_warning "⚠ $service metrics endpoint is not available"
         fi
     done
-    
+
     print_success "Monitoring verification completed"
 }
 
 verify_backup() {
     print_verification "Verifying backup system..."
-    
+
     # Check backup script
     if [[ -f "$ROOT_DIR/backup/backup-advanced-features.sh" ]]; then
         print_success "✓ Backup script exists"
@@ -525,7 +525,7 @@ verify_backup() {
         print_error "✗ Backup script not found"
         return 1
     fi
-    
+
     # Check backup directory
     if [[ -d "/backup/advanced-features" ]]; then
         print_success "✓ Backup directory exists"
@@ -533,21 +533,21 @@ verify_backup() {
         print_error "✗ Backup directory not found"
         return 1
     fi
-    
+
     # Test backup script (dry run)
     print_status "Testing backup script (dry run)..."
     cd "$ROOT_DIR"
-    
+
     # Create test data for backup
     mkdir -p /tmp/test-backup/contracts
     echo "test" > /tmp/test-backup/contracts/test.txt
-    
+
     # Run backup script with test data
     BACKUP_DIR="/tmp/test-backup" "$ROOT_DIR/backup/backup-advanced-features.sh" || {
         print_error "✗ Backup script test failed"
         return 1
     }
-    
+
     # Check if backup was created
     if [[ -f "/tmp/test-backup/advanced-features-backup-"*".tar.gz" ]]; then
         print_success "✓ Backup script test passed"
@@ -556,15 +556,15 @@ verify_backup() {
         print_error "✗ Backup script test failed - no backup created"
         return 1
     fi
-    
+
     print_success "Backup verification completed"
 }
 
 generate_verification_report() {
     print_verification "Generating verification report..."
-    
+
     local report_file="$ROOT_DIR/production-verification-report-$(date +%Y%m%d-%H%M%S).json"
-    
+
     cat > "$report_file" << EOF
 {
     "verification": {
@@ -615,32 +615,32 @@ generate_verification_report() {
     ]
 }
 EOF
-    
+
     print_success "Verification report saved to $report_file"
 }
 
 # Main execution
 main() {
     print_critical "🔍 STARTING PRODUCTION VERIFICATION - ADVANCED AGENT FEATURES"
-    
+
     local verification_failed=0
-    
+
     # Run verification steps
     verify_contract_deployment || verification_failed=1
     verify_cross_chain_reputation || verification_failed=1
     verify_agent_communication || verification_failed=1
     verify_advanced_learning || verification_failed=1
     verify_integration || verification_failed=1
-    
+
     if [[ "$COMPREHENSIVE" == "true" ]]; then
         verify_performance || verification_failed=1
         verify_security || verification_failed=1
         verify_monitoring || verification_failed=1
         verify_backup || verification_failed=1
     fi
-    
+
     generate_verification_report
-    
+
     if [[ $verification_failed -eq 0 ]]; then
         print_success "🎉 PRODUCTION VERIFICATION COMPLETED SUCCESSFULLY!"
         echo ""

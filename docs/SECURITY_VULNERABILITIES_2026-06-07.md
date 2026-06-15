@@ -181,7 +181,7 @@ During the migration, several systemd services required configuration fixes:
 - **Fix**: Changed User/Group from 'aitbc' to 'root'
 - **File**: `/opt/aitbc/apps/api-gateway/aitbc-api-gateway.service`
 
-### aitbc-wallet.service  
+### aitbc-wallet.service
 - **Issue**: Missing 'argon2' dependency for encryption
 - **Fix**: Installed argon2 and argon2-cffi packages
 - **Dependency**: Required for wallet encryption functionality

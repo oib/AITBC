@@ -225,5 +225,5 @@ find . -name "your-file-name"
 
 ---
 
-*Last updated: March 2, 2026*  
+*Last updated: March 2, 2026*
 *For questions or suggestions, please open an issue or contact the development team.*

@@ -155,7 +155,6 @@ def main():
 
     # Setup database connection
     processed_txs = set()
-    sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
 
     try:
         from aitbc_chain.models import Transaction

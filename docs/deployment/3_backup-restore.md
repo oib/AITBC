@@ -176,10 +176,10 @@ curl -s http://localhost:8202/rpc/head
    ```bash
    # Restore PostgreSQL first (critical for operations)
    ./scripts/deployment/restore_postgresql.sh default [latest-backup]
-   
+
    # Restore Redis cache
    ./restore_redis.sh default [latest-backup]
-   
+
    # Restore ledger data
    ./restore_ledger.sh default [latest-backup]
    ```
@@ -188,7 +188,7 @@ curl -s http://localhost:8202/rpc/head
    ```bash
    # Check all services
    systemctl status aitbc-*
-   
+
    # Verify API endpoints
    curl -s http://coordinator-api:8203/v1/health
    curl -s http://blockchain-node:8080/v1/health

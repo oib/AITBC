@@ -5,15 +5,13 @@ Services for managing hermes developer tools, SDKs, and third-party solutions
 
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from sqlmodel import Session, select
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from uuid import uuid4  # noqa: E402
-
-from ..domain.community import (  # noqa: E402
+from ..domain.community import (
     AgentSolution,
     CommunityPost,
     DeveloperProfile,
@@ -24,6 +22,8 @@ from ..domain.community import (  # noqa: E402
     LabStatus,
     SolutionStatus,
 )
+
+logger = get_logger(__name__)
 
 
 class DeveloperEcosystemService:

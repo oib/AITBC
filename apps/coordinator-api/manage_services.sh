@@ -67,7 +67,7 @@ show_usage() {
 start_services() {
     local service_name=$1
     print_header "Starting Enhanced Services..."
-    
+
     if [ -n "$service_name" ]; then
         if [[ -n "${SERVICES[$service_name]}" ]]; then
             print_status "Starting $service_name..."
@@ -90,7 +90,7 @@ start_services() {
 stop_services() {
     local service_name=$1
     print_header "Stopping Enhanced Services..."
-    
+
     if [ -n "$service_name" ]; then
         if [[ -n "${SERVICES[$service_name]}" ]]; then
             print_status "Stopping $service_name..."
@@ -113,7 +113,7 @@ stop_services() {
 restart_services() {
     local service_name=$1
     print_header "Restarting Enhanced Services..."
-    
+
     if [ -n "$service_name" ]; then
         if [[ -n "${SERVICES[$service_name]}" ]]; then
             print_status "Restarting $service_name..."
@@ -136,7 +136,7 @@ restart_services() {
 show_status() {
     local service_name=$1
     print_header "Enhanced Services Status"
-    
+
     if [ -n "$service_name" ]; then
         if [[ -n "${SERVICES[$service_name]}" ]]; then
             echo
@@ -169,7 +169,7 @@ show_status() {
 # Show service logs
 show_logs() {
     local service_name=$1
-    
+
     if [ -z "$service_name" ]; then
         print_error "Please specify a service name for logs"
         echo "Available services:"
@@ -178,7 +178,7 @@ show_logs() {
         done
         return 1
     fi
-    
+
     if [[ -n "${SERVICES[$service_name]}" ]]; then
         print_header "Logs for $service_name (${SERVICES[$service_name]})"
         echo "Press Ctrl+C to exit logs"
@@ -194,7 +194,7 @@ show_logs() {
 enable_services() {
     local service_name=$1
     print_header "Enabling Enhanced Services..."
-    
+
     if [ -n "$service_name" ]; then
         if [[ -n "${SERVICES[$service_name]}" ]]; then
             print_status "Enabling $service_name..."
@@ -217,7 +217,7 @@ enable_services() {
 disable_services() {
     local service_name=$1
     print_header "Disabling Enhanced Services..."
-    
+
     if [ -n "$service_name" ]; then
         if [[ -n "${SERVICES[$service_name]}" ]]; then
             print_status "Disabling $service_name..."

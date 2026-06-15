@@ -50,10 +50,10 @@ echo "Transaction hash: $TX_HASH"
 echo "4. Monitoring transaction confirmation..."
 for i in {1..10}; do
   sleep 2
-  
+
   # Check balance using CLI
   BALANCE=$(ssh aitbc "python /opt/aitbc/cli/aitbc_cli.py balance --name aitbc-user --format json | jq -r '.balance'")
-  
+
   if [ "$BALANCE" -gt "0" ]; then
     echo "✅ Transaction mined! Balance: $BALANCE AIT"
     break

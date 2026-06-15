@@ -215,7 +215,7 @@ groups:
           severity: critical
         annotations:
           summary: "Service {{ $labels.instance }} is down"
-          
+
       - alert: BlockProcessingTooSlow
         expr: histogram_quantile(0.95, block_processing_duration_seconds) > 1
         for: 5m
@@ -223,7 +223,7 @@ groups:
           severity: critical
         annotations:
           summary: "Block processing time exceeds 1s (p95)"
-          
+
       - alert: JobProcessingTooSlow
         expr: histogram_quantile(0.95, job_processing_duration_seconds) > 5
         for: 5m
@@ -245,7 +245,7 @@ groups:
           severity: warning
         annotations:
           summary: "Job queue backlog exceeds 100 jobs"
-          
+
       - alert: HighFailureRate
         expr: rate(jobs_failed_total[5m]) / rate(jobs_total[5m]) > 0.05
         for: 5m

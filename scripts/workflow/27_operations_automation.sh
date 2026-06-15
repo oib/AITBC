@@ -49,31 +49,31 @@ send_alert() {
 check_system_health() {
     echo "🏥 SYSTEM HEALTH CHECK"
     echo "===================="
-    
+
     # CPU usage
     local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
     echo "CPU Usage: ${cpu_usage}%"
-    
+
     if (( $(echo "$cpu_usage > $ALERT_THRESHOLD_CPU" | bc -l) )); then
         send_alert "High CPU usage: ${cpu_usage}%"
     fi
-    
+
     # Memory usage
     local mem_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
     echo "Memory Usage: ${mem_usage}%"
-    
+
     if (( $(echo "$mem_usage > $ALERT_THRESHOLD_MEM" | bc -l) )); then
         send_alert "High memory usage: ${mem_usage}%"
     fi
-    
+
     # Disk usage
     local disk_usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
     echo "Disk Usage: ${disk_usage}%"
-    
+
     if [ "$disk_usage" -gt "$ALERT_THRESHOLD_DISK" ]; then
         send_alert "High disk usage: ${disk_usage}%"
     fi
-    
+
     log_ops "Health check: CPU=${cpu_usage}%, MEM=${mem_usage}%, DISK=${disk_usage}%"
 }
 
@@ -82,7 +82,7 @@ check_blockchain_health() {
     echo ""
     echo "⛓️ BLOCKCHAIN HEALTH CHECK"
     echo "========================"
-    
+
     # Check local node
     if curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1; then
         local height=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
@@ -93,13 +93,13 @@ check_blockchain_health() {
         send_alert "Local blockchain node not responding"
         return 1
     fi
-    
+
     # Check remote node
     if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/info' >/dev/null 2>&1; then
         local remote_height=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
         echo "Remote node: Height=$remote_height"
         log_ops "Remote blockchain: height=$remote_height"
-        
+
         # Check sync difference
         local sync_diff=$((height - remote_height))
         if [ "$sync_diff" -gt 100 ]; then
@@ -111,7 +111,7 @@ check_blockchain_health() {
         send_alert "Remote blockchain node not responding"
         return 1
     fi
-    
+
     # Check services
     echo ""
     echo "Service Status:"
@@ -123,7 +123,7 @@ check_gpu_health() {
     echo ""
     echo "🖥️ GPU HEALTH CHECK"
     echo "=================="
-    
+
     if ssh aitbc "command -v nvidia-smi" >/dev/null 2>&1; then
         local gpu_info=$(ssh aitbc "nvidia-smi --query-gpu=name,utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits")
         local gpu_name=$(echo "$gpu_info" | cut -d',' -f1)
@@ -131,21 +131,21 @@ check_gpu_health() {
         local gpu_temp=$(echo "$gpu_info" | cut -d',' -f3)
         local mem_used=$(echo "$gpu_info" | cut -d',' -f4)
         local mem_total=$(echo "$gpu_info" | cut -d',' -f5)
-        
+
         echo "GPU: $gpu_name"
         echo "Utilization: ${gpu_util}%"
         echo "Temperature: ${gpu_temp}°C"
         echo "Memory: ${mem_used}MB/${mem_total}MB"
-        
+
         # GPU alerts
         if [ "$gpu_temp" -gt 80 ]; then
             send_alert "High GPU temperature: ${gpu_temp}°C"
         fi
-        
+
         if [ "$gpu_util" -gt 90 ]; then
             send_alert "High GPU utilization: ${gpu_util}%"
         fi
-        
+
         log_ops "GPU health: util=${gpu_util}%, temp=${gpu_temp}°C, mem=${mem_used}/${mem_total}MB"
     else
         echo "GPU not available"
@@ -158,15 +158,15 @@ check_marketplace_activity() {
     echo ""
     echo "🛒 MARKETPLACE ACTIVITY CHECK"
     echo "==========================="
-    
+
     if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings' >/dev/null 2>&1; then
         local listings=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total')
         echo "Active listings: $listings"
-        
+
         # Check AI activity
         local ai_stats=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats 2>/dev/null || echo "{}"')
         echo "AI service status: Available"
-        
+
         log_ops "Marketplace: listings=$listings"
     else
         echo "Marketplace not available"
@@ -179,25 +179,25 @@ perform_maintenance() {
     echo ""
     echo "🔧 ROUTINE MAINTENANCE"
     echo "===================="
-    
+
     echo "Performing system cleanup..."
     log_ops "Starting routine maintenance"
-    
+
     # Clean old logs
     find /var/log/aitbc -name "*.log" -mtime +7 -delete 2>/dev/null || true
     echo "Cleaned old log files"
-    
+
     # Optimize database
     if [ -f "/var/lib/aitbc/data/ait-mainnet/chain.db" ]; then
         sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db "VACUUM;" 2>/dev/null || true
         echo "Optimized blockchain database"
     fi
-    
+
     if [ -f "/var/lib/aitbc/data/mempool.db" ]; then
         sqlite3 /var/lib/aitbc/data/mempool.db "VACUUM;" 2>/dev/null || true
         echo "Optimized mempool database"
     fi
-    
+
     # Check disk space
     local disk_usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
     if [ "$disk_usage" -gt 80 ]; then
@@ -205,7 +205,7 @@ perform_maintenance() {
         find /tmp -mtime +1 -delete 2>/dev/null || true
         find /var/tmp -mtime +1 -delete 2>/dev/null || true
     fi
-    
+
     echo "Maintenance completed"
     log_ops "Routine maintenance completed"
 }
@@ -215,10 +215,10 @@ generate_daily_report() {
     echo ""
     echo "📊 GENERATING DAILY REPORT"
     echo "========================"
-    
+
     local report_file="/opt/aitbc/reports/daily_report_$(date +%Y%m%d).txt"
     mkdir -p "$(dirname "$report_file")"
-    
+
     cat > "$report_file" << EOF
 AITBC Daily Operations Report
 ============================
@@ -260,15 +260,15 @@ EOF
     # Add recommendations based on current status
     local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
     local mem_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
-    
+
     if (( $(echo "$cpu_usage > 70" | bc -l) )); then
         echo "- Consider CPU optimization or scaling" >> "$report_file"
     fi
-    
+
     if (( $(echo "$mem_usage > 80" | bc -l) )); then
         echo "- Monitor memory usage, consider optimization" >> "$report_file"
     fi
-    
+
     echo "Report saved to: $report_file"
     log_ops "Daily report generated: $report_file"
 }
@@ -278,12 +278,12 @@ handle_alerts() {
     echo ""
     echo "🚨 ALERT HANDLING"
     echo "==============="
-    
+
     local recent_alerts=$(tail -20 "$LOG_FILE" | grep ALERT | tail -5)
     if [ -n "$recent_alerts" ]; then
         echo "Recent alerts:"
         echo "$recent_alerts"
-        
+
         # Count alerts in last hour
         local alert_count=$(tail -100 "$LOG_FILE" | grep "$(date '+%Y-%m-%d %H:')" | grep ALERT | wc -l)
         if [ "$alert_count" -gt 5 ]; then
@@ -297,7 +297,7 @@ handle_alerts() {
 # Main operations function
 main_operations() {
     local operation_type="$1"
-    
+
     case "$operation_type" in
         "health")
             check_system_health

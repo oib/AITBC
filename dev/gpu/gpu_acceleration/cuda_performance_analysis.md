@@ -124,7 +124,7 @@ __global__ void optimized_field_addition_kernel(
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
-    
+
     // Coalesced access pattern
     for (int i = idx; i < num_elements * 4; i += stride) {
         result[i] = a[i] + b[i];  // Simplified addition
@@ -144,7 +144,7 @@ __global__ void vectorized_field_kernel(
     int num_vectors
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
+
     if (idx < num_vectors) {
         result[idx] = make_uint4(
             a[idx].x + b[idx].x,

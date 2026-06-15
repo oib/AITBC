@@ -79,7 +79,7 @@ Successfully implemented Phase 3 of GPU acceleration for ZK circuits, establishi
 ### GPU-Aware Compiler Performance
 **Test Circuits:**
 - `modular_ml_components.circom`: 21 constraints, 0.06MB memory
-- `ml_training_verification.circom`: 5 constraints, 0.01MB memory  
+- `ml_training_verification.circom`: 5 constraints, 0.01MB memory
 - `ml_inference_verification.circom`: 3 constraints, 0.01MB memory
 
 **Compilation Results:**
@@ -103,7 +103,7 @@ Successfully implemented Phase 3 of GPU acceleration for ZK circuits, establishi
 ### CUDA Toolkit Installation
 **Current Status**: CUDA toolkit not installed on system
 **Required**: CUDA 12.0+ for RTX 4060 Ti support
-**Installation Command**: 
+**Installation Command**:
 ```bash
 # Download and install CUDA 12.0+ from NVIDIA
 # Configure environment variables

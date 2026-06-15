@@ -52,11 +52,11 @@ for capability, count in capability_counts.items():
     if [[ "$agent_info" == AGENTS:ACTIVE:* ]]; then
         total_agents=$(echo "$agent_info" | grep "AGENTS:" | cut -d: -f3)
         active_agents=$(echo "$agent_info" | grep "AGENTS:" | cut -d: -f4)
-        
+
         echo -e "${GREEN}✅ Agent Registry: ACTIVE${NC}"
         echo "   Total Agents: $total_agents"
         echo "   Active Agents: $active_agents"
-        
+
         # Show capabilities
         echo "   Capabilities:"
         echo "$agent_info" | grep "CAPABILITY:" | while read line; do
@@ -105,13 +105,13 @@ print(f'BUDGET:{total_budget}')
         active_jobs=$(echo "$job_info" | grep "JOBS:" | cut -d: -f4)
         completed_jobs=$(echo "$job_info" | grep "JOBS:" | cut -d: -f5)
         total_budget=$(echo "$job_info" | grep "BUDGET:" | cut -d: -f2)
-        
+
         echo -e "${GREEN}✅ Job Marketplace: ACTIVE${NC}"
         echo "   Total Jobs: $total_jobs"
         echo "   Active Jobs: $active_jobs"
         echo "   Completed Jobs: $completed_jobs"
         echo "   Total Budget: ${total_budget:.2f} AITBC"
-        
+
         # Show categories
         echo "   Categories:"
         echo "$job_info" | grep "CATEGORY:" | while read line; do
@@ -152,7 +152,7 @@ print(f'VALUE_LOCKED:{economics[\"network_metrics\"][\"total_value_locked\"]}')
         treasury=$(echo "$economic_info" | grep "TREASURY:" | cut -d: -f2)
         transactions=$(echo "$economic_info" | grep "TRANSACTIONS:" | cut -d: -f2)
         value_locked=$(echo "$economic_info" | grep "VALUE_LOCKED:" | cut -d: -f2)
-        
+
         echo -e "${GREEN}✅ Economic System: ACTIVE${NC}"
         echo "   Total Supply: $total_supply AITBC"
         echo "   Reward Pool: $reward_pool AITBC"
@@ -225,7 +225,7 @@ print(f'CONSENSUS:ACTIVE:{len(poa.validators)}:{total_stake}')
 if [[ "$consensus_status" == CONSENSUS:ACTIVE:* ]]; then
     validator_count=$(echo "$consensus_status" | cut -d: -f3)
     total_stake=$(echo "$consensus_status" | cut -d: -f4)
-    
+
     echo -e "${GREEN}✅ Network Consensus: ACTIVE${NC}"
     echo "   Validators: $validator_count"
     echo "   Total Stake: $total_stake AITBC"

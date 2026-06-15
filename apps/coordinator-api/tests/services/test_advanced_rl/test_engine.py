@@ -51,7 +51,7 @@ class TestAdvancedReinforcementLearningEngine:
         action = engine.select_action(agent_id, state)
 
         assert action is not None
-        assert isinstance(action, (int, torch.Tensor))
+        assert isinstance(action, int | torch.Tensor)
 
     @patch("app.services.advanced_rl.engine.Session")
     async def test_proximal_policy_optimization(self, mock_session):

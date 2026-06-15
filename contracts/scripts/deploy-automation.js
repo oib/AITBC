@@ -9,7 +9,7 @@ import fs from "fs";
 
 async function main() {
   console.log("=== AITBC Smart Contract Deployment ===");
-  
+
   const [deployer] = await ethers.getSigners();
   console.log("Deploying with account:", deployer.address);
   console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
@@ -74,14 +74,14 @@ async function main() {
     // Save deployment addresses
     console.log("\n=== Deployment Summary ===");
     console.log(JSON.stringify(deployments, null, 2));
-    
+
     // Write to file (use consistent filename for verification)
     const deploymentFile = `deployments-${network.name}.json`;
     fs.writeFileSync(deploymentFile, JSON.stringify(deployments, null, 2));
     console.log(`Deployment addresses saved to: ${deploymentFile}`);
 
     console.log("\n✅ Deployment completed successfully!");
-    
+
     return deployments;
 
   } catch (error) {

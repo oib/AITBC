@@ -3,13 +3,9 @@ Blockchain test fixtures
 Provides fixtures for testing blockchain node and related components
 """
 
-import sys
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-
-project_root = Path(__file__).parent.parent.parent
 
 
 @pytest.fixture
@@ -18,10 +14,6 @@ def blockchain_client():
     from fastapi.testclient import TestClient
 
     try:
-        blockchain_path = str(project_root / "apps" / "blockchain-node" / "src")
-        if blockchain_path not in sys.path[:1]:
-            sys.path.insert(0, blockchain_path)
-
         from aitbc_chain.node import BlockchainNode
 
         node = BlockchainNode()
@@ -45,10 +37,6 @@ def wallet_client():
     from fastapi.testclient import TestClient
 
     try:
-        wallet_path = str(project_root / "apps" / "wallet-daemon" / "src")
-        if wallet_path not in sys.path[:1]:
-            sys.path.insert(0, wallet_path)
-
         from app.main import app
 
         return TestClient(app)
@@ -72,10 +60,6 @@ def marketplace_client():
     from fastapi.testclient import TestClient
 
     try:
-        marketplace_path = str(project_root / "apps" / "marketplace" / "src")
-        if marketplace_path not in sys.path[:1]:
-            sys.path.insert(0, marketplace_path)
-
         from app.main import app
 
         return TestClient(app)

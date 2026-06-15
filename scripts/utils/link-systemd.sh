@@ -57,9 +57,9 @@ for file in "$REPO_APPS_DIR"/*/aitbc-*.service "$REPO_APPS_DIR"/*/aitbc-*.timer;
         filename=$(basename "$file")
         target="$ACTIVE_SYSTEMD_DIR/$filename"
         source="$file"
-        
+
         echo "  🔗 Linking: $filename -> $source"
-        
+
         # Create symbolic link
         if ln -sf "$source" "$target" 2>/dev/null; then
             echo "    ✅ Successfully linked: $filename"
@@ -67,17 +67,17 @@ for file in "$REPO_APPS_DIR"/*/aitbc-*.service "$REPO_APPS_DIR"/*/aitbc-*.timer;
             echo "    ❌ Failed to link: $filename"
             ((error_count++))
         fi
-        
+
         # Handle .d directories
         if [[ -d "${file}.d" ]]; then
             target_dir="${target}.d"
             source_dir="${file}.d"
-            
+
             echo "    📁 Linking directory: ${filename}.d -> ${source_dir}"
-            
+
             # Remove existing directory
             rm -rf "$target_dir" 2>/dev/null || true
-            
+
             # Create symbolic link for directory
             if ln -sf "$source_dir" "$target_dir" 2>/dev/null; then
                 echo "    ✅ Successfully linked directory: ${filename}.d"
@@ -86,7 +86,7 @@ for file in "$REPO_APPS_DIR"/*/aitbc-*.service "$REPO_APPS_DIR"/*/aitbc-*.timer;
                 ((error_count++))
             fi
         fi
-        
+
         ((linked_files++))
     fi
 done
@@ -98,9 +98,9 @@ for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.
         filename=$(basename "$file")
         target="$ACTIVE_SYSTEMD_DIR/$filename"
         source="$file"
-        
+
         echo "  🔗 Linking: $filename -> $source"
-        
+
         # Create symbolic link
         if ln -sf "$source" "$target" 2>/dev/null; then
             echo "    ✅ Successfully linked: $filename"
@@ -108,17 +108,17 @@ for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.
             echo "    ❌ Failed to link: $filename"
             ((error_count++))
         fi
-        
+
         # Handle .d directories
         if [[ -d "${file}.d" ]]; then
             target_dir="${target}.d"
             source_dir="${file}.d"
-            
+
             echo "    📁 Linking directory: ${filename}.d -> ${source_dir}"
-            
+
             # Remove existing directory
             rm -rf "$target_dir" 2>/dev/null || true
-            
+
             # Create symbolic link for directory
             if ln -sf "$source_dir" "$target_dir" 2>/dev/null; then
                 echo "    ✅ Successfully linked directory: ${filename}.d"
@@ -127,7 +127,7 @@ for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.
                 ((error_count++))
             fi
         fi
-        
+
         ((linked_files++))
     fi
 done

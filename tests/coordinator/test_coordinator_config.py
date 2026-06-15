@@ -5,18 +5,12 @@ Tests for configuration management, settings, and environment-specific configs
 
 import os
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 # Set required environment variable before importing
 os.environ.setdefault("SECRET_KEY", "test_secret_key_for_testing_that_is_at_least_32_characters")
-
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
 
 # Clear any cached 'app' modules from other test suites to avoid import conflicts
 for mod_name in list(sys.modules.keys()):

@@ -1,20 +1,22 @@
-from typing import Annotated
+"""
+hermes Enhanced API Router - Simplified Version
+REST API endpoints for hermes integration features
+"""
 
-"\nhermes Enhanced API Router - Simplified Version\nREST API endpoints for hermes integration features\n"
-from typing import Any  # noqa: E402
+from typing import Annotated, Any
 
-from aitbc import get_logger  # noqa: E402
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+from sqlmodel import Session
+
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
+
+from ....deps import require_admin_key
+from ....storage import get_session
+from ..services.hermes_enhanced_simple import SkillType, hermesEnhancedService
 
 logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-from sqlmodel import Session  # noqa: E402
-
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-from ....deps import require_admin_key  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ..services.hermes_enhanced_simple import SkillType, hermesEnhancedService  # noqa: E402
 
 router = APIRouter(prefix="/hermes/enhanced", tags=["hermes Enhanced"])
 

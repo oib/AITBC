@@ -249,6 +249,12 @@ async def remote_execute_coin_request(
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=int(os.getenv("HERMES_PORT", "8103")))
+    # Standardized environment variable naming: SERVICE_BIND_HOST and SERVICE_BIND_PORT
+    host = os.getenv("HERMES_BIND_HOST", os.getenv("BIND_HOST", "0.0.0.0"))
+    port = int(os.getenv("HERMES_BIND_PORT", os.getenv("HERMES_PORT", "8103")))
+
+    uvicorn.run(app, host=host, port=port)

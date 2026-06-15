@@ -36,61 +36,61 @@ init_progress 7  # 7 main sections + validation (added genesis block initializat
 genesis_block_initialization() {
     print_status "1.0 Genesis Block Initialization"
     log_info "Starting genesis block initialization"
-    
+
     print_status "Blockchain already initialized on Genesis Node (genesis block exists)"
     print_success "Skipping initialization step"
     return 0
-    
+
     print_status "Initializing blockchain on Follower Node..."
     if NODE_URL="http://aitbc1:8202" cli_cmd "blockchain init --force"; then
         print_success "Blockchain initialized on Follower Node"
     else
         print_warning "Blockchain may already be initialized on Follower Node"
     fi
-    
+
     print_status "Verifying RPC connectivity to Genesis Node (port 8202)..."
     if curl -s --max-time 5 http://localhost:8202/health > /dev/null 2>&1; then
         print_success "Genesis Node RPC (port 8202) is accessible"
     else
         print_warning "Genesis Node RPC (port 8202) is not accessible"
     fi
-    
+
     print_status "Verifying RPC connectivity to Follower Node (port 8202 on aitbc1)..."
     if curl -s --max-time 5 http://aitbc1:8202/health > /dev/null 2>&1; then
         print_success "Follower Node RPC (port 8202 on aitbc1) is accessible"
     else
         print_warning "Follower Node RPC (port 8202 on aitbc1) is not accessible"
     fi
-    
+
     print_status "Verifying Follower Node RPC also runs on port 8202..."
     if ssh aitbc1 "curl -s --max-time 5 http://localhost:8202/health" > /dev/null 2>&1; then
         print_success "Follower Node RPC also accessible on port 8202"
     else
         print_warning "Follower Node RPC not accessible on port 8202 (check follower node health)"
     fi
-    
+
     print_status "Funding training wallet from genesis block initial coins..."
     # The genesis block contains actual AIT coins - mine a block to get the reward
     print_status "Starting mining to get genesis block reward..."
     if NODE_URL="http://localhost:8202" cli_cmd "mining start --wallet $WALLET_NAME"; then
         print_success "Mining started for wallet $WALLET_NAME"
         sleep 5  # Wait for mining to produce a block
-        
+
         print_status "Checking mining status..."
         NODE_URL="http://localhost:8202" cli_cmd "mining status --wallet $WALLET_NAME" || print_warning "Mining status check failed"
-        
+
         print_status "Checking mining rewards..."
         NODE_URL="http://localhost:8202" cli_cmd "mining rewards --wallet $WALLET_NAME" || print_warning "Mining rewards check failed"
-        
+
         print_status "Stopping mining after obtaining genesis reward..."
         NODE_URL="http://localhost:8202" cli_cmd "mining stop" || print_warning "Mining stop failed"
     else
         print_warning "Mining start failed - wallet may not have initial funds"
     fi
-    
+
     print_status "Verifying wallet balance after mining genesis block..."
     NODE_URL="http://localhost:8202" cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
-    
+
     update_progress "Genesis Block Initialization"
 }
 
@@ -98,26 +98,26 @@ genesis_block_initialization() {
 basic_system_orientation() {
     print_status "1.1 Basic System Orientation"
     log_info "Starting basic system orientation"
-    
+
     print_status "Getting CLI version (verbose mode)..."
     local version_output
     version_output=$($CLI_PATH --version --verbose 2>/dev/null) || version_output="Unknown"
     print_success "CLI version: $version_output"
     log_info "CLI version: $version_output"
-    
+
     print_status "Displaying CLI help (debug mode)..."
     $CLI_PATH --help --debug 2>/dev/null | head -20 || print_warning "CLI help command not available"
     log_info "CLI help displayed"
-    
+
     print_status "Checking system status (verbose mode)..."
     cli_cmd "system --status --verbose" || print_warning "System status command not available"
-    
+
     print_status "Getting node information (output json)..."
     cli_cmd "node --info --output json" || print_warning "Node info command not available"
-    
+
     print_status "Listing nodes (format table)..."
     cli_cmd "node --list --format table" || print_warning "Node list command not available"
-    
+
     update_progress "Basic System Orientation"
 }
 
@@ -125,7 +125,7 @@ basic_system_orientation() {
 basic_wallet_operations() {
     print_status "1.2 Basic Wallet Operations"
     log_info "Starting basic wallet operations"
-    
+
     print_status "Creating training wallet (non-interactive)..."
     if ! check_wallet "$WALLET_NAME"; then
         if cli_cmd "wallet create --name $WALLET_NAME --password $WALLET_PASSWORD --yes --no-confirm"; then
@@ -136,16 +136,16 @@ basic_wallet_operations() {
     else
         print_success "Training wallet $WALLET_NAME already exists"
     fi
-    
+
     print_status "Listing all wallets (output json)..."
     cli_cmd_output "wallet list --output json" || print_warning "Wallet list command not available"
-    
+
     print_status "Checking wallet balance (verbose mode)..."
     cli_cmd "wallet balance --name $WALLET_NAME --verbose" || print_warning "Balance check failed"
-    
+
     print_status "Checking all wallet balances (format table)..."
     cli_cmd "wallet balance --all --format table" || print_warning "All wallet balances command not available"
-    
+
     update_progress "Basic Wallet Operations"
 }
 
@@ -153,7 +153,7 @@ basic_wallet_operations() {
 basic_transaction_operations() {
     print_status "1.3 Basic Transaction Operations"
     log_info "Starting basic transaction operations"
-    
+
     # Get wallet address for self-transfer test
     local wallet_address
     local wallet_balance
@@ -161,7 +161,7 @@ basic_transaction_operations() {
     balance_output=$(cli_cmd_output "wallet balance --name $WALLET_NAME --output json")
     wallet_address=$(echo "$balance_output" | grep -oP '(?<="address":")[^"]*' || echo "")
     wallet_balance=$(echo "$balance_output" | grep -oP '(?<="balance":)[0-9]+' || echo "0")
-    
+
     if [[ -n "$wallet_address" && "${wallet_balance:-0}" -gt 0 ]]; then
         print_status "Sending test transaction (self-transfer, non-interactive)..."
         if cli_cmd "wallet send --from $WALLET_NAME --to $wallet_address --amount 0 --password $WALLET_PASSWORD --yes --no-confirm"; then
@@ -171,7 +171,7 @@ basic_transaction_operations() {
         fi
     elif [[ -n "$wallet_address" ]]; then
         print_status "Wallet has no on-chain balance - funding from genesis wallet..."
-        
+
         # Get genesis wallet info
         local genesis_output
         local genesis_address
@@ -179,7 +179,7 @@ basic_transaction_operations() {
         genesis_output=$(cli_cmd_output "wallet balance --name genesis --output json")
         genesis_address=$(echo "$genesis_output" | grep -oP '(?<="address":")[^"]*' || echo "")
         genesis_balance=$(echo "$genesis_output" | grep -oP '(?<="balance":)[0-9]+' || echo "0")
-        
+
         if [[ -n "$genesis_address" && "${genesis_balance:-0}" -gt 0 ]]; then
             print_status "Sending 100 AIT from genesis wallet to training wallet (non-interactive)..."
             local genesis_password
@@ -187,11 +187,11 @@ basic_transaction_operations() {
             if cli_cmd "wallet send --from genesis --to $wallet_address --amount 100 --password $genesis_password --yes --no-confirm"; then
                 print_success "Funding transaction sent successfully"
                 sleep 2  # Wait for transaction to be processed
-                
+
                 # Re-check training wallet balance
                 balance_output=$(cli_cmd_output "wallet balance --name $WALLET_NAME --output json")
                 wallet_balance=$(echo "$balance_output" | grep -oP '(?<="balance":)[0-9]+' || echo "0")
-                
+
                 if [[ "${wallet_balance:-0}" -gt 0 ]]; then
                     print_status "Training wallet now funded (Balance: ${wallet_balance} AIT)"
                     print_status "Sending test transaction (self-transfer, non-interactive)..."
@@ -212,10 +212,10 @@ basic_transaction_operations() {
     else
         print_warning "Could not get wallet address for transaction test"
     fi
-    
+
     print_status "Checking transaction history (limit 10, output json)..."
     cli_cmd "wallet transactions --name $WALLET_NAME --limit 10 --output json" || print_warning "Transaction history command failed"
-    
+
     update_progress "Basic Transaction Operations"
 }
 
@@ -223,36 +223,36 @@ basic_transaction_operations() {
 service_health_monitoring() {
     print_status "1.4 Service Health Monitoring"
     log_info "Starting service health monitoring"
-    
+
     print_status "Checking all service statuses (verbose mode)..."
     cli_cmd "service status --verbose" || print_warning "Service status command not available"
-    
+
     print_status "Checking service health (debug mode, output json)..."
     cli_cmd "service health --debug --output json" || print_warning "Service health command not available"
-    
+
     print_status "Checking specific service health endpoints..."
     print_status "Coordinator API (8203) /health/live..."
     curl -s http://localhost:8203/health/live | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API health check failed"
-    
+
     print_status "Coordinator API (8203) /v1/health..."
     curl -s http://localhost:8203/v1/health | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API v1 health check failed"
-    
+
     print_status "Agent Coordinator (9001) /health..."
     curl -s http://localhost:9001/health | python3 -m json.tool 2>/dev/null || print_warning "Agent Coordinator health check failed"
-    
+
     print_status "Exchange API (8001) /health..."
     curl -s http://localhost:8001/health | python3 -m json.tool 2>/dev/null || print_warning "Exchange API health check failed"
-    
+
     print_status "Checking network status (format table)..."
     cli_cmd "network status --format table" || print_warning "Network status command not available"
-    
+
     print_status "Checking network peers (verbose mode)..."
     cli_cmd "network peers --verbose" || print_warning "Network peers command not available"
-    
+
     print_status "Testing node connectivity..."
     test_node_connectivity "$GENESIS_NODE" "Genesis Node"
     test_node_connectivity "$FOLLOWER_NODE" "Follower Node"
-    
+
     update_progress "Service Health Monitoring"
 }
 
@@ -260,16 +260,16 @@ service_health_monitoring() {
 node_specific_operations() {
     print_status "Node-Specific Operations"
     log_info "Testing node-specific operations"
-    
+
     print_status "Testing Genesis Node operations..."
     cli_cmd_node "$GENESIS_NODE" "wallet balance $WALLET_NAME" || print_warning "Genesis node operations failed"
-    
+
     print_status "Testing Follower Node operations..."
     cli_cmd_node "$FOLLOWER_NODE" "wallet balance $WALLET_NAME" || print_warning "Follower node operations failed"
-    
+
     print_status "Comparing nodes..."
     compare_nodes "wallet balance $WALLET_NAME" "wallet balance"
-    
+
     update_progress "Node-Specific Operations"
 }
 
@@ -277,7 +277,7 @@ node_specific_operations() {
 validation_quiz() {
     print_status "Stage 1 Validation Quiz"
     log_info "Starting validation quiz"
-    
+
     echo
     echo -e "${BOLD}${BLUE}Stage 1 Validation Questions:${NC}"
     echo "1. What command shows the AITBC CLI version?"
@@ -295,7 +295,7 @@ validation_quiz() {
     echo "5. How do you check service health?"
     echo "   Answer: ./aitbc-cli service --status or ./aitbc-cli service --health"
     echo
-    
+
     update_progress "Validation Quiz"
 }
 
@@ -303,10 +303,10 @@ validation_quiz() {
 main() {
     print_header "hermes AITBC Training - $TRAINING_STAGE"
     log_info "Starting $TRAINING_STAGE"
-    
+
     # Check prerequisites with full validation (continues despite warnings)
     check_prerequisites_full
-    
+
     # Execute training sections (continue even if individual sections fail)
     genesis_block_initialization || true
     basic_system_orientation || true
@@ -315,26 +315,26 @@ main() {
     service_health_monitoring || true
     node_specific_operations || true
     validation_quiz || true
-    
+
     # Final validation (more lenient)
     if validate_stage "$TRAINING_STAGE" "$CURRENT_LOG" 70; then
         print_header "$TRAINING_STAGE COMPLETED SUCCESSFULLY"
         log_success "$TRAINING_STAGE completed with validation"
-        
+
         # Output learnings for skill update
         output_stage_learnings 1 "Foundation" \
             "./aitbc-cli --version|./aitbc-cli wallet create <wallet> <password>|./aitbc-cli wallet balance <wallet>|./aitbc-cli wallet send <from> <to> <amount> <password>|./aitbc-cli service --status|./aitbc-cli service --health" \
             "fund_accounts.sh --force flag not supported|Use genesis password from /var/lib/aitbc/keystore/.genesis_password|Genesis wallet: ait175406af70445617b0cd7eb8ff384d81b15c26b45" \
             "/var/lib/aitbc/keystore/.genesis_password|/opt/aitbc/scripts/training/.training_state/certificates|/opt/aitbc/scripts/training/.training_progress" \
             "Wallet creation|Transaction sending|Balance checking|Service health monitoring"
-        
+
         echo
         echo -e "${GREEN}Next Steps:${NC}"
         echo "1. Review the log file: $CURRENT_LOG"
         echo "2. Practice the commands learned"
         echo "3. Run: ./stage2_intermediate.sh"
         echo
-        
+
         exit 0
     else
         print_warning "$TRAINING_STAGE validation below threshold, but continuing"

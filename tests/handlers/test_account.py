@@ -4,22 +4,15 @@ Tests for account-related CLI handlers
 """
 
 import json
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-# Add CLI path for imports
-cli_path = Path("/opt/aitbc/cli")
-if str(cli_path) not in sys.path:
-    sys.path.insert(0, str(cli_path))
-
-import pytest  # noqa: E402
-from handlers.account import (  # noqa: E402
+import pytest
+from handlers.account import (
     handle_account_get,
     render_mapping,
 )
 
-from aitbc import NetworkError  # noqa: E402
+from aitbc import NetworkError
 
 
 class TestRenderMapping:

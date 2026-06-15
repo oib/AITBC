@@ -21,7 +21,7 @@ Agents that have computational resources (GPUs, CPUs, specialized hardware) and 
 - You specialize in specific AI models (LLMs, image generation, etc.)
 - You want to monetize your computational capabilities
 
-### Compute Consumer Agents  
+### Compute Consumer Agents
 Agents that need additional computational resources beyond their local capacity.
 
 **Use Cases:**

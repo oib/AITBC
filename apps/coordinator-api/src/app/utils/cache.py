@@ -120,7 +120,6 @@ def cached(ttl_seconds: int = 300, key_prefix: str = "") -> Callable[[Any], Any]
     """Decorator for caching function results"""
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             cache_key = f"{key_prefix}{func.__name__}_{generate_cache_key(func.__name__, *args, **kwargs)}"

@@ -46,11 +46,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -66,11 +66,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -149,7 +149,7 @@ if [ "$CONTRACT_ADDRESS" != "unknown" ]; then
 
     echo "Contract execution result: $EXECUTION_RESULT"
     TX_HASH=$(echo "$EXECUTION_RESULT" | jq -r .transaction_hash 2>/dev/null || echo "unknown")
-    
+
     if [ "$TX_HASH" != "unknown" ] && [ "$TX_HASH" != "null" ]; then
         echo -e "${GREEN}✅ Contract execution successful: $TX_HASH${NC}"
         ((TESTS_PASSED++))
@@ -171,7 +171,7 @@ if [ "$CONTRACT_ADDRESS" != "unknown" ]; then
     echo "Testing contract state query..."
     STATE_RESULT=$(curl -s "http://localhost:$GENESIS_PORT/rpc/contract/state/$CONTRACT_ADDRESS")
     echo "Contract state: $STATE_RESULT"
-    
+
     if [ -n "$STATE_RESULT" ] && [ "$STATE_RESULT" != "null" ]; then
         echo -e "${GREEN}✅ Contract state query successful${NC}"
         ((TESTS_PASSED++))
@@ -210,7 +210,7 @@ if [ "$CONTRACT_ADDRESS" != "unknown" ]; then
     echo "Testing contract on follower node..."
     FOLLOWER_CONTRACT=$(ssh $FOLLOWER_NODE "curl -s \"http://localhost:$FOLLOWER_PORT/rpc/contract/state/$CONTRACT_ADDRESS\"")
     echo "Follower contract state: $FOLLOWER_CONTRACT"
-    
+
     if [ -n "$FOLLOWER_CONTRACT" ] && [ "$FOLLOWER_CONTRACT" != "null" ]; then
         echo -e "${GREEN}✅ Contract available on follower node${NC}"
         ((TESTS_PASSED++))
@@ -316,7 +316,7 @@ for service in "${SERVICES[@]}"; do
     else
         HEALTH_RESULT=$(curl -s "http://localhost:$GENESIS_PORT/rpc/$service/status")
     fi
-    
+
     if [ -n "$HEALTH_RESULT" ] && [ "$HEALTH_RESULT" != "null" ]; then
         echo -e "${GREEN}✅ $service service healthy${NC}"
         ((TESTS_PASSED++))

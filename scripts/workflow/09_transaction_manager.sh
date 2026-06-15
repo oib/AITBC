@@ -82,19 +82,19 @@ TX_HASH=$(echo "$TX_RESULT" | jq -r '.hash // .transaction_hash // empty')
 if [ -n "$TX_HASH" ] && [ "$TX_HASH" != "null" ]; then
   echo "✅ Transaction sent successfully!"
   echo "Transaction hash: $TX_HASH"
-  
+
   # Wait for transaction to be mined
   echo "6. Waiting for transaction to be mined..."
   for i in {1..20}; do
     sleep 2
     NEW_BALANCE=$(curl -s "http://localhost:8202/rpc/accounts/$TARGET_ADDR" | jq .balance 2>/dev/null || echo "0")
     echo "Check $i/20: Target balance = $NEW_BALANCE AIT"
-    
+
     # Handle null balance
     if [ "$NEW_BALANCE" = "null" ] || [ "$NEW_BALANCE" = "" ]; then
       NEW_BALANCE=0
     fi
-    
+
     if [ "$NEW_BALANCE" -gt "$TARGET_BALANCE" ]; then
       echo "✅ Transaction mined successfully!"
       echo "New balance: $NEW_BALANCE AIT"
@@ -104,7 +104,7 @@ if [ -n "$TX_HASH" ] && [ "$TX_HASH" != "null" ]; then
 else
   echo "❌ Transaction failed"
   echo "Error: $TX_RESULT"
-  
+
   # Try alternative method using CLI
   echo "7. Trying alternative CLI method..."
   PASSWORD=$(cat $PASSWORD_FILE)

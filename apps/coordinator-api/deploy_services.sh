@@ -54,18 +54,18 @@ print_status "Installing systemd services..."
 
 for service_info in "${SERVICES[@]}"; do
     IFS=':' read -r service_name port description <<< "$service_info"
-    
+
     print_status "Installing $service_name ($description)..."
-    
+
     # Copy service file
     $SUDO cp "/home/oib/aitbc/apps/coordinator-api/systemd/${service_name}.service" "/etc/systemd/system/"
-    
+
     # Reload systemd
     $SUDO systemctl daemon-reload
-    
+
     # Enable service
     $SUDO systemctl enable "$service_name"
-    
+
     print_status "✅ $service_name installed and enabled"
 done
 
@@ -98,9 +98,9 @@ print_status "Starting enhanced services..."
 
 for service_info in "${SERVICES[@]}"; do
     IFS=':' read -r service_name port description <<< "$service_info"
-    
+
     print_status "Starting $service_name..."
-    
+
     if $SUDO systemctl start "$service_name"; then
         print_status "✅ $service_name started successfully"
     else
@@ -116,10 +116,10 @@ print_status "Checking service status..."
 
 for service_info in "${SERVICES[@]}"; do
     IFS=':' read -r service_name port description <<< "$service_info"
-    
+
     if $SUDO systemctl is-active --quiet "$service_name"; then
         print_status "✅ $service_name is running"
-        
+
         # Test health endpoint
         if curl -s "http://127.0.0.1:$port/health" > /dev/null; then
             print_status "✅ $service_name health check passed"
@@ -128,7 +128,7 @@ for service_info in "${SERVICES[@]}"; do
         fi
     else
         print_error "❌ $service_name is not running"
-        
+
         # Show logs for failed service
         echo "=== Logs for $service_name ==="
         $SUDO journalctl -u "$service_name" --no-pager -l | tail -10
@@ -156,12 +156,12 @@ SERVICES=(
 
 for service_info in "${SERVICES[@]}"; do
     IFS=':' read -r service_name port <<< "$service_info"
-    
+
     echo -n "$service_name: "
-    
+
     if systemctl is-active --quiet "$service_name"; then
         echo -n "✅ RUNNING"
-        
+
         if curl -s "http://127.0.0.1:$port/health" > /dev/null 2>&1; then
             echo " (Healthy)"
         else

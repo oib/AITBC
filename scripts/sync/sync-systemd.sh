@@ -43,13 +43,13 @@ for file in "$REPO_SYSTEMD_DIR"/aitbc-*; do
     if [[ -f "$file" ]]; then
         filename=$(basename "$file")
         target="$ACTIVE_SYSTEMD_DIR/$filename"
-        
+
         echo "  📄 Syncing: $filename"
-        
+
         # Copy file with proper permissions
         cp "$file" "$target"
         chmod 644 "$target"
-        
+
         # Handle .d directories
         if [[ -d "${file}.d" ]]; then
             target_dir="${target}.d"

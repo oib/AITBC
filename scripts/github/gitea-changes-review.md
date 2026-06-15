@@ -36,7 +36,7 @@
   - Environment and dependency tracking
 
 ### 4. **Security Enhancements**
-- **apps/coordinator-api/src/app/services/secure_pickle.py**: 
+- **apps/coordinator-api/src/app/services/secure_pickle.py**:
   - Prevents arbitrary code execution
   - Safe class whitelisting
   - Trusted origin validation

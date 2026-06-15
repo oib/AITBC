@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from .discovery import NodeStatus, P2PDiscovery
+from .health import PeerHealthMonitor
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,10 +30,6 @@ def log_warn(msg: str) -> None:
 
 def log_debug(msg: str) -> None:
     logger.debug(msg)
-
-
-from .discovery import NodeStatus, P2PDiscovery  # noqa: E402
-from .health import PeerHealthMonitor  # noqa: E402
 
 
 class PartitionState(Enum):

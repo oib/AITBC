@@ -4,21 +4,12 @@ Provides shared fixtures used across multiple test domains
 """
 
 import os
-import sys
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
-# Configure Python path for test discovery
-project_root = Path(__file__).parent.parent.parent
-
-# Minimal sys.path setup - only essential paths
-sys.path.insert(0, str(project_root))
-
-# Import aitbc utilities
-from aitbc.constants import DATA_DIR, LOG_DIR  # noqa: E402
-from aitbc.testing import MockCache, MockDatabase, MockFactory, TestDataGenerator  # noqa: E402
+from aitbc.constants import DATA_DIR, LOG_DIR
+from aitbc.testing import MockCache, MockDatabase, MockFactory, TestDataGenerator
 
 
 @pytest.fixture(autouse=True)

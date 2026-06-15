@@ -62,7 +62,7 @@ echo "6. Updating environment configuration on aitbc1 via hermes FollowerAgent..
 hermes execute --agent FollowerAgent --task update_follower_config --node aitbc1 || {
     echo "⚠️ hermes config update failed - using SSH method"
     ssh aitbc1 'cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc1.backup 2>/dev/null || true'
-    
+
     # Update .env for aitbc1 follower configuration
     # Note: Don't overwrite auto-generated proposer_id or p2p_node_id - they must remain unique for P2P networking
     ssh aitbc1 'set_env() {
@@ -151,12 +151,12 @@ hermes execute --agent FollowerAgent --task monitor_sync --node aitbc1 || {
     for i in {1..60}; do
         FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo 0')
         GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo 0)
-        
+
         if [ "$FOLLOWER_HEIGHT" -ge "$GENESIS_HEIGHT" ]; then
             echo "✅ Sync completed! Follower height: $FOLLOWER_HEIGHT, Genesis height: $GENESIS_HEIGHT"
             break
         fi
-        
+
         echo "⏳ Sync progress: Follower $FOLLOWER_HEIGHT / Genesis $GENESIS_HEIGHT ($i/60)"
         sleep 5
     done
@@ -169,10 +169,10 @@ hermes execute --agent FollowerAgent --task verify_sync --node aitbc1 || {
     # Verify sync status
     FOLLOWER_HEAD=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head')
     GENESIS_HEAD=$(curl -s http://localhost:8202/rpc/head)
-    
+
     echo "=== Follower Node Status ==="
     echo "$FOLLOWER_HEAD" | jq .
-    
+
     echo "=== Genesis Node Status ==="
     echo "$GENESIS_HEAD" | jq .
 }

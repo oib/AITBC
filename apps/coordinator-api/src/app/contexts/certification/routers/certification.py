@@ -1,19 +1,21 @@
+"""
+Certification and Partnership API Endpoints
+REST API for agent certification, partnership programs, and badge system
+"""
+
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-"\nCertification and Partnership API Endpoints\nREST API for agent certification, partnership programs, and badge system\n"
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-logger = get_logger(__name__)
-from ....domain.certification import (  # noqa: E402
+from ....domain.certification import (
     AchievementBadge,
     AgentBadge,
     AgentCertification,
@@ -27,13 +29,15 @@ from ....domain.certification import (  # noqa: E402
     VerificationRecord,
     VerificationType,
 )
-from ....storage import get_session  # noqa: E402
-from ..services.certification import (  # noqa: E402
+from ....storage import get_session
+from ..services.certification import (
     BadgeSystem,
     CertificationAndPartnershipService,
     CertificationSystem,
     PartnershipManager,
 )
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/certification", tags=["certification"])
 

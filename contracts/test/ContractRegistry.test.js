@@ -31,7 +31,7 @@ describe("ContractRegistry", function () {
   describe("Contract Registration", function () {
     it("Should register a contract", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
-      
+
       const registeredAddress = await contractRegistry.getContract(contractId1);
       expect(registeredAddress).to.equal(user1.address);
     });
@@ -59,7 +59,7 @@ describe("ContractRegistry", function () {
   describe("Contract Retrieval", function () {
     it("Should retrieve registered contract", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
-      
+
       const address = await contractRegistry.getContract(contractId1);
       expect(address).to.equal(user1.address);
     });
@@ -75,7 +75,7 @@ describe("ContractRegistry", function () {
     it("Should deregister a contract", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
       await contractRegistry.deregisterContract(contractId1);
-      
+
       await expect(
         contractRegistry.getContract(contractId1)
       ).to.be.revertedWithCustomError(contractRegistry, "ContractNotFound");
@@ -83,7 +83,7 @@ describe("ContractRegistry", function () {
 
     it("Should emit ContractDeregistered event", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
-      
+
       await expect(
         contractRegistry.deregisterContract(contractId1)
       ).to.emit(contractRegistry, "ContractDeregistered")
@@ -92,7 +92,7 @@ describe("ContractRegistry", function () {
 
     it("Should revert if non-owner tries to deregister", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
-      
+
       await expect(
         contractRegistry.connect(user1).deregisterContract(contractId1)
       ).to.be.revertedWithCustomError(contractRegistry, "NotAuthorized");
@@ -103,14 +103,14 @@ describe("ContractRegistry", function () {
     it("Should register multiple contracts", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
       await contractRegistry.registerContract(contractId2, user2.address);
-      
+
       expect(await contractRegistry.getContract(contractId1)).to.equal(user1.address);
       expect(await contractRegistry.getContract(contractId2)).to.equal(user2.address);
     });
 
     it("Should check if contract is registered", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
-      
+
       expect(await contractRegistry.isRegisteredContract(user1.address)).to.be.true;
       expect(await contractRegistry.isRegisteredContract(user2.address)).to.be.false;
     });
@@ -120,7 +120,7 @@ describe("ContractRegistry", function () {
     it("Should get registry statistics", async function () {
       const stats = await contractRegistry.getRegistryStats();
       expect(stats.totalContracts).to.equal(1); // Registry itself is registered
-      
+
       await contractRegistry.registerContract(contractId1, user1.address);
       const statsAfter = await contractRegistry.getRegistryStats();
       expect(statsAfter.totalContracts).to.equal(2);
@@ -129,7 +129,7 @@ describe("ContractRegistry", function () {
     it("Should list all registered contracts", async function () {
       await contractRegistry.registerContract(contractId1, user1.address);
       await contractRegistry.registerContract(contractId2, user2.address);
-      
+
       const [ids, addresses] = await contractRegistry.listContracts();
       expect(ids.length).to.be.gte(2);
       expect(addresses.length).to.equal(ids.length);

@@ -94,22 +94,22 @@ while [ "$current_start" -le "$end_height" ]; do
     if [ "$current_end" -gt "$end_height" ]; then
         current_end=$end_height
     fi
-    
+
     echo ""
     echo "Processing batch: $current_start to $current_end"
-    
+
     # Get blocks from genesis node
     blocks_json=$(curl -s "http://$GENESIS_NODE:$GENESIS_PORT/rpc/blocks-range?start=$current_start&end=$current_end")
-    
+
     if [ $? -ne 0 ] || [ -z "$blocks_json" ]; then
         echo -e "${RED}❌ Failed to get blocks range${NC}"
         break
     fi
-    
+
     # Process each block in the batch
     batch_imported=0
     batch_failed=0
-    
+
     # Extract blocks and import them
     echo "$blocks_json" | jq -c '.blocks[]' 2>/dev/null | while read -r block; do
         if [ -n "$block" ] && [ "$block" != "null" ]; then
@@ -120,7 +120,7 @@ while [ "$current_start" -le "$end_height" ]; do
             proposer=$(echo "$block" | jq -r .proposer)
             timestamp=$(echo "$block" | jq -r .timestamp)
             tx_count=$(echo "$block" | jq -r .tx_count)
-            
+
             # Create import request
             import_request=$(cat << EOF
 {
@@ -133,10 +133,10 @@ while [ "$current_start" -le "$end_height" ]; do
 }
 EOF
             )
-            
+
             # Import block
             result=$(import_block "$import_request")
-            
+
             if [ "$result" = "true" ]; then
                 echo -e "   ${GREEN}✅${NC} Imported block $block_height"
                 ((batch_imported++))
@@ -146,16 +146,16 @@ EOF
             fi
         fi
     done
-    
+
     # Update counters
     total_imported=$((total_imported + batch_imported))
     total_failed=$((total_failed + batch_failed))
-    
+
     echo "Batch complete: $batch_imported imported, $batch_failed failed"
-    
+
     # Move to next batch
     current_start=$((current_end + 1))
-    
+
     # Brief pause to avoid overwhelming the system
     sleep 1
 done

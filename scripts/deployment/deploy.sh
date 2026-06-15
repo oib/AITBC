@@ -47,7 +47,7 @@ check_prerequisites() {
 # Install system dependencies
 install_dependencies() {
     log "Installing system dependencies..."
-    
+
     if [[ "$ID" == "ubuntu" ]] || [[ "$ID" == "debian" ]]; then
         apt-get update
         apt-get install -y \
@@ -81,14 +81,14 @@ install_dependencies() {
         warning "Unsupported distribution. Please install dependencies manually"
         return 0
     fi
-    
+
     success "System dependencies installed"
 }
 
 # Setup repository
 setup_repository() {
     log "Setting up repository..."
-    
+
     # Create backup of existing deployment
     if [[ -d "$REPO_ROOT" ]]; then
         log "Creating backup of existing deployment..."
@@ -98,7 +98,7 @@ setup_repository() {
         cp -r "$REPO_ROOT" "$BACKUP_PATH" || warning "Backup failed, continuing anyway"
         log "Backup created at: $BACKUP_PATH"
     fi
-    
+
     # Clone or update repository
     if [[ -d "$REPO_ROOT/.git" ]]; then
         log "Updating existing repository..."
@@ -110,19 +110,19 @@ setup_repository() {
         REPO_URL="${REPO_URL:-https://github.com/your-org/aitbc.git}"
         git clone "$REPO_URL" "$REPO_ROOT"
     fi
-    
+
     success "Repository setup completed"
 }
 
 # Create virtual environment
 create_venv() {
     log "Creating Python virtual environment..."
-    
+
     if [[ -d "$VENV_DIR" ]]; then
         log "Virtual environment already exists, recreating..."
         rm -rf "$VENV_DIR"
     fi
-    
+
     python3 -m venv "$VENV_DIR"
     success "Virtual environment created"
 }
@@ -130,13 +130,13 @@ create_venv() {
 # Install Python dependencies
 install_python_dependencies() {
     log "Installing Python dependencies..."
-    
+
     # Activate virtual environment
     source "$VENV_DIR/bin/activate"
-    
+
     # Upgrade pip
     pip install --upgrade pip setuptools wheel
-    
+
     # Install using Poetry
     if [[ -f "$REPO_ROOT/pyproject.toml" ]]; then
         pip install poetry
@@ -145,23 +145,23 @@ install_python_dependencies() {
         warning "pyproject.toml not found, installing basic dependencies"
         pip install fastapi uvicorn sqlmodel alembic pydantic httpx requests
     fi
-    
+
     success "Python dependencies installed"
 }
 
 # Configure environment
 configure_environment() {
     log "Configuring environment variables..."
-    
+
     # Create /etc/aitbc directory
     mkdir -p /etc/aitbc
-    
+
     # Setup node.env if it doesn't exist
     if [[ ! -f /etc/aitbc/node.env ]] && [[ -f "$REPO_ROOT/examples/node.env.example" ]]; then
         cp "$REPO_ROOT/examples/node.env.example" /etc/aitbc/node.env
         warning "Created /etc/aitbc/node.env from template. Please edit with node-specific values"
     fi
-    
+
     # Generate unique node IDs if not set
     if [[ -f /etc/aitbc/node.env ]]; then
         if grep -q "node-<unique-uuid-here>" /etc/aitbc/node.env; then
@@ -172,14 +172,14 @@ configure_environment() {
             log "Generated node IDs with UUID: $UUID"
         fi
     fi
-    
+
     # Setup blockchain.env if it doesn't exist
     if [[ ! -f /etc/aitbc/blockchain.env ]]; then
         if [[ -f "$REPO_ROOT/examples/blockchain.env.example" ]]; then
             # Copy example and strip comments for production use
             grep -v '^#' "$REPO_ROOT/examples/blockchain.env.example" | grep -v '^$' > /etc/aitbc/blockchain.env || true
         fi
-        
+
         # Add defaults if file is empty
         if [[ ! -s /etc/aitbc/blockchain.env ]]; then
             cat > /etc/aitbc/blockchain.env << EOF
@@ -197,18 +197,18 @@ SUBSCRIPTION_ENABLED=true
 EOF
         fi
     fi
-    
+
     # Setup secrets directory
     mkdir -p /run/aitbc/secrets
     touch /run/aitbc/secrets/.env
-    
+
     success "Environment configuration completed"
 }
 
 # Initialize databases
 initialize_databases() {
     log "Initializing databases..."
-    
+
     # Start PostgreSQL if not running
     if systemctl is-active --quiet postgresql || systemctl is-active --quiet postgresql@13-main; then
         log "PostgreSQL is already running"
@@ -216,7 +216,7 @@ initialize_databases() {
         log "Starting PostgreSQL..."
         systemctl start postgresql || systemctl start postgresql@13-main || warning "Failed to start PostgreSQL"
     fi
-    
+
     # Create databases if they don't exist
     if command -v psql &> /dev/null; then
         for db in aitbc aitbc_coordinator aitbc_marketplace; do
@@ -226,7 +226,7 @@ initialize_databases() {
             fi
         done
     fi
-    
+
     # Start Redis if not running
     if systemctl is-active --quiet redis-server || systemctl is-active --quiet redis; then
         log "Redis is already running"
@@ -234,14 +234,14 @@ initialize_databases() {
         log "Starting Redis..."
         systemctl start redis-server || systemctl start redis || warning "Failed to start Redis"
     fi
-    
+
     success "Database initialization completed"
 }
 
 # Setup systemd services
 setup_systemd_services() {
     log "Setting up systemd services..."
-    
+
     # Link systemd service files
     if [[ -f "$REPO_ROOT/scripts/utils/link-systemd.sh" ]]; then
         bash "$REPO_ROOT/scripts/utils/link-systemd.sh"
@@ -264,7 +264,7 @@ setup_systemd_services() {
 
     # Reload systemd
     systemctl daemon-reload
-    
+
     # Enable recovery service to run on boot
     if systemctl list-unit-files | grep -q "aitbc-recovery.service"; then
         log "Enabling aitbc-recovery service for automatic startup on boot..."
@@ -277,14 +277,14 @@ setup_systemd_services() {
     else
         warning "aitbc-recovery.service not found, skipping enable"
     fi
-    
+
     success "Systemd services setup completed"
 }
 
 # Start services in dependency order
 start_services() {
     log "Starting AITBC services..."
-    
+
     # Define service startup order
     SERVICES=(
         "postgresql"
@@ -299,7 +299,7 @@ start_services() {
         "aitbc-agent-coordinator"
         "aitbc-marketplace"
     )
-    
+
     for service in "${SERVICES[@]}"; do
         log "Starting $service..."
         if systemctl list-unit-files | grep -q "^$service.service"; then
@@ -310,18 +310,18 @@ start_services() {
             log "$service not found, skipping"
         fi
     done
-    
+
     success "Services started"
 }
 
 # Run health checks
 run_health_checks() {
     log "Running health checks..."
-    
+
     # Wait for services to be ready
     log "Waiting for services to stabilize..."
     sleep 10
-    
+
     # Check service status
     FAILED_SERVICES=()
     for service in aitbc-blockchain-node aitbc-blockchain-rpc aitbc-coordinator-api; do
@@ -332,18 +332,18 @@ run_health_checks() {
             FAILED_SERVICES+=("$service")
         fi
     done
-    
+
     # Check API endpoints if available
     if command -v curl &> /dev/null; then
         log "Checking API endpoints..."
-        
+
         # Check blockchain RPC
         if curl -sf http://localhost:8006/health > /dev/null 2>&1; then
             success "Blockchain RPC health check passed"
         else
             warning "Blockchain RPC health check failed"
         fi
-        
+
         # Check coordinator API
         if curl -sf http://localhost:8203/health > /dev/null 2>&1; then
             success "Coordinator API health check passed"
@@ -351,40 +351,40 @@ run_health_checks() {
             warning "Coordinator API health check failed"
         fi
     fi
-    
+
     if [[ ${#FAILED_SERVICES[@]} -gt 0 ]]; then
         error "Some services failed to start: ${FAILED_SERVICES[*]}"
     fi
-    
+
     success "Health checks completed"
 }
 
 # Rollback deployment
 rollback_deployment() {
     log "Rolling back deployment..."
-    
+
     # Find latest backup
     LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/backup_* 2>/dev/null | head -1)
-    
+
     if [[ -z "$LATEST_BACKUP" ]]; then
         error "No backup found for rollback"
     fi
-    
+
     log "Restoring from: $LATEST_BACKUP"
-    
+
     # Stop services
     log "Stopping services..."
     for service in aitbc-*; do
         systemctl stop "$service" 2>/dev/null || true
     done
-    
+
     # Restore backup
     rm -rf "$REPO_ROOT"
     cp -r "$LATEST_BACKUP" "$REPO_ROOT"
-    
+
     # Restart services
     start_services
-    
+
     success "Rollback completed"
 }
 
@@ -410,7 +410,7 @@ display_status() {
 # Main deployment function
 main() {
     local COMMAND="${1:-deploy}"
-    
+
     case "$COMMAND" in
         "deploy")
             log "Starting AITBC deployment..."

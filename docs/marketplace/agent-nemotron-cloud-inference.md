@@ -52,7 +52,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
 
 **Expected Results:**
 - ✅ Offer discovery: Returns plugin_id and pricing info
-- ✅ Inference: Returns AI-generated response 
+- ✅ Inference: Returns AI-generated response
 - ✅ Health check: Shows model is available
 
 ## Overview
@@ -99,7 +99,7 @@ Hub Node (Customer)              aitbc3 Node (Provider)
 
 **Service Health Indicators:**
 - 🟢 **Fully Operational** - All features working normally
-- ⚠️ **Partial Service** - Some features limited  
+- ⚠️ **Partial Service** - Some features limited
 - 🔴 **Service Down** - Not available
 
 ## Step 1: Discover Available Offers
@@ -132,7 +132,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
 ```json
 {
   "plugin_id": "ollama-nemotron-3-super-cloud",
-  "service_type": "ollama", 
+  "service_type": "ollama",
   "model": "nemotron-3-super:cloud",
   "price": 0.01,
   "price_unit": "per_1k_tokens",
@@ -225,7 +225,7 @@ aitbc wallet escrow-status $ESCROW_TX
 # Check wallet balance
 aitbc wallet balance
 
-# View transaction history  
+# View transaction history
 aitbc wallet history
 ```
 
@@ -310,21 +310,21 @@ class UsageTracker:
     def __init__(self):
         self.base_url = "https://aitbc3.aitbc.bubuit.net"
         self.usage_log = []
-    
+
     def track_inference(self, prompt, max_tokens=500):
         start_time = time.time()
-        
-        response = requests.post(f"{self.base_url}/ollama/api/generate", 
+
+        response = requests.post(f"{self.base_url}/ollama/api/generate",
                                json={
                                    "model": "nemotron-3-super:cloud",
                                    "prompt": prompt,
                                    "stream": False,
                                    "options": {"num_predict": max_tokens}
                                })
-        
+
         end_time = time.time()
         result = response.json()
-        
+
         usage_data = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "prompt_tokens": result.get("prompt_eval_count", 0),
@@ -333,7 +333,7 @@ class UsageTracker:
             "response_time": end_time - start_time,
             "cost": (result.get("prompt_eval_count", 0) + result.get("eval_count", 0)) * 0.01 / 1000
         }
-        
+
         self.usage_log.append(usage_data)
         return usage_data
 
@@ -363,7 +363,7 @@ class NemotronCloudClient:
             'Content-Type': 'application/json',
             'User-Agent': 'AITBC-Agent/1.0'
         })
-    
+
     def discover_offers(self) -> Dict[str, Any]:
         """Discover available marketplace offers with retry logic"""
         for attempt in range(self.max_retries):
@@ -376,8 +376,8 @@ class NemotronCloudClient:
                     raise Exception(f"Failed to discover offers after {self.max_retries} attempts: {e}")
                 time.sleep(2 ** attempt)  # Exponential backoff
         return {}
-    
-    def run_inference(self, prompt: str, max_tokens: int = 500, 
+
+    def run_inference(self, prompt: str, max_tokens: int = 500,
                      temperature: float = 0.7, stream: bool = False) -> Dict[str, Any]:
         """Run inference with comprehensive error handling"""
         payload = {
@@ -389,7 +389,7 @@ class NemotronCloudClient:
                 "num_predict": max_tokens
             }
         }
-        
+
         for attempt in range(self.max_retries):
             try:
                 response = self.session.post(
@@ -403,7 +403,7 @@ class NemotronCloudClient:
                 if attempt == self.max_retries - 1:
                     raise Exception(f"Inference failed after {self.max_retries} attempts: {e}")
                 time.sleep(2 ** attempt)
-        
+
         return {}
 
 #### Batch Processing Example
@@ -411,15 +411,15 @@ class NemotronCloudClient:
 class BatchProcessor:
     def __init__(self, client: NemotronCloudClient):
         self.client = client
-    
+
     def process_batch(self, prompts: list, max_concurrent: int = 5) -> list:
         """Process multiple prompts concurrently"""
         import concurrent.futures
         import threading
-        
+
         results = []
         results_lock = threading.Lock()
-        
+
         def process_prompt(prompt):
             try:
                 result = self.client.run_inference(prompt, max_tokens=300)
@@ -428,11 +428,11 @@ class BatchProcessor:
             except Exception as e:
                 with results_lock:
                     results.append({"prompt": prompt, "error": str(e), "status": "error"})
-        
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_concurrent) as executor:
             futures = [executor.submit(process_prompt, prompt) for prompt in prompts]
             concurrent.futures.wait(futures)
-        
+
         return results
 
 # Usage example
@@ -459,7 +459,7 @@ for result in results:
 class StreamingClient:
     def __init__(self, client: NemotronCloudClient):
         self.client = client
-    
+
     def stream_inference(self, prompt: str, callback=None):
         """Stream inference responses in real-time"""
         payload = {
@@ -468,7 +468,7 @@ class StreamingClient:
             "stream": True,
             "options": {"temperature": 0.7, "num_predict": 1000}
         }
-        
+
         try:
             response = self.client.session.post(
                 f"{self.client.base_url}/ollama/api/generate",
@@ -477,7 +477,7 @@ class StreamingClient:
                 timeout=60
             )
             response.raise_for_status()
-            
+
             full_response = ""
             for line in response.iter_lines():
                 if line:
@@ -492,9 +492,9 @@ class StreamingClient:
                                 print(text, end='', flush=True)
                     except json.JSONDecodeError:
                         continue
-            
+
             return {"response": full_response, "done": True}
-            
+
         except requests.RequestException as e:
             raise Exception(f"Streaming failed: {e}")
 
@@ -516,12 +516,12 @@ class RobustNemotronClient:
     def __init__(self, base_url="https://aitbc3.aitbc.bubuit.net"):
         self.client = NemotronCloudClient(base_url)
         self.circuit_breaker = CircuitBreaker()
-    
+
     def safe_inference(self, prompt: str, fallback_response: str = "Service temporarily unavailable") -> str:
         """Inference with circuit breaker and fallback"""
         if not self.circuit_breaker.can_request():
             return fallback_response
-        
+
         try:
             result = self.client.run_inference(prompt, max_tokens=500)
             self.circuit_breaker.record_success()
@@ -538,7 +538,7 @@ class CircuitBreaker:
         self.failure_count = 0
         self.last_failure_time = None
         self.state = 'CLOSED'  # CLOSED, OPEN, HALF_OPEN
-    
+
     def can_request(self):
         if self.state == 'CLOSED':
             return True
@@ -549,11 +549,11 @@ class CircuitBreaker:
             return False
         else:  # HALF_OPEN
             return True
-    
+
     def record_success(self):
         self.failure_count = 0
         self.state = 'CLOSED'
-    
+
     def record_failure(self):
         self.failure_count += 1
         self.last_failure_time = time.time()
@@ -575,12 +575,12 @@ class NemotronCloudClient:
     def __init__(self, base_url="https://aitbc3.aitbc.bubuit.net"):
         self.base_url = base_url
         self.offer_id = "sw_offer_20260605110316_a343d309"
-    
+
     def discover_offers(self):
         """Discover available marketplace offers"""
         response = requests.get(f"{self.base_url}/api/v1/marketplace/offer")
         return response.json()
-    
+
     def run_inference(self, prompt, max_tokens=500, temperature=0.7):
         """Run inference with automatic payment"""
         # Method 1: Use CLI (simpler)
@@ -591,7 +591,7 @@ class NemotronCloudClient:
             "--temperature", str(temperature)
         ], capture_output=True, text=True)
         return result.stdout
-    
+
     def direct_api_call(self, prompt):
         """Direct API call (fully working via nginx proxy)"""
         payload = {
@@ -603,7 +603,7 @@ class NemotronCloudClient:
                 "num_predict": 500
             }
         }
-        
+
         response = requests.post(
             f"{self.base_url}/ollama/api/generate",
             json=payload
@@ -631,7 +631,7 @@ class NemotronAgent:
     def __init__(self):
         self.client = AgentClient()
         self.offer_id = "sw_offer_20260605110316_a343d309"
-    
+
     async def handle_message(self, message):
         """Handle incoming message with Nemotron inference"""
         # Use Nemotron for complex reasoning
@@ -644,7 +644,7 @@ class NemotronAgent:
             return response
         else:
             return self.simple_response(message)
-    
+
     def requires_llm_reasoning(self, message):
         """Determine if message requires LLM reasoning"""
         keywords = ["explain", "analyze", "create", "write", "what", "why", "how"]
@@ -660,7 +660,7 @@ class NemotronAgent:
    # Test API Gateway routing (should work via port 443)
    curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
    curl -s https://aitbc3.aitbc.bubuit.net/api/v1/plugin/ | jq '.offers[0].plugin_id'
-   
+
    # If API Gateway not responding, check service status:
    systemctl status aitbc-api-gateway
    systemctl restart aitbc-api-gateway
@@ -677,7 +677,7 @@ class NemotronAgent:
    ```bash
    # Check offer status (via API Gateway)
    curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
-   
+
    # Check local Ollama service (on aitbc3)
    curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
    ```
@@ -687,12 +687,12 @@ class NemotronAgent:
    # Test Ollama endpoint (now works)
    curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags
    # Returns: model list including nemotron-3-super:cloud
-   
+
    # Test inference (now works)
    curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
      -H "Content-Type: application/json" \
      -d '{"model":"nemotron-3-super:cloud","prompt":"test","stream":false}'
-   
+
    # Applied fix on aitbc3 host nginx (HTTP port 80 block):
    # location /ollama/ {
    #     proxy_pass http://127.0.0.1:11434/;
@@ -818,18 +818,18 @@ def validate_prompt(prompt):
     # Remove potentially harmful content
     if len(prompt) > 10000:
         raise ValueError("Prompt too long")
-    
+
     # Basic injection protection
     dangerous_patterns = [
         r'<script.*?>.*?</script>',
         r'javascript:',
         r'data:text/html',
     ]
-    
+
     for pattern in dangerous_patterns:
         if re.search(pattern, prompt, re.IGNORECASE):
             raise ValueError("Invalid content detected")
-    
+
     return prompt.strip()
 ```
 
@@ -843,13 +843,13 @@ class RateLimiter:
         self.max_requests = max_requests
         self.time_window = time_window
         self.requests = deque()
-    
+
     def can_request(self):
         now = time.time()
         # Remove old requests
         while self.requests and self.requests[0] < now - self.time_window:
             self.requests.popleft()
-        
+
         if len(self.requests) < self.max_requests:
             self.requests.append(now)
             return True

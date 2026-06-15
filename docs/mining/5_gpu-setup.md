@@ -34,12 +34,12 @@ gpu:
   type: v100
   count: 1
   cuda_devices: 0
-  
+
 performance:
   max_memory_percent: 90
   max_gpu_temp: 80
   power_limit: 250
-  
+
 jobs:
   max_concurrent: 4
   timeout_grace: 300

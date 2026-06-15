@@ -242,25 +242,25 @@ template ReceiptAttestation() {
     signal input receiptHash;
     signal input settlementAmount;
     signal input timestamp;
-    
+
     // Private inputs
     signal input receipt;
     signal input computationResult;
     signal input pricingRate;
     signal input minerReward;
-    
+
     // Verify receipt signature
     component signatureVerifier = ECDSAVerify();
     // ... signature verification logic
-    
+
     // Verify computation correctness
     component computationChecker = ComputationVerify();
     // ... computation verification logic
-    
+
     // Verify pricing calculation
     component pricingVerifier = PricingVerify();
     // ... pricing verification logic
-    
+
     // Output settlement proof
     settlementAmount <== minerReward + coordinatorFee;
 }
@@ -313,20 +313,20 @@ async def generate_receipt_proof(receipt: Receipt) -> ZKProof:
         "settlementAmount": calculate_settlement(receipt),
         "timestamp": receipt.timestamp
     }
-    
+
     private_inputs = {
         "receipt": receipt,
         "computationResult": receipt.result,
         "pricingRate": receipt.pricing.rate,
         "minerReward": receipt.pricing.miner_reward
     }
-    
+
     # 2. Generate witness
     witness = generate_witness(public_inputs, private_inputs)
-    
+
     # 3. Generate proof
     proof = groth16.prove(witness, proving_key)
-    
+
     return {
         "proof": proof,
         "publicSignals": public_inputs
@@ -346,7 +346,7 @@ contract SettlementVerifier {
     ) public pure returns (bool) {
         return verifyProof(a, b, c, input);
     }
-    
+
     function settleWithProof(
         address recipient,
         uint256 amount,
@@ -559,7 +559,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 
 ### Mitigation Strategies
 
-1. **Multi-party Ceremony**: 
+1. **Multi-party Ceremony**:
    - Minimum 100 participants
    - Geographically distributed
    - Public livestream

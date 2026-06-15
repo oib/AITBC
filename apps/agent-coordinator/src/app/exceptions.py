@@ -9,7 +9,6 @@ logger = get_logger(__name__)
 
 
 def register_exception_handlers(app: Any) -> None:
-
     @app.exception_handler(404)  # type: ignore[untyped-decorator]
     async def not_found_handler(request: Any, exc: Any) -> JSONResponse:
         return JSONResponse(

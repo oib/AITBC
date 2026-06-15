@@ -1,7 +1,7 @@
 # AITBC v0.7.0 Release Notes
 
-**Date**: TBD  
-**Status**: 🚧 Planned  
+**Date**: TBD
+**Status**: 🚧 Planned
 **Scope**: Performance Optimization & Scalability
 
 ## 🎯 Overview
@@ -226,6 +226,6 @@ AITBC v0.7.0 is a major performance-focused release aimed at significantly impro
 
 ---
 
-*Last Updated: 2026-06-02*  
-*Version: 0.7.0*  
+*Last Updated: 2026-06-02*
+*Version: 0.7.0*
 *Status: Planned*

@@ -43,14 +43,14 @@ start_mock_servers() {
     cd "$(dirname "$0")/.."
     python3 tests/mock_blockchain_node.py 8081 > /tmp/mock_node_8081.log 2>&1 &
     local pid1=$!
-    
+
     print_status "Starting mock blockchain node on port 8082..."
     python3 tests/mock_blockchain_node.py 8082 > /tmp/mock_node_8082.log 2>&1 &
     local pid2=$!
-    
+
     # Wait for servers to start
     sleep 2
-    
+
     # Verify servers are running
     if curl -s "http://127.0.0.1:8081/health" >/dev/null 2>&1 && \
        curl -s "http://127.0.0.1:8082/health" >/dev/null 2>&1; then

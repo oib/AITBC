@@ -27,9 +27,9 @@ print_header() {
 # Create minimal working sudoers
 create_clean_sudoers() {
     print_header "Creating Clean Working Sudoers"
-    
+
     sudoers_file="/etc/sudoers.d/aitbc-dev"
-    
+
     cat > "$sudoers_file" << 'EOF'
 # AITBC Development Sudoers Configuration
 # Clean, minimal, working configuration
@@ -84,7 +84,7 @@ oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc1 *
 oib ALL=(aitbc) NOPASSWD: ALL
 
 EOF
-    
+
     chmod 440 "$sudoers_file"
     print_status "Clean sudoers created: $sudoers_file"
 }
@@ -92,7 +92,7 @@ EOF
 # Test configuration
 test_sudoers() {
     print_header "Testing Sudoers"
-    
+
     if visudo -c -f "$sudoers_file"; then
         print_status "✅ Sudoers syntax is valid"
         return 0
@@ -107,14 +107,14 @@ main() {
     print_header "Clean AITBC Sudoers Fix"
     echo "Creating minimal, working sudoers configuration"
     echo ""
-    
+
     if [[ $EUID -ne 0 ]]; then
         print_error "This script must be run as root (use sudo)"
         exit 1
     fi
-    
+
     create_clean_sudoers
-    
+
     if test_sudoers; then
         print_header "Success! 🎉"
         echo ""

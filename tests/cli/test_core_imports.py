@@ -3,16 +3,10 @@ Core Imports Tests
 Tests for core imports module
 """
 
-import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-# Add CLI path for imports
-cli_path = Path("/opt/aitbc/cli")
-if str(cli_path) not in sys.path:
-    sys.path.insert(0, str(cli_path))
-
-import pytest  # noqa: E402
+import pytest
 
 
 class TestEnsureCoordinatorApiImports:

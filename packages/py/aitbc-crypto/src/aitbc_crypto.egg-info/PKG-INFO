@@ -184,7 +184,7 @@ pytest tests/security/
 
 ### Python Version Support
 - **Minimum Version**: Python 3.11+
-- **Recommended**: Python 3.11 or 3.12  
+- **Recommended**: Python 3.11 or 3.12
 - **Security Guarantee**: All cryptographic operations maintain security properties
 - **Performance**: Optimized for Python 3.11+ performance improvements
 

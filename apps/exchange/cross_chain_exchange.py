@@ -9,12 +9,12 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
+from multichain_exchange_api import SUPPORTED_CHAINS, app, get_db_connection
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from multichain_exchange_api import SUPPORTED_CHAINS, app, get_db_connection  # noqa: E402
 
 
 class CrossChainSwapRequest(BaseModel):

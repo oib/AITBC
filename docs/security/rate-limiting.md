@@ -14,13 +14,13 @@ class RateLimiter:
         self.per = per
         self.tokens = defaultdict(lambda: rate)
         self.last_update = defaultdict(time.time)
-    
+
     def allow(self, identifier: str) -> bool:
         now = time.time()
         elapsed = now - self.last_update[identifier]
         self.tokens[identifier] = min(self.rate, self.tokens[identifier] + elapsed * self.rate / self.per)
         self.last_update[identifier] = now
-        
+
         if self.tokens[identifier] >= 1:
             self.tokens[identifier] -= 1
             return True

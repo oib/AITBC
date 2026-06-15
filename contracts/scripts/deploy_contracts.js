@@ -2,7 +2,7 @@ const { ethers } = require("hardhat");
 
 async function main() {
     console.log("=== AITBC Smart Contract Deployment ===");
-    
+
     // Get deployer account
     const [deployer] = await ethers.getSigners();
     console.log("Deploying contracts with the account:", deployer.address);
@@ -81,7 +81,7 @@ async function main() {
 
         // Initialize contracts with cross-references
         console.log("\n7. Initializing contract cross-references...");
-        
+
         // Set payment processor in AI Power Rental
         await aiPowerRental.setPaymentProcessor(paymentProcessor.address);
         console.log("Payment processor set in AIPowerRental");
@@ -100,7 +100,7 @@ async function main() {
 
         // Authorize initial oracles and arbiters
         console.log("\n8. Setting up initial oracles and arbiters...");
-        
+
         // Authorize deployer as price oracle
         await dynamicPricing.authorizePriceOracle(deployer.address);
         console.log("Deployer authorized as price oracle");

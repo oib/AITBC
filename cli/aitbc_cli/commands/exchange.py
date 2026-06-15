@@ -16,6 +16,18 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 logger = get_logger(__name__)
 
 
+def _load_module_from_path(module_name: str, file_path: Path) -> object:
+    """Load a module from a file path using importlib."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module {module_name} from {file_path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod
+
+
 @click.group()
 def exchange():
     """Exchange integration and trading management commands"""
@@ -132,7 +144,9 @@ def create_pair_local(
 @click.option("--quote-liquidity", type=float, default=10000, help="Quote asset liquidity amount")
 @click.option("--exchange", help="Exchange name (if not specified, uses first available)")
 @click.pass_context
-def start_trading_local(ctx, pair: str, price: float | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
+def start_trading_local(
+    ctx, pair: str, price: float | None, base_liquidity: float, quote_liquidity: float, exchange: str | None
+):
     """Start trading for a specific pair (local storage)"""
 
     # Load exchanges
@@ -672,14 +686,13 @@ def connect(ctx, exchange: str, api_key: str, secret: str, sandbox: bool, passph
     """Connect to a real exchange API"""
     try:
         # Import the real exchange integration
-        import sys
-
-        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange")
-        sys.path.append(exchange_path)
-        # Run async connection
         import asyncio
 
-        from real_exchange_integration import connect_to_exchange
+        _exchange_mod = _load_module_from_path(
+            "real_exchange_integration",
+            Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange" / "real_exchange_integration.py",
+        )
+        connect_to_exchange = _exchange_mod.connect_to_exchange
 
         success = asyncio.run(connect_to_exchange(exchange, api_key, secret, sandbox, passphrase))
 
@@ -703,14 +716,13 @@ def status_remote(ctx, exchange: str | None):
     """Check exchange connection status (remote service)"""
     try:
         # Import the real exchange integration
-        import sys
-
-        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange")
-        sys.path.append(exchange_path)
-        # Run async status check
         import asyncio
 
-        from real_exchange_integration import get_exchange_status
+        _exchange_mod = _load_module_from_path(
+            "real_exchange_integration",
+            Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange" / "real_exchange_integration.py",
+        )
+        get_exchange_status = _exchange_mod.get_exchange_status
 
         status_data = asyncio.run(get_exchange_status(exchange))
 
@@ -740,14 +752,13 @@ def disconnect(ctx, exchange: str):
     """Disconnect from an exchange"""
     try:
         # Import the real exchange integration
-        import sys
-
-        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange")
-        sys.path.append(exchange_path)
-        # Run async disconnection
         import asyncio
 
-        from real_exchange_integration import disconnect_from_exchange
+        _exchange_mod = _load_module_from_path(
+            "real_exchange_integration",
+            Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange" / "real_exchange_integration.py",
+        )
+        disconnect_from_exchange = _exchange_mod.disconnect_from_exchange
 
         success = asyncio.run(disconnect_from_exchange(exchange))
 
@@ -771,14 +782,13 @@ def orderbook(ctx, exchange: str, symbol: str, limit: int):
     """Get order book from exchange"""
     try:
         # Import the real exchange integration
-        import sys
-
-        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange")
-        sys.path.append(exchange_path)
-        # Run async order book fetch
         import asyncio
 
-        from real_exchange_integration import exchange_manager
+        _exchange_mod = _load_module_from_path(
+            "real_exchange_integration",
+            Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange" / "real_exchange_integration.py",
+        )
+        exchange_manager = _exchange_mod.exchange_manager
 
         orderbook = asyncio.run(exchange_manager.get_order_book(exchange, symbol, limit))
 
@@ -823,14 +833,13 @@ def exchange_balance(ctx, exchange: str):
     """Get account balance from exchange"""
     try:
         # Import the real exchange integration
-        import sys
-
-        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange")
-        sys.path.append(exchange_path)
-        # Run async balance fetch
         import asyncio
 
-        from real_exchange_integration import exchange_manager
+        _exchange_mod = _load_module_from_path(
+            "real_exchange_integration",
+            Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange" / "real_exchange_integration.py",
+        )
+        exchange_manager = _exchange_mod.exchange_manager
 
         balance_data = asyncio.run(exchange_manager.get_balance(exchange))
 
@@ -863,14 +872,13 @@ def pairs(ctx, exchange: str):
     """List supported trading pairs"""
     try:
         # Import the real exchange integration
-        import sys
-
-        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange")
-        sys.path.append(exchange_path)
-        # Run async pairs fetch
         import asyncio
 
-        from real_exchange_integration import exchange_manager
+        _exchange_mod = _load_module_from_path(
+            "real_exchange_integration",
+            Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange" / "real_exchange_integration.py",
+        )
+        exchange_manager = _exchange_mod.exchange_manager
 
         pairs = asyncio.run(exchange_manager.get_supported_pairs(exchange))
 
@@ -990,11 +998,11 @@ def list_exchanges(ctx):
     """List all supported exchanges"""
     try:
         # Import the real exchange integration
-        import sys
-
-        exchange_path = str(Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange")
-        sys.path.append(exchange_path)
-        from real_exchange_integration import exchange_manager
+        _exchange_mod = _load_module_from_path(
+            "real_exchange_integration",
+            Path(__file__).resolve().parent.parent.parent.parent / "apps" / "exchange" / "real_exchange_integration.py",
+        )
+        exchange_manager = _exchange_mod.exchange_manager
 
         success("🏢 Supported Exchanges:")
         for exchange in exchange_manager.supported_exchanges:
@@ -1021,9 +1029,6 @@ def list_exchanges(ctx):
 def price(ctx, base: str, quote: str):
     """Get oracle price for a token pair (e.g. aitbc exchange price ETH USD)"""
     try:
-        import sys
-
-        sys.path.insert(0, "/opt/aitbc")
         from aitbc.oracles.price_oracle import get_price_oracle
 
         oracle = get_price_oracle()
@@ -1044,9 +1049,6 @@ def price(ctx, base: str, quote: str):
 def deposit(ctx, amount: float, ait_address: str, dry_run: bool):
     """Deposit ETH → receive AIT via bridge (requires ETH_RPC_URL + PRIVATE_KEY env vars)"""
     try:
-        import sys
-
-        sys.path.insert(0, "/opt/aitbc")
         from aitbc.oracles.price_oracle import get_price_oracle
 
         oracle = get_price_oracle()
@@ -1085,9 +1087,6 @@ def deposit(ctx, amount: float, ait_address: str, dry_run: bool):
 def withdraw(ctx, amount: float, eth_address: str, dry_run: bool):
     """Withdraw AIT → receive ETH via bridge"""
     try:
-        import sys
-
-        sys.path.insert(0, "/opt/aitbc")
         from aitbc.oracles.price_oracle import get_price_oracle
 
         oracle = get_price_oracle()
@@ -1127,9 +1126,6 @@ def withdraw(ctx, amount: float, eth_address: str, dry_run: bool):
 def swap(ctx, from_token: str, to_token: str, amount: float, slippage: float):
     """Swap tokens via bridge oracle pricing (dry-run estimate)"""
     try:
-        import sys
-
-        sys.path.insert(0, "/opt/aitbc")
         from aitbc.oracles.price_oracle import get_price_oracle
 
         oracle = get_price_oracle()
@@ -1178,9 +1174,6 @@ def bridge_status_check(ctx, tx_id: str | None):
         output(data, ctx.obj.get("output_format", "json"))
     except Exception:
         # Bridge may not be configured — show oracle health instead
-        import sys
-
-        sys.path.insert(0, "/opt/aitbc")
         from aitbc.oracles.price_oracle import get_price_oracle
 
         h = get_price_oracle().health_check()
@@ -1194,10 +1187,18 @@ def bridge_status_check(ctx, tx_id: str | None):
 @click.option("--limit", default=10, help="Number of deposits to show")
 def bridge_deposits(status, limit):
     """List ETH-to-AIT bridge deposits."""
-    import sys
-
-    sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
-    from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
+    _bridge_mod = _load_module_from_path(
+        "bridge_monitor.storage",
+        Path(__file__).resolve().parent.parent.parent.parent
+        / "apps"
+        / "bridge-monitor"
+        / "src"
+        / "bridge_monitor"
+        / "storage.py",
+    )
+    BridgeDepositStatus = _bridge_mod.BridgeDepositStatus
+    count_deposits = _bridge_mod.count_deposits
+    get_deposits = _bridge_mod.get_deposits
 
     status_filter = None
     if status:
@@ -1248,10 +1249,17 @@ def bridge_estimate(eth_amount):
 @exchange.command()
 def bridge_status():
     """Show bridge monitor status."""
-    import sys
-
-    sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
-    from bridge_monitor.storage import BridgeDepositStatus, count_deposits
+    _bridge_mod = _load_module_from_path(
+        "bridge_monitor.storage",
+        Path(__file__).resolve().parent.parent.parent.parent
+        / "apps"
+        / "bridge-monitor"
+        / "src"
+        / "bridge_monitor"
+        / "storage.py",
+    )
+    BridgeDepositStatus = _bridge_mod.BridgeDepositStatus
+    count_deposits = _bridge_mod.count_deposits
 
     pending = count_deposits(BridgeDepositStatus.PENDING)
     processing = count_deposits(BridgeDepositStatus.PROCESSING)

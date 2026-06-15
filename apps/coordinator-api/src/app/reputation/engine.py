@@ -6,13 +6,14 @@ Core reputation calculation and aggregation engine for multi-chain agent reputat
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlmodel import Session, select
+
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
+from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig
+from ..domain.reputation import AgentReputation, ReputationEvent, ReputationLevel
 
-from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig  # noqa: E402
-from ..domain.reputation import AgentReputation, ReputationEvent, ReputationLevel  # noqa: E402
+logger = get_logger(__name__)
 
 
 class CrossChainReputationEngine:

@@ -181,25 +181,25 @@ from aitbc.exceptions import ValidationError
 def validate_transaction_params(tx_data: dict) -> bool:
     """Validate all transaction parameters"""
     errors = []
-    
+
     if not SecurityValidator.validate_chain_id(tx_data.get('chain_id', 0)):
         errors.append("Invalid chain ID")
-    
+
     if not SecurityValidator.validate_contract_address(tx_data.get('to_address', '')):
         errors.append("Invalid contract address")
-    
+
     if not SecurityValidator.validate_gas_price(tx_data.get('gas_price', 0)):
         errors.append("Invalid gas price")
-    
+
     if not SecurityValidator.validate_gas_limit(tx_data.get('gas_limit', 0)):
         errors.append("Invalid gas limit")
-    
+
     if not SecurityValidator.validate_amount(tx_data.get('amount', 0)):
         errors.append("Invalid amount")
-    
+
     if errors:
         raise ValidationError(f"Transaction validation failed: {', '.join(errors)}")
-    
+
     return True
 ```
 

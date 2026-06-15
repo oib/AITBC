@@ -13,13 +13,13 @@ void TrainingEpoch_3_create(uint soffset,uint coffset,Circom_CalcWit* ctx,std::s
 void TrainingEpoch_3_run(uint ctx_index,Circom_CalcWit* ctx);
 void ModularTrainingVerification_4_create(uint soffset,uint coffset,Circom_CalcWit* ctx,std::string componentName,uint componentFather);
 void ModularTrainingVerification_4_run(uint ctx_index,Circom_CalcWit* ctx);
-Circom_TemplateFunction _functionTable[5] = { 
+Circom_TemplateFunction _functionTable[5] = {
 LearningRateValidation_0_run,
 ParameterUpdate_1_run,
 VectorParameterUpdate_2_run,
 TrainingEpoch_3_run,
 ModularTrainingVerification_4_run };
-Circom_TemplateFunction _functionTableParallel[5] = { 
+Circom_TemplateFunction _functionTableParallel[5] = {
 NULL,
 NULL,
 NULL,
@@ -615,4 +615,3 @@ void run(Circom_CalcWit* ctx){
 ModularTrainingVerification_4_create(1,0,ctx,"main",0);
 ModularTrainingVerification_4_run(0,ctx);
 }
-

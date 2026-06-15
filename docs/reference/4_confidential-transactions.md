@@ -287,41 +287,41 @@ decrypted = encryption_service.audit_decrypt(
 ```python
 class ConfidentialTransactionService:
     """Service for handling confidential transactions"""
-    
+
     def __init__(self, key_manager: KeyManager):
         self.key_manager = key_manager
         self.cipher = AES256GCM()
-    
+
     def encrypt(self, data: Dict, participants: List[str]) -> EncryptedData:
         """Encrypt data for multiple participants"""
         # Generate random DEK
         dek = os.urandom(32)
-        
+
         # Encrypt data with DEK
         ciphertext = self.cipher.encrypt(dek, json.dumps(data))
-        
+
         # Encrypt DEK for each participant
         encrypted_keys = {}
         for participant in participants:
             public_key = self.key_manager.get_public_key(participant)
             encrypted_keys[participant] = self._encrypt_dek(dek, public_key)
-        
+
         # Add audit escrow
         audit_public_key = self.key_manager.get_audit_key()
         encrypted_keys["audit"] = self._encrypt_dek(dek, audit_public_key)
-        
+
         return EncryptedData(
             ciphertext=ciphertext,
             encrypted_keys=encrypted_keys,
             algorithm="AES-256-GCM+X25519"
         )
-    
-    def decrypt(self, ciphertext: bytes, encrypted_key: bytes, 
+
+    def decrypt(self, ciphertext: bytes, encrypted_key: bytes,
                 private_key: bytes) -> Dict:
         """Decrypt data for specific participant"""
         # Decrypt DEK
         dek = self._decrypt_dek(encrypted_key, private_key)
-        
+
         # Decrypt data
         plaintext = self.cipher.decrypt(dek, ciphertext)
         return json.loads(plaintext)
@@ -332,30 +332,30 @@ class ConfidentialTransactionService:
 ```python
 class KeyManager:
     """Manages encryption keys for participants"""
-    
+
     def __init__(self, storage: KeyStorage):
         self.storage = storage
         self.key_pairs = {}
-    
+
     def generate_key_pair(self, participant_id: str) -> KeyPair:
         """Generate X25519 key pair for participant"""
         private_key = X25519.generate_private_key()
         public_key = private_key.public_key()
-        
+
         key_pair = KeyPair(
             participant_id=participant_id,
             private_key=private_key,
             public_key=public_key
         )
-        
+
         self.storage.store(key_pair)
         return key_pair
-    
+
     def rotate_keys(self, participant_id: str):
         """Rotate encryption keys"""
         # Generate new key pair
         new_key_pair = self.generate_key_pair(participant_id)
-        
+
         # Re-encrypt active transactions
         self._reencrypt_transactions(participant_id, new_key_pair)
 ```
@@ -365,26 +365,26 @@ class KeyManager:
 ```python
 class AccessController:
     """Controls access to confidential transaction data"""
-    
+
     def __init__(self, policy_store: PolicyStore):
         self.policy_store = policy_store
-    
+
     def verify_access(self, request: AccessRequest) -> bool:
         """Verify if requester has access rights"""
         # Check participant status
         if not self._is_authorized_participant(request.requester):
             return False
-        
+
         # Check purpose-based access
         if not self._check_purpose(request.purpose, request.requester):
             return False
-        
+
         # Check time-based restrictions
         if not self._check_time_restrictions(request):
             return False
-        
+
         return True
-    
+
     def _is_authorized_participant(self, participant_id: str) -> bool:
         """Check if participant is authorized for confidential transactions"""
         # Verify KYC/KYB status
@@ -400,24 +400,24 @@ class AccessController:
 ```python
 class ConfidentialTransaction(BaseModel):
     """Transaction with optional confidential fields"""
-    
+
     # Public fields (always visible)
     transaction_id: str
     job_id: str
     timestamp: datetime
     status: str
-    
+
     # Confidential fields (encrypted when opt-in)
     amount: Optional[str] = None
     pricing: Optional[Dict] = None
     settlement_details: Optional[Dict] = None
-    
+
     # Encryption metadata
     confidential: bool = False
     encrypted_data: Optional[bytes] = None
     encrypted_keys: Optional[Dict[str, bytes]] = None
     algorithm: Optional[str] = None
-    
+
     # Access control
     participants: List[str] = []
     access_policies: Dict[str, Any] = {}
@@ -428,7 +428,7 @@ class ConfidentialTransaction(BaseModel):
 ```python
 class ConfidentialAccessLog(BaseModel):
     """Audit log for confidential data access"""
-    
+
     transaction_id: str
     requester: str
     purpose: str

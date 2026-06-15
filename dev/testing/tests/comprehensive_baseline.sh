@@ -14,7 +14,7 @@ for site in "${sites[@]}"; do
     echo ""
     echo "🔍 Testing Site: $name"
     echo "-----------------------------------------------"
-    
+
     # 1. API Live Health
     api_live=$(curl -s --connect-timeout 2 "$api_url/health/live" || echo "FAILED")
     if [[ "$api_live" == *"FAILED"* ]] || [[ -z "$api_live" ]]; then

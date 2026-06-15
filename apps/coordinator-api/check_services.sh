@@ -76,7 +76,7 @@ print_header "Health Check Endpoints:"
 for service in "${!SERVICES[@]}"; do
     IFS=':' read -r port description <<< "${SERVICES[$service]}"
     health_url="http://localhost:$port/health"
-    
+
     if curl -s --max-time 5 "$health_url" > /dev/null 2>&1; then
         echo -e "  $health_url: ${GREEN}OK${NC}"
     else
@@ -106,7 +106,7 @@ print_header "Python Environment:"
 if command -v python3 &> /dev/null; then
     python_version=$(python3 --version 2>&1)
     echo -e "  Python Version: $python_version"
-    
+
     if python3 -c "import sys; print('Python 3.13+:', sys.version_info >= (3, 13))" 2>/dev/null; then
         echo -e "  Python 3.13+: ${GREEN}COMPATIBLE${NC}"
     else

@@ -208,5 +208,10 @@ async def process_video(
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("FFMPEG_PORT", "8230"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    import os
+
+    # Standardized environment variable naming: SERVICE_BIND_HOST and SERVICE_BIND_PORT
+    host = os.getenv("FFMPEG_BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("FFMPEG_BIND_PORT", os.getenv("FFMPEG_PORT", "8230")))
+
+    uvicorn.run(app, host=host, port=port)

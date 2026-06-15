@@ -1,9 +1,9 @@
 # Development Documentation
 
-**Level**: Intermediate  
-**Prerequisites**: Familiarity with the AITBC codebase and local dev workflow  
-**Estimated Time**: 20-30 minutes  
-**Last Updated**: 2026-04-27  
+**Level**: Intermediate
+**Prerequisites**: Familiarity with the AITBC codebase and local dev workflow
+**Estimated Time**: 20-30 minutes
+**Last Updated**: 2026-04-27
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -49,6 +49,6 @@ This directory collects operational development notes that help contributors:
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Development entry point*

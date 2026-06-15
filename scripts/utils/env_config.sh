@@ -64,7 +64,7 @@ load_env_file() {
     Usage: load_env_file [env_file_path]
     """
     local env_file="${1:-${AITBC_ROOT}/.env}"
-    
+
     if [[ -f "$env_file" ]]; then
         log_info "Loading environment from ${env_file}"
         set -a
@@ -81,9 +81,9 @@ save_env_file() {
     Usage: save_env_file [env_file_path]
     """
     local env_file="${1:-${AITBC_ROOT}/.env}"
-    
+
     log_info "Saving environment configuration to ${env_file}"
-    
+
     cat > "$env_file" << EOF
 # AITBC Environment Configuration
 # Generated: $(date)
@@ -107,7 +107,7 @@ BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
 DISCOVERY_INTERVAL=${DISCOVERY_INTERVAL}
 HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL}
 EOF
-    
+
     log_info "Environment configuration saved"
 }
 
@@ -119,20 +119,20 @@ get_config_value() {
     local key="$1"
     local default_value="${2:-}"
     local value
-    
+
     # Try environment variable first
     value="${!key}"
-    
+
     # If not set, try config file
     if [[ -z "$value" && -f "${CONFIG_DIR}/env_config.json" ]]; then
         value=$(jq -r ".${key} // empty" "${CONFIG_DIR}/env_config.json" 2>/dev/null)
     fi
-    
+
     # Fallback to default
     if [[ -z "$value" ]]; then
         value="$default_value"
     fi
-    
+
     echo "$value"
 }
 
@@ -143,10 +143,10 @@ set_config_value() {
     """
     local key="$1"
     local value="$2"
-    
+
     # Export to environment
     export "${key}=${value}"
-    
+
     # Update config file if it exists
     if [[ -f "${CONFIG_DIR}/env_config.json" ]]; then
         local temp_file=$(mktemp)
@@ -158,7 +158,7 @@ set_config_value() {
         mkdir -p "$CONFIG_DIR"
         echo "{\"${key}\": \"${value}\"}" > "${CONFIG_DIR}/env_config.json"
     fi
-    
+
     log_info "Configuration set: ${key}=${value}"
 }
 
@@ -174,7 +174,7 @@ detect_environment() {
     """
     local hostname=$(hostname)
     local user=$(whoami)
-    
+
     # Check for production indicators
     if [[ "$hostname" =~ prod|production ]] || [[ "$AITBC_ENV" == "production" ]]; then
         echo "production"
@@ -195,13 +195,13 @@ validate_environment() {
     """
     local valid_envs=("development" "staging" "production" "testing")
     local current_env=$(detect_environment)
-    
+
     for env in "${valid_envs[@]}"; do
         if [[ "$current_env" == "$env" ]]; then
             return 0
         fi
     done
-    
+
     log_error "Invalid environment: ${current_env}"
     log_error "Valid environments: ${valid_envs[*]}"
     return 1
@@ -218,9 +218,9 @@ load_environment_config() {
     """
     local env="${1:-$(detect_environment)}"
     local config_file="${CONFIG_DIR}/env.${env}.json"
-    
+
     log_info "Loading configuration for environment: ${env}"
-    
+
     if [[ -f "$config_file" ]]; then
         # Load JSON configuration
         while IFS='=' read -r key value; do
@@ -228,7 +228,7 @@ load_environment_config() {
             value=$(echo "$value" | tr -d '"')
             export "${key}=${value}"
         done < <(jq -r 'to_entries | .[] | "\(.key)=\(.value)"' "$config_file")
-        
+
         log_info "Loaded environment configuration from ${config_file}"
     else
         log_warn "Environment config not found: ${config_file}"
@@ -243,9 +243,9 @@ create_environment_config() {
     """
     local env="$1"
     local config_file="${CONFIG_DIR}/env.${env}.json"
-    
+
     mkdir -p "$CONFIG_DIR"
-    
+
     case "$env" in
         "development")
             cat > "$config_file" << EOF
@@ -288,7 +288,7 @@ EOF
             return 1
             ;;
     esac
-    
+
     log_info "Created environment configuration: ${config_file}"
 }
 
@@ -302,13 +302,13 @@ validate_required_vars() {
     Usage: validate_required_vars var1 var2 var3 ...
     """
     local missing_vars=()
-    
+
     for var in "$@"; do
         if [[ -z "${!var}" ]]; then
             missing_vars+=("$var")
         fi
     done
-    
+
     if [[ ${#missing_vars[@]} -gt 0 ]]; then
         log_error "Missing required environment variables:"
         for var in "${missing_vars[@]}"; do
@@ -316,7 +316,7 @@ validate_required_vars() {
         done
         return 1
     fi
-    
+
     return 0
 }
 
@@ -331,15 +331,15 @@ validate_paths() {
         "$APPS_DIR"
         "$SCRIPTS_DIR"
     )
-    
+
     local missing_paths=()
-    
+
     for path in "${required_paths[@]}"; do
         if [[ ! -d "$path" ]]; then
             missing_paths+=("$path")
         fi
     done
-    
+
     if [[ ${#missing_paths[@]} -gt 0 ]]; then
         log_error "Missing required directories:"
         for path in "${missing_paths[@]}"; do
@@ -347,7 +347,7 @@ validate_paths() {
         done
         return 1
     fi
-    
+
     return 0
 }
 
@@ -435,23 +435,23 @@ init_env_config() {
     """
     # Load .env file if it exists
     load_env_file
-    
+
     # Detect and set environment
     AITBC_ENV=$(detect_environment)
     export AITBC_ENV
-    
+
     # Load environment-specific configuration
     load_environment_config "$AITBC_ENV"
-    
+
     # Validate environment
     validate_environment || exit 1
-    
+
     # Validate paths
     validate_paths || exit 1
-    
+
     log_info "Environment configuration initialized"
     log_info "Environment: ${AITBC_ENV}"
-    
+
     # Print configuration if debug mode
     is_debug && print_environment
 }

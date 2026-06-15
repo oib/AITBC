@@ -3,16 +3,8 @@ Message Queue Tests
 Tests for priority queues, TTL, and dead letter queue handling
 """
 
-import sys
-from pathlib import Path
-
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-import pytest  # noqa: E402
-from app.protocols.communication import Priority  # noqa: E402
+import pytest
+from app.protocols.communication import Priority
 
 
 class TestPriorityEnum:

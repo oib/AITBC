@@ -62,37 +62,37 @@ class PluginContext:
 
 class BasePlugin(ABC):
     """Base interface that all plugins must implement"""
-    
+
     def __init__(self, context: PluginContext):
         self.context = context
         self.status = PluginStatus.UNLOADED
         self.metadata = self.get_metadata()
-    
+
     @abstractmethod
     def get_metadata(self) -> PluginMetadata:
         """Return plugin metadata"""
         pass
-    
+
     @abstractmethod
     async def initialize(self) -> bool:
         """Initialize the plugin"""
         pass
-    
+
     @abstractmethod
     async def start(self) -> bool:
         """Start the plugin"""
         pass
-    
+
     @abstractmethod
     async def stop(self) -> bool:
         """Stop the plugin"""
         pass
-    
+
     @abstractmethod
     async def cleanup(self) -> bool:
         """Cleanup plugin resources"""
         pass
-    
+
     async def health_check(self) -> Dict[str, Any]:
         """Return plugin health status"""
         return {
@@ -101,11 +101,11 @@ class BasePlugin(ABC):
             "memory_usage": getattr(self, "_memory_usage", 0),
             "error_count": getattr(self, "_error_count", 0)
         }
-    
+
     async def handle_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Handle system events (optional)"""
         pass
-    
+
     def get_config_schema(self) -> Dict[str, Any]:
         """Return configuration schema (optional)"""
         return {}
@@ -121,12 +121,12 @@ from typing import List
 
 class CLIPlugin(BasePlugin):
     """Interface for CLI command plugins"""
-    
+
     @abstractmethod
     def get_commands(self) -> List[Group]:
         """Return CLI command groups"""
         pass
-    
+
     @abstractmethod
     def get_command_help(self) -> str:
         """Return help text for commands"""
@@ -143,19 +143,19 @@ class AgentCLIPlugin(CLIPlugin):
             license="MIT",
             keywords=["cli", "agent", "management"]
         )
-    
+
     def get_commands(self) -> List[Group]:
         @click.group()
         def agent():
             """Agent management commands"""
             pass
-        
+
         @agent.command()
         @click.option('--name', required=True, help='Agent name')
         def create(name):
             """Create a new agent"""
             click.echo(f"Creating agent: {name}")
-        
+
         return [agent]
 ```
 
@@ -167,25 +167,25 @@ from typing import Dict, Any
 
 class BlockchainPlugin(BasePlugin):
     """Interface for blockchain integration plugins"""
-    
+
     @abstractmethod
     async def connect(self, config: Dict[str, Any]) -> bool:
         """Connect to blockchain network"""
         pass
-    
+
     @abstractmethod
     async def get_balance(self, address: str) -> Dict[str, Any]:
         """Get account balance"""
         pass
-    
+
     @abstractmethod
     async def send_transaction(self, tx_data: Dict[str, Any]) -> str:
         """Send transaction and return hash"""
         pass
-    
+
     @abstractmethod
-    async def get_contract_events(self, contract_address: str, 
-                                 event_name: str, 
+    async def get_contract_events(self, contract_address: str,
+                                 event_name: str,
                                  from_block: int = None) -> List[Dict[str, Any]]:
         """Get contract events"""
         pass
@@ -200,7 +200,7 @@ class BitcoinPlugin(BlockchainPlugin):
             author="AITBC Team",
             license="MIT"
         )
-    
+
     async def connect(self, config: Dict[str, Any]) -> bool:
         # Connect to Bitcoin node
         return True
@@ -213,17 +213,17 @@ from typing import List, Dict, Any
 
 class AIPlugin(BasePlugin):
     """Interface for AI/ML plugins"""
-    
+
     @abstractmethod
     async def predict(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Make prediction using AI model"""
         pass
-    
+
     @abstractmethod
     async def train(self, training_data: List[Dict[str, Any]]) -> bool:
         """Train AI model"""
         pass
-    
+
     @abstractmethod
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information"""
@@ -239,7 +239,7 @@ class TranslationAIPlugin(AIPlugin):
             author="AITBC Team",
             license="MIT"
         )
-    
+
     async def predict(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         # Translate text
         return {"translated_text": "Translated text"}
@@ -255,36 +255,36 @@ import asyncio
 
 class PluginManager:
     """Central plugin management system"""
-    
+
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.plugins: Dict[str, BasePlugin] = {}
         self.plugin_registry = PluginRegistry()
-    
+
     async def load_plugin(self, plugin_name: str) -> bool:
         """Load a plugin by name"""
         pass
-    
+
     async def unload_plugin(self, plugin_name: str) -> bool:
         """Unload a plugin"""
         pass
-    
+
     async def start_plugin(self, plugin_name: str) -> bool:
         """Start a plugin"""
         pass
-    
+
     async def stop_plugin(self, plugin_name: str) -> bool:
         """Stop a plugin"""
         pass
-    
+
     def get_plugin_status(self, plugin_name: str) -> PluginStatus:
         """Get plugin status"""
         pass
-    
+
     def list_plugins(self) -> List[str]:
         """List all loaded plugins"""
         pass
-    
+
     async def broadcast_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Broadcast event to all plugins"""
         pass
@@ -353,7 +353,7 @@ plugins:
     config:
       default_agent_type: "chat"
       max_agents: 100
-  
+
   bitcoin-integration:
     enabled: true
     priority: 20
@@ -361,7 +361,7 @@ plugins:
       rpc_url: "http://localhost:8332"
       rpc_user: "bitcoin"
       rpc_password: "password"
-  
+
   translation-ai:
     enabled: false
     priority: 30
@@ -421,22 +421,22 @@ class MyPlugin(BasePlugin):
             author="Developer Name",
             license="MIT"
         )
-    
+
     async def initialize(self) -> bool:
         self.context.logger.info("Initializing my-plugin")
         # Setup plugin resources
         return True
-    
+
     async def start(self) -> bool:
         self.context.logger.info("Starting my-plugin")
         # Start plugin services
         return True
-    
+
     async def stop(self) -> bool:
         self.context.logger.info("Stopping my-plugin")
         # Stop plugin services
         return True
-    
+
     async def cleanup(self) -> bool:
         self.context.logger.info("Cleaning up my-plugin")
         # Cleanup resources
@@ -506,20 +506,20 @@ class TestMyPlugin(PluginTestCase):
         metadata = plugin.get_metadata()
         assert metadata.name == "my-plugin"
         assert metadata.version == "1.0.0"
-    
+
     async def test_plugin_lifecycle(self):
         plugin = self.create_plugin(MyPlugin)
-        
+
         assert await plugin.initialize() is True
         assert await plugin.start() is True
         assert await plugin.stop() is True
         assert await plugin.cleanup() is True
-    
+
     async def test_plugin_health_check(self):
         plugin = self.create_plugin(MyPlugin)
         await plugin.initialize()
         await plugin.start()
-        
+
         health = await plugin.health_check()
         assert health["status"] == "active"
 ```
@@ -545,7 +545,7 @@ class LegacyPlugin:
 class LegacyPluginAdapter(BasePlugin):
     def __init__(self, legacy_plugin):
         self.legacy = legacy_plugin
-    
+
     async def initialize(self) -> bool:
         # Migrate legacy initialization
         return True

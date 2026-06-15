@@ -13,10 +13,11 @@ from sqlalchemy.orm import Session
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....routers.users import get_current_user
+from ....services.ecosystem_service import EcosystemService
+from ....storage import get_session
+
 logger = get_logger(__name__)
-from ....routers.users import get_current_user  # noqa: E402
-from ....services.ecosystem_service import EcosystemService  # noqa: E402
-from ....storage import get_session  # noqa: E402
 
 router = APIRouter()
 

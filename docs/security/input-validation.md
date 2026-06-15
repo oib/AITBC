@@ -10,13 +10,13 @@ from pydantic import BaseModel, validator
 class JobCreate(BaseModel):
     payload: dict
     ttl_seconds: int
-    
+
     @validator('ttl_seconds')
     def validate_ttl(cls, v):
         if v < 1 or v > 86400:
             raise ValueError('TTL must be between 1 and 86400 seconds')
         return v
-    
+
     @validator('payload')
     def validate_payload(cls, v):
         if not isinstance(v, dict):

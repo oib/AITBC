@@ -356,7 +356,6 @@ def debounce(delay: float = 0.5):
         timer = [None]
 
         async def wrapped(*args, **kwargs):
-
             async def call():
                 await asyncio.sleep(delay)
                 if asyncio.get_event_loop().time() - last_called[0] >= delay:

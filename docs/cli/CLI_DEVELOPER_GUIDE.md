@@ -42,7 +42,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
     mycommand_parser = subparsers.add_parser("mycommand", help="My command description")
     mycommand_parser.set_defaults(handler=lambda parsed, parser=mycommand_parser: parser.print_help())
     mycommand_subparsers = mycommand_parser.add_subparsers(dest="mycommand_action")
-    
+
     # Add subcommands
     mycommand_action_parser = mycommand_subparsers.add_parser("action", help="Action description")
     mycommand_action_parser.add_argument("--option", help="Option description")
@@ -73,13 +73,13 @@ Create a handler file in `/opt/aitbc/cli/handlers/`:
 def handle_mycommand_action(args, render_mapping):
     """Handle mycommand action."""
     option_value = getattr(args, "option", "default")
-    
+
     result = {
         "action": "mycommand",
         "option": option_value,
         "status": "success"
     }
-    
+
     print(f"My command executed with option: {option_value}")
     render_mapping("Result:", result)
 ```
@@ -131,7 +131,7 @@ def handle_ai_submit(args):
 # Handler makes backend call
 def handle_ai_submit(args, default_rpc_url, default_coordinator_url, first, read_password, render_mapping):
     coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url) or default_coordinator_url
-    
+
     job_data = {
         "task_data": {
             "model": model,
@@ -139,7 +139,7 @@ def handle_ai_submit(args, default_rpc_url, default_coordinator_url, first, read
             "parameters": {}
         }
     }
-    
+
     response = requests.post(f"{coordinator_url}/tasks/submit", json=job_data, timeout=30)
 ```
 
@@ -182,7 +182,7 @@ def handle_status(args, render_mapping):
         "version": "1.0.0",
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
-    
+
     render_mapping("System Status:", status_data)
 ```
 
@@ -229,7 +229,7 @@ def handle_command_stub(args, render_mapping):
         "data": "stub response",
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
-    
+
     render_mapping("Result:", stub_data)
 ```
 
@@ -240,7 +240,7 @@ Use coordinator URL and task_data format:
 ```python
 def handle_ai_task(args, default_coordinator_url, render_mapping):
     coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url)
-    
+
     task_data = {
         "task_data": {
             "model": model,
@@ -248,7 +248,7 @@ def handle_ai_task(args, default_coordinator_url, render_mapping):
             "parameters": {}
         }
     }
-    
+
     response = requests.post(f"{coordinator_url}/tasks/submit", json=task_data)
 ```
 
@@ -259,7 +259,7 @@ Use blockchain RPC endpoint:
 ```python
 def handle_blockchain_command(args, default_rpc_url, render_mapping):
     rpc_url = args.rpc_url or default_rpc_url
-    
+
     response = requests.get(f"{rpc_url}/rpc/blocks/latest", timeout=30)
     if response.status_code == 200:
         block_data = response.json()
@@ -273,7 +273,7 @@ Use marketplace exchange API:
 ```python
 def handle_marketplace_command(args, marketplace_url, render_mapping):
     marketplace_url = args.marketplace_url or "http://localhost:8001"
-    
+
     response = requests.get(f"{marketplace_url}/listings", timeout=30)
     if response.status_code == 200:
         listings = response.json()
@@ -339,7 +339,7 @@ def handle_command(args, render_mapping):
         "key1": "value1",
         "key2": "value2"
     }
-    
+
     render_mapping("Command Result:", result)
 ```
 

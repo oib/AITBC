@@ -8,17 +8,18 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from aitbc import get_logger
-
-logger = get_logger(__name__)
-from app.domain.certification import (  # type: ignore[import-not-found]  # noqa: E402
+from app.domain.certification import (  # type: ignore[import-not-found]
     AgentCertification,
     CertificationLevel,
     CertificationStatus,
     VerificationType,
 )
-from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]  # noqa: E402
-from sqlmodel import Session, and_, select  # noqa: E402
+from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
+from sqlmodel import Session, and_, select
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class CertificationSystem:

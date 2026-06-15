@@ -47,14 +47,14 @@ commit_changes() {
         print_error "Commit message is required"
         exit 1
     fi
-    
+
     print_status "Committing changes with message: $message"
     cd "$REPO_DIR"
-    
+
     # Add only tracked files (avoid adding sensitive data)
     sudo -u aitbc git add -u
     sudo -u aitbc git commit -m "$message"
-    
+
     print_status "Changes committed successfully"
 }
 

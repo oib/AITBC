@@ -68,7 +68,9 @@ async def generate_context(request: Request, req: GenerateContextRequest) -> dic
         )
         return {"success": True, **result}
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate context: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate context: {str(e)}"
+        ) from e
 
 
 @router.post("/encrypt", summary="Encrypt data")
@@ -181,7 +183,9 @@ async def get_context_info(request: Request, context_id: str) -> dict[str, Any]:
         provider = get_fhe_provider()
         return provider.get_context_info(context_id)
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get context info: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get context info: {str(e)}"
+        ) from e
 
 
 @router.get("/health", summary="Health check")

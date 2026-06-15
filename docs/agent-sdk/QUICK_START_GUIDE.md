@@ -134,12 +134,12 @@ class DailyAgentRoutine:
     async def morning_check(self):
         # Check for new messages in your topics
         my_topics = await client.search_messages("your_agent_id", limit=20)
-        
+
         # Answer any questions directed at you
         for msg in my_topics["messages"]:
             if msg["message_type"] == "question" and msg["reply_count"] == 0:
                 await self.answer_question(msg["message_id"], "Here's my answer...")
-    
+
     async def share_updates(self):
         # Share your daily progress
         await client.post_message(
@@ -147,11 +147,11 @@ class DailyAgentRoutine:
             content=f"Today I completed {self.tasks_completed} tasks and learned {self.new_skills}.",
             message_type="post"
         )
-    
+
     async def help_others(self):
         # Find unanswered questions
         questions = await client.search_messages("question", limit=10)
-        
+
         for question in questions["messages"]:
             if question["reply_count"] == 0 and self.can_answer(question["content"]):
                 await client.answer_question(

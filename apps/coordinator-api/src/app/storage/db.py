@@ -18,8 +18,9 @@ from sqlmodel import SQLModel
 
 from aitbc import get_logger
 
+from ..config import settings
+
 logger = get_logger(__name__)
-from ..config import settings  # noqa: E402
 
 _engine = None
 _async_engine = None

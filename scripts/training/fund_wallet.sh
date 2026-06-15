@@ -103,7 +103,7 @@ RESULT=$("$CLI_PATH" wallet send genesis "$WALLET_NAME" "$AMOUNT" "$GENESIS_PASS
 if [ $? -eq 0 ]; then
     print_success "Transaction sent successfully"
     echo "Transaction hash: $RESULT"
-    
+
     # Verify balance
     print_status "Verifying wallet balance..."
     WALLET_BALANCE=$("$CLI_PATH" wallet balance "$WALLET_NAME" 2>&1 || echo "0")

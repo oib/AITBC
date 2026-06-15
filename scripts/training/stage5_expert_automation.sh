@@ -52,22 +52,22 @@ print_warning() {
 # Check prerequisites
 check_prerequisites() {
     print_status "Checking prerequisites..."
-    
+
     # Check if CLI exists
     if [ ! -f "$CLI_PATH" ]; then
         print_error "AITBC CLI not found at $CLI_PATH"
         exit 1
     fi
-    
+
     # Check if training wallet exists
     if ! $CLI_PATH wallet list | grep -q "$WALLET_NAME"; then
         print_error "Training wallet $WALLET_NAME not found. Run Stage 1 first."
         exit 1
     fi
-    
+
     # Create log directory
     mkdir -p "$(dirname "$LOG_FILE")"
-    
+
     print_success "Prerequisites check completed"
     log "Prerequisites check: PASSED"
 }
@@ -75,124 +75,124 @@ check_prerequisites() {
 # 5.1 Advanced Automation
 advanced_automation() {
     print_status "5.1 Advanced Automation"
-    
+
     print_status "Creating AI job pipeline workflow (non-interactive)..."
     $CLI_PATH workflow create --name ai-job-pipeline --yes --no-confirm 2>/dev/null || print_warning "Workflow creation command not available"
     log "AI job pipeline workflow creation attempted"
-    
+
     print_status "Setting up automated job submission schedule (verbose mode)..."
     $CLI_PATH workflow schedule --cron "0 */6 * * *" --command "$CLI_PATH ai submit --prompt inference" --verbose 2>/dev/null || print_warning "Schedule command not available"
     log "Automated job submission schedule attempted"
-    
+
     print_status "Creating marketplace monitoring bot (debug mode)..."
     $CLI_PATH workflow create --name marketplace-bot --debug 2>/dev/null || print_warning "Marketplace bot creation failed"
     log "Marketplace monitoring bot creation attempted"
-    
+
     print_status "Monitoring automation workflows (output json)..."
     $CLI_PATH workflow monitor --name ai-job-pipeline --output json 2>/dev/null || print_warning "Workflow monitoring command not available"
     log "Automation workflow monitoring attempted"
-    
+
     print_success "5.1 Advanced Automation completed"
 }
 
 # 5.2 Multi-Node Coordination
 multi_node_coordination() {
     print_status "5.2 Multi-Node Coordination"
-    
+
     print_status "Checking cluster status across all nodes..."
     $CLI_PATH cluster status 2>/dev/null || print_warning "Cluster status command not available"
     log "Cluster status across nodes checked"
-    
+
     print_status "Syncing all nodes..."
     $CLI_PATH cluster sync --all 2>/dev/null || print_warning "Cluster sync command not available"
     log "All nodes sync attempted"
-    
+
     print_status "Balancing workload across nodes..."
     $CLI_PATH cluster balance --workload 2>/dev/null || print_warning "Workload balancing command not available"
     log "Workload balancing across nodes attempted"
-    
+
     print_status "Testing failover coordination on Genesis Node..."
     $CLI_PATH cluster status --nodes aitbc aitbc1 2>/dev/null || print_warning "Failover coordination failed"
     log "Failover coordination on Genesis node tested"
-    
+
     print_status "Testing recovery coordination on Follower Node..."
     $CLI_PATH cluster status --nodes aitbc1 2>/dev/null || print_warning "Recovery coordination failed"
     log "Recovery coordination on Follower node tested"
-    
+
     print_status "Gitea-based Node Synchronization (instead of SCP)..."
     print_status "Sync aitbc1 from Gitea repository..."
     ssh aitbc1 'cd /opt/aitbc && git pull origin main --yes --no-confirm' 2>/dev/null || print_warning "Gitea sync to aitbc1 failed"
     log "Gitea sync to aitbc1 attempted"
-    
+
     print_status "Checking git sync status on local node..."
     git status --verbose 2>/dev/null || print_warning "Git status check failed"
     log "Local git sync status checked"
-    
+
     print_status "Checking git log for recent changes..."
     git log --oneline -5 --decorate 2>/dev/null || print_warning "Git log check failed"
     log "Git log checked"
-    
+
     print_success "5.2 Multi-Node Coordination completed"
 }
 
 # 5.3 Performance Optimization
 performance_optimization() {
     print_status "5.3 Performance Optimization"
-    
+
     print_status "Running comprehensive performance benchmark (verbose mode, output json)..."
     $CLI_PATH performance benchmark --verbose --output json 2>/dev/null || print_warning "Performance benchmark command not available"
     log "Comprehensive performance benchmark executed"
-    
+
     print_status "Optimizing for low latency (dry-run)..."
     $CLI_PATH performance optimize --target latency --dry-run 2>/dev/null || print_warning "Latency optimization command not available"
     log "Latency optimization executed"
-    
+
     print_status "Tuning system parameters aggressively (non-interactive)..."
     $CLI_PATH performance tune --aggressive --yes --no-confirm 2>/dev/null || print_warning "Parameter tuning command not available"
     log "Aggressive parameter tuning executed"
-    
+
     print_status "Optimizing global resource usage (debug mode)..."
     $CLI_PATH performance optimize --target all --debug 2>/dev/null || print_warning "Global resource optimization command not available"
     log "Global resource optimization executed"
-    
+
     print_status "Optimizing cache strategy (format table)..."
     $CLI_PATH performance tune --parameters --format table 2>/dev/null || print_warning "Cache optimization command not available"
     log "LRU cache optimization executed"
-    
+
     print_success "5.3 Performance Optimization completed"
 }
 
 # 5.4 Security & Compliance
 security_compliance() {
     print_status "5.4 Security & Compliance"
-    
+
     print_status "Running comprehensive security audit (verbose mode, output json)..."
     $CLI_PATH security audit --comprehensive --verbose --output json 2>/dev/null || print_warning "Security audit command not available"
     log "Comprehensive security audit executed"
-    
+
     print_status "Scanning for vulnerabilities (debug mode)..."
     $CLI_PATH security scan --vulnerabilities --debug 2>/dev/null || print_warning "Vulnerability scan command not available"
     log "Vulnerability scan completed"
-    
+
     print_status "Checking for critical security patches (non-interactive)..."
     $CLI_PATH security patch --check --critical --yes --no-confirm 2>/dev/null || print_warning "Security patch command not available"
     log "Critical security patches check completed"
-    
+
     print_status "Checking GDPR compliance (format table)..."
     $CLI_PATH compliance check --standard gdpr --format table 2>/dev/null || print_warning "GDPR compliance check command not available"
     log "GDPR compliance check completed"
-    
+
     print_status "Generating detailed compliance report (dry-run)..."
     $CLI_PATH compliance report --format detailed --dry-run 2>/dev/null || print_warning "Compliance report command not available"
     log "Detailed compliance report generated"
-    
+
     print_success "5.4 Security & Compliance completed"
 }
 
 # 5.5 Agent Integration Service Management
 agent_integration_service_management() {
     print_status "5.5 Agent Integration Service Management"
-    
+
     print_status "Understanding Agent Integration Service features..."
     print_status "Systemd Deployment: Dynamic service file generation for agent instances"
     print_status "Health Checks: Combined systemd status and HTTP health endpoint monitoring"
@@ -200,7 +200,7 @@ agent_integration_service_management() {
     print_status "Alerting Rules: Configurable thresholds for monitoring"
     print_status "Lifecycle Management: Deployment, rollback, and instance removal operations"
     log "Agent Integration Service features explained"
-    
+
     print_status "Testing agent instance deployment via Coordinator API (port 8203)..."
     DEPLOY_RESPONSE=$(curl -s -X POST http://localhost:8203/v1/agent-integration/deploy \
         -H "Content-Type: application/json" \
@@ -209,7 +209,7 @@ agent_integration_service_management() {
           "agent_type": "ai-worker",
           "config": {"gpu_required": true}
         }' 2>/dev/null)
-    
+
     if [ -n "$DEPLOY_RESPONSE" ]; then
         print_success "Agent deployment response received"
         echo "$DEPLOY_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$DEPLOY_RESPONSE"
@@ -218,7 +218,7 @@ agent_integration_service_management() {
         print_warning "Agent deployment endpoint may not be available"
         log "Agent deployment test failed - endpoint unavailable"
     fi
-    
+
     print_status "Checking agent instance health endpoint..."
     HEALTH_RESPONSE=$(curl -s http://localhost:8203/v1/agent-integration/instances/test-agent-1/health 2>/dev/null)
     if [ -n "$HEALTH_RESPONSE" ]; then
@@ -229,7 +229,7 @@ agent_integration_service_management() {
         print_warning "Agent health check endpoint may not be available"
         log "Agent health check test failed - endpoint unavailable"
     fi
-    
+
     print_status "Collecting metrics from agent instance..."
     METRICS_RESPONSE=$(curl -s http://localhost:8203/v1/agent-integration/instances/test-agent-1/metrics 2>/dev/null)
     if [ -n "$METRICS_RESPONSE" ]; then
@@ -240,7 +240,7 @@ agent_integration_service_management() {
         print_warning "Agent metrics endpoint may not be available"
         log "Agent metrics collection test failed - endpoint unavailable"
     fi
-    
+
     print_status "Configuring alerting rules..."
     ALERT_RESPONSE=$(curl -s -X POST http://localhost:8203/v1/agent-integration/alerting/rules \
         -H "Content-Type: application/json" \
@@ -250,7 +250,7 @@ agent_integration_service_management() {
           "error_rate_threshold": 5,
           "response_time_threshold": 1000
         }' 2>/dev/null)
-    
+
     if [ -n "$ALERT_RESPONSE" ]; then
         print_success "Alerting rules configuration response received"
         echo "$ALERT_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$ALERT_RESPONSE"
@@ -259,7 +259,7 @@ agent_integration_service_management() {
         print_warning "Alerting rules endpoint may not be available"
         log "Alerting rules configuration test failed - endpoint unavailable"
     fi
-    
+
     print_status "Testing rollback deployment endpoint..."
     ROLLBACK_RESPONSE=$(curl -s -X POST http://localhost:8203/v1/agent-integration/instances/test-agent-1/rollback 2>/dev/null)
     if [ -n "$ROLLBACK_RESPONSE" ]; then
@@ -270,7 +270,7 @@ agent_integration_service_management() {
         print_warning "Rollback endpoint may not be available"
         log "Agent rollback test failed - endpoint unavailable"
     fi
-    
+
     print_status "Testing agent instance removal endpoint..."
     REMOVE_RESPONSE=$(curl -s -X DELETE http://localhost:8203/v1/agent-integration/instances/test-agent-1 2>/dev/null)
     if [ -n "$REMOVE_RESPONSE" ]; then
@@ -281,22 +281,22 @@ agent_integration_service_management() {
         print_warning "Agent removal endpoint may not be available"
         log "Agent removal test failed - endpoint unavailable"
     fi
-    
+
     print_status "Checking systemd service status for agent instances..."
     systemctl status aitbc-agent-test-agent-1.service --no-pager 2>/dev/null || print_warning "Systemd service for test-agent-1 not found or not active"
     log "Systemd service status check attempted"
-    
+
     print_status "Viewing agent service logs (if available)..."
     journalctl -u aitbc-agent-test-agent-1.service -n 10 --no-pager 2>/dev/null || print_warning "Agent service logs not available"
     log "Agent service logs check attempted"
-    
+
     print_success "5.5 Agent Integration Service Management completed"
 }
 
 # Advanced automation scripting
 advanced_scripting() {
     print_status "Advanced Automation Scripting"
-    
+
     print_status "Creating custom automation script..."
     cat > /tmp/hermes_automation.py <<EOF
 #!/usr/bin/env python3
@@ -328,10 +328,10 @@ def run_command(cmd):
 def automated_job_submission():
     """Automated AI job submission with monitoring"""
     logger.info("Starting automated job submission...")
-    
+
     # Submit inference job with required parameters
     success, output, error = run_command(f"{CLI_PATH} ai submit hermes-trainee inference 'Automated analysis' 10 --password 'trainee123'")
-    
+
     if success:
         logger.info(f"Job submitted successfully: {output}")
         # Monitor job completion
@@ -344,13 +344,13 @@ def automated_job_submission():
 def automated_marketplace_monitoring():
     """Automated marketplace monitoring and trading"""
     logger.info("Starting marketplace monitoring...")
-    
+
     # Check marketplace status
     success, output, error = run_command(f"{CLI_PATH} market list")
-    
+
     if success:
         logger.info(f"Marketplace status: {output}")
-        
+
         # Simple trading logic - place buy order for low-priced items
         if "test-item" in output:
             success, output, error = run_command(f"{CLI_PATH} market buy --item test-item --price 25")
@@ -361,15 +361,15 @@ def automated_marketplace_monitoring():
 def main():
     """Main automation loop"""
     logger.info("Starting hermes automation...")
-    
+
     while True:
         try:
             automated_job_submission()
             automated_marketplace_monitoring()
-            
+
             # Wait before next cycle
             time.sleep(300)  # 5 minutes
-            
+
         except KeyboardInterrupt:
             logger.info("Automation stopped by user")
             break
@@ -380,47 +380,47 @@ def main():
 if __name__ == "__main__":
     main()
 EOF
-    
+
     print_status "Running custom automation script..."
     python3 /tmp/hermes_automation.py &
     AUTOMATION_PID=$!
     sleep 10
     kill $AUTOMATION_PID 2>/dev/null || true
     log "Custom automation script executed"
-    
+
     print_status "Testing script execution..."
     $CLI_PATH script --run --file /tmp/hermes_automation.py 2>/dev/null || print_warning "Script execution command not available"
     log "Script execution test completed"
-    
+
     print_success "Advanced automation scripting completed"
 }
 
 # Expert performance analysis
 expert_performance_analysis() {
     print_status "Expert Performance Analysis"
-    
+
     print_status "Running deep performance analysis..."
-    
+
     # Test comprehensive system performance
     START_TIME=$(date +%s.%N)
-    
+
     # Test multiple operations concurrently
     $CLI_PATH wallet balance "$WALLET_NAME" > /dev/null 2>&1 &
     $CLI_PATH blockchain info > /dev/null 2>&1 &
     $CLI_PATH market list > /dev/null 2>&1 &
     curl -s http://localhost:9001/health > /dev/null 2>&1 &
-    
+
     wait  # Wait for all background jobs
-    
+
     END_TIME=$(date +%s.%N)
     CONCURRENT_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "2.0")
-    
+
     print_status "Concurrent operations time: ${CONCURRENT_TIME}s"
     log "Performance analysis: Concurrent operations ${CONCURRENT_TIME}s"
-    
+
     # Test individual operation performance
     OPERATIONS=("wallet balance $WALLET_NAME" "blockchain info" "market list" "curl -s http://localhost:9001/health")
-    
+
     for op in "${OPERATIONS[@]}"; do
         START_TIME=$(date +%s.%N)
         if [[ "$op" == curl\ * ]]; then
@@ -430,24 +430,24 @@ expert_performance_analysis() {
         fi
         END_TIME=$(date +%s.%N)
         OP_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "1.0")
-        
+
         print_status "Operation '$op' time: ${OP_TIME}s"
         log "Performance analysis: $op ${OP_TIME}s"
     done
-    
+
     print_success "Expert performance analysis completed"
 }
 
 # Final certification exam simulation
 final_certification_exam() {
     print_status "Final Certification Exam Simulation"
-    
+
     print_status "Running comprehensive certification test..."
-    
+
     # Test all major operations
     TESTS_PASSED=0
     TOTAL_TESTS=10
-    
+
     # Test 1: Basic operations
     if $CLI_PATH --version > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -455,7 +455,7 @@ final_certification_exam() {
     else
         log "Certification test 1 (CLI version): FAILED"
     fi
-    
+
     # Test 2: Wallet operations
     if $CLI_PATH wallet balance "$WALLET_NAME" > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -463,7 +463,7 @@ final_certification_exam() {
     else
         log "Certification test 2 (Wallet balance): FAILED"
     fi
-    
+
     # Test 3: Blockchain operations
     if $CLI_PATH blockchain info > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -471,7 +471,7 @@ final_certification_exam() {
     else
         log "Certification test 3 (Blockchain info): FAILED"
     fi
-    
+
     # Test 4: AI operations
     if $CLI_PATH ai status > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -479,7 +479,7 @@ final_certification_exam() {
     else
         log "Certification test 4 (AI status): FAILED"
     fi
-    
+
     # Test 5: Marketplace operations
     if $CLI_PATH market list > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -487,7 +487,7 @@ final_certification_exam() {
     else
         log "Certification test 5 (Marketplace list): FAILED"
     fi
-    
+
     # Test 6: Economic operations
     if $CLI_PATH simulate price > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -495,7 +495,7 @@ final_certification_exam() {
     else
         log "Certification test 6 (Economic modeling): FAILED"
     fi
-    
+
     # Test 7: Analytics operations
     if $CLI_PATH analytics blocks > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -503,7 +503,7 @@ final_certification_exam() {
     else
         log "Certification test 7 (Analytics report): FAILED"
     fi
-    
+
     # Test 8: Automation operations
     if $CLI_PATH workflow create --name test > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -511,7 +511,7 @@ final_certification_exam() {
     else
         log "Certification test 8 (Automation workflow): FAILED"
     fi
-    
+
     # Test 9: Cluster operations
     if $CLI_PATH cluster status > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -519,7 +519,7 @@ final_certification_exam() {
     else
         log "Certification test 9 (Cluster status): FAILED"
     fi
-    
+
     # Test 10: Performance operations
     if $CLI_PATH performance benchmark > /dev/null 2>&1; then
         (( TESTS_PASSED += 1 )) || true
@@ -527,12 +527,12 @@ final_certification_exam() {
     else
         log "Certification test 10 (Performance benchmark): FAILED"
     fi
-    
+
     # Calculate success rate
     SUCCESS_RATE=$((TESTS_PASSED * 100 / TOTAL_TESTS))
-    
+
     print_status "Certification Results: $TESTS_PASSED/$TOTAL_TESTS tests passed ($SUCCESS_RATE%)"
-    
+
     if [ $SUCCESS_RATE -ge 95 ]; then
         print_success "🎉 CERTIFICATION PASSED! hermes AITBC Master Status Achieved!"
         log "CERTIFICATION: PASSED with $SUCCESS_RATE% success rate"
@@ -543,14 +543,14 @@ final_certification_exam() {
         print_error "CERTIFICATION FAILED: $SUCCESS_RATE% - Review training materials"
         log "CERTIFICATION: FAILED with $SUCCESS_RATE% success rate"
     fi
-    
+
     print_success "Final certification exam completed"
 }
 
 # Validation quiz
 validation_quiz() {
     print_status "Stage 5 Validation Quiz"
-    
+
     echo -e "${BLUE}Answer these questions to validate your expert understanding:${NC}"
     echo
     echo "1. How do you create and manage automation workflows?"
@@ -562,7 +562,7 @@ validation_quiz() {
     echo
     echo -e "${YELLOW}Press Enter to complete training...${NC}"
     read -t 1 -r || true
-    
+
     print_success "Stage 5 validation completed"
 }
 
@@ -572,9 +572,9 @@ main() {
     echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
-    
+
     log "Starting $TRAINING_STAGE"
-    
+
     check_prerequisites
     advanced_automation
     multi_node_coordination
@@ -585,19 +585,19 @@ main() {
     expert_performance_analysis
     final_certification_exam
     validation_quiz
-    
+
     echo
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}$TRAINING_STAGE COMPLETED SUCCESSFULLY${NC}"
     echo -e "${GREEN}========================================${NC}"
-    
+
     # Output learnings for skill update
     output_stage_learnings 5 "Expert Operations" \
         "curl http://localhost:9001/health|./aitbc-cli agent --status" \
         "Expert automation workflows|Health check endpoints|Agent status monitoring" \
         "/opt/aitbc/apps/agent-coordinator" \
         "Expert automation|Agent health monitoring|Advanced operations"
-    
+
     echo
     echo -e "${BLUE}🎓 TRAINING COMPLETION SUMMARY:${NC}"
     echo "✅ All 5 training stages completed"
@@ -622,7 +622,7 @@ main() {
     echo "- Stage 5: /var/log/aitbc/training_stage5.log"
     echo
     echo -e "${GREEN}🎉 CONGRATULATIONS! hermes AITBC MASTERY ACHIEVED! 🎉${NC}"
-    
+
     log "$TRAINING_STAGE completed successfully"
     log "hermes AITBC Mastery Training Program completed"
 }

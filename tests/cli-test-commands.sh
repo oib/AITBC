@@ -22,12 +22,12 @@ fail_count=0
 test_command() {
     local description="$1"
     local command="$2"
-    
+
     test_count=$((test_count + 1))
     echo -n "Test $test_count: $description... "
     echo "Test $test_count: $description" >> "$TEST_RESULTS"
     echo "Command: $command" >> "$TEST_RESULTS"
-    
+
     if $command >> "$TEST_RESULTS" 2>&1; then
         echo "✓"
         echo "Result: PASS" >> "$TEST_RESULTS"

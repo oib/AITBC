@@ -5,22 +5,6 @@ Combines marketplace and blockchain load testing in a single Locust run.
 """
 
 import os
-import sys
-from pathlib import Path
-
-# Determine repo root - try multiple methods for robustness
-if __file__:
-    repo_root = Path(__file__).resolve().parents[3]
-else:
-    # Fallback to current directory if __file__ is not available
-    repo_root = Path.cwd()
-    # If we're in tests/load, go up to repo root
-    if repo_root.name == "load":
-        repo_root = repo_root.parents[2]
-    elif repo_root.name == "tests":
-        repo_root = repo_root.parents[1]
-
-sys.path.insert(0, str(repo_root))
 
 # Import base user classes from existing load test files
 try:

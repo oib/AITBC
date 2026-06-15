@@ -1,22 +1,21 @@
-from typing import Annotated
+"""
+Agent Security API Router for Verifiable AI Agent Orchestration
+Provides REST API endpoints for security management and auditing
+"""
 
-"\nAgent Security API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for security management and auditing\n"
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import desc
+from sqlmodel import Session, select
 
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
+from app.domain.agent import AIAgentWorkflow
 
-logger = get_logger(__name__)
-from sqlalchemy import desc  # noqa: E402
-from sqlmodel import Session, select  # noqa: E402
-
-from app.domain.agent import AIAgentWorkflow  # noqa: E402
-
-from ..deps import require_admin_key  # noqa: E402
-from ..services.agent_security import (  # noqa: E402
+from ..deps import require_admin_key
+from ..services.agent_security import (
     AgentAuditLog,
     AgentAuditor,
     AgentSandboxManager,
@@ -27,7 +26,9 @@ from ..services.agent_security import (  # noqa: E402
     AuditEventType,
     SecurityLevel,
 )
-from ..storage import get_session  # noqa: E402
+from ..storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/agents/security", tags=["Agent Security"])
 

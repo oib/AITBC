@@ -184,10 +184,10 @@ For cross-node task distribution to work, ALL coordinator instances MUST use the
    ```bash
    # Register on aitbc1
    curl -X POST http://aitbc1:9001/agents/register -d '{...}'
-   
+
    # Discover on localhost
    curl -X POST http://localhost:9001/agents/discover -d '{}'
-   
+
    # Should show the aitbc1 agent
    ```
 

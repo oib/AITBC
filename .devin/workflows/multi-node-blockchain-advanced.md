@@ -204,21 +204,21 @@ METRICS_FILE="/var/log/aitbc/performance_$(date +%Y%m%d).log"
 
 while true; do
     TIMESTAMP=$(date +%Y-%m-%d_%H:%M:%S)
-    
+
     # Blockchain metrics
     HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
     TX_COUNT=$(curl -s http://localhost:8006/rpc/head | jq .tx_count)
-    
+
     # System metrics
     CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
     MEM_USAGE=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
-    
+
     # Network metrics
     NET_LATENCY=$(ping -c 1 aitbc1 | tail -1 | awk '{print $4}' | sed 's/ms=//')
-    
+
     # Log metrics
     echo "$TIMESTAMP,height:$HEIGHT,tx_count:$TX_COUNT,cpu:$CPU_USAGE,memory:$MEM_USAGE,latency:$NET_LATENCY" >> $METRICS_FILE
-    
+
     sleep 60
 done
 EOF
@@ -305,11 +305,11 @@ dmesg -w | grep -E "(error|warning|fail)"
 ```bash
 # Analyze block production rate
 sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db "
-SELECT 
+SELECT
     DATE(timestamp) as date,
     COUNT(*) as blocks_produced,
     AVG(JULIANDAY(timestamp) - JULIANDAY(LAG(timestamp) OVER (ORDER BY timestamp))) * 86400 as avg_block_time
-FROM blocks 
+FROM blocks
 WHERE timestamp > datetime('now', '-7 days')
 GROUP BY DATE(timestamp)
 ORDER BY date;
@@ -317,11 +317,11 @@ ORDER BY date;
 
 # Analyze transaction volume
 sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db "
-SELECT 
+SELECT
     DATE(timestamp) as date,
     COUNT(*) as tx_count,
     SUM(amount) as total_volume
-FROM transactions 
+FROM transactions
 WHERE timestamp > datetime('now', '-7 days')
 GROUP BY DATE(timestamp)
 ORDER BY date;
@@ -382,7 +382,7 @@ if [ $GENESIS_HEIGHT -ne $FOLLOWER_HEIGHT ]; then
     echo "Potential split-brain detected"
     echo "Genesis height: $GENESIS_HEIGHT"
     echo "Follower height: $FOLLOWER_HEIGHT"
-    
+
     # Check which chain is longer
     if [ $GENESIS_HEIGHT -gt $FOLLOWER_HEIGHT ]; then
         echo "Genesis chain is longer - follower needs to sync"

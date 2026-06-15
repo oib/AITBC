@@ -159,10 +159,10 @@ graph TD
     C --> D[Vote Counting]
     D --> E[Result Validation]
     E --> F[Implementation]
-    
+
     B --> G[Flash-Loan Protection]
     G --> C
-    
+
     C --> H[Agent Voting]
     H --> I[Human Voting]
     I --> D
@@ -183,7 +183,7 @@ contract VotingPower {
         mapping(address => uint256) balances;
         mapping(address => uint256) twas; // Time-Weighted Average Score
     }
-    
+
     function captureSnapshot() external returns (uint256 snapshotId) {
         // Capture 24-hour TWAS for all token holders
         // Lock voting power during voting period
@@ -217,12 +217,12 @@ contract AgentWallet {
     uint256 votingPower;
     uint256 reputation;
     bytes32 agentType; // Provider/Consumer/Builder/Coordinator
-    
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not authorized");
         _;
     }
-    
+
     function vote(uint256 proposalId, bool support) external onlyOwner {
         // Autonomous voting logic
         // Reputation-based voting weight
@@ -237,7 +237,7 @@ class AgentVotingStrategy:
     def __init__(self, agent_type, reputation_score):
         self.agent_type = agent_type
         self.reputation = reputation_score
-        
+
     def evaluate_proposal(self, proposal):
         # Agent-specific evaluation logic
         if self.agent_type == "Provider":
@@ -245,7 +245,7 @@ class AgentVotingStrategy:
         elif self.agent_type == "Consumer":
             return self.evaluate_consumer_proposal(proposal)
         # ... other agent types
-        
+
     def autonomous_vote(self, proposal_id):
         evaluation = self.evaluate_proposal(proposal_id)
         if evaluation.score > 0.7:  # Threshold for support
@@ -277,7 +277,7 @@ contract GPUStaking {
         uint256 rewardRate;
         uint256 reputation;
     }
-    
+
     function stakeGPU(uint256 gpuPower, uint256 lockPeriod) external {
         // Provider agents stake GPU resources
         // Reputation-based reward rates

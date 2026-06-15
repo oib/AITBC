@@ -33,7 +33,7 @@ contract AITBCGovernanceToken is ERC20, Ownable {
         _transfer(msg.sender, address(this), amount);
         stakedTokens[msg.sender] = amount;
         stakeLockEnd[msg.sender] = block.timestamp + lockPeriod;
-        
+
         uint256 newVotingPower = balanceOf(msg.sender) + (amount * STAKING_MULTIPLIER);
         votingPower[msg.sender] = newVotingPower;
 
@@ -47,7 +47,7 @@ contract AITBCGovernanceToken is ERC20, Ownable {
 
         stakedTokens[msg.sender] -= amount;
         _transfer(address(this), msg.sender, amount);
-        
+
         uint256 newVotingPower = balanceOf(msg.sender) + (stakedTokens[msg.sender] * STAKING_MULTIPLIER);
         votingPower[msg.sender] = newVotingPower;
 
@@ -61,7 +61,7 @@ contract AITBCGovernanceToken is ERC20, Ownable {
 
     function _update(address from, address to, uint256 value) internal override {
         super._update(from, to, value);
-        
+
         // Recalculate voting power for both parties
         if (from != address(0)) {
             votingPower[from] = balanceOf(from) + (stakedTokens[from] * STAKING_MULTIPLIER);

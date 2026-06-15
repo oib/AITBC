@@ -109,7 +109,7 @@ result = gpu.field_add(a, b)  # Backend-agnostic
 
 ### ✅ **Backend Flexibility**
 - **CUDA**: NVIDIA GPU acceleration
-- **Apple Silicon**: Apple GPU acceleration  
+- **Apple Silicon**: Apple GPU acceleration
 - **ROCm**: AMD GPU acceleration (ready for implementation)
 - **CPU**: Guaranteed fallback option
 
@@ -254,7 +254,7 @@ def test_field_operations():
     with GPUAccelerationContext() as gpu:
         a = np.array([1, 2, 3], dtype=np.uint64)
         b = np.array([4, 5, 6], dtype=np.uint64)
-        
+
         result = gpu.field_add(a, b)
         expected = np.array([5, 7, 9], dtype=np.uint64)
         assert np.array_equal(result, expected)

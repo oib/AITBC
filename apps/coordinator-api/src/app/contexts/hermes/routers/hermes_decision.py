@@ -2,15 +2,13 @@
 
 from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException  # noqa: E402
-
-from ....deps import require_admin_key  # noqa: E402
-from ....schemas.hermes_decision import (  # noqa: E402
+from ....deps import require_admin_key
+from ....schemas.hermes_decision import (
     DecisionListResponse,
     DecisionProposal,
     DecisionProposalResponse,
@@ -20,8 +18,10 @@ from ....schemas.hermes_decision import (  # noqa: E402
     Vote,
     VoteResponse,
 )
-from ....storage import get_session  # noqa: E402
-from ..services.decision_service_db import decision_service  # noqa: E402
+from ....storage import get_session
+from ..services.decision_service_db import decision_service
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/hermes/decision", tags=["hermes Decision Making"])
 

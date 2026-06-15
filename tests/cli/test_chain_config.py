@@ -3,16 +3,9 @@ CLI Command Tests
 Tests for CLI command models and utilities
 """
 
-import sys
-from pathlib import Path
 
-# Add CLI path for imports
-cli_path = Path("/opt/aitbc/cli")
-if str(cli_path) not in sys.path:
-    sys.path.insert(0, str(cli_path))
-
-import pytest  # noqa: E402
-from aitbc_cli.models.chain import (  # noqa: E402
+import pytest
+from aitbc_cli.models.chain import (
     ChainConfig,
     ChainStatus,
     ChainType,

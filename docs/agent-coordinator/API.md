@@ -4,7 +4,7 @@
 **Version:** 1.1 (Service Status Update)
 
 > **Important:** This document describes the Agent Coordinator API. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
-> 
+>
 > **🟢 Service Status**: Coordinator API is operational on port 8203 with all Hermes endpoints functioning.
 
 ## Base URL

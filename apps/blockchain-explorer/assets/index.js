@@ -22,33 +22,33 @@ const app = createApp({
       error: null
     }
   },
-  
+
   async mounted() {
     await this.loadChainData()
     setInterval(this.loadChainData, 5000)
   },
-  
+
   methods: {
     async loadChainData() {
       try {
         this.error = null
-        
+
         // Load chain head
         const headResponse = await fetch(`${API_BASE}/chain/head`)
         if (headResponse.ok) {
           this.chainInfo = await headResponse.json()
         }
-        
+
         // Load latest blocks
         const blocksResponse = await fetch(`${API_BASE}/chain/blocks?limit=10`)
         if (blocksResponse.ok) {
           this.latestBlocks = await blocksResponse.json()
         }
-        
+
         // Calculate stats
         this.stats.totalBlocks = this.chainInfo.height || 0
         this.stats.totalTransactions = this.latestBlocks.reduce((sum, block) => sum + (block.tx_count || 0), 0)
-        
+
         this.loading = false
       } catch (error) {
         console.error('Failed to load chain data:', error)
@@ -56,15 +56,15 @@ const app = createApp({
         this.loading = false
       }
     },
-    
+
     formatHash(hash) {
       if (!hash) return '-'
       return hash.substring(0, 10) + '...' + hash.substring(hash.length - 8)
     },
-    
+
     formatTime(timestamp) {
       if (!timestamp) return '-'
-      
+
       // Handle ISO strings
       if (typeof timestamp === 'string') {
         try {
@@ -75,15 +75,15 @@ const app = createApp({
           return '-'
         }
       }
-      
+
       // Handle numeric timestamps (could be seconds or milliseconds)
       const numTimestamp = Number(timestamp)
       if (isNaN(numTimestamp)) return '-'
-      
+
       // If timestamp is in seconds (typical Unix timestamp), convert to milliseconds
       // If timestamp is already in milliseconds, use as-is
       const msTimestamp = numTimestamp < 10000000000 ? numTimestamp * 1000 : numTimestamp
-      
+
       try {
         return new Date(msTimestamp).toLocaleString()
       } catch (e) {
@@ -91,18 +91,18 @@ const app = createApp({
         return '-'
       }
     },
-    
+
     formatNumber(num) {
       if (!num) return '0'
       return num.toLocaleString()
     },
-    
+
     getBlockType(block) {
       if (!block) return 'unknown'
       return block.tx_count > 0 ? 'with-tx' : 'empty'
     }
   },
-  
+
   template: `
     <div class="app">
       <!-- Header -->
@@ -135,7 +135,7 @@ const app = createApp({
             <div class="spinner"></div>
             <p>Loading blockchain data...</p>
           </div>
-          
+
           <!-- Error State -->
           <div v-else-if="error" class="error">
             <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -146,7 +146,7 @@ const app = createApp({
             <p>{{ error }}</p>
             <button @click="loadChainData" class="retry-btn">Retry</button>
           </div>
-          
+
           <!-- Chain Overview -->
           <div v-else class="overview">
             <div class="cards">
@@ -161,7 +161,7 @@ const app = createApp({
                   <p class="card-value">{{ formatNumber(chainInfo.height) }}</p>
                 </div>
               </div>
-              
+
               <div class="card">
                 <div class="card-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -173,7 +173,7 @@ const app = createApp({
                   <p class="card-value hash">{{ formatHash(chainInfo.hash) }}</p>
                 </div>
               </div>
-              
+
               <div class="card">
                 <div class="card-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -187,12 +187,12 @@ const app = createApp({
               </div>
             </div>
           </div>
-          
+
           <!-- Latest Blocks -->
           <div v-if="!loading && !error" class="blocks-section">
             <h2>Latest Blocks</h2>
             <div class="blocks-list">
-              <div v-for="block in latestBlocks" :key="block.height" 
+              <div v-for="block in latestBlocks" :key="block.height"
                    class="block-item" :class="getBlockType(block)">
                 <div class="block-height">
                   <span class="height">{{ formatNumber(block.height) }}</span>

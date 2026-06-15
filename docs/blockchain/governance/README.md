@@ -1,9 +1,9 @@
 # Governance Documentation
 
-**Level**: Advanced  
-**Prerequisites**: Familiarity with project operations and policy documents  
-**Estimated Time**: 15-25 minutes  
-**Last Updated**: 2026-05-28  
+**Level**: Advanced
+**Prerequisites**: Familiarity with project operations and policy documents
+**Estimated Time**: 15-25 minutes
+**Last Updated**: 2026-05-28
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -48,6 +48,6 @@ This directory collects governance-related documentation for:
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Governance index*

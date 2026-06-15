@@ -48,29 +48,29 @@ while [ $CURRENT_HEIGHT -le $AITBC1_HEIGHT ]; do
   if [ $END_HEIGHT -gt $AITBC1_HEIGHT ]; then
     END_HEIGHT=$AITBC1_HEIGHT
   fi
-  
+
   echo "   Syncing batch: blocks $CURRENT_HEIGHT to $END_HEIGHT"
-  
+
   # Import blocks in batch
   for height in $(seq $CURRENT_HEIGHT $END_HEIGHT); do
     echo "     Importing block $height..."
-    
+
     # Get block with proper proposer field
     curl -s "$BLOCKCHAIN_RPC/rpc/blocks-range?start=$height&end=$height" | \
       jq '.blocks[0] + {"proposer": "'$PROPOSER_ADDR'"}' > /tmp/block$height.json
-    
+
     # Import to aitbc
     scp /tmp/block$height.json aitbc:/tmp/ 2>/dev/null
     ssh aitbc "curl -X POST $BLOCKCHAIN_RPC/rpc/importBlock -H 'Content-Type: application/json' -d @/tmp/block$height.json" > /dev/null 2>&1
-    
+
     sleep 0.5
   done
-  
+
   # Check progress
   CURRENT_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')
   PROGRESS=$((CURRENT_HEIGHT * 100 / AITBC1_HEIGHT))
   echo "   Progress: $PROGRESS% ($CURRENT_HEIGHT/$AITBC1_HEIGHT blocks)"
-  
+
   # Brief pause between batches
   sleep 2
 done

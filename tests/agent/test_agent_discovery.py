@@ -3,19 +3,11 @@ Agent Discovery Tests
 Tests for agent registration, discovery, capability matching, and agent registry
 """
 
-import sys
-from pathlib import Path
+import asyncio
+from datetime import UTC, datetime
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-import asyncio  # noqa: E402
-from datetime import UTC, datetime  # noqa: E402
-
-import pytest  # noqa: E402
-from app.routing.agent_discovery import (  # noqa: E402
+import pytest
+from app.routing.agent_discovery import (
     AgentDiscoveryService,
     AgentInfo,
     AgentRegistry,

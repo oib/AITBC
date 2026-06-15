@@ -1,17 +1,16 @@
-from typing import Annotated, Any
-
-from sqlalchemy.orm import Session
-
 """
 GPU Multi-Modal Service - FastAPI Entry Point
 """
 
-from fastapi import Depends, FastAPI  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from typing import Annotated, Any
 
-from ..contexts.gpu_multimodal.routers.gpu_multimodal_health import router as health_router  # noqa: E402
-from ..storage import get_session  # noqa: E402
-from .gpu_multimodal import GPUAcceleratedMultiModal  # noqa: E402
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from ..contexts.gpu_multimodal.routers.gpu_multimodal_health import router as health_router
+from ..storage import get_session
+from .gpu_multimodal import GPUAcceleratedMultiModal
 
 app = FastAPI(
     title="AITBC GPU Multi-Modal Service",

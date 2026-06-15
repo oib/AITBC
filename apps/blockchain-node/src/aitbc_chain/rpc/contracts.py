@@ -10,13 +10,11 @@ from fastapi import Request
 
 from aitbc.rate_limiting import rate_limit
 
+from ..contracts.agent_messaging_contract import messaging_contract
 from ..logger import get_logger
+from .contract_service import contract_service
 
 _logger = get_logger(__name__)
-
-# Import contract services
-from ..contracts.agent_messaging_contract import messaging_contract  # noqa: E402
-from .contract_service import contract_service  # noqa: E402
 
 
 @rate_limit(rate=50, per=60)

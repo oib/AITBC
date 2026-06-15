@@ -50,77 +50,77 @@ class VerificationLevel(str, Enum):
 
 class IAgentExecution(ABC):
     """Protocol for agent execution domain model"""
-    
+
     @property
     @abstractmethod
     def id(self) -> str: ...
-    
+
     @property
     @abstractmethod
     def workflow_id(self) -> str: ...
-    
+
     @property
     @abstractmethod
     def status(self) -> AgentStatus: ...
-    
+
     @property
     @abstractmethod
     def verification_level(self) -> VerificationLevel: ...
-    
+
     @abstractmethod
     def to_dict(self) -> dict[str, Any]: ...
 
 class IAgentStepExecution(ABC):
     """Protocol for agent step execution domain model"""
-    
+
     @property
     @abstractmethod
     def id(self) -> str: ...
-    
+
     @property
     @abstractmethod
     def execution_id(self) -> str: ...
-    
+
     @property
     @abstractmethod
     def step_type(self) -> str: ...
-    
+
     @abstractmethod
     def to_dict(self) -> dict[str, Any]: ...
 
 # protocols/security.py
 class ISecurityManager(ABC):
     """Protocol for agent security management"""
-    
+
     @abstractmethod
     async def validate_operation(self, operation: str, context: dict[str, Any]) -> bool: ...
-    
+
     @abstractmethod
     async def audit_event(self, event_type: str, details: dict[str, Any]) -> None: ...
 
 class IAuditor(ABC):
     """Protocol for agent auditing"""
-    
+
     @abstractmethod
     async def log_audit(self, event_type: str, details: dict[str, Any]) -> None: ...
 
 # protocols/orchestrator.py
 class IAgentOrchestrator(ABC):
     """Protocol for agent orchestration"""
-    
+
     @abstractmethod
     async def execute_workflow(self, workflow_id: str, inputs: dict[str, Any]) -> dict[str, Any]: ...
-    
+
     @abstractmethod
     async def get_status(self, execution_id: str) -> dict[str, Any]: ...
 
 # protocols/zk_proof.py
 class IZKProofService(ABC):
     """Protocol for ZK proof generation/verification"""
-    
+
     @abstractmethod
     async def generate_zk_proof(self, circuit_name: str, inputs: dict[str, Any]) -> dict[str, Any]: ...
-    
+
     @abstractmethod
     async def verify_proof(self, proof_id: str) -> dict[str, Any]: ...
 
@@ -129,10 +129,10 @@ from sqlmodel import Session
 
 class ISessionProvider(ABC):
     """Protocol for database session management"""
-    
+
     @abstractmethod
     def get_session(self) -> Session: ...
-    
+
     @abstractmethod
     def close_session(self, session: Session) -> None: ...
 ```
@@ -162,7 +162,7 @@ class AgentIntegrationService:
     Shared agent integration service with injected dependencies.
     All app-specific logic is abstracted through protocols.
     """
-    
+
     def __init__(
         self,
         session_provider: ISessionProvider,
@@ -176,7 +176,7 @@ class AgentIntegrationService:
         self._auditor = auditor
         self._orchestrator = orchestrator
         self._zk_proof_service = zk_proof_service
-    
+
     async def deploy_agent(
         self,
         workflow_id: str,
@@ -193,13 +193,13 @@ class AgentIntegrationService:
             {"workflow_id": workflow_id, **(context or {})}
         ):
             raise PermissionError("Operation not authorized")
-        
+
         # Execute deployment using orchestrator
         result = await self._orchestrator.execute_workflow(
             workflow_id,
             deployment_config
         )
-        
+
         # Audit the deployment
         await self._auditor.audit_event(
             "agent_deployed",
@@ -209,9 +209,9 @@ class AgentIntegrationService:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
-        
+
         return result
-    
+
     async def generate_verification_proof(
         self,
         execution_id: str,
@@ -223,9 +223,9 @@ class AgentIntegrationService:
         """
         if not self._zk_proof_service:
             raise RuntimeError("ZK proof service not configured")
-        
+
         proof = await self._zk_proof_service.generate_zk_proof(circuit_name, inputs)
-        
+
         await self._auditor.audit_event(
             "proof_generated",
             {
@@ -234,7 +234,7 @@ class AgentIntegrationService:
                 "circuit_name": circuit_name,
             }
         )
-        
+
         return proof
 ```
 
@@ -262,51 +262,51 @@ from aitbc_agent_core.protocols.database import ISessionProvider
 
 class AgentExecutionAdapter(IAgentExecution):
     """Adapter for AgentExecution domain model"""
-    
+
     def __init__(self, execution: AgentExecution):
         self._execution = execution
-    
+
     @property
     def id(self) -> str:
         return self._execution.id
-    
+
     @property
     def workflow_id(self) -> str:
         return self._execution.workflow_id
-    
+
     @property
     def status(self) -> AgentStatus:
         return AgentStatus(self._execution.status)
-    
+
     @property
     def verification_level(self) -> VerificationLevel:
         return VerificationLevel(self._execution.verification_level)
-    
+
     def to_dict(self) -> dict[str, Any]:
         return self._execution.model_dump()
 
 class AgentSecurityManagerAdapter(ISecurityManager):
     """Adapter for AgentSecurityManager"""
-    
+
     def __init__(self, manager: AgentSecurityManager):
         self._manager = manager
-    
+
     async def validate_operation(self, operation: str, context: dict[str, Any]) -> bool:
         # Delegate to app-specific implementation
         return await self._manager.validate_operation(operation, context)
-    
+
     async def audit_event(self, event_type: str, details: dict[str, Any]) -> None:
         await self._manager.audit_event(event_type, details)
 
 class SessionProviderAdapter(ISessionProvider):
     """Adapter for SQLModel session management"""
-    
+
     def __init__(self, session_factory):
         self._session_factory = session_factory
-    
+
     def get_session(self) -> Session:
         return self._session_factory()
-    
+
     def close_session(self, session: Session) -> None:
         session.close()
 ```
@@ -349,7 +349,7 @@ from app.services.agent_coordination.agent_service import AIAgentOrchestrator
        AgentSecurityManagerAdapter,
        SessionProviderAdapter,
    )
-   
+
    def create_agent_integration_service():
        """Factory to create shared service with app-specific adapters"""
        return AgentIntegrationService(

@@ -1,7 +1,7 @@
 # AITBC v0.6.0 Release Notes
 
-**Date**: TBD  
-**Status**: 🚧 Planned  
+**Date**: TBD
+**Status**: 🚧 Planned
 **Scope**: Cross-Chain Bridge & Interoperability
 
 ## 🎯 Overview
@@ -183,6 +183,6 @@ AITBC v0.6.0 is a major milestone release focused on cross-chain bridge integrat
 
 ---
 
-*Last Updated: 2026-06-02*  
-*Version: 0.6.0*  
+*Last Updated: 2026-06-02*
+*Version: 0.6.0*
 *Status: Planned*

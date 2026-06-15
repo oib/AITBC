@@ -212,19 +212,19 @@ sys.path.append('/opt/aitbc/apps/coordinator-api/src')
 
 try:
     from app.agent_identity.sdk.communication import AgentCommunicationClient
-    
+
     async def test_communication():
         """Test agent communication functionality"""
         print("[SDK] Testing Agent Communication SDK")
         print("================================")
-        
+
         # Create communication client
         client = AgentCommunicationClient(
             base_url="http://localhost:8203",
             agent_id="test_sdk_agent",
             private_key="test_private_key"
         )
-        
+
         # Test creating a forum topic
         print("1. Testing forum topic creation...")
         topic_result = await client.create_forum_topic(
@@ -232,11 +232,11 @@ try:
             description="Testing the Agent Communication SDK",
             tags=["sdk", "test"]
         )
-        
+
         if topic_result.get("success"):
             print(f"[OK] Topic created: {topic_result.get('topic_id')}")
             topic_id = topic_result.get("topic_id")
-            
+
             # Test posting a message
             print("2. Testing message posting...")
             message_result = await client.post_message(
@@ -244,32 +244,32 @@ try:
                 content="This is a test message from the SDK",
                 message_type="post"
             )
-            
+
             if message_result.get("success"):
                 print(f"[OK] Message posted: {message_result.get('message_id')}")
-                
+
                 # Test getting topic messages
                 print("3. Testing get topic messages...")
                 messages_result = await client.get_topic_messages(topic_id=topic_id)
-                
+
                 if messages_result.get("success"):
                     print(f"[OK] Retrieved {messages_result.get('total_messages')} messages")
-                    
+
                     # Test search functionality
                     print("4. Testing message search...")
                     search_result = await client.search_messages("test", limit=10)
-                    
+
                     if search_result.get("success"):
                         print(f"[OK] Search completed: {search_result.get('total_matches')} matches")
-                        
+
                         # Test agent reputation
                         print("5. Testing agent reputation...")
                         reputation_result = await client.get_agent_reputation()
-                        
+
                         if reputation_result.get("success"):
                             reputation = reputation_result.get("reputation", {})
                             print(f"[OK] Agent reputation: {reputation.get('reputation_score', 0.0)}")
-                            
+
                             print("[SUCCESS] All SDK tests passed!")
                             return True
                         else:
@@ -282,13 +282,13 @@ try:
                 print("[FAIL] Message posting test failed")
         else:
             print("[FAIL] Topic creation test failed")
-        
+
         return False
-    
+
     # Run the test
     success = asyncio.run(test_communication())
     sys.exit(0 if success else 1)
-    
+
 except ImportError as e:
     print(f"[FAIL] SDK import failed: {e}")
     print("SDK may not be properly installed or path is incorrect")
@@ -322,25 +322,25 @@ TECH_TOPIC_RESPONSE=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messagi
 if [ -n "$TECH_TOPIC_RESPONSE" ] && [ "$TECH_TOPIC_RESPONSE" != "null" ]; then
     TECH_TOPIC_ID=$(echo "$TECH_TOPIC_RESPONSE" | jq -r .topic_id 2>/dev/null || echo "tech_topic_001")
     echo "[OK] Created technical discussion topic: $TECH_TOPIC_ID"
-    
+
     # Post a question using direct JSON string
     QUESTION_DATA='{"agent_id":"'$AGENT_1_ID'","agent_address":"ait1forum_agent_1","topic_id":"'$TECH_TOPIC_ID'","content":"What are the most important security considerations when developing smart contracts for autonomous agents?","message_type":"question"}'
-    
+
     QUESTION_RESPONSE=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messaging/messages/post \
       -H "Content-Type: application/json" \
       -d "$QUESTION_DATA")
-    
+
     if [ -n "$QUESTION_RESPONSE" ] && [ "$QUESTION_RESPONSE" != "null" ]; then
         QUESTION_ID=$(echo "$QUESTION_RESPONSE" | jq -r .message_id 2>/dev/null || echo "question_001")
         echo "[OK] Posted question: $QUESTION_ID"
-        
+
         # Post an answer using direct JSON string
         ANSWER_DATA='{"agent_id":"'$AGENT_2_ID'","agent_address":"ait1forum_agent_2","topic_id":"'$TECH_TOPIC_ID'","content":"Key security considerations include: 1) Implement proper access controls, 2) Use guardian contracts for spending limits, 3) Validate all external calls, 4) Implement reentrancy protection, and 5) Regular security audits.","message_type":"answer","parent_message_id":"'$QUESTION_ID'"}'
-        
+
         ANSWER_RESPONSE=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messaging/messages/post \
           -H "Content-Type: application/json" \
           -d "$ANSWER_DATA")
-        
+
         if [ -n "$ANSWER_RESPONSE" ] && [ "$ANSWER_RESPONSE" != "null" ]; then
             ANSWER_ID=$(echo "$ANSWER_RESPONSE" | jq -r .message_id 2>/dev/null || echo "answer_001")
             echo "[OK] Posted answer: $ANSWER_ID"

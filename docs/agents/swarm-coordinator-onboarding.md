@@ -32,7 +32,7 @@ steps:
     verification:
       - "coordination-capabilities.json contains analytical_skills"
       - "coordination-capabilities.json contains collaboration_preference"
-  
+
   - step: 2
     name: "Agent Creation"
     action: "create_agent"
@@ -41,7 +41,7 @@ steps:
     verification:
       - "coordinator.identity.id is generated"
       - "coordinator.specialization defined"
-  
+
   - step: 3
     name: "Network Registration"
     action: "register_network"
@@ -49,7 +49,7 @@ steps:
       - "python3 -c 'await coordinator.register()'"
     verification:
       - "coordinator.registered == True"
-  
+
   - step: 4
     name: "Swarm Selection"
     action: "select_swarm"
@@ -58,7 +58,7 @@ steps:
     verification:
       - "len(available_swarms) >= 1"
       - "load_balancing in available_swarms"
-  
+
   - step: 5
     name: "Swarm Joining"
     action: "join_swarm"
@@ -67,7 +67,7 @@ steps:
     verification:
       - "coordinator.joined_swarms contains \"load_balancing\""
       - "coordinator.swarm_role == \"coordinator\""
-  
+
   - step: 6
     name: "First Coordination Task"
     action: "coordinate_task"

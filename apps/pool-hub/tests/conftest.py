@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -13,10 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 # Load .env file
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BASE_DIR / ".env")
-
-POOLHUB_SRC = BASE_DIR / "pool-hub" / "src"
-if str(POOLHUB_SRC) not in sys.path:
-    sys.path.insert(0, str(POOLHUB_SRC))
 
 from poolhub.models import Base  # noqa: E402
 

@@ -58,9 +58,9 @@ log_monitoring() {
     local service="$2"
     local message="$3"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
     echo "[$timestamp] [$level] $service: $message" >> "$LOG_FILE"
-    
+
     if [ "$level" = "ALERT" ]; then
         echo "[$timestamp] [ALERT] $service: $message" >> "$ALERT_LOG"
         echo -e "${RED}🚨 ALERT: $service - $message${NC}"
@@ -72,9 +72,9 @@ check_service_health() {
     local service_name="$1"
     local check_command="$2"
     local expected_result="$3"
-    
+
     echo "Checking $service_name..."
-    
+
     if eval "$check_command" >/dev/null 2>&1; then
         if [ -n "$expected_result" ]; then
             local result=$(eval "$check_command" 2>/dev/null)
@@ -97,7 +97,7 @@ check_service_health() {
         log_monitoring "ALERT" "$service_name" "Service is not responding"
         echo -e "${RED}❌ $service_name: Not responding${NC}"
     fi
-    
+
     LAST_CHECK_TIME["$service_name"]=$(date +%s)
 }
 
@@ -106,14 +106,14 @@ check_service_performance() {
     local service_name="$1"
     local endpoint="$2"
     local max_response_time="$3"
-    
+
     echo "Checking $service_name performance..."
-    
+
     local start_time=$(date +%s%N)
     local result=$(curl -s "$endpoint" 2>/dev/null)
     local end_time=$(date +%s%N)
     local response_time=$(( (end_time - start_time) / 1000000 ))
-    
+
     if [ "$response_time" -gt "$max_response_time" ]; then
         log_monitoring "ALERT" "$service_name" "High response time: ${response_time}ms (threshold: ${max_response_time}ms)"
         echo -e "${YELLOW}⚠️ $service_name: High response time (${response_time}ms)${NC}"
@@ -126,7 +126,7 @@ check_service_performance() {
 # Function to check system resources
 check_system_resources() {
     echo "Checking system resources..."
-    
+
     # CPU usage
     local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
     if (( $(echo "$cpu_usage > $ALERT_THRESHOLD_CPU" | bc -l) )); then
@@ -135,7 +135,7 @@ check_system_resources() {
     else
         echo -e "${GREEN}✅ System: CPU usage OK (${cpu_usage}%)${NC}"
     fi
-    
+
     # Memory usage
     local mem_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
     if (( $(echo "$mem_usage > $ALERT_THRESHOLD_MEM" | bc -l) )); then
@@ -144,7 +144,7 @@ check_system_resources() {
     else
         echo -e "${GREEN}✅ System: Memory usage OK (${mem_usage}%)${NC}"
     fi
-    
+
     # Disk usage
     local disk_usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
     if [ "$disk_usage" -gt "$ALERT_THRESHOLD_DISK" ]; then
@@ -158,7 +158,7 @@ check_system_resources() {
 # Function to check blockchain-specific metrics
 check_blockchain_metrics() {
     echo "Checking blockchain metrics..."
-    
+
     # Check block height
     local block_height=$(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height 2>/dev/null || echo "0")
     if [ "$block_height" -gt 0 ]; then
@@ -168,17 +168,17 @@ check_blockchain_metrics() {
         log_monitoring "ALERT" "Blockchain" "Unable to get block height"
         echo -e "${RED}❌ Blockchain: Unable to get block height${NC}"
     fi
-    
+
     # Check transaction count
     local tx_count=$(curl -s http://localhost:$GENESIS_PORT/rpc/info | jq .total_transactions 2>/dev/null || echo "0")
     log_monitoring "INFO" "Blockchain" "Total transactions: $tx_count"
     echo -e "${GREEN}✅ Blockchain: $tx_count transactions${NC}"
-    
+
     # Check cross-node sync
     local local_height=$(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height 2>/dev/null || echo "0")
     local remote_height=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/head | jq .height' 2>/dev/null || echo "0")
     local sync_diff=$((local_height - remote_height))
-    
+
     if [ "$sync_diff" -le 10 ]; then
         log_monitoring "INFO" "Blockchain" "Cross-node sync OK (diff: $sync_diff)"
         echo -e "${GREEN}✅ Blockchain: Cross-node sync OK (diff: $sync_diff)${NC}"
@@ -191,7 +191,7 @@ check_blockchain_metrics() {
 # Function to check service-specific metrics
 check_service_metrics() {
     echo "Checking service-specific metrics..."
-    
+
     # AI Service metrics
     local ai_stats=$(ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' 2>/dev/null)
     if [ -n "$ai_stats" ]; then
@@ -203,7 +203,7 @@ check_service_metrics() {
         log_monitoring "ALERT" "AI Service" "Unable to get stats"
         echo -e "${RED}❌ AI Service: Unable to get stats${NC}"
     fi
-    
+
     # Marketplace metrics
     local marketplace_listings=$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings | jq '.listings | length' 2>/dev/null || echo "0")
     if [ "$marketplace_listings" -gt 0 ]; then
@@ -213,7 +213,7 @@ check_service_metrics() {
         log_monitoring "INFO" "Marketplace" "No active listings"
         echo -e "${YELLOW}⚠️ Marketplace: No active listings${NC}"
     fi
-    
+
     # Coordinator API metrics
     local coordinator_health=$(curl -s http://localhost:$COORDINATOR_PORT/health/live 2>/dev/null)
     if [ -n "$coordinator_health" ]; then
@@ -234,7 +234,7 @@ check_service_metrics() {
 # Function to check contract service health
 check_contract_service_health() {
     echo "Checking contract service health..."
-    
+
     # Check if contract endpoints are available
     local contracts_endpoint=$(curl -s http://localhost:$GENESIS_PORT/rpc/contracts 2>/dev/null)
     if [ -n "$contracts_endpoint" ] && [ "$contracts_endpoint" != '{"detail":"Not Found"}' ]; then
@@ -245,7 +245,7 @@ check_contract_service_health() {
         log_monitoring "WARNING" "Contract Service" "Contract endpoints not available"
         echo -e "${YELLOW}⚠️ Contract Service: Endpoints not available${NC}"
     fi
-    
+
     # Check contract implementation files
     local contract_files=$(find /opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/ -name "*.py" 2>/dev/null | wc -l)
     if [ "$contract_files" -gt 0 ]; then
@@ -260,7 +260,7 @@ check_contract_service_health() {
 # Function to generate monitoring report
 generate_monitoring_report() {
     local report_file="/opt/aitbc/monitoring_report_$(date +%Y%m%d_%H%M%S).txt"
-    
+
     cat > "$report_file" << EOF
 AITBC Service Health Monitoring Report
 ==================================
@@ -306,15 +306,15 @@ EOF
     if [ "${SERVICE_STATUS[blockchain_rpc]:-unknown}" != "healthy" ]; then
         echo "- CRITICAL: Blockchain RPC not responding - check service status" >> "$report_file"
     fi
-    
+
     if [ "${SERVICE_STATUS[ai_service]:-unknown}" != "healthy" ]; then
         echo "- WARNING: AI service not responding - check follower node" >> "$report_file"
     fi
-    
+
     if [ "${SERVICE_STATUS[coordinator_api]:-unknown}" != "healthy" ]; then
         echo "- WARNING: Coordinator API not responding - check service configuration" >> "$report_file"
     fi
-    
+
     echo "Monitoring report saved to: $report_file"
 }
 
@@ -322,41 +322,41 @@ EOF
 run_continuous_monitoring() {
     local duration="$1"
     local end_time=$(($(date +%s) + duration))
-    
+
     echo "Starting continuous monitoring for ${duration}s..."
     echo "Press Ctrl+C to stop monitoring"
     echo ""
-    
+
     while [ $(date +%s) -lt $end_time ]; do
         echo "=== $(date) ==="
-        
+
         # System resources
         check_system_resources
         echo ""
-        
+
         # Blockchain metrics
         check_blockchain_metrics
         echo ""
-        
+
         # Service-specific metrics
         check_service_metrics
         echo ""
-        
+
         # Contract service health
         check_contract_service_health
         echo ""
-        
+
         # Service health checks
         check_service_health "Blockchain RPC" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
         check_service_health "AI Service" "ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats'"
         check_service_health "Coordinator API" "curl -s http://localhost:$COORDINATOR_PORT/health/live"
         echo ""
-        
+
         # Performance checks
         check_service_performance "Blockchain RPC" "http://localhost:$GENESIS_PORT/rpc/info" "$ALERT_THRESHOLD_RESPONSE_TIME"
         check_service_performance "Coordinator API" "http://localhost:$COORDINATOR_PORT/health/live" "$ALERT_THRESHOLD_RESPONSE_TIME"
         echo ""
-        
+
         # Wait for next check
         echo "Waiting ${MONITORING_INTERVAL}s for next check..."
         sleep "$MONITORING_INTERVAL"
@@ -368,30 +368,30 @@ run_continuous_monitoring() {
 run_quick_health_check() {
     echo "=== QUICK HEALTH CHECK ==="
     echo ""
-    
+
     # System resources
     check_system_resources
     echo ""
-    
+
     # Service health
     check_service_health "Blockchain RPC" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
     check_service_health "AI Service" "ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats'"
     check_service_health "Coordinator API" "curl -s http://localhost:$COORDINATOR_PORT/health/live"
     check_service_health "Marketplace" "curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings"
     echo ""
-    
+
     # Blockchain metrics
     check_blockchain_metrics
     echo ""
-    
+
     # Service metrics
     check_service_metrics
     echo ""
-    
+
     # Contract service
     check_contract_service_health
     echo ""
-    
+
     # Generate report
     generate_monitoring_report
 }

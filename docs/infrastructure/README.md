@@ -2,7 +2,7 @@
 
 > **Important:** This document may contain outdated port references. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
-**Last Updated**: 2026-05-28  
+**Last Updated**: 2026-05-28
 **Version**: 3.2 (Infrastructure Optimization)
 
 ## Overview
@@ -35,7 +35,7 @@ This section documents the AITBC infrastructure components, runtime architecture
 
 #### Core Services
 - **Coordinator API**: Central orchestration (Port 8203)
-- **Blockchain Node**: Core blockchain (Port 8202) 
+- **Blockchain Node**: Core blockchain (Port 8202)
 - **Exchange API**: Trading services (Port 8001)
 - **Wallet Service**: Wallet management (Port 8003)
 
