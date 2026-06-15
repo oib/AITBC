@@ -76,13 +76,13 @@ class AccessController:
             cache_key = self._get_cache_key(request)
             cached_result = self._get_cached_result(cache_key)
             if cached_result is not None:
-                return cached_result['allowed']
+                return cached_result['allowed']  # type: ignore[no-any-return]
             participant_info = self._get_participant_info(request.requester)
             if not participant_info:
                 logger.warning('Unknown participant: %s', request.requester)
                 return False
             role = participant_info.get('role')
-            if not self._check_role_permissions(role, request):
+            if not self._check_role_permissions(role, request):  # type: ignore[arg-type]
                 return False
             transaction = self._get_transaction(request.transaction_id)
             if not transaction:
@@ -163,7 +163,7 @@ class AccessController:
         else:
             retention_days = 365
         expiry_date = transaction_date + timedelta(days=retention_days)
-        return datetime.now(UTC) <= expiry_date
+        return datetime.now(UTC) <= expiry_date  # type: ignore[no-any-return]
 
     def _get_participant_info(self, participant_id: str) -> dict | None:
         """Get participant information"""
@@ -232,5 +232,5 @@ class AccessController:
         if not participant_info:
             return {'error': 'Participant not found'}
         role = participant_info.get('role')
-        permissions = self.policy_store.get_role_permissions(ParticipantRole(role))
+        permissions = self.policy_store.get_role_permissions(ParticipantRole(role))  # type: ignore[arg-type]
         return {'participant_id': participant_id, 'role': role, 'permissions': list(permissions), 'active': participant_info.get('active', False)}

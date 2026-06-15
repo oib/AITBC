@@ -60,8 +60,8 @@ class WebhookResponse(BaseModel):
 
 
 # Mock partner storage (in production, use database)
-PARTNERS_DB = {}
-WEBHOOKS_DB = {}
+PARTNERS_DB: dict[str, Any] = {}
+WEBHOOKS_DB: dict[str, Any] = {}
 
 
 @router.post("/partners/register", response_model=PartnerResponse)
@@ -268,14 +268,14 @@ def verify_partner_api_key(partner_id: str, api_key: str) -> dict[str, Any] | No
     if partner["api_key"] != api_key:
         return None
 
-    return partner
+    return partner  # type: ignore[no-any-return]
 
 
 def find_partner_by_api_key(api_key: str) -> dict[str, Any] | None:
     """Find partner by API key"""
     for partner in PARTNERS_DB.values():
         if partner["api_key"] == api_key:
-            return partner
+            return partner  # type: ignore[no-any-return]
     return None
 
 

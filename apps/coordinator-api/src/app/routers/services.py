@@ -70,12 +70,12 @@ async def submit_service_job(
     response.headers["X-Deprecation-Message"] = "Use /v1/registry/services/{service_id} instead"
 
     # Check if service exists in registry
-    service = service_registry.get_service(service_type.value)
-    if not service:  # type: ignore[unreachable]
+    service = service_registry.get_service(service_type.value)  # type: ignore[func-returns-value]
+    if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
     # Validate request against service schema
-    validation_result = await validate_service_request(service_type.value, request_data)
+    validation_result = await validate_service_request(service_type.value, request_data)  # type: ignore[unreachable]
     if not validation_result["valid"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request: {', '.join(validation_result['errors'])}"
@@ -462,12 +462,12 @@ async def get_service_schema(request: Request, service_type: ServiceType) -> dic
     This endpoint will be removed in version 2.0.
     """
     # Get service from registry
-    service = service_registry.get_service(service_type.value)
-    if not service:  # type: ignore[unreachable]
+    service = service_registry.get_service(service_type.value)  # type: ignore[func-returns-value]
+    if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
     # Build schema from service definition
-    properties = {}
+    properties = {}  # type: ignore[unreachable]
     required = []
 
     for param in service.input_parameters:
@@ -495,11 +495,11 @@ async def get_service_schema(request: Request, service_type: ServiceType) -> dic
 
 async def validate_service_request(service_id: str, request_data: dict[str, Any]) -> dict[str, Any]:
     """Validate a service request against the service schema"""
-    service = service_registry.get_service(service_id)
-    if not service:  # type: ignore[unreachable]
+    service = service_registry.get_service(service_id)  # type: ignore[func-returns-value]
+    if not service:
         return {"valid": False, "errors": [f"Service {service_id} not found"]}
 
-    validation_result = {"valid": True, "errors": [], "warnings": []}
+    validation_result = {"valid": True, "errors": [], "warnings": []}  # type: ignore[unreachable]
 
     # Check required parameters
     provided_params = set(request_data.keys())

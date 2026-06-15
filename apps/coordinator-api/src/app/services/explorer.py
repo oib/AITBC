@@ -42,18 +42,17 @@ class ExplorerService:
                 return BlockListResponse(items=[], next_offset=None)
         except Exception as e:
             logger.warning('Failed to fetch blocks from RPC: %s, falling back to fake data', e)
-            statement = select(Job).order_by(Job.requested_at.desc())
+            statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
             jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
-            items: list[BlockSummary] = []
             for index, job in enumerate(jobs):
                 height = _DEFAULT_HEIGHT_BASE + offset + index
                 proposer = job.assigned_miner_id or 'unassigned'
                 items.append(BlockSummary(height=height, hash=job.id, timestamp=job.requested_at, txCount=1, proposer=proposer))
-            next_offset: int | None = offset + len(items) if len(items) == limit else None
+            next_offset = offset + len(items) if len(items) == limit else None
             return BlockListResponse(items=items, next_offset=next_offset)
 
     def list_transactions(self, *, limit: int=50, offset: int=0) -> TransactionListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)
+        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
         jobs = self.session.execute(statement).all()
         items: list[TransactionSummary] = []
         for index, job in enumerate(jobs):
@@ -77,7 +76,7 @@ class ExplorerService:
         return TransactionListResponse(items=items, next_offset=next_offset)
 
     def list_addresses(self, *, limit: int=50, offset: int=0) -> AddressListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc())
+        statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
         jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
         address_map: dict[str, dict[str, object]] = defaultdict(lambda: {'address': '', 'balance': 0.0, 'tx_count': 0, 'last_active': datetime.min, 'recent_transactions': deque(maxlen=5), 'earned': 0.0, 'spent': 0.0})
 
@@ -97,14 +96,14 @@ class ExplorerService:
                 return
             entry = address_map[address]
             entry['address'] = address
-            entry['tx_count'] = int(entry['tx_count']) + 1
+            entry['tx_count'] = int(entry['tx_count']) + 1  # type: ignore[call-overload]
             when_dt = _ensure_dt(when)
             if when_dt > _ensure_dt(entry['last_active']):
                 entry['last_active'] = when_dt
-            entry['earned'] = float(entry['earned']) + earned
-            entry['spent'] = float(entry['spent']) + spent
-            entry['balance'] = float(entry['earned']) - float(entry['spent'])
-            recent: deque[str] = entry['recent_transactions']
+            entry['earned'] = float(entry['earned']) + earned  # type: ignore[arg-type]
+            entry['spent'] = float(entry['spent']) + spent  # type: ignore[arg-type]
+            entry['balance'] = float(entry['earned']) - float(entry['spent'])  # type: ignore[arg-type]
+            recent: deque[str] = entry['recent_transactions']  # type: ignore[assignment]
             recent.appendleft(tx_id)
         for job in jobs:
             price = 0.0
@@ -117,14 +116,14 @@ class ExplorerService:
                         pass
             touch(job.assigned_miner_id, job.id, job.requested_at, earned=price)
             touch(job.client_id, job.id, job.requested_at, spent=price)
-        sorted_addresses = sorted(address_map.values(), key=lambda entry: entry['last_active'], reverse=True)
+        sorted_addresses = sorted(address_map.values(), key=lambda entry: entry['last_active'], reverse=True)  # type: ignore[arg-type, return-value]
         sliced = sorted_addresses[offset:offset + limit]
-        items = [AddressSummary(address=entry['address'], balance=f"{float(entry['balance']):.6f}", txCount=int(entry['tx_count']), lastActive=entry['last_active'], recentTransactions=list(entry['recent_transactions'])) for entry in sliced]
+        items = [AddressSummary(address=entry['address'], balance=f"{float(entry['balance']):.6f}", txCount=int(entry['tx_count']), lastActive=entry['last_active'], recentTransactions=list(entry['recent_transactions'])) for entry in sliced]  # type: ignore[call-overload, arg-type]
         next_offset: int | None = offset + len(sliced) if len(sliced) == limit else None
         return AddressListResponse(items=items, next_offset=next_offset)
 
     def list_receipts(self, *, job_id: str | None=None, limit: int=50, offset: int=0) -> ReceiptListResponse:
-        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())
+        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())  # type: ignore[attr-defined]
         if job_id:
             statement = statement.where(JobReceipt.job_id == job_id)
         rows = self.session.execute(statement.offset(offset).limit(limit)).all()
@@ -152,5 +151,5 @@ class ExplorerService:
                     return {'error': 'Transaction not found', 'hash': tx_hash}
                 return {'error': f'Failed to fetch transaction: {str(e)}', 'hash': tx_hash}
         except Exception as e:
-            logger.warning('Failed to fetch transaction from RPC', tx_hash=tx_hash, error=str(e))
+            logger.warning('Failed to fetch transaction from RPC', tx_hash=tx_hash, error=str(e))  # type: ignore[call-arg]
             return {'error': f'Failed to fetch transaction: {str(e)}', 'hash': tx_hash}

@@ -5,6 +5,7 @@ Main client class for interacting with the Agent Identity API
 import asyncio
 import json
 from datetime import datetime
+from types import TracebackType
 from typing import Any
 from urllib.parse import urljoin
 import aiohttp
@@ -30,18 +31,18 @@ class AgentIdentityClient:
         self.api_key = api_key
         self.timeout = aiohttp.ClientTimeout(total=timeout)
         self.max_retries = max_retries
-        self.session = None
+        self.session: aiohttp.ClientSession | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'AgentIdentityClient':
         """Async context manager entry"""
         await self._ensure_session()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None) -> None:
         """Async context manager exit"""
         await self.close()
 
-    async def _ensure_session(self):
+    async def _ensure_session(self) -> None:
         """Ensure HTTP session is created"""
         if self.session is None or self.session.closed:
             headers = {'Content-Type': 'application/json'}
@@ -49,22 +50,42 @@ class AgentIdentityClient:
                 headers['Authorization'] = f'Bearer {self.api_key}'
             self.session = aiohttp.ClientSession(headers=headers, timeout=self.timeout)
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP session"""
-        if self.session and (not self.session.closed):
+        if self.session and not self.session.closed:
             await self.session.close()
 
-    async def _request(self, method: str, endpoint: str, data: dict[str, Any] | None=None, params: dict[str, Any] | None=None, **kwargs) -> dict[str, Any]:
+    async def _request(self, method: str, endpoint: str, data: dict[str, Any] | None=None, params: dict[str, Any] | None=None, **kwargs: Any) -> dict[str, Any]:
         """Make HTTP request with retry logic"""
         await self._ensure_session()
         url = urljoin(self.base_url, endpoint)
         for attempt in range(self.max_retries + 1):
             try:
-                async with self.session.request(method, url, json=data, params=params, **kwargs) as response:
+                async with self.session.request(method, url, json=data, params=params, **kwargs) as response:  # type: ignore[union-attr]
                     if response.status == 200:
-                        return await response.json()
+                        return await response.json()  # type: ignore[no-any-return]
+                    elif response.status == 401:
+                        raise AuthenticationError('Authentication failed')
+                    elif response.status == 404:
+                        raise NotFoundError('Resource not found')
+                    else:
+                        error_data = await response.json()
+                        raise APIError(error_data.get('message', 'Unknown error'))
+            except aiohttp.ClientError as e:
+                if attempt == self.max_retries:
+                    raise ConnectionError(f'Failed to connect after {self.max_retries} retries: {e}')
+                await asyncio.sleep(2 ** attempt)
+        raise APIError('Max retries exceeded')
+
+    async def _post(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Make a POST request with retry logic"""
+        for attempt in range(self.max_retries):
+            try:
+                async with self.session.post(self.base_url + endpoint, json=data) as response:  # type: ignore[union-attr]
+                    if response.status == 200:
+                        return await response.json()  # type: ignore[no-any-return]
                     elif response.status == 201:
-                        return await response.json()
+                        return await response.json()  # type: ignore[no-any-return]
                     elif response.status == 400:
                         error_data = await response.json()
                         raise ValidationError(error_data.get('detail', 'Bad request'))
@@ -88,6 +109,7 @@ class AgentIdentityClient:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 raise NetworkError(f'Network error: {str(e)}')
+        raise APIError('Max retries exceeded')
 
     async def create_identity(self, owner_address: str, chains: list[int], display_name: str='', description: str='', metadata: dict[str, Any] | None=None, tags: list[str] | None=None) -> CreateIdentityResponse:
         """Create a new agent identity with cross-chain mappings"""
@@ -120,7 +142,7 @@ class AgentIdentityClient:
     async def get_cross_chain_mappings(self, agent_id: str) -> list[CrossChainMapping]:
         """Get all cross-chain mappings for an agent"""
         response = await self._request('GET', f'/agent-identity/identities/{agent_id}/cross-chain/mapping')
-        return [CrossChainMapping(id=m['id'], agent_id=m['agent_id'], chain_id=m['chain_id'], chain_type=ChainType(m['chain_type']), chain_address=m['chain_address'], is_verified=m['is_verified'], verified_at=datetime.fromisoformat(m['verified_at']) if m['verified_at'] else None, wallet_address=m['wallet_address'], wallet_type=m['wallet_type'], chain_metadata=m['chain_metadata'], last_transaction=datetime.fromisoformat(m['last_transaction']) if m['last_transaction'] else None, transaction_count=m['transaction_count'], created_at=datetime.fromisoformat(m['created_at']), updated_at=datetime.fromisoformat(m['updated_at'])) for m in response]
+        return [CrossChainMapping(id=m['id'], agent_id=m['agent_id'], chain_id=m['chain_id'], chain_type=ChainType(m['chain_type']), chain_address=m['chain_address'], is_verified=m['is_verified'], verified_at=datetime.fromisoformat(m['verified_at']) if m['verified_at'] else None, wallet_address=m['wallet_address'], wallet_type=m['wallet_type'], chain_metadata=m['chain_metadata'], last_transaction=datetime.fromisoformat(m['last_transaction']) if m['last_transaction'] else None, transaction_count=m['transaction_count'], created_at=datetime.fromisoformat(m['created_at']), updated_at=datetime.fromisoformat(m['updated_at'])) for m in response]  # type: ignore[arg-type, index]
 
     async def verify_identity(self, agent_id: str, chain_id: int, verifier_address: str, proof_hash: str, proof_data: dict[str, Any], verification_type: VerificationType=VerificationType.BASIC) -> VerifyIdentityResponse:
         """Verify identity on a specific blockchain"""
@@ -155,7 +177,7 @@ class AgentIdentityClient:
         """Get transaction history for agent wallet"""
         params = {'limit': limit, 'offset': offset}
         response = await self._request('GET', f'/agent-identity/identities/{agent_id}/wallets/{chain_id}/transactions', params=params)
-        return [Transaction(hash=tx['hash'], from_address=tx['from_address'], to_address=tx['to_address'], amount=tx['amount'], gas_used=tx['gas_used'], gas_price=tx['gas_price'], status=tx['status'], block_number=tx['block_number'], timestamp=datetime.fromisoformat(tx['timestamp'])) for tx in response]
+        return [Transaction(hash=tx['hash'], from_address=tx['from_address'], to_address=tx['to_address'], amount=tx['amount'], gas_used=tx['gas_used'], gas_price=tx['gas_price'], status=tx['status'], block_number=tx['block_number'], timestamp=datetime.fromisoformat(tx['timestamp'])) for tx in response]  # type: ignore[arg-type, index]
 
     async def get_all_wallets(self, agent_id: str) -> dict[str, Any]:
         """Get all wallets for an agent across all chains"""
@@ -189,7 +211,7 @@ class AgentIdentityClient:
     async def get_supported_chains(self) -> list[ChainConfig]:
         """Get list of supported blockchains"""
         response = await self._request('GET', '/agent-identity/chains/supported')
-        return [ChainConfig(**chain) for chain in response]
+        return [ChainConfig(**chain) for chain in response]  # type: ignore[arg-type]
 
     async def export_identity(self, agent_id: str, format: str='json') -> dict[str, Any]:
         """Export agent identity data for backup or migration"""
@@ -205,12 +227,12 @@ class AgentIdentityClient:
     async def resolve_identity(self, agent_id: str, chain_id: int) -> str:
         """Resolve agent identity to chain-specific address"""
         response = await self._request('GET', f'/agent-identity/identities/{agent_id}/resolve/{chain_id}')
-        return response['address']
+        return response['address']  # type: ignore[no-any-return]
 
     async def resolve_address(self, chain_address: str, chain_id: int) -> str:
         """Resolve chain address back to agent ID"""
         response = await self._request('GET', f'/agent-identity/address/{chain_address}/resolve/{chain_id}')
-        return response['agent_id']
+        return response['agent_id']  # type: ignore[no-any-return]
 
 async def create_identity_with_wallets(client: AgentIdentityClient, owner_address: str, chains: list[int], display_name: str='', description: str='') -> CreateIdentityResponse:
     """Create identity and ensure wallets are created on all chains"""

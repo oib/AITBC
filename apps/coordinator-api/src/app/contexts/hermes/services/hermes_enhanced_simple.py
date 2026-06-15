@@ -121,7 +121,7 @@ class hermesEnhancedService:
         performance_benefit = performance_prediction['speedup_factor'] > 1.2
         resource_availability = job_size['resource_requirements']['gpu_required']
         should_offload = cost_benefit or (performance_benefit and resource_availability)
-        return should_offload
+        return should_offload  # type: ignore[no-any-return]
 
     async def coordinate_agent_collaboration(self, task_data: dict[str, Any], agent_ids: list[str], coordination_algorithm: str='distributed_consensus') -> dict[str, Any]:
         """Coordinate collaboration between multiple agents"""

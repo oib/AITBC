@@ -6,6 +6,7 @@ import base64
 import json
 import os
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from aitbc import get_logger
@@ -18,7 +19,7 @@ class KeyManager:
     def __init__(self, storage_backend: 'KeyStorageBackend'):
         self.storage = storage_backend
         self.backend = default_backend()
-        self._key_cache = {}
+        self._key_cache: dict[str, Any] = {}
         self._audit_key = None
         self._audit_private = None
         self._audit_key_rotation = timedelta(days=30)
@@ -59,7 +60,7 @@ class KeyManager:
     def get_public_key(self, participant_id: str) -> X25519PublicKey:
         """Get public key for participant"""
         if participant_id in self._key_cache:
-            return self._key_cache[participant_id]['public_key']
+            return self._key_cache[participant_id]['public_key']  # type: ignore[no-any-return]
         key_pair = self.storage.get_key_pair_sync(participant_id)
         if not key_pair:
             raise KeyNotFoundError(f'No keys found for participant: {participant_id}')
@@ -77,17 +78,21 @@ class KeyManager:
 
     def get_audit_key(self) -> X25519PublicKey:
         """Get public audit key for escrow (synchronous for tests)."""
-        if not self._audit_key or self._should_rotate_audit_key():
+        if not self._audit_key:
             self._generate_audit_key_in_memory()
-        return self._audit_key
+        if self._should_rotate_audit_key():
+            self._generate_audit_key_in_memory()
+        return self._audit_key # type: ignore[return-value]
 
     def get_audit_private_key_sync(self, authorization: str) -> X25519PrivateKey:
         """Get private audit key with authorization (sync helper)."""
         if not self.verify_audit_authorization_sync(authorization):
             raise AccessDeniedError('Invalid audit authorization')
-        if not self._audit_key or not self._audit_private:
+        if not self._audit_key:
             self._generate_audit_key_in_memory()
-        return X25519PrivateKey.from_private_bytes(self._audit_private)
+        if not self._audit_private:
+            self._generate_audit_key_in_memory()
+        return X25519PrivateKey.from_private_bytes(self._audit_private)  # type: ignore[arg-type]
 
     async def get_audit_private_key(self, authorization: str) -> X25519PrivateKey:
         """Async wrapper for audit private key."""
@@ -143,7 +148,7 @@ class KeyManager:
         try:
             audit_private = X25519PrivateKey.generate()
             audit_public = audit_private.public_key()
-            self._audit_private = audit_private.private_bytes_raw()
+            self._audit_private = audit_private.private_bytes_raw()  # type: ignore[assignment]
             audit_key_pair = KeyPair(participant_id='audit', private_key=self._audit_private, public_key=audit_public.public_bytes_raw(), algorithm='X25519', created_at=datetime.now(UTC), version=1)
             try:
                 store = getattr(self.storage, 'store_audit_key', None)
@@ -158,7 +163,7 @@ class KeyManager:
                             asyncio.run(maybe_coro)
             except Exception:
                 pass
-            self._audit_key = audit_public
+            self._audit_key = audit_public  # type: ignore[assignment]
         except Exception as e:
             logger.error('Failed to generate audit key: %s', e)
             raise KeyManagementError(f'Audit key generation failed: {e}')
@@ -351,7 +356,7 @@ class MockHSMStorage(KeyStorageBackend):
     async def store_audit_key(self, key_pair: KeyPair) -> bool:
         """Store audit key in mock HSM"""
         try:
-            self._audit_key = key_pair
+            self._audit_key = key_pair  # type: ignore[assignment]
             self.logger.info('Stored audit key in mock HSM')
             return True
         except Exception as e:
@@ -394,7 +399,7 @@ class HSMProviderInterface:
 
     def __init__(self) -> None:
         self._connected = False
-        self._stored_keys = {}
+        self._stored_keys: dict[str, Any] = {}
         self.logger = get_logger('hsm_provider')
 
     async def connect_to_hsm(self) -> bool:

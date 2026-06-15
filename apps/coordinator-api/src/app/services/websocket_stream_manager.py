@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from websockets.exceptions import ConnectionClosed
 if TYPE_CHECKING:
     from websockets.legacy.server import WebSocketServerProtocol
-WebSocketServerProtocol = Any
+WebSocketServerProtocol = Any  # type: ignore[assignment, misc]
 from aitbc import get_logger
 logger = get_logger(__name__)
 
@@ -259,8 +259,6 @@ class WebSocketStream:
         while self._running:
             try:
                 await asyncio.sleep(self.config.heartbeat_interval)
-                if not self._running:
-                    break
                 heartbeat_msg = {'type': 'heartbeat', 'timestamp': time.time(), 'stream_id': self.stream_id, 'queue_size': self.queue.size(), 'status': self.status.value}
                 await self.send_message(heartbeat_msg, MessageType.CONTROL)
                 self.last_heartbeat = time.time()

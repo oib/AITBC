@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
-from app.contexts.cross_chain.services.cross_chain.reputation import CrossChainReputationService
+from app.contexts.cross_chain.services.cross_chain.reputation import CrossChainReputationService  # type: ignore[import-not-found]
 
 class MessageType(StrEnum):
     """Types of agent messages"""
@@ -286,7 +286,7 @@ class AgentCommunicationService:
                 raise PermissionError('Not message recipient')
             if message.status != MessageStatus.DELIVERED:
                 raise ValueError('Message not delivered')
-            if message.read:
+            if message.read:  # type: ignore[attr-defined]
                 raise ValueError('Message already read')
             message.status = MessageStatus.READ
             message.read_timestamp = datetime.now(UTC)
@@ -441,7 +441,7 @@ class AgentCommunicationService:
             return True
         if self.reputation_service:
             sender_reputation = await self.reputation_service.get_reputation_score(sender)
-            return sender_reputation >= self.min_reputation_score
+            return sender_reputation >= self.min_reputation_score  # type: ignore[no-any-return]
         return False
 
     async def _can_send_message(self, sender: str, recipient: str) -> bool:

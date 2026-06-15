@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import or_
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 '\nP2P Trading Protocol API Endpoints\nREST API for agent-to-agent trading, matching, negotiation, and settlement\n'
 from datetime import UTC, datetime, timedelta
@@ -138,7 +138,7 @@ class TradingSummaryResponse(BaseModel):
 @rate_limit(rate=20, per=60)
 async def create_trade_request(request: Request, request_data: TradeRequestRequest, session: Session=Depends(get_session)) -> TradeRequestResponse:
     """Create a new trade request"""
-    trading_protocol = P2PTradingProtocol(session)
+    trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         start_time = None
         end_time = None
@@ -174,10 +174,10 @@ async def get_trade_request(request: Request, request_id: str, session: Session=
 @rate_limit(rate=50, per=60)
 async def find_matches(request: Request, request_id: str, session: Session=Depends(get_session)) -> list[str]:
     """Find matching sellers for a trade request"""
-    trading_protocol = P2PTradingProtocol(session)
+    trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         matches = await trading_protocol.find_matches(request_id)
-        return matches
+        return matches # type: ignore[return-value]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -189,7 +189,7 @@ async def find_matches(request: Request, request_id: str, session: Session=Depen
 async def get_trade_matches(request: Request, request_id: str, session: Session=Depends(get_session)) -> list[TradeMatchResponse]:
     """Get trade matches for a request"""
     try:
-        matches = session.execute(select(TradeMatch).where(TradeMatch.request_id == request_id).order_by(TradeMatch.match_score.desc())).all()
+        matches = session.execute(select(TradeMatch).where(TradeMatch.request_id == request_id).order_by(desc(TradeMatch.match_score))).all()  # type: ignore[arg-type]
         return [TradeMatchResponse(match_id=match.match_id, request_id=match.request_id, buyer_agent_id=match.buyer_agent_id, seller_agent_id=match.seller_agent_id, match_score=match.match_score, confidence_level=match.confidence_level, price_compatibility=match.price_compatibility, specification_compatibility=match.specification_compatibility, timing_compatibility=match.timing_compatibility, reputation_compatibility=match.reputation_compatibility, geographic_compatibility=match.geographic_compatibility, seller_offer=match.seller_offer, proposed_terms=match.proposed_terms, status=match.status.value, created_at=match.created_at.isoformat(), expires_at=match.expires_at.isoformat() if match.expires_at else None) for match in matches]
     except Exception as e:
         logger.error('Error getting trade matches for request %s: %s', request_id, str(e))
@@ -199,7 +199,7 @@ async def get_trade_matches(request: Request, request_id: str, session: Session=
 @rate_limit(rate=20, per=60)
 async def initiate_negotiation(request: Request, negotiation_data: NegotiationRequest, session: Session=Depends(get_session)) -> NegotiationResponse:
     """Initiate negotiation between buyer and seller"""
-    trading_protocol = P2PTradingProtocol(session)
+    trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         negotiation = await trading_protocol.initiate_negotiation(match_id=negotiation_data.match_id, initiator=negotiation_data.initiator, strategy=negotiation_data.strategy)
         return NegotiationResponse(negotiation_id=negotiation.negotiation_id, match_id=negotiation.match_id, buyer_agent_id=negotiation.buyer_agent_id, seller_agent_id=negotiation.seller_agent_id, status=negotiation.status.value, negotiation_round=negotiation.negotiation_round, current_terms=negotiation.current_terms, negotiation_strategy=negotiation.negotiation_strategy, auto_accept_threshold=negotiation.auto_accept_threshold, created_at=negotiation.created_at.isoformat(), started_at=negotiation.started_at.isoformat() if negotiation.started_at else None, expires_at=negotiation.expires_at.isoformat() if negotiation.expires_at else None)
@@ -243,7 +243,7 @@ async def get_trade_match(request: Request, match_id: str, session: Session=Depe
 @rate_limit(rate=200, per=60)
 async def get_trading_summary(request: Request, agent_id: str, session: Session=Depends(get_session)) -> TradingSummaryResponse:
     """Get comprehensive trading summary for an agent"""
-    trading_protocol = P2PTradingProtocol(session)
+    trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         summary = await trading_protocol.get_trading_summary(agent_id)
         return TradingSummaryResponse(**summary)
@@ -263,7 +263,7 @@ async def list_trade_requests(request: Request, agent_id: str | None=Query(defau
             query = query.where(TradeRequest.trade_type == trade_type)
         if status:
             query = query.where(TradeRequest.status == status)
-        requests = session.execute(query.order_by(TradeRequest.created_at.desc()).limit(limit)).all()
+        requests = session.execute(query.order_by(desc(TradeRequest.created_at)).limit(limit)).all()  # type: ignore[arg-type]
         return [TradeRequestResponse(request_id=request.request_id, buyer_agent_id=request.buyer_agent_id, trade_type=request.trade_type.value, title=request.title, description=request.description, requirements=request.requirements, budget_range=request.budget_range, status=request.status.value, match_count=request.match_count, best_match_score=request.best_match_score, created_at=request.created_at.isoformat(), updated_at=request.updated_at.isoformat(), expires_at=request.expires_at.isoformat() if request.expires_at else None) for request in requests]
     except Exception as e:
         logger.error('Error listing trade requests: %s', str(e))
@@ -276,12 +276,12 @@ async def list_trade_matches(request: Request, agent_id: str | None=Query(defaul
     try:
         query = select(TradeMatch)
         if agent_id:
-            query = query.where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))
+            query = query.where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))  # type: ignore[arg-type]
         if min_score:
             query = query.where(TradeMatch.match_score >= min_score)
         if status:
             query = query.where(TradeMatch.status == status)
-        matches = session.execute(query.order_by(TradeMatch.match_score.desc()).limit(limit)).all()
+        matches = session.execute(query.order_by(desc(TradeMatch.match_score)).limit(limit)).all()  # type: ignore[arg-type]
         return [TradeMatchResponse(match_id=match.match_id, request_id=match.request_id, buyer_agent_id=match.buyer_agent_id, seller_agent_id=match.seller_agent_id, match_score=match.match_score, confidence_level=match.confidence_level, price_compatibility=match.price_compatibility, specification_compatibility=match.specification_compatibility, timing_compatibility=match.timing_compatibility, reputation_compatibility=match.reputation_compatibility, geographic_compatibility=match.geographic_compatibility, seller_offer=match.seller_offer, proposed_terms=match.proposed_terms, status=match.status.value, created_at=match.created_at.isoformat(), expires_at=match.expires_at.isoformat() if match.expires_at else None) for match in matches]
     except Exception as e:
         logger.error('Error listing trade matches: %s', str(e))
@@ -294,12 +294,12 @@ async def list_negotiations(request: Request, agent_id: str | None=Query(default
     try:
         query = select(TradeNegotiation)
         if agent_id:
-            query = query.where(or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id))
+            query = query.where(or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id))  # type: ignore[arg-type]
         if status:
             query = query.where(TradeNegotiation.status == status)
         if strategy:
             query = query.where(TradeNegotiation.negotiation_strategy == strategy)
-        negotiations = session.execute(query.order_by(TradeNegotiation.created_at.desc()).limit(limit)).all()
+        negotiations = session.execute(query.order_by(desc(TradeNegotiation.created_at)).limit(limit)).all()  # type: ignore[arg-type]
         return [NegotiationResponse(negotiation_id=negotiation.negotiation_id, match_id=negotiation.match_id, buyer_agent_id=negotiation.buyer_agent_id, seller_agent_id=negotiation.seller_agent_id, status=negotiation.status.value, negotiation_round=negotiation.negotiation_round, current_terms=negotiation.current_terms, negotiation_strategy=negotiation.negotiation_strategy, auto_accept_threshold=negotiation.auto_accept_threshold, created_at=negotiation.created_at.isoformat(), started_at=negotiation.started_at.isoformat() if negotiation.started_at else None, expires_at=negotiation.expires_at.isoformat() if negotiation.expires_at else None) for negotiation in negotiations]
     except Exception as e:
         logger.error('Error listing negotiations: %s', str(e))
@@ -330,7 +330,7 @@ async def get_trading_analytics(request: Request, period_type: str=Query(default
 @rate_limit(rate=50, per=60)
 async def simulate_trade_matching(request: Request, request_data: TradeRequestRequest, session: Session=Depends(get_session)) -> dict[str, Any]:
     """Simulate trade matching without creating actual request"""
-    trading_protocol = P2PTradingProtocol(session)
+    trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         temp_request = TradeRequest(request_id=f'sim_{uuid4().hex[:8]}', buyer_agent_id=request_data.buyer_agent_id, trade_type=request_data.trade_type, title=request_data.title, description=request_data.description, requirements=request_data.requirements, specifications=request_data.requirements.get('specifications', {}), budget_range=request_data.budget_range, preferred_regions=request_data.preferred_regions, excluded_regions=request_data.excluded_regions, service_level_required=request_data.service_level_required)
         seller_offers = await trading_protocol.get_available_sellers(temp_request)

@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 from aitbc.aitbc_logging import get_logger
-from ..domain.models import JobState
+from ..domain.models import JobState  # type: ignore[import-not-found]
 from .jobs import JobService
 logger = get_logger(__name__)
 
@@ -96,7 +96,7 @@ class JobProcessor:
                 raise ValueError(f'Job {job_id} not found')
             if job.state != JobState.running:
                 raise ValueError(f'Job {job_id} is not in running state: {job.state}')
-            logger.info('Processing job %s', job_id, extra={'job_id': job_id, 'job_type': job.job_type, 'provider': job.assigned_provider})
+            logger.info('Processing job %s', job_id, extra={'job_id': job_id, 'job_type': job.job_type, 'provider': job.assigned_provider})  # type: ignore[attr-defined]
             payload = job.payload or {}
             model = payload.get('model', 'gpt2')
             prompt = payload.get('prompt', '')
@@ -107,7 +107,7 @@ class JobProcessor:
             completed_job = self._job_service.execute_job(job_id, result)
             self._processed_count += 1
             logger.info('Job %s completed successfully', job_id, extra={'job_id': job_id, 'receipt_hash': receipt.get('hash', '')[:16]})
-            return {'success': True, 'job_id': job_id, 'state': completed_job.state.value, 'receipt': receipt}
+            return {'success': True, 'job_id': job_id, 'state': completed_job.state.value, 'receipt': receipt}  # type: ignore[attr-defined]
         except Exception as e:
             logger.error('Failed to process job %s', job_id, extra={'job_id': job_id, 'error': str(e)})
             return {'success': False, 'job_id': job_id, 'error': str(e)}

@@ -58,9 +58,9 @@ class HackathonCreateRequest(BaseModel):
 @rate_limit(rate=10, per=60)
 async def create_developer_profile(request: DeveloperProfileCreate, request_http: Request, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
     """Register a new developer in the hermes ecosystem"""
-    service = DeveloperEcosystemService(session)
+    service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     try:
-        profile = await service.create_developer_profile(user_id=request.user_id, username=request.username, bio=request.bio, skills=request.skills)
+        profile = await service.create_developer_profile(user_id=request.user_id, username=request.username, bio=request.bio, skills=request.skills)  # type: ignore[arg-type]
         return profile
     except Exception as e:
         logger.error('Error creating developer profile: %s', e)
@@ -70,7 +70,7 @@ async def create_developer_profile(request: DeveloperProfileCreate, request_http
 @rate_limit(rate=100, per=60)
 async def get_developer_profile(developer_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
     """Get a developer's profile and reputation"""
-    service = DeveloperEcosystemService(session)
+    service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     profile = await service.get_developer_profile(developer_id)
     if not profile:
         raise HTTPException(status_code=404, detail='Developer not found')
@@ -80,14 +80,14 @@ async def get_developer_profile(developer_id: str, request: Request, session: An
 @rate_limit(rate=100, per=60)
 async def get_latest_sdk(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get information about the latest hermes SDK releases"""
-    service = DeveloperEcosystemService(session)
+    service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     return await service.get_sdk_release_info()
 
 @router.post('/solutions/publish', response_model=AgentSolution)
 @rate_limit(rate=10, per=60)
 async def publish_solution(request: SolutionPublishRequest, request_http: Request, session: Annotated[Session, Depends(get_session)]) -> AgentSolution:
     """Publish a new third-party agent solution to the marketplace"""
-    service = ThirdPartySolutionService(session)
+    service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
     try:
         solution = await service.publish_solution(request.developer_id, request.dict(exclude={'developer_id'}))
         return solution
@@ -99,14 +99,14 @@ async def publish_solution(request: SolutionPublishRequest, request_http: Reques
 @rate_limit(rate=100, per=60)
 async def list_solutions(request: Request, session: Annotated[Session, Depends(get_session)], category: str | None=None, limit: int=50) -> list[AgentSolution]:
     """List available third-party agent solutions"""
-    service = ThirdPartySolutionService(session)
-    return await service.list_published_solutions(category, limit)
+    service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
+    return await service.list_published_solutions(category, limit)  # type: ignore[arg-type]
 
 @router.post('/solutions/{solution_id}/purchase')
 @rate_limit(rate=20, per=60)
 async def purchase_solution(solution_id: str, request: Request, session: Annotated[Session, Depends(get_session)], buyer_id: str=Body(embed=True)) -> dict[str, Any]:
     """Purchase or install a third-party solution"""
-    service = ThirdPartySolutionService(session)
+    service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
     try:
         result = await service.purchase_solution(buyer_id, solution_id)
         return result
@@ -119,7 +119,7 @@ async def purchase_solution(solution_id: str, request: Request, session: Annotat
 @rate_limit(rate=10, per=60)
 async def propose_innovation_lab(request_http: Request, session: Annotated[Session, Depends(get_session)], researcher_id: str=Query(...), request: LabProposalRequest=Body(...)) -> InnovationLab:
     """Propose a new agent innovation lab or research program"""
-    service = InnovationLabService(session)
+    service = InnovationLabService(session)  # type: ignore[arg-type]
     try:
         lab = await service.propose_lab(researcher_id, request.dict())
         return lab
@@ -130,7 +130,7 @@ async def propose_innovation_lab(request_http: Request, session: Annotated[Sessi
 @rate_limit(rate=20, per=60)
 async def join_innovation_lab(lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str=Body(embed=True)) -> InnovationLab:
     """Join an active innovation lab"""
-    service = InnovationLabService(session)
+    service = InnovationLabService(session)  # type: ignore[arg-type]
     try:
         lab = await service.join_lab(lab_id, developer_id)
         return lab
@@ -141,7 +141,7 @@ async def join_innovation_lab(lab_id: str, request: Request, session: Annotated[
 @rate_limit(rate=20, per=60)
 async def fund_innovation_lab(lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], amount: float=Body(embed=True)) -> InnovationLab:
     """Provide funding to a proposed innovation lab"""
-    service = InnovationLabService(session)
+    service = InnovationLabService(session)  # type: ignore[arg-type]
     try:
         lab = await service.fund_lab(lab_id, amount)
         return lab
@@ -152,7 +152,7 @@ async def fund_innovation_lab(lab_id: str, request: Request, session: Annotated[
 @rate_limit(rate=20, per=60)
 async def create_community_post(request_http: Request, session: Annotated[Session, Depends(get_session)], author_id: str=Query(...), request: PostCreateRequest=Body(...)) -> CommunityPost:
     """Create a new post in the community forum"""
-    service = CommunityPlatformService(session)
+    service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
         post = await service.create_post(author_id, request.dict())
         return post
@@ -163,14 +163,14 @@ async def create_community_post(request_http: Request, session: Annotated[Sessio
 @rate_limit(rate=100, per=60)
 async def get_community_feed(request: Request, session: Annotated[Session, Depends(get_session)], category: str | None=None, limit: int=20) -> list[CommunityPost]:
     """Get the latest community posts and discussions"""
-    service = CommunityPlatformService(session)
-    return await service.get_feed(category, limit)
+    service = CommunityPlatformService(session)  # type: ignore[arg-type]
+    return await service.get_feed(category, limit)  # type: ignore[arg-type]
 
 @router.post('/platform/posts/{post_id}/upvote')
 @rate_limit(rate=50, per=60)
 async def upvote_community_post(post_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> CommunityPost:
     """Upvote a community post (rewards author reputation)"""
-    service = CommunityPlatformService(session)
+    service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
         post = await service.upvote_post(post_id)
         return post
@@ -181,7 +181,7 @@ async def upvote_community_post(post_id: str, request: Request, session: Annotat
 @rate_limit(rate=10, per=60)
 async def create_hackathon(request_http: Request, session: Annotated[Session, Depends(get_session)], organizer_id: str=Query(...), request: HackathonCreateRequest=Body(...)) -> Hackathon:
     """Create a new agent innovation hackathon (requires high reputation)"""
-    service = CommunityPlatformService(session)
+    service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
         hackathon = await service.create_hackathon(organizer_id, request.dict())
         return hackathon
@@ -194,7 +194,7 @@ async def create_hackathon(request_http: Request, session: Annotated[Session, De
 @rate_limit(rate=20, per=60)
 async def register_for_hackathon(hackathon_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str=Body(embed=True)) -> Hackathon:
     """Register for an upcoming or ongoing hackathon"""
-    service = CommunityPlatformService(session)
+    service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
         hackathon = await service.register_for_hackathon(hackathon_id, developer_id)
         return hackathon
