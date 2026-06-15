@@ -4,6 +4,7 @@ REST API for unified portfolio management across AITBC services
 """
 
 from datetime import UTC
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -23,12 +24,12 @@ class PortfolioSummaryResponse(BaseModel):
 
     timestamp: str
     agent_address: str | None
-    wallet: dict
-    exchange: dict
-    marketplace: dict
-    trading: dict
-    ai_signals: dict
-    summary: dict
+    wallet: dict[str, Any]
+    exchange: dict[str, Any]
+    marketplace: dict[str, Any]
+    trading: dict[str, Any]
+    ai_signals: dict[str, Any]
+    summary: dict[str, Any]
 
 
 class PortfolioHealthResponse(BaseModel):
@@ -117,7 +118,7 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
 @rate_limit(rate=200, per=60)
 async def get_portfolio_summary_only(
     request: Request, agent_address: str | None = Query(default=None, description="Filter by agent address")
-) -> dict:
+) -> dict[str, Any]:
     """Get only the portfolio summary metrics without full details"""
     try:
         portfolio_data = await portfolio_service.get_unified_portfolio(agent_address)

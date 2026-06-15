@@ -124,8 +124,8 @@ def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail={"error": "Rate limit exceeded", "reset_time": rate_check["reset_time"]},
-                        headers={"Retry-After": str(int(rate_check["reset_time"] - rate_limiter.requests[user_id][0]))},
-                    )  # type: ignore
+                        headers={"Retry-After": str(int(rate_check["reset_time"] - rate_limiter.memory_requests[user_id][0]))},
+                    )
                 return {
                     "user_id": user_id,
                     "username": payload.get("username"),

@@ -5,6 +5,7 @@ Uses RPC to connect to Bitcoin Core (or alternative like Block.io)
 """
 
 import os
+from typing import Any
 
 from aitbc import AITBCHTTPClient, get_logger
 
@@ -51,7 +52,7 @@ class BitcoinWallet:
             logger.error("Failed to get new address: %s", e)
             return self.config["fallback_address"]  # type: ignore[return-value]
 
-    def list_transactions(self, count: int = 10) -> list:
+    def list_transactions(self, count: int = 10) -> list[dict[str, Any]]:
         """List recent transactions"""
         try:
             result = self._rpc_call("listtransactions", ["*", count, 0, True])
@@ -63,10 +64,10 @@ class BitcoinWallet:
             logger.error("Failed to list transactions: %s", e)
             return []
 
-    def _rpc_call(self, method: str, params: list = None) -> dict:  # type: ignore[assignment]
+    def _rpc_call(self, method: str, params: list[Any] | None = None) -> dict[str, Any]:
         """Make an RPC call to Bitcoin Core"""
         if params is None:
-            params = []  # type: ignore[unreachable]
+            params = []
 
         if not self.session:  # type: ignore[attr-defined]
             return {"error": "httpx not available"}

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
@@ -83,6 +83,6 @@ async def get_transaction(
     *,
     session: Annotated[Session, Depends(get_session)],
     tx_hash: str,
-) -> dict:
+) -> dict[str, Any]:
     """Get transaction details by hash from blockchain RPC"""
     return _service(session).get_transaction(tx_hash)  # type: ignore[no-any-return]

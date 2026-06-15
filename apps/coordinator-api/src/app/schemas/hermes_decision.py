@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -44,7 +45,7 @@ class DecisionProposal(BaseModel):
     voting_deadline: datetime
     min_participation: float = Field(default=0.5, ge=0.0, le=1.0)
     required_approval: float = Field(default=0.6, ge=0.0, le=1.0)
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class DecisionProposalResponse(BaseModel):

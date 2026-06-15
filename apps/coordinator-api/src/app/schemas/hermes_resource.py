@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -45,7 +46,7 @@ class Resource(BaseModel):
     capacity: float
     allocated: float = Field(default=0.0, ge=0.0)
     utilization: float = Field(default=0.0, ge=0.0, le=1.0)
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class ResourceAllocationRequest(BaseModel):
@@ -57,7 +58,7 @@ class ResourceAllocationRequest(BaseModel):
     strategy: AllocationStrategy = AllocationStrategy.DEMAND_BASED
     priority: int = Field(default=5, ge=1, le=10)
     duration_hours: float | None = None
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class ResourceAllocationResponse(BaseModel):

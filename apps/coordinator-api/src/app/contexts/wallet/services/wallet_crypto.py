@@ -11,7 +11,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from eth_account import Account
-from eth_utils import to_checksum_address
+from eth_utils.address import to_checksum_address
 
 
 def generate_ethereum_keypair() -> tuple[str, str, str]:
@@ -61,7 +61,7 @@ def derive_secure_key(password: str, salt: bytes = None) -> bytes:  # type: igno
         Tuple of (key, salt) for storage
     """
     if salt is None:
-        salt = secrets.token_bytes(32)  # type: ignore[unreachable]
+        salt = secrets.token_bytes(32)
 
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
