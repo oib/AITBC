@@ -2,11 +2,11 @@
 Blockchain utility functions for AITBC CLI
 """
 
-import logging
+from aitbc import get_logger
 
 from .http_client import AITBCHTTPClient, NetworkError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def get_chain_info(rpc_url: str = "http://localhost:8202") -> dict | None:

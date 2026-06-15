@@ -6,16 +6,17 @@ import asyncio
 import gzip
 import hashlib
 import json
-import logging
 import os
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+from aitbc import get_logger
+
 from ...config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

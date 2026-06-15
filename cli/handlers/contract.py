@@ -1,10 +1,10 @@
 """Contract command handlers for AITBC CLI"""
 
-import logging
-
 import requests
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def handle_contract_list(args, default_rpc_url: str):

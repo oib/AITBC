@@ -1,12 +1,11 @@
 """Account handlers."""
 
 import json
-import logging
 import sys
 
-from aitbc import AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def render_mapping(title, mapping):

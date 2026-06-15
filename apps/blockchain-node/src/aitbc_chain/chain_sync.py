@@ -5,7 +5,6 @@ Keeps blockchain nodes synchronized by sharing blocks via P2P and Redis gossip
 
 import asyncio
 import json
-import logging
 from typing import Any
 
 from aitbc import get_logger
@@ -278,7 +277,6 @@ def main() -> None:
     parser.add_argument("--import-port", type=int, help="Port to import blocks into")
     parser.add_argument("--chain-id", default="", help="Chain ID to sync (e.g., ait-testnet)")
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
     try:
         asyncio.run(
             run_chain_sync(
