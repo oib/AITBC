@@ -20,7 +20,7 @@ from ..storage import get_session
 router = APIRouter(tags=["users"])
 
 # In-memory session storage for demo (use Redis in production)
-user_sessions: dict[str, dict] = {}
+user_sessions: dict[str, dict[str, Any]] = {}
 
 
 def create_session_token(user_id: str) -> str:

@@ -34,7 +34,7 @@ class TransactionEventSubscriber:
         self._running = True
         logger.info("Starting transaction event subscriber...")
         try:
-            from aitbc_chain.gossip.broker import GossipBroker, create_backend  # type: ignore[import-not-found]
+            from aitbc_chain.gossip.broker import GossipBroker, create_backend
 
             backend = create_backend(self.settings.gossip_backend, broadcast_url=self.settings.gossip_broadcast_url)
             self._broker = GossipBroker(backend)

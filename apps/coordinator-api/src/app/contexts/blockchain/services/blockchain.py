@@ -3,6 +3,7 @@ Blockchain service for AITBC token operations
 """
 
 import re
+from typing import Any
 
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
@@ -37,7 +38,7 @@ def validate_address(address: str) -> bool:
     return bool(ADDRESS_PATTERN.match(address))
 
 
-async def mint_tokens(address: str, amount: float) -> dict:
+async def mint_tokens(address: str, amount: float) -> dict[str, Any]:
     """Mint AITBC tokens to an address"""
 
     client = AITBCHTTPClient(timeout=10.0)

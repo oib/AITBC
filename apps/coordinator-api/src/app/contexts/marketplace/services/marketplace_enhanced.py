@@ -218,7 +218,7 @@ class EnhancedMarketplaceService:
         end_date = datetime.now(UTC)
         start_date = end_date - timedelta(days=period_days)
 
-        analytics = {
+        analytics: dict[str, Any] = {
             "period_days": period_days,
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
@@ -226,17 +226,17 @@ class EnhancedMarketplaceService:
         }
 
         if metrics is None:
-            metrics = ["volume", "trends", "performance", "revenue"]  # type: ignore[unreachable]
+            metrics = ["volume", "trends", "performance", "revenue"]
 
         for metric in metrics:
             if metric == "volume":
-                analytics["metrics"]["volume"] = await self._get_volume_analytics(start_date, end_date)  # type: ignore[index]
+                analytics["metrics"]["volume"] = await self._get_volume_analytics(start_date, end_date)
             elif metric == "trends":
-                analytics["metrics"]["trends"] = await self._get_trend_analytics(start_date, end_date)  # type: ignore[index]
+                analytics["metrics"]["trends"] = await self._get_trend_analytics(start_date, end_date)
             elif metric == "performance":
-                analytics["metrics"]["performance"] = await self._get_performance_analytics(start_date, end_date)  # type: ignore[index]
+                analytics["metrics"]["performance"] = await self._get_performance_analytics(start_date, end_date)
             elif metric == "revenue":
-                analytics["metrics"]["revenue"] = await self._get_revenue_analytics(start_date, end_date)  # type: ignore[index]
+                analytics["metrics"]["revenue"] = await self._get_revenue_analytics(start_date, end_date)
 
         return analytics
 

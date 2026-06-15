@@ -4,6 +4,7 @@ Marketplace matching service for matching GPU providers with consumers
 
 from typing import Any
 
+from sqlalchemy import col
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -45,15 +46,15 @@ class MatchingService:
             logger.info("Finding best match for bid requirements: %s", bid_requirements.keys())
             stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == "active")
             if max_price is not None:
-                stmt = stmt.where(MarketplaceOffer.price_per_hour.isnot(None)).where(
-                    MarketplaceOffer.price_per_hour <= max_price
-                )  # type: ignore[union-attr,operator]
+                stmt = stmt.where(col(MarketplaceOffer.price_per_hour).isnot(None)).where(
+                    col(MarketplaceOffer.price_per_hour) <= max_price
+                )
             if preferred_region:
                 stmt = stmt.where(MarketplaceOffer.region == preferred_region)
             if min_gpu_memory is not None:
-                stmt = stmt.where(MarketplaceOffer.gpu_memory_gb.isnot(None)).where(
-                    MarketplaceOffer.gpu_memory_gb >= min_gpu_memory
-                )  # type: ignore[union-attr,operator]
+                stmt = stmt.where(col(MarketplaceOffer.gpu_memory_gb).isnot(None)).where(
+                    col(MarketplaceOffer.gpu_memory_gb) >= min_gpu_memory
+                )
             if required_gpu_model:
                 stmt = stmt.where(MarketplaceOffer.gpu_model == required_gpu_model)
             stmt = stmt.order_by(MarketplaceOffer.price_per_hour.asc(), MarketplaceOffer.capacity.desc())  # type: ignore[union-attr,attr-defined]

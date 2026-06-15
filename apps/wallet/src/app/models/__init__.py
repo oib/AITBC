@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from aitbc_sdk.receipts import SignatureValidation  # type: ignore[import-not-found]
+from aitbc_sdk.receipts import SignatureValidation
 from pydantic import BaseModel
 
 

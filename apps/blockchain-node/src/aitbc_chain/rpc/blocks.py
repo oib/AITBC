@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, Request, status
+from sqlalchemy import asc, text
 from sqlmodel import delete, select
 
 from aitbc.rate_limiting import rate_limit
@@ -56,7 +57,7 @@ async def get_head(request: Request, chain_id: str | None = None) -> dict[str, A
     metrics_registry.increment("rpc_get_head_total")
     start = time.perf_counter()
     with session_scope(chain_id) as session:
-        result = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()  # type: ignore[attr-defined]
+        result = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(text("height DESC")).limit(1)).first()
         if result is None:
             metrics_registry.increment("rpc_get_head_not_found_total")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no blocks yet")
@@ -120,8 +121,8 @@ async def get_blocks_range(
         blocks = session.exec(
             select(Block)
             .where(Block.chain_id == chain_id, Block.height >= start, Block.height <= end)
-            .order_by(Block.height.asc())
-        ).all()  # type: ignore[attr-defined]
+            .order_by(asc(text("height")))
+        ).all()
         result_blocks = []
         for b in blocks:
             block_data = {
