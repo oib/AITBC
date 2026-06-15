@@ -5,16 +5,37 @@ Automated market making for AI service tokens in the AITBC ecosystem.
 Provides liquidity pool management, token swapping, and dynamic fee adjustment.
 """
 from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime, timedelta
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
+
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
-from ..domain.amm import FeeStructure, IncentiveProgram, LiquidityPool, LiquidityPosition, PoolMetrics, SwapTransaction  # type: ignore[import-not-found]
+from ..domain.amm import (  # type: ignore[import-not-found]
+    FeeStructure,
+    IncentiveProgram,
+    LiquidityPool,
+    LiquidityPosition,
+    PoolMetrics,
+    SwapTransaction,
+)
 from ..marketdata.price_service import PriceService  # type: ignore[import-not-found]
 from ..risk.volatility_calculator import VolatilityCalculator  # type: ignore[import-not-found]
-from ..schemas.amm import LiquidityAddRequest, LiquidityAddResponse, LiquidityRemoveRequest, LiquidityRemoveResponse, PoolCreate, PoolMetricsResponse, PoolResponse, SwapRequest, SwapResponse  # type: ignore[import-not-found]
+from ..schemas.amm import (  # type: ignore[import-not-found]
+    LiquidityAddRequest,
+    LiquidityAddResponse,
+    LiquidityRemoveRequest,
+    LiquidityRemoveResponse,
+    PoolCreate,
+    PoolMetricsResponse,
+    PoolResponse,
+    SwapRequest,
+    SwapResponse,
+)
+
 logger = logging.getLogger(__name__)
 
 class AMMService:
@@ -316,8 +337,8 @@ class AMMService:
             metrics = self.session.execute(select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)).first()
         twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
         recent_swaps = self.session.execute(select(SwapTransaction).where(SwapTransaction.pool_id == pool.id, SwapTransaction.executed_at >= twenty_four_hours_ago)).all()
-        total_volume = sum((swap.amount_in for swap in recent_swaps))
-        total_fees = sum((swap.fee_amount for swap in recent_swaps))
+        total_volume = sum(swap.amount_in for swap in recent_swaps)
+        total_fees = sum(swap.fee_amount for swap in recent_swaps)
         metrics.total_volume_24h = total_volume  # type: ignore[union-attr]
         metrics.total_fees_24h = total_fees  # type: ignore[union-attr]
         return metrics

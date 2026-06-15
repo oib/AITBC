@@ -2,14 +2,18 @@
 Bridge-related RPC endpoints.
 """
 from typing import Any, cast
+
 from fastapi import HTTPException, Request
+
 from aitbc.rate_limiting import rate_limit
+
 from ..logger import get_logger
 from .utils import get_chain_id
+
 _logger = get_logger(__name__)
 
 @rate_limit(rate=20, per=60)
-async def bridge_lock(request: Request, lock_data: dict) -> dict[str, Any]:
+async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, Any]:
     """
     Initiate a cross-chain bridge transfer by locking funds.
     
@@ -42,7 +46,7 @@ async def bridge_lock(request: Request, lock_data: dict) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f'Bridge lock failed: {str(e)}')
 
 @rate_limit(rate=20, per=60)
-async def bridge_confirm(request: Request, confirm_data: dict) -> dict[str, Any]:
+async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict[str, Any]:
     """
     Confirm a cross-chain bridge transfer and release funds.
     

@@ -1,15 +1,20 @@
 from typing import Annotated
+
 '\nAdaptive Learning Service Health Check Router\nProvides health monitoring for reinforcement learning frameworks\n'
 import sys
 from datetime import UTC, datetime
 from typing import Any
+
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ....storage import get_session
 from ...ai_analytics.services.ai_analytics.adaptive_learning import AdaptiveLearningService
+
 logger = get_logger(__name__)
 router = APIRouter()
 
@@ -65,7 +70,7 @@ async def adaptive_learning_deep_health(request: Request, session: Annotated[Ses
         except Exception as e:
             logger.error('Safety tests failed: %s', e)
             safety_tests = {'error': 'Safety check failed'}
-        return {'status': 'healthy', 'service': 'adaptive-learning', 'port': 8011, 'timestamp': datetime.now(UTC).isoformat(), 'algorithm_tests': algorithm_tests, 'safety_tests': safety_tests, 'overall_health': 'pass' if all((test.get('status') == 'pass' for test in algorithm_tests.values())) and all((result == 'pass' for result in safety_tests.values())) else 'degraded'}
+        return {'status': 'healthy', 'service': 'adaptive-learning', 'port': 8011, 'timestamp': datetime.now(UTC).isoformat(), 'algorithm_tests': algorithm_tests, 'safety_tests': safety_tests, 'overall_health': 'pass' if all(test.get('status') == 'pass' for test in algorithm_tests.values()) and all(result == 'pass' for result in safety_tests.values()) else 'degraded'}
     except Exception as e:
         logger.error('Deep Adaptive Learning health check failed: %s', e)
         return {'status': 'unhealthy', 'service': 'adaptive-learning', 'port': 8011, 'timestamp': datetime.now(UTC).isoformat(), 'error': 'Deep health check failed'}

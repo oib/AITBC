@@ -5,8 +5,11 @@ Aggregates portfolio data from wallet, exchange, marketplace, trading, and AI se
 import os
 from datetime import UTC, datetime
 from typing import Any
+
 import httpx
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class PortfolioAggregationService:
@@ -142,7 +145,7 @@ class PortfolioAggregationService:
             signals = ai_data.get('signals', [])
             avg_signal_confidence = 0.0
             if signals:
-                avg_signal_confidence = sum((s.get('confidence', 0) for s in signals)) / len(signals)
+                avg_signal_confidence = sum(s.get('confidence', 0) for s in signals) / len(signals)
             return {'total_aitbc_balance': total_aitbc_balance, 'btc_equivalent': btc_value, 'exchange_rate': aitbc_btc_rate, 'marketplace_exposure': {'offers': marketplace_offers, 'bids': marketplace_bids, 'capacity': marketplace_capacity}, 'trading_performance': {'total_trades': total_trades, 'completed_trades': completed_trades, 'success_rate': success_rate}, 'ai_signal_summary': {'total_signals': len(signals), 'average_confidence': avg_signal_confidence}}
         except Exception as e:
             logger.error('Error calculating portfolio summary: %s', str(e))

@@ -9,16 +9,20 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
 import jwt
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ...domain.multitenant import Tenant, TenantApiKey, TenantQuota  # type: ignore[import-not-found]
 from ...exceptions import QuotaExceededError, TenantError
 from ...storage.db import get_session
+
 
 class EnterpriseAuthRequest(BaseModel):
     tenant_id: str = Field(..., description='Enterprise tenant identifier')

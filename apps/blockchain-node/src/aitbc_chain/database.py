@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 import stat
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any
 
 from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
@@ -19,7 +20,7 @@ _DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_chan
 # Registry of chain-specific database engines
 _db_temp_paths: dict[str, object] = {}
 
-def get_encryption_key(key_path: Optional[os.PathLike]) -> Optional[bytes]:
+def get_encryption_key(key_path: os.PathLike[str] | None) -> bytes | None:
     """Get encryption key from file"""
     if not key_path or not os.path.exists(key_path):
         return None
@@ -146,14 +147,14 @@ _validator = DatabaseOperationValidator()
 
 # Secure session scope with validation
 @contextmanager
-def _secure_session_scope() -> Generator[Session, None, None]:
+def _secure_session_scope() -> Generator[Session]:
     """Internal secure session scope with validation"""
     with Session(_engine) as session:
         yield session
 
 # Public session scope wrapper with validation
 @contextmanager
-def session_scope(chain_id: str = "") -> Generator[Session, None, None]:
+def session_scope(chain_id: str = "") -> Generator[Session]:
     """Public session scope with application-layer validation
     
     Args:

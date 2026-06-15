@@ -10,14 +10,18 @@ across all blockchain operations including:
 - Rewards
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
 from sqlmodel import Session, select
 from sqlmodel import func as sql_func
+
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Stake, Transaction
+
 logger = get_logger(__name__)
 
 class BalanceChangeType(Enum):

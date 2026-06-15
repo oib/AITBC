@@ -22,9 +22,9 @@ def get_engine(settings: ServiceSettings) -> Engine:
     )
 
 
-def get_sessionmaker(engine: Engine) -> sessionmaker:
+def get_sessionmaker(engine: Engine) -> sessionmaker[Session]:
     """Create session factory."""
-    return sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    return sessionmaker[Session](bind=engine, autoflush=False, autocommit=False)
 
 
 def get_db(engine: Engine) -> Generator[Session]:

@@ -1,14 +1,32 @@
 """
 Dispute-related RPC endpoints.
 """
-from typing import Any, cast
+from typing import Any
+
 from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
+
 from ..logger import get_logger
 from .auth import get_authenticated_address
+
 _logger = get_logger(__name__)
-from ..models.dispute import AuthorizeArbitratorRequest, AuthorizeArbitratorResponse, FileDisputeRequest, FileDisputeResponse, GetArbitrationVotesResponse, GetDisputeResponse, GetEvidenceResponse, SubmitArbitrationVoteRequest, SubmitArbitrationVoteResponse, SubmitEvidenceRequest, SubmitEvidenceResponse, VerifyEvidenceRequest, VerifyEvidenceResponse
+from ..models.dispute import (
+    AuthorizeArbitratorRequest,
+    AuthorizeArbitratorResponse,
+    FileDisputeRequest,
+    FileDisputeResponse,
+    GetArbitrationVotesResponse,
+    GetDisputeResponse,
+    GetEvidenceResponse,
+    SubmitArbitrationVoteRequest,
+    SubmitArbitrationVoteResponse,
+    SubmitEvidenceRequest,
+    SubmitEvidenceResponse,
+    VerifyEvidenceRequest,
+    VerifyEvidenceResponse,
+)
 from ..rpc.dispute_resolution_service import dispute_resolution_service
+
 
 async def file_dispute(request: FileDisputeRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None) -> FileDisputeResponse:
     """

@@ -8,18 +8,29 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
+
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, RequestValidationMiddleware, configure_logging, get_logger
+
+from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
+    configure_logging,
+    get_logger,
+)
+
 from .services.trading_service import TradingService
 from .storage import get_session, init_db
+
 configure_logging(level='INFO')
 logger = get_logger(__name__)
 BITCOIN_CONFIG = {'testnet': True, 'main_address': 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', 'exchange_rate': 100000, 'min_confirmations': 1, 'payment_timeout': 3600}
-payments: dict[str, dict] = {}
+payments: dict[str, dict[str, Any]] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -85,7 +96,7 @@ async def get_request(request_id: str, svc: TradingService=Depends(get_trading_s
     return await svc.get_request(request_id)
 
 @app.post('/v1/trading/requests')
-async def create_request(request_data: dict, svc: TradingService=Depends(get_trading_service)):
+async def create_request(request_data: dict[str, Any], svc: TradingService=Depends(get_trading_service)):
     """Create a new trade request"""
     return await svc.create_request(request_data)
 
@@ -95,7 +106,7 @@ async def get_matches(status: str | None=None, buyer_agent_id: str | None=None, 
     return await svc.list_matches(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
 
 @app.post('/v1/trading/matches')
-async def create_match(match_data: dict, svc: TradingService=Depends(get_trading_service)):
+async def create_match(match_data: dict[str, Any], svc: TradingService=Depends(get_trading_service)):
     """Create a new trade match"""
     return await svc.create_match(match_data)
 
@@ -105,7 +116,7 @@ async def get_agreements(status: str | None=None, buyer_agent_id: str | None=Non
     return await svc.list_agreements(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
 
 @app.post('/v1/trading/agreements')
-async def create_agreement(agreement_data: dict, svc: TradingService=Depends(get_trading_service)):
+async def create_agreement(agreement_data: dict[str, Any], svc: TradingService=Depends(get_trading_service)):
     """Create a new trade agreement"""
     return await svc.create_agreement(agreement_data)
 
@@ -115,7 +126,7 @@ async def get_analytics(period_type: str='daily', svc: TradingService=Depends(ge
     return await svc.get_analytics(period_type=period_type)
 
 @app.post('/v1/transactions')
-async def submit_transaction(transaction_data: dict, session: AsyncSession=Depends(get_session_dep)):
+async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSession=Depends(get_session_dep)):
     """Submit trading transaction"""
     from .domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeSettlement
     transaction_type = transaction_data.get('type')
@@ -148,6 +159,7 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession=Depen
 async def get_transactions(transaction_type: str | None=None, action: str | None=None, status: str | None=None, island_id: str | None=None, session: AsyncSession=Depends(get_session_dep)):
     """Query trading transactions"""
     from sqlalchemy import select
+
     from .domain.trading import TradeAgreement, TradeMatch, TradeRequest
     try:
         transactions = []

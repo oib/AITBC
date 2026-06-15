@@ -4,6 +4,8 @@ REST API endpoints for bridge operations.
 """
 
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from .bridge_db import get_all_deposits, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
@@ -13,7 +15,7 @@ router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
 
 
 @router.get("/price")
-async def get_price() -> dict:
+async def get_price() -> dict[str, Any]:
     """
     Get current ETH-AIT exchange rate.
     """
@@ -32,7 +34,7 @@ async def get_price() -> dict:
 
 
 @router.get("/deposits")
-async def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict:
+async def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """
     List ETH deposits.
     
@@ -53,7 +55,7 @@ async def list_deposits(status: str | None = None, limit: int = 50, offset: int 
 
 
 @router.get("/deposits/{deposit_id}")
-async def get_deposit(deposit_id: str) -> dict:
+async def get_deposit(deposit_id: str) -> dict[str, Any]:
     """
     Get a specific deposit by ID.
     """
@@ -67,7 +69,7 @@ async def get_deposit(deposit_id: str) -> dict:
 
 
 @router.post("/deposits/{deposit_id}/verify")
-async def verify_deposit(deposit_id: str) -> dict:
+async def verify_deposit(deposit_id: str) -> dict[str, Any]:
     """
     Verify a deposit (admin operation).
     """
@@ -92,7 +94,7 @@ async def verify_deposit(deposit_id: str) -> dict:
 
 
 @router.post("/deposits/{deposit_id}/complete")
-async def complete_deposit(deposit_id: str) -> dict:
+async def complete_deposit(deposit_id: str) -> dict[str, Any]:
     """
     Mark a deposit as completed after AIT minting (admin operation).
     """
@@ -117,7 +119,7 @@ async def complete_deposit(deposit_id: str) -> dict:
 
 
 @router.get("/calculate")
-async def calculate_exchange(eth_amount: float) -> dict:
+async def calculate_exchange(eth_amount: float) -> dict[str, Any]:
     """
     Calculate AIT amount for a given ETH amount.
     
@@ -140,7 +142,7 @@ async def calculate_exchange(eth_amount: float) -> dict:
 
 
 @router.get("/history")
-async def get_price_history() -> dict:
+async def get_price_history() -> dict[str, Any]:
     """
     Get price history and all-time averages.
     """
@@ -191,7 +193,7 @@ async def get_price_history() -> dict:
 
 
 @router.get("/status")
-async def get_bridge_status() -> dict:
+async def get_bridge_status() -> dict[str, Any]:
     """
     Get bridge service status.
     """

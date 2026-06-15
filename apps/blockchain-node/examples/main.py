@@ -6,9 +6,12 @@ import asyncio
 import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 app = FastAPI(title='AITBC Global Infrastructure Service', description='Global infrastructure deployment and multi-region optimization', version='1.0.0')
 
@@ -158,9 +161,9 @@ async def get_region_performance(region_id: str, hours: int=24):
     cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
     recent_metrics = [m for m in performance_metrics[region_id] if datetime.fromisoformat(m['timestamp']) > cutoff_time]
     if recent_metrics:
-        avg_cpu = sum((m['cpu_usage'] for m in recent_metrics)) / len(recent_metrics)
-        avg_memory = sum((m['memory_usage'] for m in recent_metrics)) / len(recent_metrics)
-        avg_response_time = sum((m['response_time_ms'] for m in recent_metrics)) / len(recent_metrics)
+        avg_cpu = sum(m['cpu_usage'] for m in recent_metrics) / len(recent_metrics)
+        avg_memory = sum(m['memory_usage'] for m in recent_metrics) / len(recent_metrics)
+        avg_response_time = sum(m['response_time_ms'] for m in recent_metrics) / len(recent_metrics)
     else:
         avg_cpu = avg_memory = avg_response_time = 0.0
     return {'region_id': region_id, 'period_hours': hours, 'metrics': recent_metrics, 'statistics': {'average_cpu_usage': round(avg_cpu, 2), 'average_memory_usage': round(avg_memory, 2), 'average_response_time_ms': round(avg_response_time, 2), 'total_samples': len(recent_metrics)}, 'generated_at': datetime.now(UTC).isoformat()}
@@ -176,9 +179,9 @@ async def get_region_compliance(region_id: str):
 @app.get('/api/v1/global/dashboard')
 async def get_global_dashboard():
     """Get global infrastructure dashboard"""
-    total_capacity = sum((r['capacity'] for r in global_regions.values()))
-    total_load = sum((r['current_load'] for r in global_regions.values()))
-    avg_latency = sum((r['latency_ms'] for r in global_regions.values())) / len(global_regions) if global_regions else 0
+    total_capacity = sum(r['capacity'] for r in global_regions.values())
+    total_load = sum(r['current_load'] for r in global_regions.values())
+    avg_latency = sum(r['latency_ms'] for r in global_regions.values()) / len(global_regions) if global_regions else 0
     deployment_stats = {'total': len(deployments), 'pending': len([d for d in deployments.values() if d['status'] == 'pending']), 'in_progress': len([d for d in deployments.values() if d['status'] == 'in_progress']), 'completed': len([d for d in deployments.values() if d['status'] == 'completed']), 'failed': len([d for d in deployments.values() if d['status'] == 'failed'])}
     performance_summary = {}
     for region_id, metrics_list in performance_metrics.items():
@@ -240,7 +243,7 @@ def update_load_balancer_weights(balancer_id: str):
             if region_id in global_regions:
                 region = global_regions[region_id]
                 available_capacity = region['capacity'] - region['current_load']
-                total_available = sum((global_regions[r]['capacity'] - global_regions[r]['current_load'] for r in balancer['target_regions'] if r in global_regions))
+                total_available = sum(global_regions[r]['capacity'] - global_regions[r]['current_load'] for r in balancer['target_regions'] if r in global_regions)
                 if total_available > 0:
                     weight = available_capacity / total_available
                     balancer['current_weights'][region_id] = round(weight, 3)
@@ -250,8 +253,8 @@ async def global_monitoring_task():
     while True:
         await asyncio.sleep(60)
         global_monitoring['last_update'] = datetime.now(UTC).isoformat()
-        global_monitoring['total_requests'] = sum((lb.get('total_requests', 0) for lb in load_balancers.values()))
-        global_monitoring['failed_requests'] = sum((lb.get('failed_requests', 0) for lb in load_balancers.values()))
+        global_monitoring['total_requests'] = sum(lb.get('total_requests', 0) for lb in load_balancers.values())
+        global_monitoring['failed_requests'] = sum(lb.get('failed_requests', 0) for lb in load_balancers.values())
         for region_id, region in global_regions.items():
             if region['current_load'] > region['capacity'] * 0.8:
                 logger.warning('High load detected in region %s: %s/%s', region_id, region['current_load'], region['capacity'])

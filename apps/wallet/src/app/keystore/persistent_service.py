@@ -171,7 +171,7 @@ class PersistentKeystoreService:
         with self._lock:
             return self._get_wallet_unlocked(wallet_id)
 
-    def _register_account_on_chain(self, address: str) -> Dict:
+    def _register_account_on_chain(self, address: str) -> Dict[str, Any]:
         """Register the wallet address on the blockchain"""
         try:
             rpc_url = settings.blockchain_rpc_url
@@ -340,7 +340,7 @@ class PersistentKeystoreService:
         fee: int = 1000,
         nonce: Optional[int] = None,
         chain_id: Optional[str] = None,
-        payload: Optional[Dict] = None,
+        payload: Optional[Dict[str, Any]] = None,
         ip_address: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -455,7 +455,7 @@ class PersistentKeystoreService:
             # Default to 0 if account doesn't exist or request fails
             return 0
     
-    def _submit_transaction_to_chain(self, tx_data: Dict, signature: str) -> Dict:
+    def _submit_transaction_to_chain(self, tx_data: Dict[str, Any], signature: str) -> Dict[str, Any]:
         """Submit signed transaction to blockchain RPC"""
         try:
             rpc_url = settings.blockchain_rpc_url
@@ -528,7 +528,7 @@ class PersistentKeystoreService:
             finally:
                 conn.close()
 
-    def get_access_log(self, wallet_id: str, limit: int = 50) -> List[Dict]:
+    def get_access_log(self, wallet_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get access log for a wallet"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)

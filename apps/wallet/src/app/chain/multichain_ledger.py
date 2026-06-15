@@ -12,8 +12,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
 from aitbc import get_logger
+
 from .manager import ChainManager
+
 logger = get_logger(__name__)
 CHAIN_ID_PATTERN = re.compile('^[a-zA-Z0-9_-]+$')
 

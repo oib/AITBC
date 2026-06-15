@@ -7,10 +7,25 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
-from ..contexts.agent_identity.domain.agent_identity import AgentIdentity, AgentIdentityCreate, AgentIdentityUpdate, AgentWallet, ChainType, CrossChainMapping, CrossChainMappingUpdate, IdentityStatus, IdentityVerification, VerificationType
+
+from ..contexts.agent_identity.domain.agent_identity import (
+    AgentIdentity,
+    AgentIdentityCreate,
+    AgentIdentityUpdate,
+    AgentWallet,
+    ChainType,
+    CrossChainMapping,
+    CrossChainMappingUpdate,
+    IdentityStatus,
+    IdentityVerification,
+    VerificationType,
+)
+
 
 class AgentIdentityCore:
     """Core agent identity management across multiple blockchains"""
@@ -229,7 +244,7 @@ class AgentIdentityCore:
         stmt_wallets = select(AgentWallet).where(AgentWallet.agent_id == identity.agent_id)
         result_wallets = self.session.execute(stmt_wallets)
         wallets = list(result_wallets.scalars().all())
-        return {'identity': {'id': identity.id, 'agent_id': identity.agent_id, 'status': identity.status, 'verification_level': identity.verification_level, 'reputation_score': identity.reputation_score, 'total_transactions': identity.total_transactions, 'successful_transactions': identity.successful_transactions, 'success_rate': identity.successful_transactions / max(identity.total_transactions, 1), 'created_at': identity.created_at, 'last_activity': identity.last_activity}, 'cross_chain': {'total_mappings': len(mappings), 'verified_mappings': len([m for m in mappings if m.is_verified]), 'supported_chains': [m.chain_id for m in mappings], 'primary_chain': identity.primary_chain}, 'verifications': {'total_verifications': len(verifications), 'pending_verifications': len([v for v in verifications if v.verification_result == 'pending']), 'approved_verifications': len([v for v in verifications if v.verification_result == 'approved']), 'rejected_verifications': len([v for v in verifications if v.verification_result == 'rejected'])}, 'wallets': {'total_wallets': len(wallets), 'active_wallets': len([w for w in wallets if w.is_active]), 'total_balance': sum((w.balance for w in wallets)), 'total_spent': sum((w.total_spent for w in wallets))}}
+        return {'identity': {'id': identity.id, 'agent_id': identity.agent_id, 'status': identity.status, 'verification_level': identity.verification_level, 'reputation_score': identity.reputation_score, 'total_transactions': identity.total_transactions, 'successful_transactions': identity.successful_transactions, 'success_rate': identity.successful_transactions / max(identity.total_transactions, 1), 'created_at': identity.created_at, 'last_activity': identity.last_activity}, 'cross_chain': {'total_mappings': len(mappings), 'verified_mappings': len([m for m in mappings if m.is_verified]), 'supported_chains': [m.chain_id for m in mappings], 'primary_chain': identity.primary_chain}, 'verifications': {'total_verifications': len(verifications), 'pending_verifications': len([v for v in verifications if v.verification_result == 'pending']), 'approved_verifications': len([v for v in verifications if v.verification_result == 'approved']), 'rejected_verifications': len([v for v in verifications if v.verification_result == 'rejected'])}, 'wallets': {'total_wallets': len(wallets), 'active_wallets': len([w for w in wallets if w.is_active]), 'total_balance': sum(w.balance for w in wallets), 'total_spent': sum(w.total_spent for w in wallets)}}
 
     async def search_identities(self, query: str='', status: IdentityStatus | None=None, verification_level: VerificationType | None=None, chain_id: int | None=None, limit: int=50, offset: int=0) -> list[AgentIdentity]:
         """Search identities with various filters"""

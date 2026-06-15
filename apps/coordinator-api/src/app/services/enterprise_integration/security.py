@@ -8,10 +8,13 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
 import cryptography
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class SecurityLevel(StrEnum):

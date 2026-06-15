@@ -2,11 +2,24 @@
 import json
 import uuid
 from datetime import datetime
+
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ....models.hermes import DecisionModel, VoteModel
-from ....schemas.hermes_decision import DecisionProposal, DecisionProposalResponse, DecisionResult, DecisionStatus, DecisionType, Vote, VoteOption, VoteResponse
+from ....schemas.hermes_decision import (
+    DecisionProposal,
+    DecisionProposalResponse,
+    DecisionResult,
+    DecisionStatus,
+    DecisionType,
+    Vote,
+    VoteOption,
+    VoteResponse,
+)
+
 
 class DecisionService:
     """Service for managing distributed agent decisions with database storage."""
@@ -52,12 +65,12 @@ class DecisionService:
             return None
         votes = session.query(VoteModel).filter_by(decision_id=decision_id).all()
         total_votes = len(votes)
-        approve_votes = sum((1 for v in votes if v.vote == VoteOption.APPROVE))
-        reject_votes = sum((1 for v in votes if v.vote == VoteOption.REJECT))
-        abstain_votes = sum((1 for v in votes if v.vote == VoteOption.ABSTAIN))
-        weighted_approve = sum((v.weight for v in votes if v.vote == VoteOption.APPROVE))  # type: ignore[misc]
-        weighted_reject = sum((v.weight for v in votes if v.vote == VoteOption.REJECT))  # type: ignore[misc]
-        weighted_abstain = sum((v.weight for v in votes if v.vote == VoteOption.ABSTAIN))  # type: ignore[misc]
+        approve_votes = sum(1 for v in votes if v.vote == VoteOption.APPROVE)
+        reject_votes = sum(1 for v in votes if v.vote == VoteOption.REJECT)
+        abstain_votes = sum(1 for v in votes if v.vote == VoteOption.ABSTAIN)
+        weighted_approve = sum(v.weight for v in votes if v.vote == VoteOption.APPROVE)  # type: ignore[misc]
+        weighted_reject = sum(v.weight for v in votes if v.vote == VoteOption.REJECT)  # type: ignore[misc]
+        weighted_abstain = sum(v.weight for v in votes if v.vote == VoteOption.ABSTAIN)  # type: ignore[misc]
         total_weight = weighted_approve + weighted_reject + weighted_abstain
         total_weight = weighted_approve + weighted_reject + weighted_abstain
         participation_rate = total_weight / max(total_weight, 1.0)

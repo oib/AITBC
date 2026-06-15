@@ -10,7 +10,7 @@ try:
 except ImportError:
     from pydantic import BaseSettings  # type: ignore
     SettingsConfigDict = None  # type: ignore[misc,assignment]
-from enum import Enum, StrEnum
+from enum import StrEnum
 
 
 def validated_cors_origins(origins: list[str]) -> list[str]:

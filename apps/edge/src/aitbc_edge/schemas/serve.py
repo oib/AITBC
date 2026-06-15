@@ -1,6 +1,7 @@
 """Edge serve-related schemas for Edge API Service"""
 
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -17,7 +18,7 @@ class ComputeRequest(SQLModel, table=True):
     request_id: str = Field(index=True)
     gpu_id: str = Field(index=True)
     model_name: str
-    input_data: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
+    input_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
     priority: str = Field(default="normal")
     status: str = Field(default="queued", index=True)  # queued, running, completed, failed, cancelled
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -25,7 +26,7 @@ class ComputeRequest(SQLModel, table=True):
     started_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     error: str | None = Field(default=None)
-    extra_data: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
+    extra_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
 
 
 class ComputeResult(SQLModel, table=True):
@@ -39,7 +40,7 @@ class ComputeResult(SQLModel, table=True):
     request_id: str = Field(index=True)
     island_id: str = Field(index=True)
     gpu_id: str
-    result: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    result: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     cache_ttl: int = Field(default=3600)  # 1 hour default
     created_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: datetime = Field(default_factory=datetime.utcnow)

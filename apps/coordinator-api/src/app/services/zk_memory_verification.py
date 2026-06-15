@@ -6,13 +6,18 @@ Ensures that data retrieved from IPFS matches the anchored state on the blockcha
 without revealing the contents of the data itself.
 """
 from __future__ import annotations
+
 import hashlib
 import json
+
 from fastapi import HTTPException
 from sqlmodel import Session
+
 from aitbc import get_logger
+
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..domain.decentralized_memory import AgentMemoryNode
+
 logger = get_logger(__name__)
 
 class ZKMemoryVerificationService:
