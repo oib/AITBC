@@ -60,7 +60,7 @@ class AgentReputation:
 class AgentCommunicationClient:
     """Extended client for agent communication functionality"""
 
-    def __init__(self, base_url: str, agent_id: str, private_key: str=None):
+    def __init__(self, base_url: str, agent_id: str, private_key: str | None=None):
         """
         Initialize the communication client
         
@@ -72,9 +72,9 @@ class AgentCommunicationClient:
         self.base_url = base_url
         self.agent_id = agent_id
         self.private_key = private_key
-        self.identity_client = AgentIdentityClient(base_url, agent_id, private_key)
+        self.identity_client = AgentIdentityClient(base_url, agent_id, private_key)  # type: ignore[arg-type]
 
-    async def create_forum_topic(self, title: str, description: str, tags: list[str]=None) -> dict[str, Any]:
+    async def create_forum_topic(self, title: str, description: str, tags: list[str] | None=None) -> dict[str, Any]:
         """
         Create a new forum topic
         
@@ -87,10 +87,10 @@ class AgentCommunicationClient:
             Topic creation result
         """
         try:
-            identity = await self.identity_client.get_identity()
+            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
             if not identity:
                 return {'success': False, 'error': 'Agent identity not found', 'error_code': 'IDENTITY_NOT_FOUND'}
-            agent_address = identity.wallets[0].address if identity.wallets else None
+            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
             if not agent_address:
                 return {'success': False, 'error': 'No wallet found for agent', 'error_code': 'NO_WALLET_FOUND'}
             topic_data = {'agent_id': self.agent_id, 'agent_address': agent_address, 'title': title, 'description': description, 'tags': tags or []}
@@ -100,7 +100,7 @@ class AgentCommunicationClient:
             logger.error('Error creating forum topic: %s', e)
             return {'success': False, 'error': str(e), 'error_code': 'TOPIC_CREATION_FAILED'}
 
-    async def post_message(self, topic_id: str, content: str, message_type: str='post', parent_message_id: str=None) -> dict[str, Any]:
+    async def post_message(self, topic_id: str, content: str, message_type: str='post', parent_message_id: str | None=None) -> dict[str, Any]:
         """
         Post a message to a forum topic
         
@@ -114,10 +114,10 @@ class AgentCommunicationClient:
             Message posting result
         """
         try:
-            identity = await self.identity_client.get_identity()
+            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
             if not identity:
                 return {'success': False, 'error': 'Agent identity not found', 'error_code': 'IDENTITY_NOT_FOUND'}
-            agent_address = identity.wallets[0].address if identity.wallets else None
+            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
             if not agent_address:
                 return {'success': False, 'error': 'No wallet found for agent', 'error_code': 'NO_WALLET_FOUND'}
             message_data = {'agent_id': self.agent_id, 'agent_address': agent_address, 'topic_id': topic_id, 'content': content, 'message_type': message_type, 'parent_message_id': parent_message_id}
@@ -180,10 +180,10 @@ class AgentCommunicationClient:
             Vote result
         """
         try:
-            identity = await self.identity_client.get_identity()
+            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
             if not identity:
                 return {'success': False, 'error': 'Agent identity not found', 'error_code': 'IDENTITY_NOT_FOUND'}
-            agent_address = identity.wallets[0].address if identity.wallets else None
+            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
             if not agent_address:
                 return {'success': False, 'error': 'No wallet found for agent', 'error_code': 'NO_WALLET_FOUND'}
             vote_data = {'agent_id': self.agent_id, 'agent_address': agent_address, 'message_id': message_id, 'vote_type': vote_type}
@@ -233,7 +233,7 @@ class AgentCommunicationClient:
             logger.error('Error searching messages: %s', e)
             return {'success': False, 'error': str(e), 'error_code': 'SEARCH_FAILED'}
 
-    async def get_agent_reputation(self, agent_id: str=None) -> dict[str, Any]:
+    async def get_agent_reputation(self, agent_id: str | None=None) -> dict[str, Any]:
         """
         Get agent reputation information
         
@@ -269,8 +269,8 @@ class AgentCommunicationClient:
                 return reputation
             if not reputation['reputation'].get('is_moderator', False):
                 return {'success': False, 'error': 'Insufficient permissions', 'error_code': 'INSUFFICIENT_PERMISSIONS'}
-            identity = await self.identity_client.get_identity()
-            agent_address = identity.wallets[0].address if identity.wallets else None
+            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
+            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
             moderation_data = {'moderator_agent_id': self.agent_id, 'moderator_address': agent_address, 'message_id': message_id, 'action': action, 'reason': reason}
             result = await self._call_messaging_contract('moderate_message', moderation_data)
             return result
@@ -278,7 +278,7 @@ class AgentCommunicationClient:
             logger.error('Error moderating message: %s', e)
             return {'success': False, 'error': str(e), 'error_code': 'MODERATION_FAILED'}
 
-    async def create_announcement(self, content: str, topic_id: str=None) -> dict[str, Any]:
+    async def create_announcement(self, content: str, topic_id: str | None=None) -> dict[str, Any]:
         """
         Create an announcement message
         

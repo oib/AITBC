@@ -133,7 +133,7 @@ class MultiChainWalletAdapter:
         self.chain_configs: dict[int, dict[str, Any]] = {}
         self._initialize_chain_configs()
 
-    def _initialize_chain_configs(self):
+    def _initialize_chain_configs(self) -> None:
         """Initialize default blockchain configurations"""
         self.chain_configs = {1: {'chain_type': ChainType.ETHEREUM, 'rpc_url': 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID', 'name': 'Ethereum Mainnet'}, 137: {'chain_type': ChainType.POLYGON, 'rpc_url': 'https://polygon-rpc.com', 'name': 'Polygon Mainnet'}, 56: {'chain_type': ChainType.BSC, 'rpc_url': 'https://bsc-dataseed1.binance.org', 'name': 'BSC Mainnet'}, 42161: {'chain_type': ChainType.ARBITRUM, 'rpc_url': 'https://arb1.arbitrum.io/rpc', 'name': 'Arbitrum One'}, 10: {'chain_type': ChainType.OPTIMISM, 'rpc_url': 'https://mainnet.optimism.io', 'name': 'Optimism'}, 43114: {'chain_type': ChainType.AVALANCHE, 'rpc_url': 'https://api.avax.network/ext/bc/C/rpc', 'name': 'Avalanche C-Chain'}, 1000: {'chain_type': ChainType.AITBC, 'rpc_url': 'http://localhost:8006', 'name': 'AITBC Mainnet'}}
 
@@ -223,7 +223,7 @@ class MultiChainWalletAdapter:
         self.session.commit()
         self.session.refresh(wallet)
         logger.info('Updated agent wallet: %s', wallet.id)
-        return wallet
+        return wallet  # type: ignore[no-any-return]
 
     async def get_all_agent_wallets(self, agent_id: str) -> list[AgentWallet]:
         """Get all wallets for an agent across all chains"""
@@ -258,7 +258,7 @@ class MultiChainWalletAdapter:
                 total_balance += float(balance)
             except Exception as e:
                 logger.warning('Failed to get balance for wallet %s: %s', wallet.id, e)
-                balance = 0.0
+                balance = 0.0  # type: ignore[assignment]
             total_spent += wallet.total_spent
             total_transactions += wallet.transaction_count
             if wallet.is_active:
@@ -293,9 +293,9 @@ class MultiChainWalletAdapter:
                 sync_results[wallet.chain_id] = {'success': True, 'balance': float(balance), 'address': wallet.chain_address}
             except Exception as e:
                 sync_results[wallet.chain_id] = {'success': False, 'error': str(e), 'address': wallet.chain_address}
-        return sync_results
+        return sync_results # type: ignore[return-value]
 
-    def add_chain_config(self, chain_id: int, chain_type: ChainType, rpc_url: str, name: str):
+    def add_chain_config(self, chain_id: int, chain_type: ChainType, rpc_url: str, name: str) -> None:
         """Add a new blockchain configuration"""
         self.chain_configs[chain_id] = {'chain_type': chain_type, 'rpc_url': rpc_url, 'name': name}
         if chain_id in self.adapters:

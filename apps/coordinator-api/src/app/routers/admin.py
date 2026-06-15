@@ -1,7 +1,8 @@
 from __future__ import annotations
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
 from aitbc import get_logger
@@ -20,7 +21,7 @@ async def debug_settings(request: Request) -> dict:
 
     def mask_keys(keys: list[str]) -> list[str]:
         return [key[:8] + '...' if len(key) > 8 else '***' for key in keys]
-    return {'admin_api_keys': mask_keys(settings.admin_api_keys), 'client_api_keys': mask_keys(settings.client_api_keys), 'miner_api_keys': mask_keys(settings.miner_api_keys), 'app_env': settings.app_env}
+    return {'admin_api_keys': mask_keys(settings.admin_api_keys), 'client_api_keys': mask_keys(settings.client_api_keys), 'miner_api_keys': mask_keys(settings.miner_api_keys), 'app_env': getattr(settings, 'app_env', 'unknown')}
 
 @router.post('/debug/create-test-miner', summary='Create a test miner for debugging')
 @rate_limit(rate=10, per=60)
@@ -74,7 +75,7 @@ async def get_stats(request: Request, session: Annotated[Session, Depends(get_se
     from sqlmodel import func, select
     from ..domain import Job
     total_jobs = session.execute(select(func.count()).select_from(Job)).one()
-    active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(['QUEUED', 'RUNNING']))).one()
+    active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(['QUEUED', 'RUNNING']))).one()  # type: ignore[attr-defined]
     miner_service = MinerService(session)
     miners = miner_service.list_records()
     avg_job_duration = sum((miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms)) / max(len(miners), 1)
@@ -84,7 +85,7 @@ async def get_stats(request: Request, session: Annotated[Session, Depends(get_se
 @rate_limit(rate=100, per=60)
 async def list_jobs(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str=Depends(require_admin_key())) -> dict[str, list[dict]]:
     from ..domain import Job
-    jobs = session.execute(select(Job).order_by(Job.requested_at.desc()).limit(100)).all()
+    jobs = session.execute(select(Job).order_by(desc(Job.requested_at)).limit(100)).all()  # type: ignore[arg-type]
     return {'items': [{'job_id': job.id, 'state': job.state, 'client_id': job.client_id, 'assigned_miner_id': job.assigned_miner_id, 'requested_at': job.requested_at.isoformat()} for job in jobs]}
 
 @router.get('/miners', summary='List miners')
@@ -98,14 +99,14 @@ async def list_miners(request: Request, session: Annotated[Session, Depends(get_
 
 @router.get('/status', summary='Get system status', response_model=None)
 @rate_limit(rate=100, per=60)
-async def get_system_status(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str=Depends(require_admin_key())) -> dict[str, any]:
+async def get_system_status(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str=Depends(require_admin_key())) -> dict[str, Any]:
     """Get comprehensive system status for admin dashboard"""
     try:
         JobService(session)
         from sqlmodel import func, select
         from ..domain import Job
         total_jobs = session.execute(select(func.count()).select_from(Job)).one()
-        active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(['QUEUED', 'RUNNING']))).one()
+        active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(['QUEUED', 'RUNNING']))).one()  # type: ignore[attr-defined]
         completed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == 'COMPLETED')).one()
         failed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == 'FAILED')).one()
         miner_service = MinerService(session)
