@@ -21,7 +21,6 @@ ExecStart=/opt/aitbc/venv/bin/python -m aitbc_edge.main
 Restart=always
 RestartSec=10
 MemoryMax=512M
-MemoryLimit=512M
 
 [Install]
 WantedBy=multi-user.target

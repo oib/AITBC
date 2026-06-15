@@ -6,11 +6,11 @@ REST API endpoints for integrated global marketplace with cross-chain capabiliti
 from datetime import UTC, datetime
 from typing import Any
 
+from app.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from aitbc import get_logger
-from aitbc.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
 
 from ....agent_identity.manager import AgentIdentityManager
 from ....reputation.engine import CrossChainReputationEngine

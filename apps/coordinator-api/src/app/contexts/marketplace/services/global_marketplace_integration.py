@@ -8,10 +8,10 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
+from app.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
 from sqlmodel import Session, select
 
 from aitbc import get_logger
-from aitbc.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
 
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ....reputation.engine import CrossChainReputationEngine
