@@ -278,9 +278,9 @@ class ChainAwareWalletService:
                     target_chain_id,
                     wallet_id,
                     new_password or password,
-                    source_keystore_record.get("secret_key"),
+                    source_keystore_record.metadata.get("secret_key"),
                     source_wallet.metadata,
-                )  # type: ignore
+                )
                 if target_wallet:
                     self.multichain_ledger.record_event(
                         source_chain_id,

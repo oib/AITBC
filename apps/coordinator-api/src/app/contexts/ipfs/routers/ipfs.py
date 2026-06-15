@@ -1,5 +1,7 @@
 """IPFS storage router for Coordinator API"""
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -14,7 +16,7 @@ class IPFSUploadRequest(BaseModel):
     """Request model for IPFS upload"""
 
     agent_id: str
-    memory_data: dict
+    memory_data: dict[str, Any]
     memory_type: str = "experience"
     tags: list[str] = Field(default_factory=list)
     compress: bool = True
@@ -32,7 +34,7 @@ class IPFSBatchUploadRequest(BaseModel):
     """Request model for batch IPFS upload"""
 
     agent_id: str
-    memories: list[dict]
+    memories: list[dict[str, Any]]
     batch_size: int = Field(default=10, ge=1, le=50)
 
 

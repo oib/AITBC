@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import desc
+from sqlalchemy import col, desc
 from sqlmodel import Session, select
 
 from aitbc import get_logger
@@ -486,10 +486,10 @@ async def get_security_dashboard(
             session.exec(
                 select(AgentAuditLog)
                 .where(AgentAuditLog.requires_investigation)
-                .order_by(desc(AgentAuditLog.timestamp))
+                .order_by(desc(col(AgentAuditLog.timestamp)))
                 .limit(10)
             ).all()
-        )  # type: ignore[arg-type]
+        )
         trust_scores = list(session.exec(select(AgentTrustScore)).all())
         avg_trust_score = sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0
         active_sandboxes = session.exec(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()

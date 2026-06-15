@@ -96,7 +96,7 @@ class TrainingService:
     def __init__(self, session: Any = None) -> None:
         self._jobs: dict[str, TrainingJob] = {}
         self._job_counter = 0
-        self._active_jobs: set = set()
+        self._active_jobs: set[str] = set()
         self._max_concurrent = 3
         self.session = session
 

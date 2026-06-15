@@ -9,6 +9,7 @@ from typing import Any, cast
 from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request
+from sqlalchemy import asc, text
 from sqlmodel import Session, delete, select
 
 from aitbc.rate_limiting import rate_limit
@@ -48,8 +49,8 @@ def _parse_datetime_value(value: Any, field_name: str) -> datetime | None:
 
 def _select_export_blocks(session: Session, chain_id: str) -> list[Block]:
     blocks_result = session.execute(
-        select(Block).where(Block.chain_id == chain_id).order_by(Block.height.asc(), Block.id.desc())
-    )  # type: ignore[attr-defined,union-attr]
+        select(Block).where(Block.chain_id == chain_id).order_by(asc(text("height")), text("id DESC"))
+    )
     blocks: list[Block] = []
     seen_heights = set()
     duplicate_count = 0
@@ -100,8 +101,10 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
             accounts_result = session.execute(select(Account).where(Account.chain_id == chain_id).order_by(Account.address))
             accounts = list(accounts_result.scalars().all())
             txs_result = session.execute(
-                select(Transaction).where(Transaction.chain_id == chain_id).order_by(Transaction.block_height, Transaction.id)
-            )  # type: ignore[arg-type]
+                select(Transaction)
+                .where(Transaction.chain_id == chain_id)
+                .order_by(asc(text("block_height")), asc(text("id")))
+            )
             transactions = list(txs_result.scalars().all())
             export_data = {
                 "chain_id": chain_id,
@@ -183,9 +186,11 @@ async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[st
                 session.execute(delete(Block).where(Block.chain_id == chain_id))  # type: ignore[arg-type]
                 import_hashes = {block_data["hash"] for block_data in unique_blocks}
                 if import_hashes:
+                    from sqlalchemy import Column, String
+
                     hash_conflict_result = session.execute(
-                        select(Block.hash, Block.chain_id).where(Block.hash.in_(import_hashes))
-                    )  # type: ignore[attr-defined]
+                        select(Block.hash, Block.chain_id).where(Column("hash", String).in_(import_hashes))
+                    )
                     hash_conflicts = hash_conflict_result.all()
                     if hash_conflicts:
                         conflict_chains = {chain_id for _, chain_id in hash_conflicts}

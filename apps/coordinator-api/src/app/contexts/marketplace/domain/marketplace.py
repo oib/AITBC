@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -20,7 +21,7 @@ class MarketplaceOffer(SQLModel, table=True):
     sla: str = Field(default="")
     status: str = Field(default="open", max_length=20)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
-    attributes: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    attributes: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     # GPU-specific fields
     gpu_model: str | None = Field(default=None, index=True)
     gpu_memory_gb: int | None = Field(default=None)

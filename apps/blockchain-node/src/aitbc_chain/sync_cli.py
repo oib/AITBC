@@ -8,10 +8,10 @@ import argparse
 import asyncio
 import os
 
-from aitbc_chain.config import settings  # type: ignore
-from aitbc_chain.database import session_scope  # type: ignore
-from aitbc_chain.logger import get_logger  # type: ignore
-from aitbc_chain.sync import ChainSync  # type: ignore
+from aitbc_chain.config import settings
+from aitbc_chain.database import session_scope
+from aitbc_chain.logger import get_logger
+from aitbc_chain.sync import ChainSync
 
 logger = get_logger(__name__)
 
@@ -27,7 +27,7 @@ async def main() -> None:
     args = parser.parse_args()
 
     sync = ChainSync(
-        session_factory=session_scope,
+        session_factory=session_scope,  # type: ignore[arg-type]
         chain_id=settings.chain_id,
         batch_size=args.batch_size,
         poll_interval=args.poll_interval,

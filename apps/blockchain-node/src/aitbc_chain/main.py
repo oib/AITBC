@@ -361,7 +361,7 @@ class BlockchainNode:
                             def session_factory_for_periodic(cid: str = chain_id) -> Any:
                                 return session_scope(cid)
 
-                            sync = ChainSync(session_factory=session_factory_for_periodic, chain_id=chain_id)  # type: ignore[arg-type]
+                            sync = ChainSync(session_factory=session_factory_for_periodic, chain_id=chain_id)
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:
                                 logger.info("Periodic sync imported %s blocks for chain %s", imported, chain_id)

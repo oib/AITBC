@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import text
 from sqlmodel import Session, select
 
 from ..config import ProposerConfig
@@ -98,8 +99,8 @@ class PoAProposer:
         """Fetch the current chain head block from the database."""
         with self._session_factory() as session:
             return session.exec(
-                select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)
-            ).first()  # type: ignore[attr-defined]
+                select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
+            ).first()
 
     async def start(self) -> None:
         if self._task is not None:
@@ -219,8 +220,8 @@ class PoAProposer:
                     return False
         with self._session_factory() as session:
             head = session.exec(
-                select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)
-            ).first()  # type: ignore[attr-defined]
+                select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
+            ).first()
             next_height = 0
             parent_hash = "0x00"
             interval_seconds: float | None = None

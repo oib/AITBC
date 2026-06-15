@@ -27,7 +27,7 @@ class PluginManager:
 
     def __init__(self) -> None:
         self.plugins: dict[str, Plugin] = {}
-        self.plugin_hooks: dict[str, list[Callable]] = {
+        self.plugin_hooks: dict[str, list[Callable[..., Any]]] = {
             "before_booking": [],
             "after_booking": [],
             "before_pricing": [],
@@ -93,7 +93,7 @@ class PluginManager:
         logger.info("Disabled plugin: %s", plugin_name)
         return True
 
-    def register_hook(self, hook_name: str, hook_func: Callable) -> bool:
+    def register_hook(self, hook_name: str, hook_func: Callable[..., Any]) -> bool:
         """Register a hook function for a specific hook name."""
         if hook_name not in self.plugin_hooks:
             logger.warning("Unknown hook: %s", hook_name)

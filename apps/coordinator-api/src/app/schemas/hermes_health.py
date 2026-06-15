@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -45,7 +46,7 @@ class HealthCheck(BaseModel):
     timestamp: datetime
     response_time_ms: float
     error_message: str | None = None
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class ErrorReport(BaseModel):
@@ -57,7 +58,7 @@ class ErrorReport(BaseModel):
     severity: ErrorSeverity
     error_message: str
     timestamp: datetime
-    context: dict | None = None
+    context: dict[str, Any] | None = None
 
 
 class RecoveryAction(BaseModel):
@@ -65,7 +66,7 @@ class RecoveryAction(BaseModel):
 
     action_type: str
     description: str
-    parameters: dict | None = None
+    parameters: dict[str, Any] | None = None
 
 
 class RecoveryResult(BaseModel):

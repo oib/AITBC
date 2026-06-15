@@ -197,7 +197,7 @@ class EthereumBridge(BridgeAdapter):
     async def initialize(self) -> None:
         """Initialize Ethereum bridge with Web3 client"""
         try:
-            from aitbc import Web3Client
+            from aitbc import Web3Client  # type: ignore[attr-defined]
 
             self._web3_client = Web3Client(self.rpc_url)
             # Test connection

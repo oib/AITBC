@@ -271,7 +271,7 @@ class WalletInfoResponse(BaseModel):
     unconfirmed_balance: float
     total_received: float
     total_sent: float
-    transactions: list
+    transactions: list[dict[str, Any]]
     network: str
     block_height: int
 
@@ -350,7 +350,7 @@ class MarketplaceOfferView(BaseModel):
     cuda_version: str | None = None
     price_per_hour: float | None = None
     region: str | None = None
-    attributes: dict | None = None
+    attributes: dict[str, Any] | None = None
 
 
 class MarketplaceStatsView(BaseModel):

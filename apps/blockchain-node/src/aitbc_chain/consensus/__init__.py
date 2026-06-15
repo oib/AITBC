@@ -1,5 +1,6 @@
 from __future__ import annotations
 
-from .poa import CircuitBreaker, PoAProposer, ProposerConfig
+from ..config import ProposerConfig
+from .poa import CircuitBreaker, PoAProposer
 
 __all__ = ["PoAProposer", "ProposerConfig", "CircuitBreaker"]

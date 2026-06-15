@@ -247,9 +247,7 @@ async def list_executions(
                 raise HTTPException(status_code=404, detail="Workflow not found")
             query = query.where(AgentExecution.workflow_id == workflow_id)
         else:
-            user_workflows = (
-                session.exec(select(AIAgentWorkflow.id).where(AIAgentWorkflow.owner_id == current_user)).scalars().all()
-            )  # type: ignore[attr-defined]
+            user_workflows = session.exec(select(AIAgentWorkflow.id).where(AIAgentWorkflow.owner_id == current_user)).all()
             workflow_ids = list(user_workflows)
             query = query.where(AgentExecution.workflow_id.in_(workflow_ids))  # type: ignore[attr-defined]
         if status:

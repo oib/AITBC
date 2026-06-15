@@ -122,7 +122,7 @@ class SLACollector:
         snapshot = CapacitySnapshot(
             total_miners=total_miners,
             active_miners=active_miners,
-            total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()),
+            total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()),  # type: ignore[misc]
             total_queue_length=sum(ms.queue_len for ms in miner_statuses),
             capacity_utilization_pct=100.0 - capacity_availability_pct,
             forecast_capacity=total_miners,
@@ -130,7 +130,7 @@ class SLACollector:
             scaling_reason="Capacity within normal range",
             timestamp=datetime.now(UTC),
             meta_data={"method": "real_time_collection"},
-        )  # type: ignore[misc]
+        )
         self.db.add(snapshot)
         await self.db.commit()  # type: ignore[misc, func-returns-value]
         logger.info(
