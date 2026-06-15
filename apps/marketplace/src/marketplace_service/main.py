@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 BLOCKCHAIN_RPC_URL = os.getenv('BLOCKCHAIN_RPC_URL', 'http://localhost:8202')
-from aitbc import (
+from aitbc import (  # type: ignore[attr-defined]
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
