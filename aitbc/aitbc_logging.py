@@ -5,10 +5,24 @@ Centralized logging utilities for the AITBC project
 
 import json
 import logging
+import os
 import sys
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
+
+
+class BlockchainTextFormatter(logging.Formatter):
+    """Compact bracketed formatter that appends blockchain-specific extra fields."""
+
+    BLOCKCHAIN_FIELDS = ("chain_id", "supported_chains", "height", "hash", "proposer", "error")
+
+    def format(self, record: logging.LogRecord) -> str:
+        message = record.getMessage()
+        extra_fields = [f"{f}={getattr(record, f)}" for f in self.BLOCKCHAIN_FIELDS if hasattr(record, f)]
+        if extra_fields:
+            message = f"{message} [{', '.join(extra_fields)}]"
+        return f"[{record.levelname}] {message}"
 
 
 class StructuredFormatter(logging.Formatter):
@@ -61,6 +75,18 @@ def setup_logger(name: str, level: str = "INFO", format_string: str | None = Non
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance"""
     return logging.getLogger(name)
+
+
+def get_blockchain_logger(name: str) -> logging.Logger:
+    """Get a logger with blockchain-specific extra field formatting."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper())
+        logger.setLevel(level)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(BlockchainTextFormatter())
+        logger.addHandler(handler)
+    return logger
 
 
 def configure_logging(level: str = "INFO", structured: bool = False) -> None:
