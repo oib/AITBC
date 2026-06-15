@@ -1,18 +1,19 @@
 """Transaction service for generating signed coin transfer transactions."""
 
 import json
-import logging
 import os
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
+
+from aitbc import get_logger
 
 
 class TransactionService:
     """Service for generating signed blockchain transactions."""
 
     def __init__(self) -> None:
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
         self.chain_id = os.getenv("CHAIN_ID", "ait-mainnet")
         self.genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -9,6 +8,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from aitbc import get_logger
 from aitbc.rate_limiting import RateLimitMiddleware
 
 from .api_jsonrpc import router as jsonrpc_router
@@ -16,7 +16,7 @@ from .api_rest import router as receipts_router
 from .bridge import init_db, start_monitoring
 from .settings import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def _import_genesis_wallet_from_env() -> None:

@@ -5,15 +5,14 @@ Basic HTTP client for compliance verification
 """
 
 import hashlib
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class KYCProvider(str, Enum):  # noqa: UP042

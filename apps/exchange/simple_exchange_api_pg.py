@@ -1,7 +1,6 @@
 """AITBC Exchange API with PostgreSQL Support"""
 
 import json
-import logging
 import random
 import urllib.request
 from datetime import UTC, datetime
@@ -12,7 +11,9 @@ from urllib.parse import parse_qs, urlparse
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 PG_CONFIG = {
     "host": "localhost",
     "database": "aitbc_exchange",
