@@ -1,10 +1,25 @@
 """Service for Hermes autonomous resource management."""
 import uuid
 from datetime import datetime, timedelta
+
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
-from ....schemas.hermes_resource import AllocationStrategy, PricingAdjustment, Resource, ResourceAllocationRequest, ResourceAllocationResponse, ResourcePool, ResourceReleaseRequest, ResourceReleaseResponse, ResourceStatus, ResourceType
+from ....schemas.hermes_resource import (
+    AllocationStrategy,
+    PricingAdjustment,
+    Resource,
+    ResourceAllocationRequest,
+    ResourceAllocationResponse,
+    ResourcePool,
+    ResourceReleaseRequest,
+    ResourceReleaseResponse,
+    ResourceStatus,
+    ResourceType,
+)
+
 
 class ResourceService:
     """Service for autonomous resource management."""

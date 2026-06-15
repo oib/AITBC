@@ -8,10 +8,14 @@ from datetime import datetime
 from types import TracebackType
 from typing import Any
 from urllib.parse import urljoin
+
 import aiohttp
+
 from aitbc import get_logger
+
 from .exceptions import *
 from .models import *
+
 logger = get_logger(__name__)
 
 class AgentIdentityClient:

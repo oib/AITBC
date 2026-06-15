@@ -5,10 +5,25 @@ Implements core orchestration logic and state management for AI agent workflows
 import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select, update
-from ...domain.agent import AgentExecution, AgentExecutionRequest, AgentExecutionResponse, AgentExecutionStatus, AgentStatus, AgentStep, AgentStepExecution, AIAgentWorkflow, StepType, VerificationLevel
+
+from ...domain.agent import (
+    AgentExecution,
+    AgentExecutionRequest,
+    AgentExecutionResponse,
+    AgentExecutionStatus,
+    AgentStatus,
+    AgentStep,
+    AgentStepExecution,
+    AIAgentWorkflow,
+    StepType,
+    VerificationLevel,
+)
+
 
 class CoordinatorClient:
     """Mock coordinator client for agent orchestration"""
@@ -166,7 +181,7 @@ class AIAgentOrchestrator:
             current_inputs = inputs.copy()
             step_results = {}
             for step_id in step_order:
-                step = next((s for s in steps if s.id == step_id))
+                step = next(s for s in steps if s.id == step_id)
                 step_result = await self._execute_single_step(execution_id, step, current_inputs)
                 step_results[step_id] = step_result
                 if step_result.output_data:
@@ -251,7 +266,7 @@ class AIAgentOrchestrator:
             ready_steps = []
             for step_id in remaining_steps:
                 step_deps = dependencies.get(step_id, [])
-                if all((dep in ordered_steps for dep in step_deps)):
+                if all(dep in ordered_steps for dep in step_deps):
                     ready_steps.append(step_id)
             if not ready_steps:
                 raise ValueError('Circular dependency detected in workflow')

@@ -5,9 +5,12 @@ import os
 import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite+aiosqlite:///./data/marketplace_service.db')
 engine = create_async_engine(DATABASE_URL, echo=False)

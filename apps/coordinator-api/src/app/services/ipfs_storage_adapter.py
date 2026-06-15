@@ -4,13 +4,18 @@ IPFS Storage Adapter Service
 Service for offloading agent vector databases and knowledge graphs to IPFS/Filecoin.
 """
 from __future__ import annotations
+
 import hashlib
+
 from fastapi import HTTPException
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..domain.decentralized_memory import AgentMemoryNode, MemoryType, StorageStatus
 from ..schemas.decentralized_memory import MemoryNodeCreate
+
 logger = get_logger(__name__)
 
 class IPFSAdapterService:
@@ -61,7 +66,7 @@ class IPFSAdapterService:
         if tags and len(tags) > 0:
             filtered_results = []
             for r in results:
-                if all((tag in r.tags for tag in tags)):
+                if all(tag in r.tags for tag in tags):
                     filtered_results.append(r)
             return filtered_results
         return results

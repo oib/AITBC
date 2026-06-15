@@ -1,5 +1,6 @@
 """Coordinator API main entry point."""
 import sys
+
 _LOCKED_PATH = []
 for p in sys.path:
     if 'site-packages' in p and '/opt/aitbc' in p:
@@ -15,10 +16,12 @@ for p in sys.path:
 sys.path.insert(0, '/opt/aitbc/packages/py/aitbc-crypto/src')
 sys.path.insert(0, '/opt/aitbc/packages/py/aitbc-sdk/src')
 import logging
+
 logger = logging.getLogger(__name__)
 from collections.abc import AsyncIterator, Awaitable, Callable
-from typing import Any
-from fastapi import FastAPI, Request, APIRouter
+from typing import TYPE_CHECKING, Any
+
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -27,7 +30,6 @@ from prometheus_client.core import CollectorRegistry
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from slowapi.errors import RateLimitExceeded as RateLimitExceededClass
@@ -46,11 +48,31 @@ from .contexts.ipfs.routers import router as ipfs
 from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers
 from .contexts.payments.routers import payments
 from .contexts.portfolio.routers import portfolio_router
-from .routers import admin, agent_router, client, developer_platform, edge_gpu, exchange, explorer, governance_enhanced, inference, islands_proxy, miner, monitor, multi_modal_rl, services, swarm, training, users, web_vitals
+from .routers import (
+    admin,
+    agent_router,
+    client,
+    developer_platform,
+    edge_gpu,
+    exchange,
+    explorer,
+    governance_enhanced,
+    inference,
+    islands_proxy,
+    miner,
+    monitor,
+    multi_modal_rl,
+    services,
+    swarm,
+    training,
+    users,
+    web_vitals,
+)
 from .utils.alerting import alert_dispatcher
 from .utils.cache import cache_manager
 from .utils.metrics import build_live_metrics_payload, metrics_collector
 from .utils.security import get_client_ip
+
 ml_zk_proofs: APIRouter | None = None
 try:
     from .contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proofs_import
@@ -62,6 +84,7 @@ from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enh
 from .contexts.hermes.routers.hermes_health import router as hermes_health
 from .contexts.hermes.routers.hermes_resource import router as hermes_resource
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
+
 multi_modal_rl_router: APIRouter | None = None
 try:
     from .contexts.multimodal.routers.multi_modal_rl import router as multi_modal_rl_import
@@ -70,12 +93,16 @@ except ImportError:
     logger.warning('Multi-modal RL router not available (missing torch)')
 from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, get_logger
 from aitbc.aitbc_logging import configure_logging
+
 from .exceptions import AITBCError, ErrorResponse
+
 configure_logging(level=settings.log_level if hasattr(settings, 'log_level') else 'INFO')
 logger = get_logger(__name__)
 from contextlib import asynccontextmanager
+
 from .database_async import close_async_db, init_async_db
 from .storage.db import init_db
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -95,6 +122,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info('Warming up database connections...')
         try:
             from sqlmodel import select
+
             from .domain import Job
             from .storage import get_session
             session_gen = get_session()
@@ -411,7 +439,7 @@ def create_app() -> FastAPI:
         logger.warning('Validation error: %s, Request ID: %s, Path: %s, Method: %s', exc, request_id, request.url.path, request.method)
         details = []
         for error in exc.errors():
-            details.append({'field': '.'.join((str(loc) for loc in error['loc'])), 'message': error['msg'], 'code': error['type']})
+            details.append({'field': '.'.join(str(loc) for loc in error['loc']), 'message': error['msg'], 'code': error['type']})
         error_response = ErrorResponse(error={'code': 'VALIDATION_ERROR', 'message': 'Request validation failed', 'status': 422, 'details': details}, request_id=request_id)
         return JSONResponse(status_code=422, content=error_response.model_dump())
 
@@ -433,9 +461,11 @@ def create_app() -> FastAPI:
     @app.get('/health/ready', tags=['health'], summary='Readiness probe')
     async def readiness() -> Response:
         try:
-            from .storage import get_session
-            from sqlalchemy import text
             import sys
+
+            from sqlalchemy import text
+
+            from .storage import get_session
             for session in get_session():
                 session.execute(text('SELECT 1'))
                 break

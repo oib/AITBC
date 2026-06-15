@@ -5,18 +5,35 @@ REST API endpoints for enhanced multi-chain wallet adapter, cross-chain bridge s
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from app.agent_identity.manager import AgentIdentityManager  # type: ignore[import-not-found]
-from app.agent_identity.wallet_adapter_enhanced import SecurityLevel, TransactionStatus, WalletAdapterFactory, WalletStatus  # type: ignore[import-not-found]
-from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol, BridgeSecurityLevel, CrossChainBridgeService  # type: ignore[import-not-found]
+from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore[import-not-found]
+    SecurityLevel,
+    TransactionStatus,
+    WalletAdapterFactory,
+    WalletStatus,
+)
+from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore[import-not-found]
+    BridgeProtocol,
+    BridgeSecurityLevel,
+    CrossChainBridgeService,
+)
 from app.domain.multi_chain_transaction import TransactionStatus, TransactionType  # type: ignore[import-not-found]
 from app.reputation.engine import CrossChainReputationEngine  # type: ignore[import-not-found]
-from app.services.multi_chain_transaction_manager import MultiChainTransactionManager, RoutingStrategy, TransactionPriority  # type: ignore[import-not-found]
+from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]
+    MultiChainTransactionManager,
+    RoutingStrategy,
+    TransactionPriority,
+)
 from app.storage.db import get_session  # type: ignore[import-not-found]
+
 router = APIRouter(prefix='/cross-chain', tags=['Cross-Chain Integration'])
 
 def get_agent_identity_manager(session: Session=Depends(get_session)) -> AgentIdentityManager:

@@ -1,17 +1,35 @@
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
+
 '\nCertification and Partnership API Endpoints\nREST API for agent certification, partnership programs, and badge system\n'
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
-from ....domain.certification import AchievementBadge, AgentBadge, AgentCertification, AgentPartnership, BadgeType, CertificationLevel, CertificationRequirement, CertificationStatus, PartnershipProgram, PartnershipType, VerificationRecord, VerificationType
+from ....domain.certification import (
+    AchievementBadge,
+    AgentBadge,
+    AgentCertification,
+    AgentPartnership,
+    BadgeType,
+    CertificationLevel,
+    CertificationRequirement,
+    CertificationStatus,
+    PartnershipProgram,
+    PartnershipType,
+    VerificationRecord,
+    VerificationType,
+)
 from ....storage import get_session
 from ..services.certification import BadgeSystem, CertificationAndPartnershipService, CertificationSystem, PartnershipManager
+
 router = APIRouter(prefix='/v1/certification', tags=['certification'])
 
 class CertificationRequest(BaseModel):

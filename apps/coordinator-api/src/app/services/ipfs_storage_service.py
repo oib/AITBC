@@ -3,7 +3,9 @@ IPFS Storage Service for Decentralized AI Memory & Storage
 Handles IPFS/Filecoin integration for persistent agent memory storage
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 import gzip
 import hashlib
@@ -11,7 +13,9 @@ import pickle
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+
 from .secure_pickle import safe_loads
+
 ipfshttpclient = None
 web3 = None
 try:

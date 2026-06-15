@@ -8,7 +8,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Any
 
 redis_client: Any = None
@@ -355,9 +355,9 @@ class AgentDiscoveryService:
 
     def __init__(self, registry: AgentRegistry) -> None:
         self.registry = registry
-        self.discovery_handlers: dict[str, Callable] = {}
+        self.discovery_handlers: dict[str, Callable[[Any], Any]] = {}
 
-    def register_discovery_handler(self, handler_name: str, handler: Callable) -> None:
+    def register_discovery_handler(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info('Registered discovery handler: %s', handler_name)

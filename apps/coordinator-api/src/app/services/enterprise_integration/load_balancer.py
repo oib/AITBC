@@ -7,7 +7,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class LoadBalancingAlgorithm(StrEnum):
@@ -251,7 +253,7 @@ class AdvancedLoadBalancer:
 
     async def _select_weighted_round_robin(self, backends: dict[str, BackendServer]) -> str | None:
         """Weighted round robin selection"""
-        total_weight = sum((server.weight for server in backends.values()))
+        total_weight = sum(server.weight for server in backends.values())
         if total_weight <= 0:
             return await self._select_round_robin(backends)
         import random
@@ -314,9 +316,9 @@ class AdvancedLoadBalancer:
 
     async def _select_adaptive(self, backends: dict[str, BackendServer], request_context: dict[str, Any] | None) -> str | None:
         """Adaptive selection based on current conditions"""
-        total_connections = sum((server.current_connections for server in backends.values()))
+        total_connections = sum(server.current_connections for server in backends.values())
         avg_response_time = statistics.mean([server.response_time_ms for server in backends.values()])
-        if total_connections > sum((server.max_connections for server in backends.values())) * 0.8:
+        if total_connections > sum(server.max_connections for server in backends.values()) * 0.8:
             return await self._select_resource_based(backends)
         elif avg_response_time > 200:
             return await self._select_least_response_time(backends)
@@ -379,9 +381,9 @@ class AdvancedLoadBalancer:
     async def get_load_balancing_metrics(self) -> dict[str, Any]:
         """Get comprehensive load balancing metrics"""
         try:
-            total_requests = sum((server.request_count for server in self.backends.values()))
-            total_errors = sum((server.error_count for server in self.backends.values()))
-            total_connections = sum((server.current_connections for server in self.backends.values()))
+            total_requests = sum(server.request_count for server in self.backends.values())
+            total_errors = sum(server.error_count for server in self.backends.values())
+            total_connections = sum(server.current_connections for server in self.backends.values())
             error_rate = total_errors / total_requests if total_requests > 0 else 0.0
             avg_response_time = 0.0
             if self.backends:
@@ -389,7 +391,7 @@ class AdvancedLoadBalancer:
             backend_distribution = {}
             for server_id, server in self.backends.items():
                 backend_distribution[server_id] = {'requests': server.request_count, 'errors': server.error_count, 'connections': server.current_connections, 'response_time_ms': server.response_time_ms, 'cpu_usage': server.cpu_usage, 'memory_usage': server.memory_usage, 'health_status': server.health_status.value, 'weight': server.weight}
-            scaling_recommendation = await self.predictive_scaler.get_scaling_recommendation(len(self.backends), sum((server.max_connections for server in self.backends.values())))
+            scaling_recommendation = await self.predictive_scaler.get_scaling_recommendation(len(self.backends), sum(server.max_connections for server in self.backends.values()))
             return {'total_backends': len(self.backends), 'healthy_backends': len([s for s in self.backends.values() if s.health_status == HealthStatus.HEALTHY]), 'total_requests': total_requests, 'total_errors': total_errors, 'error_rate': error_rate, 'average_response_time_ms': avg_response_time, 'total_connections': total_connections, 'algorithm': self.algorithm.value, 'backend_distribution': backend_distribution, 'scaling_recommendation': scaling_recommendation, 'timestamp': datetime.now(UTC).isoformat()}
         except Exception as e:
             self.logger.error('Metrics retrieval failed: %s', e)
@@ -403,7 +405,7 @@ class AdvancedLoadBalancer:
     async def auto_scale(self, min_servers: int=1, max_servers: int=10) -> dict[str, Any]:
         """Perform auto-scaling based on predictions"""
         try:
-            recommendation = await self.predictive_scaler.get_scaling_recommendation(len(self.backends), sum((server.max_connections for server in self.backends.values())))
+            recommendation = await self.predictive_scaler.get_scaling_recommendation(len(self.backends), sum(server.max_connections for server in self.backends.values()))
             action = recommendation['scaling_action']
             target_servers = recommendation['recommended_servers']
             target_servers = max(min_servers, min(max_servers, target_servers))

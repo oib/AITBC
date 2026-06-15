@@ -2,9 +2,12 @@
 Authentication utilities for blockchain RPC endpoints.
 """
 import os
+
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
+
 from ..logger import get_logger
+
 _logger = get_logger(__name__)
 
 def get_authenticated_address(request: Request, credentials: HTTPAuthorizationCredentials | None=None) -> str:

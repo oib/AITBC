@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 def log_info(message: str) -> None:
@@ -48,11 +50,11 @@ class EscrowContract:
     created_at: float
     expires_at: float
     state: EscrowState
-    milestones: list[dict]
+    milestones: list[dict[str, Any]]
     current_milestone: int
     dispute_reason: DisputeReason | None
-    dispute_evidence: list[dict]
-    resolution: dict | None
+    dispute_evidence: list[dict[str, Any]]
+    resolution: dict[str, Any] | None
     released_amount: Decimal
     refunded_amount: Decimal
 
@@ -81,7 +83,7 @@ class EscrowManager:
         self.max_milestones = 10
         self.verification_timeout = 86400
 
-    async def create_contract(self, job_id: str, client_address: str, agent_address: str, amount: Decimal, fee_rate: Decimal | None=None, milestones: list[dict] | None=None, duration_days: int=30) -> tuple[bool, str, str | None]:
+    async def create_contract(self, job_id: str, client_address: str, agent_address: str, amount: Decimal, fee_rate: Decimal | None=None, milestones: list[dict[str, Any]] | None=None, duration_days: int=30) -> tuple[bool, str, str | None]:
         """Create new escrow contract"""
         try:
             if not self._validate_contract_inputs(job_id, client_address, agent_address, amount):
@@ -124,7 +126,7 @@ class EscrowManager:
                 return False
         return True
 
-    async def _validate_milestones(self, milestones: list[dict], total_amount: Decimal) -> list[dict] | None:
+    async def _validate_milestones(self, milestones: list[dict[str, Any]], total_amount: Decimal) -> list[dict[str, Any]] | None:
         """Validate milestone configuration"""
         if not milestones or len(milestones) > self.max_milestones:
             return None
@@ -132,7 +134,7 @@ class EscrowManager:
         milestone_total = Decimal('0')
         for i, milestone_data in enumerate(milestones):
             required_fields = ['milestone_id', 'description', 'amount']
-            if not all((field in milestone_data for field in required_fields)):
+            if not all(field in milestone_data for field in required_fields):
                 return None
             amount = Decimal(str(milestone_data['amount']))
             if amount < self.min_milestone_amount:
@@ -193,7 +195,7 @@ class EscrowManager:
         if evidence:
             milestone['evidence'] = evidence
         if len(contract.milestones) > 1:
-            all_completed = all((ms['completed'] for ms in contract.milestones))
+            all_completed = all(ms['completed'] for ms in contract.milestones)
             if all_completed:
                 contract.state = EscrowState.JOB_COMPLETED
         log_info(f'Milestone {milestone_id} completed for contract: {contract_id}')
@@ -224,10 +226,10 @@ class EscrowManager:
             return (False, 'Contract not found')
         if contract.state != EscrowState.JOB_COMPLETED:
             return (False, f'Cannot release payment in {contract.state.value} state')
-        all_verified = all((ms.get('verified', False) for ms in contract.milestones))
+        all_verified = all(ms.get('verified', False) for ms in contract.milestones)
         if not all_verified:
             return (False, 'Not all milestones are verified')
-        total_milestone_amount = sum((Decimal(str(ms['amount'])) for ms in contract.milestones))
+        total_milestone_amount = sum(Decimal(str(ms['amount'])) for ms in contract.milestones)
         platform_fee_total = total_milestone_amount * contract.fee_rate
         remaining_payment = total_milestone_amount - contract.released_amount - platform_fee_total
         if remaining_payment > 0:
@@ -237,11 +239,11 @@ class EscrowManager:
         log_info(f'Full payment released for contract: {contract_id}')
         return (True, 'Payment released successfully')
 
-    async def create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict] | None = None) -> tuple[bool, str]:
+    async def create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict[str, Any]] | None = None) -> tuple[bool, str]:
         """Create dispute for contract"""
         return await self._create_dispute(contract_id, reason, description, evidence)
 
-    async def _create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict] | None = None) -> tuple[bool, str]:
+    async def _create_dispute(self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict[str, Any]] | None = None) -> tuple[bool, str]:
         """Internal dispute creation method"""
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
@@ -260,7 +262,7 @@ class EscrowManager:
         log_info(f'Dispute created for contract: {contract_id} - {reason.value}')
         return (True, 'Dispute created successfully')
 
-    async def resolve_dispute(self, contract_id: str, resolution: dict) -> tuple[bool, str]:
+    async def resolve_dispute(self, contract_id: str, resolution: dict[str, Any]) -> tuple[bool, str]:
         """Resolve dispute with specified outcome"""
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
@@ -268,7 +270,7 @@ class EscrowManager:
         if contract.state != EscrowState.DISPUTED:
             return (False, f'Contract not in disputed state: {contract.state.value}')
         required_fields = ['winner', 'client_refund', 'agent_payment']
-        if not all((field in resolution for field in required_fields)):
+        if not all(field in resolution for field in required_fields):
             return (False, 'Invalid resolution format')
         winner = resolution['winner']
         client_refund = Decimal(str(resolution['client_refund']))
@@ -338,7 +340,7 @@ class EscrowManager:
         """Get all disputed contracts"""
         return [self.escrow_contracts[contract_id] for contract_id in self.disputed_contracts if contract_id in self.escrow_contracts]
 
-    async def get_escrow_statistics(self) -> dict:
+    async def get_escrow_statistics(self) -> dict[str, Any]:
         """Get escrow system statistics"""
         total_contracts = len(self.escrow_contracts)
         active_count = len(self.active_contracts)
@@ -347,9 +349,9 @@ class EscrowManager:
         for contract in self.escrow_contracts.values():
             state = contract.state.value
             state_counts[state] = state_counts.get(state, 0) + 1
-        total_amount = sum((contract.amount for contract in self.escrow_contracts.values()))
-        total_released = sum((contract.released_amount for contract in self.escrow_contracts.values()))
-        total_refunded = sum((contract.refunded_amount for contract in self.escrow_contracts.values()))
+        total_amount = sum(contract.amount for contract in self.escrow_contracts.values())
+        total_released = sum(contract.released_amount for contract in self.escrow_contracts.values())
+        total_refunded = sum(contract.refunded_amount for contract in self.escrow_contracts.values())
         total_fees = total_amount - total_released - total_refunded
         return {'total_contracts': total_contracts, 'active_contracts': active_count, 'disputed_contracts': disputed_count, 'state_distribution': state_counts, 'total_amount': float(total_amount), 'total_released': float(total_released), 'total_refunded': float(total_refunded), 'total_fees': float(total_fees)}
 

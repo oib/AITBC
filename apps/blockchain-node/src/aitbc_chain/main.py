@@ -1,10 +1,11 @@
 import asyncio
 import json
 import os
-from contextlib import asynccontextmanager, AbstractAsyncContextManager
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any
+
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
@@ -14,10 +15,11 @@ from .logger import get_logger
 from .mempool import init_mempool
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
+
 logger = get_logger('aitbc_chain.main')
-create_island_manager: Callable[[str, str, str], IslandManager] | None
+create_island_manager: Callable[[str, str, str], 'IslandManager'] | None
 try:
-    from .network.island_manager import create_island_manager, IslandManager
+    from .network.island_manager import IslandManager, create_island_manager
     _island_manager_available = True
 except ImportError as e:
     logger.warning('Island manager module not available - island operations will be disabled: %s', e)
@@ -299,8 +301,8 @@ class BlockchainNode:
                     logger.info('Sync mode: pull (periodic, WebSocket push unavailable)')
                     for chain_id in chains:
                         try:
-                            def session_factory_for_periodic(cid: str) -> Any:
-                                return session_scope(cid)
+                            def session_factory_for_periodic() -> Any:
+                                return session_scope(chain_id)
                             sync = ChainSync(session_factory=session_factory_for_periodic, chain_id=chain_id)  # type: ignore[arg-type]
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:

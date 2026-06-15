@@ -5,17 +5,37 @@ Secure cross-chain asset transfer protocol with ZK proof validation.
 Enables bridging of assets between different blockchain networks.
 """
 from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime, timedelta
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
+
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..crypto.merkle_tree import MerkleTreeService  # type: ignore[import-not-found]
 from ..crypto.zk_proofs import ZKProofService  # type: ignore[import-not-found]
-from ..domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus, BridgeTransaction, ChainConfig, MerkleProof, SupportedToken, Validator  # type: ignore[import-not-found]
+from ..domain.cross_chain_bridge import (  # type: ignore[import-not-found]
+    BridgeRequest,
+    BridgeRequestStatus,
+    BridgeTransaction,
+    ChainConfig,
+    MerkleProof,
+    SupportedToken,
+    Validator,
+)
 from ..monitoring.bridge_monitor import BridgeMonitor  # type: ignore[import-not-found]
-from ..schemas.cross_chain_bridge import BridgeCompleteRequest, BridgeConfirmRequest, BridgeCreateRequest, BridgeResponse, BridgeStatusResponse, ChainSupportRequest, TokenSupportRequest  # type: ignore[import-not-found]
+from ..schemas.cross_chain_bridge import (  # type: ignore[import-not-found]
+    BridgeCompleteRequest,
+    BridgeConfirmRequest,
+    BridgeCreateRequest,
+    BridgeResponse,
+    BridgeStatusResponse,
+    ChainSupportRequest,
+    TokenSupportRequest,
+)
+
 logger = logging.getLogger(__name__)
 
 class CrossChainBridgeService:
@@ -247,7 +267,7 @@ class CrossChainBridgeService:
 
     def _is_valid_address(self, address: str) -> bool:
         """Validate blockchain address"""
-        return address.startswith('0x') and len(address) == 42 and all((c in '0123456789abcdefABCDEF' for c in address[2:]))
+        return address.startswith('0x') and len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
     async def _get_supported_token(self, token_address: str) -> SupportedToken | None:
         """Get supported token configuration"""

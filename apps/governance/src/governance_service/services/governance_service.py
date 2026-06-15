@@ -46,7 +46,7 @@ class GovernanceService:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def create_profile(self, profile_data: dict) -> GovernanceProfile:
+    async def create_profile(self, profile_data: dict[str, Any]) -> GovernanceProfile:
         """Create a new governance profile"""
         profile = GovernanceProfile(**profile_data)
         self.session.add(profile)
@@ -77,7 +77,7 @@ class GovernanceService:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def create_proposal(self, proposal_data: dict) -> Proposal:
+    async def create_proposal(self, proposal_data: dict[str, Any]) -> Proposal:
         """Create a new proposal"""
         proposal = Proposal(**proposal_data)
         self.session.add(proposal)
@@ -99,7 +99,7 @@ class GovernanceService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create_vote(self, vote_data: dict) -> Vote:
+    async def create_vote(self, vote_data: dict[str, Any]) -> Vote:
         """Create a new vote"""
         vote = Vote(**vote_data)
         self.session.add(vote)
@@ -225,7 +225,7 @@ class GovernanceService:
             proposal_id=proposal_id,
             execution_step="start",
             status="pending",
-            result={}
+            result: dict[str, Any] = {}
         )
         self.session.add(execution_log)
 

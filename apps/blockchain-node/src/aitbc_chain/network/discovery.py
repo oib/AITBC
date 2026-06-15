@@ -10,6 +10,7 @@ import logging
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,7 @@ class P2PDiscovery:
             log_debug(f"Failed to send discovery message to {address}:{port}: {e}")
             return False
 
-    async def _handle_hello_response(self, response: dict) -> None:
+    async def _handle_hello_response(self, response: dict[str, Any]) -> None:
         """Handle hello response from peer"""
         try:
             peer_node_id = response["node_id"]
@@ -341,7 +342,7 @@ class P2PDiscovery:
         except Exception as e:
             log_error(f"Error handling discovery connection: {e}")
 
-    async def _process_discovery_message(self, message: dict) -> dict:
+    async def _process_discovery_message(self, message: dict[str, Any]) -> dict[str, Any]:
         """Process incoming discovery message"""
         message_type = message.get("message_type")
         node_id = message.get("node_id")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -160,7 +161,7 @@ async def create_wallet(
 def get_wallet_balance(
     wallet_id: str,
     keystore: PersistentKeystoreService = Depends(get_keystore),
-) -> dict:
+) -> dict[str, Any]:
     import httpx as _httpx
 
     from .settings import settings as _settings

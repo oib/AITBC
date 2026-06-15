@@ -6,9 +6,12 @@ import asyncio
 import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 app = FastAPI(title='AITBC Plugin Analytics Service', description='Plugin analytics, usage tracking, and performance monitoring', version='1.0.0')
 
@@ -55,7 +58,7 @@ async def root():
 
 @app.get('/health')
 async def health_check():
-    return {'status': 'healthy', 'total_usage_records': sum((len(data) for data in plugin_usage_data.values())), 'total_performance_records': sum((len(data) for data in plugin_performance_data.values())), 'total_ratings': sum((len(data) for data in plugin_ratings.values())), 'total_events': sum((len(data) for data in plugin_events.values())), 'cache_size': len(analytics_cache)}
+    return {'status': 'healthy', 'total_usage_records': sum(len(data) for data in plugin_usage_data.values()), 'total_performance_records': sum(len(data) for data in plugin_performance_data.values()), 'total_ratings': sum(len(data) for data in plugin_ratings.values()), 'total_events': sum(len(data) for data in plugin_events.values()), 'cache_size': len(analytics_cache)}
 
 @app.post('/api/v1/analytics/usage')
 async def record_plugin_usage(usage: PluginUsage):
@@ -156,7 +159,7 @@ def calculate_usage_statistics(usage_records: list[dict]) -> dict[str, Any]:
     if not usage_records:
         return {'total_actions': 0, 'unique_users': 0, 'action_distribution': {}, 'daily_usage': {}}
     total_actions = len(usage_records)
-    unique_users = len(set((r['user_id'] for r in usage_records)))
+    unique_users = len(set(r['user_id'] for r in usage_records))
     action_counts = {}
     for record in usage_records:
         action = record['action']
@@ -171,20 +174,20 @@ def calculate_performance_statistics(performance_records: list[dict]) -> dict[st
     """Calculate performance statistics from performance records"""
     if not performance_records:
         return {'avg_cpu_usage': 0.0, 'avg_memory_usage': 0.0, 'avg_response_time': 0.0, 'avg_error_rate': 0.0, 'avg_uptime': 0.0}
-    cpu_usage = sum((r['cpu_usage'] for r in performance_records)) / len(performance_records)
-    memory_usage = sum((r['memory_usage'] for r in performance_records)) / len(performance_records)
-    response_time = sum((r['response_time'] for r in performance_records)) / len(performance_records)
-    error_rate = sum((r['error_rate'] for r in performance_records)) / len(performance_records)
-    uptime = sum((r['uptime'] for r in performance_records)) / len(performance_records)
-    min_cpu = min((r['cpu_usage'] for r in performance_records))
-    max_cpu = max((r['cpu_usage'] for r in performance_records))
+    cpu_usage = sum(r['cpu_usage'] for r in performance_records) / len(performance_records)
+    memory_usage = sum(r['memory_usage'] for r in performance_records) / len(performance_records)
+    response_time = sum(r['response_time'] for r in performance_records) / len(performance_records)
+    error_rate = sum(r['error_rate'] for r in performance_records) / len(performance_records)
+    uptime = sum(r['uptime'] for r in performance_records) / len(performance_records)
+    min_cpu = min(r['cpu_usage'] for r in performance_records)
+    max_cpu = max(r['cpu_usage'] for r in performance_records)
     return {'avg_cpu_usage': round(cpu_usage, 2), 'avg_memory_usage': round(memory_usage, 2), 'avg_response_time': round(response_time, 3), 'avg_error_rate': round(error_rate, 4), 'avg_uptime': round(uptime, 2), 'min_cpu_usage': round(min_cpu, 2), 'max_cpu_usage': round(max_cpu, 2), 'total_samples': len(performance_records)}
 
 def calculate_rating_statistics(rating_records: list[dict]) -> dict[str, Any]:
     """Calculate rating statistics from rating records"""
     if not rating_records:
         return {'average_rating': 0.0, 'total_ratings': 0, 'rating_distribution': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}}
-    total_rating = sum((r['rating'] for r in rating_records))
+    total_rating = sum(r['rating'] for r in rating_records)
     average_rating = total_rating / len(rating_records)
     rating_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     for record in rating_records:
@@ -203,8 +206,8 @@ def update_usage_trends(plugin_id: str, action: str, timestamp: datetime):
 def get_overview_statistics() -> dict[str, Any]:
     """Get overview statistics for all plugins"""
     total_plugins = len(set(plugin_usage_data.keys()) | set(plugin_performance_data.keys()) | set(plugin_ratings.keys()))
-    total_usage = sum((len(data) for data in plugin_usage_data.values()))
-    total_ratings = sum((len(data) for data in plugin_ratings.values()))
+    total_usage = sum(len(data) for data in plugin_usage_data.values())
+    total_ratings = sum(len(data) for data in plugin_ratings.values())
     cutoff_date = datetime.now(UTC) - timedelta(days=7)
     active_plugins = 0
     for plugin_id, usage_records in plugin_usage_data.items():
@@ -220,8 +223,8 @@ def get_trending_plugins(limit: int=10) -> list[dict]:
     for plugin_id, usage_records in plugin_usage_data.items():
         recent_usage = [r for r in usage_records if datetime.fromisoformat(r['timestamp']) > cutoff_date]
         if recent_usage:
-            score = len(recent_usage) + len(set((r['user_id'] for r in recent_usage)))
-            plugin_scores.append({'plugin_id': plugin_id, 'trend_score': score, 'recent_usage': len(recent_usage), 'unique_users': len(set((r['user_id'] for r in recent_usage)))})
+            score = len(recent_usage) + len(set(r['user_id'] for r in recent_usage))
+            plugin_scores.append({'plugin_id': plugin_id, 'trend_score': score, 'recent_usage': len(recent_usage), 'unique_users': len(set(r['user_id'] for r in recent_usage))})
     plugin_scores.sort(key=lambda x: x['trend_score'], reverse=True)
     return plugin_scores[:limit]
 
@@ -247,10 +250,10 @@ def get_performance_summary() -> dict[str, Any]:
             latest_record = performance_records[-1]
             all_performance.append({'plugin_id': plugin_id, 'cpu_usage': latest_record['cpu_usage'], 'memory_usage': latest_record['memory_usage'], 'response_time': latest_record['response_time'], 'error_rate': latest_record['error_rate']})
     if all_performance:
-        avg_cpu = sum((p['cpu_usage'] for p in all_performance)) / len(all_performance)
-        avg_memory = sum((p['memory_usage'] for p in all_performance)) / len(all_performance)
-        avg_response = sum((p['response_time'] for p in all_performance)) / len(all_performance)
-        avg_error = sum((p['error_rate'] for p in all_performance)) / len(all_performance)
+        avg_cpu = sum(p['cpu_usage'] for p in all_performance) / len(all_performance)
+        avg_memory = sum(p['memory_usage'] for p in all_performance) / len(all_performance)
+        avg_response = sum(p['response_time'] for p in all_performance) / len(all_performance)
+        avg_error = sum(p['error_rate'] for p in all_performance) / len(all_performance)
     else:
         avg_cpu = avg_memory = avg_response = avg_error = 0.0
     return {'total_plugins': len(all_performance), 'average_cpu_usage': round(avg_cpu, 2), 'average_memory_usage': round(avg_memory, 2), 'average_response_time': round(avg_response, 3), 'average_error_rate': round(avg_error, 4), 'top_cpu_users': sorted(all_performance, key=lambda x: x['cpu_usage'], reverse=True)[:5]}
@@ -260,10 +263,10 @@ def get_rating_summary() -> dict[str, Any]:
     all_ratings = []
     for plugin_id, rating_records in plugin_ratings.items():
         if rating_records:
-            avg_rating = sum((r['rating'] for r in rating_records)) / len(rating_records)
+            avg_rating = sum(r['rating'] for r in rating_records) / len(rating_records)
             all_ratings.append({'plugin_id': plugin_id, 'average_rating': round(avg_rating, 2), 'total_ratings': len(rating_records)})
     all_ratings.sort(key=lambda x: x['average_rating'], reverse=True)
-    return {'total_plugins': len(all_ratings), 'top_rated': all_ratings[:10], 'average_rating_all': round(sum((r['average_rating'] for r in all_ratings)) / len(all_ratings), 2) if all_ratings else 0.0}
+    return {'total_plugins': len(all_ratings), 'top_rated': all_ratings[:10], 'average_rating_all': round(sum(r['average_rating'] for r in all_ratings) / len(all_ratings), 2) if all_ratings else 0.0}
 
 def get_recent_events(limit: int=20) -> list[dict]:
     """Get recent plugin events"""

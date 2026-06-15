@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from typing import Any
+
 logger = logging.getLogger(__name__)
 
 def log_info(msg: str) -> None:
@@ -18,9 +19,11 @@ def log_warn(msg: str) -> None:
     logger.warning(msg)
 from dataclasses import dataclass
 from enum import Enum
+
 from .gas import GasManager
 from .rewards import RewardDistributor
 from .staking import StakingManager
+
 
 class AttackType(Enum):
     SYBIL = 'sybil'
@@ -41,7 +44,7 @@ class AttackDetection:
     attack_type: AttackType
     threat_level: ThreatLevel
     attacker_address: str
-    evidence: dict
+    evidence: dict[str, Any]
     detected_at: float
     confidence: float
     recommended_action: str
@@ -70,7 +73,7 @@ class EconomicSecurityMonitor:
         self.max_false_positive_rate = 0.05
         self._initialize_security_metrics()
 
-    def _initialize_detection_rules(self) -> dict[AttackType, dict]:
+    def _initialize_detection_rules(self) -> dict[AttackType, dict[str, Any]]:
         """Initialize detection rules for different attack types"""
         return {AttackType.SYBIL: {'threshold': 0.1, 'min_stake': 1000.0, 'time_window': 86400, 'max_similar_addresses': 5}, AttackType.STAKE_GRINDING: {'threshold': 0.3, 'min_operations': 10, 'time_window': 3600, 'max_withdrawal_frequency': 5}, AttackType.NOTHING_AT_STAKE: {'threshold': 0.5, 'min_validators': 10, 'time_window': 7200, 'max_abstention_periods': 3}, AttackType.LONG_RANGE: {'threshold': 0.8, 'min_history_depth': 1000, 'time_window': 604800, 'max_key_reuse': 2}, AttackType.FRONT_RUNNING: {'threshold': 0.1, 'min_transactions': 100, 'time_window': 3600, 'max_mempool_advantage': 0.05}, AttackType.GAS_MANIPULATION: {'threshold': 2.0, 'min_price_changes': 5, 'time_window': 1800, 'max_spikes_per_hour': 3}}
 
@@ -105,12 +108,12 @@ class EconomicSecurityMonitor:
         if len(validators) < 10:
             diversity_score = 0.0
         else:
-            total_stake = sum((v.total_stake for v in validators))
+            total_stake = sum(v.total_stake for v in validators)
             if total_stake == 0:
                 diversity_score = 0.0
             else:
                 stake_shares = [float(v.total_stake / total_stake) for v in validators]
-                hhi = sum((share ** 2 for share in stake_shares))
+                hhi = sum(share ** 2 for share in stake_shares)
                 diversity_score = 1.0 - hhi
         metric = self.security_metrics['validator_diversity']
         metric.current_value = diversity_score
@@ -148,7 +151,7 @@ class EconomicSecurityMonitor:
         if len(distributions) < 5:
             distribution_score = 1.0
         else:
-            total_rewards = sum((dist.total_rewards for dist in distributions))
+            total_rewards = sum(dist.total_rewards for dist in distributions)
             if total_rewards == 0:
                 distribution_score = 0.0
             else:
@@ -159,7 +162,7 @@ class EconomicSecurityMonitor:
                     distribution_score = 0.0
                 else:
                     avg_reward = sum(validator_rewards) / len(validator_rewards)
-                    variance = sum(((r - avg_reward) ** 2 for r in validator_rewards)) / len(validator_rewards)
+                    variance = sum((r - avg_reward) ** 2 for r in validator_rewards) / len(validator_rewards)
                     cv = variance ** 0.5 / avg_reward if avg_reward > 0 else 0
                     distribution_score = max(0.0, 1.0 - cv)
         metric = self.security_metrics['reward_distribution']
@@ -207,8 +210,8 @@ class EconomicSecurityMonitor:
             address_groups[prefix].append(validator)
         for prefix, group in address_groups.items():
             if len(group) >= rule['max_similar_addresses']:
-                group_stake = sum((v.total_stake for v in group))
-                total_stake = sum((v.total_stake for v in validators))
+                group_stake = sum(v.total_stake for v in group)
+                total_stake = sum(v.total_stake for v in validators)
                 stake_ratio = float(group_stake / total_stake) if total_stake > 0 else 0
                 if stake_ratio > rule['threshold']:
                     threat_level = ThreatLevel.HIGH

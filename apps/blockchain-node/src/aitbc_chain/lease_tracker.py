@@ -2,9 +2,13 @@
 import asyncio
 import time
 from dataclasses import dataclass
+from typing import Any
+
 import redis
+
 from .config import settings
 from .logger import get_logger
+
 logger = get_logger(__name__)
 LEASE_PREFIX = 'lease:subscriber:'
 LEASE_SET = 'lease:subscribers'
@@ -24,7 +28,7 @@ class LeaseTracker:
         self._redis_url = redis_url or settings.gossip_broadcast_url
         self._redis: redis.Redis | None = None
         self._running = False
-        self._cleanup_task: asyncio.Task | None = None
+        self._cleanup_task: asyncio.Task[Any] | None = None
 
     async def start(self) -> None:
         """Start the lease tracker and background cleanup task."""

@@ -20,7 +20,7 @@ class GPURegistrationRequest(BaseModel):
     memory_gb: int = Field(..., ge=0, description="GPU memory in GB")
     cuda_version: str = Field(default="", description="CUDA version")
     region: str = Field(default="", description="Geographic region")
-    capabilities: list = Field(default_factory=list, description="GPU capabilities")
+    capabilities: list[Any] = Field(default_factory=list, description="GPU capabilities")
     price_per_hour: float = Field(..., ge=0, description="Price per hour in AIT")
     registered_by: str = Field(..., description="Wallet address of registrant")
 
@@ -47,7 +47,7 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
         from ..state.gpu_resources import GPURegistration
 
         with session_scope() as session:
-            from sqlalchemy import select, and_
+            from sqlalchemy import select
             query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)  # type: ignore[arg-type]
 
             if status:
@@ -91,7 +91,7 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
         from ..state.gpu_resources import GPUAllocation
 
         with session_scope() as session:
-            from sqlalchemy import select, and_
+            from sqlalchemy import and_, select
             result = session.execute(
                 select(GPUAllocation).where(
                     and_(
@@ -140,7 +140,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
 
         with session_scope() as session:
             # Check if GPU already registered
-            from sqlalchemy import select, and_
+            from sqlalchemy import and_, select
             result = session.execute(
                 select(GPURegistration).where(
                     and_(
@@ -211,7 +211,7 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
         from ..state.gpu_resources import GPURegistration
 
         with session_scope() as session:
-            from sqlalchemy import select, and_
+            from sqlalchemy import and_, select
             result = session.execute(
                 select(GPURegistration).where(
                     and_(

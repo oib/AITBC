@@ -7,7 +7,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Any
 
 from aitbc import get_logger
@@ -330,7 +330,7 @@ class RedisMessageBroker:
         await redis_client.publish(channel, json.dumps(message.to_dict()))
         await redis_client.aclose()
 
-    async def subscribe_to_channel(self, channel: str, handler: Callable) -> Any:
+    async def subscribe_to_channel(self, channel: str, handler: Callable[[Any], Any]) -> Any:
         """Subscribe to Redis channel"""
         import redis.asyncio as redis
         redis_client = redis.from_url(self.redis_url)
@@ -339,7 +339,7 @@ class RedisMessageBroker:
         self.channels[channel] = {'pubsub': pubsub, 'handler': handler}
         asyncio.create_task(self._listen_to_channel(channel, pubsub, handler))
 
-    async def _listen_to_channel(self, channel: str, pubsub: Any, handler: Callable) -> Any:
+    async def _listen_to_channel(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message['type'] == 'message':

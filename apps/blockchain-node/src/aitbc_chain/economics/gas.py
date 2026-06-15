@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 
 
 class GasType(Enum):
@@ -215,7 +216,7 @@ class GasManager:
         # Apply bounds
         return max(self.min_gas_price, min(self.max_gas_price, predicted_price))
 
-    def get_gas_statistics(self) -> dict:
+    def get_gas_statistics(self) -> dict[str, Any]:
         """Get gas system statistics"""
         if not self.price_history:
             return {
@@ -251,10 +252,10 @@ class GasOptimizer:
 
     def __init__(self, gas_manager: GasManager):
         self.gas_manager = gas_manager
-        self.optimization_history: list[dict] = []
+        self.optimization_history: list[dict[str, Any]] = []
 
     def optimize_transaction(self, gas_type: GasType, data: bytes,
-                          priority: str = "standard") -> dict:
+                          priority: str = "standard") -> dict[str, Any]:
         """Optimize transaction for gas efficiency"""
         data_size = len(data)
 
@@ -311,7 +312,7 @@ class GasOptimizer:
 
         return optimization_result
 
-    def get_optimization_summary(self) -> dict:
+    def get_optimization_summary(self) -> dict[str, Any]:
         """Get optimization summary statistics"""
         if not self.optimization_history:
             return {

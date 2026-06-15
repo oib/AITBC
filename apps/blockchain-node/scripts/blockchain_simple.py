@@ -3,7 +3,9 @@ Blockchain Node Service for AITBC Production
 """
 import os
 import sys
+
 from aitbc import CONFIG_DIR, DATA_DIR, LOG_DIR, get_logger
+
 sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
 sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/scripts')
 logger = get_logger(__name__)
@@ -44,6 +46,7 @@ def basic_blockchain_node():
     try:
         import threading
         import time
+
         import uvicorn
         from fastapi import FastAPI
         app = FastAPI(title='AITBC Blockchain Node')

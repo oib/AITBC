@@ -9,12 +9,16 @@ Provides endpoints for:
 - Verifying and releasing payments
 """
 from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+
 from ..services.bounty_service import BountyService
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix='/bounty', tags=['bounty'])
 

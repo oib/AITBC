@@ -1,20 +1,34 @@
 from typing import Annotated, Any
+
 '\nAgent Integration and Deployment API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for production deployment and integration management\n'
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from app.domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
+
 from ..deps import require_admin_key
-from ..services.agent_integration import AgentDeploymentConfig, AgentDeploymentInstance, AgentDeploymentManager, AgentIntegrationManager, AgentMonitoringManager, AgentProductionManager, DeploymentStatus
+from ..services.agent_integration import (
+    AgentDeploymentConfig,
+    AgentDeploymentInstance,
+    AgentDeploymentManager,
+    AgentIntegrationManager,
+    AgentMonitoringManager,
+    AgentProductionManager,
+    DeploymentStatus,
+)
 from ..storage import get_session
 from ..utils.alerting import alert_dispatcher  # type: ignore[import-not-found]
+
 router = APIRouter(prefix='/agents/integration', tags=['Agent Integration'])
 
 @router.post('/deployments/config', response_model=AgentDeploymentConfig)
 @rate_limit(rate=50, per=60)
-async def create_deployment_config(request: Request, workflow_id: str, deployment_name: str, deployment_config: dict, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentDeploymentConfig:
+async def create_deployment_config(request: Request, workflow_id: str, deployment_name: str, deployment_config: dict[str, Any], session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentDeploymentConfig:
     """Create deployment configuration for agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -243,7 +257,7 @@ async def get_deployment_metrics(request: Request, deployment_id: str, time_rang
 
 @router.post('/production/deploy')
 @rate_limit(rate=50, per=60)
-async def deploy_to_production(request: Request, workflow_id: str, deployment_config: dict, integration_config: dict | None=None, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
+async def deploy_to_production(request: Request, workflow_id: str, deployment_config: dict[str, Any], integration_config: dict[str, Any] | None=None, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Deploy agent workflow to production with full integration"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)

@@ -4,7 +4,9 @@ On-Chain Model Marketplace Enhancement and hermes Integration Enhancement
 """
 import asyncio
 from typing import Any
+
 from aitbc.logging import get_logger
+
 logger = get_logger(__name__)
 
 class HighPriorityImplementation:

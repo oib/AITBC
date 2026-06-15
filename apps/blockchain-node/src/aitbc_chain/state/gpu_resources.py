@@ -1,6 +1,7 @@
 """GPU resource state models for blockchain tracking."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, SQLModel
@@ -22,7 +23,7 @@ class GPURegistration(SQLModel, table=True):
     memory_gb: int = Field(default=0)
     cuda_version: str = Field(default="")
     region: str = Field(default="", index=True)
-    capabilities: list = Field(
+    capabilities: list[Any] = Field(
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )

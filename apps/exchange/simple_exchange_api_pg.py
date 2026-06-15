@@ -7,8 +7,10 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
 logger = logging.getLogger(__name__)
 PG_CONFIG = {'host': 'localhost', 'database': 'aitbc_exchange', 'user': 'aitbc_user', 'password': 'aitbc_password', 'port': 5432}
 

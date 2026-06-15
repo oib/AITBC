@@ -2,10 +2,23 @@
 import uuid
 from datetime import datetime
 from typing import Any
+
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
-from ....schemas.hermes_decision import DecisionProposal, DecisionProposalResponse, DecisionResult, DecisionStatus, DecisionType, Vote, VoteOption, VoteResponse
+from ....schemas.hermes_decision import (
+    DecisionProposal,
+    DecisionProposalResponse,
+    DecisionResult,
+    DecisionStatus,
+    DecisionType,
+    Vote,
+    VoteOption,
+    VoteResponse,
+)
+
 
 class DecisionService:
     """Service for managing distributed agent decisions."""
@@ -51,12 +64,12 @@ class DecisionService:
         decision = self.decisions[decision_id]
         votes = self.votes[decision_id]
         total_votes = len(votes)
-        approve_votes = sum((1 for v in votes if v['vote'] == VoteOption.APPROVE))
-        reject_votes = sum((1 for v in votes if v['vote'] == VoteOption.REJECT))
-        abstain_votes = sum((1 for v in votes if v['vote'] == VoteOption.ABSTAIN))
-        weighted_approve = sum((v['weight'] for v in votes if v['vote'] == VoteOption.APPROVE))
-        weighted_reject = sum((v['weight'] for v in votes if v['vote'] == VoteOption.REJECT))
-        weighted_abstain = sum((v['weight'] for v in votes if v['vote'] == VoteOption.ABSTAIN))
+        approve_votes = sum(1 for v in votes if v['vote'] == VoteOption.APPROVE)
+        reject_votes = sum(1 for v in votes if v['vote'] == VoteOption.REJECT)
+        abstain_votes = sum(1 for v in votes if v['vote'] == VoteOption.ABSTAIN)
+        weighted_approve = sum(v['weight'] for v in votes if v['vote'] == VoteOption.APPROVE)
+        weighted_reject = sum(v['weight'] for v in votes if v['vote'] == VoteOption.REJECT)
+        weighted_abstain = sum(v['weight'] for v in votes if v['vote'] == VoteOption.ABSTAIN)
         total_weight = weighted_approve + weighted_reject + weighted_abstain
         participation_rate = total_weight / max(total_weight, 1.0)
         approval_rate = weighted_approve / max(weighted_approve + weighted_reject, 1.0)

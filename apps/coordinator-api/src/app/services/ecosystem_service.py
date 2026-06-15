@@ -5,10 +5,13 @@ Business logic for developer ecosystem metrics and analytics
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
+
 logger = logging.getLogger(__name__)
 from ..domain.bounty import AgentMetrics, AgentStake, Bounty, BountyStatus, BountySubmission, EcosystemMetrics
+
 
 class EcosystemService:
     """Service for ecosystem analytics and metrics"""

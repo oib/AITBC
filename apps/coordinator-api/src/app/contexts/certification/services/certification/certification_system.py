@@ -6,11 +6,19 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
-from app.domain.certification import AgentCertification, CertificationLevel, CertificationStatus, VerificationType  # type: ignore[import-not-found]
+from app.domain.certification import (  # type: ignore[import-not-found]
+    AgentCertification,
+    CertificationLevel,
+    CertificationStatus,
+    VerificationType,
+)
 from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
 from sqlmodel import Session, and_, select
+
 
 class CertificationSystem:
     """Agent certification framework and verification system"""
@@ -137,7 +145,7 @@ class CertificationSystem:
         """Verify agent compliance with regulations"""
         certifications = session.execute(select(AgentCertification).where(and_(AgentCertification.agent_id == agent_id, AgentCertification.status == CertificationStatus.ACTIVE))).all()
         if certifications:
-            return {'passed': True, 'reason': 'Compliance verified through existing certifications', 'score': 90.0, 'details': {'active_certifications': len(certifications), 'highest_level': max((cert.certification_level.value for cert in certifications)), 'compliance_status': 'compliant'}}
+            return {'passed': True, 'reason': 'Compliance verified through existing certifications', 'score': 90.0, 'details': {'active_certifications': len(certifications), 'highest_level': max(cert.certification_level.value for cert in certifications), 'compliance_status': 'compliant'}}
         else:
             return {'passed': False, 'reason': 'No compliance verification found', 'score': 0.0, 'details': {'active_certifications': 0, 'compliance_status': 'non_compliant'}}
 

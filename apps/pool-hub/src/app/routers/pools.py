@@ -101,7 +101,7 @@ async def list_pools(
     limit: int = Query(50, le=100),
     offset: int = Query(0),
     registry: MinerRegistry = Depends(get_registry)
-) -> list:
+) -> list[PoolInfo]:
     """List all pools."""
     return await registry.list_pools(limit=limit, offset=offset)  # type: ignore[no-any-return]
 
@@ -129,7 +129,7 @@ async def get_pool_miners(
     status: str | None = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
-) -> list:
+) -> list[dict[str, Any]]:
     """Get miners in a pool."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -143,9 +143,9 @@ async def get_pool_miners(
 async def update_pool(
     request: Request,
     pool_id: str,
-    updates: dict,
+    updates: dict[str, Any],
     registry: MinerRegistry = Depends(get_registry)
-) -> dict:
+) -> dict[str, str]:
     """Update pool settings."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -164,7 +164,7 @@ async def delete_pool(
     request: Request,
     pool_id: str,
     registry: MinerRegistry = Depends(get_registry)
-) -> dict:
+) -> dict[str, str]:
     """Delete a pool (must have no miners)."""
     pool = await registry.get_pool(pool_id)
     if not pool:

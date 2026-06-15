@@ -8,7 +8,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class ChainType(Enum):
